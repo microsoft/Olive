@@ -15,7 +15,6 @@ from olive.cli.base import get_input_model_config
     (
         "model_name_or_path",
         "trust_remote_code",
-        "is_generative_model",
         "task",
         "model_script",
         "script_dir",
@@ -27,7 +26,6 @@ from olive.cli.base import get_input_model_config
         (
             None,  # model_name_or_path
             False,  # trust_remote_code
-            False,  # is_generative_model
             None,  # task
             "model.py",  # model_script
             "scripts",  # script_dir
@@ -38,14 +36,12 @@ from olive.cli.base import get_input_model_config
                 "script_dir": "scripts",
                 "model_loader": "_model_loader",
                 "dummy_inputs_func": "_dummy_inputs",
-                "generative": False,
             },
         ),
         # AML registry model test
         (
             "azureml://registries/my_registry/models/my_model/versions/1",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # is_generative_model
             "task",  # task
             None,  # model_script
             None,  # script_dir
@@ -53,7 +49,6 @@ from olive.cli.base import get_input_model_config
             {  # expected config
                 "type": "HfModel",
                 "task": "task",
-                "generative": False,
                 "model_path": {
                     "type": "azureml_registry_model",
                     "registry_name": "my_registry",
@@ -70,7 +65,6 @@ from olive.cli.base import get_input_model_config
         (
             "https://huggingface.co/my_model/my_model",  # model_name_or_path
             True,  # trust_remote_code
-            False,  # is_generative_model
             "task",  # task
             None,  # model_script
             None,  # script_dir
@@ -78,7 +72,6 @@ from olive.cli.base import get_input_model_config
             {  # expected config
                 "type": "HfModel",
                 "task": "task",
-                "generative": False,
                 "model_path": "my_model/my_model",
                 "load_kwargs": {
                     "trust_remote_code": True,
@@ -90,7 +83,6 @@ from olive.cli.base import get_input_model_config
         (
             "azureml:my_model:1",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # is_generative_model
             None,  # task
             "model.py",  # model_script
             "scripts",  # script_dir
@@ -100,7 +92,6 @@ from olive.cli.base import get_input_model_config
                 "model_script": "model.py",
                 "script_dir": "scripts",
                 "io_config": "_io_config",
-                "generative": False,
                 "model_path": {"type": "azureml_model", "name": "my_model", "version": "1"},
             },
         ),
@@ -108,7 +99,6 @@ from olive.cli.base import get_input_model_config
         (
             "hf_model",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # is_generative_model
             "task",  # task
             None,  # model_script
             None,  # script_dir
@@ -116,7 +106,6 @@ from olive.cli.base import get_input_model_config
             {  # expected config
                 "type": "HfModel",
                 "task": "task",
-                "generative": False,
                 "model_path": "hf_model",
                 "load_kwargs": {
                     "trust_remote_code": False,
@@ -128,7 +117,6 @@ from olive.cli.base import get_input_model_config
         (
             "model.pt",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # is_generative_model
             None,  # task
             "model.py",  # model_script
             None,  # script_dir
@@ -138,13 +126,11 @@ from olive.cli.base import get_input_model_config
                 "model_script": "model.py",
                 "io_config": "_io_config",
                 "model_path": "model.pt",
-                "generative": False,
             },
         ),
         (
             "model.pt",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # is_generative_model
             None,  # task
             "model.py",  # model_script
             None,  # script_dir
@@ -155,14 +141,12 @@ from olive.cli.base import get_input_model_config
                 "model_loader": "_model_loader",
                 "io_config": "_io_config",
                 "model_path": "model.pt",
-                "generative": False,
             },
         ),
         # Local onnx model test
         (
             "model.onnx",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # is_generative_model
             None,  # task
             None,  # model_script
             None,  # script_dir
@@ -176,7 +160,6 @@ from olive.cli.base import get_input_model_config
         (
             "hf",  # model_name_or_path
             False,  # trust_remote_code
-            False,  # is_generative_model
             "task",  # task
             None,  # model_script
             None,  # script_dir
@@ -184,7 +167,6 @@ from olive.cli.base import get_input_model_config
             {  # expected config
                 "type": "HfModel",
                 "task": "task",
-                "generative": False,
                 "model_path": "hf",
                 "load_kwargs": {
                     "trust_remote_code": False,
@@ -199,7 +181,6 @@ def test_get_input_model_config(
     MockUserModuleLoader,
     model_name_or_path,
     trust_remote_code,
-    is_generative_model,
     task,
     model_script,
     script_dir,
@@ -211,7 +192,6 @@ def test_get_input_model_config(
     args = SimpleNamespace(
         model_name_or_path=model_name_or_path,
         trust_remote_code=trust_remote_code,
-        is_generative_model=is_generative_model,
         task=task,
         model_script=model_script,
         script_dir=script_dir,
