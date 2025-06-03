@@ -293,6 +293,7 @@ class VitisAIQuantization(Pass):
             "data_config",
             "quant_mode",
             "quant_preprocess",
+            "precision",
         ]
         to_delete += list(get_external_data_config().keys())
 
