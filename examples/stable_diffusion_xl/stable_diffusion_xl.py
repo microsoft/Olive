@@ -387,7 +387,7 @@ def optimize(
 
     model_info = {}
 
-    submodel_names = ["text_encoder_2"]  # ["vae_encoder", "vae_decoder", "unet", "text_encoder_2"]
+    submodel_names = ["vae_encoder", "vae_decoder", "unet", "text_encoder_2"]
 
     if not is_refiner_model:
         submodel_names.append("text_encoder")
