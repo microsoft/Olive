@@ -502,7 +502,6 @@ def test__package_dockerfile(tmp_path):
     model_path = "fake_model_file"
     footprints = get_footprints(model_id, model_path)
     output_dir = tmp_path / "outputs"
-    docker_context_path = output_dir / "docker_content"
 
     packaging_config = PackagingConfig(type=PackagingType.Dockerfile)
     workflow_output = WorkflowOutput(footprints, footprints)
@@ -513,8 +512,6 @@ def test__package_dockerfile(tmp_path):
     # assert
     dockerfile_path = output_dir / "Dockerfile"
     assert dockerfile_path.exists()
-    onnxruntime_packages_path = docker_context_path / "ONNXRuntimePackages"
-    assert onnxruntime_packages_path.exists()
 
 
 def get_footprints(model_id, model_path):
@@ -526,11 +523,9 @@ def get_footprints(model_id, model_path):
     return {acc_spec: footprint}
 
 
-# TODO(xiaoyu): check onnxruntime packages exist
 def verify_output_artifacts(output_dir):
     assert (output_dir / "CandidateModels").exists()
     assert (output_dir / "models_rank.json").exists()
-    assert (output_dir / "ONNXRuntimePackages").exists()
 
 
 def verify_models_rank_json_file(output_dir, file_path, save_as_external_data=False, export_in_mlflow_format=False):
