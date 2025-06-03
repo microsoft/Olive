@@ -313,7 +313,11 @@ def update_config_with_provider(
         config["evaluator"] = None
     elif model_format == "qdq":
         if submodel_name in ("text_encoder", "text_encoder_2"):
-            used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "optimize_qdq", "quantization"}
+            # TODO(anyone): dynamic_shape_to_fixed is not working
+            # used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "optimize_qdq", "quantization"}
+            used_passes = {"convert", "surgery", "optimize_qdq", "quantization"}
+            del config["input_model"]["io_config"]["dynamic_axes"]
+            config["input_model"]["io_config"]["input_shapes"] = [[1, 77], [1]]
         elif submodel_name == "unet":
             used_passes = {"convert", "dynamic_shape_to_fixed", "optimize_qdq", "quantization"}
         else:
@@ -383,7 +387,7 @@ def optimize(
 
     model_info = {}
 
-    submodel_names = ["vae_encoder", "vae_decoder", "unet", "text_encoder_2"]
+    submodel_names = ["text_encoder_2"]  # ["vae_encoder", "vae_decoder", "unet", "text_encoder_2"]
 
     if not is_refiner_model:
         submodel_names.append("text_encoder")
