@@ -4,21 +4,15 @@
 # --------------------------------------------------------------------------
 import json
 import logging
-import platform
 import shutil
 import sys
 import tempfile
-import urllib.request
 from collections import OrderedDict
 from pathlib import Path
-from string import Template
 from typing import TYPE_CHECKING, Union
 
-import pkg_resources
-
-from olive.common.constants import OS
-from olive.common.utils import retry_func, run_subprocess
-from olive.engine.footprint import get_best_candidate_node
+from olive.common.utils import retry_func
+from olive.engine.output import ModelOutput, WorkflowOutput
 from olive.engine.packaging.packaging_config import (
     AzureMLDeploymentPackagingConfig,
     DockerfilePackagingConfig,
@@ -26,14 +20,12 @@ from olive.engine.packaging.packaging_config import (
     PackagingConfig,
     PackagingType,
 )
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.resource_path import ResourceType, create_resource_path
-from olive.systems.utils import get_package_name_from_ep
 
 if TYPE_CHECKING:
     from olive.azureml.azureml_client import AzureMLClientConfig
-    from olive.engine.footprint import Footprint, FootprintNode
-    from olive.hardware import AcceleratorSpec
 
 logger = logging.getLogger(__name__)
 
@@ -42,34 +34,29 @@ logger = logging.getLogger(__name__)
 
 def generate_output_artifacts(
     packaging_configs: Union[PackagingConfig, list[PackagingConfig]],
-    footprints: dict["AcceleratorSpec", "Footprint"],
-    pf_footprints: dict["AcceleratorSpec", "Footprint"],
+    workflow_output: WorkflowOutput,
     output_dir: Path,
     azureml_client_config: "AzureMLClientConfig" = None,
 ):
-    if sum(len(f.nodes) if f.nodes else 0 for f in pf_footprints.values()) == 0:
-        logger.warning("No model is selected. Skip packaging output artifacts.")
-        return
     packaging_config_list = packaging_configs if isinstance(packaging_configs, list) else [packaging_configs]
     for packaging_config in packaging_config_list:
         if packaging_config.type == PackagingType.AzureMLDeployment:
-            _package_azureml_deployment(packaging_config, footprints, pf_footprints, azureml_client_config)
+            _package_azureml_deployment(packaging_config, workflow_output, azureml_client_config)
         elif packaging_config.type == PackagingType.Dockerfile:
-            _package_dockerfile(packaging_config, footprints, pf_footprints, output_dir)
+            _package_dockerfile(packaging_config, workflow_output, output_dir)
         else:
-            _package_candidate_models(packaging_config, output_dir, footprints, pf_footprints, azureml_client_config)
+            _package_candidate_models(packaging_config, output_dir, workflow_output, azureml_client_config)
 
 
 def _package_dockerfile(
     packaging_config: PackagingConfig,
-    footprints: dict["AcceleratorSpec", "Footprint"],
-    pf_footprints: dict["AcceleratorSpec", "Footprint"],
+    workflow_output: WorkflowOutput,
     output_dir: Path,
 ):
     config: DockerfilePackagingConfig = packaging_config.config
     logger.info("Packaging output models to Dockerfile")
     base_image = config.base_image
-    best_node = get_best_candidate_node(pf_footprints, footprints)
+    model_config = workflow_output.get_best_candidate().olive_model_config
 
     docker_context_path = "docker_content"
     content_path = output_dir / docker_context_path
@@ -80,7 +67,6 @@ def _package_dockerfile(
     if config.requirements_file:
         shutil.copy(config.requirements_file, content_path / "requirements.txt")
 
-    model_config = best_node.model_config
     _save_model(
         model_config["config"].get("model_path", None),
         model_config["type"],
@@ -89,11 +75,6 @@ def _package_dockerfile(
         model_config["config"].get("inference_settings", None),
         False,
     )
-    if packaging_config.include_runtime_packages:
-        if packaging_config.generative:
-            _package_onnxruntime_genai_runtime_dependencies(content_path, False)
-        else:
-            _package_onnxruntime_runtime_dependencies(content_path, next(iter(pf_footprints.values())), "310", False)
 
     dockerfile_base_path = Path(__file__).parent / "Dockerfile.base"
     with open(dockerfile_base_path) as file:
@@ -109,8 +90,7 @@ def _package_dockerfile(
 
 def _package_azureml_deployment(
     packaging_config: PackagingConfig,
-    footprints: dict["AcceleratorSpec", "Footprint"],
-    pf_footprints: dict["AcceleratorSpec", "Footprint"],
+    workflow_output: WorkflowOutput,
     azureml_client_config: "AzureMLClientConfig" = None,
 ):
     from azure.ai.ml.entities import (
@@ -132,13 +112,12 @@ def _package_azureml_deployment(
         logger.warning("Exporting model in MLflow format is not supported for AzureML endpoint packaging.")
 
     try:
-        # Get best model from footprint
-        best_node = get_best_candidate_node(pf_footprints, footprints)
+        # Get best model from workflow output
+        model_config = workflow_output.get_best_candidate().olive_model_config
 
         with tempfile.TemporaryDirectory() as temp_dir:
             tempdir = Path(temp_dir)
 
-            model_config = best_node.model_config
             _save_model(
                 model_config["config"].get("model_path", None),
                 model_config["type"],
@@ -306,8 +285,7 @@ def _package_azureml_deployment(
 def _package_candidate_models(
     packaging_config: PackagingConfig,
     output_dir: Path,
-    footprints: dict["AcceleratorSpec", "Footprint"],
-    pf_footprints: dict["AcceleratorSpec", "Footprint"],
+    workflow_output: WorkflowOutput,
     azureml_client_config: "AzureMLClientConfig" = None,
 ):
     packaging_type = packaging_config.type
@@ -320,69 +298,60 @@ def _package_candidate_models(
     with tempfile.TemporaryDirectory() as temp_dir:
         tempdir = Path(temp_dir)
 
-        if packaging_type == PackagingType.Zipfile and packaging_config.include_runtime_packages:
-            if packaging_config.generative:
-                _package_onnxruntime_genai_runtime_dependencies(tempdir)
+        output_model_list = workflow_output.get_output_models()
+        model_rank = 1
+        model_info_list = []
+        for model_output in output_model_list:
+            from_device = model_output.from_device()
+            from_ep = model_output.from_execution_provider()
+            accelerator_spec = AcceleratorSpec(accelerator_type=from_device, execution_provider=from_ep)
+            model_name = f"{output_name}_{accelerator_spec}_{model_rank}"
+            if packaging_type == PackagingType.Zipfile:
+                model_dir = tempdir / "CandidateModels" / str(accelerator_spec) / f"BestCandidateModel_{model_rank}"
             else:
-                _package_onnxruntime_runtime_dependencies(
-                    tempdir, next(iter(pf_footprints.values())), _get_python_version()
+                model_dir = tempdir / model_name
+
+            model_dir.mkdir(parents=True, exist_ok=True)
+
+            # Copy inference config
+            inference_config_path = model_dir / "inference_config.json"
+            inference_config = model_output.get_inference_config()
+
+            _copy_inference_config(inference_config_path, inference_config)
+            _copy_configurations(model_dir, workflow_output, model_output.model_id)
+            _copy_metrics(model_dir, workflow_output, model_output.metrics_value)
+
+            model_path = _save_model(
+                model_output.model_path,
+                model_output.model_type,
+                model_output.model_config,
+                model_dir,
+                inference_config,
+                export_in_mlflow_format,
+            )
+
+            relative_path = str(model_path.relative_to(tempdir))
+            model_info = _get_model_info(model_output, model_rank, relative_path, packaging_type)
+            model_info_list.append(model_info)
+            _copy_model_info(model_dir, model_info)
+
+            if packaging_type == PackagingType.AzureMLModels:
+                _upload_to_azureml_models(
+                    azureml_client_config,
+                    model_dir,
+                    model_name,
+                    config.version,
+                    config.description,
+                    export_in_mlflow_format,
+                )
+            elif packaging_type == PackagingType.AzureMLData:
+                _upload_to_azureml_data(
+                    azureml_client_config, model_dir, model_name, config.version, config.description
                 )
 
-        for accelerator_spec, pf_footprint in pf_footprints.items():
-            footprint = footprints[accelerator_spec]
-            if pf_footprint.nodes and footprint.nodes:
-                model_rank = 1
-                input_node = footprint.get_input_node()
-                for model_id, node in pf_footprint.nodes.items():
-                    model_name = f"{output_name}_{accelerator_spec}_{model_rank}"
-                    if packaging_type == PackagingType.Zipfile:
-                        model_dir = (
-                            tempdir / "CandidateModels" / str(accelerator_spec) / f"BestCandidateModel_{model_rank}"
-                        )
-                    else:
-                        model_dir = tempdir / model_name
+            model_rank += 1
 
-                    model_dir.mkdir(parents=True, exist_ok=True)
-
-                    # Copy inference config
-                    inference_config_path = model_dir / "inference_config.json"
-                    inference_config = pf_footprint.get_model_inference_config(model_id) or {}
-
-                    _copy_inference_config(inference_config_path, inference_config)
-                    _copy_configurations(model_dir, footprint, model_id)
-                    _copy_metrics(model_dir, input_node, node)
-                    model_path = _save_model(
-                        pf_footprint.get_model_path(model_id),
-                        pf_footprint.get_model_type(model_id),
-                        pf_footprint.get_model_config(model_id),
-                        model_dir,
-                        inference_config,
-                        export_in_mlflow_format,
-                    )
-
-                    model_info_list = []
-                    relative_path = str(model_path.relative_to(tempdir))
-                    model_info = _get_model_info(node, model_rank, relative_path, packaging_type)
-                    model_info_list.append(model_info)
-                    _copy_model_info(model_dir, model_info)
-
-                    if packaging_type == PackagingType.AzureMLModels:
-                        _upload_to_azureml_models(
-                            azureml_client_config,
-                            model_dir,
-                            model_name,
-                            config.version,
-                            config.description,
-                            export_in_mlflow_format,
-                        )
-                    elif packaging_type == PackagingType.AzureMLData:
-                        _upload_to_azureml_data(
-                            azureml_client_config, model_dir, model_name, config.version, config.description
-                        )
-
-                    model_rank += 1
-
-        if packaging_type == PackagingType.Zipfile:
+        if model_info_list and packaging_type == PackagingType.Zipfile:
             _copy_models_rank(tempdir, model_info_list)
             _package_zipfile_model(output_dir, output_name, tempdir)
 
@@ -446,15 +415,11 @@ def _upload_to_azureml_data(
     )
 
 
-def _get_model_info(node: "FootprintNode", model_rank: int, relative_path: str, packaging_type: PackagingType):
-    model_config = node.model_config
+def _get_model_info(model_output: "ModelOutput", model_rank: int, relative_path: str, packaging_type: PackagingType):
+    olive_model_config = model_output.olive_model_config
     if packaging_type == PackagingType.Zipfile:
-        model_config["config"]["model_path"] = relative_path
-    return {
-        "rank": model_rank,
-        "model_config": model_config,
-        "metrics": node.metrics.value.to_json() if node.metrics else None,
-    }
+        olive_model_config["config"]["model_path"] = relative_path
+    return {"rank": model_rank, "model_config": olive_model_config, "metrics": model_output.metrics_value}
 
 
 def _copy_models_rank(tempdir: Path, model_info_list: list[dict]):
@@ -479,20 +444,20 @@ def _copy_inference_config(path: Path, inference_config: dict):
         json.dump(inference_config, f, indent=4)
 
 
-def _copy_configurations(model_dir: Path, footprint: "Footprint", model_id: str):
+def _copy_configurations(model_dir: Path, workflow_output: WorkflowOutput, model_id: str):
     configuration_path = model_dir / "configurations.json"
     with configuration_path.open("w") as f:
-        json.dump(OrderedDict(reversed(footprint.trace_back_run_history(model_id).items())), f, indent=4)
+        json.dump(OrderedDict(reversed(workflow_output.trace_back_run_history(model_id).items())), f, indent=4)
 
 
 # TODO(xiaoyu): Add target info to metrics file
-def _copy_metrics(model_dir: Path, input_node: "FootprintNode", node: "FootprintNode"):
+def _copy_metrics(model_dir: Path, workflow_output: WorkflowOutput, output_model_metrics: dict):
     metric_path = model_dir / "metrics.json"
-    if node.metrics:
+    if output_model_metrics:
         with metric_path.open("w") as f:
             metrics = {
-                "input_model_metrics": input_node.metrics.value.to_json() if input_node.metrics else None,
-                "candidate_model_metrics": node.metrics.value.to_json(),
+                "input_model_metrics": workflow_output.get_input_model_metrics(),
+                "candidate_model_metrics": output_model_metrics,
             }
             json.dump(metrics, f, indent=4)
 
@@ -585,212 +550,6 @@ def _generate_onnx_mlflow_model(model_dir: Path, inference_config: dict):
         onnx_session_options=session_dict,
     )
     return mlflow_model_path
-
-
-def create_python_download_command(base_url=None):
-    command = f"{sys.executable} -m pip download"
-    if base_url:
-        command += f" -i {base_url}"
-    command += " $package_name==$version --no-deps -d $python_download_path --python-version=$python_version"
-    return Template(command)
-
-
-def _package_onnxruntime_genai_runtime_dependencies(save_path: Path, download_c_packages: bool = True):
-    # pylint: disable=not-an-iterable
-    installed_packages = [
-        pkg
-        for pkg in pkg_resources.working_set
-        if pkg.key.startswith("onnxruntime-genai") or pkg.project_name.startswith("onnxruntime-genai")
-    ]
-    if not installed_packages:
-        logger.warning("ONNXRuntime-GenAI package is not installed. Skip packaging runtime packages.")
-        return
-
-    DOWNLOAD_COMMAND_TEMPLATE = create_python_download_command()
-    python_download_path = save_path / "ONNXRuntimePackages" / "python"
-    python_download_path.mkdir(parents=True, exist_ok=True)
-    python_download_path = str(python_download_path)
-
-    for pkg in installed_packages:
-        pkg_name = pkg.key if pkg.key.startswith("onnxruntime-genai") else pkg.project_name
-        download_command = DOWNLOAD_COMMAND_TEMPLATE.substitute(
-            package_name=pkg_name,
-            version=pkg.version,
-            python_download_path=python_download_path,
-            python_version=f"{sys.version_info.major}.{sys.version_info.minor}",
-        )
-
-        try:
-            run_subprocess(download_command)
-        except Exception:
-            logger.exception(
-                "Failed to download %s package. Please manually download & install the required package.", pkg_name
-            )
-
-    # Download CPP && CS onnxruntime-genai packages
-    if download_c_packages:
-        ort_version = installed_packages[0].version
-        lang_list = ("cpp", "cs")
-        for language in lang_list:
-            ort_download_path = save_path / "ONNXRuntimePackages" / language
-            ort_download_path.mkdir(parents=True, exist_ok=True)
-            _download_native_onnx_packages(installed_packages, ort_version, ort_download_path)
-
-
-def _package_onnxruntime_runtime_dependencies(
-    save_path: Path, pf_footprint: "Footprint", python_version: str, download_c_packages: bool = True
-):
-    # pylint: disable=not-an-iterable
-    installed_packages = pkg_resources.working_set
-    onnxruntime_pkg = [i for i in installed_packages if i.key.startswith("onnxruntime")]
-    ort_nightly_pkg = [i for i in installed_packages if i.key.startswith("ort-nightly")]
-    is_nightly = bool(ort_nightly_pkg)
-    is_stable = bool(onnxruntime_pkg)
-
-    if not is_nightly and not is_stable:
-        logger.warning("ONNXRuntime package is not installed. Skip packaging ONNXRuntime package.")
-        return
-
-    if is_nightly and is_stable:
-        logger.warning("Both ONNXRuntime and ort-nightly packages are installed. Package ort-nightly package only.")
-
-    ort_version = ort_nightly_pkg[0].version if is_nightly else onnxruntime_pkg[0].version
-    package_name_list = set()
-    use_ort_extensions = False
-    for model_id in pf_footprint.nodes:
-        if pf_footprint.get_use_ort_extensions(model_id):
-            use_ort_extensions = True
-
-        inference_settings = pf_footprint.get_model_inference_config(model_id)
-        if inference_settings:
-            ep_list = inference_settings["execution_provider"]
-            for ep in ep_list:
-                pkg_tuple = get_package_name_from_ep(ep[0])
-                pkg_name = pkg_tuple[1] if is_nightly else pkg_tuple[0]
-                package_name_list.update([pkg_name])
-        else:
-            pkg_name = "ort-nightly" if is_nightly else "onnxruntime"
-            package_name_list.update([pkg_name])
-
-    try:
-        # Download Python onnxruntime package
-        NIGHTLY_PYTHON_URL = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/"
-        NIGHTLY_PYTHON_COMMAND = create_python_download_command(NIGHTLY_PYTHON_URL)
-        STABLE_PYTHON_COMMAND = create_python_download_command()
-        python_download_path = save_path / "ONNXRuntimePackages" / "python"
-        python_download_path.mkdir(parents=True, exist_ok=True)
-        python_download_path = str(python_download_path)
-        _download_ort_extensions_package(use_ort_extensions, python_download_path, python_version)
-        if is_nightly:
-            download_command_list = [
-                NIGHTLY_PYTHON_COMMAND.substitute(
-                    package_name=package_name, version=ort_version, python_download_path=python_download_path
-                )
-                for package_name in package_name_list
-            ]
-        else:
-            download_command_list = [
-                STABLE_PYTHON_COMMAND.substitute(
-                    package_name=package_name,
-                    version=ort_version,
-                    python_download_path=python_download_path,
-                    python_version=python_version,
-                )
-                for package_name in package_name_list
-            ]
-        for download_command in download_command_list:
-            run_subprocess(download_command)
-
-        # Download CPP && CS onnxruntime package
-        if download_c_packages:
-            lang_list = ("cpp", "cs")
-            for language in lang_list:
-                ort_download_path = save_path / "ONNXRuntimePackages" / language
-                ort_download_path.mkdir(parents=True, exist_ok=True)
-                if is_nightly:
-                    _skip_download_c_package(ort_download_path)
-                else:
-                    _download_native_onnx_packages(package_name_list, ort_version, ort_download_path)
-
-    except Exception:
-        logger.exception("Failed to download onnxruntime package. Please manually download onnxruntime package.")
-
-
-def _download_ort_extensions_package(use_ort_extensions: bool, download_path: str, python_version: str):
-    if use_ort_extensions:
-        try:
-            import onnxruntime_extensions
-        except ImportError:
-            logger.warning(
-                "ONNXRuntime-Extensions package is not installed. Skip packaging ONNXRuntime-Extensions package."
-            )
-            return
-        version = onnxruntime_extensions.__version__
-        # Hardcode the nightly version number for now until we have a better way to identify nightly version
-        if version.startswith("0.8.0."):
-            system = platform.system()
-            if system == OS.WINDOWS:
-                NIGHTLY_URL = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/"
-                download_command = create_python_download_command(NIGHTLY_URL).substitute(
-                    package_name="onnxruntime_extensions",
-                    version=version,
-                    python_download_path=download_path,
-                    python_version=python_version,
-                )
-                run_subprocess(download_command)
-            elif system == OS.LINUX:
-                logger.warning(
-                    "ONNXRuntime-Extensions nightly package is not available for Linux. "
-                    "Skip packaging ONNXRuntime-Extensions package. Please manually install ONNXRuntime-Extensions."
-                )
-        else:
-            download_command = create_python_download_command().substitute(
-                package_name="onnxruntime_extensions",
-                version=version,
-                python_download_path=download_path,
-                python_version=python_version,
-            )
-            run_subprocess(download_command)
-
-
-def _download_native_onnx_packages(package_name_list: set[str], ort_version: str, ort_download_path: str):
-    PACKAGE_DOWNLOAD_LINK_MAPPING = {
-        "onnxruntime": Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/$ort_version"),
-        "onnxruntime-gpu": Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.Gpu/$ort_version"),
-        "onnxruntime-directml": Template(
-            "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.DirectML/$ort_version"
-        ),
-        "onnxruntime-openvino": None,
-        "onnxruntime-genai": Template(
-            "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntimeGenAI.Managed/$ort_version"
-        ),
-        "onnxruntime-genai-cuda": Template(
-            "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.OnnxRuntimeGenAI.Cuda/$ort_version"
-        ),
-        "onnxruntime-genai-directml": Template(
-            "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.OnnxRuntimeGenAI.DirectML/$ort_version"
-        ),
-    }
-    for package_name in package_name_list:
-        download_link = PACKAGE_DOWNLOAD_LINK_MAPPING.get(package_name)
-        download_path = str(ort_download_path / f"microsoft.ml.{package_name}.{ort_version}.nupkg")
-        if download_link:
-            urllib.request.urlretrieve(download_link.substitute(ort_version=ort_version), download_path)
-        else:
-            logger.warning(
-                "Package %s is not available for packaging. Please manually install the package.", package_name
-            )
-
-
-def _skip_download_c_package(package_path: Path):
-    warning_msg = (
-        "Found ort-nightly package installed. Please manually download "
-        "ort-nightly package from https://aiinfra.visualstudio.com/PublicPackages/_artifacts/feed/ORT-Nightly"
-    )
-    logger.warning(warning_msg)
-    readme_path = package_path / "README.md"
-    with readme_path.open("w") as f:
-        f.write(warning_msg)
 
 
 def _get_python_version():

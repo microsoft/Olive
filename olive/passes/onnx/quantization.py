@@ -236,6 +236,14 @@ def quant_type_from_precision(p):
     return mapping.get(p)
 
 
+def bits_from_precision(p):
+    mapping = {
+        Precision.INT4: 4,
+        Precision.INT8: 8,
+    }
+    return mapping.get(p)
+
+
 def precision_bits_from_precision(p):
     mapping = {
         Precision.INT4: PrecisionBits.BITS4,
@@ -747,6 +755,13 @@ class OnnxMatMul4Quantizer(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
+            "precision": PassConfigParam(
+                type_=Precision,
+                default_value=Precision.INT4,
+                description="""
+                    Data type for quantizing weights.
+                """,
+            ),
             "block_size": PassConfigParam(
                 type_=int,
                 default_value=32,
@@ -891,12 +906,13 @@ class OnnxMatMul4Quantizer(Pass):
                 elif key in kwargs:
                     # get value from pass config
                     algo_config[key] = kwargs[key]
+                if woq_config_class == DefaultWeightOnlyQuantConfig:
+                    algo_config["bits"] = bits_from_precision(config.precision)
             if config.algorithm == QuantAlgorithm.GPTQ:
                 algo_config["calibration_data_reader"] = get_calibration_dataloader(config)
             kwargs["algo_config"] = woq_config_class(**algo_config)
         else:
             kwargs["algo_config"] = None
-
         quant = MatMulNBitsQuantizer(model.load_model(), **kwargs)
         quant.process()
         # topologically sort the graph at the end since previous optimizations may have broken it

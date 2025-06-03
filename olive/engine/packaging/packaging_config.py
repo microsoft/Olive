@@ -106,8 +106,6 @@ class PackagingConfig(NestedConfig):
     type: PackagingType = PackagingType.Zipfile
     name: str = "OutputModels"
     config: CommonPackagingConfig = None
-    include_runtime_packages: bool = True
-    generative: bool = False
 
     @validator("config", pre=True, always=True)
     def _validate_config(cls, v, values):
