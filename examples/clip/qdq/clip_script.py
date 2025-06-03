@@ -139,7 +139,9 @@ def eval_similarity_degrad(output, targets, batch_size=1024):
 
     preds = output.preds
     scores = [
+        # pylint: disable=E1102
         F.cosine_similarity(preds[i : i + batch_size], targets[i : i + batch_size])
+        # pylint: enable=E1102
         for i in range(0, preds.size(0), batch_size)
     ]
     return {"percentage": f"{100.0 - torch.mean(torch.cat(scores)) * 100.0:.2f}"}
