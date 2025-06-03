@@ -26,11 +26,6 @@ def load_image_encoder(model_name):
 
 
 def load_text_encoder(model_name):
-    if model_name == "sentence-transformers/clip-ViT-B-32-multilingual-v1":
-        from sbert_clip_script import SDistilBertTextEncoder
-
-        return SDistilBertTextEncoder(model_name).eval()
-
     return CLIPTextModelWithProjection.from_pretrained(
         model_name,
         subfolder=HF_MODEL_SUBFOLDER_MAPPING.get(model_name, ""),
