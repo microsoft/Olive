@@ -19,6 +19,7 @@ from olive.passes.onnx.common import model_proto_to_file
 from olive.workflows import run as olive_run
 from olive.workflows.run.config import RunConfig
 
+# pylint: disable=W0212
 # flake8: noqa: T201
 # phi3-vision only supports CPU and CUDA targets for now
 TARGETS = ["cpu", "cuda"]
@@ -105,11 +106,11 @@ def resave_onnx_model(model_path, target_output_path, pass_config):
 
 
 def run_and_save(config, output_dir, suffix):
-    run_output = olive_run(config)
-    output_node = next(iter(run_output.values())).get_top_ranked_nodes(1)[0]
+    workflow_output = olive_run(config)
+    output_model = workflow_output.get_best_candidate()
     # "model_path" resource can be folder for model with external data
-    model_path = ModelConfig.parse_file_or_obj(output_node.model_config).create_model().model_path
-    pass_config = output_node.pass_run_config
+    model_path = ModelConfig.parse_file_or_obj(output_model._olive_model_config).create_model().model_path
+    pass_config = output_model._model_node.pass_run_config
     resave_onnx_model(model_path, output_dir / f"phi-3-v-128k-instruct-{suffix}.onnx", pass_config)
 
 

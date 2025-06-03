@@ -42,12 +42,10 @@ jobs:
     onnxruntime_nightly: true
 
 # Linux examples test
-- template: job_templates/olive-example-linux-template.yaml
+- template: job_templates/olive-example-cpu-template.yaml
   parameters:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
-    onnxruntime: onnxruntime
-    onnxruntime_nightly: true
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -55,9 +53,6 @@ jobs:
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
-      # resnet_vitis_ai_ptq_cpu:
-      #   exampleFolder: resnet
-      #   exampleName: resnet_vitis_ai_ptq_cpu
       resnet_qat:
         exampleFolder: resnet
         exampleName: resnet_qat
@@ -66,11 +61,10 @@ jobs:
         exampleName: mobilenet_qnn_ep
 
 # # Windows examples test
-- template: job_templates/olive-example-win-template.yaml
+- template: job_templates/olive-example-cpu-template.yaml
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
-    onnxruntime: onnxruntime
     onnxruntime_nightly: true
     examples:
       bert_ptq_cpu:
@@ -84,16 +78,11 @@ jobs:
         exampleName: mobilenet_qnn_ep
 
 # Linux GPU examples testing.
-- template: job_templates/olive-example-linux-template.yaml
+- template: job_templates/olive-example-linux-gpu-template.yaml
   parameters:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
-    device: 'gpu'
-    onnxruntime: onnxruntime-gpu
     onnxruntime_nightly: true
-    dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
-    base_image: 'mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
-    trt_version: '10.5.0.18-1+cuda12.6'
     examples:
       bert_cuda_gpu:
         exampleFolder: bert

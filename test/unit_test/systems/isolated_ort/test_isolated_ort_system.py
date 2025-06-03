@@ -234,7 +234,7 @@ class TestIsolatedORTEvaluator:
 
         # assert
         mock_get_session.assert_called_once_with(
-            Path(model), config["inference_settings"], False, external_initializers=None
+            Path(model), "cpu", config["inference_settings"], False, external_initializers=None
         )
         mock_wrapper_class.assert_called_once_with(
             mock_get_session.return_value,

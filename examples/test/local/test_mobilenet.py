@@ -24,5 +24,5 @@ def test_mobilenet():
     huggingface_login(hf_token)
 
     olive_config = patch_config("config.json")
-    footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
-    check_output(footprint)
+    workflow_output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
+    check_output(workflow_output)

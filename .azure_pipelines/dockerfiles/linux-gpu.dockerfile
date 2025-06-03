@@ -9,7 +9,7 @@ ARG PYTHON_VERSION
 ARG TENSORRT_VERSION
 
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
     python${PYTHON_VERSION}-venv \
@@ -32,9 +32,7 @@ RUN apt-get update && \
     tensorrt-dev=${TENSORRT_VERSION} \
     libnvinfer-lean-dev=${TENSORRT_VERSION} \
     libnvinfer-dispatch-dev=${TENSORRT_VERSION} \
-    python3-libnvinfer=${TENSORRT_VERSION} \
-    unzip \
-    docker.io
+    python3-libnvinfer=${TENSORRT_VERSION}
 RUN ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 
 COPY . /olive
