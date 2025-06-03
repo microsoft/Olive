@@ -122,16 +122,15 @@ def pre_process_dataset(
 @Registry.register_post_process()
 def embed_post_process(output):
     """Post-processing for CLIP output."""
-    match output:
-        case dict() | OrderedDict() as out:
-            if "embeds" in out:
-                return out["embeds"]
-            elif "text_embeds" in out:
-                return out["text_embeds"]
-            elif "image_embeds" in out:
-                return out["image_embeds"]
-        case torch.Tensor():
-            return output.argmax(dim=-1)
+    if isinstance(output, (dict, OrderedDict)):
+        if "embeds" in output:
+            return output["embeds"]
+        elif "text_embeds" in output:
+            return output["text_embeds"]
+        elif "image_embeds" in output:
+            return output["image_embeds"]
+    elif isinstance(output, torch.Tensor):
+        return output.argmax(dim=-1)
     raise ValueError(f"Unsupported output type: {type(output)}")
 
 
