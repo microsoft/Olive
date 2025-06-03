@@ -49,18 +49,8 @@
         }
     },
     "passes": {
-        "conversion": {
-            "type": "OnnxConversion",
-            "target_opset": 20
-        },
-        "surgery": {
-            "type": "GraphSurgeries",
-            "surgeries": [
-                {
-                    "surgeon": "MatMulAddToGemm"
-                }
-            ]
-        },
+        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
         "transformer_optimizer": {
             "type": "OrtTransformersOptimization",
             "model_type": "vit",
