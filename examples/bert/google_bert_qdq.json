@@ -41,31 +41,17 @@
         }
     },
     "passes": {
-        "conversion": {
-            "type": "OnnxConversion",
-            "target_opset": 20
-        },
+        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
         "to_fixed_shape": {
             "type": "DynamicToFixedShape",
-            "dim_param": [
-                "batch_size",
-                "sequence_length"
-            ],
-            "dim_value": [
-                1,
-                128
-            ]
+            "dim_param": [ "batch_size", "sequence_length" ],
+            "dim_value": [ 1, 128 ]
         },
         "surgery": {
             "type": "GraphSurgeries",
             "surgeries": [
-                {
-                    "surgeon": "ReplaceAttentionMaskValue",
-                    "replacement": -100.0
-                },
-                {
-                    "surgeon": "MatMulAddToGemm"
-                }
+                { "surgeon": "ReplaceAttentionMaskValue", "replacement": -100.0 },
+                { "surgeon": "MatMulAddToGemm" }
             ]
         },
         "transformer_optimizer": {
