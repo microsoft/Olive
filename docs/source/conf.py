@@ -3,11 +3,83 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
+import subprocess
 import sys
 
 # ruff: noqa
 # pylint: skip-file
 sys.path.append(os.path.abspath("exts"))
+def get_git_version():
+    """Get the current version from Git tags or fallback to 'latest'."""
+    try:
+        # Check if current HEAD matches any tag (exact release)
+        result = subprocess.run(
+            ["git", "tag", "--points-at", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            tags = result.stdout.strip().split('\n')
+            # Prefer semantic version tags
+            for tag in tags:
+                if tag.startswith('v') and len(tag.split('.')) >= 3:
+                    return tag[1:]  # Remove 'v' prefix
+            # Fallback to first tag
+            return tags[0][1:] if tags[0].startswith('v') else tags[0]
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+
+    try:
+        # Get the latest semantic version tag for development builds
+        result = subprocess.run(
+            ["git", "tag", "--list"],
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            # Filter for semantic version tags and get the latest
+            tags = result.stdout.strip().split('\n')
+            version_tags = []
+            for tag in tags:
+                if tag.startswith('v') and len(tag.split('.')) >= 3:
+                    try:
+                        # Check if it's a proper semantic version
+                        parts = tag[1:].split('.')
+                        if len(parts) >= 3 and all(part.isdigit() for part in parts[:3]):
+                            version_tags.append(tag)
+                    except (ValueError, IndexError):
+                        continue
+            
+            if version_tags:
+                # Sort by version number and get the latest
+                version_tags.sort(key=lambda x: [int(part) for part in x[1:].split('.')[:3]])
+                latest_tag = version_tags[-1]
+                
+                # Check if we're on the exact tag or ahead of it
+                try:
+                    result = subprocess.run(
+                        ["git", "describe", "--tags", "--exact-match", "HEAD"],
+                        capture_output=True,
+                        text=True,
+                        cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    )
+                    if result.returncode == 0:
+                        # We're on an exact tag
+                        return latest_tag[1:]
+                except (subprocess.SubprocessError, FileNotFoundError):
+                    pass
+                
+                # We're ahead of the latest tag, add dev suffix
+                return f"{latest_tag[1:]}.dev"
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+    
+    # Default fallback
+    return "latest"
+
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -18,7 +90,8 @@ sys.path.append(os.path.abspath("exts"))
 
 project = "Olive"
 copyright = "2023-2025, Olive Dev team"
-version = "latest"
+version = get_git_version()
+release = version
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
