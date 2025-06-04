@@ -53,7 +53,7 @@ class OpenVINOEncapsulation(Pass):
         return {
             "target_device": PassConfigParam(
                 type_=Device,
-                default_value=accelerator_spec.accelerator_type.CPU,
+                default_value=Device.CPU,
                 required=False,
                 description=("Device the encapsulated model should run on. Available devices are cpu, gpu, npu."),
             ),
