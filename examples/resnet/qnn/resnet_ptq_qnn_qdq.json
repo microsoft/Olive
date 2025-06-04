@@ -115,11 +115,17 @@
             "precision": "uint8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "graph_name": "resnet",
+            "custom_metadata": {
+                "optimizer": "Olive"
+            }
         }
     },
     "host": "qnn_system",
     "target": "qnn_system",
-    "evaluator": "common_evaluator",
     "output_dir": "models/resnet_qdq",
     "evaluate_input_model": false,
     "clean_cache": false,

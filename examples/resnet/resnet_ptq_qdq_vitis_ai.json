@@ -77,10 +77,18 @@
             "activation_type": "uint8",
             "weight_type": "uint8",
             "quant_type": "OnnxStaticQuantization"
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "graph_name": "resnet_vitisai_quantized",
+            "custom_metadata": {
+                "optimizer": "Olive",
+                "quantization_method": "Static PTQ",
+                "target_device": "VitisAI NPU"
+            }
         }
     },
     "evaluate_input_model": false,
-    "evaluator": "common_evaluator",
     "cache_dir": "cache/resnet",
     "clean_cache": false,
     "output_dir": "models/resnet_ptq_qdq"
