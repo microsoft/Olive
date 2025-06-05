@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class SelectiveMixedPrecision(Pass):
-    """Anotate the model with mixed precision information.
+    """Annotate the model with mixed precision information.
 
     This pass is used to annotate the model with mixed precision information, which can be used by other passes
     to quantize the model. The pass will add a model attribute `mixed_precision_info` that contains
