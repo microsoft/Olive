@@ -82,29 +82,28 @@ class AddOliveMetadata(Pass):
                 metadata["olive_version"] = "unknown"
 
         # Add optimization information
-        if config.add_optimization_info:
-            if hasattr(model, "model_attributes") and model.model_attributes:
-                model_attrs = model.model_attributes
+        if config.add_optimization_info and hasattr(model, "model_attributes") and model.model_attributes:
+            model_attrs = model.model_attributes
 
-                # Add original model information
-                if "original_model_path" in model_attrs:
-                    metadata["original_model_path"] = str(model_attrs["original_model_path"])
+            # Add original model information
+            if "original_model_path" in model_attrs:
+                metadata["original_model_path"] = str(model_attrs["original_model_path"])
 
-                # Add optimization passes applied
-                if "optimization_passes" in model_attrs:
-                    passes = model_attrs["optimization_passes"]
-                    if isinstance(passes, list):
-                        metadata["optimization_passes"] = ", ".join(str(p) for p in passes)
-                    else:
-                        metadata["optimization_passes"] = str(passes)
+            # Add optimization passes applied
+            if "optimization_passes" in model_attrs:
+                passes = model_attrs["optimization_passes"]
+                if isinstance(passes, list):
+                    metadata["optimization_passes"] = ", ".join(str(p) for p in passes)
+                else:
+                    metadata["optimization_passes"] = str(passes)
 
-                # Add HuggingFace task if available
-                if "hf_task" in model_attrs:
-                    metadata["hf_task"] = str(model_attrs["hf_task"])
+            # Add HuggingFace task if available
+            if "hf_task" in model_attrs:
+                metadata["hf_task"] = str(model_attrs["hf_task"])
 
-                # Add any quantization information
-                if "quantization_config" in model_attrs:
-                    metadata["quantization_config"] = str(model_attrs["quantization_config"])
+            # Add any quantization information
+            if "quantization_config" in model_attrs:
+                metadata["quantization_config"] = str(model_attrs["quantization_config"])
 
         return metadata
 
@@ -138,11 +137,11 @@ class AddOliveMetadata(Pass):
 
         # Add metadata
         if metadata:
-            logger.info(f"Adding metadata to ONNX model: {metadata}")
+            logger.info("Adding metadata to ONNX model: %s", metadata)
             onnx_model = self._add_metadata(onnx_model, metadata)
 
         # Set graph name (always required)
-        logger.info(f"Setting ONNX graph name to: {graph_name}")
+        logger.info("Setting ONNX graph name to: %s", graph_name)
         onnx_model = self._set_graph_name(onnx_model, graph_name)
 
         # Save the model with updated metadata
