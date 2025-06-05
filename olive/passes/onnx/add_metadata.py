@@ -50,13 +50,13 @@ class AddOliveMetadata(Pass):
         """Add metadata to the ONNX model."""
         # Get existing metadata
         existing_metadata = {entry.key: entry.value for entry in onnx_model.metadata_props}
-        
+
         # Update with new metadata (this will overwrite existing keys)
         existing_metadata.update(metadata)
-        
+
         # Set the updated metadata
         onnx.helper.set_model_props(onnx_model, existing_metadata)
-        
+
         return onnx_model
 
     def _set_graph_name(self, onnx_model: onnx.ModelProto, graph_name: str) -> onnx.ModelProto:
@@ -64,35 +64,32 @@ class AddOliveMetadata(Pass):
         onnx_model.graph.name = graph_name
         return onnx_model
 
-    def _generate_olive_metadata(
-        self, 
-        model: ONNXModelHandler, 
-        config: BasePassConfig
-    ) -> dict[str, str]:
+    def _generate_olive_metadata(self, model: ONNXModelHandler, config: BasePassConfig) -> dict[str, str]:
         """Generate Olive-specific metadata."""
         metadata = {}
-        
+
         # Add custom metadata from config
         if config.custom_metadata:
             metadata.update({str(k): str(v) for k, v in config.custom_metadata.items()})
-        
+
         # Add Olive version
         if config.add_olive_version:
             try:
                 import olive
+
                 metadata["olive_version"] = getattr(olive, "__version__", "unknown")
             except Exception:
                 metadata["olive_version"] = "unknown"
-        
+
         # Add optimization information
         if config.add_optimization_info:
             if hasattr(model, "model_attributes") and model.model_attributes:
                 model_attrs = model.model_attributes
-                
+
                 # Add original model information
                 if "original_model_path" in model_attrs:
                     metadata["original_model_path"] = str(model_attrs["original_model_path"])
-                
+
                 # Add optimization passes applied
                 if "optimization_passes" in model_attrs:
                     passes = model_attrs["optimization_passes"]
@@ -100,15 +97,15 @@ class AddOliveMetadata(Pass):
                         metadata["optimization_passes"] = ", ".join(str(p) for p in passes)
                     else:
                         metadata["optimization_passes"] = str(passes)
-                
+
                 # Add HuggingFace task if available
                 if "hf_task" in model_attrs:
                     metadata["hf_task"] = str(model_attrs["hf_task"])
-                
+
                 # Add any quantization information
                 if "quantization_config" in model_attrs:
                     metadata["quantization_config"] = str(model_attrs["quantization_config"])
-        
+
         return metadata
 
     def _run_for_config(
@@ -123,10 +120,10 @@ class AddOliveMetadata(Pass):
 
         # Generate metadata
         metadata = self._generate_olive_metadata(model, config)
-        
+
         # Get graph name from config
         graph_name = config.graph_name
-        
+
         # If no metadata to add, we still need to set the graph name since it's mandatory
         if not metadata:
             logger.info("No metadata to add, but will still set the mandatory graph name.")
@@ -135,19 +132,19 @@ class AddOliveMetadata(Pass):
 
         # Resave the original model to the new path
         has_external_data = resave_model(model.model_path, output_model_path)
-        
+
         # Load the model without external data to modify metadata
         onnx_model = onnx.load_model(output_model_path, load_external_data=False)
-        
+
         # Add metadata
         if metadata:
             logger.info(f"Adding metadata to ONNX model: {metadata}")
             onnx_model = self._add_metadata(onnx_model, metadata)
-        
+
         # Set graph name (always required)
         logger.info(f"Setting ONNX graph name to: {graph_name}")
         onnx_model = self._set_graph_name(onnx_model, graph_name)
-        
+
         # Save the model with updated metadata
         model_proto_to_file(onnx_model, output_model_path)
 
