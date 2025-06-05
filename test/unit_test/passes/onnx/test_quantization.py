@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import platform
 from unittest.mock import patch
 
 import onnx
@@ -159,6 +160,10 @@ def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected, is_qnn)
     ],
 )
 def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight_only_quant_configs):
+    if algorithm == "rtn" and platform.system() == "Windows":
+        # neural-compressor calls 'wmic' which is not available anymore
+        pytest.skip("RTN quantization requires neural-compressor which is incompatible with newer versions of Windows.")
+
     input_model = get_onnx_model()
     config = {
         "block_size": 32,
@@ -177,6 +182,10 @@ def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight
     assert out is not None
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows",
+    reason="GPTQ quantization requires neural-compressor which is incompatible with newer versions of Windows.",
+)
 def test_matmul_4bits_gptq_with_dataloader(tmp_path, caplog):
     input_model = get_onnx_model()
     config = {
