@@ -31,7 +31,7 @@
             "model_type": "bert",
             "opt_level": 1,
             "optimization_options": {
-                "enable_gelu": true,
+                "enable_gelu": false,
                 "enable_bias_gelu": false,
                 "enable_layer_norm": true,
                 "enable_skip_layer_norm": false,
