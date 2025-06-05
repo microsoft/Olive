@@ -63,6 +63,8 @@
             "data_config": "quantize_data_config",
             "activation_type": "uint16",
             "precision": "uint8",
+            "quant_preprocess": true,
+            "prepare_qnn_config": true,
             "calibrate_method": "MinMax"
         }
     },
