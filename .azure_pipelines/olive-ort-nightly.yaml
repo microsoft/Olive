@@ -46,6 +46,7 @@ jobs:
   parameters:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
+    onnxruntime_nightly: true
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
