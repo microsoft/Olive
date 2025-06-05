@@ -24,9 +24,18 @@ def get_git_version():
             # Prefer semantic version tags
             for tag in tags:
                 if tag.startswith('v') and len(tag.split('.')) >= 3:
-                    return tag[1:]  # Remove 'v' prefix
-            # Fallback to first tag
-            return tags[0][1:] if tags[0].startswith('v') else tags[0]
+                    try:
+                        # Validate it's a proper semantic version
+                        parts = tag[1:].split('.')
+                        if len(parts) >= 3 and all(part.isdigit() for part in parts[:3]):
+                            return tag[1:]  # Remove 'v' prefix
+                    except (ValueError, IndexError):
+                        continue
+            # Fallback to first tag if it looks like a version
+            first_tag = tags[0]
+            if first_tag.startswith('v'):
+                return first_tag[1:]
+            return first_tag
     except (subprocess.SubprocessError, FileNotFoundError):
         pass
 
@@ -71,8 +80,8 @@ def get_git_version():
                 except (subprocess.SubprocessError, FileNotFoundError):
                     pass
                 
-                # We're ahead of the latest tag, add dev suffix
-                return f"{latest_tag[1:]}.dev"
+                # We're ahead of the latest tag, return latest for development
+                return "latest"
     except (subprocess.SubprocessError, FileNotFoundError):
         pass
     
@@ -144,9 +153,7 @@ html_css_files = [
     # better contrast between h3 and h4, high priority so that it overrides the theme
     ("css/header.css", {"priority": 1000}),
 ]
-html_js_files = [
-    "js/custom_version.js",
-]
+html_js_files = []
 
 html_theme_options = {
     "header_links_before_dropdown": 4,
@@ -171,6 +178,10 @@ html_theme_options = {
     "footer_start": ["copyright"],
     "secondary_sidebar_items": {
         "**": ["page-toc"],
+    },
+    "switcher": {
+        "json_url": "https://microsoft.github.io/Olive/_static/versions.json",
+        "version_match": version,
     },
 }
 

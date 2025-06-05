@@ -66,7 +66,7 @@ class TestVersionDetection(unittest.TestCase):
         mock_run.side_effect = side_effect
         
         version = get_git_version()
-        self.assertEqual(version, "0.9.1.dev")
+        self.assertEqual(version, "latest")
 
     @patch('subprocess.run')
     def test_fallback_to_latest(self, mock_run):
@@ -110,11 +110,11 @@ class TestVersionDetection(unittest.TestCase):
         # Release should match version
         self.assertEqual(conf.version, conf.release)
         
-        # Should be either a semantic version, semantic version with .dev, or "latest"
+        # Should be either a semantic version or "latest"
         version = conf.version
         if version != "latest":
-            # Should match pattern like "0.9.1" or "0.9.1.dev"
-            parts = version.replace(".dev", "").split(".")
+            # Should match pattern like "0.9.1"
+            parts = version.split(".")
             self.assertGreaterEqual(len(parts), 2)  # At least major.minor
             for part in parts[:3]:  # Check first 3 parts are numeric
                 self.assertTrue(part.isdigit(), f"Version part '{part}' should be numeric in '{version}'")
