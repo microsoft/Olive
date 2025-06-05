@@ -3,90 +3,15 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
-import subprocess
 import sys
 
 # ruff: noqa
 # pylint: skip-file
 sys.path.append(os.path.abspath("exts"))
-def get_git_version():
-    """Get the current version from Git tags or fallback to 'latest'."""
-    try:
-        # Check if current HEAD matches any tag (exact release)
-        result = subprocess.run(
-            ["git", "tag", "--points-at", "HEAD"],
-            capture_output=True,
-            text=True,
-            cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            tags = result.stdout.strip().split('\n')
-            # Prefer semantic version tags
-            for tag in tags:
-                if tag.startswith('v') and len(tag.split('.')) >= 3:
-                    try:
-                        # Validate it's a proper semantic version
-                        parts = tag[1:].split('.')
-                        if len(parts) >= 3 and all(part.isdigit() for part in parts[:3]):
-                            return tag[1:]  # Remove 'v' prefix
-                    except (ValueError, IndexError):
-                        continue
-            # Fallback to first tag if it looks like a version
-            first_tag = tags[0]
-            if first_tag.startswith('v'):
-                return first_tag[1:]
-            return first_tag
-    except (subprocess.SubprocessError, FileNotFoundError):
-        pass
 
-    try:
-        # Get the latest semantic version tag for development builds
-        result = subprocess.run(
-            ["git", "tag", "--list"],
-            capture_output=True,
-            text=True,
-            cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            # Filter for semantic version tags and get the latest
-            tags = result.stdout.strip().split('\n')
-            version_tags = []
-            for tag in tags:
-                if tag.startswith('v') and len(tag.split('.')) >= 3:
-                    try:
-                        # Check if it's a proper semantic version
-                        parts = tag[1:].split('.')
-                        if len(parts) >= 3 and all(part.isdigit() for part in parts[:3]):
-                            version_tags.append(tag)
-                    except (ValueError, IndexError):
-                        continue
-            
-            if version_tags:
-                # Sort by version number and get the latest
-                version_tags.sort(key=lambda x: [int(part) for part in x[1:].split('.')[:3]])
-                latest_tag = version_tags[-1]
-                
-                # Check if we're on the exact tag or ahead of it
-                try:
-                    result = subprocess.run(
-                        ["git", "describe", "--tags", "--exact-match", "HEAD"],
-                        capture_output=True,
-                        text=True,
-                        cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                    )
-                    if result.returncode == 0:
-                        # We're on an exact tag
-                        return latest_tag[1:]
-                except (subprocess.SubprocessError, FileNotFoundError):
-                    pass
-                
-                # We're ahead of the latest tag, return latest for development
-                return "latest"
-    except (subprocess.SubprocessError, FileNotFoundError):
-        pass
-    
-    # Default fallback
-    return "latest"
+# Add the project root to sys.path to import olive
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+import olive
 
 
 # Configuration file for the Sphinx documentation builder.
@@ -99,7 +24,7 @@ def get_git_version():
 
 project = "Olive"
 copyright = "2023-2025, Olive Dev team"
-version = get_git_version()
+version = olive.__version__.replace(".dev0", "")
 release = version
 
 # -- General configuration ---------------------------------------------------
@@ -153,7 +78,6 @@ html_css_files = [
     # better contrast between h3 and h4, high priority so that it overrides the theme
     ("css/header.css", {"priority": 1000}),
 ]
-html_js_files = []
 
 html_theme_options = {
     "header_links_before_dropdown": 4,
@@ -174,7 +98,7 @@ html_theme_options = {
     # "announcement": "Announcement: This is an example announcement.",
     "show_version_warning_banner": True,
     "navbar_center": ["navbar-nav"],
-    "navbar_start": ["navbar-logo"],
+    "navbar_start": ["navbar-logo", "version-switcher"],
     "footer_start": ["copyright"],
     "secondary_sidebar_items": {
         "**": ["page-toc"],
