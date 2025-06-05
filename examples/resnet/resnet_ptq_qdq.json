@@ -64,15 +64,9 @@
             "activation_type": "uint16",
             "precision": "uint8",
             "calibrate_method": "MinMax"
-        },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "graph_name": "resnet",
-            "custom_metadata": {
-                "optimizer": "Olive"
-            }
         }
     },
+    "evaluator": "common_evaluator",
     "cache_dir": "cache",
     "clean_cache": true,
     "output_dir": "models/resnet_ptq_qdq"
