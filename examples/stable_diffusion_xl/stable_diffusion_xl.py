@@ -15,6 +15,7 @@ import onnxruntime as ort
 import torch
 from diffusers import DiffusionPipeline, OnnxRuntimeModel
 from diffusers.utils import load_image
+from huggingface_hub import hf_hub_download
 from onnxruntime import __version__ as OrtVersion
 from optimum.onnxruntime import ORTStableDiffusionXLImg2ImgPipeline, ORTStableDiffusionXLPipeline
 from packaging import version
@@ -38,6 +39,8 @@ def run_inference_loop(
     base_images=None,
     image_callback=None,
     step_callback=None,
+    guidance_scale=None,
+    seed=None,
 ):
     images_saved = 0
 
@@ -50,6 +53,13 @@ def run_inference_loop(
     kwargs = {}
     if disable_classifier_free_guidance:
         kwargs["guidance_scale"] = 0.0
+    elif guidance_scale is not None:
+        kwargs["guidance_scale"] = guidance_scale
+
+    if seed is not None:
+        import numpy as np
+
+        kwargs["generator"] = np.random.RandomState(seed=seed)
 
     if base_images is None:
         result = pipeline(
@@ -218,6 +228,8 @@ def run_inference(
     interactive,
     is_fp16,
     base_images=None,
+    guidance_scale=None,
+    seed=None,
 ):
     ort.set_default_logger_severity(3)
 
@@ -245,6 +257,8 @@ def run_inference(
     provider_map = {
         "dml": "DmlExecutionProvider",
         "cuda": "CUDAExecutionProvider",
+        "cpu": "CPUExecutionProvider",
+        "qnn": "QNNExecutionProvider",
     }
     assert provider in provider_map, f"Unsupported provider: {provider}"
 
@@ -285,12 +299,30 @@ def run_inference(
             num_inference_steps,
             disable_classifier_free_guidance,
             base_images,
+            guidance_scale=guidance_scale,
+            seed=seed,
         )
 
 
-def update_config_with_provider(config: dict, provider: str, is_fp16: bool) -> dict:
+def update_config_with_provider(
+    config: dict, provider: str, is_fp16: bool, only_conversion: bool, submodel_name: str, model_format: str
+) -> dict:
     used_passes = {}
-    if provider == "dml":
+    if only_conversion:
+        used_passes = {"convert"}
+        config["evaluator"] = None
+    elif model_format == "qdq":
+        if submodel_name in ("text_encoder", "text_encoder_2"):
+            # TODO(anyone): dynamic_shape_to_fixed is not working
+            # used_passes = {"convert", "dynamic_shape_to_fixed", "surgery", "optimize_qdq", "quantization"}
+            used_passes = {"convert", "surgery", "optimize_qdq", "quantization"}
+            del config["input_model"]["io_config"]["dynamic_axes"]
+            config["input_model"]["io_config"]["input_shapes"] = [[1, 77], [1]]
+        elif submodel_name == "unet":
+            used_passes = {"convert", "dynamic_shape_to_fixed", "optimize_qdq", "quantization"}
+        else:
+            used_passes = {"convert", "dynamic_shape_to_fixed", "quantization"}
+    elif provider == "dml":
         # DirectML EP is the default, so no need to update config.
         used_passes = {"convert", "optimize"}
     elif provider == "cuda":
@@ -301,12 +333,29 @@ def update_config_with_provider(config: dict, provider: str, is_fp16: bool) -> d
         if is_fp16:
             config["passes"]["optimize_cuda"].update({"float16": True, "keep_io_types": False})
         used_passes = {"convert", "optimize_cuda"}
-        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
     config["passes"] = OrderedDict([(k, v) for k, v in config["passes"].items() if k in used_passes])
+
+    if provider == "cuda":
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CUDAExecutionProvider"]
+    elif provider == "qnn":
+        config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
+    else:
+        config["systems"]["local_system"]["accelerators"][0]["device"] = "cpu"
+        config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
+        # not meaningful to evaluate QDQ latency on CPU
+        config["evaluator"] = None
     return config
+
+
+def save_config(configs: dict, module_name: str, model_info: dict, optimized: bool = False):
+    config_path = hf_hub_download(repo_id=configs[module_name], filename="config.json", subfolder=module_name)
+    shutil.copyfile(
+        config_path, model_info[module_name]["optimized" if optimized else "unoptimized"]["path"].parent / "config.json"
+    )
 
 
 def optimize(
@@ -316,6 +365,8 @@ def optimize(
     use_fp16_fixed_vae: bool,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
+    only_conversion: bool,
+    model_format: str,
 ):
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
@@ -341,13 +392,16 @@ def optimize(
     if not is_refiner_model:
         submodel_names.append("text_encoder")
 
+    configs = {}
     for submodel_name in submodel_names:
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
         with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
-        olive_config = update_config_with_provider(olive_config, provider, use_fp16_fixed_vae)
+        olive_config = update_config_with_provider(
+            olive_config, provider, use_fp16_fixed_vae, only_conversion, submodel_name, model_format
+        )
 
         if is_refiner_model and submodel_name == "vae_encoder" and not use_fp16_fixed_vae:
             # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen
@@ -360,6 +414,8 @@ def optimize(
         else:
             olive_config["input_model"]["model_path"] = model_id
 
+        configs[submodel_name] = olive_config["input_model"]["model_path"]
+
         olive_run(olive_config)
 
         footprints_file_path = Path(__file__).resolve().parent / "footprints" / submodel_name / "footprints.json"
@@ -369,9 +425,14 @@ def optimize(
             conversion_footprint = None
             optimizer_footprint = None
             for footprint in footprints.values():
-                if footprint["from_pass"] == "OnnxConversion":
+                from_pass = footprint["from_pass"].lower() if footprint["from_pass"] else ""
+                if from_pass == "OnnxConversion".lower():
                     conversion_footprint = footprint
-                elif footprint["from_pass"] == "OrtTransformersOptimization":
+                    if only_conversion:
+                        optimizer_footprint = footprint
+                elif (
+                    from_pass == "OrtTransformersOptimization".lower() or from_pass == "OnnxStaticQuantization".lower()
+                ):
                     optimizer_footprint = footprint
 
             assert conversion_footprint
@@ -404,13 +465,17 @@ def optimize(
     vae_encoder_session = OnnxRuntimeModel.load_model(
         model_info["vae_encoder"]["unoptimized"]["path"].parent / "model.onnx"
     )
+    save_config(configs, "vae_encoder", model_info)
     vae_decoder_session = OnnxRuntimeModel.load_model(
         model_info["vae_decoder"]["unoptimized"]["path"].parent / "model.onnx"
     )
+    save_config(configs, "vae_decoder", model_info)
     text_encoder_2_session = OnnxRuntimeModel.load_model(
         model_info["text_encoder_2"]["unoptimized"]["path"].parent / "model.onnx"
     )
+    save_config(configs, "text_encoder_2", model_info)
     unet_session = OnnxRuntimeModel.load_model(model_info["unet"]["unoptimized"]["path"].parent / "model.onnx")
+    save_config(configs, "unet", model_info)
 
     if is_refiner_model:
         onnx_pipeline = ORTStableDiffusionXLImg2ImgPipeline(
@@ -427,6 +492,7 @@ def optimize(
         text_encoder_session = OnnxRuntimeModel.load_model(
             model_info["text_encoder"]["unoptimized"]["path"].parent / "model.onnx"
         )
+        save_config(configs, "text_encoder", model_info)
 
         onnx_pipeline = ORTStableDiffusionXLPipeline(
             vae_encoder_session=vae_encoder_session,
@@ -438,7 +504,6 @@ def optimize(
             tokenizer_2=pipeline.tokenizer_2,
             scheduler=pipeline.scheduler,
             feature_extractor=feature_extractor,
-            config=dict(pipeline.config),
         )
 
     print("Saving unoptimized models...")
@@ -454,6 +519,7 @@ def optimize(
     print("Copying optimized models...")
     shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
     for submodel_name in submodel_names:
+        save_config(configs, submodel_name, model_info, optimized=True)
         src_path = model_info[submodel_name]["optimized"]["path"]
         dst_path = optimized_model_dir / submodel_name / "model.onnx"
         shutil.copyfile(src_path, dst_path)
@@ -470,7 +536,10 @@ def main(raw_args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", default="stabilityai/stable-diffusion-xl-base-1.0", type=str)
     parser.add_argument(
-        "--provider", default="dml", type=str, choices=["dml", "cuda"], help="Execution provider to use"
+        "--provider", default="dml", type=str, choices=["dml", "cuda", "cpu", "qnn"], help="Execution provider to use"
+    )
+    parser.add_argument(
+        "--format", default=None, type=str, help="Currently only support qdq with provider cpu, cuda or qnn"
     )
     parser.add_argument(
         "--use_fp16_fixed_vae",
@@ -503,6 +572,18 @@ def main(raw_args=None):
             "Whether to disable classifier free guidance. Classifier free guidance should be disabled for turbo models."
         ),
     )
+    parser.add_argument(
+        "--guidance_scale",
+        default=None,
+        type=float,
+        help="Guidance scale as defined in Classifier-Free Diffusion Guidance",
+    )
+    parser.add_argument(
+        "--seed",
+        default=None,
+        type=int,
+        help="The seed to give to the generator to generate deterministic results.",
+    )
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
     parser.add_argument("--image_size", default=768, type=int, help="Image size to use during inference")
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
@@ -513,6 +594,8 @@ def main(raw_args=None):
     )
     parser.add_argument("--dynamic_dims", action="store_true", help="Disable static shape optimization")
     parser.add_argument("--tempdir", default=None, type=str, help="Root directory for tempfile directories and files")
+    parser.add_argument("--only_conversion", action="store_true")
+    parser.add_argument("--data_dir", default="quantize_data_xl/data", type=str)
     args = parser.parse_args(raw_args)
 
     if args.static_dims:
@@ -555,13 +638,16 @@ def main(raw_args=None):
         )
 
     script_dir = Path(__file__).resolve().parent
+    config.data_dir = script_dir / args.data_dir
 
     if args.clean_cache:
         shutil.rmtree(script_dir / "cache", ignore_errors=True)
 
     # Optimize the models
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
-    optimized_dir_name = "optimized" if args.provider == "dml" else "optimized-cuda"
+    optimized_dir_name = "optimized" if args.provider == "dml" else f"optimized-{args.provider}"
+    if args.format:
+        optimized_dir_name += f"_{args.format}"
     optimized_model_dir = script_dir / "models" / optimized_dir_name / args.model_id
 
     model_config = model_to_config.get(args.model_id, {})
@@ -597,6 +683,8 @@ def main(raw_args=None):
                 args.use_fp16_fixed_vae,
                 unoptimized_model_dir,
                 optimized_model_dir,
+                args.only_conversion,
+                args.format,
             )
 
     # Run inference on the models
@@ -620,6 +708,8 @@ def main(raw_args=None):
                 args.interactive,
                 args.use_fp16_fixed_vae,
                 args.base_images,
+                args.guidance_scale,
+                args.seed,
             )
 
 
