@@ -14,7 +14,7 @@
                 "weight_format": "int4",
                 "group_size": 128,
                 "dataset": "wikitext2",
-                "ratio": 1.0,
+                "ratio": 1,
                 "awq": true,
                 "scale_estimation": true,
                 "sym": true,
