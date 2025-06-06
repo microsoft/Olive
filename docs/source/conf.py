@@ -9,9 +9,7 @@ import sys
 # pylint: skip-file
 sys.path.append(os.path.abspath("exts"))
 
-# Add the project root to sys.path to import olive
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-import olive
+
 
 
 # Configuration file for the Sphinx documentation builder.
@@ -24,7 +22,7 @@ import olive
 
 project = "Olive"
 copyright = "2023-2025, Olive Dev team"
-version = olive.__version__
+version = "latest"
 release = version
 
 # -- General configuration ---------------------------------------------------
