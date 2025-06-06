@@ -227,7 +227,7 @@ class EPContextBinaryGenerator(Pass):
         """
         import onnxruntime as ort
 
-        from olive.common.ort_inference import initialize_inference_session_options_for_winml, is_winml_installation
+        from olive.common.ort_inference import initialize_inference_session_options, ort_supports_ep_devices
 
         # prepare provider options
         provider_options = provider_options or {}
@@ -267,10 +267,8 @@ class EPContextBinaryGenerator(Pass):
         logger.debug("Creating context binary for model %s", str(model_path))
 
         sess_kwargs = {}
-        if is_winml_installation():
-            initialize_inference_session_options_for_winml(
-                sess_options, device, [execution_provider], [provider_options or {}]
-            )
+        if ort_supports_ep_devices():
+            initialize_inference_session_options(sess_options, device, [execution_provider], [provider_options or {}])
         else:
             sess_kwargs.update({"providers": [execution_provider], "provider_options": [provider_options]})
         ort.InferenceSession(model_path, sess_options=sess_options, **sess_kwargs)
