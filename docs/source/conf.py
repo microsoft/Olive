@@ -8,6 +8,7 @@ import sys
 # ruff: noqa
 # pylint: skip-file
 sys.path.append(os.path.abspath("exts"))
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -19,6 +20,7 @@ sys.path.append(os.path.abspath("exts"))
 project = "Olive"
 copyright = "2023-2025, Olive Dev team"
 version = "latest"
+release = version
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -71,9 +73,6 @@ html_css_files = [
     # better contrast between h3 and h4, high priority so that it overrides the theme
     ("css/header.css", {"priority": 1000}),
 ]
-html_js_files = [
-    "js/custom_version.js",
-]
 
 html_theme_options = {
     "header_links_before_dropdown": 4,
@@ -95,9 +94,14 @@ html_theme_options = {
     "show_version_warning_banner": True,
     "navbar_center": ["navbar-nav"],
     "navbar_start": ["navbar-logo"],
+    "navbar_end": ["version-switcher"],
     "footer_start": ["copyright"],
     "secondary_sidebar_items": {
         "**": ["page-toc"],
+    },
+    "switcher": {
+        "json_url": "https://microsoft.github.io/Olive/_static/versions.json",
+        "version_match": version,
     },
 }
 
