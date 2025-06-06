@@ -135,8 +135,6 @@ class EPContextBinaryGenerator(Pass):
 
             group_session_options = config.session_options or {}
             provider_options = config.provider_options or {}
-            if self.accelerator_spec.execution_provider == "QNNExecutionProvider":
-                provider_options["backend_path"] = "QnnHtp.dll"
             group_session_options["provider_options"] = [
                 {self.accelerator_spec.execution_provider.lower().replace("executionprovider", ""): provider_options}
             ]
@@ -232,7 +230,6 @@ class EPContextBinaryGenerator(Pass):
         # prepare provider options
         provider_options = provider_options or {}
         if execution_provider == "QNNExecutionProvider":
-            provider_options["backend_path"] = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
             if share_ep_contexts:
                 provider_options["enable_htp_weight_sharing"] = "1"
 
