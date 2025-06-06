@@ -10,7 +10,7 @@ import sys
 sys.path.append(os.path.abspath("exts"))
 
 # Add the project root to sys.path to import olive
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import olive
 
 
