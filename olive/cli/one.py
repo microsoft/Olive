@@ -27,8 +27,21 @@ class OneCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--pass-name",
             type=str,
-            required=True,
             help="Name of the pass to run on the input model.",
+        )
+
+        # Pass configuration options (common parameters)
+        sub_parser.add_argument(
+            "--pass-config",
+            type=str,
+            help="JSON string with pass-specific configuration parameters.",
+        )
+
+        # List available passes
+        sub_parser.add_argument(
+            "--list-passes",
+            action="store_true",
+            help="List all available passes and exit.",
         )
 
         # Model options
@@ -39,6 +52,7 @@ class OneCommand(BaseOliveCLICommand):
             enable_pt=True,
             enable_onnx=True,
             default_output_path="one-output",
+            required=False,  # Make model optional to allow --list-passes
         )
 
         add_logging_options(sub_parser)
@@ -69,10 +83,19 @@ class OneCommand(BaseOliveCLICommand):
             )
         
         # Create a simple pass configuration
+        pass_config = {"type": pass_name}
+        
+        # Add pass-specific configuration if provided
+        if hasattr(self.args, 'pass_config') and self.args.pass_config:
+            import json
+            try:
+                additional_config = json.loads(self.args.pass_config)
+                pass_config.update(additional_config)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON in --pass-config: {e}")
+        
         config["passes"] = {
-            pass_name.lower(): {
-                "type": pass_name
-            }
+            pass_name.lower(): pass_config
         }
         
         # Customize the config for user choices
@@ -87,7 +110,38 @@ class OneCommand(BaseOliveCLICommand):
         return config
 
     def run(self):
+        # Check if user wants to list passes
+        if hasattr(self.args, 'list_passes') and self.args.list_passes:
+            self._list_passes()
+            return
+        
+        # Validate required arguments when not listing passes
+        if not self.args.pass_name:
+            raise ValueError("--pass-name is required when not using --list-passes")
+        
+        if not getattr(self.args, 'model_name_or_path', None):
+            raise ValueError("-m/--model_name_or_path is required when not using --list-passes")
+            
         self._run_workflow()
+
+    def _list_passes(self):
+        """List all available passes."""
+        from olive.package_config import OlivePackageConfig
+        
+        try:
+            olive_config = OlivePackageConfig.load_default_config()
+            available_passes = sorted(olive_config.passes.keys())
+            
+            print("Available passes:")
+            for i, pass_name in enumerate(available_passes, 1):
+                print(f"{i:3d}. {pass_name}")
+            
+            print(f"\nTotal: {len(available_passes)} passes available")
+            print("\nUsage: olive one --pass-name <PassName> -m <model> -o <output>")
+            
+        except Exception as e:
+            print(f"Error loading pass configurations: {e}")
+            print("Unable to list available passes.")
 
 
 # Template configuration for the one command
