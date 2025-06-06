@@ -33,7 +33,7 @@ class TestAddOliveMetadata:
         output_folder = str(tmp_path / "onnx")
 
         # Execute
-        output_model = p.run(input_model, output_folder)        # Assert
+        output_model = p.run(input_model, output_folder)
         assert Path(output_model.model_path).exists()
         # Load the output model and check graph name
         onnx_model = onnx.load_model(output_model.model_path)
