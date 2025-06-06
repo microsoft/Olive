@@ -8,10 +8,12 @@ from typing import Any
 
 from olive.cli.base import (
     BaseOliveCLICommand,
+    add_accelerator_options,
     add_input_model_options,
     add_logging_options,
     add_save_config_file_options,
     get_input_model_config,
+    update_accelerator_options,
 )
 
 
@@ -20,7 +22,7 @@ class OneCommand(BaseOliveCLICommand):
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
             "one",
-            help="Run a single pass on the input model",
+            help="Run a single pass on the input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models)",
         )
 
         # Pass selection
@@ -54,6 +56,9 @@ class OneCommand(BaseOliveCLICommand):
             default_output_path="one-output",
             required=False,  # Make model optional to allow --list-passes
         )
+
+        # Accelerator options
+        add_accelerator_options(sub_parser)
 
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
@@ -106,6 +111,9 @@ class OneCommand(BaseOliveCLICommand):
         for k, v in to_replace:
             if v is not None:
                 set_nested_dict_value(config, k, v)
+        
+        # Update accelerator options (device, execution provider, memory)        
+        update_accelerator_options(self.args, config)
         
         return config
 

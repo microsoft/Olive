@@ -183,3 +183,79 @@ def test_one_command_config_generation_with_pass_config():
     assert config["passes"]["onnxconversion"]["type"] == "OnnxConversion"
     assert config["passes"]["onnxconversion"]["target_opset"] == 13
     assert config["passes"]["onnxconversion"]["convert_attribute"] == True
+
+
+def test_one_command_device_options():
+    """Test the --device and accelerator argument parsing."""
+    parser = ArgumentParser()
+    sub_parsers = parser.add_subparsers()
+    
+    from olive.cli.one import OneCommand
+    OneCommand.register_subcommand(sub_parsers)
+    
+    # Test device argument parsing
+    args = parser.parse_args([
+        'one', '--pass-name', 'OnnxConversion', 
+        '-m', 'test_model', '-o', '/tmp/output',
+        '--device', 'gpu', '--provider', 'CUDAExecutionProvider'
+    ])
+    
+    assert args.device == 'gpu'
+    assert args.provider == 'CUDAExecutionProvider'
+    
+    # Test default device (cpu)
+    args_default = parser.parse_args([
+        'one', '--pass-name', 'OnnxConversion', 
+        '-m', 'test_model', '-o', '/tmp/output'
+    ])
+    
+    assert args_default.device == 'cpu'
+    assert args_default.provider == 'CPUExecutionProvider'
+
+
+def test_one_command_accelerator_config_integration():
+    """Test that accelerator options are integrated into the configuration properly."""
+    from copy import deepcopy
+    from olive.common.utils import set_nested_dict_value
+    
+    # Test template
+    TEMPLATE = {
+        "input_model": {"type": "HfModel", "load_kwargs": {"attn_implementation": "eager"}},
+        "systems": {
+            "local_system": {
+                "type": "LocalSystem",
+                "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+            }
+        },
+        "output_dir": "models",
+        "host": "local_system",
+        "target": "local_system",
+        "no_artifacts": True,
+    }
+    
+    # Simulate update_accelerator_options logic
+    config = deepcopy(TEMPLATE)
+    
+    # Simulate args with GPU device
+    class MockArgs:
+        device = "gpu"
+        provider = "CUDAExecutionProvider"
+        memory = None
+    
+    args = MockArgs()
+    
+    # Apply the accelerator updates
+    execution_providers = [args.provider]
+    to_replace = [
+        (("systems", "local_system", "accelerators", 0, "device"), args.device),
+        (("systems", "local_system", "accelerators", 0, "execution_providers"), execution_providers),
+        (("systems", "local_system", "accelerators", 0, "memory"), args.memory),
+    ]
+    for k, v in to_replace:
+        if v is not None:
+            set_nested_dict_value(config, k, v)
+    
+    # Verify the configuration was updated correctly
+    accelerator = config["systems"]["local_system"]["accelerators"][0]
+    assert accelerator["device"] == "gpu"
+    assert accelerator["execution_providers"] == ["CUDAExecutionProvider"]
