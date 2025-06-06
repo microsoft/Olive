@@ -24,7 +24,7 @@ import olive
 
 project = "Olive"
 copyright = "2023-2025, Olive Dev team"
-version = olive.__version__.replace(".dev0", "")
+version = olive.__version__
 release = version
 
 # -- General configuration ---------------------------------------------------
