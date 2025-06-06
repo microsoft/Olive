@@ -98,7 +98,8 @@ html_theme_options = {
     # "announcement": "Announcement: This is an example announcement.",
     "show_version_warning_banner": True,
     "navbar_center": ["navbar-nav"],
-    "navbar_start": ["navbar-logo", "version-switcher"],
+    "navbar_start": ["navbar-logo"],
+    "navbar_end": ["version-switcher"],
     "footer_start": ["copyright"],
     "secondary_sidebar_items": {
         "**": ["page-toc"],
