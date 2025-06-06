@@ -398,6 +398,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "SelectiveMixedPrecision": {
+            "module_path": "olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "MergeAdapterWeights": {
             "module_path": "olive.passes.pytorch.merge_adapter_weights.MergeAdapterWeights",
             "supported_providers": [ "*" ],
