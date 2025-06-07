@@ -15,6 +15,7 @@ from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
 from olive.cli.manage_aml_compute import ManageAMLComputeCommand
+from olive.cli.one import OneCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
@@ -34,6 +35,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     # TODO(jambayk): Consider adding a common tempdir option to all commands
     # NOTE: The order of the commands is to organize the documentation better.
     WorkflowRunCommand.register_subcommand(commands_parser)
+    OneCommand.register_subcommand(commands_parser)
     AutoOptCommand.register_subcommand(commands_parser)
     CaptureOnnxGraphCommand.register_subcommand(commands_parser)
     FineTuneCommand.register_subcommand(commands_parser)
