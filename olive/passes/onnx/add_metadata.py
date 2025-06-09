@@ -34,7 +34,6 @@ class AddOliveMetadata(Pass):
                 default_value={},
                 description="Custom metadata key-value pairs to add to the model",
             ),
-
             "add_optimization_info": PassConfigParam(
                 type_=bool,
                 default_value=True,

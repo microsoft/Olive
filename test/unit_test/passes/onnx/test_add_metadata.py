@@ -40,7 +40,7 @@ class TestAddOliveMetadata:
         # Load the output model and check graph name
         onnx_model = onnx.load_model(output_model.model_path)
         assert onnx_model.graph.name == "test_graph"
-        
+
         # Check that Olive version is always added
         metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
         assert "olive_version" in metadata_dict
