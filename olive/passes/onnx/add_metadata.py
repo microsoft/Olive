@@ -34,11 +34,7 @@ class AddOliveMetadata(Pass):
                 default_value={},
                 description="Custom metadata key-value pairs to add to the model",
             ),
-            "add_olive_version": PassConfigParam(
-                type_=bool,
-                default_value=True,
-                description="Add Olive version to metadata",
-            ),
+
             "add_optimization_info": PassConfigParam(
                 type_=bool,
                 default_value=True,
@@ -64,7 +60,7 @@ class AddOliveMetadata(Pass):
         onnx_model.graph.name = graph_name
         return onnx_model
 
-    def _generate_olive_metadata(self, model: ONNXModelHandler, config: BasePassConfig) -> dict[str, str]:
+    def _generate_olive_metadata(self, model: ONNXModelHandler, config: type[BasePassConfig]) -> dict[str, str]:
         """Generate Olive-specific metadata."""
         metadata = {}
 
@@ -72,14 +68,13 @@ class AddOliveMetadata(Pass):
         if config.custom_metadata:
             metadata.update({str(k): str(v) for k, v in config.custom_metadata.items()})
 
-        # Add Olive version
-        if config.add_olive_version:
-            try:
-                import olive
+        # Add Olive version (always included)
+        try:
+            import olive
 
-                metadata["olive_version"] = getattr(olive, "__version__", "unknown")
-            except Exception:
-                metadata["olive_version"] = "unknown"
+            metadata["olive_version"] = getattr(olive, "__version__", "unknown")
+        except Exception:
+            metadata["olive_version"] = "unknown"
 
         # Add optimization information
         if config.add_optimization_info and hasattr(model, "model_attributes") and model.model_attributes:
@@ -108,14 +103,10 @@ class AddOliveMetadata(Pass):
         return metadata
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: BasePassConfig, output_model_path: str
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         if not isinstance(model, ONNXModelHandler):
             raise ValueError("Model must be an instance of ONNXModelHandler")
-
-        # Validate that graph_name is provided
-        if not config.graph_name:
-            raise ValueError("graph_name is required and must be provided in the AddOliveMetadata pass configuration")
 
         # Generate metadata
         metadata = self._generate_olive_metadata(model, config)

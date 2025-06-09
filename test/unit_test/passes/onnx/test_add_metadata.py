@@ -25,7 +25,7 @@ class TestAddOliveMetadata:
     """Test cases for AddOliveMetadata pass."""
 
     def test_add_metadata_basic(self, tmp_path):
-        """Test basic metadata addition with required graph_name."""
+        """Test basic metadata addition with required graph_name and automatic Olive version."""
         # Setup
         input_model = get_onnx_model()
         config = {"graph_name": "test_graph"}
@@ -34,10 +34,16 @@ class TestAddOliveMetadata:
 
         # Execute
         output_model = p.run(input_model, output_folder)
+
+        # Assert
         assert Path(output_model.model_path).exists()
         # Load the output model and check graph name
         onnx_model = onnx.load_model(output_model.model_path)
         assert onnx_model.graph.name == "test_graph"
+        
+        # Check that Olive version is always added
+        metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
+        assert "olive_version" in metadata_dict
 
     def test_add_metadata_missing_graph_name(self, tmp_path):
         """Test that missing graph_name raises ValidationError during pass creation."""
@@ -76,10 +82,10 @@ class TestAddOliveMetadata:
 
     @patch("olive.__version__", "1.2.3")
     def test_add_metadata_with_olive_version(self, tmp_path):
-        """Test adding Olive version metadata."""
+        """Test that Olive version metadata is always added."""
         # Setup
         input_model = get_onnx_model()
-        config = {"graph_name": "version_test_graph", "add_olive_version": True}
+        config = {"graph_name": "version_test_graph"}
         p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
         output_folder = str(tmp_path / "onnx")
 
@@ -90,22 +96,6 @@ class TestAddOliveMetadata:
         onnx_model = onnx.load_model(output_model.model_path)
         metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
         assert metadata_dict["olive_version"] == "1.2.3"
-
-    def test_add_metadata_without_olive_version(self, tmp_path):
-        """Test that Olive version is not added when disabled."""
-        # Setup
-        input_model = get_onnx_model()
-        config = {"graph_name": "no_version_graph", "add_olive_version": False}
-        p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
-        output_folder = str(tmp_path / "onnx")
-
-        # Execute
-        output_model = p.run(input_model, output_folder)
-
-        # Assert
-        onnx_model = onnx.load_model(output_model.model_path)
-        metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
-        assert "olive_version" not in metadata_dict
 
     def test_add_metadata_with_model_attributes(self, tmp_path):
         """Test adding optimization information from model attributes."""
@@ -252,7 +242,7 @@ class TestAddOliveMetadata:
         mock_getattr.side_effect = AttributeError("No version attribute")
 
         input_model = get_onnx_model()
-        config = {"graph_name": "exception_test_graph", "add_olive_version": True}
+        config = {"graph_name": "exception_test_graph"}
         p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
         output_folder = str(tmp_path / "onnx")
 
