@@ -7,7 +7,7 @@ import sys
 from argparse import ArgumentParser
 from unittest.mock import patch
 
-import pytest
+
 
 
 def test_run_pass_command_help():
