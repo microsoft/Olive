@@ -10,15 +10,7 @@ import pytest
 
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.add_metadata import AddOliveMetadata
-from test.unit_test.utils import create_onnx_model_file, delete_onnx_model_files, get_onnx_model
-
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_onnx_model():
-    """Create ONNX model file for testing."""
-    create_onnx_model_file()
-    yield
-    delete_onnx_model_files()
+from test.unit_test.utils import get_onnx_model
 
 
 class TestAddOliveMetadata:
