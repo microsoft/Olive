@@ -6,7 +6,16 @@
 Workflow Python API implementations.
 
 This module provides Python API functions corresponding to Olive CLI commands.
-Each function returns a WorkflowOutput object containing ModelOutput instances.
+Functions that execute optimization workflows return WorkflowOutput objects 
+containing ModelOutput instances. Utility functions return None.
+
+Model Optimization Functions (return WorkflowOutput):
+- auto_opt, finetune, quantize, capture_onnx, generate_adapter, 
+  session_params_tuning, run
+
+Utility Functions (return None):
+- configure_qualcomm_sdk, convert_adapters, extract_adapters,
+  generate_cost_model, manage_aml_compute, shared_cache
 """
 import tempfile
 from pathlib import Path
@@ -488,22 +497,25 @@ def convert_adapters(
 
 def extract_adapters(
     model_path: str,
+    output_path: str,
+    format: str,
     *,
-    output_path: str = "extracted-adapters",
+    dtype: str = "float32",
+    cache_dir: Optional[str] = None,
     log_level: int = 3,
     **kwargs
-) -> WorkflowOutput:
+) -> None:
     """
-    Extract adapters from a model.
+    Extract LoRA adapters from PyTorch model to separate files.
     
     Args:
-        model_path: Path to model
-        output_path: Output directory path
+        model_path: Path to PyTorch model (local folder or HuggingFace ID)
+        output_path: Output folder to save adapters
+        format: Format to save adapters in
+        dtype: Data type for adapters ("float32", "float16")
+        cache_dir: Cache directory for downloaded models
         log_level: Logging level (1-5)
         **kwargs: Additional extraction parameters
-        
-    Returns:
-        WorkflowOutput: Contains extracted adapters
     """
     from argparse import Namespace
     
@@ -511,15 +523,17 @@ def extract_adapters(
     Path(output_path).mkdir(parents=True, exist_ok=True)
     
     args = Namespace(
-        model_path=model_path,
-        output_path=str(Path(output_path).resolve()),
+        model=model_path,  # Note: CLI uses 'model', not 'model_path'
+        output=output_path,  # Note: CLI uses 'output', not 'output_path'
+        format=format,
+        dtype=dtype,
+        cache_dir=cache_dir,
         log_level=log_level,
-        save_config_file=False,
         **kwargs
     )
     
     command = ExtractAdaptersCommand(None, args)
-    return command._run_workflow()
+    command.run()
 
 
 def generate_cost_model(
@@ -530,7 +544,7 @@ def generate_cost_model(
     **kwargs
 ) -> None:
     """
-    Generate a cost model for model splitting.
+    Generate a cost model for model splitting (HuggingFace models only).
     
     Args:
         model_path: Path to HuggingFace model
