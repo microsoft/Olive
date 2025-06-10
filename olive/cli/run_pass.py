@@ -17,11 +17,11 @@ from olive.cli.base import (
 )
 
 
-class OneCommand(BaseOliveCLICommand):
+class RunPassCommand(BaseOliveCLICommand):
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
-            "one",
+            "run-pass",
             help="Run a single pass on the input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models)",
         )
 
@@ -53,7 +53,7 @@ class OneCommand(BaseOliveCLICommand):
             enable_hf_adapter=True,
             enable_pt=True,
             enable_onnx=True,
-            default_output_path="one-output",
+            default_output_path="run-pass-output",
             required=False,  # Make model optional to allow --list-passes
         )
 
@@ -62,7 +62,7 @@ class OneCommand(BaseOliveCLICommand):
 
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
-        sub_parser.set_defaults(func=OneCommand)
+        sub_parser.set_defaults(func=RunPassCommand)
 
     def _get_run_config(self, tempdir: str) -> dict[str, Any]:
         # Import these only when needed to avoid circular imports
@@ -115,6 +115,9 @@ class OneCommand(BaseOliveCLICommand):
         # Update accelerator options (device, execution provider, memory)        
         update_accelerator_options(self.args, config)
         
+        # Ensure provider and device are consistent
+        self._ensure_device_provider_consistency(config)
+        
         return config
 
     def run(self):
@@ -132,6 +135,33 @@ class OneCommand(BaseOliveCLICommand):
             
         self._run_workflow()
 
+    def _ensure_device_provider_consistency(self, config):
+        """Ensure device and provider are consistent."""
+        from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
+        
+        # Get the current accelerator config
+        accelerator = config["systems"]["local_system"]["accelerators"][0]
+        providers = accelerator.get("execution_providers", [])
+        current_device = accelerator.get("device", "cpu")
+        
+        if not providers:
+            return
+            
+        provider = providers[0]  # Take the first provider
+        
+        # Map provider to correct device
+        provider_to_device = {}
+        for device, device_providers in DEVICE_TO_EXECUTION_PROVIDERS.items():
+            for p in device_providers:
+                provider_to_device[p] = device
+        
+        # If provider requires a specific device, update it
+        if provider in provider_to_device:
+            required_device = provider_to_device[provider]
+            if current_device != required_device:
+                accelerator["device"] = required_device
+                print(f"Note: Setting device to '{required_device}' to match provider '{provider}'")
+
     def _list_passes(self):
         """List all available passes."""
         from olive.package_config import OlivePackageConfig
@@ -145,7 +175,7 @@ class OneCommand(BaseOliveCLICommand):
                 print(f"{i:3d}. {pass_name}")
             
             print(f"\nTotal: {len(available_passes)} passes available")
-            print("\nUsage: olive one --pass-name <PassName> -m <model> -o <output>")
+            print("\nUsage: olive run-pass --pass-name <PassName> -m <model> -o <output>")
             
         except Exception as e:
             print(f"Error loading pass configurations: {e}")

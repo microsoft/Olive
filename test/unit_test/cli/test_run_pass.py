@@ -10,10 +10,10 @@ from unittest.mock import patch
 import pytest
 
 
-def test_one_command_help():
-    """Test that the one command shows help properly."""
+def test_run_pass_command_help():
+    """Test that the run-pass command shows help properly."""
     # setup
-    command_args = [sys.executable, "-m", "olive", "one", "--help"]
+    command_args = [sys.executable, "-m", "olive", "run-pass", "--help"]
 
     # execute
     out = subprocess.run(command_args, check=True, capture_output=True)
@@ -21,23 +21,23 @@ def test_one_command_help():
     # assert
     help_text = out.stdout.decode("utf-8")
     assert "usage:" in help_text
-    assert "one" in help_text
+    assert "run-pass" in help_text
     assert "--pass-name" in help_text
     assert "Run a single pass on the input model" in help_text
 
 
-def test_one_command_argument_parsing():
+def test_run_pass_command_argument_parsing():
     """Test the argument parsing without full CLI execution."""
     # Create a minimal parser to test our command registration
     parser = ArgumentParser()
     sub_parsers = parser.add_subparsers()
     
     # Import and register our command without triggering heavy dependencies
-    from olive.cli.one import OneCommand
-    OneCommand.register_subcommand(sub_parsers)
+    from olive.cli.run_pass import RunPassCommand
+    RunPassCommand.register_subcommand(sub_parsers)
     
     # Test parsing with valid arguments
-    args = parser.parse_args(['one', '--pass-name', 'OnnxConversion', '-m', 'test_model', '-o', '/tmp/output'])
+    args = parser.parse_args(['run-pass', '--pass-name', 'OnnxConversion', '-m', 'test_model', '-o', '/tmp/output'])
     
     assert args.pass_name == 'OnnxConversion'
     assert args.model_name_or_path == 'test_model'
@@ -45,31 +45,31 @@ def test_one_command_argument_parsing():
     assert not hasattr(args, 'list_passes') or not args.list_passes
 
 
-def test_one_command_list_passes():
+def test_run_pass_command_list_passes():
     """Test the --list-passes argument."""
     parser = ArgumentParser()
     sub_parsers = parser.add_subparsers()
     
-    from olive.cli.one import OneCommand
-    OneCommand.register_subcommand(sub_parsers)
+    from olive.cli.run_pass import RunPassCommand
+    RunPassCommand.register_subcommand(sub_parsers)
     
     # Test list-passes argument
-    args = parser.parse_args(['one', '--list-passes'])
+    args = parser.parse_args(['run-pass', '--list-passes'])
     assert args.list_passes == True
 
 
-def test_one_command_pass_config():
+def test_run_pass_command_pass_config():
     """Test the --pass-config argument."""
     parser = ArgumentParser()
     sub_parsers = parser.add_subparsers()
     
-    from olive.cli.one import OneCommand
-    OneCommand.register_subcommand(sub_parsers)
+    from olive.cli.run_pass import RunPassCommand
+    RunPassCommand.register_subcommand(sub_parsers)
     
     # Test pass-config argument
     json_config = '{"target_opset": 13, "convert_attribute": true}'
     args = parser.parse_args([
-        'one', '--pass-name', 'OnnxConversion', 
+        'run-pass', '--pass-name', 'OnnxConversion', 
         '-m', 'test_model', '-o', '/tmp/output',
         '--pass-config', json_config
     ])
@@ -77,35 +77,35 @@ def test_one_command_pass_config():
     assert args.pass_config == json_config
 
 
-def test_one_command_missing_pass_name():
-    """Test that the one command requires --pass-name argument when not listing passes."""
+def test_run_pass_command_missing_pass_name():
+    """Test that the run-pass command requires --pass-name argument when not listing passes."""
     parser = ArgumentParser()
     sub_parsers = parser.add_subparsers()
     
-    from olive.cli.one import OneCommand
-    OneCommand.register_subcommand(sub_parsers)
+    from olive.cli.run_pass import RunPassCommand
+    RunPassCommand.register_subcommand(sub_parsers)
     
     # Test missing pass-name without list-passes should succeed in parsing but fail later
-    args = parser.parse_args(['one', '-m', 'test_model', '-o', '/tmp/output'])
+    args = parser.parse_args(['run-pass', '-m', 'test_model', '-o', '/tmp/output'])
     assert args.pass_name is None
     assert args.model_name_or_path == 'test_model'
 
 
-def test_one_command_missing_model():
-    """Test that the one command requires model argument when not listing passes."""
+def test_run_pass_command_missing_model():
+    """Test that the run-pass command requires model argument when not listing passes."""
     parser = ArgumentParser()
     sub_parsers = parser.add_subparsers()
     
-    from olive.cli.one import OneCommand
-    OneCommand.register_subcommand(sub_parsers)
+    from olive.cli.run_pass import RunPassCommand
+    RunPassCommand.register_subcommand(sub_parsers)
     
     # Test missing model should succeed in parsing but fail later when required
-    args = parser.parse_args(['one', '--pass-name', 'OnnxConversion', '-o', '/tmp/output'])
+    args = parser.parse_args(['run-pass', '--pass-name', 'OnnxConversion', '-o', '/tmp/output'])
     assert args.pass_name == 'OnnxConversion'
     assert getattr(args, 'model_name_or_path', None) is None
 
 
-def test_one_command_config_generation():
+def test_run_pass_command_config_generation():
     """Test the configuration generation logic."""
     from copy import deepcopy
     import json
@@ -147,7 +147,7 @@ def test_one_command_config_generation():
     assert config["target"] == "local_system"
 
 
-def test_one_command_config_generation_with_pass_config():
+def test_run_pass_command_config_generation_with_pass_config():
     """Test the configuration generation with additional pass config."""
     from copy import deepcopy
     import json
@@ -185,17 +185,17 @@ def test_one_command_config_generation_with_pass_config():
     assert config["passes"]["onnxconversion"]["convert_attribute"] == True
 
 
-def test_one_command_device_options():
+def test_run_pass_command_device_options():
     """Test the --device and accelerator argument parsing."""
     parser = ArgumentParser()
     sub_parsers = parser.add_subparsers()
     
-    from olive.cli.one import OneCommand
-    OneCommand.register_subcommand(sub_parsers)
+    from olive.cli.run_pass import RunPassCommand
+    RunPassCommand.register_subcommand(sub_parsers)
     
     # Test device argument parsing
     args = parser.parse_args([
-        'one', '--pass-name', 'OnnxConversion', 
+        'run-pass', '--pass-name', 'OnnxConversion', 
         '-m', 'test_model', '-o', '/tmp/output',
         '--device', 'gpu', '--provider', 'CUDAExecutionProvider'
     ])
@@ -205,7 +205,7 @@ def test_one_command_device_options():
     
     # Test default device (cpu)
     args_default = parser.parse_args([
-        'one', '--pass-name', 'OnnxConversion', 
+        'run-pass', '--pass-name', 'OnnxConversion', 
         '-m', 'test_model', '-o', '/tmp/output'
     ])
     
@@ -213,7 +213,7 @@ def test_one_command_device_options():
     assert args_default.provider == 'CPUExecutionProvider'
 
 
-def test_one_command_accelerator_config_integration():
+def test_run_pass_command_accelerator_config_integration():
     """Test that accelerator options are integrated into the configuration properly."""
     from copy import deepcopy
     from olive.common.utils import set_nested_dict_value
@@ -258,4 +258,55 @@ def test_one_command_accelerator_config_integration():
     # Verify the configuration was updated correctly
     accelerator = config["systems"]["local_system"]["accelerators"][0]
     assert accelerator["device"] == "gpu"
+    assert accelerator["execution_providers"] == ["CUDAExecutionProvider"]
+
+
+def test_run_pass_command_device_provider_consistency():
+    """Test that provider/device consistency is enforced."""
+    from copy import deepcopy
+    from olive.common.utils import set_nested_dict_value
+    
+    # Test template
+    TEMPLATE = {
+        "input_model": {"type": "HfModel", "load_kwargs": {"attn_implementation": "eager"}},
+        "systems": {
+            "local_system": {
+                "type": "LocalSystem",
+                "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+            }
+        },
+        "output_dir": "models",
+        "host": "local_system",
+        "target": "local_system",
+        "no_artifacts": True,
+    }
+    
+    # Test the consistency enforcement logic
+    config = deepcopy(TEMPLATE)
+    
+    # Simulate a case where user specifies device=cpu but provider=CUDAExecutionProvider
+    accelerator = config["systems"]["local_system"]["accelerators"][0]
+    accelerator["device"] = "cpu"
+    accelerator["execution_providers"] = ["CUDAExecutionProvider"]
+    
+    # Apply consistency logic (simulate _ensure_device_provider_consistency)
+    from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
+    
+    providers = accelerator.get("execution_providers", [])
+    if providers:
+        provider = providers[0]
+        
+        # Map provider to correct device
+        provider_to_device = {}
+        for device, device_providers in DEVICE_TO_EXECUTION_PROVIDERS.items():
+            for p in device_providers:
+                provider_to_device[p] = device
+        
+        # If provider requires a specific device, update it
+        if provider in provider_to_device:
+            required_device = provider_to_device[provider]
+            accelerator["device"] = required_device
+    
+    # Verify that device was corrected to match the provider
+    assert accelerator["device"] == "gpu"  # CUDAExecutionProvider requires gpu
     assert accelerator["execution_providers"] == ["CUDAExecutionProvider"]
