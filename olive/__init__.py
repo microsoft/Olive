@@ -20,4 +20,27 @@ __version__ = "0.10.0.dev0"
 
 from olive.engine.output import DeviceOutput, ModelOutput, WorkflowOutput  # noqa: E402
 
-__all__ = ["DeviceOutput", "ModelOutput", "WorkflowOutput"]
+# Import Python API functions
+from olive.api import (  # noqa: E402
+    auto_opt,
+    capture_onnx,
+    finetune,
+    generate_adapter,
+    quantize,
+    run,
+    session_params_tuning,
+)
+
+__all__ = [
+    "DeviceOutput", 
+    "ModelOutput", 
+    "WorkflowOutput",
+    # Python API functions
+    "auto_opt",
+    "capture_onnx",
+    "finetune", 
+    "generate_adapter",
+    "quantize",
+    "run",
+    "session_params_tuning",
+]
