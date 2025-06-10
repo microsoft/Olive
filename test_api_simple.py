@@ -9,18 +9,28 @@ def test_api_structure():
         from olive.api.workflow import (
             auto_opt,
             capture_onnx,
+            configure_qualcomm_sdk,
+            convert_adapters,
+            extract_adapters,
             finetune,
             generate_adapter,
+            generate_cost_model,
+            manage_aml_compute,
             quantize,
             run,
             session_params_tuning,
+            shared_cache,
         )
         print("✓ API functions import successfully")
         
         # Test function signatures
         import inspect
         
-        funcs = [auto_opt, capture_onnx, finetune, generate_adapter, quantize, run, session_params_tuning]
+        funcs = [
+            auto_opt, capture_onnx, configure_qualcomm_sdk, convert_adapters, 
+            extract_adapters, finetune, generate_adapter, generate_cost_model,
+            manage_aml_compute, quantize, run, session_params_tuning, shared_cache
+        ]
         for func in funcs:
             sig = inspect.signature(func)
             assert len(sig.parameters) > 0, f"{func.__name__} should have parameters"

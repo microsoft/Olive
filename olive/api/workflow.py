@@ -14,11 +14,17 @@ from typing import Any, Dict, List, Optional, Union
 
 from olive.cli.auto_opt import AutoOptCommand
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand  
+from olive.cli.configure_qualcomm_sdk import ConfigureQualcommSDKCommand
+from olive.cli.convert_adapters import ConvertAdaptersCommand
+from olive.cli.extract_adapters import ExtractAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
+from olive.cli.generate_cost_model import GenerateCostModelCommand
+from olive.cli.manage_aml_compute import ManageAMLComputeCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
+from olive.cli.shared_cache import SharedCacheCommand
 from olive.constants import Precision
 from olive.engine.output import WorkflowOutput
 from olive.workflows import run as olive_run
@@ -424,3 +430,195 @@ def session_params_tuning(
     
     command = SessionParamsTuningCommand(None, args)
     return command._run_workflow()
+
+
+# Utility functions that don't necessarily produce model outputs
+def configure_qualcomm_sdk(
+    py_version: str,
+    sdk: str,
+) -> None:
+    """
+    Configure Qualcomm SDK for Olive.
+    
+    Args:
+        py_version: Python version ("3.6", "3.8")
+        sdk: Qualcomm SDK ("snpe", "qnn")
+    """
+    from argparse import Namespace
+    
+    args = Namespace(py_version=py_version, sdk=sdk)
+    command = ConfigureQualcommSDKCommand(None, args)
+    command.run()
+
+
+def convert_adapters(
+    adapter_path: str,
+    output_path: str,
+    *,
+    adapter_format: str = "onnx_adapter",
+    dtype: str = "float32",
+    log_level: int = 3,
+    **kwargs
+) -> None:
+    """
+    Convert LoRA adapter weights to a format consumable by ONNX models.
+    
+    Args:
+        adapter_path: Path to adapter weights (local folder or HuggingFace ID)
+        output_path: Path to save exported weights
+        adapter_format: Format to save weights in
+        dtype: Data type for weights
+        log_level: Logging level (1-5)
+        **kwargs: Additional conversion parameters
+    """
+    from argparse import Namespace
+    
+    args = Namespace(
+        adapter_path=adapter_path,
+        output_path=output_path,
+        adapter_format=adapter_format,
+        dtype=dtype,
+        log_level=log_level,
+        **kwargs
+    )
+    
+    command = ConvertAdaptersCommand(None, args)
+    command.run()
+
+
+def extract_adapters(
+    model_path: str,
+    *,
+    output_path: str = "extracted-adapters",
+    log_level: int = 3,
+    **kwargs
+) -> WorkflowOutput:
+    """
+    Extract adapters from a model.
+    
+    Args:
+        model_path: Path to model
+        output_path: Output directory path
+        log_level: Logging level (1-5)
+        **kwargs: Additional extraction parameters
+        
+    Returns:
+        WorkflowOutput: Contains extracted adapters
+    """
+    from argparse import Namespace
+    
+    # Ensure output directory exists
+    Path(output_path).mkdir(parents=True, exist_ok=True)
+    
+    args = Namespace(
+        model_path=model_path,
+        output_path=str(Path(output_path).resolve()),
+        log_level=log_level,
+        save_config_file=False,
+        **kwargs
+    )
+    
+    command = ExtractAdaptersCommand(None, args)
+    return command._run_workflow()
+
+
+def generate_cost_model(
+    model_path: str,
+    *,
+    output_path: str = "cost-model.csv",
+    log_level: int = 3,
+    **kwargs
+) -> None:
+    """
+    Generate a cost model for model splitting.
+    
+    Args:
+        model_path: Path to HuggingFace model
+        output_path: Path to save cost model CSV file
+        log_level: Logging level (1-5)
+        **kwargs: Additional generation parameters
+    """
+    from argparse import Namespace
+    
+    # Ensure output directory exists
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    
+    args = Namespace(
+        model_path=model_path,
+        output_path=output_path,
+        log_level=log_level,
+        **kwargs
+    )
+    
+    command = GenerateCostModelCommand(None, args)
+    command.run()
+
+
+def manage_aml_compute(
+    action: str,
+    compute_name: str,
+    *,
+    workspace_config: Optional[str] = None,
+    log_level: int = 3,
+    **kwargs
+) -> None:
+    """
+    Manage AzureML compute resources.
+    
+    Args:
+        action: Action to perform ("create", "delete", "start", "stop")
+        compute_name: Name of the compute resource
+        workspace_config: Path to AzureML workspace config
+        log_level: Logging level (1-5)
+        **kwargs: Additional management parameters
+    """
+    from argparse import Namespace
+    
+    args = Namespace(
+        action=action,
+        compute_name=compute_name,
+        workspace_config=workspace_config,
+        log_level=log_level,
+        **kwargs
+    )
+    
+    command = ManageAMLComputeCommand(None, args)
+    command.run()
+
+
+def shared_cache(
+    account: str,
+    container: str,
+    *,
+    delete: bool = False,
+    delete_all: bool = False,
+    model_hash: Optional[str] = None,
+    yes: bool = False,
+    **kwargs
+) -> None:
+    """
+    Manage shared cache operations.
+    
+    Args:
+        account: Account name for shared cache
+        container: Container name for shared cache
+        delete: Delete a model cache
+        delete_all: Delete all model cache
+        model_hash: Model hash to remove from cache
+        yes: Confirm deletion without prompting
+        **kwargs: Additional cache parameters
+    """
+    from argparse import Namespace
+    
+    args = Namespace(
+        account=account,
+        container=container,
+        delete=delete,
+        all=delete_all,  # Note: CLI uses 'all' not 'delete_all'
+        model_hash=model_hash,
+        yes=yes,
+        **kwargs
+    )
+    
+    command = SharedCacheCommand(None, args)
+    command.run()

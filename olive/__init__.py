@@ -24,11 +24,17 @@ from olive.engine.output import DeviceOutput, ModelOutput, WorkflowOutput  # noq
 from olive.api import (  # noqa: E402
     auto_opt,
     capture_onnx,
+    configure_qualcomm_sdk,
+    convert_adapters,
+    extract_adapters,
     finetune,
     generate_adapter,
+    generate_cost_model,
+    manage_aml_compute,
     quantize,
     run,
     session_params_tuning,
+    shared_cache,
 )
 
 __all__ = [
@@ -38,9 +44,15 @@ __all__ = [
     # Python API functions
     "auto_opt",
     "capture_onnx",
+    "configure_qualcomm_sdk",
+    "convert_adapters",
+    "extract_adapters",
     "finetune", 
     "generate_adapter",
+    "generate_cost_model",
+    "manage_aml_compute",
     "quantize",
     "run",
     "session_params_tuning",
+    "shared_cache",
 ]
