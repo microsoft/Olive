@@ -149,18 +149,33 @@ class RunPassCommand(BaseOliveCLICommand):
             
         provider = providers[0]  # Take the first provider
         
-        # Map provider to correct device
-        provider_to_device = {}
-        for device, device_providers in DEVICE_TO_EXECUTION_PROVIDERS.items():
-            for p in device_providers:
-                provider_to_device[p] = device
+        # Define provider-specific device preferences
+        # For providers that can run on multiple devices, we choose the most appropriate one
+        provider_device_preference = {
+            "CPUExecutionProvider": "cpu",
+            "CUDAExecutionProvider": "gpu", 
+            "ROCMExecutionProvider": "gpu",
+            "TensorrtExecutionProvider": "gpu",
+            "NvTensorRTRTXExecutionProvider": "gpu",
+            "MIGraphXExecutionProvider": "gpu",
+            "JsExecutionProvider": "gpu",
+            "DmlExecutionProvider": "gpu",  # Prefer GPU for DirectML
+            "QNNExecutionProvider": "npu",
+            "VitisAIExecutionProvider": "npu",
+            "OpenVINOExecutionProvider": "cpu",  # Prefer CPU for OpenVINO (more common)
+        }
         
-        # If provider requires a specific device, update it
-        if provider in provider_to_device:
-            required_device = provider_to_device[provider]
-            if current_device != required_device:
-                accelerator["device"] = required_device
-                print(f"Note: Setting device to '{required_device}' to match provider '{provider}'")
+        # Check if current device is valid for the provider
+        valid_devices = []
+        for device, device_providers in DEVICE_TO_EXECUTION_PROVIDERS.items():
+            if provider in device_providers:
+                valid_devices.append(device)
+        
+        if current_device not in valid_devices and valid_devices:
+            # Current device is not valid for the provider, use the preferred device
+            preferred_device = provider_device_preference.get(provider, valid_devices[0])
+            accelerator["device"] = preferred_device
+            print(f"Note: Setting device to '{preferred_device}' to match provider '{provider}'")
 
     def _list_passes(self):
         """List all available passes."""

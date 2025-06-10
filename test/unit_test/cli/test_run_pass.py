@@ -264,7 +264,6 @@ def test_run_pass_command_accelerator_config_integration():
 def test_run_pass_command_device_provider_consistency():
     """Test that provider/device consistency is enforced."""
     from copy import deepcopy
-    from olive.common.utils import set_nested_dict_value
     
     # Test template
     TEMPLATE = {
@@ -289,23 +288,54 @@ def test_run_pass_command_device_provider_consistency():
     accelerator["device"] = "cpu"
     accelerator["execution_providers"] = ["CUDAExecutionProvider"]
     
-    # Apply consistency logic (simulate _ensure_device_provider_consistency)
-    from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
+    # Define test constants (from olive.hardware.constants)
+    DEVICE_TO_EXECUTION_PROVIDERS = {
+        "cpu": {"CPUExecutionProvider", "OpenVINOExecutionProvider"},
+        "gpu": {
+            "DmlExecutionProvider",
+            "CUDAExecutionProvider",
+            "ROCMExecutionProvider",
+            "MIGraphXExecutionProvider",
+            "TensorrtExecutionProvider",
+            "NvTensorRTRTXExecutionProvider",
+            "OpenVINOExecutionProvider",
+            "JsExecutionProvider",
+        },
+        "npu": {"DmlExecutionProvider", "QNNExecutionProvider", "VitisAIExecutionProvider", "OpenVINOExecutionProvider"},
+    }
     
+    # Apply consistency logic (simulate _ensure_device_provider_consistency)
     providers = accelerator.get("execution_providers", [])
+    current_device = accelerator.get("device", "cpu")
+    
     if providers:
         provider = providers[0]
         
-        # Map provider to correct device
-        provider_to_device = {}
-        for device, device_providers in DEVICE_TO_EXECUTION_PROVIDERS.items():
-            for p in device_providers:
-                provider_to_device[p] = device
+        # Define provider-specific device preferences
+        provider_device_preference = {
+            "CPUExecutionProvider": "cpu",
+            "CUDAExecutionProvider": "gpu", 
+            "ROCMExecutionProvider": "gpu",
+            "TensorrtExecutionProvider": "gpu",
+            "NvTensorRTRTXExecutionProvider": "gpu",
+            "MIGraphXExecutionProvider": "gpu",
+            "JsExecutionProvider": "gpu",
+            "DmlExecutionProvider": "gpu",
+            "QNNExecutionProvider": "npu",
+            "VitisAIExecutionProvider": "npu",
+            "OpenVINOExecutionProvider": "cpu",
+        }
         
-        # If provider requires a specific device, update it
-        if provider in provider_to_device:
-            required_device = provider_to_device[provider]
-            accelerator["device"] = required_device
+        # Check if current device is valid for the provider
+        valid_devices = []
+        for device, device_providers in DEVICE_TO_EXECUTION_PROVIDERS.items():
+            if provider in device_providers:
+                valid_devices.append(device)
+        
+        if current_device not in valid_devices and valid_devices:
+            # Current device is not valid for the provider, use the preferred device
+            preferred_device = provider_device_preference.get(provider, valid_devices[0])
+            accelerator["device"] = preferred_device
     
     # Verify that device was corrected to match the provider
     assert accelerator["device"] == "gpu"  # CUDAExecutionProvider requires gpu
