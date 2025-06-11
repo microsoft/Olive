@@ -54,7 +54,7 @@ def test_run_pass_command_list_passes():
 
     # Test list-passes argument
     args = parser.parse_args(["run-pass", "--list-passes"])
-    assert args.list_passes == True
+    assert args.list_passes is True
 
 
 def test_run_pass_command_pass_config():
@@ -186,7 +186,7 @@ def test_run_pass_command_config_generation_with_pass_config():
     # Verify the enhanced structure
     assert config["passes"]["onnxconversion"]["type"] == "OnnxConversion"
     assert config["passes"]["onnxconversion"]["target_opset"] == 13
-    assert config["passes"]["onnxconversion"]["convert_attribute"] == True
+    assert config["passes"]["onnxconversion"]["convert_attribute"] is True
 
 
 def test_run_pass_command_device_options():
