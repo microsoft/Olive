@@ -83,25 +83,22 @@ class RunPassCommand(BaseOliveCLICommand):
             olive_config.get_pass_module_config(pass_name)
         except ValueError:
             available_passes = list(olive_config.passes.keys())
-            raise ValueError(
-                f"Pass '{pass_name}' not found. Available passes: {', '.join(available_passes)}"
-            )
+            raise ValueError(f"Pass '{pass_name}' not found. Available passes: {', '.join(available_passes)}")
 
         # Create a simple pass configuration
         pass_config = {"type": pass_name}
 
         # Add pass-specific configuration if provided
-        if hasattr(self.args, 'pass_config') and self.args.pass_config:
+        if hasattr(self.args, "pass_config") and self.args.pass_config:
             import json
+
             try:
                 additional_config = json.loads(self.args.pass_config)
                 pass_config.update(additional_config)
             except json.JSONDecodeError as e:
                 raise ValueError(f"Invalid JSON in --pass-config: {e}")
 
-        config["passes"] = {
-            pass_name.lower(): pass_config
-        }
+        config["passes"] = {pass_name.lower(): pass_config}
 
         # Customize the config for user choices
         to_replace = [
@@ -122,7 +119,7 @@ class RunPassCommand(BaseOliveCLICommand):
 
     def run(self):
         # Check if user wants to list passes
-        if hasattr(self.args, 'list_passes') and self.args.list_passes:
+        if hasattr(self.args, "list_passes") and self.args.list_passes:
             self._list_passes()
             return
 
@@ -130,7 +127,7 @@ class RunPassCommand(BaseOliveCLICommand):
         if not self.args.pass_name:
             raise ValueError("--pass-name is required when not using --list-passes")
 
-        if not getattr(self.args, 'model_name_or_path', None):
+        if not getattr(self.args, "model_name_or_path", None):
             raise ValueError("-m/--model_name_or_path is required when not using --list-passes")
 
         self._run_workflow()
