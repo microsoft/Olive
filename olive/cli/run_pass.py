@@ -81,9 +81,11 @@ class RunPassCommand(BaseOliveCLICommand):
         olive_config = OlivePackageConfig.load_default_config()
         try:
             olive_config.get_pass_module_config(pass_name)
-        except ValueError:
+        except ValueError as verror:
             available_passes = list(olive_config.passes.keys())
-            raise ValueError(f"Pass '{pass_name}' not found. Available passes: {', '.join(available_passes)}")
+            raise ValueError(
+                f"Pass '{pass_name}' not found. Available passes: {', '.join(available_passes)}"
+            ) from verror
 
         # Create a simple pass configuration
         pass_config = {"type": pass_name}
@@ -96,7 +98,7 @@ class RunPassCommand(BaseOliveCLICommand):
                 additional_config = json.loads(self.args.pass_config)
                 pass_config.update(additional_config)
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON in --pass-config: {e}")
+                raise ValueError(f"Invalid JSON in --pass-config: {e}") from e
 
         config["passes"] = {pass_name.lower(): pass_config}
 
