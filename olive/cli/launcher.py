@@ -15,9 +15,9 @@ from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
 from olive.cli.manage_aml_compute import ManageAMLComputeCommand
-from olive.cli.run_pass import RunPassCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand
+from olive.cli.run_pass import RunPassCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
 from olive.cli.shared_cache import SharedCacheCommand
 
