@@ -398,6 +398,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "SelectiveMixedPrecision": {
+            "module_path": "olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "MergeAdapterWeights": {
             "module_path": "olive.passes.pytorch.merge_adapter_weights.MergeAdapterWeights",
             "supported_providers": [ "*" ],
@@ -586,6 +594,14 @@
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "onnxscript" ]
         },
+        "AddOliveMetadata": {
+            "module_path": "olive.passes.onnx.add_metadata.AddOliveMetadata",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "VitisAIAddMetaData": {
             "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIAddMetaData",
             "supported_providers": [ "CPUExecutionProvider" ],
@@ -618,7 +634,7 @@
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "nvmo": [ "nvidia-modelopt", "onnx-graphsurgeon", "datasets>=2.14.4", "cppimport==22.8.2" ],
-        "openvino": [ "openvino>=2025.1.0", "nncf>=2.16.0", "numpy<2.0", "optimum[openvino]" ],
+        "openvino": [ "openvino>=2025.1.0", "nncf>=2.16.0", "numpy<2.0", "optimum[openvino]<=1.24" ],
         "optimum": [ "optimum" ],
         "qnn": [ "onnxruntime-qnn" ],
         "tf": [ "tensorflow==1.15.0" ],

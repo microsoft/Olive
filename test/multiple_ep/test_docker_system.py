@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from olive.common.constants import OS
+from olive.hardware.accelerator import ExecutionProvider
 from olive.logging import set_default_logger_severity
 from olive.model import ModelConfig
 from test.multiple_ep.utils import get_directories
@@ -49,14 +50,14 @@ class TestOliveManagedDockerSystem:
         from test.multiple_ep.utils import create_and_run_workflow, get_latency_metric
 
         set_default_logger_severity(0)
-        cpu_res, openvino_res = create_and_run_workflow(
+        workflow_output = create_and_run_workflow(
             tmp_path,
             self.system_config,
             self.input_model_config,
             get_latency_metric(),
             only_target=True,
         )
-        assert cpu_res.metrics.value.__root__
-        assert openvino_res.metrics.value.__root__
+        assert workflow_output.cpu[str(ExecutionProvider.CPUExecutionProvider)][0].metrics
+        assert workflow_output.cpu[str(ExecutionProvider.OpenVINOExecutionProvider)][0].metrics
         assert "Creating olive_managed_env Docker with EP CPUExecutionProvider" in caplog.text
         assert "Creating olive_managed_env Docker with EP OpenVINOExecutionProvider" in caplog.text

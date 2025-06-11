@@ -196,6 +196,7 @@ class OpenVINOEncapsulation(Pass):
 
         # Define the model with an Execution Provider (EP) Context
         model_def = helper.make_model(graph_def, opset_imports=op_imports)
+        model_def.ir_version = 10
 
         # Save the model
         context_model_output = f"{model_name}.onnx"
@@ -356,11 +357,13 @@ def create_genai_config(model_name: str, output_path: str) -> None:
     genai_config["model"]["decoder"]["num_key_value_heads"] = src_config.get("num_key_value_heads", -1)
 
     genai_config["model"]["eos_token_id"] = src_gen_config.get("eos_token_id", -1)
-    pad_token_id = src_gen_config.get("pad_token_id", -1)
-    if pad_token_id != -1:
-        genai_config["model"]["pad_token_id"] = pad_token_id
-    else:
-        genai_config["model"]["pad_token_id"] = genai_config["model"]["eos_token_id"]
+    genai_config["model"]["pad_token_id"] = (
+        src_gen_config["pad_token_id"]
+        if hasattr(src_gen_config, "pad_token_id") and src_gen_config["pad_token_id"] is not None
+        else src_gen_config["eos_token_id"][0]
+        if isinstance(src_gen_config["eos_token_id"], list)
+        else src_gen_config["eos_token_id"]
+    )
     genai_config["model"]["type"] = src_config.get("model_type", "")
     genai_config["model"]["vocab_size"] = src_config.get("vocab_size", -1)
 

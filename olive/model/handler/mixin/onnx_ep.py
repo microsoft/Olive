@@ -15,6 +15,8 @@ class OnnxEpValidateMixin:
         # It should be a bug for onnxruntime where the execution provider is not be fallback.
         import onnxruntime as ort
 
+        from olive.common.ort_inference import ort_supports_ep_devices
+
         sess_options = ort.SessionOptions()
         if self.use_ort_extensions:
             # register custom ops for onnxruntime_extensions
@@ -22,14 +24,23 @@ class OnnxEpValidateMixin:
 
             sess_options.register_custom_ops_library(get_library_path())
 
-        try:
-            ort.InferenceSession(filepath, sess_options, providers=[ep])
-        except Exception as e:  # pylint: disable=broad-except
+        valid = True
+        e = None
+        if ort_supports_ep_devices():
+            valid = bool([ep_device for ep_device in ort.get_ep_devices() if ep_device.ep_name == ep])
+        else:
+            try:
+                ort.InferenceSession(filepath, sess_options, providers=[ep])
+            except Exception as ex:  # pylint: disable=broad-except
+                valid = False
+                e = ex
+
+        if not valid:
             logger.warning(
-                "Error: %s Olive will ignore this %(ep)s."
-                "Please make sure the environment with %(ep)s has the required dependencies.",
+                "Error: %s Olive will ignore this %s."
+                "Please make sure the environment with %s has the required dependencies.",
                 e,
-                ep=ep,
+                ep,
+                ep,
             )
-            return False
-        return True
+        return valid

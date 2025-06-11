@@ -114,7 +114,7 @@ class PyTorchTensorParallel(Pass):
 
             impl = LlamaPyTorchTensorParallel(rank, world_size)
         else:
-            raise ValueError("Unsupported model type '{model_type}' for tensor parallel pass")
+            raise ValueError(f"Unsupported model type '{model_type}' for tensor parallel pass")
 
         # 1. Replace the layers
         impl.replace_layers()

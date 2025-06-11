@@ -22,5 +22,5 @@ def test_super_resolution():
     with open("config.json") as f:
         olive_config = json.load(f)
 
-    footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
-    assert_nodes(footprint)
+    workflow_output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
+    assert_nodes(workflow_output)

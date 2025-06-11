@@ -22,8 +22,7 @@
             "precision": "int4",
             "int4_block_size": 32,
             "int4_accuracy_level": 4,
-            "int4_op_types_to_quantize": [ "MatMul", "Gather" ],
-            "save_as_external_data": true
+            "int4_op_types_to_quantize": [ "MatMul", "Gather" ]
         },
         "mq": {
             "type": "MatMulNBitsToQDQ",
@@ -55,7 +54,7 @@
         "st": { "type": "StaticLLM", "batch_size": 1, "context_length": 64 }
     },
     "log_severity_level": 1,
-    "output_dir": "models/phi3_5_qdq",
+    "output_dir": "models/phi3_5-qdq",
     "cache_dir": "cache",
     "no_artifacts": true
 }

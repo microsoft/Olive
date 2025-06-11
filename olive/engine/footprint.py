@@ -77,12 +77,19 @@ class Footprint:
         self.nodes: dict[str, FootprintNode] = nodes or OrderedDict()
         self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
+        self.input_model_id = None
+
+    @staticmethod
+    def create_empty_footprint():
+        return Footprint()
 
     def record_objective_dict(self, objective_dict):
         self.objective_dict = objective_dict
 
-    def record(self, foot_print_node: FootprintNode = None, **kwargs):
+    def record(self, foot_print_node: FootprintNode = None, is_input_model: bool = False, **kwargs):
         _model_id = kwargs.get("model_id")
+        if is_input_model:
+            self.input_model_id = _model_id
         if foot_print_node is not None:
             _model_id = foot_print_node.model_id
             self.nodes[_model_id] = foot_print_node
@@ -220,7 +227,7 @@ class Footprint:
         return self.get_model_config(model_id).get("use_ort_extensions", False)
 
     def get_input_node(self):
-        return next(v for _, v in self.nodes.items() if v.parent_model_id is None)
+        return self.nodes[self.input_model_id]
 
     def _len_first_metric(self):
         if not self.nodes:
