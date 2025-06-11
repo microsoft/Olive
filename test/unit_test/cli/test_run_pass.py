@@ -120,7 +120,7 @@ def test_run_pass_command_config_generation():
     from copy import deepcopy
 
     # Test the configuration template and generation logic
-    TEMPLATE = {
+    template = {
         "input_model": {"type": "HfModel", "load_kwargs": {"attn_implementation": "eager"}},
         "systems": {
             "local_system": {
@@ -135,7 +135,7 @@ def test_run_pass_command_config_generation():
     }
 
     # Simulate the _get_run_config logic
-    config = deepcopy(TEMPLATE)
+    config = deepcopy(template)
     pass_name = "OnnxConversion"
 
     # Add the pass configuration
@@ -158,7 +158,7 @@ def test_run_pass_command_config_generation_with_pass_config():
     """Test the configuration generation with additional pass config."""
     from copy import deepcopy
 
-    TEMPLATE = {
+    template = {
         "input_model": {"type": "HfModel", "load_kwargs": {"attn_implementation": "eager"}},
         "systems": {
             "local_system": {
@@ -173,7 +173,7 @@ def test_run_pass_command_config_generation_with_pass_config():
     }
 
     # Simulate enhanced configuration
-    config = deepcopy(TEMPLATE)
+    config = deepcopy(template)
     pass_name = "OnnxConversion"
     pass_config = {"type": pass_name}
 
@@ -234,7 +234,7 @@ def test_run_pass_command_accelerator_config_integration():
     from olive.common.utils import set_nested_dict_value
 
     # Test template
-    TEMPLATE = {
+    template = {
         "input_model": {"type": "HfModel", "load_kwargs": {"attn_implementation": "eager"}},
         "systems": {
             "local_system": {
@@ -249,7 +249,7 @@ def test_run_pass_command_accelerator_config_integration():
     }
 
     # Simulate update_accelerator_options logic
-    config = deepcopy(TEMPLATE)
+    config = deepcopy(template)
 
     # Simulate args with GPU device
     class MockArgs:
@@ -281,7 +281,7 @@ def test_run_pass_command_device_provider_consistency():
     from copy import deepcopy
 
     # Test template
-    TEMPLATE = {
+    template = {
         "input_model": {"type": "HfModel", "load_kwargs": {"attn_implementation": "eager"}},
         "systems": {
             "local_system": {
@@ -296,7 +296,7 @@ def test_run_pass_command_device_provider_consistency():
     }
 
     # Test the consistency enforcement logic
-    config = deepcopy(TEMPLATE)
+    config = deepcopy(template)
 
     # Simulate a case where user specifies device=cpu but provider=CUDAExecutionProvider
     accelerator = config["systems"]["local_system"]["accelerators"][0]
@@ -304,7 +304,7 @@ def test_run_pass_command_device_provider_consistency():
     accelerator["execution_providers"] = ["CUDAExecutionProvider"]
 
     # Define test constants (from olive.hardware.constants)
-    DEVICE_TO_EXECUTION_PROVIDERS = {
+    device_to_ep = {
         "cpu": {"CPUExecutionProvider", "OpenVINOExecutionProvider"},
         "gpu": {
             "DmlExecutionProvider",
@@ -348,7 +348,7 @@ def test_run_pass_command_device_provider_consistency():
 
         # Check if current device is valid for the provider
         valid_devices = []
-        for device, device_providers in DEVICE_TO_EXECUTION_PROVIDERS.items():
+        for device, device_providers in device_to_ep.items():
             if provider in device_providers:
                 valid_devices.append(device)
 
