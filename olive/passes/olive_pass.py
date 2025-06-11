@@ -194,11 +194,7 @@ class Pass(ABC):
         return config
 
     @classmethod
-    def validate_config(
-        cls,
-        config: type[BasePassConfig],
-        accelerator_spec: AcceleratorSpec,
-    ) -> bool:
+    def validate_config(cls, config: type[BasePassConfig], accelerator_spec: AcceleratorSpec) -> bool:
         """Validate the input config for the pass."""
         return True
 

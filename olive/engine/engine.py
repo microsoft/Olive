@@ -633,12 +633,17 @@ class Engine:
 
         the passes is the list of (pass_name, pass_search_point) tuples
         """
+        if not self.computed_passes_configs:
+            # No passes to run!
+            return True, None, []
+
         should_prune = False
         # run all the passes in the step
         model_ids = []
-        pass_name = None
+        last_pass_name = None
 
         for pass_name in self.computed_passes_configs:
+            last_pass_name = pass_name
             model_config, model_id = self._run_pass(
                 pass_name,
                 model_config,
@@ -656,7 +661,7 @@ class Engine:
 
         if not should_prune:
             # evaluate the model
-            evaluator_config = self.evaluator_for_pass(pass_name)
+            evaluator_config = self.evaluator_for_pass(last_pass_name)
             if not self.search_strategy and evaluator_config is None:
                 # skip evaluation if no search and no evaluator
                 signal = None
