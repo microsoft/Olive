@@ -28,21 +28,16 @@ class OrtSessionFallbackError(Exception):
     """Raised when the onnxruntime fallback happens."""
 
 
-def is_winml_installation() -> bool:
+def ort_supports_ep_devices() -> bool:
     from onnxruntime import __version__ as OrtVersion
 
-    if version.parse(OrtVersion) >= version.parse("1.22.0"):
-        try:
-            from onnxruntime import winml  # noqa: F401 # pylint: disable=unused-import
-        except ImportError:
-            logger.info("onnxruntime-winml not installed")
-            return False
-        return True
-    return False
+    # NOTE: v1.22.0 native implementation has the necessary support for Auto-EP
+    # devices but the python bindings don't exist yet in the same version.
+    return version.parse(OrtVersion) > version.parse("1.22.0")
 
 
 def get_ort_hardware_device_type(device: Union["Device", str]):
-    if is_winml_installation():
+    if ort_supports_ep_devices():
         from onnxruntime import OrtHardwareDeviceType
 
         mapping = {
@@ -55,7 +50,7 @@ def get_ort_hardware_device_type(device: Union["Device", str]):
 
 
 def get_ort_execution_provider_device_policy(policy: str):
-    if is_winml_installation():
+    if ort_supports_ep_devices():
         from onnxruntime import OrtExecutionProviderDevicePolicy
 
         mapping = {
@@ -71,9 +66,12 @@ def get_ort_execution_provider_device_policy(policy: str):
     return None
 
 
-def initialize_inference_session_options_for_winml(
+def initialize_inference_session_options(
     sess_options, device, providers, provider_options, provider_selection_policy=None
 ):
+    if not ort_supports_ep_devices():
+        return
+
     import onnxruntime as ort
 
     providers = providers or []
@@ -174,7 +172,7 @@ def get_ort_inference_session(
     for idx, provider in enumerate(providers):
         if provider in ["CUDAExecutionProvider", "DmlExecutionProvider"] and device_id is not None:
             provider_options[idx]["device_id"] = str(device_id)
-        elif provider == "QNNExecutionProvider":
+        elif provider == "QNNExecutionProvider" and "backend_path" not in provider_options[idx]:
             # add backend_path for QNNExecutionProvider
             provider_options[idx]["backend_path"] = "QnnHtp.dll"
     logger.debug("Normalized providers: %s, provider_options: %s", providers, provider_options)
@@ -184,8 +182,8 @@ def get_ort_inference_session(
         sess_options.enable_mem_pattern = False
 
     sess_kwargs = {}
-    if is_winml_installation():
-        initialize_inference_session_options_for_winml(
+    if ort_supports_ep_devices():
+        initialize_inference_session_options(
             sess_options, device, providers, provider_options, inference_settings.get("provider_selection_policy")
         )
     else:
