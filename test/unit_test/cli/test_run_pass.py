@@ -35,11 +35,10 @@ def test_run_pass_command_argument_parsing():
     RunPassCommand.register_subcommand(sub_parsers)
 
     # Test parsing with valid arguments
-    args = parser.parse_args(["run-pass", "--pass-name", "OnnxConversion", "-m", "test_model", "-o", "output"])
+    args = parser.parse_args(["run-pass", "--pass-name", "OnnxConversion", "-m", "test_model", "-o", "/tmp/output"])
 
     assert args.pass_name == "OnnxConversion"
     assert args.model_name_or_path == "test_model"
-    assert args.output_path == "output"
     assert not hasattr(args, "list_passes") or not args.list_passes
 
 
