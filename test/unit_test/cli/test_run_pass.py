@@ -20,7 +20,7 @@ def test_run_pass_command_help():
     assert "usage:" in help_text
     assert "run-pass" in help_text
     assert "--pass-name" in help_text
-    assert "Run a single pass on the input model" in help_text
+    assert "Name of the pass to run on the input model" in help_text
 
 
 def test_run_pass_command_argument_parsing():
