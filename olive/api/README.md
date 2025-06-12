@@ -27,12 +27,9 @@ These functions return `WorkflowOutput` objects containing optimized models:
 ### Utility Functions
 These functions perform operations but don't return model outputs:
 
-- **`configure_qualcomm_sdk()`** - Configure Qualcomm SDK
 - **`convert_adapters()`** - Convert adapter formats
 - **`extract_adapters()`** - Extract LoRA adapters from PyTorch models
 - **`generate_cost_model()`** - Generate cost models for splitting
-- **`manage_aml_compute()`** - Manage AzureML compute resources
-- **`shared_cache()`** - Manage shared cache operations
 
 ## Quick Start
 
@@ -106,12 +103,9 @@ The Python API provides the same functionality as CLI commands:
 | `olive capture-onnx` | `capture_onnx()` | `WorkflowOutput` |
 | `olive generate-adapter` | `generate_adapter()` | `WorkflowOutput` |
 | `olive tune-session-params` | `session_params_tuning()` | `WorkflowOutput` |
-| `olive configure-qualcomm-sdk` | `configure_qualcomm_sdk()` | `None` |
 | `olive convert-adapters` | `convert_adapters()` | `None` |
 | `olive extract-adapters` | `extract_adapters()` | `None` |
 | `olive generate-cost-model` | `generate_cost_model()` | `None` |
-| `olive manage-aml-compute` | `manage_aml_compute()` | `None` |
-| `olive shared-cache` | `shared_cache()` | `None` |
 
 ## Installation
 

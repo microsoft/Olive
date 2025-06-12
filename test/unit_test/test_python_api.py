@@ -24,34 +24,28 @@ class TestOlivePythonAPI:
             from olive.api.workflow import (
                 auto_opt,
                 capture_onnx,
-                configure_qualcomm_sdk,
                 convert_adapters,
                 extract_adapters,
                 finetune,
                 generate_adapter,
                 generate_cost_model,
-                manage_aml_compute,
                 quantize,
                 run,
                 session_params_tuning,
-                shared_cache,
             )
 
             # Test that all functions are callable
             api_functions = [
                 auto_opt,
                 capture_onnx,
-                configure_qualcomm_sdk,
                 convert_adapters,
                 extract_adapters,
                 finetune,
                 generate_adapter,
                 generate_cost_model,
-                manage_aml_compute,
                 quantize,
                 run,
                 session_params_tuning,
-                shared_cache,
             ]
 
             for func in api_functions:
@@ -66,17 +60,14 @@ class TestOlivePythonAPI:
             from olive import (
                 auto_opt,
                 capture_onnx,
-                configure_qualcomm_sdk,
                 convert_adapters,
                 extract_adapters,
                 finetune,
                 generate_adapter,
                 generate_cost_model,
-                manage_aml_compute,
                 quantize,
                 run,
                 session_params_tuning,
-                shared_cache,
             )
 
             # Test that functions are available
@@ -190,22 +181,12 @@ class TestOlivePythonAPI:
     def test_utility_function_signatures(self):
         """Test that utility functions have expected parameters."""
         try:
-            from olive.api.workflow import configure_qualcomm_sdk, convert_adapters, shared_cache
-
-            # Test configure_qualcomm_sdk signature
-            config_sig = inspect.signature(configure_qualcomm_sdk)
-            assert "py_version" in config_sig.parameters
-            assert "sdk" in config_sig.parameters
+            from olive.api.workflow import convert_adapters
 
             # Test convert_adapters signature
             convert_sig = inspect.signature(convert_adapters)
             assert "adapter_path" in convert_sig.parameters
             assert "output_path" in convert_sig.parameters
-
-            # Test shared_cache signature
-            cache_sig = inspect.signature(shared_cache)
-            assert "account" in cache_sig.parameters
-            assert "container" in cache_sig.parameters
 
         except ImportError as e:
             pytest.skip(f"Skipping utility function test due to missing dependencies: {e}")

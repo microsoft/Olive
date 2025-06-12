@@ -121,10 +121,7 @@ def example_run_config():
 
 def example_utility_functions():
     """Example: Use utility functions."""
-    from olive import configure_qualcomm_sdk, convert_adapters, extract_adapters, shared_cache
-    
-    # Configure Qualcomm SDK (no return value)
-    configure_qualcomm_sdk(py_version="3.8", sdk="qnn")
+    from olive import convert_adapters, extract_adapters
     
     # Convert LoRA adapters to ONNX format (no return value)
     convert_adapters(
@@ -138,15 +135,6 @@ def example_utility_functions():
         model_path="./pytorch_model_with_lora",
         output_path="./extracted_adapters",
         format="onnx_adapter"
-    )
-    
-    # Manage shared cache (no return value)
-    shared_cache(
-        account="mystorageaccount",
-        container="mycache",
-        delete=True,
-        model_hash="abc123",
-        yes=True
     )
 
 

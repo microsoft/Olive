@@ -14,8 +14,7 @@ Model Optimization Functions (return WorkflowOutput):
   session_params_tuning, run
 
 Utility Functions (return None):
-- configure_qualcomm_sdk, convert_adapters, extract_adapters,
-  generate_cost_model, manage_aml_compute, shared_cache
+- convert_adapters, extract_adapters, generate_cost_model
 """
 import tempfile
 from pathlib import Path
@@ -23,17 +22,14 @@ from typing import Any, Dict, List, Optional, Union
 
 from olive.cli.auto_opt import AutoOptCommand
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand  
-from olive.cli.configure_qualcomm_sdk import ConfigureQualcommSDKCommand
 from olive.cli.convert_adapters import ConvertAdaptersCommand
 from olive.cli.extract_adapters import ExtractAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
-from olive.cli.manage_aml_compute import ManageAMLComputeCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
-from olive.cli.shared_cache import SharedCacheCommand
 from olive.constants import Precision
 from olive.engine.output import WorkflowOutput
 from olive.workflows import run as olive_run
@@ -442,24 +438,6 @@ def session_params_tuning(
 
 
 # Utility functions that don't necessarily produce model outputs
-def configure_qualcomm_sdk(
-    py_version: str,
-    sdk: str,
-) -> None:
-    """
-    Configure Qualcomm SDK for Olive.
-    
-    Args:
-        py_version: Python version ("3.6", "3.8")
-        sdk: Qualcomm SDK ("snpe", "qnn")
-    """
-    from argparse import Namespace
-    
-    args = Namespace(py_version=py_version, sdk=sdk)
-    command = ConfigureQualcommSDKCommand(None, args)
-    command.run()
-
-
 def convert_adapters(
     adapter_path: str,
     output_path: str,
@@ -565,74 +543,4 @@ def generate_cost_model(
     )
     
     command = GenerateCostModelCommand(None, args)
-    command.run()
-
-
-def manage_aml_compute(
-    action: str,
-    compute_name: str,
-    *,
-    workspace_config: Optional[str] = None,
-    log_level: int = 3,
-    **kwargs
-) -> None:
-    """
-    Manage AzureML compute resources.
-    
-    Args:
-        action: Action to perform ("create", "delete", "start", "stop")
-        compute_name: Name of the compute resource
-        workspace_config: Path to AzureML workspace config
-        log_level: Logging level (1-5)
-        **kwargs: Additional management parameters
-    """
-    from argparse import Namespace
-    
-    args = Namespace(
-        action=action,
-        compute_name=compute_name,
-        workspace_config=workspace_config,
-        log_level=log_level,
-        **kwargs
-    )
-    
-    command = ManageAMLComputeCommand(None, args)
-    command.run()
-
-
-def shared_cache(
-    account: str,
-    container: str,
-    *,
-    delete: bool = False,
-    delete_all: bool = False,
-    model_hash: Optional[str] = None,
-    yes: bool = False,
-    **kwargs
-) -> None:
-    """
-    Manage shared cache operations.
-    
-    Args:
-        account: Account name for shared cache
-        container: Container name for shared cache
-        delete: Delete a model cache
-        delete_all: Delete all model cache
-        model_hash: Model hash to remove from cache
-        yes: Confirm deletion without prompting
-        **kwargs: Additional cache parameters
-    """
-    from argparse import Namespace
-    
-    args = Namespace(
-        account=account,
-        container=container,
-        delete=delete,
-        all=delete_all,  # Note: CLI uses 'all' not 'delete_all'
-        model_hash=model_hash,
-        yes=yes,
-        **kwargs
-    )
-    
-    command = SharedCacheCommand(None, args)
     command.run()
