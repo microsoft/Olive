@@ -2,16 +2,26 @@
 
 This repository demonstrates the optimization of the [Microsoft Phi-3.5 Mini Instruct](https://huggingface.co/microsoft/Phi-3.5-mini-instruct) model using **post-training quantization (PTQ)** techniques. The optimization process is divided into two main workflows:
 
-1. [**QDQ Model with 4-bit Weights & 16-bit Activations**](#qdq-model-with-4-bit-weights--16-bit-activations)
-    - [Optimization Process](#optimization-process)
-    - [Handling Dynamic and Static Input Shapes](#handling-dynamic-and-static-input-shapes)
-    - [Usage](#usage)
-
-2. [**PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**](#ptq--aot-compilation-for-qualcomm-npus-using-qnn-ep)
-    - [Resource Optimization Strategy](#resource-optimization-strategy)
-    - [Compilation for Qualcomm NPU Deployment](#compilation-for-qualcomm-npu-deployment)
-    - [Usage](#usage-1)
-    - [Inference](#inference)
+- [Phi-3.5 Model Optimization](#phi-35-model-optimization)
+  - [**QDQ Model with 4-bit Weights \& 16-bit Activations**](#qdq-model-with-4-bit-weights--16-bit-activations)
+    - [**Optimization Process**](#optimization-process)
+    - [**Handling Dynamic and Static Input Shapes**](#handling-dynamic-and-static-input-shapes)
+    - [**Usage**](#usage)
+      - [**Quantization Python Environment Setup**](#quantization-python-environment-setup)
+      - [**Run the Quantization Config**](#run-the-quantization-config)
+  - [**PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**](#ptq--aot-compilation-for-qualcomm-npus-using-qnn-ep)
+    - [**Resource Optimization Strategy**](#resource-optimization-strategy)
+    - [**Compilation for Qualcomm NPU Deployment**](#compilation-for-qualcomm-npu-deployment)
+    - [**Usage**](#usage-1)
+      - [Quantization Python Environment Setup](#quantization-python-environment-setup-1)
+      - [AOT Compilation Python Environment Setup](#aot-compilation-python-environment-setup)
+      - [**Run the Quantization + Compilation Config**](#run-the-quantization--compilation-config)
+    - [**Inference**](#inference)
+      - [**Install Dependencies**](#install-dependencies)
+      - [**Install Required Python Packages**](#install-required-python-packages)
+      - [**Run Console-Based Chat Interface**](#run-console-based-chat-interface)
+  - [**PTQ + AOT Compilation for Intel® NPUs using Optimum Intel®**](#ptq--aot-compilation-for-intel-npus-using-optimum-intel)
+  - [**AMD NPU: Optimization and Quantization with for VitisAI**](#optimization-and-quantization-for-amd-npu)
 
 ## **QDQ Model with 4-bit Weights & 16-bit Activations**
 
@@ -78,8 +88,20 @@ pip install --no-build-isolation git+https://github.com/PanQiWei/AutoGPTQ.git
 olive run --config qdq_config.json
 ```
 
-✅ Optimized model saved in: `models/phi3_5_qdq/`
+✅ Optimized model saved in: `models/phi3_5-qdq/`
 
+
+## **Optimization and Quantization for AMD NPU**
+
+#### **Run the Quantization Config**
+
+Follow above mentioned setup instruction and run the below command to generate the optimized model for VitisAI EP.
+
+```bash
+olive run --config qdq_config_vitis_ai.json.json
+```
+
+✅ Optimized model saved in: `models/phi3_5-vai/`
 
 ## **PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**
 
@@ -146,7 +168,7 @@ olive run --config qnn_config.json
 
 Olive will run the AOT compilation step in the **AOT Compilation Python Environment** specified in the config file using a subprocess. All other steps will run in the **Quantization Python Environment** natively.
 
-✅ Optimized model saved in: `models/phi3_5_qnn/`
+✅ Optimized model saved in: `models/phi3_5-qnn/`
 
 > ⚠️ If optimization fails during context binary generation, rerun the command. The process will resume from the last completed step.
 
@@ -181,5 +203,9 @@ pip install "onnxruntime-genai>=0.7.0rc2"
 Open ARM64 Native Tools Command Prompt for VS2022 and execute the provided [`app.py`](app.py) script:
 
 ```bash
-python app.py
+python app.py -m models/phi3_5-qnn
 ```
+
+## **PTQ + AOT Compilation for Intel® NPUs using Optimum Intel®**
+
+- [**Intel® NPU**](./openvino/): Optimization with Optimum Intel® on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model instructions are in the in the [openvino](./openvino/) folder.

@@ -1,0 +1,90 @@
+# Olive Build and Test Pipeline template for examples on Azure DevOps
+
+parameters:
+  name: ''
+  pool: ''
+  python_version: '3.10'
+  device: 'gpu'
+  dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
+  docker_image: 'olive-pipeline:latest'
+  base_image: 'mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
+  trt_version: '10.5.0.18-1+cuda12.6'
+  onnxruntime: 'onnxruntime-gpu'
+  hf_token: false
+  subfolder: 'local'
+  torch: 'torch'
+  test_script: 'run_test.sh'
+  onnxruntime_nightly: false
+
+jobs:
+- job: ${{ parameters.name }}_Test_Examples
+  timeoutInMinutes: 300
+  pool:
+    name: ${{ parameters.pool }}
+  strategy:
+    matrix:
+      ${{ insert }}: ${{ parameters.examples }}
+  variables:
+    PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
+    HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
+    OLIVE_TEMPDIR: $(Pipeline.Workspace)/.olive_tempdir
+
+  steps:
+  - template: build-docker-image-template.yaml
+    parameters:
+      python_version: ${{ parameters.python_version }}
+      dockerfile: ${{ parameters.dockerfile }}
+      docker_image: ${{ parameters.docker_image }}
+      base_image: ${{ parameters.base_image }}
+      trt_version: ${{ parameters.trt_version }}
+
+  # set exampleRequirements to requirements.txt if user does not specify
+  - script:
+      echo "##vso[task.setvariable variable=exampleRequirements]requirements.txt"
+    displayName: Set exampleRequirements
+    condition: eq(variables['exampleRequirements'], '')
+
+  - script: |
+      GPU_OPTION=""
+      if [ "${{ parameters.device }}" = "gpu" ]; then
+          GPU_OPTION="--gpus=all"
+      fi
+      HF_TOKEN_OPTION=""
+      if [ ${{ parameters.hf_token }} = true ]; then
+          HF_TOKEN_OPTION="-e HF_TOKEN=$(hf_token)"
+      fi
+      docker run \
+      --shm-size=4g \
+      $GPU_OPTION \
+      -v $(Build.SourcesDirectory)/logs:/logs \
+      -e WORKSPACE_SUBSCRIPTION_ID=$(workspace-subscription-id) \
+      -e WORKSPACE_RESOURCE_GROUP=$(workspace-resource-group) \
+      -e WORKSPACE_NAME=$(workspace-name) \
+      -e MANAGED_IDENTITY_CLIENT_ID=$(olive-1es-identity-client-id) \
+      -e PIPELINE_TEST_ACCOUNT_NAME=$(pipeline-test-account-name) \
+      -e PIPELINE_TEST_CONTAINER_NAME=$(pipeline-test-container-name) \
+      -e KEYVAULT_NAME=$(keyvault-name) \
+      $HF_TOKEN_OPTION \
+      ${{ parameters.docker_image }} \
+      bash .azure_pipelines/scripts/${{ parameters.test_script }} \
+      ${{ parameters.torch }} \
+      ${{ parameters.onnxruntime }} \
+      ${{ parameters.onnxruntime_nightly }} \
+      examples/$(exampleFolder)/$(exampleRequirements) \
+      examples/test/${{ parameters.subfolder }}/test_$(exampleName).py \
+      false \
+      $(hf_token)
+    displayName: Run Tests in Docker
+
+  # Step 3: Publish test results
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: '**/logs/test_examples-TestOlive.xml'
+      testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
+      failTaskOnFailedTests: true
+    displayName: Publish Test Results
+
+  - script: sudo git clean -dfX
+    condition: always()
+    displayName: Clean remaining artifacts

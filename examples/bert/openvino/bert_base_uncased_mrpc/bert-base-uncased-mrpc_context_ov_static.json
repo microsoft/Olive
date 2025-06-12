@@ -26,6 +26,7 @@
         "io_update": {
             "type": "OpenVINOIoUpdate",
             "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
+            "input_names": [ "input_ids", "attention_mask", "token_type_ids" ],
             "static": true
         },
         "ov_quantize": {
@@ -34,12 +35,20 @@
             "data_config": "session_params_tuning_data_config",
             "model_type": "TRANSFORMER",
             "user_script": "user_script.py",
-            "transform_fn": "custom_transform_func"
+            "transform_fn": "custom_transform_func",
+            "reuse_cache": true
         },
-        "encapsulation": { "type": "OpenVINOEncapsulation", "target_device": "npu", "ov_version": "2025.1" }
+        "encapsulation": {
+            "type": "OpenVINOEncapsulation",
+            "target_device": "npu",
+            "ov_version": "2025.1",
+            "reuse_cache": true
+        }
     },
     "search_strategy": false,
     "host": "local_system",
+    "cache_dir": "cache",
+    "clean_cache": true,
     "evaluate_input_model": false,
     "output_dir": "models/bert-base-uncased-mrpc_context_ov_static"
 }

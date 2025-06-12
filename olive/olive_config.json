@@ -161,8 +161,16 @@
             "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
             "supported_accelerators": [ "cpu", "gpu" ],
             "supported_precisions": [ "int4" ],
-            "supported_algorithms": [ "rtn", "hqq" ],
+            "supported_algorithms": [ "rtn" ],
             "supported_quantization_encodings": [ "qdq" ]
+        },
+        "OnnxHqqQuantization": {
+            "module_path": "olive.passes.onnx.hqq_quantization.OnnxHqqQuantization",
+            "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "int4" ],
+            "supported_algorithms": [ "hqq" ],
+            "supported_quantization_encodings": [  ]
         },
         "OnnxPeepholeOptimizer": {
             "module_path": "olive.passes.onnx.peephole_optimizer.OnnxPeepholeOptimizer",
@@ -390,6 +398,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "SelectiveMixedPrecision": {
+            "module_path": "olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "MergeAdapterWeights": {
             "module_path": "olive.passes.pytorch.merge_adapter_weights.MergeAdapterWeights",
             "supported_providers": [ "*" ],
@@ -577,6 +593,30 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "onnxscript" ]
+        },
+        "AddOliveMetadata": {
+            "module_path": "olive.passes.onnx.add_metadata.AddOliveMetadata",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "VitisAIAddMetaData": {
+            "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIAddMetaData",
+            "supported_providers": [ "CPUExecutionProvider" ],
+            "supported_accelerators": [ "cpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
+        "InputNCHWtoNHWC": {
+            "module_path": "olive.passes.onnx.vitis_ai.preprocess.InputNCHWtoNHWC",
+            "supported_providers": [ "CPUExecutionProvider" ],
+            "supported_accelerators": [ "cpu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         }
     },
     "extra_dependencies": {
@@ -594,7 +634,7 @@
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "nvmo": [ "nvidia-modelopt", "onnx-graphsurgeon", "datasets>=2.14.4", "cppimport==22.8.2" ],
-        "openvino": [ "openvino>=2025.1.0", "nncf>=2.16.0", "numpy<2.0", "optimum[openvino]" ],
+        "openvino": [ "openvino>=2025.1.0", "nncf>=2.16.0", "numpy<2.0", "optimum[openvino]<=1.24" ],
         "optimum": [ "optimum" ],
         "qnn": [ "onnxruntime-qnn" ],
         "tf": [ "tensorflow==1.15.0" ],

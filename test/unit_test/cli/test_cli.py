@@ -5,6 +5,7 @@
 import json
 import subprocess
 import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -83,9 +84,11 @@ def test_unknown_args():
 @pytest.mark.parametrize("setup", [True, False])
 @pytest.mark.parametrize("tempdir", [None, "tempdir"])
 @patch("olive.workflows.run")
-def test_workflow_run_command(mock_run, tempdir, setup, packages):
+def test_workflow_run_command(mock_run, tempdir, setup, packages, tmp_path):
     # setup
-    command_args = ["run", "--run-config", "config.json"]
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"key": "value"}))  # Create a dummy config file
+    command_args = ["run", "--run-config", str(config_path)]
     if packages:
         command_args.append("--packages")
     if setup:
@@ -98,7 +101,47 @@ def test_workflow_run_command(mock_run, tempdir, setup, packages):
 
     # assert
     mock_run.assert_called_once_with(
-        run_config="config.json", setup=setup, package_config=None, tempdir=tempdir, packages=packages
+        {"key": "value"}, setup=setup, package_config=None, tempdir=tempdir, packages=packages
+    )
+
+
+@patch("olive.workflows.run")
+def test_workflow_run_command_with_overrides(mock_run, tmp_path):
+    # setup
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"input_model": {"key": "value"}, "engine": {"log_severity_level": 3}, "output_dir": "output"})
+    )
+    command_args = [
+        "run",
+        "--run-config",
+        str(config_path),
+        "--model_name_or_path",
+        "hf-internal-testing/tiny-random-LlamaForCausalLM",
+        "--output_path",
+        "new_output_path",
+        "--log_level",
+        "2",
+    ]
+
+    # execute
+    cli_main(command_args)
+    # assert
+    mock_run.assert_called_once_with(
+        {
+            "input_model": {
+                "type": "HfModel",
+                "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+            },
+            "engine": {},
+            "output_dir": str(Path("new_output_path").resolve()),
+            "log_severity_level": 2,
+        },
+        setup=False,
+        package_config=None,
+        tempdir=None,
+        packages=False,
     )
 
 

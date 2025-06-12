@@ -22,8 +22,7 @@
             "precision": "int4",
             "int4_block_size": 32,
             "int4_accuracy_level": 4,
-            "int4_op_types_to_quantize": [ "MatMul", "Gather" ],
-            "save_as_external_data": true
+            "int4_op_types_to_quantize": [ "MatMul", "Gather" ]
         },
         "mq": {
             "type": "MatMulNBitsToQDQ",
@@ -51,11 +50,27 @@
             "op_types_to_exclude": [ "GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits" ],
             "save_as_external_data": true
         },
+        "addmetadata": {
+            "type": "VitisAIAddMetaData",
+            "config_meta_data_keys": [ "architectures", "model_type" ],
+            "activation_type": "uint16",
+            "weight_type": "int4",
+            "quant_type": "QuaRot"
+        },
         "sp": { "type": "SplitModel" },
-        "st": { "type": "StaticLLM", "batch_size": 1, "context_length": 64 }
+        "st": {
+            "type": "StaticLLM",
+            "batch_size": 1,
+            "context_length": 64,
+            "group_session_options": {
+                "log_id": "onnxruntime-genai",
+                "provider_options": [ { "VitisAI": {  } } ],
+                "graph_optimization_level": "ORT_ENABLE_ALL"
+            }
+        }
     },
     "log_severity_level": 1,
-    "output_dir": "models/phi3_5_qdq",
+    "output_dir": "models/phi3_5-vai",
     "cache_dir": "cache",
     "no_artifacts": true
 }

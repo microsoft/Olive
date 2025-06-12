@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import platform
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,8 @@ from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.onnxscript_fusion import OnnxScriptFusion
 
 
+# TODO(anyone): Remove the skip condition once the issue is resolved
+@pytest.mark.skipif(platform.system() == "Windows", reason="Skip on Windows due to export failure")
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse("2.7.0"), reason="Requires PyTorch 2.7 or higher")
 def test_onnxscript_fusion_pass_works(tmp_path):
     base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")

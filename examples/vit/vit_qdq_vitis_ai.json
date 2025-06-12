@@ -77,8 +77,17 @@
             "precision": "uint8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
+        },
+        "addmetadata": {
+            "type": "VitisAIAddMetaData",
+            "config_meta_data_keys": [ "architectures", "model_type" ],
+            "activation_type": "uint16",
+            "weight_type": "uint8",
+            "quant_type": "OnnxStaticQuantization"
         }
     },
     "evaluator": "common_evaluator",
-    "output_dir": "models/vit-base-patch16-224_Gelu"
+    "cache_dir": "cache/vit",
+    "clean_cache": false,
+    "output_dir": "models/vit-base-patch16-224"
 }

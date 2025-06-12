@@ -129,7 +129,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin):
 
         try:
             return get_ort_inference_session(
-                self.model_path, inference_settings, self.use_ort_extensions, device_id, external_initializers
+                self.model_path, device, inference_settings, self.use_ort_extensions, device_id, external_initializers
             )
         except OrtSessionFallbackError as e:
             raise OliveEvaluationError(e) from e

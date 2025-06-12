@@ -93,6 +93,19 @@ def serialize_to_json(obj: Any, check_object: bool = False, make_absolute: bool 
     return json.loads(raw_json)
 
 
+def load_config_file(file_path: Union[str, Path]) -> dict:
+    """Load a file into a dictionary."""
+    file_path = Path(file_path)
+    if file_path.suffix in {".yaml", ".yml"}:
+        with open(file_path) as f:
+            return yaml.safe_load(f)
+    elif file_path.suffix == ".json":
+        with open(file_path) as f:
+            return json.load(f)
+    else:
+        raise ValueError(f"Unsupported file type: {file_path.suffix}")
+
+
 class ConfigBase(BaseModel):
     class Config:
         arbitrary_types_allowed = True
@@ -116,14 +129,11 @@ class ConfigBase(BaseModel):
         :return: ConfigBase object.
         """
         if isinstance(file_or_obj, dict):
-            return cls.parse_obj(file_or_obj)
+            obj = file_or_obj
+        else:
+            obj = load_config_file(file_or_obj)
 
-        file_path = Path(file_or_obj)
-        if file_path.suffix in {".yaml", ".yml"}:
-            with open(file_path) as f:
-                return cls.parse_obj(yaml.safe_load(f))
-
-        return cls.parse_file(file_path)
+        return cls.parse_obj(obj)
 
 
 class ConfigListBase(ConfigBase):

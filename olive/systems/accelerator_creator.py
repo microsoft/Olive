@@ -97,15 +97,20 @@ class AcceleratorNormalizer:
                 accelerator.device = inferred_device
             elif not accelerator.execution_providers:
                 # User specify the device but missing the execution providers
-                execution_providers = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
-                    accelerator.device.lower(), self.system_supported_eps
-                )
+                if str(accelerator.device).lower() == "cpu":
+                    execution_providers = ["CPUExecutionProvider"]
+                elif str(accelerator.device).lower() == "gpu":
+                    execution_providers = ["CUDAExecutionProvider"]
+                else:
+                    raise ValueError(
+                        f"Please specify the execution providers for the device: {accelerator.device}.",
+                    )
                 accelerator.execution_providers = execution_providers
                 filtered_eps = [ep for ep in self.system_supported_eps if ep not in execution_providers]
                 if filtered_eps:
                     logger.warning(
                         "The following execution providers are filtered: %s. "
-                        "Please raise issue in Olive site since it might be a bug. ",
+                        "Please add the specific execution provider to the config if you want to enable it. ",
                         ",".join(filtered_eps),
                     )
 

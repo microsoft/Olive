@@ -236,6 +236,14 @@ def quant_type_from_precision(p):
     return mapping.get(p)
 
 
+def bits_from_precision(p):
+    mapping = {
+        Precision.INT4: 4,
+        Precision.INT8: 8,
+    }
+    return mapping.get(p)
+
+
 def precision_bits_from_precision(p):
     mapping = {
         Precision.INT4: PrecisionBits.BITS4,
@@ -747,6 +755,13 @@ class OnnxMatMul4Quantizer(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
+            "precision": PassConfigParam(
+                type_=Precision,
+                default_value=Precision.INT4,
+                description="""
+                    Data type for quantizing weights.
+                """,
+            ),
             "block_size": PassConfigParam(
                 type_=int,
                 default_value=32,
@@ -818,6 +833,7 @@ class OnnxMatMul4Quantizer(Pass):
             "validate_quant_config": validator("weight_only_quant_configs", allow_reuse=True)(
                 _validate_weight_only_quant_config
             ),
+            "validate_algorithm": validator("algorithm", allow_reuse=True)(_validate_algorithm),
         }
 
     def _run_for_config(
@@ -832,7 +848,6 @@ class OnnxMatMul4Quantizer(Pass):
             from onnxruntime.quantization.matmul_nbits_quantizer import (
                 DefaultWeightOnlyQuantConfig,
                 GPTQWeightOnlyQuantConfig,
-                HQQWeightOnlyQuantConfig,
                 MatMulNBitsQuantizer,
                 RTNWeightOnlyQuantConfig,
             )
@@ -840,7 +855,6 @@ class OnnxMatMul4Quantizer(Pass):
             from onnxruntime.quantization.matmul_4bits_quantizer import (
                 DefaultWeightOnlyQuantConfig,
                 GPTQWeightOnlyQuantConfig,
-                HQQWeightOnlyQuantConfig,
                 RTNWeightOnlyQuantConfig,
             )
             from onnxruntime.quantization.matmul_4bits_quantizer import (
@@ -849,7 +863,6 @@ class OnnxMatMul4Quantizer(Pass):
 
         algo_to_config = {
             None: DefaultWeightOnlyQuantConfig,
-            QuantAlgorithm.HQQ: HQQWeightOnlyQuantConfig,
             QuantAlgorithm.RTN: RTNWeightOnlyQuantConfig,
             QuantAlgorithm.GPTQ: GPTQWeightOnlyQuantConfig,
         }
@@ -893,12 +906,13 @@ class OnnxMatMul4Quantizer(Pass):
                 elif key in kwargs:
                     # get value from pass config
                     algo_config[key] = kwargs[key]
+                if woq_config_class == DefaultWeightOnlyQuantConfig:
+                    algo_config["bits"] = bits_from_precision(config.precision)
             if config.algorithm == QuantAlgorithm.GPTQ:
                 algo_config["calibration_data_reader"] = get_calibration_dataloader(config)
             kwargs["algo_config"] = woq_config_class(**algo_config)
         else:
             kwargs["algo_config"] = None
-
         quant = MatMulNBitsQuantizer(model.load_model(), **kwargs)
         quant.process()
         # topologically sort the graph at the end since previous optimizations may have broken it
@@ -922,8 +936,6 @@ def _validate_weight_only_quant_config(v, values, field):
         default_config_keys = ["block_size", "is_symmetric", "accuracy_level"]
     elif values["algorithm"] == QuantAlgorithm.RTN:
         default_config_keys = ["ratios"]
-    elif values["algorithm"] == QuantAlgorithm.HQQ:
-        default_config_keys = ["block_size", "bits", "axis"]
     elif values["algorithm"] == QuantAlgorithm.GPTQ:
         default_config_keys = ["percdamp", "block_size", "actorder", "mse", "perchannel"]
     else:
@@ -939,6 +951,12 @@ def _validate_weight_only_quant_config(v, values, field):
             default_config_keys,
         )
         v = {key: v[key] for key in default_config_keys if key in v}
+    return v
+
+
+def _validate_algorithm(v, values, field):
+    if v not in (None, QuantAlgorithm.RTN, QuantAlgorithm.GPTQ):
+        raise ValueError(f"Unsupported algorithm: {v}")
     return v
 
 

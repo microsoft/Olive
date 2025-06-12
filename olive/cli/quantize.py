@@ -60,9 +60,15 @@ class QuantizeCommand(BaseOliveCLICommand):
             help="The precision of the quantized model.",
         )
         sub_parser.add_argument(
+            "--act_precision",
+            type=str,
+            default="int8",
+            choices=list(Precision),
+            help="The precision of the activation quantization for static quantization.",
+        )
+        sub_parser.add_argument(
             "--implementation",
             type=str,
-            # choices=sorted(TEMPLATE["passes"].keys()),
             help="The specific implementation of quantization algorithms to use.",
         )
         sub_parser.add_argument(
@@ -103,8 +109,9 @@ class QuantizeCommand(BaseOliveCLICommand):
             ):
                 if not self._check_data_name_arg(pinfo):
                     print(
-                        f"Warning: Quantization for {algo} {precision} {impl} implementation with QDQ {self.args.use_qdq_encoding}"
-                        " requires dataset. Please provide a dataset using --data_name option."
+                        f"Warning: Quantization for {algo} {precision} {impl} implementation with QDQ"
+                        f" {self.args.use_qdq_encoding} requires dataset. Please provide a dataset using --data_name"
+                        " option."
                     )
                 else:
                     pass_list.append(r["pass_type"])
@@ -129,6 +136,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             "OnnxDynamicQuantization": {"precision": self.args.precision, "quant_format": quant_format},
             "OnnxStaticQuantization": {
                 "precision": self.args.precision,
+                "act_precision": self.args.act_precision,
                 "quant_format": quant_format,
                 "data_config": "default_data_config",
             },
@@ -203,6 +211,7 @@ TEMPLATE = {
 # Pass order in this mapping is important. More than one passes could be selected from this mapping.
 PT_QUANT_IMPLEMENTATION_MAPPING = [
     {"impl_name": "quarot", "pass_type": "QuaRot"},
+    # TODO(jambayk): consider exposing the activation bits through the act_precision argument
     {"impl_name": "spinquant", "pass_type": "SpinQuant"},
     {"impl_name": "awq", "pass_type": "AutoAWQQuantizer"},
     {"impl_name": "autogptq", "pass_type": "GptqQuantizer"},
@@ -216,5 +225,6 @@ ONNX_QUANT_IMPLEMENTATION_MAPPING = [
     {"impl_name": "ort", "pass_type": "OnnxStaticQuantization"},
     {"impl_name": "nvmo", "pass_type": "NVModelOptQuantization"},
     {"impl_name": "inc", "pass_type": "IncDynamicQuantization"},
+    {"impl_name": "olive", "pass_type": "OnnxHqqQuantization"},
     # "impl_name": "inc", "pass_type": "IncStaticQuantization"},
 ]

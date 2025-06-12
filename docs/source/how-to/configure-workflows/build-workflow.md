@@ -1,4 +1,4 @@
-# Introduction
+# How to prepare Olive configuration
 
 To convert, quantize, optimize and tune your model Olive needs information about your model. For example, how to load the model, name and shape of input tensors. You can also select the target hardware and list of optimizations you want to perform on the model. You can provide this information in a json file as an input to the Olive. In this document we will walk through how to generate such .json configuration from scratch.
 
@@ -7,6 +7,10 @@ We will focus on processing a Hugging Face model targeting CPU. After the .json 
 ```bash
 olive run --config my_model_processing_description.json
 ```
+
+> **Note:**
+> If you prefer to run Olive workflows programmatically or want to access optimization results from Python, refer to the [Python Interface documentation](../../extending/python_interface.md) for details on using Olive from Python.
+
 
 ## Input Model
 
@@ -49,7 +53,7 @@ Here we are using ModelBuilder to convert the model to ONNX and applying three d
 
 ## Complete .json configuration
 
-You can additionally select output directory, log severity level etc,. See [options](../../reference/options.html) for complete list of configuration option. Now you have the complete .json configuration that you can use.
+You can additionally select output directory, log severity level etc,. See [options](../../reference/options.md) for complete list of configuration option. Now you have the complete .json configuration that you can use.
 
 ```json
 {
@@ -84,4 +88,6 @@ You can additionally select output directory, log severity level etc,. See [opti
 
 ## Summary
 
-Olive provides additional opportunity to configure system, data, evaluation metrics and more. See [How to customize configuration](#how-to-customize-configuration)
+Olive provides additional opportunity to configure system, data, evaluation metrics and more. See [How to customize configuration](#how-to-customize-configuration).
+
+

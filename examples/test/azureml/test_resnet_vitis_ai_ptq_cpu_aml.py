@@ -22,5 +22,5 @@ def test_resnet(system, olive_json):
 
     olive_config = patch_config(olive_json, None, None, system)
 
-    footprint = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
-    check_output(footprint)
+    workflow_output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
+    check_output(workflow_output)

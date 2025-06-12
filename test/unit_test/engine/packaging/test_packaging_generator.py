@@ -14,6 +14,7 @@ import pytest
 
 from olive.engine import Engine
 from olive.engine.footprint import Footprint, FootprintNode
+from olive.engine.output import WorkflowOutput
 from olive.engine.packaging.packaging_config import (
     AzureMLDataPackagingConfig,
     AzureMLDeploymentPackagingConfig,
@@ -204,11 +205,10 @@ def test_generate_zipfile_artifacts_none_nodes(tmp_path):
     pf_footprint = Footprint()
     pf_footprint.nodes = None
     output_dir = tmp_path / "outputs"
+    workflow_output = WorkflowOutput({DEFAULT_CPU_ACCELERATOR: pf_footprint}, {DEFAULT_CPU_ACCELERATOR: foot_print})
 
     # execute
-    generate_output_artifacts(
-        packaging_config, {DEFAULT_CPU_ACCELERATOR: foot_print}, {DEFAULT_CPU_ACCELERATOR: pf_footprint}, output_dir
-    )
+    generate_output_artifacts(packaging_config, workflow_output, output_dir)
 
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
@@ -225,11 +225,10 @@ def test_generate_zipfile_artifacts_zero_len_nodes(tmp_path):
     pf_footprint = Footprint()
     pf_footprint.nodes = {}
     output_dir = tmp_path / "outputs"
+    workflow_output = WorkflowOutput({DEFAULT_CPU_ACCELERATOR: pf_footprint}, {DEFAULT_CPU_ACCELERATOR: foot_print})
 
     # execute
-    generate_output_artifacts(
-        packaging_config, {DEFAULT_CPU_ACCELERATOR: foot_print}, {DEFAULT_CPU_ACCELERATOR: pf_footprint}, output_dir
-    )
+    generate_output_artifacts(packaging_config, workflow_output, output_dir)
 
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
@@ -255,8 +254,10 @@ def test_generate_azureml_models(mock_create_resource_path, mock_retry_func):
     )
 
     model_path = "fake_model_file"
+    output_dir = Path("output")
 
     footprints = get_footprints(model_id, model_path)
+    workflow_output = WorkflowOutput(footprints, footprints)
 
     azureml_client_config = Mock(max_operation_retries=3, operation_retry_interval=5)
     ml_client_mock = Mock()
@@ -274,7 +275,7 @@ def test_generate_azureml_models(mock_create_resource_path, mock_retry_func):
 
     # execute
     generate_output_artifacts(
-        packaging_config, footprints, footprints, output_dir=Path("output"), azureml_client_config=azureml_client_config
+        packaging_config, workflow_output, output_dir, azureml_client_config=azureml_client_config
     )
 
     # assert
@@ -306,8 +307,10 @@ def test_generate_azureml_data(mock_create_resource_path, mock_retry_func):
     )
 
     model_path = "fake_model_file"
+    output_dir = Path("output")
 
     footprints = get_footprints(model_id, model_path)
+    workflow_output = WorkflowOutput(footprints, footprints)
 
     azureml_client_config = Mock(max_operation_retries=3, operation_retry_interval=5)
     ml_client_mock = Mock()
@@ -325,7 +328,7 @@ def test_generate_azureml_data(mock_create_resource_path, mock_retry_func):
 
     # execute
     generate_output_artifacts(
-        packaging_config, footprints, footprints, output_dir=Path("output"), azureml_client_config=azureml_client_config
+        packaging_config, workflow_output, output_dir, azureml_client_config=azureml_client_config
     )
 
     # assert
@@ -370,7 +373,9 @@ def test_azureml_deployment(mock_retry_func, inferencing_server_type):
     target_environment = "target_environment"
     target_environment_version = "1"
 
+    output_dir = Path("output")
     footprints = get_footprints(model_id, model_path)
+    workflow_output = WorkflowOutput(footprints, footprints)
     azureml_client_config = Mock(max_operation_retries=3, operation_retry_interval=5)
     ml_client_mock = Mock()
     azureml_client_config.create_client.return_value = ml_client_mock
@@ -454,7 +459,7 @@ def test_azureml_deployment(mock_retry_func, inferencing_server_type):
 
     # execute
     generate_output_artifacts(
-        packaging_config, footprints, footprints, output_dir=Path("output"), azureml_client_config=azureml_client_config
+        packaging_config, workflow_output, output_dir, azureml_client_config=azureml_client_config
     )
 
     # assert
@@ -497,18 +502,16 @@ def test__package_dockerfile(tmp_path):
     model_path = "fake_model_file"
     footprints = get_footprints(model_id, model_path)
     output_dir = tmp_path / "outputs"
-    docker_context_path = output_dir / "docker_content"
 
     packaging_config = PackagingConfig(type=PackagingType.Dockerfile)
+    workflow_output = WorkflowOutput(footprints, footprints)
 
     # execute
-    generate_output_artifacts(packaging_config, footprints, footprints, output_dir)
+    generate_output_artifacts(packaging_config, workflow_output, output_dir)
 
     # assert
     dockerfile_path = output_dir / "Dockerfile"
     assert dockerfile_path.exists()
-    onnxruntime_packages_path = docker_context_path / "ONNXRuntimePackages"
-    assert onnxruntime_packages_path.exists()
 
 
 def get_footprints(model_id, model_path):
@@ -516,14 +519,13 @@ def get_footprints(model_id, model_path):
     model_config = {"config": {"model_path": model_path}, "type": "ONNXModel"}
     footprint_node = FootprintNode(model_id=model_id, is_pareto_frontier=True, model_config=model_config)
     footprint = Footprint(nodes={model_id: footprint_node}, is_marked_pareto_frontier=True)
+    footprint.input_model_id = model_id
     return {acc_spec: footprint}
 
 
-# TODO(xiaoyu): check onnxruntime packages exist
 def verify_output_artifacts(output_dir):
     assert (output_dir / "CandidateModels").exists()
     assert (output_dir / "models_rank.json").exists()
-    assert (output_dir / "ONNXRuntimePackages").exists()
 
 
 def verify_models_rank_json_file(output_dir, file_path, save_as_external_data=False, export_in_mlflow_format=False):

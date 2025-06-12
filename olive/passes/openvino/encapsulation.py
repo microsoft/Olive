@@ -91,6 +91,12 @@ class OpenVINOEncapsulation(Pass):
                     "This is useful for models that require dynamic dimensions to be preserved."
                 ),
             ),
+            "reuse_cache": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                required=False,
+                description=("Reuse cache of previous passes to reduce storage footprint."),
+            ),
         }
 
     def _run_for_config(
@@ -105,6 +111,9 @@ class OpenVINOEncapsulation(Pass):
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
 
         model_name = model.model_config["model_name"]
+
+        if config.reuse_cache:
+            output_model_path = model.model_path
 
         if config.ov_version:
             ov_version = config.ov_version
@@ -187,6 +196,7 @@ class OpenVINOEncapsulation(Pass):
 
         # Define the model with an Execution Provider (EP) Context
         model_def = helper.make_model(graph_def, opset_imports=op_imports)
+        model_def.ir_version = 10
 
         # Save the model
         context_model_output = f"{model_name}.onnx"
@@ -195,33 +205,35 @@ class OpenVINOEncapsulation(Pass):
         if not os.path.exists(output_model_path):
             os.makedirs(output_model_path)
 
-        model_name_path_dst = Path(output_model_path) / (f"{model_name}.xml")
-        weight_name_path_dst = Path(output_model_path) / (f"{model_name}.bin")
-        hardlink_copy_file(model_name_path, model_name_path_dst, follow_symlinks=True)
-        hardlink_copy_file(weight_name_path, weight_name_path_dst, follow_symlinks=True)
         save(model_def, context_model_output_dir)
 
-        # copy JSON and text files for genai models
-        all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
-        for genai_file in all_genai_files:
-            src_pth = Path(model.model_path) / genai_file
-            dest_path = Path(output_model_path)
-            hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
+        if not config.reuse_cache:
+            model_name_path_dst = Path(output_model_path) / (f"{model_name}.xml")
+            weight_name_path_dst = Path(output_model_path) / (f"{model_name}.bin")
+            hardlink_copy_file(model_name_path, model_name_path_dst, follow_symlinks=True)
+            hardlink_copy_file(weight_name_path, weight_name_path_dst, follow_symlinks=True)
 
-        # copy tokenizer folder if it exists
-        src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
-        if src_tokenizer.exists() and src_tokenizer.is_dir():
-            dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
-            hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
+            # copy JSON and text files for genai models
+            all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
+            for genai_file in all_genai_files:
+                src_pth = Path(model.model_path) / genai_file
+                dest_path = Path(output_model_path)
+                hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
 
-        # copy detokenizer folder if it exists
-        src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
-        if src_detokenizer.exists() and src_detokenizer.is_dir():
-            dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
-            hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
+            # copy tokenizer folder if it exists
+            src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
+            if src_tokenizer.exists() and src_tokenizer.is_dir():
+                dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
+                hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
+
+            # copy detokenizer folder if it exists
+            src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
+            if src_detokenizer.exists() and src_detokenizer.is_dir():
+                dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
+                hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
 
         # generate the genai_config.json file for GenAI models
-        create_genai_config(output_model_path)
+        create_genai_config(context_model_output, output_model_path)
 
         return ONNXModelHandler(model_path=output_model_path)
 
@@ -240,11 +252,12 @@ def extract_shape_list(shape, config, prefix: str = "input_0_") -> list:
     return shape_list
 
 
-def create_genai_config(output_path: str) -> None:
+def create_genai_config(model_name: str, output_path: str) -> None:
     """Generate the genai_config.json from the model config files.
 
     This is only for Generative AI models for which the config.json and generation_config.json files exist
     Arguments:
+    @param model_name: name of model ONNX file that is generated
     @param output_path: path to the output directory where the genai_config.json file will be created
     @return: None
     """
@@ -281,7 +294,6 @@ def create_genai_config(output_path: str) -> None:
                 "num_key_value_heads": -1,
             },
             "eos_token_id": -1,
-            "pad_token_id": -1,
             "type": "",
             "vocab_size": -1,
         },
@@ -318,7 +330,7 @@ def create_genai_config(output_path: str) -> None:
             "Please install onnx to create genai_config.json for ONNX OpenVINO IR Encapsulated model"
         ) from None
 
-    model_path = Path(output_path) / "openvino_model.onnx"
+    model_path = Path(output_path) / model_name
     model = onnx.load(model_path)
 
     # Get input and output tensor names
@@ -327,6 +339,7 @@ def create_genai_config(output_path: str) -> None:
 
     genai_config["model"]["bos_token_id"] = src_config.get("bos_token_id", -1)
     genai_config["model"]["context_length"] = src_config.get("max_position_embeddings", -1)
+    genai_config["model"]["decoder"]["filename"] = model_name
     genai_config["model"]["decoder"]["head_size"] = src_config.get("hidden_size", -1) // src_config.get(
         "num_attention_heads", -1
     )
@@ -344,7 +357,13 @@ def create_genai_config(output_path: str) -> None:
     genai_config["model"]["decoder"]["num_key_value_heads"] = src_config.get("num_key_value_heads", -1)
 
     genai_config["model"]["eos_token_id"] = src_gen_config.get("eos_token_id", -1)
-    genai_config["model"]["pad_token_id"] = src_config.get("pad_token_id", -1)
+    genai_config["model"]["pad_token_id"] = (
+        src_gen_config["pad_token_id"]
+        if hasattr(src_gen_config, "pad_token_id") and src_gen_config["pad_token_id"] is not None
+        else src_gen_config["eos_token_id"][0]
+        if isinstance(src_gen_config["eos_token_id"], list)
+        else src_gen_config["eos_token_id"]
+    )
     genai_config["model"]["type"] = src_config.get("model_type", "")
     genai_config["model"]["vocab_size"] = src_config.get("vocab_size", -1)
 

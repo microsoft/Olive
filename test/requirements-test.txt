@@ -22,11 +22,10 @@ onnx-graphsurgeon
 onnxconverter_common
 onnxmltools
 onnxoptimizer
-onnxruntime-genai
 onnxruntime_extensions
 onnxscript>=0.2.4
 openvino>=2025.1.0
-optimum[openvino]>=1.17.0
+optimum[openvino]>=1.17.0, <=1.24
 optuna
 pandas
 peft
