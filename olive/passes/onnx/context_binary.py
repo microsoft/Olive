@@ -227,8 +227,8 @@ class EPContextBinaryGenerator(Pass):
         :param ignore_missing_cb_bin: Whether to ignore missing context binary files.
         :return: ONNXModelHandler for the generated context binary.
         """
-        from onnxruntime import __version__ as OrtVersion
         import onnxruntime as ort
+        from onnxruntime import __version__ as OrtVersion
 
         from olive.common.ort_inference import initialize_inference_session_options, ort_supports_ep_devices
 
