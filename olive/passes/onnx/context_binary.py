@@ -135,7 +135,9 @@ class EPContextBinaryGenerator(Pass):
 
             group_session_options = config.session_options or {}
             provider_options = config.provider_options or {}
-            if (version.parse(OrtVersion).release < version.parse("1.22.0").release) and self.accelerator_spec.execution_provider == "QNNExecutionProvider":
+            if (
+                version.parse(OrtVersion).release < version.parse("1.22.0").release
+            ) and self.accelerator_spec.execution_provider == "QNNExecutionProvider":
                 provider_options["backend_path"] = "QnnHtp.dll"
             group_session_options["provider_options"] = [
                 {self.accelerator_spec.execution_provider.lower().replace("executionprovider", ""): provider_options}
