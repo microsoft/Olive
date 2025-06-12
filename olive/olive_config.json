@@ -594,6 +594,14 @@
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "onnxscript" ]
         },
+        "AddOliveMetadata": {
+            "module_path": "olive.passes.onnx.add_metadata.AddOliveMetadata",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "VitisAIAddMetaData": {
             "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIAddMetaData",
             "supported_providers": [ "CPUExecutionProvider" ],

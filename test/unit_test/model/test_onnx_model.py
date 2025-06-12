@@ -4,6 +4,7 @@ import numpy as np
 import onnx
 import pytest
 
+from olive.common.ort_inference import ort_supports_ep_devices
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
 from olive.model import ONNXModelHandler
@@ -37,9 +38,12 @@ def test_model_prepare_session(get_available_providers_mock, inference_session_m
     execution_providers = ["ROCMExecutionProvider", "MIGraphXExecutionProvider"]
     # The inference session ep priority is lower than specified by argument in DLIS scenarios
     _ = model.prepare_session(inference_settings, Device.GPU, execution_providers, rank=1)
-    inference_session_mock.assert_called_once_with(
-        model.model_path, sess_options=ANY, providers=["MIGraphXExecutionProvider"], provider_options=[{}]
-    )
+    if ort_supports_ep_devices():
+        inference_session_mock.assert_called_once_with(model.model_path, sess_options=ANY)
+    else:
+        inference_session_mock.assert_called_once_with(
+            model.model_path, sess_options=ANY, providers=["MIGraphXExecutionProvider"], provider_options=[{}]
+        )
 
 
 @pytest.mark.parametrize(
@@ -164,6 +168,7 @@ def test_model_prepare_session(get_available_providers_mock, inference_session_m
 )
 @patch("onnxruntime.InferenceSession")
 @patch("onnxruntime.get_available_providers")
+@pytest.mark.skipif(ort_supports_ep_devices(), reason="onnxruntime.get_available_providers not supported")
 def test_model_prepare_session_multiple_inference_settings(
     get_available_providers_mock,
     inference_session_mock,
@@ -199,6 +204,7 @@ def test_model_prepare_session_multiple_inference_settings(
 
 @patch("onnxruntime.InferenceSession")
 @patch("onnxruntime.get_available_providers")
+@pytest.mark.skipif(ort_supports_ep_devices(), reason="onnxruntime.get_available_providers not supported")
 def test_model_prepare_session_with_unsupported_eps(get_available_providers_mock, inference_session_mock):
     get_available_providers_mock.return_value = [
         "TensorrtExecutionProvider",
@@ -241,6 +247,7 @@ def test_model_prepare_session_with_unsupported_eps(get_available_providers_mock
 
 @patch("onnxruntime.InferenceSession")
 @patch("onnxruntime.get_available_providers")
+@pytest.mark.skipif(ort_supports_ep_devices(), reason="onnxruntime.get_available_providers not supported")
 def test_distributed_rank_prepare_session(get_available_providers_mock, inference_session_mock):
     get_available_providers_mock.return_value = [
         "TensorrtExecutionProvider",
@@ -270,6 +277,7 @@ def test_distributed_rank_prepare_session(get_available_providers_mock, inferenc
 @patch("onnxruntime.get_available_providers")
 @patch("onnxruntime.SessionOptions")
 @patch("onnxruntime.OrtValue")
+@pytest.mark.skipif(ort_supports_ep_devices(), reason="onnxruntime.get_available_providers not supported")
 def test_model_prepare_session_with_external_initializers(
     ort_value_mock, session_options_mock, get_available_providers_mock, inference_session_mock, tmp_path
 ):
