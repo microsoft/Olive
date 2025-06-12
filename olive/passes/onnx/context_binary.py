@@ -135,6 +135,8 @@ class EPContextBinaryGenerator(Pass):
 
             group_session_options = config.session_options or {}
             provider_options = config.provider_options or {}
+            if (version.parse(OrtVersion).release < version.parse("1.22.0").release) and self.accelerator_spec.execution_provider == "QNNExecutionProvider":
+                provider_options["backend_path"] = "QnnHtp.dll"
             group_session_options["provider_options"] = [
                 {self.accelerator_spec.execution_provider.lower().replace("executionprovider", ""): provider_options}
             ]
@@ -223,6 +225,7 @@ class EPContextBinaryGenerator(Pass):
         :param ignore_missing_cb_bin: Whether to ignore missing context binary files.
         :return: ONNXModelHandler for the generated context binary.
         """
+        from onnxruntime import __version__ as OrtVersion
         import onnxruntime as ort
 
         from olive.common.ort_inference import initialize_inference_session_options, ort_supports_ep_devices
@@ -230,6 +233,8 @@ class EPContextBinaryGenerator(Pass):
         # prepare provider options
         provider_options = provider_options or {}
         if execution_provider == "QNNExecutionProvider":
+            if version.parse(OrtVersion).release < version.parse("1.22.0").release:
+                provider_options["backend_path"] = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
             if share_ep_contexts:
                 provider_options["enable_htp_weight_sharing"] = "1"
 
