@@ -116,7 +116,10 @@ class OnnxBlockWiseRtnQuantization(Pass):
                             initializer_graph.register_initializer(input_value)
                             registered[input_value.name] = input_value
                         else:
-                            logger.debug("Found duplicate initializer %s, replace all uses with the first one", input_value.name)
+                            logger.debug(
+                                "Found duplicated initializer %s, replace all uses with the first one.",
+                                input_value.name,
+                            )
                             ir.convenience.replace_all_uses_with(input_value, registered[input_value.name])
 
                     ir.convenience.replace_nodes_and_values(
