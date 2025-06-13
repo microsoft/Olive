@@ -1,0 +1,60 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "execution_providers": [
+                        "CPUExecutionProvider"
+                    ]
+                }
+            ]
+        }
+    },
+    "data_configs": [
+        {
+            "name": "wikitext2_train",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": {
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train"
+            },
+            "pre_process_data_config": {
+                "strategy": "line-by-line",
+                "add_special_tokens": false,
+                "max_samples": 128,
+                "max_seq_len": 512,
+                "template":""
+            }
+        }
+    ],
+    "evaluators": {
+        "common_evaluator": {
+            "type": "MyCustomEvaluator",
+            "metrics": [
+                {
+                    "type": "latency",
+                    "name": "latency",
+                    "data_config": "wikitext2_train",
+                    "sub_types": [ { "name": "avg" } ],
+                    "user_config": {
+                        "max_length": 100,
+                        "max_samples": 20
+                    }
+                }
+            ]
+        }
+    },
+    "evaluator": "common_evaluator",
+    "target": "local_system",
+    "log_severity_level": 1,
+    "output_dir": "model/deepseek",
+    "cache_dir": "cache",
+    "no_artifacts": true,
+    "evaluate_input_model": false
+}
