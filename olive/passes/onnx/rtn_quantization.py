@@ -110,11 +110,13 @@ class OnnxBlockWiseRtnQuantization(Pass):
                 quantized_node, initializer_graph = self._quantize(node)
 
                 if quantized_node.op_type in (OpType.MatMulNBits, OpType.GatherBlockQuantized):
-                    registered = set()
+                    registered = {}
                     for input_value in quantized_node.inputs:
                         if input_value.const_value is not None and input_value.name not in registered:
                             initializer_graph.register_initializer(input_value)
-                            registered.add(input_value.name)
+                            registered[input_value.name] = input_value
+                        else:
+                            ir.convenience.replace_all_uses_with(input_value, registered[input_value.name])
 
                     ir.convenience.replace_nodes_and_values(
                         node.graph, node, [node], [quantized_node], node.outputs, quantized_node.outputs
