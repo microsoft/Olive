@@ -105,9 +105,9 @@ class OnnxBlockWiseRtnQuantization(Pass):
 
                 quantized_node = self.quantize(node)
 
-                if quantized_node.op_type == OpType.MatMulNBits or quantized_node.op_type == OpType.GatherBlockQuantized:
+                if quantized_node.op_type in (OpType.MatMulNBits, OpType.GatherBlockQuantized):
                     for input_value in quantized_node.inputs:
-                        if input_value.is_initializer():
+                        if input_value.const_value is not None:
                             node.graph.register_initializer(input_value)
 
                     ir.convenience.replace_nodes_and_values(
