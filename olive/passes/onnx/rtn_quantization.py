@@ -73,7 +73,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
         self.is_symmetric = True
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-        ir_model = ir.load(model.model_path)
+        ir_model = model.load_ir_model()
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
         self._quantize_model(ir_model, config.nodes_to_exclude, config.nodes_to_include)
         return ir_model_to_olive_model(ir_model, output_model_path, config)
@@ -96,18 +96,16 @@ class OnnxBlockWiseRtnQuantization(Pass):
                 continue
 
             elif node.op_type in (str(OpType.MatMul), str(OpType.Gather)) and (
-                node_name in nodes_to_include or len(nodes_to_include) == 0
+                node_name in nodes_to_include or not nodes_to_include
             ):
-                if (node.op_type == str(OpType.MatMul) and not node.inputs[1].is_initializer()) or (
-                    node.op_type == str(OpType.Gather) and not node.inputs[0].is_initializer()
+                if (node.op_type == OpType.MatMul and not node.inputs[1].is_initializer()) or (
+                    node.op_type == OpType.Gather and not node.inputs[0].is_initializer()
                 ):
                     continue
 
                 quantized_node = self.quantize(node)
 
-                if quantized_node.op_type == str(OpType.MatMulNBits) or quantized_node.op_type == str(
-                    OpType.GatherBlockQuantized
-                ):
+                if quantized_node.op_type == OpType.MatMulNBits or quantized_node.op_type == OpType.GatherBlockQuantized:
                     for input_value in quantized_node.inputs:
                         if input_value.is_initializer():
                             node.graph.register_initializer(input_value)
@@ -130,9 +128,9 @@ class OnnxBlockWiseRtnQuantization(Pass):
         """
         logger.debug("Start quantizing %s ...", node.name)
 
-        if node.op_type == str(OpType.MatMul):
+        if node.op_type == OpType.MatMul:
             return self.quantize_matmul(node)
-        elif node.op_type == str(OpType.Gather):
+        elif node.op_type == OpType.Gather:
             if self.bits != 4:
                 logger.error("Gather only supports 4-bit quantization.")
                 return node
@@ -262,7 +260,8 @@ class OnnxBlockWiseRtnQuantization(Pass):
 
         return (packed, scales, zero_point)
 
-    def quant_slice_symmetric(self, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    @staticmethod
+    def quant_slice_symmetric(data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         max_val = np.max(data, axis=1, keepdims=True)
         min_val = np.min(data, axis=1, keepdims=True)
         abs_max = np.where(np.abs(max_val) > np.abs(min_val), max_val, min_val)
@@ -272,7 +271,8 @@ class OnnxBlockWiseRtnQuantization(Pass):
 
         return quantized_slice, scale
 
-    def quant_slice_asymmetric(self, data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    @staticmethod
+    def quant_slice_asymmetric(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         min_val = np.minimum(data.min(axis=1, keepdims=True), 0)
         max_val = np.maximum(data.max(axis=1, keepdims=True), 0)
 
@@ -282,7 +282,8 @@ class OnnxBlockWiseRtnQuantization(Pass):
 
         return quantized_slice, scale, zero_point
 
-    def pack_int8_to_int4(self, data: np.ndarray) -> np.ndarray:
+    @staticmethod
+    def pack_int8_to_int4(data: np.ndarray) -> np.ndarray:
         """Pack int8 data to int4 and store in uint8 ndarray."""
         data_flat = data.reshape(-1)
         if len(data_flat) % 2 != 0:
