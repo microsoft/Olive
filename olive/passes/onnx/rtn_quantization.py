@@ -8,8 +8,7 @@ from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
-import onnx
-from onnx.onnx_pb import NodeProto
+import onnx_ir as ir
 
 from olive.constants import MSFT_DOMAIN, OpType
 from olive.hardware.accelerator import AcceleratorSpec
@@ -17,17 +16,18 @@ from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (
+    ir_model_to_olive_model,
     model_has_adapters,
-    model_proto_to_olive_model,
 )
-from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
+# pylint: disable=W0201
 
-class OnnxRtnQuantization(Pass):
-    """Quantize ONNX models with HQQ algorithm."""
+
+class OnnxBlockWiseRtnQuantization(Pass):
+    """Quantize ONNX models with weight-only block-wise RTN algorithm."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -35,7 +35,7 @@ class OnnxRtnQuantization(Pass):
             "bits": PassConfigParam(
                 type_=int,
                 default_value=4,
-                description="Bits for quantization. Default value is 4.",
+                description="Bits for weight-only quantization. Default value is 4.",
             ),
             "block_size": PassConfigParam(
                 type_=int,
@@ -67,30 +67,29 @@ class OnnxRtnQuantization(Pass):
                 "RTN quantization is not supported for models with adapters. Returning the model without quantization."
             )
             return model
-        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-        dag = OnnxDAG(model.load_model())
-        dag.set_opset_import(MSFT_DOMAIN, 1)
-        dag = self._process_graph(dag, config.block_size, config.axis, config.nodes_to_exclude, config.nodes_to_include)
-        dag.update()
-        return model_proto_to_olive_model(dag.model, output_model_path, config)
+        self.bits = config.bits
+        self.block_size = config.block_size
+        self.axis = config.axis
+        self.is_symmetric = True
 
-    def _process_graph(
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+        ir_model = ir.load(model.model_path)
+        ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
+        self._quantize_model(ir_model, config.nodes_to_exclude, config.nodes_to_include)
+        return ir_model_to_olive_model(ir_model, output_model_path, config)
+
+    def _quantize_model(
         self,
-        dag: OnnxDAG,
-        block_size: int = 128,
-        axis: int = 0,
+        ir_model: ir.Model,
         nodes_to_exclude: Optional[list[str]] = None,
         nodes_to_include: Optional[list[str]] = None,
     ):
-        node_quantizer = RtnQuantizer(bits=self.config.bits, block_size=block_size, axis=axis, is_symmetric=True)
-
         nodes_to_exclude = nodes_to_exclude or []
         nodes_to_include = nodes_to_include or []
 
-        ordered_nodes = dag.topological_sort()
-
-        for node_name in ordered_nodes:
-            node = dag.get_node(node_name)
+        ir_model.graph.sort()
+        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
+            node_name = node.name
 
             if node_name in nodes_to_exclude:
                 logger.debug("exclude to quantize %s as specified by nodes_to_exclude...", node_name)
@@ -99,57 +98,131 @@ class OnnxRtnQuantization(Pass):
             elif node.op_type in (str(OpType.MatMul), str(OpType.Gather)) and (
                 node_name in nodes_to_include or len(nodes_to_include) == 0
             ):
-                graph_idx = dag.get_graph_idx(node_name)
-                logger.debug("quantize node %s", node_name)
-                node_initializers = dag.get_node_initializers(node_name)
-                quantized_nodes, initializers = node_quantizer.quantize(node.proto, node_initializers)
+                if (node.op_type == str(OpType.MatMul) and not node.inputs[1].is_initializer()) or (
+                    node.op_type == str(OpType.Gather) and not node.inputs[0].is_initializer()
+                ):
+                    continue
 
-                if quantized_nodes[0].op_type == str(OpType.MatMulNBits) or quantized_nodes[0].op_type == str(
+                quantized_node = self.quantize(node)
+
+                if quantized_node.op_type == str(OpType.MatMulNBits) or quantized_node.op_type == str(
                     OpType.GatherBlockQuantized
                 ):
-                    for initializer in initializers:
-                        dag.add_initializer(initializer, graph_idx)
-                    dag.add_node(quantized_nodes[0], graph_idx)
-                    node_output = node.proto.output[0]
-                    new_node_output = quantized_nodes[0].output[0]
-                    for consumer in dag.get_consumers(node_name):
-                        dag.replace_node_input(consumer, node_output, new_node_output)
+                    for input_value in quantized_node.inputs:
+                        if input_value.is_initializer():
+                            node.graph.register_initializer(input_value)
 
-                    is_model_output = dag.is_output(node_output)
-                    original_proto = None
-
-                    if is_model_output:
-                        original_proto = dag.get_io(node_output).proto[0]
-                        dag.remove_output(node_output)
-
-                    dag.remove_node(node_name)
-
-                    if is_model_output:
-                        dag.rename_node_output(quantized_nodes[0].name, new_node_output, node_output)
-                        vi = onnx.ValueInfoProto()
-                        vi.CopyFrom(original_proto)
-                        dag.get_io(node_output).proto = [vi]
-                        dag.make_output(node_output)
-
+                    ir.convenience.replace_nodes_and_values(
+                        node.graph, node, [node], [quantized_node], node.outputs, quantized_node.outputs
+                    )
             else:
                 logger.debug("skip to quantize %s ...", node_name)
-        return dag
 
+    def quantize(self, node: ir.Node) -> ir.Node:
+        """Quantize the weight of the target node and return the new nodes.
 
-class RtnQuantizer:
-    """RTN Quantizer class for quantizing ONNX models."""
+        Target node:        QOperator node:
+        MatMul              MatMulNBits
+        Gather              GatherBlockQuantized
+        If the node is target node with fp32 or fp16 const weight, quantize the weight to int4 and
+        return the new nodes.
+        return the corresponding QOperator nodes.
+        """
+        logger.debug("Start quantizing %s ...", node.name)
 
-    def __init__(
-        self,
-        bits: int,
-        block_size: int,
-        axis: int,
-        is_symmetric: bool,
-    ):
-        self.bits = bits
-        self.block_size = block_size
-        self.axis = axis
-        self.is_symmetric = is_symmetric
+        if node.op_type == str(OpType.MatMul):
+            return self.quantize_matmul(node)
+        elif node.op_type == str(OpType.Gather):
+            if self.bits != 4:
+                logger.error("Gather only supports 4-bit quantization.")
+                return node
+            return self.quantize_gather(node)
+        else:
+            logger.error("Unsupported op %s for weight-only quantization.", node.op_type)
+            return node
+
+    def quantize_matmul(self, node: ir.Node) -> ir.Node:
+        """Quantize weight B of MatMul node to int4 or int8.
+
+        Currently only support 2D constant matrix and axis 0 blockwise quantization.
+        """
+        node_initializer = node.inputs[1]
+        bits = self.bits
+        b_ndarray = node_initializer.const_value.numpy()
+
+        if len(b_ndarray.shape) != 2:
+            logger.info("MatMul weight is not 2D. Skip to quantize")
+            return node, []  # can only process 2-D matrix
+
+        packed, scales, zero_points = self.qbits_block_quant(b_ndarray)
+
+        b_quant = ir.Value(name=node_initializer.name + f"_Q{bits}", const_value=ir.tensor(packed))
+        scales_tensor = ir.Value(name=node_initializer.name + "_scales", const_value=ir.tensor(scales))
+        zp_tensor = ir.Value(name=node_initializer.name + "_zero_points", const_value=ir.tensor(zero_points))
+
+        node_inputs = [node.inputs[0], b_quant, scales_tensor, zp_tensor]
+
+        kwargs = {}
+        rows, cols = b_ndarray.shape
+        kwargs["K"] = rows
+        kwargs["N"] = cols
+        kwargs["bits"] = bits
+        kwargs["block_size"] = self.block_size
+
+        node.outputs[0].name = node.outputs[0].name + f"_Q{bits}"
+
+        return ir.node(
+            domain=MSFT_DOMAIN,
+            op_type=str(OpType.MatMulNBits),
+            inputs=node_inputs,
+            name=node.name + f"_Q{bits}" if node.name else "",
+            attributes=kwargs,
+        )
+
+    def quantize_gather(self, node: ir.Node) -> ir.Node:
+        """Quantize weight data of Gather node to int4."""
+        node_initializer = node.inputs[0]
+        data_ndarray = node_initializer.const_value.numpy()
+        data_rank = len(data_ndarray.shape)
+        quantize_axis = self.axis
+        block_size = self.block_size
+
+        assert -data_rank <= quantize_axis < data_rank, "Invalid quantize axis for Gather node."
+        assert block_size >= 16, "Block size must be greater than or equal to 16."
+        assert (block_size & (block_size - 1)) == 0, "Block size must be a power of 2."
+
+        quantize_axis = (quantize_axis + data_rank) % data_rank
+        quantized_data, scales, zero_points = self.quantize_ndarray(
+            data_ndarray, quantize_axis, block_size, self.is_symmetric
+        )
+
+        quantized_data_tensorproto = ir.Value(
+            name=node_initializer.name + f"_Q{self.bits}", const_value=ir.tensor(quantized_data)
+        )
+        scales_tensorproto = ir.Value(name=node_initializer.name + "_scales", const_value=ir.tensor(scales))
+        node_inputs = [quantized_data_tensorproto, node.inputs[1], scales_tensorproto]
+
+        if not self.is_symmetric:
+            zp_tensorproto = ir.Value(name=node_initializer.name + "_zero_points", const_value=ir.tensor(zero_points))
+            node_inputs.append(zp_tensorproto)
+
+        gather_axis = node.attributes.get_int("axis", 0)
+
+        kwargs = {
+            "gather_axis": gather_axis,
+            "quantize_axis": quantize_axis,
+            "block_size": block_size,
+        }
+
+        node.outputs[0].name = node.outputs[0].name + f"_Q{self.bits}"
+
+        return ir.node(
+            domain=MSFT_DOMAIN,
+            op_type=str(OpType.GatherBlockQuantized),
+            inputs=node_inputs,
+            name=node.name + f"_Q{self.bits}" if node.name else "",
+            attributes=kwargs,
+        )
 
     def qbits_block_quant(self, fp32weight: npt.ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """4b/8b quantize fp32 weight to int4 using C++ kernels."""
@@ -188,59 +261,6 @@ class RtnQuantizer:
             quantize_matmul_4bits(packed, fp32weight, scales, zero_point, block_size, cols, rows, self.is_symmetric)
 
         return (packed, scales, zero_point)
-
-    def quantize_matmul(self, node: NodeProto, node_initializers: list[onnx.TensorProto]) -> list[NodeProto]:
-        """Quantize weight B of MatMul node to int4 or int8.
-
-        Currently only support 2D constant matrix and axis 0 blockwise quantization.
-        """
-        if len(node_initializers) == 0:
-            logger.debug("MatMul doesn't have const weight. Skip to quantize")
-            return [node], []
-
-        bits = self.bits
-        b_pb = node_initializers[0]
-
-        b_ndarray = onnx.numpy_helper.to_array(b_pb)
-        if len(b_ndarray.shape) != 2:
-            logger.info("MatMul weight is not 2D. Skip to quantize")
-            return [node], []  # can only process 2-D matrix
-
-        packed, scales, zero_points = self.qbits_block_quant(b_ndarray)
-
-        b_quant = onnx.numpy_helper.from_array(packed)
-        b_quant.name = b_pb.name + f"_Q{bits}"
-        scales_tensor = onnx.numpy_helper.from_array(scales)
-        scales_tensor.name = b_pb.name + "_scales"
-        zp_tensor = onnx.numpy_helper.from_array(zero_points)
-        zp_tensor.name = b_pb.name + "_zero_points"
-
-        output_nodes = []
-
-        input_names = [node.input[0], b_quant.name, scales_tensor.name, zp_tensor.name]
-        initializers = [b_quant, scales_tensor, zp_tensor]
-
-        kwargs = {}
-        rows, cols = b_ndarray.shape
-        kwargs["K"] = rows
-        kwargs["N"] = cols
-        kwargs["bits"] = bits
-        kwargs["block_size"] = self.block_size
-
-        new_output = node.output[0] + "_Q4"
-
-        matmul_qbit_node = onnx.helper.make_node(
-            str(OpType.MatMulNBits),
-            inputs=input_names,
-            outputs=[new_output],
-            name=node.name + f"_Q{bits}" if node.name else "",
-            domain=MSFT_DOMAIN,
-            **kwargs,
-        )
-
-        output_nodes.append(matmul_qbit_node)
-
-        return output_nodes, initializers
 
     def quant_slice_symmetric(self, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         max_val = np.max(data, axis=1, keepdims=True)
@@ -326,88 +346,3 @@ class RtnQuantizer:
             zero_point_int4 = self.pack_int8_to_int4(zero_point_int8)
         scales = scales.reshape(scales_shape)
         return quant_data_int4, scales, zero_point_int4
-
-    def quantize_gather(self, node: NodeProto, node_initializers: list[onnx.TensorProto]) -> list[NodeProto]:
-        """Quantize weight data of Gather node to int4."""
-        if len(node_initializers) == 0:
-            logger.debug("Gather doesn't have const weight. Skip to quantize")
-            return [node], []
-
-        data_tensorproto = node_initializers[0]
-
-        data_ndarray = onnx.numpy_helper.to_array(data_tensorproto)
-        data_rank = len(data_ndarray.shape)
-        quantize_axis = self.axis
-        block_size = self.block_size
-
-        assert -data_rank <= quantize_axis < data_rank, "Invalid quantize axis for Gather node."
-        assert block_size >= 16, "Block size must be greater than or equal to 16."
-        assert (block_size & (block_size - 1)) == 0, "Block size must be a power of 2."
-
-        quantize_axis = (quantize_axis + data_rank) % data_rank
-        quantized_data, scales, zero_points = self.quantize_ndarray(
-            data_ndarray, quantize_axis, block_size, self.is_symmetric
-        )
-
-        quantized_data_tensorproto = onnx.numpy_helper.from_array(quantized_data)
-        quantized_data_tensorproto.name = data_tensorproto.name + f"_Q{self.bits}"
-        scales_tensorproto = onnx.numpy_helper.from_array(scales)
-        scales_tensorproto.name = data_tensorproto.name + "_scales"
-        input_names = [quantized_data_tensorproto.name, node.input[1], scales_tensorproto.name]
-        initializers = [quantized_data_tensorproto, scales_tensorproto]
-        if not self.is_symmetric:
-            zp_tensorproto = onnx.numpy_helper.from_array(zero_points)
-            zp_tensorproto.name = data_tensorproto.name + "_zero_points"
-            input_names.append(zp_tensorproto.name)
-            initializers.append(zp_tensorproto)
-
-        try:
-            gather_axis = onnx.helper.get_node_attr_value(node, "axis")
-        except ValueError:
-            gather_axis = 0
-
-        kwargs = {
-            "gather_axis": gather_axis,
-            "quantize_axis": quantize_axis,
-            "block_size": block_size,
-        }
-
-        new_output = node.output[0] + "_Q4"
-
-        gather_q4_node = onnx.helper.make_node(
-            str(OpType.GatherBlockQuantized),
-            inputs=input_names,
-            outputs=[new_output],
-            name=node.name + "_Q4" if node.name else "",
-            domain=MSFT_DOMAIN,
-            **kwargs,
-        )
-
-        return [gather_q4_node], initializers
-
-    def quantize(self, node: NodeProto, node_initializers: list[onnx.TensorProto]) -> list[NodeProto]:
-        """Quantize the weight of the target node and return the new nodes.
-
-        Target node:        QOperator node:
-        MatMul              MatMulNBits
-        Gather              GatherBlockQuantized
-        If the node is target node with fp32 or fp16 const weight, quantize the weight to int4 and
-        return the new nodes.
-        return the corresponding QOperator nodes.
-        """
-        logger.info("start to quantize %s ...", node.name)
-
-        if node.op_type == str(OpType.MatMul):
-            results, initializers = self.quantize_matmul(node, node_initializers)
-        elif node.op_type == str(OpType.Gather):
-            if self.bits != 4:
-                logger.error("Gather only supports 4 bits quantization.")
-                return [node], []
-
-            results, initializers = self.quantize_gather(node, node_initializers)
-        else:
-            logger.error("Unsupported operator %s for weight only quantization. Skip quantization.", node.op_type)
-            return [node], []
-
-        logger.info("complete quantization of %s with %s bits ...", node.name, self.bits)
-        return results, initializers

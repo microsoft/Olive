@@ -6,14 +6,14 @@ import os
 
 import numpy as np
 import onnx
+import onnx_ir as ir
 import pytest
 
 from olive.constants import MSFT_DOMAIN, OpType
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.onnx_dag import OnnxDAG
-from olive.passes.onnx.rtn_quantization import OnnxRtnQuantization
+from olive.passes.onnx.rtn_quantization import OnnxBlockWiseRtnQuantization
 
 
 class TestRTNQuantization:
@@ -99,78 +99,6 @@ class TestRTNQuantization:
         onnx.save(model_def, str(model_path))
         return model_path
 
-    def test_process_graph_matmul(self, matmul_model_path):
-        # Setup
-        olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
-        accelerator_spec = AcceleratorSpec(
-            accelerator_type="CPU",
-            execution_provider="CPUExecutionProvider",
-        )
-        pass_config = {"bits": 4, "block_size": 128, "axis": 0}
-        p = create_pass_from_dict(
-            OnnxRtnQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
-        )
-
-        # Get a copy of the original model graph
-        original_graph = olive_model.load_model().graph
-
-        # Execute
-        dag = OnnxDAG(olive_model.load_model())
-        processed_dag = p._process_graph(dag, pass_config["block_size"], pass_config["axis"])  # pylint: disable=W0212
-
-        # Assert
-        assert processed_dag != original_graph
-        found_matmul_nbits = False
-        for node_name in processed_dag.get_node_names():
-            node = processed_dag.get_node(node_name)
-            if node.op_type == str(OpType.MatMulNBits):
-                found_matmul_nbits = True
-                assert node.proto.domain == MSFT_DOMAIN
-                assert any(attr.name == "bits" and attr.i == 4 for attr in node.proto.attribute)
-                assert any(
-                    attr.name == "block_size" and attr.i == pass_config["block_size"] for attr in node.proto.attribute
-                )
-                break
-
-        assert found_matmul_nbits, "No MatMulNBits node found in processed graph"
-
-    def test_process_graph_gather(self, gather_model_path):
-        # Setup
-        olive_model = ONNXModelHandler(model_path=str(gather_model_path))
-        accelerator_spec = AcceleratorSpec(
-            accelerator_type="CPU",
-            execution_provider="CPUExecutionProvider",
-        )
-        pass_config = {"bits": 4, "block_size": 128, "axis": 0}
-        p = create_pass_from_dict(
-            OnnxRtnQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
-        )
-
-        # Get a copy of the original model graph
-        original_graph = olive_model.load_model().graph
-
-        # Execute
-        dag = OnnxDAG(olive_model.load_model())
-        processed_dag = p._process_graph(dag, pass_config["block_size"], pass_config["axis"])  # pylint: disable=W0212
-
-        # Assert
-        assert processed_dag != original_graph
-        found_gather_block_quantized = False
-        for node_name in processed_dag.get_node_names():
-            node = processed_dag.get_node(node_name)
-            if node.op_type == str(OpType.GatherBlockQuantized):
-                found_gather_block_quantized = True
-                assert node.proto.domain == MSFT_DOMAIN
-                assert any(
-                    attr.name == "block_size" and attr.i == pass_config["block_size"] for attr in node.proto.attribute
-                )
-                assert any(
-                    attr.name == "quantize_axis" and attr.i == pass_config["axis"] for attr in node.proto.attribute
-                )
-                break
-
-        assert found_gather_block_quantized, "No GatherBlockQuantized node found in processed graph"
-
     def test_rtn_quantization_pass_matmul(self, matmul_model_path, tmp_path):
         # Setup
         olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
@@ -180,7 +108,7 @@ class TestRTNQuantization:
         )
         pass_config = {"bits": 4, "block_size": 128, "axis": 0}
         p = create_pass_from_dict(
-            OnnxRtnQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
+            OnnxBlockWiseRtnQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
         )
 
         # Execute
@@ -210,7 +138,7 @@ class TestRTNQuantization:
         )
         pass_config = {"bits": 4, "block_size": 128, "axis": 0}
         p = create_pass_from_dict(
-            OnnxRtnQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
+            OnnxBlockWiseRtnQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
         )
 
         # Execute
@@ -221,12 +149,22 @@ class TestRTNQuantization:
         assert os.path.exists(quantized_model.model_path)
 
         # Load the quantized model and check for GatherBlockQuantized nodes
-        quantized_onnx = onnx.load(quantized_model.model_path)
+        ir_model = ir.load(quantized_model.model_path)
 
+        # Assert
         found_gather_block_quantized = False
-        for node in quantized_onnx.graph.node:
+        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
             if node.op_type == str(OpType.GatherBlockQuantized):
                 found_gather_block_quantized = True
+                assert node.domain == MSFT_DOMAIN
+                assert any(
+                    attr.name == "block_size" and attr.value == pass_config["block_size"]
+                    for attr in node.attributes.values()
+                )
+                assert any(
+                    attr.name == "quantize_axis" and attr.value == pass_config["axis"]
+                    for attr in node.attributes.values()
+                )
                 break
 
         assert found_gather_block_quantized, "No GatherBlockQuantized node found in quantized model"
@@ -240,7 +178,7 @@ class TestRTNQuantization:
         )
         pass_config = {"bits": 4, "block_size": 128, "axis": 0, "nodes_to_exclude": ["MatMul_Node"]}
         p = create_pass_from_dict(
-            OnnxRtnQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
+            OnnxBlockWiseRtnQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
         )
 
         # Execute
@@ -251,11 +189,12 @@ class TestRTNQuantization:
         assert os.path.exists(quantized_model.model_path)
 
         # Load the quantized model and check that no MatMulNBits nodes exist (due to exclusion)
-        quantized_onnx = onnx.load(quantized_model.model_path)
+        ir_model = ir.load(quantized_model.model_path)
 
+        # Assert
         found_matmul_nbits = False
         found_original_matmul = False
-        for node in quantized_onnx.graph.node:
+        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
             if node.op_type == str(OpType.MatMulNBits):
                 found_matmul_nbits = True
             elif node.op_type == str(OpType.MatMul):
