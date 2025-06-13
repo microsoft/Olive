@@ -106,9 +106,9 @@ OnnxMatMul4Quantizer
 
 .. _onnx_rtn_quantization:
 
-OnnxRtnQuantization
+OnnxBlockWiseRtnQuantization
 --------------------
-.. autoconfigclass:: olive.passes.OnnxRtnQuantization
+.. autoconfigclass:: olive.passes.OnnxBlockWiseRtnQuantization
 
 .. _onnx_hqq_quantization:
 

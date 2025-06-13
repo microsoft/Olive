@@ -70,7 +70,7 @@ This pass supports ONNX models and can quantize `MatMul` and `Gather` nodes to 4
 ### Example Configuration
 ```json
 {
-    "type": "OnnxRtnQuantization"
+    "type": "OnnxBlockWiseRtnQuantization"
 }
 ```
 
