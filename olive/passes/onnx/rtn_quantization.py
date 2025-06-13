@@ -155,13 +155,12 @@ class OnnxBlockWiseRtnQuantization(Pass):
             logger.info("MatMul weight is not 2D. Skip to quantize")
             return node, node.graph  # can only process 2-D matrix
 
-        packed, scales, zero_points = self._qbits_block_quant(b_ndarray)
+        packed, scales = self._qbits_block_quant(b_ndarray)
 
         b_quant = ir.Value(name=node_initializer.name + f"_Q{bits}", const_value=ir.tensor(packed))
         scales_tensor = ir.Value(name=node_initializer.name + "_scales", const_value=ir.tensor(scales))
-        zp_tensor = ir.Value(name=node_initializer.name + "_zero_points", const_value=ir.tensor(zero_points))
 
-        node_inputs = [node.inputs[0], b_quant, scales_tensor, zp_tensor]
+        node_inputs = [node.inputs[0], b_quant, scales_tensor]
 
         kwargs = {}
         rows, cols = b_ndarray.shape
@@ -219,7 +218,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
             attributes=kwargs,
         ), node_initializer.graph
 
-    def _qbits_block_quant(self, fp32weight: npt.ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _qbits_block_quant(self, fp32weight: npt.ArrayLike) -> tuple[np.ndarray, np.ndarray]:
         """4b/8b quantize 2D fp32 weight to int4 using C++ kernels."""
         from onnxruntime.capi._pybind_state import quantize_matmul_4bits
 
@@ -254,7 +253,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
         else:
             quantize_matmul_4bits(packed, fp32weight, scales, zero_point, block_size, cols, rows, is_symmetric)
 
-        return (packed, scales, zero_point)
+        return (packed, scales)
 
     @staticmethod
     def _quant_slice_symmetric(data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
