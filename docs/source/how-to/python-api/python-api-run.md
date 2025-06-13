@@ -45,7 +45,7 @@ def run(
 - **`output_path`** *(str)*: Output directory path (overrides config)
 - **`log_level`** *(int)*: Logging level 1-5 (overrides config)
 - **`setup`** *(bool)*: Setup environment needed to run the workflow (default: False)
-- **`packages`** *(bool)*: List packages required to run the workflow (default: False)  
+- **`packages`** *(bool)*: List packages required to run the workflow (default: False)
 - **`tempdir`** *(str)*: Root directory for temporary files
 - **`package_config`** *(str)*: Path to optional package configuration file
 
@@ -127,7 +127,7 @@ from olive import run
 
 # Override input model in existing config
 input_model_override = {
-    "type": "HfModel", 
+    "type": "HfModel",
     "model_path": "microsoft/phi-3-mini-4k-instruct",
     "trust_remote_code": True,
     "torch_dtype": "bfloat16"
@@ -171,7 +171,7 @@ Create a JSON configuration file `workflow.json`:
             "type": "OnnxConversion",
             "config": {
                 "target_opset": 17
-            }  
+            }
         },
         "optimization": {
             "type": "OrtTransformersOptimization",
@@ -180,7 +180,7 @@ Create a JSON configuration file `workflow.json`:
             }
         },
         "quantization": {
-            "type": "OnnxQuantization", 
+            "type": "OnnxQuantization",
             "config": {
                 "quant_mode": "rtn",
                 "weight_type": "QUInt8"
@@ -267,7 +267,7 @@ if result.has_output_model():
     best_model = result.get_best_candidate()
     print(f"Best model: {best_model.model_path}")
     print(f"Best metrics: {best_model.metrics_value}")
-    
+
     # Iterate through all workflow outputs
     print(f"\nAll {len(result.model_outputs)} models:")
     for i, model in enumerate(result.model_outputs):
@@ -275,12 +275,12 @@ if result.has_output_model():
         print(f"  Path: {model.model_path}")
         print(f"  Config: {model.config}")
         print(f"  Metrics: {model.metrics_value}")
-        
+
         # Access specific metrics
         if 'accuracy' in model.metrics_value:
             accuracy = model.metrics_value['accuracy']
             print(f"  Accuracy: {accuracy}")
-        
+
         if 'latency' in model.metrics_value:
             latency = model.metrics_value['latency']
             print(f"  Latency: {latency} ms")
@@ -327,7 +327,7 @@ if result.has_output_model():
             }
         },
         "gpu_system": {
-            "type": "LocalSystem", 
+            "type": "LocalSystem",
             "config": {
                 "accelerators": ["gpu"]
             }
@@ -377,7 +377,7 @@ quick_result = auto_opt(
 # Then use run() for advanced workflow on the optimized model
 if quick_result.has_output_model():
     optimized_model = quick_result.get_best_candidate()
-    
+
     advanced_config = {
         "input_model": {
             "type": "ONNXModel",
@@ -389,7 +389,7 @@ if quick_result.has_output_model():
             }
         }
     }
-    
+
     final_result = run(config=advanced_config)
 ```
 

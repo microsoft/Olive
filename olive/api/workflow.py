@@ -17,7 +17,7 @@ Utility Functions (return None):
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from olive.cli.auto_opt import AutoOptCommand
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand
@@ -32,11 +32,13 @@ from olive.constants import Precision
 from olive.engine.output import WorkflowOutput
 from olive.workflows import run as olive_run
 
+# pylint: disable=W0212
+
 
 def run(
-    config: Union[str, Dict[str, Any]],
+    config: Union[str, dict[str, Any]],
     *,
-    input_model: Optional[Dict[str, Any]] = None,
+    input_model: Optional[dict[str, Any]] = None,
     output_path: Optional[str] = None,
     log_level: Optional[int] = None,
     setup: bool = False,
@@ -102,7 +104,7 @@ def auto_opt(
     data_name: Optional[str] = None,
     split: Optional[str] = None,
     subset: Optional[str] = None,
-    input_cols: Optional[List[str]] = None,
+    input_cols: Optional[list[str]] = None,
     batch_size: int = 1,
     # Model options
     task: Optional[str] = None,
@@ -470,7 +472,7 @@ def convert_adapters(
 def extract_adapters(
     model_path: str,
     output_path: str,
-    format: str,
+    adapter_format: str,
     *,
     dtype: str = "float32",
     cache_dir: Optional[str] = None,
@@ -482,7 +484,7 @@ def extract_adapters(
     Args:
         model_path: Path to PyTorch model (local folder or HuggingFace ID)
         output_path: Output folder to save adapters
-        format: Format to save adapters in
+        adapter_format: Format to save adapters in
         dtype: Data type for adapters ("float32", "float16")
         cache_dir: Cache directory for downloaded models
         log_level: Logging level (1-5)
@@ -497,7 +499,7 @@ def extract_adapters(
     args = Namespace(
         model=model_path,  # Note: CLI uses 'model', not 'model_path'
         output=output_path,  # Note: CLI uses 'output', not 'output_path'
-        format=format,
+        adapter_format=adapter_format,
         dtype=dtype,
         cache_dir=cache_dir,
         log_level=log_level,

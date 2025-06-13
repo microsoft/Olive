@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# pylint: disable=W0611, W0212
+
 
 @pytest.mark.unit
 class TestOlivePythonAPI:
@@ -20,63 +22,35 @@ class TestOlivePythonAPI:
 
     def test_api_module_structure(self):
         """Test that API module has expected functions."""
-        try:
-            from olive.api.workflow import (
-                auto_opt,
-                capture_onnx,
-                convert_adapters,
-                extract_adapters,
-                finetune,
-                generate_adapter,
-                generate_cost_model,
-                quantize,
-                run,
-                session_params_tuning,
-            )
+        from olive import (
+            auto_opt,
+            capture_onnx,
+            convert_adapters,
+            extract_adapters,
+            finetune,
+            generate_adapter,
+            generate_cost_model,
+            quantize,
+            run,
+            session_params_tuning,
+        )
 
-            # Test that all functions are callable
-            api_functions = [
-                auto_opt,
-                capture_onnx,
-                convert_adapters,
-                extract_adapters,
-                finetune,
-                generate_adapter,
-                generate_cost_model,
-                quantize,
-                run,
-                session_params_tuning,
-            ]
+        # Test that all functions are callable
+        api_functions = [
+            auto_opt,
+            capture_onnx,
+            convert_adapters,
+            extract_adapters,
+            finetune,
+            generate_adapter,
+            generate_cost_model,
+            quantize,
+            run,
+            session_params_tuning,
+        ]
 
-            for func in api_functions:
-                assert callable(func), f"{func.__name__} should be callable"
-
-        except ImportError as e:
-            pytest.skip(f"Skipping API test due to missing dependencies: {e}")
-
-    def test_api_exports_from_main_module(self):
-        """Test that API functions can be imported from main olive module."""
-        try:
-            from olive import (
-                auto_opt,
-                capture_onnx,
-                convert_adapters,
-                extract_adapters,
-                finetune,
-                generate_adapter,
-                generate_cost_model,
-                quantize,
-                run,
-                session_params_tuning,
-            )
-
-            # Test that functions are available
-            assert callable(auto_opt)
-            assert callable(finetune)
-            assert callable(run)
-
-        except ImportError as e:
-            pytest.skip(f"Skipping main module import test due to missing dependencies: {e}")
+        for func in api_functions:
+            assert callable(func), f"{func.__name__} should be callable"
 
     def test_workflow_function_signatures(self):
         """Test that workflow functions have expected parameters."""

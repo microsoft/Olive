@@ -91,7 +91,7 @@ from olive import quantize
 # AWQ quantization with calibration data
 result = quantize(
     model_path="./model.onnx",
-    output_path="./quantized_awq", 
+    output_path="./quantized_awq",
     algorithm="awq",
     precision="int4",
     data_name="squad",
@@ -159,17 +159,17 @@ result = quantize(
 
 if result.has_output_model():
     quantized = result.get_best_candidate()
-    
+
     # Access quantization information
     print(f"Quantized model path: {quantized.model_path}")
     print(f"Quantization metrics: {quantized.metrics_value}")
-    
+
     # Metrics may include:
     # - model_size_mb: Model size in megabytes
     # - accuracy: Model accuracy after quantization
     # - latency_ms: Inference latency
     # - compression_ratio: Size reduction ratio
-    
+
     metrics = quantized.metrics_value
     if 'model_size_mb' in metrics:
         print(f"Model size: {metrics['model_size_mb']} MB")
@@ -194,7 +194,7 @@ optimized = auto_opt(
 # Then quantize the optimized model
 if optimized.has_output_model():
     onnx_model = optimized.get_best_candidate()
-    
+
     quantized = quantize(
         model_path=onnx_model.model_path,
         output_path="./quantized",
@@ -242,7 +242,7 @@ result = quantize(
 ```python
 result = quantize(
     model_path="./model.onnx",
-    algorithm="gptq", 
+    algorithm="gptq",
     precision="int4",
     data_name="pile",
     block_size=128

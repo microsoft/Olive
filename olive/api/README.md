@@ -52,7 +52,7 @@ if workflow_output.has_output_model():
 
 # Fine-tune with LoRA
 adapter_output = finetune(
-    model_path="microsoft/phi-3-mini-4k-instruct", 
+    model_path="microsoft/phi-3-mini-4k-instruct",
     data_name="squad",
     method="lora",
     num_train_epochs=3
