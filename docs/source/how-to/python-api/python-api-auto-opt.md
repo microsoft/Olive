@@ -142,12 +142,12 @@ result = auto_opt(model_path="microsoft/phi-3-mini-4k-instruct")
 if result.has_output_model():
     # Get the best performing model
     best_model = result.get_best_candidate()
-    
+
     # Access model information
     print(f"Model path: {best_model.model_path}")
     print(f"Metrics: {best_model.metrics_value}")
     print(f"Config: {best_model.config}")
-    
+
     # Iterate through all optimized models
     for model in result.model_outputs:
         print(f"Model: {model.model_path}")
@@ -171,7 +171,7 @@ optimized = auto_opt(
 # Then apply additional quantization
 if optimized.has_output_model():
     best_model = optimized.get_best_candidate()
-    
+
     quantized = quantize(
         model_path=best_model.model_path,
         output_path="./models/quantized",
@@ -201,7 +201,7 @@ from olive import auto_opt
 result = auto_opt(
     model_path="microsoft/phi-3-mini-4k-instruct",
     output_path="./optimized_phi3",
-    device="cpu", 
+    device="cpu",
     provider="CPUExecutionProvider",
     precision="int8"
 )

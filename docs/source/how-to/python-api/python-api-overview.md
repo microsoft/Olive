@@ -63,7 +63,7 @@ if result.has_output_model():
     print(f"Path: {model.model_path}")
     print(f"Config: {model.config}")
     print(f"Metrics: {model.metrics_value}")
-    
+
     # Iterate through all candidates
     for candidate in result.model_outputs:
         print(f"Candidate: {candidate.model_path}")
@@ -100,19 +100,19 @@ from olive import auto_opt, quantize, extract_adapters
 # Chain operations
 optimized = auto_opt(
     model_path="microsoft/phi-3-mini-4k-instruct",
-    output_path="./optimized" 
+    output_path="./optimized"
 )
 
 if optimized.has_output_model():
     model = optimized.get_best_candidate()
-    
+
     # Further quantize
     quantized = quantize(
         model_path=model.model_path,
         algorithm="awq",
         precision="int4"
     )
-    
+
     # Extract for deployment
     if quantized.has_output_model():
         final_model = quantized.get_best_candidate()
@@ -135,10 +135,10 @@ result = auto_opt(model_path="microsoft/phi-3-mini-4k-instruct")
 if result.has_output_model():
     # Get the best model (highest scoring)
     best = result.get_best_candidate()
-    
+
     # Get all models
     all_models = result.model_outputs
-    
+
     # Access model information
     for model in all_models:
         print(f"Model: {model.model_path}")
@@ -305,5 +305,5 @@ result = olive_api.auto_opt(model_path="microsoft/phi-3-mini-4k-instruct")
 
 - **[Auto-optimization API](python-api-auto-opt.html)** - Detailed auto-opt documentation
 - **[Fine-tuning API](python-api-finetune.html)** - LoRA/QLoRA fine-tuning
-- **[Quantization API](python-api-quantize.html)** - Model quantization techniques  
+- **[Quantization API](python-api-quantize.html)** - Model quantization techniques
 - **[Workflow API](python-api-run.html)** - Advanced workflow execution

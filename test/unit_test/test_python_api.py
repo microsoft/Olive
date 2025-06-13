@@ -2,12 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""
-Unit tests for Olive Python API.
+"""Unit tests for Olive Python API.
 
 These tests validate that the Python API functions are properly structured,
 can be imported, and have the expected signatures.
 """
+
 import inspect
 from unittest.mock import MagicMock, patch
 

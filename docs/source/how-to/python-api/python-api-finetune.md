@@ -60,7 +60,7 @@ def finetune(
 
 ### LoRA Parameters
 - **`lora_r`** *(int)*: LoRA rank (default: 16)
-- **`lora_alpha`** *(int)*: LoRA alpha parameter (default: 32) 
+- **`lora_alpha`** *(int)*: LoRA alpha parameter (default: 32)
 - **`lora_dropout`** *(float)*: LoRA dropout rate (default: 0.1)
 
 ### Training Parameters
@@ -134,7 +134,7 @@ from olive import finetune
 
 # Use QLoRA for memory-efficient fine-tuning
 result = finetune(
-    model_path="microsoft/phi-3-mini-4k-instruct", 
+    model_path="microsoft/phi-3-mini-4k-instruct",
     output_path="./adapters/phi3-qlora",
     method="qlora",
     data_name="gsm8k",
@@ -172,14 +172,14 @@ result = finetune(
 
 if result.has_output_model():
     adapter = result.get_best_candidate()
-    
+
     # Access adapter information
     print(f"Adapter path: {adapter.model_path}")
     print(f"Training metrics: {adapter.metrics_value}")
-    
+
     # Training metrics may include:
     # - train_loss, eval_loss
-    # - train_accuracy, eval_accuracy  
+    # - train_accuracy, eval_accuracy
     # - train_runtime, eval_runtime
     metrics = adapter.metrics_value
     if 'eval_loss' in metrics:
@@ -203,7 +203,7 @@ adapter_result = finetune(
 # Extract the adapter for deployment
 if adapter_result.has_output_model():
     adapter_model = adapter_result.get_best_candidate()
-    
+
     extract_adapters(
         model_path=adapter_model.model_path,
         output_path="./extracted_adapters",
@@ -268,7 +268,7 @@ result = finetune(
     model_path="microsoft/phi-3-mini-4k-instruct",
     output_path="./finetuned_phi3",
     method="lora",
-    data_name="squad", 
+    data_name="squad",
     num_train_epochs=3
 )
 ```

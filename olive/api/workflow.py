@@ -2,33 +2,31 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""
-Workflow Python API implementations.
+"""Workflow Python API implementations.
 
 This module provides Python API functions corresponding to Olive CLI commands.
-Functions that execute optimization workflows return WorkflowOutput objects 
+Functions that execute optimization workflows return WorkflowOutput objects
 containing ModelOutput instances. Utility functions return None.
 
 Model Optimization Functions (return WorkflowOutput):
-- auto_opt, finetune, quantize, capture_onnx, generate_adapter, 
+- auto_opt, finetune, quantize, capture_onnx, generate_adapter,
   session_params_tuning, run
 
 Utility Functions (return None):
 - convert_adapters, extract_adapters, generate_cost_model
 """
-import tempfile
+
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from olive.cli.auto_opt import AutoOptCommand
-from olive.cli.capture_onnx import CaptureOnnxGraphCommand  
+from olive.cli.capture_onnx import CaptureOnnxGraphCommand
 from olive.cli.convert_adapters import ConvertAdaptersCommand
 from olive.cli.extract_adapters import ExtractAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
 from olive.cli.quantize import QuantizeCommand
-from olive.cli.run import WorkflowRunCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
 from olive.constants import Precision
 from olive.engine.output import WorkflowOutput
@@ -46,44 +44,44 @@ def run(
     tempdir: Optional[str] = None,
     package_config: Optional[str] = None,
 ) -> WorkflowOutput:
-    """
-    Run an Olive workflow from a configuration.
-    
+    """Run an Olive workflow from a configuration.
+
     Args:
         config: Path to config file or config dictionary
         input_model: Input model configuration to override config file
         output_path: Output directory path
         log_level: Logging level (1-5)
         setup: Setup environment needed to run the workflow
-        packages: List packages required to run the workflow  
+        packages: List packages required to run the workflow
         tempdir: Root directory for tempfile directories and files
         package_config: Path to optional package config file
-        
+
     Returns:
         WorkflowOutput: Contains optimized models and metrics
+
     """
     from olive.common.config_utils import load_config_file
-    
+
     # Load config from file or use provided dict
     if isinstance(config, str):
         run_config = load_config_file(config)
     else:
         run_config = config.copy()
-    
+
     # Override config with provided parameters
     if input_model is not None:
         run_config["input_model"] = input_model
-        
+
     if output_path is not None:
         # Remove from engine config if exists
         run_config.get("engine", {}).pop("output_dir", None)
         run_config["output_dir"] = output_path
-        
+
     if log_level is not None:
-        # Remove from engine config if exists  
+        # Remove from engine config if exists
         run_config.get("engine", {}).pop("log_severity_level", None)
         run_config["log_severity_level"] = log_level
-    
+
     return olive_run(
         run_config,
         setup=setup,
@@ -116,15 +114,14 @@ def auto_opt(
     # Advanced options
     enable_search: Optional[bool] = None,
     log_level: int = 3,
-    **kwargs
+    **kwargs,
 ) -> WorkflowOutput:
-    """
-    Automatically optimize a model for performance.
-    
+    """Automatically optimize a model for performance.
+
     Args:
         model_path: Path to model (file path or HuggingFace model name)
         output_path: Output directory path
-        device: Target device ("cpu", "gpu", "npu")  
+        device: Target device ("cpu", "gpu", "npu")
         provider: Execution provider
         precision: Output precision (fp32, fp16, int8, int4, nf4)
         data_name: Dataset name for evaluation
@@ -141,16 +138,17 @@ def auto_opt(
         enable_search: Enable search optimization
         log_level: Logging level (1-5)
         **kwargs: Additional arguments
-        
+
     Returns:
         WorkflowOutput: Contains optimized models and metrics
+
     """
     # Create args namespace similar to CLI parsing
     from argparse import Namespace
-    
+
     # Ensure output directory exists
     Path(output_path).mkdir(parents=True, exist_ok=True)
-    
+
     args = Namespace(
         model_path=model_path,
         output_path=str(Path(output_path).resolve()),
@@ -178,9 +176,9 @@ def auto_opt(
         dynamic_to_fixed_shape_dim_value=None,
         mixed_precision_overrides_config=None,
         save_config_file=False,
-        **kwargs
+        **kwargs,
     )
-    
+
     # Create command instance and run
     command = AutoOptCommand(None, args)
     return command._run_workflow()
@@ -195,18 +193,17 @@ def finetune(
     lora_alpha: int = 16,
     target_modules: Optional[str] = None,
     torch_dtype: str = "bfloat16",
-    # Dataset options  
+    # Dataset options
     data_name: Optional[str] = None,
     data_files: Optional[str] = None,
     text_template: Optional[str] = None,
     eval_split: Optional[str] = None,
     # Training args will be passed as **kwargs
     log_level: int = 3,
-    **training_kwargs
+    **training_kwargs,
 ) -> WorkflowOutput:
-    """
-    Fine-tune a model using LoRA or QLoRA.
-    
+    """Fine-tune a model using LoRA or QLoRA.
+
     Args:
         model_path: Path to HuggingFace model
         output_path: Output directory path
@@ -221,15 +218,16 @@ def finetune(
         eval_split: Evaluation dataset split
         log_level: Logging level (1-5)
         **training_kwargs: HuggingFace training arguments
-        
+
     Returns:
         WorkflowOutput: Contains fine-tuned adapter
+
     """
     from argparse import Namespace
-    
+
     # Ensure output directory exists
     Path(output_path).mkdir(parents=True, exist_ok=True)
-    
+
     args = Namespace(
         model_path=model_path,
         output_path=str(Path(output_path).resolve()),
@@ -245,12 +243,12 @@ def finetune(
         log_level=log_level,
         save_config_file=False,
     )
-    
+
     # Convert training kwargs to unknown_args format for CLI compatibility
     unknown_args = []
     for key, value in training_kwargs.items():
         unknown_args.extend([f"--{key}", str(value)])
-    
+
     # Create command instance and run
     command = FineTuneCommand(None, args, unknown_args)
     return command._run_workflow()
@@ -262,17 +260,16 @@ def quantize(
     output_path: str = "quantized-model",
     algorithm: str = "rtn",
     precision: Union[str, Precision] = "int8",
-    act_precision: Union[str, Precision] = "int8", 
+    act_precision: Union[str, Precision] = "int8",
     implementation: Optional[str] = None,
     use_qdq_encoding: bool = False,
     # Dataset options for static quantization
     data_name: Optional[str] = None,
     log_level: int = 3,
-    **kwargs
+    **kwargs,
 ) -> WorkflowOutput:
-    """
-    Quantize a PyTorch or ONNX model.
-    
+    """Quantize a PyTorch or ONNX model.
+
     Args:
         model_path: Path to model file
         output_path: Output directory path
@@ -284,15 +281,16 @@ def quantize(
         data_name: Dataset name (for static quantization)
         log_level: Logging level (1-5)
         **kwargs: Additional quantization parameters
-        
+
     Returns:
         WorkflowOutput: Contains quantized model
+
     """
     from argparse import Namespace
-    
+
     # Ensure output directory exists
     Path(output_path).mkdir(parents=True, exist_ok=True)
-    
+
     args = Namespace(
         model_path=model_path,
         output_path=str(Path(output_path).resolve()),
@@ -304,45 +302,41 @@ def quantize(
         data_name=data_name,
         log_level=log_level,
         save_config_file=False,
-        **kwargs
+        **kwargs,
     )
-    
+
     command = QuantizeCommand(None, args)
     return command._run_workflow()
 
 
 def capture_onnx(
-    model_path: str,
-    *,
-    output_path: str = "captured-model",
-    log_level: int = 3,
-    **kwargs
+    model_path: str, *, output_path: str = "captured-model", log_level: int = 3, **kwargs
 ) -> WorkflowOutput:
-    """
-    Capture ONNX graph from a PyTorch model.
-    
+    """Capture ONNX graph from a PyTorch model.
+
     Args:
         model_path: Path to PyTorch model
         output_path: Output directory path
         log_level: Logging level (1-5)
         **kwargs: Additional capture parameters
-        
+
     Returns:
         WorkflowOutput: Contains captured ONNX model
+
     """
     from argparse import Namespace
-    
+
     # Ensure output directory exists
     Path(output_path).mkdir(parents=True, exist_ok=True)
-    
+
     args = Namespace(
         model_path=model_path,
         output_path=str(Path(output_path).resolve()),
         log_level=log_level,
         save_config_file=False,
-        **kwargs
+        **kwargs,
     )
-    
+
     command = CaptureOnnxGraphCommand(None, args)
     return command._run_workflow()
 
@@ -353,35 +347,35 @@ def generate_adapter(
     output_path: str = "generated-adapter",
     adapter_format: str = "onnx_adapter",
     log_level: int = 3,
-    **kwargs  
+    **kwargs,
 ) -> WorkflowOutput:
-    """
-    Generate adapter for an ONNX model.
-    
+    """Generate adapter for an ONNX model.
+
     Args:
         model_path: Path to ONNX model
         output_path: Output directory path
         adapter_format: Format to save weights in
         log_level: Logging level (1-5)
         **kwargs: Additional generation parameters
-        
+
     Returns:
         WorkflowOutput: Contains generated adapter
+
     """
     from argparse import Namespace
-    
+
     # Ensure output directory exists
     Path(output_path).mkdir(parents=True, exist_ok=True)
-    
+
     args = Namespace(
         model_path=model_path,
         output_path=str(Path(output_path).resolve()),
         adapter_format=adapter_format,
         log_level=log_level,
         save_config_file=False,
-        **kwargs
+        **kwargs,
     )
-    
+
     command = GenerateAdapterCommand(None, args)
     return command._run_workflow()
 
@@ -396,11 +390,10 @@ def session_params_tuning(
     io_bind: bool = False,
     enable_cuda_graph: bool = False,
     log_level: int = 3,
-    **kwargs
+    **kwargs,
 ) -> WorkflowOutput:
-    """
-    Tune ONNX Runtime session parameters for optimal performance.
-    
+    """Tune ONNX Runtime session parameters for optimal performance.
+
     Args:
         model_path: Path to ONNX model
         output_path: Output directory path
@@ -411,15 +404,16 @@ def session_params_tuning(
         enable_cuda_graph: Enable CUDA graph
         log_level: Logging level (1-5)
         **kwargs: Additional tuning parameters
-        
+
     Returns:
         WorkflowOutput: Contains tuning results
+
     """
     from argparse import Namespace
-    
+
     # Ensure output directory exists
     Path(output_path).mkdir(parents=True, exist_ok=True)
-    
+
     args = Namespace(
         model_path=model_path,
         output_path=str(Path(output_path).resolve()),
@@ -430,9 +424,9 @@ def session_params_tuning(
         enable_cuda_graph=enable_cuda_graph,
         log_level=log_level,
         save_config_file=False,
-        **kwargs
+        **kwargs,
     )
-    
+
     command = SessionParamsTuningCommand(None, args)
     return command._run_workflow()
 
@@ -445,11 +439,10 @@ def convert_adapters(
     adapter_format: str = "onnx_adapter",
     dtype: str = "float32",
     log_level: int = 3,
-    **kwargs
+    **kwargs,
 ) -> None:
-    """
-    Convert LoRA adapter weights to a format consumable by ONNX models.
-    
+    """Convert LoRA adapter weights to a format consumable by ONNX models.
+
     Args:
         adapter_path: Path to adapter weights (local folder or HuggingFace ID)
         output_path: Path to save exported weights
@@ -457,18 +450,19 @@ def convert_adapters(
         dtype: Data type for weights
         log_level: Logging level (1-5)
         **kwargs: Additional conversion parameters
+
     """
     from argparse import Namespace
-    
+
     args = Namespace(
         adapter_path=adapter_path,
         output_path=output_path,
         adapter_format=adapter_format,
         dtype=dtype,
         log_level=log_level,
-        **kwargs
+        **kwargs,
     )
-    
+
     command = ConvertAdaptersCommand(None, args)
     command.run()
 
@@ -481,11 +475,10 @@ def extract_adapters(
     dtype: str = "float32",
     cache_dir: Optional[str] = None,
     log_level: int = 3,
-    **kwargs
+    **kwargs,
 ) -> None:
-    """
-    Extract LoRA adapters from PyTorch model to separate files.
-    
+    """Extract LoRA adapters from PyTorch model to separate files.
+
     Args:
         model_path: Path to PyTorch model (local folder or HuggingFace ID)
         output_path: Output folder to save adapters
@@ -494,12 +487,13 @@ def extract_adapters(
         cache_dir: Cache directory for downloaded models
         log_level: Logging level (1-5)
         **kwargs: Additional extraction parameters
+
     """
     from argparse import Namespace
-    
+
     # Ensure output directory exists
     Path(output_path).mkdir(parents=True, exist_ok=True)
-    
+
     args = Namespace(
         model=model_path,  # Note: CLI uses 'model', not 'model_path'
         output=output_path,  # Note: CLI uses 'output', not 'output_path'
@@ -507,40 +501,29 @@ def extract_adapters(
         dtype=dtype,
         cache_dir=cache_dir,
         log_level=log_level,
-        **kwargs
+        **kwargs,
     )
-    
+
     command = ExtractAdaptersCommand(None, args)
     command.run()
 
 
-def generate_cost_model(
-    model_path: str,
-    *,
-    output_path: str = "cost-model.csv",
-    log_level: int = 3,
-    **kwargs
-) -> None:
-    """
-    Generate a cost model for model splitting (HuggingFace models only).
-    
+def generate_cost_model(model_path: str, *, output_path: str = "cost-model.csv", log_level: int = 3, **kwargs) -> None:
+    """Generate a cost model for model splitting (HuggingFace models only).
+
     Args:
         model_path: Path to HuggingFace model
         output_path: Path to save cost model CSV file
         log_level: Logging level (1-5)
         **kwargs: Additional generation parameters
+
     """
     from argparse import Namespace
-    
+
     # Ensure output directory exists
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    
-    args = Namespace(
-        model_path=model_path,
-        output_path=output_path,
-        log_level=log_level,
-        **kwargs
-    )
-    
+
+    args = Namespace(model_path=model_path, output_path=output_path, log_level=log_level, **kwargs)
+
     command = GenerateCostModelCommand(None, args)
     command.run()

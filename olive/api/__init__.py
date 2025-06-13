@@ -2,8 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""
-Python API for Olive CLI commands.
+"""Python API for Olive CLI commands.
 
 This module provides Python functions that correspond to each CLI command,
 allowing users to programmatically execute Olive workflows and receive
@@ -25,7 +24,7 @@ from olive.api.workflow import (
 
 __all__ = [
     "auto_opt",
-    "capture_onnx", 
+    "capture_onnx",
     "convert_adapters",
     "extract_adapters",
     "finetune",

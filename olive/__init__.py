@@ -18,8 +18,6 @@ __version__ = "0.10.0.dev0"
 
 # pylint: disable=C0413
 
-from olive.engine.output import DeviceOutput, ModelOutput, WorkflowOutput  # noqa: E402
-
 # Import Python API functions
 from olive.api import (  # noqa: E402
     auto_opt,
@@ -33,17 +31,18 @@ from olive.api import (  # noqa: E402
     run,
     session_params_tuning,
 )
+from olive.engine.output import DeviceOutput, ModelOutput, WorkflowOutput  # noqa: E402
 
 __all__ = [
-    "DeviceOutput", 
-    "ModelOutput", 
+    "DeviceOutput",
+    "ModelOutput",
     "WorkflowOutput",
     # Python API functions
     "auto_opt",
     "capture_onnx",
     "convert_adapters",
     "extract_adapters",
-    "finetune", 
+    "finetune",
     "generate_adapter",
     "generate_cost_model",
     "quantize",
