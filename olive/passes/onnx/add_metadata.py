@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import hashlib
 import logging
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import model_proto_to_file, resave_model
+from olive.passes.onnx.common import get_external_data_file_names, model_proto_to_file, resave_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,50 @@ class AddOliveMetadata(Pass):
         onnx_model.graph.name = graph_name
         return onnx_model
 
+    def _calculate_model_hash(self, model_path: str | Path) -> str:
+        """Calculate hash of an ONNX model including all external data files."""
+        model_path = Path(model_path)
+        hash_obj = hashlib.sha256()
+
+        # Determine the actual model file path
+        if model_path.is_dir():
+            # Find the ONNX file in the directory
+            onnx_files = list(model_path.glob("*.onnx"))
+            if not onnx_files:
+                raise ValueError(f"No ONNX files found in directory: {model_path}")
+            if len(onnx_files) > 1:
+                raise ValueError(f"Multiple ONNX files found in directory: {model_path}")
+            onnx_file_path = onnx_files[0]
+        else:
+            onnx_file_path = model_path
+
+        if not onnx_file_path.exists():
+            raise ValueError(f"ONNX model file not found: {onnx_file_path}")
+
+        # Hash the main ONNX model file
+        with open(onnx_file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_obj.update(chunk)
+
+        # Get and hash external data files
+        try:
+            external_files = get_external_data_file_names(onnx_file_path)
+            for external_file in sorted(external_files):  # Sort for consistent ordering
+                external_file_path = onnx_file_path.parent / external_file
+                if external_file_path.exists():
+                    # Hash the external file name first (for uniqueness)
+                    hash_obj.update(external_file.encode("utf-8"))
+                    # Then hash the file content
+                    with open(external_file_path, "rb") as f:
+                        for chunk in iter(lambda: f.read(4096), b""):
+                            hash_obj.update(chunk)
+                else:
+                    logger.warning(f"External data file not found: {external_file_path}")
+        except Exception as e:
+            logger.warning(f"Could not process external data files for {onnx_file_path}: {e}")
+
+        return hash_obj.hexdigest()
+
     def _generate_olive_metadata(self, model: ONNXModelHandler, config: type[BasePassConfig]) -> dict[str, str]:
         """Generate Olive-specific metadata."""
         metadata = {}
@@ -75,13 +120,16 @@ class AddOliveMetadata(Pass):
         except Exception:
             metadata["olive_version"] = "unknown"
 
+        # Add Hugging Face model name (always included if available)
+        # Try to get the original HF model name from the model's config
+        hf_model_name = self._get_original_hf_model_name(model)
+        if hf_model_name:
+            metadata["hf_model_name"] = str(hf_model_name)
+            logger.info(f"Hugging Face model name: {hf_model_name}")
+
         # Add optimization information
         if config.add_optimization_info and hasattr(model, "model_attributes") and model.model_attributes:
             model_attrs = model.model_attributes
-
-            # Add original model information
-            if "original_model_path" in model_attrs:
-                metadata["original_model_path"] = str(model_attrs["original_model_path"])
 
             # Add optimization passes applied
             if "optimization_passes" in model_attrs:
@@ -101,13 +149,30 @@ class AddOliveMetadata(Pass):
 
         return metadata
 
+    def _get_original_hf_model_name(self, model: ONNXModelHandler) -> str:
+        """Get the original HF model name from the model's config if the original model was a HuggingFace model"""
+        try:
+            model_json = model.to_json()
+            config = model_json.get("config", {})
+
+            # Check if the original model was a HuggingFace model
+            if config.get("type") == "HfModel":
+                original_model_path = config.get("model_path")
+                if original_model_path and isinstance(original_model_path, str):
+                    logger.debug(f"Found HF model name from original config: {original_model_path}")
+                    return original_model_path
+        except Exception as e:
+            logger.debug(f"Could not extract original model path from config: {e}")
+
+        return None
+
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         if not isinstance(model, ONNXModelHandler):
             raise ValueError("Model must be an instance of ONNXModelHandler")
 
-        # Generate metadata
+        # Generate metadata (including original model hash if requested)
         metadata = self._generate_olive_metadata(model, config)
 
         # Get graph name from config
@@ -121,6 +186,15 @@ class AddOliveMetadata(Pass):
 
         # Resave the original model to the new path
         has_external_data = resave_model(model.model_path, output_model_path)
+
+        # Calculate model hash (before adding metadata) - always included
+        try:
+            model_hash = self._calculate_model_hash(output_model_path)
+            metadata["model_hash"] = model_hash
+            logger.info(f"Model hash (before metadata): {model_hash}")
+        except Exception as e:
+            logger.warning(f"Could not calculate model hash: {e}")
+            metadata["model_hash"] = "unknown"
 
         # Load the model without external data to modify metadata
         onnx_model = onnx.load_model(output_model_path, load_external_data=False)
