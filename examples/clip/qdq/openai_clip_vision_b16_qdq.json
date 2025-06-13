@@ -32,8 +32,8 @@
                 "enable_attention": false
             }
         },
-        "OnnxQuantization": {
-            "type": "OnnxQuantization",
+        "quantization": {
+            "type": "OnnxStaticQuantization",
             "data_config": "calib_data",
             "quant_preprocess": true,
             "activation_type": "uint16",

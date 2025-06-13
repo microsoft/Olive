@@ -221,6 +221,12 @@ CaptureSplitInfo
 ----------------
 .. autoconfigclass:: olive.passes.CaptureSplitInfo
 
+.. _selective_mixed_precision:
+
+SelectiveMixedPrecision
+-----------------------
+.. autoconfigclass:: olive.passes.SelectiveMixedPrecision
+
 .. _lora:
 
 LoRA
