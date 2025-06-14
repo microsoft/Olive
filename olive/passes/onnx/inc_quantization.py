@@ -525,7 +525,7 @@ class IncQuantization(Pass):
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
         )
-        if eval_func is not None and q_model is None:
+        if eval_func is not None or q_model is None:
             raise OlivePassError(
                 "Intel® Neural Compressor quantization does not "
                 "find any quantized model which meet accuracy goal. "

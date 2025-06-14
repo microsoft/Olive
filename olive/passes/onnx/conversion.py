@@ -630,7 +630,6 @@ class OnnxConversion(Pass):
 
 
 class OnnxOpVersionConversion(Pass):
-    # TODO(justinchuby): Rework this pass using the IR
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         latest_opset_version = onnx.defs.onnx_opset_version()
