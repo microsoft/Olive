@@ -2,24 +2,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
-import sys
+"""Python API for Olive CLI commands.
 
-_logger = logging.getLogger(__name__)
-_logger.setLevel(logging.INFO)
+This module provides Python functions that correspond to each CLI command,
+allowing users to programmatically execute Olive workflows and receive
+WorkflowOutput results containing ModelOutput instances.
+"""
 
-_sc = logging.StreamHandler(stream=sys.stdout)
-_formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s] %(message)s")
-_sc.setFormatter(_formatter)
-_logger.addHandler(_sc)
-_logger.propagate = False
-
-__version__ = "0.10.0.dev0"
-
-# pylint: disable=C0413
-
-# Import Python API functions
-from olive.api import (  # noqa: E402
+from olive.api.workflow import (
     auto_opt,
     capture_onnx,
     convert_adapters,
@@ -31,13 +21,8 @@ from olive.api import (  # noqa: E402
     run,
     session_params_tuning,
 )
-from olive.engine.output import DeviceOutput, ModelOutput, WorkflowOutput  # noqa: E402
 
 __all__ = [
-    "DeviceOutput",
-    "ModelOutput",
-    "WorkflowOutput",
-    # Python API functions
     "auto_opt",
     "capture_onnx",
     "convert_adapters",

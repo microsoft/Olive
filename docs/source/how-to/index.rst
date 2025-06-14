@@ -73,6 +73,66 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 
       :octicon:`arrow-right;1em;sd-text-info` `olive run <cli/cli-run.html>`_
 
+Working with the Python API
+---------------------------
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   python-api/python-api-overview
+   python-api/python-api-auto-opt
+   python-api/python-api-finetune
+   python-api/python-api-quantize
+   python-api/python-api-run
+
+The Olive Python API provides programmatic access to all CLI functionality, allowing you to execute optimization workflows directly in Python and receive structured `WorkflowOutput` objects with detailed results.
+
+.. tip:: The Python API offers the same functionality as CLI commands but with Python-native parameters and structured return values.
+
+.. grid:: 2 2 2 3
+   :class-container: cards
+
+   .. grid-item-card::
+
+      **Python API Overview**
+
+      Learn about the Python API structure, return types, and common usage patterns.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Python API Overview <python-api/python-api-overview.html>`_
+
+   .. grid-item-card::
+
+      **Auto Optimization API**
+
+      Use the `auto_opt()` function to optimize models programmatically with structured results.
+
+      :octicon:`arrow-right;1em;sd-text-info` `auto_opt() API <python-api/python-api-auto-opt.html>`_
+
+   .. grid-item-card::
+
+      **Fine-tuning API**
+
+      Use the `finetune()` function to create LoRA/QLoRA adapters with Python control flow.
+
+      :octicon:`arrow-right;1em;sd-text-info` `finetune() API <python-api/python-api-finetune.html>`_
+
+   .. grid-item-card::
+
+      **Quantization API**
+
+      Use the `quantize()` function to apply various quantization techniques programmatically.
+
+      :octicon:`arrow-right;1em;sd-text-info` `quantize() API <python-api/python-api-quantize.html>`_
+
+   .. grid-item-card::
+
+      **Workflow Execution API**
+
+      Use the `run()` function to execute complex workflows from configuration files or dictionaries.
+
+      :octicon:`arrow-right;1em;sd-text-info` `run() API <python-api/python-api-run.html>`_
+
 How to prepare configuration
 ----------------------------
 
