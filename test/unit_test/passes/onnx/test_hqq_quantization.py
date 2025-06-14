@@ -70,10 +70,6 @@ class TestHQQQuantization:
             OnnxHqqQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
         )
 
-        # Get the original IR model
-        original_ir_model = olive_model.load_ir_model()
-        original_nodes = list(original_ir_model.graph.nodes)
-
         # Execute
         ir_model = olive_model.load_ir_model()
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1

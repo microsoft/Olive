@@ -187,7 +187,7 @@ class HqqQuantizer:
         b_array_torch = torch.from_numpy(b_ndarray)
         if torch.cuda.is_available():
             b_array_torch = b_array_torch.cuda()
-        
+
         quant_weight_torch, scales_torch, zero_points_torch = self.quantize_internal(
             b_array_torch.T, group_size=self.block_size
         )
@@ -203,7 +203,7 @@ class HqqQuantizer:
         self.pack_on_row_fast_248bit(packed_torch, quant_weight_torch)
         scales = scales_torch.cpu().numpy()
         zero_points = zero_points_torch.cpu().numpy()
-        
+
         # reshape to the predefined shape in MatmulNbits
         scales = scales.reshape(-1)
         zero_points = zero_points.reshape(-1)
