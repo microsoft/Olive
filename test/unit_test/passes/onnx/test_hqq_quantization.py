@@ -14,7 +14,6 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.hqq_quantization import OnnxHqqQuantization
-from olive.passes.onnx.onnx_dag import OnnxDAG
 
 
 class TestHQQQuantization:
@@ -59,7 +58,7 @@ class TestHQQQuantization:
         onnx.save(model_def, str(model_path))
         return model_path
 
-    def test__process_graph(self, matmul_model_path):
+    def test_quantize_model(self, matmul_model_path):
         # Setup
         olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
         accelerator_spec = AcceleratorSpec(
@@ -71,25 +70,23 @@ class TestHQQQuantization:
             OnnxHqqQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
         )
 
-        # Get a copy of the original model graph
-        original_graph = olive_model.load_model().graph
+        # Get the original IR model
+        original_ir_model = olive_model.load_ir_model()
+        original_nodes = list(original_ir_model.graph.nodes)
 
         # Execute
-        dag = OnnxDAG(olive_model.load_model())
-        processed_dag = p._process_graph(dag, pass_config["block_size"])  # pylint: disable=W0212
+        ir_model = olive_model.load_ir_model()
+        ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
+        p._quantize_model(ir_model, pass_config["block_size"], 0, None, None)  # pylint: disable=W0212
 
         # Assert
-        assert processed_dag != original_graph
         found_matmul_nbits = False
-        for node_name in processed_dag.get_node_names():
-            node = processed_dag.get_node(node_name)
+        for node in ir_model.graph.nodes:
             if node.op_type == str(OpType.MatMulNBits):
                 found_matmul_nbits = True
-                assert node.proto.domain == MSFT_DOMAIN
-                assert any(attr.name == "bits" and attr.i == 4 for attr in node.proto.attribute)
-                assert any(
-                    attr.name == "block_size" and attr.i == pass_config["block_size"] for attr in node.proto.attribute
-                )
+                assert node.domain == MSFT_DOMAIN
+                assert node.attributes.get_int("bits") == 4
+                assert node.attributes.get_int("block_size") == pass_config["block_size"]
                 break
 
         assert found_matmul_nbits, "No MatMulNBits node found in processed graph"

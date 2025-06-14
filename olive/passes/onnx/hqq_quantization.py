@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-import onnx
+import onnx_ir as ir
 import torch
 
 from olive.constants import MSFT_DOMAIN, OpType
@@ -16,10 +16,9 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (
     get_external_data_config,
+    ir_model_to_olive_model,
     model_has_adapters,
-    model_proto_to_olive_model,
 )
-from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -63,72 +62,113 @@ class OnnxHqqQuantization(Pass):
             )
             return model
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-        dag = OnnxDAG(model.load_model())
-        dag.set_opset_import(MSFT_DOMAIN, 1)
-        dag = self._process_graph(dag, config.block_size, config.axis, config.nodes_to_exclude, config.nodes_to_include)
-        dag.update()
-        return model_proto_to_olive_model(dag.model, output_model_path, config)
+        ir_model = model.load_ir_model()
+        ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
+        self._quantize_model(ir_model, config.block_size, config.axis, config.nodes_to_exclude, config.nodes_to_include)
+        return ir_model_to_olive_model(ir_model, output_model_path, config)
 
-    def _process_graph(
+    def _quantize_model(
         self,
-        dag: OnnxDAG,
+        ir_model: ir.Model,
         block_size: int = 128,
         axis: int = 0,
         nodes_to_exclude: Optional[list[str]] = None,
         nodes_to_include: Optional[list[str]] = None,
     ):
-        node_quantizer = HqqQuantizer(block_size=block_size, axis=axis)
-
         nodes_to_exclude = nodes_to_exclude or []
         nodes_to_include = nodes_to_include or []
 
-        ordered_nodes = dag.topological_sort()
-
-        for node_name in ordered_nodes:
-            node = dag.get_node(node_name)
+        ir_model.graph.sort()
+        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
+            node_name = node.name
 
             if node_name in nodes_to_exclude:
                 logger.debug("exclude to quantize %s as specified by nodes_to_exclude...", node_name)
                 continue
 
-            elif node.op_type == str(OpType.MatMul) and (node_name in nodes_to_include or len(nodes_to_include) == 0):
-                graph_idx = dag.get_graph_idx(node_name)
-                logger.debug("quantize node %s", node_name)
-                node_initializers = dag.get_node_initializers(node_name)
-                if len(node_initializers) == 0:
-                    logger.debug("MatMul doesn't have const weight. Skip to quantize")
+            elif node.op_type == str(OpType.MatMul) and (
+                node_name in nodes_to_include or not nodes_to_include
+            ):
+                if not node.inputs[1].is_initializer():
+                    logger.debug("skip to quantize %s as it has no initializer", node_name)
                     continue
-                quantized_nodes, initializers = node_quantizer.quantize(node.proto, node_initializers)
 
-                if quantized_nodes[0].op_type == str(OpType.MatMulNBits):
-                    for initializer in initializers:
-                        dag.add_initializer(initializer, graph_idx)
+                quantized_node, initializer_graph = self._quantize(node, block_size, axis)
 
-                    dag.add_node(quantized_nodes[0], graph_idx)
-                    node_output = node.proto.output[0]
-                    new_node_output = quantized_nodes[0].output[0]
-                    for consumer in dag.get_consumers(node_name):
-                        dag.replace_node_input(consumer, node_output, new_node_output)
+                if quantized_node.op_type == OpType.MatMulNBits:
+                    registered = {}
+                    for input_value in quantized_node.inputs:
+                        if input_value.const_value is not None:
+                            if input_value.name not in registered:
+                                initializer_graph.register_initializer(input_value)
+                                registered[input_value.name] = input_value
+                            else:
+                                logger.debug(
+                                    "Found duplicated initializer %s, replace all uses with the first one.",
+                                    input_value.name,
+                                )
+                                ir.convenience.replace_all_uses_with(input_value, registered[input_value.name])
 
-                    is_model_output = dag.is_output(node_output)
-                    original_proto = None
-
-                    if is_model_output:
-                        original_proto = dag.get_io(node_output).proto[0]
-                        dag.remove_output(node_output)
-
-                    dag.remove_node(node_name)
-
-                    if is_model_output:
-                        dag.rename_node_output(quantized_nodes[0].name, new_node_output, node_output)
-                        vi = onnx.ValueInfoProto()
-                        vi.CopyFrom(original_proto)
-                        dag.get_io(node_output).proto = [vi]
-                        dag.make_output(node_output)
-
+                    ir.convenience.replace_nodes_and_values(
+                        node.graph, node, [node], [quantized_node], node.outputs, quantized_node.outputs
+                    )
             else:
                 logger.debug("skip to quantize %s ...", node_name)
-        return dag
+
+    def _quantize(self, node: ir.Node, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
+        """Quantize the weight of the target node and return the new nodes.
+
+        Target node:        QOperator node:
+        MatMul              MatMulNBits
+        If the node is target node with fp32 or fp16 const weight, quantize the weight to int4 and
+        return the new nodes.
+        return the corresponding QOperator nodes.
+        """
+        logger.debug("Start quantizing %s ...", node.name)
+
+        if node.op_type == OpType.MatMul:
+            return self._quantize_matmul(node, block_size, axis)
+        else:
+            logger.error("Unsupported op %s for weight-only quantization.", node.op_type)
+            return node, node.graph
+
+    def _quantize_matmul(self, node: ir.Node, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
+        """Quantize weight B of MatMul node to int4.
+
+        Currently only support 2D constant matrix and axis 0 blockwise quantization.
+        """
+        node_initializer = node.inputs[1]
+        b_ndarray = node_initializer.const_value.numpy()
+
+        if len(b_ndarray.shape) != 2:
+            logger.info("MatMul weight is not 2D. Skip to quantize")
+            return node, node.graph  # can only process 2-D matrix
+
+        quantizer = HqqQuantizer(block_size=block_size, axis=axis)
+        packed, scales, zero_points = quantizer.quantize_internal_numpy(b_ndarray)
+
+        b_quant = ir.Value(name=node_initializer.name + "_Q4", const_value=ir.tensor(packed))
+        scales_tensor = ir.Value(name=node_initializer.name + "_scales", const_value=ir.tensor(scales))
+        zero_points_tensor = ir.Value(name=node_initializer.name + "_zero_points", const_value=ir.tensor(zero_points))
+
+        node_inputs = [node.inputs[0], b_quant, scales_tensor, zero_points_tensor]
+
+        kwargs = {}
+        rows, cols = b_ndarray.shape
+        kwargs["K"] = rows
+        kwargs["N"] = cols
+        kwargs["bits"] = 4
+        kwargs["block_size"] = block_size
+
+        node.outputs[0].name = node.outputs[0].name + "_Q4"
+
+        return ir.node(
+            domain=MSFT_DOMAIN,
+            op_type=str(OpType.MatMulNBits),
+            inputs=node_inputs,
+            name=node.name + "_Q4" if node.name else "",
+            attributes=kwargs,
+        ), node_initializer.graph
 
 
 class HqqQuantizer:
@@ -141,6 +181,39 @@ class HqqQuantizer:
     ):
         self.block_size = block_size
         self.axis = axis
+
+    def quantize_internal_numpy(self, b_ndarray):
+        """Convert numpy array to torch, quantize, and return numpy arrays."""
+        b_array_torch = torch.from_numpy(b_ndarray)
+        if torch.cuda.is_available():
+            b_array_torch = b_array_torch.cuda()
+        
+        quant_weight_torch, scales_torch, zero_points_torch = self.quantize_internal(
+            b_array_torch.T, group_size=self.block_size
+        )
+        quant_weight_torch = quant_weight_torch.contiguous()
+        scales_torch = scales_torch.contiguous()
+        zero_points_torch = zero_points_torch.contiguous()
+
+        packed_torch = torch.zeros(
+            (quant_weight_torch.shape[0], quant_weight_torch.shape[1] // 2),
+            dtype=torch.uint8,
+            device=quant_weight_torch.device,
+        )
+        self.pack_on_row_fast_248bit(packed_torch, quant_weight_torch)
+        scales = scales_torch.cpu().numpy()
+        zero_points = zero_points_torch.cpu().numpy()
+        
+        # reshape to the predefined shape in MatmulNbits
+        scales = scales.reshape(-1)
+        zero_points = zero_points.reshape(-1)
+        rows, cols = b_array_torch.shape
+        block_size = self.block_size
+        blob_size = block_size // 2
+        k_blocks = (rows + block_size - 1) // block_size
+        packed_torch = packed_torch.reshape(cols, k_blocks, blob_size)
+
+        return packed_torch.cpu().numpy(), scales, zero_points
 
     # Proximal solver || weight - dequantize(quantize(weight))||_p^p
     @staticmethod
@@ -254,76 +327,4 @@ class HqqQuantizer:
 
         return w_q, scale.to(tensor.dtype), zero.to(tensor.dtype)
 
-    def quantize(self, node: onnx.NodeProto, node_initializers: list[onnx.TensorProto]) -> list[onnx.NodeProto]:
-        """Quantize the weight of the target node and return the new nodes.
 
-        Target node:        QOperator node:
-        MatMul              MatMulNBits
-        If the node is target node with fp32 or fp16 const weight, quantize the weight to int4 and
-        return the new nodes and initializers.
-        """
-        logger.debug("start to quantize %s ...", node.name)
-        b_pb = node_initializers[0]
-
-        b_array = onnx.numpy_helper.to_array(b_pb)
-        if len(b_array.shape) != 2:
-            logger.debug("MatMul weight is not 2D. Skip to quantize")
-            return [node]  # can only process 2-D matrix
-        b_array_torch = torch.from_numpy(b_array)
-        if torch.cuda.is_available():
-            b_array_torch = b_array_torch.cuda()
-        quant_weight_torch, scales_torch, zero_points_torch = self.quantize_internal(
-            b_array_torch.T, group_size=self.block_size
-        )
-        quant_weight_torch = quant_weight_torch.contiguous()
-        scales_torch = scales_torch.contiguous()
-        zero_points_torch = zero_points_torch.contiguous()
-
-        packed_torch = torch.zeros(
-            (quant_weight_torch.shape[0], quant_weight_torch.shape[1] // 2),
-            dtype=torch.uint8,
-            device=quant_weight_torch.device,
-        )
-        self.pack_on_row_fast_248bit(packed_torch, quant_weight_torch)
-        scales = scales_torch.cpu().numpy()
-        zero_points = zero_points_torch.cpu().numpy()
-        # reshape to the predefined shape in MatmulNbits
-        scales = scales.reshape(-1)
-        zero_points = zero_points.reshape(-1)
-        rows, cols = b_array_torch.shape
-        block_size = self.block_size
-        blob_size = block_size // 2
-        k_blocks = (rows + block_size - 1) // block_size
-        packed_torch = packed_torch.reshape(cols, k_blocks, blob_size)
-
-        b_quant = onnx.numpy_helper.from_array(packed_torch.cpu().numpy())
-        b_quant.name = b_pb.name + "_Q4"
-        scales_tensor = onnx.numpy_helper.from_array(scales)
-        scales_tensor.name = b_pb.name + "_scales"
-        zp_tensor = onnx.numpy_helper.from_array(zero_points)
-        zp_tensor.name = b_pb.name + "_zero_points"
-
-        input_names = [node.input[0], b_quant.name, scales_tensor.name, zp_tensor.name]
-        initializers = [b_quant, scales_tensor, zp_tensor]
-
-        kwargs = {}
-        rows, cols = b_array.shape
-        kwargs["K"] = rows
-        kwargs["N"] = cols
-        kwargs["bits"] = 4  # 4 bits
-        kwargs["block_size"] = self.block_size
-
-        new_output = node.output[0] + "_Q4"
-
-        matmul_q4_node = onnx.helper.make_node(
-            str(OpType.MatMulNBits),
-            inputs=input_names,
-            outputs=[new_output],
-            name=node.name + "_Q4" if node.name else "",
-            domain=MSFT_DOMAIN,
-            **kwargs,
-        )
-
-        logger.debug("complete quantization of %s ...", node.name)
-
-        return [matmul_q4_node], initializers
