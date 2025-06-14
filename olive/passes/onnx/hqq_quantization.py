@@ -201,8 +201,8 @@ class HqqQuantizer:
             device=quant_weight_torch.device,
         )
         self.pack_on_row_fast_248bit(packed_torch, quant_weight_torch)
-        scales = scales_torch.cpu().numpy()
-        zero_points = zero_points_torch.cpu().numpy()
+        scales = scales_torch.cpu()
+        zero_points = zero_points_torch.cpu()
 
         # reshape to the predefined shape in MatmulNbits
         scales = scales.reshape(-1)
@@ -213,7 +213,7 @@ class HqqQuantizer:
         k_blocks = (rows + block_size - 1) // block_size
         packed_torch = packed_torch.reshape(cols, k_blocks, blob_size)
 
-        return packed_torch.cpu().numpy(), scales, zero_points
+        return packed_torch.cpu(), scales, zero_points
 
     # Proximal solver || weight - dequantize(quantize(weight))||_p^p
     @staticmethod
