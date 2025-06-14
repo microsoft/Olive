@@ -86,9 +86,7 @@ class OnnxHqqQuantization(Pass):
                 logger.debug("exclude to quantize %s as specified by nodes_to_exclude...", node_name)
                 continue
 
-            elif node.op_type == str(OpType.MatMul) and (
-                node_name in nodes_to_include or not nodes_to_include
-            ):
+            elif node.op_type == str(OpType.MatMul) and (node_name in nodes_to_include or not nodes_to_include):
                 if not node.inputs[1].is_initializer():
                     logger.debug("skip to quantize %s as it has no initializer", node_name)
                     continue
@@ -326,5 +324,3 @@ class HqqQuantizer:
         del weight, _min, _max
 
         return w_q, scale.to(tensor.dtype), zero.to(tensor.dtype)
-
-
