@@ -525,19 +525,23 @@ class IncQuantization(Pass):
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
         )
-        if eval_func is not None or q_model is None:
+        if eval_func is not None and q_model is None:
             raise OlivePassError(
                 "Intel® Neural Compressor quantization does not "
                 "find any quantized model which meet accuracy goal. "
                 "Try to increase 'max_trials' in 'tuning_criterion'."
+            )
+        if q_model is None:
+            raise OlivePassError(
+                "Intel® Neural Compressor quantization failed to quantize the model. "
+                "Please check the log for more details."
             )
 
         # reload weight for model with size > 2GB to prevent error of missing weight files
         if q_model.is_large_model:
             from onnx.external_data_helper import load_external_data_for_model
 
-            # pylint: disable=protected-access
-            load_external_data_for_model(q_model.model, os.path.dirname(q_model._model_path))
+            load_external_data_for_model(q_model.model, os.path.dirname(q_model._model_path))  # pylint: disable=protected-access
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(q_model.model, output_model_path, config)

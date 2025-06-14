@@ -10,7 +10,7 @@ import multiprocessing
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import onnx
 import torch
@@ -286,7 +286,7 @@ def _export_pytorch_model(
 
 def _get_dummy_inputs(
     model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig]
-) -> Union[dict, tuple]:
+) -> Union[dict, Any]:
     """Get dummy inputs for the model."""
     return model.get_dummy_inputs(
         filter_hook=(model.merge_kv_cache_hook if config.use_dynamo_exporter else model.merge_kv_cache_to_tuple_hook),
@@ -320,7 +320,7 @@ def _export_ranked_model(params):
             restore_llama2_tensor_parallel_layers as restore_tensor_parallel_layers,
         )
     else:
-        raise ValueError("Unsupported model type '{model_type}' for conversion pass")
+        raise ValueError(f"Unsupported model type '{model_type}' for conversion pass")
 
     output_filename = DistributedOnnxModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(local_rank)
     output_filepath = resolve_onnx_path(output_dirpath, output_filename)
