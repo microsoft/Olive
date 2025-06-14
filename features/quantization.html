@@ -484,12 +484,25 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </div>
 </section>
 </section>
+<section id="rtn">
+<h2>RTN<a class="headerlink" href="#rtn" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">RTN</span> <span class="pre">(Round</span> <span class="pre">To</span> <span class="pre">Nearest)</span></code> is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization or calibration datasets. RTN quantization uses simple rounding to the nearest quantization level, making it extremely fast while maintaining reasonable accuracy.</p>
+<p>This pass supports ONNX models and can quantize <code class="docutils literal notranslate"><span class="pre">MatMul</span></code> and <code class="docutils literal notranslate"><span class="pre">Gather</span></code> nodes to 4 or 8 bits with block-wise quantization.</p>
+<section id="id4">
+<h3>Example Configuration<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxBlockWiseRtnQuantization&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
 <section id="hqq">
 <h2>HQQ<a class="headerlink" href="#hqq" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">HQQ</span> <span class="pre">(Half-Quadratic</span> <span class="pre">Quantization)</span></code> is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, <a class="reference external" href="https://mobiusml.github.io/hqq_blog/">HQQ</a> uses half-quadratic splitting to minimize weight quantization error efficiently.</p>
 <p>This pass only supports ONNX models, and will only quantize <code class="docutils literal notranslate"><span class="pre">MatMul</span></code> nodes to 4 bits.</p>
-<section id="id4">
-<h3>Example Configuration<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
+<section id="id5">
+<h3>Example Configuration<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxHqqQuantization&quot;</span>
 <span class="p">}</span>
@@ -517,8 +530,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <a class="reference internal" href="../reference/pass.html#onnx-static-quantization"><span class="std std-ref">OnnxStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
 <p><strong>Note:</strong> If target execution provider is QNN EP, the model might need to be preprocessed before quantization. Please refer to <a class="reference internal" href="../reference/pass.html#qnn-preprocess"><span class="std std-ref">QnnPreprocess</span></a> for more details about the pass and its config parameters.
 This preprocessing step fuses operators unsupported by QNN EP and inserts necessary operators to make the model compatible with QNN EP.</p>
-<section id="id5">
-<h3>Example Configuration<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
+<section id="id6">
+<h3>Example Configuration<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
 <p>a. Tune the parameters of the OlivePass with pre-defined searchable values</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
@@ -567,8 +580,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 tune both quantization methods and hyperparameter at the same time.
 If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">IncDynamicQuantization</span></code> and
 <code class="docutils literal notranslate"><span class="pre">IncStaticQuantization</span></code> respectively.</p>
-<section id="id6">
-<h3>Example Configuration<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
+<section id="id7">
+<h3>Example Configuration<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;inc_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;IncStaticQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;approach&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;weight_only&quot;</span><span class="p">,</span>
@@ -592,8 +605,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <p>Olive also integrates <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py">AMD Vitis AI Quantizer</a> for quantization.</p>
 <p>The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
 Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.</p>
-<section id="id7">
-<h3>Example Configuration<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
+<section id="id8">
+<h3>Example Configuration<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;vitis_ai_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;VitisAIQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;calibrate_method&quot;</span><span class="p">:</span><span class="s2">&quot;NonOverflow&quot;</span><span class="p">,</span>
@@ -613,8 +626,8 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
 <p>The TensorRT Model Optimizer-Windows is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users,it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.</p>
 <p>The primary objective of the TensorRT Model Optimizer-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard.</p>
 <p>Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ algorithm.</p>
-<section id="id8">
-<h3>Example Configuration<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
+<section id="id9">
+<h3>Example Configuration<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq&quot;</span><span class="p">,</span>
@@ -691,24 +704,28 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hqq">HQQ</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rtn">RTN</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hqq">HQQ</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-amd-vitis-ai-quantizer">Quantize with AMD Vitis AI Quantizer</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#nvidia-tensorrt-model-optimizer-windows">NVIDIA TensorRT Model Optimizer-Windows</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-amd-vitis-ai-quantizer">Quantize with AMD Vitis AI Quantizer</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#nvidia-tensorrt-model-optimizer-windows">NVIDIA TensorRT Model Optimizer-Windows</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id9">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
