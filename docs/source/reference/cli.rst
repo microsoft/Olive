@@ -14,6 +14,17 @@ Run Olive workflow defined in the input .json configuration file.
     :prog: olive
     :path: run
 
+Run Pass
+========
+
+Run a single pass on the input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models).
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: run-pass
+
 Finetune
 ========
 
