@@ -17,6 +17,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import WeightsFileFormat, set_nested_dict_value
+from olive.passes.onnx.common import AdapterType
 
 
 class GenerateAdapterCommand(BaseOliveCLICommand):
@@ -28,7 +29,13 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
 
         # Model options
         add_input_model_options(sub_parser, enable_onnx=True, default_output_path="optimized-model")
-
+        sub_parser.add_argument(
+            "--adapter_type",
+            type=AdapterType,
+            default=AdapterType.LORA,
+            choices=[el.value for el in AdapterType],
+            help=f"Type of adapters to extract. Default is {AdapterType.LORA}.",
+        )
         sub_parser.add_argument(
             "--adapter_format",
             type=str,
@@ -55,6 +62,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
         to_replace = [
             ("input_model", input_model_config),
             (("passes", "e", "save_format"), self.args.adapter_format),
+            (("passes", "e", "adapter_type"), self.args.adapter_type),
             ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
         ]

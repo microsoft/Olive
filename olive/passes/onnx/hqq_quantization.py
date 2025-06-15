@@ -8,7 +8,7 @@ from typing import Optional
 
 import onnx
 import torch
-
+import onnx_ir as ir
 from olive.constants import MSFT_DOMAIN, OpType
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -71,7 +71,7 @@ class OnnxHqqQuantization(Pass):
 
     def _process_graph(
         self,
-        dag: OnnxDAG,
+        model: ir.Model,
         block_size: int = 128,
         axis: int = 0,
         nodes_to_exclude: Optional[list[str]] = None,
@@ -82,53 +82,42 @@ class OnnxHqqQuantization(Pass):
         nodes_to_exclude = nodes_to_exclude or []
         nodes_to_include = nodes_to_include or []
 
-        ordered_nodes = dag.topological_sort()
+        model.graph.sort()
+        graph = model.graph
 
-        for node_name in ordered_nodes:
-            node = dag.get_node(node_name)
+        node: ir.Node
 
-            if node_name in nodes_to_exclude:
+        for node in ir.traversal.RecursiveGraphIterator(model.graph):
+            if node.name in nodes_to_exclude:
                 logger.debug("exclude to quantize %s as specified by nodes_to_exclude...", node_name)
                 continue
 
-            elif node.op_type == str(OpType.MatMul) and (node_name in nodes_to_include or len(nodes_to_include) == 0):
-                graph_idx = dag.get_graph_idx(node_name)
-                logger.debug("quantize node %s", node_name)
-                node_initializers = dag.get_node_initializers(node_name)
-                if len(node_initializers) == 0:
-                    logger.debug("MatMul doesn't have const weight. Skip to quantize")
+            elif node.op_type == str(OpType.MatMul) and (node.name in nodes_to_include or len(nodes_to_include) == 0):
+                logger.debug("quantize node %s", node.name)
+                if not node.inputs[0].is_initializer():
                     continue
-                quantized_nodes, initializers = node_quantizer.quantize(node.proto, node_initializers)
+                node_initializer: ir.TensorProtocol = node.inputs[0].const_value
+                quantized_nodes, initializers = node_quantizer.quantize(node, node_initializer)
+                initialized_values = []
 
                 if quantized_nodes[0].op_type == str(OpType.MatMulNBits):
                     for initializer in initializers:
-                        dag.add_initializer(initializer, graph_idx)
+                        value = ir.Value(
+                            name=initializer.name,
+                            const_value=ir.tensor(initializer),
+                        )
+                        initialized_values.append(value)
+                        node.graph.register_initializer(value)
 
-                    dag.add_node(quantized_nodes[0], graph_idx)
-                    node_output = node.proto.output[0]
+                    node_output = node.output[0]
                     new_node_output = quantized_nodes[0].output[0]
-                    for consumer in dag.get_consumers(node_name):
-                        dag.replace_node_input(consumer, node_output, new_node_output)
-
-                    is_model_output = dag.is_output(node_output)
-                    original_proto = None
-
-                    if is_model_output:
-                        original_proto = dag.get_io(node_output).proto[0]
-                        dag.remove_output(node_output)
-
-                    dag.remove_node(node_name)
-
-                    if is_model_output:
-                        dag.rename_node_output(quantized_nodes[0].name, new_node_output, node_output)
-                        vi = onnx.ValueInfoProto()
-                        vi.CopyFrom(original_proto)
-                        dag.get_io(node_output).proto = [vi]
-                        dag.make_output(node_output)
+                    ir.convenience.replace_nodes_and_values(
+                        node.graph, node.predecessors()[0], [node], [quantized_nodes], [node_output], [new_node_output]
+                    )
 
             else:
                 logger.debug("skip to quantize %s ...", node_name)
-        return dag
+        return model
 
 
 class HqqQuantizer:
@@ -263,9 +252,8 @@ class HqqQuantizer:
         return the new nodes and initializers.
         """
         logger.debug("start to quantize %s ...", node.name)
-        b_pb = node_initializers[0]
+        b_array = node_initializers[0].const_value.numpy()
 
-        b_array = onnx.numpy_helper.to_array(b_pb)
         if len(b_array.shape) != 2:
             logger.debug("MatMul weight is not 2D. Skip to quantize")
             return [node]  # can only process 2-D matrix
