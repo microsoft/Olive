@@ -1,0 +1,50 @@
+.command-selector {
+  margin-bottom: 24px;
+}
+
+.commands-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.command-card {
+  background-color: var(--surface-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.command-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.command-card.selected {
+  border-color: var(--primary-color);
+  background-color: rgba(0, 122, 255, 0.05);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.command-icon {
+  font-size: 36px;
+  color: var(--primary-color);
+  margin-bottom: 16px;
+}
+
+.command-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.command-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}

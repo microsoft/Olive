@@ -1,0 +1,3439 @@
+{
+  "passes": {
+    "AddOliveMetadata": {
+      "name": "AddOliveMetadata",
+      "module_path": "olive.passes.onnx.add_metadata.AddOliveMetadata",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "metadata": {
+          "description": "Metadata to add to the model",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "AppendPrePostProcessingOps": {
+      "name": "AppendPrePostProcessingOps",
+      "module_path": "olive.passes.onnx.append_pre_post_processing_ops.AppendPrePostProcessingOps",
+      "category": "ONNX",
+      "subcategory": "Pre/Post Processing",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "pre": {
+          "description": "List of pre-processing operations",
+          "type": "list",
+          "default": []
+        },
+        "post": {
+          "description": "List of post-processing operations",
+          "type": "list",
+          "default": []
+        },
+        "tool_command": {
+          "description": "Command to run the tool",
+          "type": "string",
+          "default": ""
+        },
+        "tool_command_args": {
+          "description": "Arguments for the tool command",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "AutoAWQQuantizer": {
+      "name": "AutoAWQQuantizer",
+      "module_path": "olive.passes.pytorch.autoawq.AutoAWQQuantizer",
+      "category": "PyTorch",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "int4",
+        "int8",
+        "int16",
+        "uint4",
+        "uint8",
+        "uint16"
+      ],
+      "schema": {
+        "w_bits": {
+          "description": "Number of bits for weight quantization",
+          "type": "int",
+          "default": 4
+        },
+        "group_size": {
+          "description": "Group size for quantization",
+          "type": "int",
+          "default": 128
+        },
+        "version": {
+          "description": "AWQ version",
+          "type": "string",
+          "default": "gemm"
+        },
+        "zero_point": {
+          "description": "Use zero point quantization",
+          "type": "bool",
+          "default": true
+        },
+        "q_group_size": {
+          "description": "Quantization group size",
+          "type": "int",
+          "default": 128
+        },
+        "modules_to_not_convert": {
+          "description": "Modules to skip during quantization",
+          "type": "list",
+          "default": null
+        },
+        "export_compatible": {
+          "description": "Export compatible format",
+          "type": "bool",
+          "default": false
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [
+        "awq"
+      ],
+      "supported_quantization_encodings": [],
+      "dataset": "dataset_optional",
+      "module_dependencies": [
+        "autoawq"
+      ],
+      "extra_dependencies": [],
+      "dataset_required": "dataset_optional"
+    },
+    "CaptureSplitInfo": {
+      "name": "CaptureSplitInfo",
+      "module_path": "olive.passes.pytorch.capture_split_info.CaptureSplitInfo",
+      "category": "PyTorch",
+      "subcategory": "Tensor Operations",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "split_method": {
+          "description": "Method for splitting",
+          "type": "enum",
+          "options": [
+            "block",
+            "layer"
+          ],
+          "default": "block"
+        },
+        "num_splits": {
+          "description": "Number of splits",
+          "type": "int",
+          "default": 2
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "ComposeOnnxModels": {
+      "name": "ComposeOnnxModels",
+      "module_path": "olive.passes.onnx.compose.ComposeOnnxModels",
+      "category": "ONNX",
+      "subcategory": "Graph Operations",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "additional_models": {
+          "description": "List of additional models to compose",
+          "type": "list",
+          "required": true
+        },
+        "input_mapping": {
+          "description": "Mapping of inputs between models",
+          "type": "dict",
+          "default": {}
+        },
+        "output_mapping": {
+          "description": "Mapping of outputs between models",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "DoRA": {
+      "name": "DoRA",
+      "module_path": "olive.passes.pytorch.lora.DoRA",
+      "category": "PyTorch",
+      "subcategory": "Fine-tuning",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "dora_r": {
+          "description": "DoRA rank",
+          "type": "int",
+          "default": 8
+        },
+        "dora_alpha": {
+          "description": "DoRA alpha",
+          "type": "int",
+          "default": 8
+        },
+        "dora_dropout": {
+          "description": "DoRA dropout",
+          "type": "float",
+          "default": 0.0
+        },
+        "target_modules": {
+          "description": "Target modules for DoRA",
+          "type": "list",
+          "default": null
+        },
+        "training_args": {
+          "description": "Training arguments",
+          "type": "dict",
+          "required": true
+        },
+        "dataset": {
+          "description": "Dataset configuration",
+          "type": "dict",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "extra_dependencies": [
+        "bnb",
+        "lora"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "dataset_required": "not_required"
+    },
+    "DynamicToFixedShape": {
+      "name": "DynamicToFixedShape",
+      "module_path": "olive.passes.onnx.dynamic_to_fixed_shape.DynamicToFixedShape",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "input_shapes": {
+          "description": "Fixed shapes for model inputs",
+          "type": "dict",
+          "required": true
+        },
+        "dim_names": {
+          "description": "Names for dimensions",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "EPContextBinaryGenerator": {
+      "name": "EPContextBinaryGenerator",
+      "module_path": "olive.passes.onnx.context_binary.EPContextBinaryGenerator",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "npu"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "qnn_sdk_root": {
+          "description": "Path to QNN SDK root",
+          "type": "string",
+          "required": true
+        },
+        "qnn_lib_dir": {
+          "description": "Path to QNN library directory",
+          "type": "string",
+          "default": null
+        },
+        "backend": {
+          "description": "QNN backend to use",
+          "type": "string",
+          "default": "HTP"
+        },
+        "soc_model": {
+          "description": "SOC model identifier",
+          "type": "string",
+          "required": true
+        },
+        "htp_config": {
+          "description": "HTP configuration options",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "QNNExecutionProvider"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "run_on_target": true,
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "ExtractAdapters": {
+      "name": "ExtractAdapters",
+      "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "adapter_names": {
+          "description": "Names of adapters to extract",
+          "type": "list",
+          "required": true
+        },
+        "output_dir": {
+          "description": "Directory to save extracted adapters",
+          "type": "string",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "GptqQuantizer": {
+      "name": "GptqQuantizer",
+      "module_path": "olive.passes.pytorch.gptq.GptqQuantizer",
+      "category": "PyTorch",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "int4",
+        "int8",
+        "int16",
+        "uint4",
+        "uint8",
+        "uint16"
+      ],
+      "schema": {
+        "bits": {
+          "description": "Number of bits for quantization",
+          "type": "int",
+          "default": 4
+        },
+        "group_size": {
+          "description": "Group size for quantization",
+          "type": "int",
+          "default": 128
+        },
+        "damp_percent": {
+          "description": "Damping percentage",
+          "type": "float",
+          "default": 0.01
+        },
+        "desc_act": {
+          "description": "Quantize in activation order",
+          "type": "bool",
+          "default": false
+        },
+        "sym": {
+          "description": "Symmetric quantization",
+          "type": "bool",
+          "default": true
+        },
+        "true_sequential": {
+          "description": "True sequential quantization",
+          "type": "bool",
+          "default": false
+        },
+        "use_cuda_fp16": {
+          "description": "Use CUDA FP16",
+          "type": "bool",
+          "default": false
+        },
+        "model_seqlen": {
+          "description": "Model sequence length",
+          "type": "int",
+          "default": null
+        },
+        "block_name_to_quantize": {
+          "description": "Block name to quantize",
+          "type": "string",
+          "default": null
+        },
+        "module_name_preceding_first_block": {
+          "description": "Module name before first block",
+          "type": "list",
+          "default": null
+        },
+        "batch_size": {
+          "description": "Batch size for calibration",
+          "type": "int",
+          "default": 1
+        },
+        "pad_token_id": {
+          "description": "Padding token ID",
+          "type": "int",
+          "default": null
+        },
+        "use_exllama": {
+          "description": "Use ExLlama kernels",
+          "type": "bool",
+          "default": null
+        },
+        "max_input_length": {
+          "description": "Maximum input length",
+          "type": "int",
+          "default": null
+        },
+        "exllama_config": {
+          "description": "ExLlama configuration",
+          "type": "dict",
+          "default": null
+        },
+        "use_marlin": {
+          "description": "Use Marlin kernels",
+          "type": "bool",
+          "default": false
+        },
+        "rotate_mode": {
+          "description": "Rotation mode",
+          "type": "enum",
+          "options": [
+            "none",
+            "quarot",
+            "spinquant"
+          ],
+          "default": "none"
+        },
+        "rotate_options": {
+          "description": "Rotation options",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [
+        "gptq",
+        "quarot",
+        "spinquant"
+      ],
+      "supported_quantization_encodings": [],
+      "dataset": "dataset_optional",
+      "module_dependencies": [
+        "auto-gptq",
+        "optimum"
+      ],
+      "extra_dependencies": [],
+      "dataset_required": "dataset_optional"
+    },
+    "GraphSurgeries": {
+      "name": "GraphSurgeries",
+      "module_path": "olive.passes.onnx.graph_surgeries.GraphSurgeries",
+      "category": "ONNX",
+      "subcategory": "Graph Operations",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "surgeries": {
+          "description": "List of surgery operations to perform",
+          "type": "list",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "IncDynamicQuantization": {
+      "name": "IncDynamicQuantization",
+      "module_path": "olive.passes.onnx.inc_quantization.IncDynamicQuantization",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "cpu"
+      ],
+      "supported_precisions": [
+        "int4",
+        "int8"
+      ],
+      "schema": {
+        "approach": {
+          "description": "Quantization approach",
+          "type": "string",
+          "default": "dynamic"
+        },
+        "weight_type": {
+          "description": "Weight data type",
+          "type": "enum",
+          "options": [
+            "int4",
+            "int8"
+          ],
+          "default": "int8"
+        },
+        "backend": {
+          "description": "Backend for quantization",
+          "type": "string",
+          "default": "default"
+        },
+        "device": {
+          "description": "Device for quantization",
+          "type": "string",
+          "default": "cpu"
+        },
+        "recipes": {
+          "description": "Quantization recipes",
+          "type": "dict",
+          "default": {}
+        },
+        "weight_only_quant": {
+          "description": "Enable weight-only quantization",
+          "type": "bool",
+          "default": false
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider"
+      ],
+      "supported_algorithms": [
+        "gptq"
+      ],
+      "supported_quantization_encodings": [],
+      "dataset": "dataset_not_required",
+      "extra_dependencies": [
+        "inc"
+      ],
+      "run_on_target": true,
+      "dataset_required": "dataset_not_required"
+    },
+    "IncQuantization": {
+      "name": "IncQuantization",
+      "module_path": "olive.passes.onnx.inc_quantization.IncQuantization",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "cpu"
+      ],
+      "supported_precisions": [
+        "int4",
+        "int8"
+      ],
+      "schema": {
+        "approach": {
+          "description": "Quantization approach",
+          "type": "string",
+          "default": "static"
+        },
+        "dataloader_func": {
+          "description": "Function to create dataloader",
+          "type": "string",
+          "default": null
+        },
+        "calibration_dataloader_func": {
+          "description": "Function to create calibration dataloader",
+          "type": "string",
+          "default": null
+        },
+        "weight_type": {
+          "description": "Weight data type",
+          "type": "enum",
+          "options": [
+            "int4",
+            "int8"
+          ],
+          "default": "int8"
+        },
+        "backend": {
+          "description": "Backend for quantization",
+          "type": "string",
+          "default": "default"
+        },
+        "device": {
+          "description": "Device for quantization",
+          "type": "string",
+          "default": "cpu"
+        },
+        "recipes": {
+          "description": "Quantization recipes",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider"
+      ],
+      "supported_algrithms": [
+        "gptq"
+      ],
+      "supported_quantization_encodings": [],
+      "dataset": "dataset_optional",
+      "extra_dependencies": [
+        "inc"
+      ],
+      "run_on_target": true,
+      "dataset_required": "dataset_optional"
+    },
+    "IncStaticQuantization": {
+      "name": "IncStaticQuantization",
+      "module_path": "olive.passes.onnx.inc_quantization.IncStaticQuantization",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "cpu"
+      ],
+      "supported_precisions": [
+        "int4",
+        "int8"
+      ],
+      "schema": {
+        "approach": {
+          "description": "Quantization approach",
+          "type": "string",
+          "default": "static"
+        },
+        "dataloader_func": {
+          "description": "Function to create dataloader",
+          "type": "string",
+          "required": true
+        },
+        "calibration_dataloader_func": {
+          "description": "Function to create calibration dataloader",
+          "type": "string",
+          "default": null
+        },
+        "weight_type": {
+          "description": "Weight data type",
+          "type": "enum",
+          "options": [
+            "int4",
+            "int8"
+          ],
+          "default": "int8"
+        },
+        "backend": {
+          "description": "Backend for quantization",
+          "type": "string",
+          "default": "default"
+        },
+        "device": {
+          "description": "Device for quantization",
+          "type": "string",
+          "default": "cpu"
+        },
+        "recipes": {
+          "description": "Quantization recipes",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider"
+      ],
+      "supported_algorithms": [
+        "gptq"
+      ],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [
+        "inc"
+      ],
+      "dataset": "dataset_required",
+      "run_on_target": true,
+      "dataset_required": "dataset_required"
+    },
+    "InputNCHWtoNHWC": {
+      "name": "InputNCHWtoNHWC",
+      "module_path": "olive.passes.onnx.vitis_ai.preprocess.InputNCHWtoNHWC",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "cpu"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "input_names": {
+          "description": "Names of inputs to convert",
+          "type": "list",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "LoHa": {
+      "name": "LoHa",
+      "module_path": "olive.passes.pytorch.lora.LoHa",
+      "category": "PyTorch",
+      "subcategory": "Fine-tuning",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "loha_r": {
+          "description": "LoHa rank",
+          "type": "int",
+          "default": 8
+        },
+        "loha_alpha": {
+          "description": "LoHa alpha",
+          "type": "int",
+          "default": 8
+        },
+        "loha_dropout": {
+          "description": "LoHa dropout",
+          "type": "float",
+          "default": 0.0
+        },
+        "target_modules": {
+          "description": "Target modules for LoHa",
+          "type": "list",
+          "default": null
+        },
+        "training_args": {
+          "description": "Training arguments",
+          "type": "dict",
+          "required": true
+        },
+        "dataset": {
+          "description": "Dataset configuration",
+          "type": "dict",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "extra_dependencies": [
+        "lora"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "dataset_required": "not_required"
+    },
+    "LoKr": {
+      "name": "LoKr",
+      "module_path": "olive.passes.pytorch.lora.LoKr",
+      "category": "PyTorch",
+      "subcategory": "Fine-tuning",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "lokr_r": {
+          "description": "LoKr rank",
+          "type": "int",
+          "default": 8
+        },
+        "lokr_alpha": {
+          "description": "LoKr alpha",
+          "type": "int",
+          "default": 8
+        },
+        "lokr_dropout": {
+          "description": "LoKr dropout",
+          "type": "float",
+          "default": 0.0
+        },
+        "target_modules": {
+          "description": "Target modules for LoKr",
+          "type": "list",
+          "default": null
+        },
+        "training_args": {
+          "description": "Training arguments",
+          "type": "dict",
+          "required": true
+        },
+        "dataset": {
+          "description": "Dataset configuration",
+          "type": "dict",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "extra_dependencies": [
+        "lora"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "dataset_required": "not_required"
+    },
+    "LoRA": {
+      "name": "LoRA",
+      "module_path": "olive.passes.pytorch.lora.LoRA",
+      "category": "PyTorch",
+      "subcategory": "Fine-tuning",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "lora_r": {
+          "description": "LoRA rank",
+          "type": "int",
+          "default": 8
+        },
+        "lora_alpha": {
+          "description": "LoRA alpha",
+          "type": "int",
+          "default": 8
+        },
+        "lora_dropout": {
+          "description": "LoRA dropout",
+          "type": "float",
+          "default": 0.0
+        },
+        "target_modules": {
+          "description": "Target modules for LoRA",
+          "type": "list",
+          "default": null
+        },
+        "training_args": {
+          "description": "Training arguments",
+          "type": "dict",
+          "required": true
+        },
+        "dataset": {
+          "description": "Dataset configuration",
+          "type": "dict",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "extra_dependencies": [
+        "lora"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "dataset_required": "not_required"
+    },
+    "LoftQ": {
+      "name": "LoftQ",
+      "module_path": "olive.passes.pytorch.lora.LoftQ",
+      "category": "PyTorch",
+      "subcategory": "Fine-tuning",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "loftq_config": {
+          "description": "LoftQ configuration",
+          "type": "dict",
+          "required": true
+        },
+        "target_modules": {
+          "description": "Target modules for LoftQ",
+          "type": "list",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "MatMulNBitsToQDQ": {
+      "name": "MatMulNBitsToQDQ",
+      "module_path": "olive.passes.onnx.mnb_to_qdq.MatMulNBitsToQDQ",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "zero_point_type": {
+          "description": "Zero point data type",
+          "type": "string",
+          "default": "int8"
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "MergeAdapterWeights": {
+      "name": "MergeAdapterWeights",
+      "module_path": "olive.passes.pytorch.merge_adapter_weights.MergeAdapterWeights",
+      "category": "PyTorch",
+      "subcategory": "Tensor Operations",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "adapter_path": {
+          "description": "Path to adapter weights",
+          "type": "string",
+          "required": true
+        },
+        "weights_name": {
+          "description": "Name of weights file",
+          "type": "string",
+          "default": null
+        },
+        "adapter_names": {
+          "description": "Names of adapters to merge",
+          "type": "list",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "MixedPrecisionOverrides": {
+      "name": "MixedPrecisionOverrides",
+      "module_path": "olive.passes.onnx.mixed_precision_overrides.MixedPrecisionOverrides",
+      "category": "ONNX",
+      "subcategory": "Pre/Post Processing",
+      "supported_accelerators": [
+        "npu"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "overrides_config": {
+          "description": "Configuration for precision overrides",
+          "type": "dict",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "QNNExecutionProvider"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "MoEExpertsDistributor": {
+      "name": "MoEExpertsDistributor",
+      "module_path": "olive.passes.onnx.moe_experts_distributor.MoEExpertsDistributor",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "num_experts": {
+          "description": "Number of experts",
+          "type": "int",
+          "required": true
+        },
+        "distribution_strategy": {
+          "description": "Distribution strategy for experts",
+          "type": "string",
+          "default": "balanced"
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "ModelBuilder": {
+      "name": "ModelBuilder",
+      "module_path": "olive.passes.onnx.model_builder.ModelBuilder",
+      "category": "ONNX",
+      "subcategory": "Model Building",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "int4",
+        "int8",
+        "fp16",
+        "fp32"
+      ],
+      "schema": {
+        "precision": {
+          "description": "Precision for the model",
+          "type": "enum",
+          "options": [
+            "int4",
+            "int8",
+            "fp16",
+            "fp32"
+          ],
+          "default": "fp32"
+        },
+        "optimization_level": {
+          "description": "Optimization level",
+          "type": "int",
+          "default": 1
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "NVModelOptQuantization": {
+      "name": "NVModelOptQuantization",
+      "module_path": "olive.passes.onnx.nvmo_quantization.NVModelOptQuantization",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "gpu"
+      ],
+      "supported_precisions": [
+        "int4",
+        "int8",
+        "fp8"
+      ],
+      "schema": {
+        "algorithm": {
+          "description": "Quantization algorithm",
+          "type": "string",
+          "default": "RTN"
+        },
+        "num_bits": {
+          "description": "Number of quantization bits",
+          "type": "int",
+          "default": 8
+        },
+        "block_size": {
+          "description": "Block size for quantization",
+          "type": "int",
+          "default": 128
+        },
+        "enable_int4_weights": {
+          "description": "Enable INT4 weights",
+          "type": "bool",
+          "default": false
+        },
+        "enable_int8_kv_cache": {
+          "description": "Enable INT8 KV cache",
+          "type": "bool",
+          "default": false
+        },
+        "calibration_data": {
+          "description": "Calibration data configuration",
+          "type": "dict",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "CUDAExecutionProvider"
+      ],
+      "supported_algorithms": [
+        "awq"
+      ],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [
+        "nvmo"
+      ],
+      "dataset_required": "not_required"
+    },
+    "OnnxBlockWiseRtnQuantization": {
+      "name": "OnnxBlockWiseRtnQuantization",
+      "module_path": "olive.passes.onnx.rtn_quantization.OnnxBlockWiseRtnQuantization",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "cpu",
+        "gpu"
+      ],
+      "supported_precisions": [
+        "int4"
+      ],
+      "schema": {
+        "block_size": {
+          "description": "Block size for quantization",
+          "type": "int",
+          "default": 32
+        },
+        "is_symmetric": {
+          "description": "Use symmetric quantization",
+          "type": "bool",
+          "default": true
+        },
+        "bits": {
+          "description": "Number of bits for quantization",
+          "type": "int",
+          "default": 4
+        },
+        "nodes_to_exclude": {
+          "description": "List of nodes to exclude from quantization",
+          "type": "list",
+          "default": []
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider",
+        "CUDAExecutionProvider",
+        "DmlExecutionProvider"
+      ],
+      "supported_algorithms": [
+        "rtn"
+      ],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "OnnxBnb4Quantization": {
+      "name": "OnnxBnb4Quantization",
+      "module_path": "olive.passes.onnx.bnb_quantization.OnnxBnb4Quantization",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "cpu"
+      ],
+      "supported_precisions": [
+        "fp4",
+        "nf4"
+      ],
+      "schema": {
+        "quant_type": {
+          "description": "Quantization type",
+          "type": "enum",
+          "options": [
+            "fp4",
+            "nf4"
+          ],
+          "default": "nf4"
+        },
+        "block_size": {
+          "description": "Block size for quantization",
+          "type": "int",
+          "default": 64
+        },
+        "double_quant": {
+          "description": "Enable double quantization",
+          "type": "bool",
+          "default": true
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider"
+      ],
+      "supported_algorithms": [
+        "rtn"
+      ],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "OnnxConversion": {
+      "name": "OnnxConversion",
+      "module_path": "olive.passes.onnx.conversion.OnnxConversion",
+      "category": "ONNX",
+      "subcategory": "Conversion",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "target_opset": {
+          "description": "Target ONNX opset version",
+          "type": "int",
+          "default": null
+        },
+        "use_dynamo_exporter": {
+          "description": "Use torch dynamo exporter",
+          "type": "bool",
+          "default": false
+        },
+        "dynamo_export_options": {
+          "description": "Options for dynamo exporter",
+          "type": "dict",
+          "default": {}
+        },
+        "use_external_initializers": {
+          "description": "Save initializers in external file",
+          "type": "bool",
+          "default": false
+        },
+        "external_initializers_file_name": {
+          "description": "Name of external initializers file",
+          "type": "string",
+          "default": null
+        },
+        "external_initializers_size_threshold": {
+          "description": "Size threshold for external initializers in bytes",
+          "type": "int",
+          "default": 1024
+        },
+        "no_identity_io_map": {
+          "description": "Skip identity nodes between model inputs/outputs",
+          "type": "bool",
+          "default": false
+        },
+        "past_key_value_name": {
+          "description": "Past key value name pattern",
+          "type": "string",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "dataset": "dataset_optional",
+      "extra_dependencies": [],
+      "dataset_required": "dataset_optional"
+    },
+    "OnnxDynamicQuantization": {
+      "name": "OnnxDynamicQuantization",
+      "module_path": "olive.passes.onnx.quantization.OnnxDynamicQuantization",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "cpu"
+      ],
+      "supported_precisions": [
+        "int8",
+        "uint8"
+      ],
+      "schema": {
+        "weight_type": {
+          "description": "Data type for weights",
+          "type": "enum",
+          "options": [
+            "int8",
+            "uint8"
+          ],
+          "default": "int8"
+        },
+        "op_types_to_quantize": {
+          "description": "List of operation types to quantize",
+          "type": "list",
+          "default": null
+        },
+        "per_channel": {
+          "description": "Enable per-channel quantization",
+          "type": "bool",
+          "default": false
+        },
+        "reduce_range": {
+          "description": "Use 7-bit quantization",
+          "type": "bool",
+          "default": false
+        },
+        "extra_options": {
+          "description": "Additional quantization options",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider"
+      ],
+      "supported_algorithms": [
+        "rtn"
+      ],
+      "supported_quantization_encodings": [],
+      "dataset": "dataset_not_required",
+      "extra_dependencies": [],
+      "dataset_required": "dataset_not_required"
+    },
+    "OnnxFloatToFloat16": {
+      "name": "OnnxFloatToFloat16",
+      "module_path": "olive.passes.onnx.float16_conversion.OnnxFloatToFloat16",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "cpu"
+      ],
+      "supported_precisions": [
+        "fp16"
+      ],
+      "schema": {
+        "min_positive_val": {
+          "description": "Minimum positive value for float16",
+          "type": "float",
+          "default": 5.96e-08
+        },
+        "max_finite_val": {
+          "description": "Maximum finite value for float16",
+          "type": "float",
+          "default": 65504.0
+        },
+        "keep_io_types": {
+          "description": "Keep input/output types unchanged",
+          "type": "bool",
+          "default": true
+        },
+        "op_block_list": {
+          "description": "List of operations to skip",
+          "type": "list",
+          "default": null
+        },
+        "node_block_list": {
+          "description": "List of nodes to skip",
+          "type": "list",
+          "default": null
+        },
+        "force_fp16_inputs": {
+          "description": "Dictionary of inputs to force to float16",
+          "type": "dict",
+          "default": null
+        },
+        "force_fp16_outputs": {
+          "description": "Dictionary of outputs to force to float16",
+          "type": "dict",
+          "default": null
+        },
+        "force_fp16_initializers": {
+          "description": "List of initializers to force to float16",
+          "type": "list",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "OnnxHqqQuantization": {
+      "name": "OnnxHqqQuantization",
+      "module_path": "olive.passes.onnx.hqq_quantization.OnnxHqqQuantization",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "cpu",
+        "gpu"
+      ],
+      "supported_precisions": [
+        "int4"
+      ],
+      "schema": {
+        "nbits": {
+          "description": "Number of bits for quantization",
+          "type": "int",
+          "default": 4
+        },
+        "group_size": {
+          "description": "Group size for quantization",
+          "type": "int",
+          "default": 64
+        },
+        "quant_zero": {
+          "description": "Quantize zero point",
+          "type": "bool",
+          "default": true
+        },
+        "quant_scale": {
+          "description": "Quantize scale",
+          "type": "bool",
+          "default": false
+        },
+        "scale_quant_params": {
+          "description": "Scale quantization parameters",
+          "type": "dict",
+          "default": {}
+        },
+        "zero_quant_params": {
+          "description": "Zero point quantization parameters",
+          "type": "dict",
+          "default": {}
+        },
+        "optimization_type": {
+          "description": "Optimization type",
+          "type": "string",
+          "default": "fast"
+        },
+        "verbose": {
+          "description": "Enable verbose output",
+          "type": "bool",
+          "default": false
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider",
+        "CUDAExecutionProvider",
+        "DmlExecutionProvider"
+      ],
+      "supported_algorithms": [
+        "hqq"
+      ],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "OnnxIODataTypeConverter": {
+      "name": "OnnxIODataTypeConverter",
+      "module_path": "olive.passes.onnx.io_datatype_converter.OnnxIODataTypeConverter",
+      "category": "ONNX",
+      "subcategory": "Conversion",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "input_types": {
+          "description": "Data types for inputs",
+          "type": "dict",
+          "default": {}
+        },
+        "output_types": {
+          "description": "Data types for outputs",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "OnnxMatMul4Quantizer": {
+      "name": "OnnxMatMul4Quantizer",
+      "module_path": "olive.passes.onnx.quantization.OnnxMatMul4Quantizer",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "cpu",
+        "gpu"
+      ],
+      "supported_precisions": [
+        "int4"
+      ],
+      "schema": {
+        "block_size": {
+          "description": "Block size for quantization",
+          "type": "int",
+          "default": 32
+        },
+        "is_symmetric": {
+          "description": "Use symmetric quantization",
+          "type": "bool",
+          "default": true
+        },
+        "accuracy_level": {
+          "description": "Accuracy level",
+          "type": "int",
+          "default": null
+        },
+        "nodes_to_exclude": {
+          "description": "List of nodes to exclude from quantization",
+          "type": "list",
+          "default": []
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider",
+        "CUDAExecutionProvider",
+        "DmlExecutionProvider"
+      ],
+      "supported_algorithms": [
+        "rtn"
+      ],
+      "supported_quantization_encodings": [
+        "qdq"
+      ],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "OnnxOpVersionConversion": {
+      "name": "OnnxOpVersionConversion",
+      "module_path": "olive.passes.onnx.conversion.OnnxOpVersionConversion",
+      "category": "ONNX",
+      "subcategory": "Conversion",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "target_opset": {
+          "description": "Target ONNX opset version",
+          "type": "int",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "OnnxPeepholeOptimizer": {
+      "name": "OnnxPeepholeOptimizer",
+      "module_path": "olive.passes.onnx.peephole_optimizer.OnnxPeepholeOptimizer",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "fuse_matmul_add_bias_into_gemm": {
+          "description": "Fuse MatMul+Add+Bias into Gemm",
+          "type": "bool",
+          "default": true
+        },
+        "fuse_reshape_into_gemm": {
+          "description": "Fuse Reshape into Gemm",
+          "type": "bool",
+          "default": true
+        },
+        "fuse_pad_into_conv": {
+          "description": "Fuse Pad into Conv",
+          "type": "bool",
+          "default": true
+        },
+        "fuse_transpose_into_gemm": {
+          "description": "Fuse Transpose into Gemm",
+          "type": "bool",
+          "default": true
+        },
+        "passes_to_disable": {
+          "description": "List of optimization passes to disable",
+          "type": "list",
+          "default": []
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [
+        "onnxoptimizer",
+        "onnxscript"
+      ],
+      "dataset_required": "not_required"
+    },
+    "OnnxQuantization": {
+      "name": "OnnxQuantization",
+      "module_path": "olive.passes.onnx.quantization.OnnxQuantization",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "cpu"
+      ],
+      "supported_precisions": [
+        "int8"
+      ],
+      "schema": {
+        "quant_mode": {
+          "description": "Quantization mode",
+          "type": "enum",
+          "options": [
+            "static",
+            "dynamic"
+          ],
+          "default": "static"
+        },
+        "quant_format": {
+          "description": "Quantization format",
+          "type": "enum",
+          "options": [
+            "QOperator",
+            "QDQ"
+          ],
+          "default": "QDQ"
+        },
+        "per_channel": {
+          "description": "Enable per-channel quantization",
+          "type": "bool",
+          "default": true
+        },
+        "reduce_range": {
+          "description": "Use 7-bit quantization",
+          "type": "bool",
+          "default": false
+        },
+        "calibrate_method": {
+          "description": "Calibration method",
+          "type": "enum",
+          "options": [
+            "MinMax",
+            "Entropy",
+            "Percentile"
+          ],
+          "default": "MinMax"
+        },
+        "weight_type": {
+          "description": "Weight data type",
+          "type": "enum",
+          "options": [
+            "int8",
+            "uint8"
+          ],
+          "default": "int8"
+        },
+        "activation_type": {
+          "description": "Activation data type",
+          "type": "enum",
+          "options": [
+            "int8",
+            "uint8"
+          ],
+          "default": "int8"
+        },
+        "op_types_to_quantize": {
+          "description": "List of operation types to quantize",
+          "type": "list",
+          "default": null
+        },
+        "nodes_to_exclude": {
+          "description": "List of nodes to exclude from quantization",
+          "type": "list",
+          "default": null
+        },
+        "extra_options": {
+          "description": "Additional quantization options",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider"
+      ],
+      "supported_algorithms": [
+        "rtn"
+      ],
+      "supported_quantization_encodings": [],
+      "dataset": "dataset_optional",
+      "extra_dependencies": [],
+      "dataset_required": "dataset_optional"
+    },
+    "OnnxQuantizationPreprocess": {
+      "name": "OnnxQuantizationPreprocess",
+      "module_path": "olive.passes.onnx.quantization.OnnxQuantizationPreprocess",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "skip_optimization": {
+          "description": "Skip ONNX optimization",
+          "type": "bool",
+          "default": false
+        },
+        "skip_onnx_shape": {
+          "description": "Skip ONNX shape inference",
+          "type": "bool",
+          "default": false
+        },
+        "skip_symbolic_shape": {
+          "description": "Skip symbolic shape inference",
+          "type": "bool",
+          "default": false
+        },
+        "auto_merge": {
+          "description": "Auto merge preprocessing model",
+          "type": "bool",
+          "default": true
+        },
+        "save_as_external_data": {
+          "description": "Save as external data",
+          "type": "bool",
+          "default": false
+        },
+        "all_tensors_to_one_file": {
+          "description": "Save all tensors to one file",
+          "type": "bool",
+          "default": false
+        },
+        "external_data_name": {
+          "description": "External data file name",
+          "type": "string",
+          "default": null
+        },
+        "size_threshold": {
+          "description": "Size threshold for external data",
+          "type": "int",
+          "default": 1024
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "OnnxScriptFusion": {
+      "name": "OnnxScriptFusion",
+      "module_path": "olive.passes.onnx.onnxscript_fusion.OnnxScriptFusion",
+      "category": "ONNX",
+      "subcategory": "Pre/Post Processing",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "fusion_patterns": {
+          "description": "List of fusion patterns to apply",
+          "type": "list",
+          "default": []
+        },
+        "custom_patterns": {
+          "description": "Custom fusion patterns",
+          "type": "list",
+          "default": []
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "OnnxStaticQuantization": {
+      "name": "OnnxStaticQuantization",
+      "module_path": "olive.passes.onnx.quantization.OnnxStaticQuantization",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "cpu"
+      ],
+      "supported_precisions": [
+        "int8",
+        "int16",
+        "uint8",
+        "uint16"
+      ],
+      "schema": {
+        "quant_format": {
+          "description": "Quantization format",
+          "type": "enum",
+          "options": [
+            "QOperator",
+            "QDQ"
+          ],
+          "default": "QDQ"
+        },
+        "per_channel": {
+          "description": "Enable per-channel quantization",
+          "type": "bool",
+          "default": true
+        },
+        "reduce_range": {
+          "description": "Use 7-bit quantization",
+          "type": "bool",
+          "default": false
+        },
+        "calibrate_method": {
+          "description": "Calibration method",
+          "type": "enum",
+          "options": [
+            "MinMax",
+            "Entropy",
+            "Percentile"
+          ],
+          "default": "MinMax"
+        },
+        "weight_type": {
+          "description": "Weight data type",
+          "type": "enum",
+          "options": [
+            "int8",
+            "int16",
+            "uint8",
+            "uint16"
+          ],
+          "default": "int8"
+        },
+        "activation_type": {
+          "description": "Activation data type",
+          "type": "enum",
+          "options": [
+            "int8",
+            "int16",
+            "uint8",
+            "uint16"
+          ],
+          "default": "int8"
+        },
+        "op_types_to_quantize": {
+          "description": "List of operation types to quantize",
+          "type": "list",
+          "default": null
+        },
+        "nodes_to_quantize": {
+          "description": "List of nodes to quantize",
+          "type": "list",
+          "default": null
+        },
+        "nodes_to_exclude": {
+          "description": "List of nodes to exclude from quantization",
+          "type": "list",
+          "default": null
+        },
+        "extra_options": {
+          "description": "Additional quantization options",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider"
+      ],
+      "supported_algorithms": [
+        "rtn"
+      ],
+      "supported_quantization_encodings": [
+        "qdq"
+      ],
+      "dataset": "dataset_required",
+      "extra_dependencies": [],
+      "dataset_required": "dataset_required"
+    },
+    "OpenVINOConversion": {
+      "name": "OpenVINOConversion",
+      "module_path": "olive.passes.openvino.conversion.OpenVINOConversion",
+      "category": "OpenVINO",
+      "subcategory": "Conversion",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "compress_to_fp16": {
+          "description": "Compress model to FP16",
+          "type": "bool",
+          "default": false
+        },
+        "input": {
+          "description": "Input shape specification",
+          "type": "list",
+          "default": null
+        },
+        "output": {
+          "description": "Output names",
+          "type": "list",
+          "default": null
+        },
+        "mean_values": {
+          "description": "Mean values for input normalization",
+          "type": "list",
+          "default": null
+        },
+        "scale_values": {
+          "description": "Scale values for input normalization",
+          "type": "list",
+          "default": null
+        },
+        "reverse_input_channels": {
+          "description": "Reverse input channels",
+          "type": "bool",
+          "default": false
+        },
+        "example_input": {
+          "description": "Example input for shape inference",
+          "type": "dict",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [
+        "openvino"
+      ],
+      "dataset_required": "not_required"
+    },
+    "OpenVINOEncapsulation": {
+      "name": "OpenVINOEncapsulation",
+      "module_path": "olive.passes.openvino.encapsulation.OpenVINOEncapsulation",
+      "category": "OpenVINO",
+      "subcategory": "Other",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "openvino_execution_provider_config": {
+          "description": "OpenVINO execution provider configuration",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "OpenVINOExecutionProvider"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [
+        "openvino"
+      ],
+      "dataset_required": "not_required"
+    },
+    "OpenVINOIoUpdate": {
+      "name": "OpenVINOIoUpdate",
+      "module_path": "olive.passes.openvino.io_update.OpenVINOIoUpdate",
+      "category": "OpenVINO",
+      "subcategory": "Other",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "input_names": {
+          "description": "New input names",
+          "type": "dict",
+          "default": {}
+        },
+        "output_names": {
+          "description": "New output names",
+          "type": "dict",
+          "default": {}
+        },
+        "input_shapes": {
+          "description": "New input shapes",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [
+        "openvino"
+      ],
+      "dataset_required": "not_required"
+    },
+    "OpenVINOOptimumConversion": {
+      "name": "OpenVINOOptimumConversion",
+      "module_path": "olive.passes.openvino.optimum_intel.OpenVINOOptimumConversion",
+      "category": "OpenVINO",
+      "subcategory": "Conversion",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "export_options": {
+          "description": "Export options for Optimum Intel",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [
+        "openvino"
+      ],
+      "dataset_required": "not_required"
+    },
+    "OpenVINOQuantization": {
+      "name": "OpenVINOQuantization",
+      "module_path": "olive.passes.openvino.quantization.OpenVINOQuantization",
+      "category": "OpenVINO",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "algorithm": {
+          "description": "Quantization algorithm",
+          "type": "enum",
+          "options": [
+            "DefaultQuantization",
+            "AccuracyAwareQuantization"
+          ],
+          "default": "DefaultQuantization"
+        },
+        "preset": {
+          "description": "Quantization preset",
+          "type": "enum",
+          "options": [
+            "performance",
+            "mixed"
+          ],
+          "default": "performance"
+        },
+        "model_type": {
+          "description": "Model type for quantization",
+          "type": "string",
+          "default": null
+        },
+        "subset_size": {
+          "description": "Subset size for calibration",
+          "type": "int",
+          "default": 300
+        },
+        "fast_bias_correction": {
+          "description": "Enable fast bias correction",
+          "type": "bool",
+          "default": true
+        },
+        "ignored_scope": {
+          "description": "Scope to ignore during quantization",
+          "type": "list",
+          "default": null
+        },
+        "target_device": {
+          "description": "Target device for quantization",
+          "type": "string",
+          "default": "ANY"
+        },
+        "stat_subset_size": {
+          "description": "Subset size for statistics collection",
+          "type": "int",
+          "default": 300
+        },
+        "stat_batch_size": {
+          "description": "Batch size for statistics collection",
+          "type": "int",
+          "default": 1
+        },
+        "calibration_dataloader": {
+          "description": "Calibration dataloader",
+          "type": "string",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [
+        "openvino"
+      ],
+      "dataset_required": "not_required"
+    },
+    "OptimumConversion": {
+      "name": "OptimumConversion",
+      "module_path": "olive.passes.onnx.optimum_conversion.OptimumConversion",
+      "category": "ONNX",
+      "subcategory": "Conversion",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "model_type": {
+          "description": "Type of model for conversion",
+          "type": "string",
+          "default": "bert"
+        },
+        "optimization_level": {
+          "description": "Optimization level",
+          "type": "int",
+          "default": 1
+        },
+        "use_gpu": {
+          "description": "Use GPU for conversion",
+          "type": "bool",
+          "default": false
+        },
+        "optimize_for_gpu": {
+          "description": "Optimize model for GPU execution",
+          "type": "bool",
+          "default": false
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "extra_dependencies": [
+        "optimum"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "dataset_required": "not_required"
+    },
+    "OptimumMerging": {
+      "name": "OptimumMerging",
+      "module_path": "olive.passes.onnx.optimum_merging.OptimumMerging",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "save_as_external_data": {
+          "description": "Save weights as external data",
+          "type": "bool",
+          "default": false
+        },
+        "all_tensors_to_one_file": {
+          "description": "Save all tensors to one file",
+          "type": "bool",
+          "default": true
+        },
+        "external_data_name": {
+          "description": "Name for external data file",
+          "type": "string",
+          "default": null
+        },
+        "size_threshold": {
+          "description": "Size threshold for external data in bytes",
+          "type": "int",
+          "default": 1024
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [
+        "optimum"
+      ],
+      "run_on_target": true,
+      "dataset_required": "not_required"
+    },
+    "OrtMixedPrecision": {
+      "name": "OrtMixedPrecision",
+      "module_path": "olive.passes.onnx.mixed_precision.OrtMixedPrecision",
+      "category": "ONNX",
+      "subcategory": "Pre/Post Processing",
+      "supported_accelerators": [
+        "gpu",
+        "npu"
+      ],
+      "supported_precisions": [
+        "fp16"
+      ],
+      "schema": {
+        "op_block_list": {
+          "description": "List of operations to keep in float32",
+          "type": "list",
+          "default": [
+            "SimplifiedLayerNormalization",
+            "SkipSimplifiedLayerNormalization",
+            "Relu",
+            "Add"
+          ]
+        }
+      },
+      "supported_providers": [
+        "CUDAExecutionProvider",
+        "DmlExecutionProvider"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "OrtSessionParamsTuning": {
+      "name": "OrtSessionParamsTuning",
+      "module_path": "olive.passes.onnx.session_params_tuning.OrtSessionParamsTuning",
+      "category": "ONNX",
+      "subcategory": "Pre/Post Processing",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "tuning_options": {
+          "description": "Options for session parameter tuning",
+          "type": "dict",
+          "default": {}
+        },
+        "tuning_iterations": {
+          "description": "Number of tuning iterations",
+          "type": "int",
+          "default": 10
+        },
+        "warmup_iterations": {
+          "description": "Number of warmup iterations",
+          "type": "int",
+          "default": 5
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "module_dependencies": [
+        "psutil"
+      ],
+      "run_on_target": true,
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "OrtTransformersOptimization": {
+      "name": "OrtTransformersOptimization",
+      "module_path": "olive.passes.onnx.transformer_optimization.OrtTransformersOptimization",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "model_type": {
+          "description": "Type of transformer model",
+          "type": "string",
+          "default": "bert"
+        },
+        "num_heads": {
+          "description": "Number of attention heads",
+          "type": "int",
+          "default": 0
+        },
+        "hidden_size": {
+          "description": "Hidden size",
+          "type": "int",
+          "default": 0
+        },
+        "optimization_options": {
+          "description": "Optimization options",
+          "type": "dict",
+          "default": null
+        },
+        "use_gpu": {
+          "description": "Use GPU for optimization",
+          "type": "bool",
+          "default": false
+        },
+        "only_onnxruntime": {
+          "description": "Only use ONNX Runtime compatible optimizations",
+          "type": "bool",
+          "default": false
+        },
+        "float16": {
+          "description": "Convert to float16",
+          "type": "bool",
+          "default": false
+        },
+        "input_int32": {
+          "description": "Use int32 for inputs",
+          "type": "bool",
+          "default": false
+        },
+        "keep_io_types": {
+          "description": "Keep input/output types unchanged",
+          "type": "bool",
+          "default": true
+        },
+        "force_fp32_ops": {
+          "description": "List of operations to keep in float32",
+          "type": "list",
+          "default": null
+        },
+        "force_fp32_nodes": {
+          "description": "List of nodes to keep in float32",
+          "type": "list",
+          "default": null
+        },
+        "force_fp16_inputs": {
+          "description": "Dictionary of inputs to force to float16",
+          "type": "dict",
+          "default": null
+        },
+        "disable_attention": {
+          "description": "Disable attention fusion",
+          "type": "bool",
+          "default": false
+        },
+        "disable_skip_layer_norm": {
+          "description": "Disable skip layer norm fusion",
+          "type": "bool",
+          "default": false
+        },
+        "disable_embed_layer_norm": {
+          "description": "Disable embed layer norm fusion",
+          "type": "bool",
+          "default": false
+        },
+        "disable_bias_skip_layer_norm": {
+          "description": "Disable bias skip layer norm fusion",
+          "type": "bool",
+          "default": false
+        },
+        "disable_bias_gelu": {
+          "description": "Disable bias gelu fusion",
+          "type": "bool",
+          "default": false
+        },
+        "disable_gelu": {
+          "description": "Disable gelu fusion",
+          "type": "bool",
+          "default": false
+        },
+        "disable_layer_norm": {
+          "description": "Disable layer norm fusion",
+          "type": "bool",
+          "default": false
+        },
+        "disable_attention_qk_v_bias_fusion": {
+          "description": "Disable attention QKV bias fusion",
+          "type": "bool",
+          "default": false
+        },
+        "disable_packed_kv": {
+          "description": "Disable packed KV optimization",
+          "type": "bool",
+          "default": true
+        },
+        "disable_packed_qkv": {
+          "description": "Disable packed QKV optimization",
+          "type": "bool",
+          "default": true
+        },
+        "use_raw_attention_mask": {
+          "description": "Use raw attention mask",
+          "type": "bool",
+          "default": false
+        },
+        "mask_filter_value": {
+          "description": "Mask filter value",
+          "type": "float",
+          "default": -10000.0
+        },
+        "disable_group_norm": {
+          "description": "Disable group norm fusion",
+          "type": "bool",
+          "default": false
+        },
+        "disable_bias_add": {
+          "description": "Disable bias add fusion",
+          "type": "bool",
+          "default": false
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "PyTorchTensorParallel": {
+      "name": "PyTorchTensorParallel",
+      "module_path": "olive.passes.pytorch.tensor_parallel.PyTorchTensorParallel",
+      "category": "PyTorch",
+      "subcategory": "Tensor Operations",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "world_size": {
+          "description": "World size for tensor parallelism",
+          "type": "int",
+          "required": true
+        },
+        "parallel_layers": {
+          "description": "Layers to parallelize",
+          "type": "list",
+          "default": null
+        },
+        "parallel_strategy": {
+          "description": "Parallelization strategy",
+          "type": "string",
+          "default": "column"
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "QLoRA": {
+      "name": "QLoRA",
+      "module_path": "olive.passes.pytorch.lora.QLoRA",
+      "category": "PyTorch",
+      "subcategory": "Fine-tuning",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "qlora_r": {
+          "description": "QLoRA rank",
+          "type": "int",
+          "default": 8
+        },
+        "qlora_alpha": {
+          "description": "QLoRA alpha",
+          "type": "int",
+          "default": 8
+        },
+        "qlora_dropout": {
+          "description": "QLoRA dropout",
+          "type": "float",
+          "default": 0.0
+        },
+        "target_modules": {
+          "description": "Target modules for QLoRA",
+          "type": "list",
+          "default": null
+        },
+        "training_args": {
+          "description": "Training arguments",
+          "type": "dict",
+          "required": true
+        },
+        "dataset": {
+          "description": "Dataset configuration",
+          "type": "dict",
+          "required": true
+        },
+        "quant_type": {
+          "description": "Quantization type",
+          "type": "string",
+          "default": "nf4"
+        },
+        "double_quant": {
+          "description": "Enable double quantization",
+          "type": "bool",
+          "default": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "extra_dependencies": [
+        "bnb",
+        "lora"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "dataset": "dataset",
+      "dataset_required": "dataset"
+    },
+    "QNNContextBinaryGenerator": {
+      "name": "QNNContextBinaryGenerator",
+      "module_path": "olive.passes.qnn.context_binary_generator.QNNContextBinaryGenerator",
+      "category": "Other",
+      "subcategory": "Other",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "backend": {
+          "description": "QNN backend",
+          "type": "string",
+          "default": "HTP"
+        },
+        "binary_file": {
+          "description": "Binary file name",
+          "type": "string",
+          "default": null
+        },
+        "qnn_sdk_root": {
+          "description": "QNN SDK root path",
+          "type": "string",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "QNNConversion": {
+      "name": "QNNConversion",
+      "module_path": "olive.passes.qnn.conversion.QNNConversion",
+      "category": "Other",
+      "subcategory": "Other",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "input_layout": {
+          "description": "Input data layout",
+          "type": "string",
+          "default": "NCHW"
+        },
+        "output_layout": {
+          "description": "Output data layout",
+          "type": "string",
+          "default": "NCHW"
+        },
+        "preserve_io": {
+          "description": "Preserve input/output names",
+          "type": "bool",
+          "default": true
+        },
+        "quantize_io": {
+          "description": "Quantize input/output",
+          "type": "bool",
+          "default": false
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "QNNModelLibGenerator": {
+      "name": "QNNModelLibGenerator",
+      "module_path": "olive.passes.qnn.model_lib_generator.QNNModelLibGenerator",
+      "category": "Other",
+      "subcategory": "Other",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "lib_name": {
+          "description": "Library name",
+          "type": "string",
+          "default": "model"
+        },
+        "lib_version": {
+          "description": "Library version",
+          "type": "string",
+          "default": "1.0.0"
+        },
+        "qnn_sdk_root": {
+          "description": "QNN SDK root path",
+          "type": "string",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "QNNPreprocess": {
+      "name": "QNNPreprocess",
+      "module_path": "olive.passes.onnx.qnn.qnn_preprocess.QNNPreprocess",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "npu"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "skip_fusion": {
+          "description": "Skip fusion optimizations",
+          "type": "bool",
+          "default": false
+        },
+        "skip_symbolic_shape": {
+          "description": "Skip symbolic shape inference",
+          "type": "bool",
+          "default": false
+        },
+        "save_debugger_model": {
+          "description": "Save debugger model",
+          "type": "bool",
+          "default": false
+        }
+      },
+      "supported_providers": [
+        "QNNExecutionProvider"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "QuaRot": {
+      "name": "QuaRot",
+      "module_path": "olive.passes.pytorch.rotate.QuaRot",
+      "category": "PyTorch",
+      "subcategory": "Model Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "rotate": {
+          "description": "Enable rotation",
+          "type": "bool",
+          "default": true
+        },
+        "w_rtn": {
+          "description": "Use weight RTN",
+          "type": "bool",
+          "default": false
+        },
+        "a_sym": {
+          "description": "Symmetric activation quantization",
+          "type": "bool",
+          "default": false
+        },
+        "w_sym": {
+          "description": "Symmetric weight quantization",
+          "type": "bool",
+          "default": true
+        },
+        "w_bits": {
+          "description": "Weight quantization bits",
+          "type": "int",
+          "default": 4
+        },
+        "a_bits": {
+          "description": "Activation quantization bits",
+          "type": "int",
+          "default": 16
+        },
+        "k_bits": {
+          "description": "KV cache quantization bits",
+          "type": "int",
+          "default": 16
+        },
+        "v_bits": {
+          "description": "Value quantization bits",
+          "type": "int",
+          "default": 16
+        },
+        "hadamard_groupsize": {
+          "description": "Hadamard group size",
+          "type": "int",
+          "default": 1024
+        },
+        "k_groupsize": {
+          "description": "K group size",
+          "type": "int",
+          "default": 128
+        },
+        "v_groupsize": {
+          "description": "V group size",
+          "type": "int",
+          "default": 128
+        },
+        "w_groupsize": {
+          "description": "Weight group size",
+          "type": "int",
+          "default": 128
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [
+        "quarot"
+      ],
+      "supported_quantization_encodings": [],
+      "dataset": "dataset_optional",
+      "extra_dependencies": [],
+      "dataset_required": "dataset_optional"
+    },
+    "QuantizationAwareTraining": {
+      "name": "QuantizationAwareTraining",
+      "module_path": "olive.passes.pytorch.quantization_aware_training.QuantizationAwareTraining",
+      "category": "PyTorch",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "qconfig": {
+          "description": "Quantization configuration",
+          "type": "dict",
+          "required": true
+        },
+        "prepare_qat_fx": {
+          "description": "Prepare model for QAT with FX",
+          "type": "bool",
+          "default": false
+        },
+        "convert_qat_fx": {
+          "description": "Convert QAT model with FX",
+          "type": "bool",
+          "default": false
+        },
+        "modules_to_fuse": {
+          "description": "Modules to fuse",
+          "type": "list",
+          "default": null
+        },
+        "training_args": {
+          "description": "Training arguments",
+          "type": "dict",
+          "required": true
+        },
+        "dataset": {
+          "description": "Dataset configuration",
+          "type": "dict",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "module_dependencies": [
+        "pytorch-lightning"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "SNPEConversion": {
+      "name": "SNPEConversion",
+      "module_path": "olive.passes.snpe.conversion.SNPEConversion",
+      "category": "Other",
+      "subcategory": "Other",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "input_dims": {
+          "description": "Input dimensions",
+          "type": "list",
+          "required": true
+        },
+        "out_names": {
+          "description": "Output tensor names",
+          "type": "list",
+          "default": null
+        },
+        "quantization_overrides": {
+          "description": "Quantization overrides file",
+          "type": "string",
+          "default": null
+        },
+        "enable_cpu_fallback": {
+          "description": "Enable CPU fallback",
+          "type": "bool",
+          "default": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "SNPEQuantization": {
+      "name": "SNPEQuantization",
+      "module_path": "olive.passes.snpe.quantization.SNPEQuantization",
+      "category": "Other",
+      "subcategory": "Other",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "input_list": {
+          "description": "Input list file",
+          "type": "string",
+          "required": true
+        },
+        "bias_bitwidth": {
+          "description": "Bias bit width",
+          "type": "int",
+          "default": 8
+        },
+        "act_bitwidth": {
+          "description": "Activation bit width",
+          "type": "int",
+          "default": 8
+        },
+        "weight_bitwidth": {
+          "description": "Weight bit width",
+          "type": "int",
+          "default": 8
+        },
+        "enable_htp": {
+          "description": "Enable HTP",
+          "type": "bool",
+          "default": false
+        },
+        "htp_socs": {
+          "description": "HTP SOCs",
+          "type": "list",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "SNPEtoONNXConversion": {
+      "name": "SNPEtoONNXConversion",
+      "module_path": "olive.passes.snpe.snpe_to_onnx.SNPEtoONNXConversion",
+      "category": "ONNX",
+      "subcategory": "Conversion",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "input_names": {
+          "description": "Input tensor names",
+          "type": "list",
+          "required": true
+        },
+        "input_shapes": {
+          "description": "Input tensor shapes",
+          "type": "list",
+          "required": true
+        },
+        "output_names": {
+          "description": "Output tensor names",
+          "type": "list",
+          "required": true
+        },
+        "output_shapes": {
+          "description": "Output tensor shapes",
+          "type": "list",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "SelectiveMixedPrecision": {
+      "name": "SelectiveMixedPrecision",
+      "module_path": "olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision",
+      "category": "PyTorch",
+      "subcategory": "Tensor Operations",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "precision_mapping": {
+          "description": "Mapping of layers to precisions",
+          "type": "dict",
+          "required": true
+        },
+        "default_precision": {
+          "description": "Default precision",
+          "type": "string",
+          "default": "fp32"
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "SliceGPT": {
+      "name": "SliceGPT",
+      "module_path": "olive.passes.pytorch.slicegpt.SliceGPT",
+      "category": "PyTorch",
+      "subcategory": "Model Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "sparsity": {
+          "description": "Target sparsity",
+          "type": "float",
+          "required": true
+        },
+        "block_size": {
+          "description": "Block size for slicing",
+          "type": "int",
+          "default": 128
+        },
+        "calibration_dataset": {
+          "description": "Calibration dataset",
+          "type": "dict",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "SparseGPT": {
+      "name": "SparseGPT",
+      "module_path": "olive.passes.pytorch.sparsegpt.SparseGPT",
+      "category": "PyTorch",
+      "subcategory": "Model Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "sparsity": {
+          "description": "Target sparsity",
+          "type": "float",
+          "default": 0.5
+        },
+        "prunen": {
+          "description": "Number of pruning steps",
+          "type": "int",
+          "default": 0
+        },
+        "prunem": {
+          "description": "Pruning block size",
+          "type": "int",
+          "default": 0
+        },
+        "blocksize": {
+          "description": "Block size for pruning",
+          "type": "int",
+          "default": 128
+        },
+        "percdamp": {
+          "description": "Percentage damping",
+          "type": "float",
+          "default": 0.01
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "SpinQuant": {
+      "name": "SpinQuant",
+      "module_path": "olive.passes.pytorch.rotate.SpinQuant",
+      "category": "PyTorch",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "rotate": {
+          "description": "Enable rotation",
+          "type": "bool",
+          "default": true
+        },
+        "w_rtn": {
+          "description": "Use weight RTN",
+          "type": "bool",
+          "default": false
+        },
+        "a_sym": {
+          "description": "Symmetric activation quantization",
+          "type": "bool",
+          "default": false
+        },
+        "w_sym": {
+          "description": "Symmetric weight quantization",
+          "type": "bool",
+          "default": true
+        },
+        "w_bits": {
+          "description": "Weight quantization bits",
+          "type": "int",
+          "default": 4
+        },
+        "a_bits": {
+          "description": "Activation quantization bits",
+          "type": "int",
+          "default": 16
+        },
+        "k_bits": {
+          "description": "KV cache quantization bits",
+          "type": "int",
+          "default": 16
+        },
+        "v_bits": {
+          "description": "Value quantization bits",
+          "type": "int",
+          "default": 16
+        },
+        "hadamard_groupsize": {
+          "description": "Hadamard group size",
+          "type": "int",
+          "default": 1024
+        },
+        "k_groupsize": {
+          "description": "K group size",
+          "type": "int",
+          "default": 128
+        },
+        "v_groupsize": {
+          "description": "V group size",
+          "type": "int",
+          "default": 128
+        },
+        "w_groupsize": {
+          "description": "Weight group size",
+          "type": "int",
+          "default": 128
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [
+        "spinquant"
+      ],
+      "supported_quantization_encodings": [],
+      "dataset": "dataset_optional",
+      "extra_dependencies": [],
+      "dataset_required": "dataset_optional"
+    },
+    "SplitModel": {
+      "name": "SplitModel",
+      "module_path": "olive.passes.onnx.split.SplitModel",
+      "category": "ONNX",
+      "subcategory": "Graph Operations",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "split_type": {
+          "description": "Type of split",
+          "type": "enum",
+          "options": [
+            "block",
+            "layer"
+          ],
+          "default": "block"
+        },
+        "num_splits": {
+          "description": "Number of splits",
+          "type": "int",
+          "default": 2
+        },
+        "split_points": {
+          "description": "Manual split points",
+          "type": "list",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "StaticLLM": {
+      "name": "StaticLLM",
+      "module_path": "olive.passes.onnx.static_llm.StaticLLM",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "batch_size": {
+          "description": "Batch size",
+          "type": "int",
+          "default": 1
+        },
+        "max_sequence_length": {
+          "description": "Maximum sequence length",
+          "type": "int",
+          "required": true
+        },
+        "past_sequence_length": {
+          "description": "Past sequence length",
+          "type": "int",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "TorchTRTConversion": {
+      "name": "TorchTRTConversion",
+      "module_path": "olive.passes.pytorch.torch_trt_conversion.TorchTRTConversion",
+      "category": "PyTorch",
+      "subcategory": "Tensor Operations",
+      "supported_accelerators": [
+        "*"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "inputs": {
+          "description": "Input specifications",
+          "type": "list",
+          "required": true
+        },
+        "enabled_precisions": {
+          "description": "Enabled precisions",
+          "type": "list",
+          "default": [
+            "fp32"
+          ]
+        },
+        "workspace_size": {
+          "description": "Workspace size in bytes",
+          "type": "int",
+          "default": 1073741824
+        },
+        "min_block_size": {
+          "description": "Minimum block size",
+          "type": "int",
+          "default": 5
+        },
+        "torch_executed_ops": {
+          "description": "Operations to execute in PyTorch",
+          "type": "list",
+          "default": []
+        }
+      },
+      "supported_providers": [
+        "*"
+      ],
+      "extra_dependencies": [
+        "torch-tensorrt"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "dataset_required": "not_required"
+    },
+    "TrtMatMulToConvTransform": {
+      "name": "TrtMatMulToConvTransform",
+      "module_path": "olive.passes.onnx.tensorrt.trt_dla_transforms.TrtMatMulToConvTransform",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "gpu"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "min_shape": {
+          "description": "Minimum shape for conversion",
+          "type": "list",
+          "default": [
+            1,
+            1
+          ]
+        },
+        "opt_shape": {
+          "description": "Optimal shape for conversion",
+          "type": "list",
+          "default": null
+        },
+        "max_shape": {
+          "description": "Maximum shape for conversion",
+          "type": "list",
+          "default": null
+        }
+      },
+      "supported_providers": [
+        "TensorrtExecutionProvider"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [
+        "onnxscript"
+      ],
+      "dataset_required": "not_required"
+    },
+    "VitisAIAddMetaData": {
+      "name": "VitisAIAddMetaData",
+      "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIAddMetaData",
+      "category": "ONNX",
+      "subcategory": "Optimization",
+      "supported_accelerators": [
+        "cpu"
+      ],
+      "supported_precisions": [
+        "*"
+      ],
+      "schema": {
+        "vitis_config": {
+          "description": "Vitis AI configuration",
+          "type": "dict",
+          "required": true
+        }
+      },
+      "supported_providers": [
+        "CPUExecutionProvider"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    },
+    "VitisAIQuantization": {
+      "name": "VitisAIQuantization",
+      "module_path": "olive.passes.onnx.vitis_ai_quantization.VitisAIQuantization",
+      "category": "ONNX",
+      "subcategory": "Quantization",
+      "supported_accelerators": [
+        "npu"
+      ],
+      "supported_precisions": [
+        "int8"
+      ],
+      "schema": {
+        "calibrate_method": {
+          "description": "Calibration method",
+          "type": "enum",
+          "options": [
+            "MinMSE",
+            "NonOverflow"
+          ],
+          "default": "MinMSE"
+        },
+        "quant_format": {
+          "description": "Quantization format",
+          "type": "enum",
+          "options": [
+            "QDQ",
+            "QOperator"
+          ],
+          "default": "QDQ"
+        },
+        "calibration_data_reader": {
+          "description": "Calibration data reader",
+          "type": "string",
+          "required": true
+        },
+        "include_cle": {
+          "description": "Include CLE optimization",
+          "type": "bool",
+          "default": false
+        },
+        "extra_options": {
+          "description": "Extra options for quantization",
+          "type": "dict",
+          "default": {}
+        }
+      },
+      "supported_providers": [
+        "VitisAIExecutionProvider"
+      ],
+      "supported_algorithms": [],
+      "supported_quantization_encodings": [],
+      "run_on_target": true,
+      "extra_dependencies": [],
+      "dataset_required": "not_required"
+    }
+  }
+}

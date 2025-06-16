@@ -1,0 +1,110 @@
+.model-configuration {
+  margin-bottom: 24px;
+}
+
+.model-type-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.model-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--surface);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.model-type-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.model-type-card.selected {
+  border-color: var(--primary-color);
+  background-color: rgba(0, 122, 255, 0.05);
+}
+
+.model-type-icon {
+  font-size: 32px;
+}
+
+.model-type-label {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.model-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.label-hint {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.input-with-icon {
+  position: relative;
+}
+
+.input-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  font-size: 18px;
+}
+
+.input-with-icon .form-input {
+  padding-left: 48px;
+}
+
+.model-advanced {
+  margin-top: 24px;
+}
+
+.advanced-toggle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 12px 0;
+  user-select: none;
+  list-style: none;
+}
+
+.advanced-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-toggle::before {
+  content: '▶';
+  display: inline-block;
+  margin-right: 8px;
+  transition: transform 0.2s ease;
+}
+
+details[open] .advanced-toggle::before {
+  transform: rotate(90deg);
+}
+
+.advanced-content {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+  margin-top: 8px;
+}

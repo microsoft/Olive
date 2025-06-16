@@ -1,0 +1,150 @@
+.pass-configuration {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.alert-warning {
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+}
+
+.alert code {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'SF Mono', monospace;
+  font-size: 13px;
+}
+
+.button-sm {
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+.spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.card-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.passes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pass-item {
+  background-color: var(--surface-secondary);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  border: 1px solid var(--border-color);
+}
+
+.pass-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.pass-item-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pass-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.pass-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.pass-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.button-sm {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color);
+}
+
+.actions-left {
+  display: flex;
+  gap: 12px;
+}
+
+.spinner-small {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.file-input-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background-color: var(--surface-secondary);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-input-label:hover {
+  background-color: #E5E5EA;
+}

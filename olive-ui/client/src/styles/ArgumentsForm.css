@@ -1,0 +1,88 @@
+.arguments-form {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.args-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.args-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.args-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.arg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.arg-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.arg-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+}
+
+.arg-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.file-input-wrapper {
+  position: relative;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.file-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-dropzone:hover {
+  border-color: var(--primary-color);
+  background-color: rgba(0, 122, 255, 0.02);
+}
+
+.dropzone-icon {
+  font-size: 32px;
+  color: var(--text-secondary);
+}
+
+.dropzone-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+}

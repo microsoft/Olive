@@ -1,0 +1,18 @@
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.local
+
+# Build output
+client/build/
+
+# Server cache and outputs
+server/cache/
+server/olive_outputs/
+server/uploads/
+server/models/
+
+# Logs
+*.log
