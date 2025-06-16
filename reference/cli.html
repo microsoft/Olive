@@ -488,6 +488,79 @@
 </dl>
 </section>
 </section>
+<section id="run-pass">
+<h1>Run Pass<a class="headerlink" href="#run-pass" title="Link to this heading">#</a></h1>
+<p>Run a single pass on the input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models).</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span><span class="o">-</span><span class="k">pass</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">name</span> <span class="n">PASS_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">config</span> <span class="n">PASS_CONFIG</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="nb">list</span><span class="o">-</span><span class="n">passes</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+</pre></div>
+</div>
+<section id="named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>--pass-name</kbd></dt>
+<dd><p>Name of the pass to run on the input model.</p>
+</dd>
+<dt><kbd>--pass-config</kbd></dt>
+<dd><p>JSON string with pass-specific configuration parameters.</p>
+</dd>
+<dt><kbd>--list-passes</kbd></dt>
+<dd><p>List all available passes and exit.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>-m, --model_name_or_path</kbd></dt>
+<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
+</dd>
+<dt><kbd>-t, --task</kbd></dt>
+<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
+</dd>
+<dt><kbd>--trust_remote_code</kbd></dt>
+<dd><p>Trust remote code when loading a huggingface model.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>-a, --adapter_path</kbd></dt>
+<dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
+</dd>
+<dt><kbd>--model_script</kbd></dt>
+<dd><p>The script file containing the model definition. Required for the local PyTorch model.</p>
+</dd>
+<dt><kbd>--script_dir</kbd></dt>
+<dd><p>The directory containing the local PyTorch model script file. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
+</dd>
+<dt><kbd>-o, --output_path</kbd></dt>
+<dd><p>Path to save the command output.</p>
+<p>Default: run-pass-output</p>
+</dd>
+<dt><kbd>--device</kbd></dt>
+<dd><p>Possible choices: gpu, cpu, npu</p>
+<p>Target device to run the model. Default is cpu.</p>
+<p>Default: “cpu”</p>
+</dd>
+<dt><kbd>--provider</kbd></dt>
+<dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, NvTensorRTRTXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider</p>
+<p>Execution provider to use for ONNX model. Default is CPUExecutionProvider.</p>
+<p>Default: “CPUExecutionProvider”</p>
+</dd>
+<dt><kbd>--memory</kbd></dt>
+<dd><p>Memory limit for the accelerator in bytes. Default is None.</p>
+</dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: 3</p>
+</dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: False</p>
+</dd>
+</dl>
+</section>
+</section>
 <section id="finetune">
 <h1>Finetune<a class="headerlink" href="#finetune" title="Link to this heading">#</a></h1>
 <p>Fine-tune a model on a dataset using HuggingFace peft. Huggingface training arguments can be provided along with the defined options.</p>
@@ -1568,6 +1641,10 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run">Run</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-options-(not-required)">Model options (not required)</a></li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run-pass">Run Pass</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#finetune">Finetune</a><ul class="visible nav section-nav flex-column">
