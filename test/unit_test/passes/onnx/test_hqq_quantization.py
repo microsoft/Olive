@@ -77,7 +77,7 @@ class TestHQQQuantization:
 
         # Assert
         found_matmul_nbits = False
-        for node in ir_model.graph.nodes:
+        for node in ir_model.graph:
             if node.op_type == str(OpType.MatMulNBits):
                 found_matmul_nbits = True
                 assert node.domain == MSFT_DOMAIN
