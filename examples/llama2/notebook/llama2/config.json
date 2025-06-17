@@ -17,7 +17,14 @@
     "systems": {
         "aml": {
             "type": "AzureML",
-            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ],
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ],
             "hf_token": true,
             "aml_compute": "<my_aml_compute>",
             "aml_docker_config": {
@@ -27,7 +34,14 @@
         },
         "azure_arc": {
             "type": "AzureML",
-            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ],
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ],
             "aml_compute": "<my_arc_compute>",
             "aml_docker_config": {
                 "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
@@ -35,15 +49,26 @@
             }
         }
     },
-    "data_configs": [ { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" } ],
+    "data_configs": [
+        {
+            "name": "transformer_token_dummy_data",
+            "type": "TransformersTokenDummyDataContainer"
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg" } ],
-                    "user_config": { "io_bind": true },
+                    "sub_types": [
+                        {
+                            "name": "avg"
+                        }
+                    ],
+                    "user_config": {
+                        "io_bind": true
+                    },
                     "data_config": "transformer_token_dummy_data"
                 }
             ]
@@ -67,7 +92,15 @@
             "keep_io_types": false,
             "float16": true,
             "use_gpu": true,
-            "optimization_options": { "enable_rotary_embeddings": false }
+            "optimization_options": {
+                "enable_rotary_embeddings": false
+            }
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "config": {
+                "graph_name": "llama2"
+            }
         }
     },
     "log_severity_level": 0,

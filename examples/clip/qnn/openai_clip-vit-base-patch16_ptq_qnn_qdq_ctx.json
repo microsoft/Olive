@@ -3,19 +3,58 @@
         "type": "HfModel",
         "model_path": "openai/clip-vit-base-patch16",
         "task": "zero-shot-image-classification",
-        "load_kwargs": { "attn_implementation": "eager" },
+        "load_kwargs": {
+            "attn_implementation": "eager"
+        },
         "io_config": {
-            "input_names": [ "input_ids", "pixel_values", "attention_mask" ],
-            "input_shapes": [ [ 10, 77 ], [ 1, 3, 224, 224 ], [ 10, 77 ] ],
-            "input_types": [ "int64", "float32", "int64" ],
-            "output_names": [ "logits_per_image" ],
-            "output_shapes": [ [ 1, 10 ] ]
+            "input_names": [
+                "input_ids",
+                "pixel_values",
+                "attention_mask"
+            ],
+            "input_shapes": [
+                [
+                    10,
+                    77
+                ],
+                [
+                    1,
+                    3,
+                    224,
+                    224
+                ],
+                [
+                    10,
+                    77
+                ]
+            ],
+            "input_types": [
+                "int64",
+                "float32",
+                "int64"
+            ],
+            "output_names": [
+                "logits_per_image"
+            ],
+            "output_shapes": [
+                [
+                    1,
+                    10
+                ]
+            ]
         }
     },
     "systems": {
         "qnn_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
+            "accelerators": [
+                {
+                    "device": "npu",
+                    "execution_providers": [
+                        "QNNExecutionProvider"
+                    ]
+                }
+            ]
         }
     },
     "data_configs": [
@@ -29,7 +68,9 @@
                 "start": 0,
                 "end": 10
             },
-            "dataloader_config": { "type": "no_auto_batch_dataloader" }
+            "dataloader_config": {
+                "type": "no_auto_batch_dataloader"
+            }
         },
         {
             "name": "metric_data_config",
@@ -41,8 +82,12 @@
                 "start": 10,
                 "end": 20
             },
-            "dataloader_config": { "type": "no_auto_batch_dataloader" },
-            "post_process_data_config": { "type": "clip_post_process" }
+            "dataloader_config": {
+                "type": "no_auto_batch_dataloader"
+            },
+            "post_process_data_config": {
+                "type": "clip_post_process"
+            }
         }
     ],
     "evaluators": {
@@ -53,7 +98,12 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "data_config": "metric_data_config",
-                    "sub_types": [ { "name": "accuracy", "priority": 1 } ],
+                    "sub_types": [
+                        {
+                            "name": "accuracy",
+                            "priority": 1
+                        }
+                    ],
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
@@ -80,9 +130,20 @@
                     "type": "latency",
                     "data_config": "metric_data_config",
                     "sub_types": [
-                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
-                        { "name": "max" },
-                        { "name": "min" }
+                        {
+                            "name": "avg",
+                            "priority": 2,
+                            "goal": {
+                                "type": "percent-min-improvement",
+                                "value": 0.1
+                            }
+                        },
+                        {
+                            "name": "max"
+                        },
+                        {
+                            "name": "min"
+                        }
                     ],
                     "user_config": {
                         "inference_settings": {
@@ -109,7 +170,17 @@
                     "name": "throughput_qnn",
                     "type": "throughput",
                     "data_config": "metric_data_config",
-                    "sub_types": [ { "name": "avg" }, { "name": "max" }, { "name": "min" } ],
+                    "sub_types": [
+                        {
+                            "name": "avg"
+                        },
+                        {
+                            "name": "max"
+                        },
+                        {
+                            "name": "min"
+                        }
+                    ],
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
@@ -135,8 +206,18 @@
         }
     },
     "passes": {
-        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
+        "conversion": {
+            "type": "OnnxConversion",
+            "target_opset": 20
+        },
+        "surgery": {
+            "type": "GraphSurgeries",
+            "surgeries": [
+                {
+                    "surgeon": "ReplaceAttentionMaskValue"
+                }
+            ]
+        },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "quant_preprocess": true,
@@ -151,7 +232,15 @@
                 "htp_graph_finalization_optimization_mode": "3",
                 "offload_graph_io_quantization": "0"
             },
-            "session_options": { "optimization.disable_specified_optimizers": "MatMulAddFusion" }
+            "session_options": {
+                "optimization.disable_specified_optimizers": "MatMulAddFusion"
+            }
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "config": {
+                "graph_name": "clip-vit-base-patch16"
+            }
         }
     },
     "evaluator": "common_evaluator",

@@ -2,16 +2,31 @@
     "input_model": {
         "type": "HfModel",
         "model_path": "meta-llama/Llama-2-7b-hf",
-        "load_kwargs": { "attn_implementation": "eager" }
+        "load_kwargs": {
+            "attn_implementation": "eager"
+        }
     },
     "data_configs": [
-        { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" },
-        { "name": "transformer_prompt_dummy_data", "type": "TransformersPromptDummyDataContainer" }
+        {
+            "name": "transformer_token_dummy_data",
+            "type": "TransformersTokenDummyDataContainer"
+        },
+        {
+            "name": "transformer_prompt_dummy_data",
+            "type": "TransformersPromptDummyDataContainer"
+        }
     ],
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "GPU", "execution_providers": [ "CUDAExecutionProvider" ] } ]
+            "accelerators": [
+                {
+                    "device": "GPU",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
         }
     },
     "evaluators": {
@@ -20,15 +35,28 @@
                 {
                     "name": "latency_prompt_processing",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg", "priority": 1 } ],
-                    "user_config": { "io_bind": true },
+                    "sub_types": [
+                        {
+                            "name": "avg",
+                            "priority": 1
+                        }
+                    ],
+                    "user_config": {
+                        "io_bind": true
+                    },
                     "data_config": "transformer_prompt_dummy_data"
                 },
                 {
                     "name": "latency_token_generation",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg" } ],
-                    "user_config": { "io_bind": true },
+                    "sub_types": [
+                        {
+                            "name": "avg"
+                        }
+                    ],
+                    "user_config": {
+                        "io_bind": true
+                    },
                     "data_config": "transformer_token_dummy_data"
                 }
             ]
@@ -69,11 +97,24 @@
             "all_tensors_to_one_file": true,
             "block_size": 32,
             "is_symmetric": true
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "config": {
+                "graph_name": "Llama-2-7b-hf"
+            }
         }
     },
     "pass_flows": [
-        [ "conversion_merged", "transformers_optimization_fp32", "blockwise_quant_int4" ],
-        [ "conversion_merged", "transformers_optimization_fp16" ]
+        [
+            "conversion_merged",
+            "transformers_optimization_fp32",
+            "blockwise_quant_int4"
+        ],
+        [
+            "conversion_merged",
+            "transformers_optimization_fp16"
+        ]
     ],
     "evaluator": "merged_evaluator",
     "host": "local_system",

@@ -5,17 +5,41 @@
         "model_loader": "load_timm",
         "model_script": "user_script.py",
         "io_config": {
-            "input_names": [ "x" ],
-            "input_shapes": [ [ 1, 3, 224, 224 ] ],
-            "output_names": [ "output" ],
-            "dynamic_axes": { "x": { "0": "batch_size" }, "output": { "0": "batch_size" } }
+            "input_names": [
+                "x"
+            ],
+            "input_shapes": [
+                [
+                    1,
+                    3,
+                    224,
+                    224
+                ]
+            ],
+            "output_names": [
+                "output"
+            ],
+            "dynamic_axes": {
+                "x": {
+                    "0": "batch_size"
+                },
+                "output": {
+                    "0": "batch_size"
+                }
+            }
         }
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
             "accelerators": [
-                { "device": "cpu", "execution_providers": [ "CPUExecutionProvider", "OpenVINOExecutionProvider" ] }
+                {
+                    "device": "cpu",
+                    "execution_providers": [
+                        "CPUExecutionProvider",
+                        "OpenVINOExecutionProvider"
+                    ]
+                }
             ]
         }
     },
@@ -30,8 +54,14 @@
                 "streaming": true,
                 "trust_remote_code": true
             },
-            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet256" },
-            "post_process_data_config": { "type": "imagenet_post_fun" }
+            "pre_process_data_config": {
+                "type": "dataset_pre_process",
+                "size": 256,
+                "cache_key": "imagenet256"
+            },
+            "post_process_data_config": {
+                "type": "imagenet_post_fun"
+            }
         }
     ],
     "evaluators": {
@@ -43,7 +73,14 @@
                     "backend": "huggingface_metrics",
                     "data_config": "imagenet1k",
                     "sub_types": [
-                        { "name": "accuracy", "priority": 1, "goal": { "type": "max-degradation", "value": 0.05 } }
+                        {
+                            "name": "accuracy",
+                            "priority": 1,
+                            "goal": {
+                                "type": "max-degradation",
+                                "value": 0.05
+                            }
+                        }
                     ]
                 },
                 {
@@ -51,18 +88,42 @@
                     "type": "latency",
                     "data_config": "imagenet1k",
                     "sub_types": [
-                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 0.1 } },
-                        { "name": "max" },
-                        { "name": "min" }
+                        {
+                            "name": "avg",
+                            "priority": 2,
+                            "goal": {
+                                "type": "percent-min-improvement",
+                                "value": 0.1
+                            }
+                        },
+                        {
+                            "name": "max"
+                        },
+                        {
+                            "name": "min"
+                        }
                     ]
                 }
             ]
         }
     },
     "passes": {
-        "conversion": { "type": "OnnxConversion" },
-        "matmul4": { "type": "OnnxMatMul4Quantizer", "accuracy_level": 4 },
-        "mnb_to_qdq": { "type": "MatMulNBitsToQDQ" }
+        "conversion": {
+            "type": "OnnxConversion"
+        },
+        "matmul4": {
+            "type": "OnnxMatMul4Quantizer",
+            "accuracy_level": 4
+        },
+        "mnb_to_qdq": {
+            "type": "MatMulNBitsToQDQ"
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "config": {
+                "graph_name": "mobilenetv3_small_100.lamb_in1k"
+            }
+        }
     },
     "evaluator": "common_evaluator",
     "output_dir": "models/timm"

@@ -7,17 +7,35 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "gpu", "execution_providers": [ "DmlExecutionProvider" ] } ]
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "DmlExecutionProvider"
+                    ]
+                }
+            ]
         }
     },
-    "engine": { "target": "local_system" },
+    "engine": {
+        "target": "local_system"
+    },
     "passes": {
-        "builder": { "type": "ModelBuilder", "precision": "fp16" },
+        "builder": {
+            "type": "ModelBuilder",
+            "precision": "fp16"
+        },
         "quantization": {
             "type": "NVModelOptQuantization",
             "algorithm": "awq",
             "tokenizer_dir": "microsoft/Phi-3-mini-4k-instruct",
             "calibration": "awq_lite"
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "config": {
+                "graph_name": "Phi-3-mini-4k-instruct"
+            }
         }
     }
 }

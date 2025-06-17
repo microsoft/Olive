@@ -2,18 +2,55 @@
     "input_model": {
         "type": "HfModel",
         "model_path": "Alibaba-NLP/gte-large-en-v1.5",
-        "load_kwargs": { "trust_remote_code": true },
+        "load_kwargs": {
+            "trust_remote_code": true
+        },
         "task": "feature-extraction",
         "io_config": {
-            "input_names": [ "input_ids", "token_type_ids", "attention_mask" ],
-            "input_shapes": [ [ 1, 128 ], [ 1, 128 ], [ 1, 128 ] ],
-            "input_types": [ "int64", "int64", "int64" ],
-            "output_names": [ "last_hidden_state" ],
+            "input_names": [
+                "input_ids",
+                "token_type_ids",
+                "attention_mask"
+            ],
+            "input_shapes": [
+                [
+                    1,
+                    128
+                ],
+                [
+                    1,
+                    128
+                ],
+                [
+                    1,
+                    128
+                ]
+            ],
+            "input_types": [
+                "int64",
+                "int64",
+                "int64"
+            ],
+            "output_names": [
+                "last_hidden_state"
+            ],
             "dynamic_axes": {
-                "input_ids": { "0": "batch_size", "1": "seq_len" },
-                "token_type_ids": { "0": "batch_size", "1": "seq_len" },
-                "attention_mask": { "0": "batch_size", "1": "seq_len" },
-                "last_hidden_state": { "0": "batch_size", "1": "seq_len" }
+                "input_ids": {
+                    "0": "batch_size",
+                    "1": "seq_len"
+                },
+                "token_type_ids": {
+                    "0": "batch_size",
+                    "1": "seq_len"
+                },
+                "attention_mask": {
+                    "0": "batch_size",
+                    "1": "seq_len"
+                },
+                "last_hidden_state": {
+                    "0": "batch_size",
+                    "1": "seq_len"
+                }
             }
         }
     },
@@ -38,13 +75,34 @@
     "evaluators": {
         "evaluator": {
             "metrics": [
-                { "name": "latency", "type": "latency", "sub_types": [ { "name": "avg" } ], "data_config": "c4" }
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {
+                            "name": "avg"
+                        }
+                    ],
+                    "data_config": "c4"
+                }
             ]
         }
     },
     "passes": {
-        "conversion": { "type": "OnnxConversion" },
-        "OnnxQuantization": { "type": "OnnxStaticQuantization", "quant_preprocess": true, "data_config": "c4" }
+        "conversion": {
+            "type": "OnnxConversion"
+        },
+        "OnnxQuantization": {
+            "type": "OnnxStaticQuantization",
+            "quant_preprocess": true,
+            "data_config": "c4"
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "config": {
+                "graph_name": "gte-large-en-v1.5"
+            }
+        }
     },
     "evaluator": "evaluator",
     "output_dir": "models/gte-large-en-v1.5"

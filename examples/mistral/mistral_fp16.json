@@ -1,32 +1,63 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "mistralai/Mistral-7B-v0.1" },
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "mistralai/Mistral-7B-v0.1"
+    },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
         }
     },
-    "data_configs": [ { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" } ],
+    "data_configs": [
+        {
+            "name": "transformer_token_dummy_data",
+            "type": "TransformersTokenDummyDataContainer"
+        }
+    ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg", "priority": 1 } ],
+                    "sub_types": [
+                        {
+                            "name": "avg",
+                            "priority": 1
+                        }
+                    ],
                     "data_config": "transformer_token_dummy_data",
-                    "user_config": { "io_bind": true }
+                    "user_config": {
+                        "io_bind": true
+                    }
                 }
             ]
         }
     },
     "passes": {
-        "convert": { "type": "ModelBuilder", "precision": "fp16" },
+        "convert": {
+            "type": "ModelBuilder",
+            "precision": "fp16"
+        },
         "session_params_tuning": {
             "type": "OrtSessionParamsTuning",
             "data_config": "transformer_token_dummy_data",
             "io_bind": true,
             "enable_profiling": false
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "config": {
+                "graph_name": "Mistral-7B-v0.1"
+            }
         }
     },
     "evaluate_input_model": false,

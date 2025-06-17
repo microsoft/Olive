@@ -2,13 +2,34 @@
     "input_model": {
         "type": "HfModel",
         "model_path": "<<str: model_path>>",
-        "load_kwargs": { "trust_remote_code": true }
+        "load_kwargs": {
+            "trust_remote_code": true
+        }
     },
-    "passes": { "builder": { "type": "ModelBuilder", "precision": "int4", "exclude_embeds": true } },
+    "passes": {
+        "builder": {
+            "type": "ModelBuilder",
+            "precision": "int4",
+            "exclude_embeds": true
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "config": {
+                "graph_name": "<<str: model_path>>"
+            }
+        }
+    },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ]
+            "accelerators": [
+                {
+                    "device": "CPU",
+                    "execution_providers": [
+                        "CPUExecutionProvider"
+                    ]
+                }
+            ]
         }
     },
     "host": "local_system",

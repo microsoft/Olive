@@ -2,32 +2,60 @@
     "input_model": {
         "type": "HfModel",
         "model_path": "<model_name_placeholder>",
-        "load_kwargs": { "attn_implementation": "eager" }
+        "load_kwargs": {
+            "attn_implementation": "eager"
+        }
     },
     "data_configs": [
         {
             "name": "wikitext2_train",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": { "data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train" },
-            "pre_process_data_config": { "add_special_tokens": false, "max_samples": 128 }
+            "load_dataset_config": {
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "train"
+            },
+            "pre_process_data_config": {
+                "add_special_tokens": false,
+                "max_samples": 128
+            }
         },
         {
             "name": "gqa_transformer_prompt_dummy_data",
             "type": "TransformersPromptDummyDataContainer",
-            "load_dataset_config": { "use_fp16": true, "shared_kv": true }
+            "load_dataset_config": {
+                "use_fp16": true,
+                "shared_kv": true
+            }
         },
         {
             "name": "gqa_transformer_token_dummy_data",
             "type": "TransformersTokenDummyDataContainer",
-            "load_dataset_config": { "use_fp16": true, "shared_kv": true }
+            "load_dataset_config": {
+                "use_fp16": true,
+                "shared_kv": true
+            }
         },
-        { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" },
-        { "name": "transformer_prompt_dummy_data", "type": "TransformersPromptDummyDataContainer" }
+        {
+            "name": "transformer_token_dummy_data",
+            "type": "TransformersTokenDummyDataContainer"
+        },
+        {
+            "name": "transformer_prompt_dummy_data",
+            "type": "TransformersPromptDummyDataContainer"
+        }
     ],
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "gpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CPUExecutionProvider"
+                    ]
+                }
+            ]
         }
     },
     "evaluators": {
@@ -36,16 +64,29 @@
                 {
                     "name": "latency_prompt_processing",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg", "priority": 1 } ],
+                    "sub_types": [
+                        {
+                            "name": "avg",
+                            "priority": 1
+                        }
+                    ],
                     "data_config": "transformer_prompt_dummy_data",
-                    "user_config": { "io_bind": true }
+                    "user_config": {
+                        "io_bind": true
+                    }
                 },
                 {
                     "name": "latency_token_generation",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg" } ],
+                    "sub_types": [
+                        {
+                            "name": "avg"
+                        }
+                    ],
                     "data_config": "transformer_token_dummy_data",
-                    "user_config": { "io_bind": true }
+                    "user_config": {
+                        "io_bind": true
+                    }
                 }
             ]
         },
@@ -54,16 +95,31 @@
                 {
                     "name": "latency_prompt_processing",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg", "priority": 1 } ],
+                    "sub_types": [
+                        {
+                            "name": "avg",
+                            "priority": 1
+                        }
+                    ],
                     "data_config": "gqa_transformer_prompt_dummy_data",
-                    "user_config": { "io_bind": true, "shared_kv_buffer": true }
+                    "user_config": {
+                        "io_bind": true,
+                        "shared_kv_buffer": true
+                    }
                 },
                 {
                     "name": "latency_token_generation",
                     "type": "latency",
-                    "sub_types": [ { "name": "avg" } ],
+                    "sub_types": [
+                        {
+                            "name": "avg"
+                        }
+                    ],
                     "data_config": "gqa_transformer_token_dummy_data",
-                    "user_config": { "io_bind": true, "shared_kv_buffer": true }
+                    "user_config": {
+                        "io_bind": true,
+                        "shared_kv_buffer": true
+                    }
                 }
             ]
         }
@@ -102,10 +158,15 @@
             "type": "OnnxDynamicQuantization",
             "save_as_external_data": true,
             "all_tensors_to_one_file": true,
-            "op_types_to_quantize": [ "MatMul", "Gemm" ],
+            "op_types_to_quantize": [
+                "MatMul",
+                "Gemm"
+            ],
             "per_channel": false,
             "reduce_range": false,
-            "extra_options": { "MatMulConstBOnly": true }
+            "extra_options": {
+                "MatMulConstBOnly": true
+            }
         },
         "blockwise_quant_int4": {
             "type": "OnnxMatMul4Quantizer",
@@ -115,7 +176,16 @@
             "block_size": 32,
             "is_symmetric": true
         },
-        "gptq_quant_int4": { "type": "GptqQuantizer", "data_config": "wikitext2_train" }
+        "gptq_quant_int4": {
+            "type": "GptqQuantizer",
+            "data_config": "wikitext2_train"
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "config": {
+                "graph_name": "<model_name_placeholder>"
+            }
+        }
     },
     "evaluator": "merged_evaluator",
     "evaluate_input_model": false,

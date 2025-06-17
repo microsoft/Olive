@@ -1,20 +1,42 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "facebook/opt-125m" },
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "facebook/opt-125m"
+    },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        "CUDAExecutionProvider"
+                    ]
+                }
+            ]
         }
     },
     "passes": {
-        "4bit_awq_quantizer": { "type": "AutoAWQQuantizer" },
-        "conversion_merged": { "type": "OnnxConversion", "device": "cuda", "torch_dtype": "float32" },
+        "4bit_awq_quantizer": {
+            "type": "AutoAWQQuantizer"
+        },
+        "conversion_merged": {
+            "type": "OnnxConversion",
+            "device": "cuda",
+            "torch_dtype": "float32"
+        },
         "transformers_optimization_fp16": {
             "type": "OrtTransformersOptimization",
             "model_type": "gpt2",
             "opt_level": 0,
             "keep_io_types": false,
             "float16": true
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "config": {
+                "graph_name": "opt-125m"
+            }
         }
     },
     "host": "local_system",

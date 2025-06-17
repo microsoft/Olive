@@ -1,15 +1,26 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "microsoft/Phi-4-reasoning" },
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "microsoft/Phi-4-reasoning"
+    },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [ { "execution_providers": [ "OpenVINOExecutionProvider" ] } ]
+            "accelerators": [
+                {
+                    "execution_providers": [
+                        "OpenVINOExecutionProvider"
+                    ]
+                }
+            ]
         }
     },
     "passes": {
         "optimum_convert": {
             "type": "OpenVINOOptimumConversion",
-            "extra_args": { "device": "npu" },
+            "extra_args": {
+                "device": "npu"
+            },
             "ov_quant_config": {
                 "weight_format": "int4",
                 "group_size": 128,
@@ -23,13 +34,23 @@
                 "sensitivity_metric": "weight_quantization_error"
             }
         },
-        "io_update": { "type": "OpenVINOIoUpdate", "static": false, "reuse_cache": true },
+        "io_update": {
+            "type": "OpenVINOIoUpdate",
+            "static": false,
+            "reuse_cache": true
+        },
         "encapsulation": {
             "type": "OpenVINOEncapsulation",
             "target_device": "npu",
             "keep_ov_dynamic_dims": true,
             "ov_version": "2025.1",
             "reuse_cache": true
+        },
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "config": {
+                "graph_name": "Phi-4-reasoning"
+            }
         }
     },
     "search_strategy": false,
