@@ -21,7 +21,7 @@ __version__ = "0.10.0.dev0"
 # Import Python API functions
 from olive.api import (  # noqa: E402
     auto_opt,
-    capture_onnx,
+    capture_onnx_graph,
     convert_adapters,
     extract_adapters,
     finetune,
@@ -39,7 +39,7 @@ __all__ = [
     "WorkflowOutput",
     # Python API functions
     "auto_opt",
-    "capture_onnx",
+    "capture_onnx_graph",
     "convert_adapters",
     "extract_adapters",
     "finetune",

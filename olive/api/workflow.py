@@ -2,20 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""Workflow Python API implementations.
-
-This module provides Python API functions corresponding to Olive CLI commands.
-Functions that execute optimization workflows return WorkflowOutput objects
-containing ModelOutput instances. Utility functions return None.
-
-Model Optimization Functions (return WorkflowOutput):
-- auto_opt, finetune, quantize, capture_onnx, generate_adapter,
-  session_params_tuning, run
-
-Utility Functions (return None):
-- convert_adapters, extract_adapters, generate_cost_model
-"""
-
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -183,7 +169,7 @@ def auto_opt(
 
     # Create command instance and run
     command = AutoOptCommand(None, args)
-    return command._run_workflow()
+    return command.run()
 
 
 def finetune(
@@ -248,12 +234,11 @@ def finetune(
 
     # Convert training kwargs to unknown_args format for CLI compatibility
     unknown_args = []
-    for key, value in training_kwargs.items():
-        unknown_args.extend([f"--{key}", str(value)])
+    for k, v in training_kwargs.items():
+        unknown_args.extend([f"--{k}", str(v)])
 
-    # Create command instance and run
     command = FineTuneCommand(None, args, unknown_args)
-    return command._run_workflow()
+    return command.run()
 
 
 def quantize(
@@ -308,19 +293,19 @@ def quantize(
     )
 
     command = QuantizeCommand(None, args)
-    return command._run_workflow()
+    return command.run()
 
 
-def capture_onnx(
+def capture_onnx_graph(
     model_path: str, *, output_path: str = "captured-model", log_level: int = 3, **kwargs
 ) -> WorkflowOutput:
-    """Capture ONNX graph from a PyTorch model.
+    """Capture ONNX graph for a PyTorch model.
 
     Args:
-        model_path: Path to PyTorch model
+        model_path: Path to PyTorch model or script
         output_path: Output directory path
         log_level: Logging level (1-5)
-        **kwargs: Additional capture parameters
+        **kwargs: Additional arguments for CaptureOnnxGraphCommand
 
     Returns:
         WorkflowOutput: Contains captured ONNX model
@@ -339,8 +324,9 @@ def capture_onnx(
         **kwargs,
     )
 
+    # Create command instance and run
     command = CaptureOnnxGraphCommand(None, args)
-    return command._run_workflow()
+    return command.run()
 
 
 def generate_adapter(
@@ -379,7 +365,7 @@ def generate_adapter(
     )
 
     command = GenerateAdapterCommand(None, args)
-    return command._run_workflow()
+    return command.run()
 
 
 def session_params_tuning(
@@ -430,7 +416,7 @@ def session_params_tuning(
     )
 
     command = SessionParamsTuningCommand(None, args)
-    return command._run_workflow()
+    return command.run()
 
 
 # Utility functions that don't necessarily produce model outputs

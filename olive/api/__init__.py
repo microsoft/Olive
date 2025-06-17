@@ -11,7 +11,7 @@ WorkflowOutput results containing ModelOutput instances.
 
 from olive.api.workflow import (
     auto_opt,
-    capture_onnx,
+    capture_onnx_graph,
     convert_adapters,
     extract_adapters,
     finetune,
@@ -24,7 +24,7 @@ from olive.api.workflow import (
 
 __all__ = [
     "auto_opt",
-    "capture_onnx",
+    "capture_onnx_graph",
     "convert_adapters",
     "extract_adapters",
     "finetune",

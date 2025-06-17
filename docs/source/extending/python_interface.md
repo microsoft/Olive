@@ -4,13 +4,189 @@ This document describes the Python interface of Olive, focusing on how to run op
 
 ## Running a Workflow with Python
 
-Olive workflows can be executed programmatically using the Python API. Start by learning about [how to configure workflows](https://microsoft.github.io/Olive/how-to/configure-workflows/build-workflow.html), then run your configuration:
+Olive workflows can be executed programmatically using the Python API. All functions are available directly from the `olive` package.
+
+### `run`
+
+This is the most generic way to run an Olive workflow from a configuration file.
+
+**Arguments:**
+- `config` (Union[str, dict]): Path to config file or config dictionary.
+- `input_model` (dict, optional): Input model configuration to override config file.
+- `output_path` (str, optional): Output directory path.
+- `log_level` (int, optional): Logging level (1-5).
+- `setup` (bool): Setup environment needed to run the workflow. Defaults to `False`.
+- `packages` (bool): List packages required to run the workflow. Defaults to `False`.
+- `tempdir` (str, optional): Root directory for tempfile directories and files.
+- `package_config` (str, optional): Path to optional package config file.
 
 ```python
-from olive.workflows import run as olive_run
+from olive import run
 
 # Run workflow from a configuration file
-workflow_output = olive_run("config.json")
+workflow_output = run("config.json")
+```
+
+The rest of the functions are specialized workflows for common tasks.
+
+### `auto_opt`
+
+Automatically optimize a model for performance.
+
+**Arguments:**
+- `model_path` (str): Path to model (file path or HuggingFace model name).
+- `output_path` (str): Output directory path. Defaults to `"auto-opt-output"`.
+- `device` (str): Target device ("cpu", "gpu", "npu"). Defaults to `"cpu"`.
+- `provider` (str): Execution provider. Defaults to `"CPUExecutionProvider"`.
+- `precision` (str): Output precision (fp32, fp16, int8, int4, nf4). Defaults to `fp32`.
+- `data_name` (str, optional): Dataset name for evaluation.
+- `split` (str, optional): Dataset split.
+- `subset` (str, optional): Dataset subset.
+- `input_cols` (list[str], optional): Input column names.
+- `batch_size` (int): Batch size for evaluation. Defaults to `1`.
+- `task` (str, optional): Model task (for HuggingFace models).
+- `adapter_path` (str, optional): Path to adapter weights.
+- `use_dynamo_exporter` (bool): Use dynamo export API. Defaults to `False`.
+- `use_model_builder` (bool): Use model builder pass. Defaults to `False`.
+- `use_qdq_encoding` (bool): Use QDQ encoding for quantization. Defaults to `False`.
+- `use_ort_genai` (bool): Use ORT GenAI. Defaults to `False`.
+- `enable_search` (bool, optional): Enable search optimization.
+- `log_level` (int): Logging level (1-5). Defaults to `3`.
+- `**kwargs`: Additional arguments.
+
+```python
+from olive import auto_opt
+
+workflow_output = auto_opt(model_path="path/to/model")
+```
+
+### `finetune`
+
+Fine-tune a model using LoRA or QLoRA.
+
+**Arguments:**
+- `model_path` (str): Path to HuggingFace model.
+- `output_path` (str): Output directory path. Defaults to `"finetuned-adapter"`.
+- `method` (str): Fine-tuning method ("lora", "qlora"). Defaults to `"lora"`.
+- `lora_r` (int): LoRA rank value. Defaults to `64`.
+- `lora_alpha` (int): LoRA alpha value. Defaults to `16`.
+- `target_modules` (str, optional): Target modules for LoRA (comma-separated).
+- `torch_dtype` (str): PyTorch dtype for training. Defaults to `"bfloat16"`.
+- `data_name` (str, optional): Dataset name.
+- `data_files` (str, optional): Path to data files.
+- `text_template` (str, optional): Text template for formatting.
+- `eval_split` (str, optional): Evaluation dataset split.
+- `log_level` (int): Logging level (1-5). Defaults to `3`.
+- `**training_kwargs`: HuggingFace training arguments.
+
+```python
+from olive import finetune
+
+workflow_output = finetune(model_path="hf_model_name")
+```
+
+### `quantize`
+
+Quantize a PyTorch or ONNX model.
+
+**Arguments:**
+- `model_path` (str): Path to model file.
+- `output_path` (str): Output directory path. Defaults to `"quantized-model"`.
+- `algorithm` (str): Quantization algorithm (e.g., "rtn", "gptq", "awq"). Defaults to `"rtn"`.
+- `precision` (str): Quantization precision (int8, int4, etc.). Defaults to `"int8"`.
+- `act_precision` (str): Activation precision for static quantization. Defaults to `"int8"`.
+- `implementation` (str, optional): Specific implementation of quantization algorithms.
+- `use_qdq_encoding` (bool): Use QDQ encoding in ONNX model. Defaults to `False`.
+- `data_name` (str, optional): Dataset name (for static quantization).
+- `log_level` (int): Logging level (1-5). Defaults to `3`.
+- `**kwargs`: Additional quantization parameters.
+
+```python
+from olive import quantize
+
+workflow_output = quantize(model_path="path/to/model")
+```
+
+### `capture_onnx_graph`
+
+Capture ONNX graph for a PyTorch model.
+
+**Arguments**:
+- `model_path` (str): Path to PyTorch model or script.
+- `output_path` (str): Output directory path. Defaults to `"captured-model"`.
+- `log_level` (int): Logging level (1-5). Defaults to `3`.
+- `**kwargs`: Additional arguments for `CaptureOnnxGraphCommand`.
+
+```python
+from olive import capture_onnx_graph
+
+workflow_output = capture_onnx_graph(model_path="path/to/model")
+```
+
+### `generate_adapter`
+
+Generate adapter for an ONNX model.
+
+**Arguments**:
+- `model_path` (str): Path to ONNX model.
+- `output_path` (str): Output directory path. Defaults to `"generated-adapter"`.
+- `adapter_format` (str): Format to save weights in. Defaults to `"onnx_adapter"`.
+- `log_level` (int): Logging level (1-5). Defaults to `3`.
+- `**kwargs`: Additional generation parameters.
+
+```python
+from olive import generate_adapter
+
+workflow_output = generate_adapter(model_path="path/to/onnx/model")
+```
+
+### `session_params_tuning`
+
+Tune ONNX Runtime session parameters for optimal performance.
+
+**Arguments**:
+- `model_path` (str): Path to ONNX model.
+- `output_path` (str): Output directory path. Defaults to `"tuned-params"`.
+- `device` (str): Target device. Defaults to `"cpu"`.
+- `provider` (str): Execution provider. Defaults to `"CPUExecutionProvider"`.
+- `cpu_cores` (int, optional): CPU cores for thread tuning.
+- `io_bind` (bool): Enable IOBinding search. Defaults to `False`.
+- `enable_cuda_graph` (bool): Enable CUDA graph. Defaults to `False`.
+- `log_level` (int): Logging level (1-5). Defaults to `3`.
+- `**kwargs`: Additional tuning parameters.
+
+```python
+from olive import session_params_tuning
+
+workflow_output = session_params_tuning(model_path="path/to/onnx/model")
+```
+
+### Utility Functions
+
+There are also utility functions that don't produce a `WorkflowOutput`:
+
+- **`convert_adapters`**: Convert LoRA adapter weights to a format consumable by ONNX models.
+  - **Arguments**: `adapter_path` (str), `output_path` (str), `adapter_format` (str), `dtype` (str), `log_level` (int), `**kwargs`.
+- **`extract_adapters`**: Extract LoRA adapters from PyTorch model to separate files.
+  - **Arguments**: `model_path` (str), `output_path` (str), `adapter_format` (str), `dtype` (str), `cache_dir` (str, optional), `log_level` (int), `**kwargs`.
+- **`generate_cost_model`**: Generate a cost model for model splitting (HuggingFace models only).
+  - **Arguments**: `model_path` (str), `output_path` (str), `log_level` (int), `**kwargs`.
+
+## Accessing Optimization Results
+
+Most API functions return a `WorkflowOutput` object. You can use it to access the optimized models and their metrics.
+
+```python
+from olive import run, WorkflowOutput
+
+workflow_output: WorkflowOutput = run("config.json")
+
+# Check if optimization produced any results
+if workflow_output.has_output_model():
+    # Get the best model overall
+    best_model = workflow_output.get_best_candidate()
+    print(f"Model path: {best_model.model_path}")
+    print(f"Metrics: {best_model.metrics_value}")
 ```
 
 ## Output Class Hierarchy
@@ -94,10 +270,9 @@ from olive import ModelOutput
 ### Accessing Optimization Results
 
 ```python
-from olive.workflows import run as olive_run
-from olive import WorkflowOutput
+from olive import run, WorkflowOutput
 
-workflow_output = olive_run("config.json")
+workflow_output: WorkflowOutput = run("config.json")
 
 # Check if optimization produced any results
 if workflow_output.has_output_model():
