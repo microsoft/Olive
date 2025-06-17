@@ -378,7 +378,7 @@ class TestAddOliveMetadata:
                 "config": {
                     "type": "ONNXModel",  # This would be ONNXModel for converted models
                     "model_attributes": {
-                        "model_type": "hfmodel",  # Preserved original model type
+                        "type": "hfmodel",  # Preserved original model type
                         "_name_or_path": "microsoft/Phi-3.5-mini-instruct",
                         "hf_task": "text-generation",
                     },

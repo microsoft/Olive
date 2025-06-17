@@ -130,7 +130,7 @@ class OnnxConversion(Pass):
         if isinstance(model, HfModelHandler):
             output_model.model_attributes = model_attributes = output_model.model_attributes or {}
             model_attributes["hf_task"] = model.task
-            model_attributes["model_type"] = model.model_type
+            model_attributes["type"] = model.model_type
 
             if config.save_metadata_for_token_generation:
                 # output_model can only be an ONNXModelHandler

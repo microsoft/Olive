@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-import hashlib
 import logging
 from pathlib import Path
 from typing import Union
@@ -14,7 +13,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_file_names, model_proto_to_file, resave_model
+from olive.passes.onnx.common import model_proto_to_file, resave_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -60,50 +59,6 @@ class AddOliveMetadata(Pass):
         """Set the ONNX graph name."""
         onnx_model.graph.name = graph_name
         return onnx_model
-
-    def _calculate_model_hash(self, model_path: Union[str, Path]) -> str:
-        """Calculate hash of an ONNX model including all external data files."""
-        model_path = Path(model_path)
-        hash_obj = hashlib.sha256()
-
-        # Determine the actual model file path
-        if model_path.is_dir():
-            # Find the ONNX file in the directory
-            onnx_files = list(model_path.glob("*.onnx"))
-            if not onnx_files:
-                raise ValueError(f"No ONNX files found in directory: {model_path}")
-            if len(onnx_files) > 1:
-                raise ValueError(f"Multiple ONNX files found in directory: {model_path}")
-            onnx_file_path = onnx_files[0]
-        else:
-            onnx_file_path = model_path
-
-        if not onnx_file_path.exists():
-            raise ValueError(f"ONNX model file not found: {onnx_file_path}")
-
-        # Hash the main ONNX model file
-        with open(onnx_file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_obj.update(chunk)
-
-        # Get and hash external data files
-        try:
-            external_files = get_external_data_file_names(onnx_file_path)
-            for external_file in sorted(external_files):  # Sort for consistent ordering
-                external_file_path = onnx_file_path.parent / external_file
-                if external_file_path.exists():
-                    # Hash the external file name first (for uniqueness)
-                    hash_obj.update(external_file.encode("utf-8"))
-                    # Then hash the file content
-                    with open(external_file_path, "rb") as f:
-                        for chunk in iter(lambda: f.read(4096), b""):
-                            hash_obj.update(chunk)
-                else:
-                    logger.warning("External data file not found: %s", external_file_path)
-        except Exception as e:
-            logger.warning("Could not process external data files for %s: %s", onnx_file_path, e)
-
-        return hash_obj.hexdigest()
 
     def _generate_olive_metadata(self, model: ONNXModelHandler, config: type[BasePassConfig]) -> dict[str, str]:
         """Generate Olive-specific metadata."""
@@ -157,7 +112,7 @@ class AddOliveMetadata(Pass):
             model_attrs = config.get("model_attributes", {})
 
             # Check if the original model was a HuggingFace model
-            model_type = model_attrs.get("model_type", "").lower()
+            model_type = model_attrs.get("type", "").lower()
             if model_type in ["hfmodel", "hf_model"]:
                 # Try to get model path from _name_or_path in model_attributes
                 hf_model_name = model_attrs.get("_name_or_path")
@@ -188,7 +143,9 @@ class AddOliveMetadata(Pass):
 
         # Calculate model hash (before adding metadata) - always included
         try:
-            model_hash = self._calculate_model_hash(output_model_path)
+            from olive.model.config.model_config import ModelConfig
+            model_config = ModelConfig.parse_obj(model.to_json())
+            model_hash = model_config.get_model_identifier()
             metadata["model_hash"] = model_hash
         except Exception as e:
             logger.warning("Could not calculate model hash: %s", e)
