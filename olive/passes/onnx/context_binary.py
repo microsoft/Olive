@@ -230,8 +230,6 @@ class EPContextBinaryGenerator(Pass):
         import onnxruntime as ort
         from onnxruntime import __version__ as OrtVersion
 
-        from olive.common.ort_inference import initialize_inference_session_options, ort_supports_ep_devices
-
         # prepare provider options
         provider_options = provider_options or {}
         if execution_provider == "QNNExecutionProvider":
@@ -268,14 +266,11 @@ class EPContextBinaryGenerator(Pass):
         sess_options.add_session_config_entry("ep.context_file_path", str(output_model_path))
 
         # create the inference session
+        # requires regular onnxruntime package, not winml (not tested with winml)
         logger.debug("Creating context binary for model %s", str(model_path))
-
-        sess_kwargs = {}
-        if ort_supports_ep_devices():
-            initialize_inference_session_options(sess_options, device, [execution_provider], [provider_options or {}])
-        else:
-            sess_kwargs.update({"providers": [execution_provider], "provider_options": [provider_options]})
-        ort.InferenceSession(model_path, sess_options=sess_options, **sess_kwargs)
+        ort.InferenceSession(
+            model_path, sess_options=sess_options, providers=[execution_provider], provider_options=[provider_options]
+        )
 
         assert output_model_path.exists(), f"Context binary not found at {output_model_path}"
 
