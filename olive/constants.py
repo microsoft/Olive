@@ -83,5 +83,7 @@ class DatasetRequirement(StrEnumBase):
 class OpType(StrEnumBase):
     """Enum for operator types."""
 
+    Gather = "Gather"
+    GatherBlockQuantized = "GatherBlockQuantized"
     MatMulNBits = "MatMulNBits"
     MatMul = "MatMul"
