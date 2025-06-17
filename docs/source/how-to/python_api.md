@@ -103,7 +103,7 @@ olive auto-opt \
     --precision int8 \
     --enable_search
 ```
- 
+
 ## Output Class Hierarchy
 
 Olive organizes optimization results in a hierarchical structure:
@@ -989,4 +989,4 @@ if optimized.has_output_model():
 - Compare the input model metrics with optimized model metrics to quantify improvements
 - Chain different optimization techniques for maximum performance gains
 - Use the `run()` function for complex multi-pass workflows that require custom configuration
-``` 
+```
