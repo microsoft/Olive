@@ -350,14 +350,13 @@ class TestAddOliveMetadata:
         input_model = get_onnx_model()
 
         # Create pass instance using the standard method
-        from olive.passes.olive_pass import create_pass_from_dict
-
         config_dict = {
             "graph_name": "test_consistency",
         }
         add_metadata_pass = create_pass_from_dict(AddOliveMetadata, config_dict, disable_search=True)
 
         # Calculate hash twice for same model
+        # pylint: disable=protected-access
         hash1 = add_metadata_pass._calculate_model_hash(input_model.model_path)
         hash2 = add_metadata_pass._calculate_model_hash(input_model.model_path)
 

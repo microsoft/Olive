@@ -6,6 +6,7 @@
 import hashlib
 import logging
 from pathlib import Path
+from typing import Union
 
 import onnx
 
@@ -60,7 +61,7 @@ class AddOliveMetadata(Pass):
         onnx_model.graph.name = graph_name
         return onnx_model
 
-    def _calculate_model_hash(self, model_path: str | Path) -> str:
+    def _calculate_model_hash(self, model_path: Union[str, Path]) -> str:
         """Calculate hash of an ONNX model including all external data files."""
         model_path = Path(model_path)
         hash_obj = hashlib.sha256()
@@ -163,8 +164,8 @@ class AddOliveMetadata(Pass):
                 if hf_model_name and isinstance(hf_model_name, str):
                     return hf_model_name
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Could not extract original HF model name from model config: %s", e)
 
         return None
 
