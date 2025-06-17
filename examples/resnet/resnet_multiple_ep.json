@@ -4,33 +4,16 @@
         "model_path": "microsoft/resnet-50",
         "task": "image-classification",
         "io_config": {
-            "input_names": [
-                "pixel_values"
-            ],
-            "input_shapes": [
-                [
-                    1,
-                    3,
-                    224,
-                    224
-                ]
-            ],
-            "output_names": [
-                "logits"
-            ]
+            "input_names": [ "pixel_values" ],
+            "input_shapes": [ [ 1, 3, 224, 224 ] ],
+            "output_names": [ "logits" ]
         }
     },
     "systems": {
         "python_system": {
             "type": "PythonEnvironment",
             "accelerators": [
-                {
-                    "device": "gpu",
-                    "execution_providers": [
-                        "DmlExecutionProvider",
-                        "OpenVINOExecutionProvider"
-                    ]
-                }
+                { "device": "gpu", "execution_providers": [ "DmlExecutionProvider", "OpenVINOExecutionProvider" ] }
             ],
             "olive_managed_env": true,
             "requirements_file": "multiple_ep_requirements.txt"
@@ -47,14 +30,8 @@
                 "streaming": true,
                 "trust_remote_code": true
             },
-            "pre_process_data_config": {
-                "type": "dataset_pre_process",
-                "size": 256,
-                "cache_key": "imagenet"
-            },
-            "post_process_data_config": {
-                "type": "imagenet_post_fun"
-            }
+            "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet" },
+            "post_process_data_config": { "type": "imagenet_post_fun" }
         }
     ],
     "evaluators": {
@@ -68,10 +45,7 @@
                         {
                             "name": "accuracy_score",
                             "priority": 1,
-                            "metric_config": {
-                                "task": "multiclass",
-                                "num_classes": 1001
-                            }
+                            "metric_config": { "task": "multiclass", "num_classes": 1001 }
                         }
                     ]
                 },
@@ -79,11 +53,7 @@
                     "name": "latency",
                     "type": "latency",
                     "data_config": "data_config",
-                    "sub_types": [
-                        {
-                            "name": "avg"
-                        }
-                    ]
+                    "sub_types": [ { "name": "avg" } ]
                 }
             ]
         }
@@ -95,16 +65,8 @@
             "precision": "uint8",
             "activation_type": "uint8"
         },
-        "session_params_tuning": {
-            "type": "OrtSessionParamsTuning",
-            "data_config": "data_config"
-        },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "resnet-50"
-            }
-        }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "data_config" },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "resnet-50" } }
     },
     "evaluator": "common_evaluator",
     "target": "python_system",

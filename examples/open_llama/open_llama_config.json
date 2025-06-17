@@ -1,25 +1,13 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "model_path": "openlm-research/open_llama_3b"
-    },
-    "data_configs": [
-        {
-            "name": "transformer_token_dummy_data",
-            "type": "TransformersTokenDummyDataContainer"
-        }
-    ],
+    "input_model": { "type": "HfModel", "model_path": "openlm-research/open_llama_3b" },
+    "data_configs": [ { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" } ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [
-                        {
-                            "name": "avg"
-                        }
-                    ],
+                    "sub_types": [ { "name": "avg" } ],
                     "data_config": "transformer_token_dummy_data"
                 }
             ]
@@ -28,14 +16,7 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "device": "gpu",
-                    "execution_providers": [
-                        "CUDAExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
     "passes": {
@@ -53,16 +34,9 @@
             "keep_io_types": true,
             "num_heads": 32,
             "hidden_size": 4096,
-            "optimization_options": {
-                "use_multi_head_attention": false
-            }
+            "optimization_options": { "use_multi_head_attention": false }
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "open_llama_3b"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "open_llama_3b" } }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

@@ -4,21 +4,11 @@
         "resource_group": "<resource_group>",
         "workspace_name": "<workspace_name>"
     },
-    "input_model": {
-        "type": "HfModel",
-        "model_path": "openlm-research/open_llama_3b"
-    },
+    "input_model": { "type": "HfModel", "model_path": "openlm-research/open_llama_3b" },
     "systems": {
         "aml": {
             "type": "AzureML",
-            "accelerators": [
-                {
-                    "device": "gpu",
-                    "execution_providers": [
-                        "CUDAExecutionProvider"
-                    ]
-                }
-            ],
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ],
             "aml_compute": "gpu-cluster",
             "aml_docker_config": {
                 "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
@@ -27,14 +17,7 @@
         },
         "azure_arc": {
             "type": "AzureML",
-            "accelerators": [
-                {
-                    "device": "gpu",
-                    "execution_providers": [
-                        "CUDAExecutionProvider"
-                    ]
-                }
-            ],
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ],
             "aml_compute": "olive-test",
             "aml_docker_config": {
                 "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
@@ -42,27 +25,14 @@
             }
         }
     },
-    "data_configs": [
-        {
-            "name": "transformer_token_dummy_data",
-            "type": "TransformersTokenDummyDataContainer"
-        }
-    ],
+    "data_configs": [ { "name": "transformer_token_dummy_data", "type": "TransformersTokenDummyDataContainer" } ],
     "evaluators": {
         "common_evaluator": {
             "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [
-                        {
-                            "name": "avg",
-                            "goal": {
-                                "type": "percent-min-improvement",
-                                "value": 10
-                            }
-                        }
-                    ],
+                    "sub_types": [ { "name": "avg", "goal": { "type": "percent-min-improvement", "value": 10 } } ],
                     "data_config": "transformer_token_dummy_data"
                 }
             ]
@@ -83,16 +53,9 @@
             "keep_io_types": true,
             "num_heads": 32,
             "hidden_size": 4096,
-            "optimization_options": {
-                "use_multi_head_attention": false
-            }
+            "optimization_options": { "use_multi_head_attention": false }
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "open_llama_3b"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "open_llama_3b" } }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

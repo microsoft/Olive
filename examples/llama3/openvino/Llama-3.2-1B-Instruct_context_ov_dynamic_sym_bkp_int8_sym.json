@@ -1,26 +1,15 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "model_path": "meta-llama/Llama-3.2-1B-Instruct"
-    },
+    "input_model": { "type": "HfModel", "model_path": "meta-llama/Llama-3.2-1B-Instruct" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "execution_providers": [
-                        "OpenVINOExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "execution_providers": [ "OpenVINOExecutionProvider" ] } ]
         }
     },
     "passes": {
         "optimum_convert": {
             "type": "OpenVINOOptimumConversion",
-            "extra_args": {
-                "device": "npu"
-            },
+            "extra_args": { "device": "npu" },
             "ov_quant_config": {
                 "weight_format": "int4",
                 "group_size": 128,
@@ -33,11 +22,7 @@
                 "backup_precision": "int8_sym"
             }
         },
-        "io_update": {
-            "type": "OpenVINOIoUpdate",
-            "static": false,
-            "reuse_cache": true
-        },
+        "io_update": { "type": "OpenVINOIoUpdate", "static": false, "reuse_cache": true },
         "encapsulation": {
             "type": "OpenVINOEncapsulation",
             "target_device": "npu",
@@ -45,12 +30,7 @@
             "ov_version": "2025.1",
             "reuse_cache": true
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "Llama-3.2-1B-Instruct"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Llama-3.2-1B-Instruct" } }
     },
     "search_strategy": false,
     "host": "local_system",

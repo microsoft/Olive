@@ -5,27 +5,12 @@
         "model_loader": "vision_embed_tokens_loader",
         "model_script": "vision/scripts/user_script.py",
         "io_config": {
-            "input_names": [
-                "pixel_values",
-                "image_sizes"
-            ],
-            "output_names": [
-                "visual_features"
-            ],
+            "input_names": [ "pixel_values", "image_sizes" ],
+            "output_names": [ "visual_features" ],
             "dynamic_axes": {
-                "pixel_values": {
-                    "0": "num_images",
-                    "1": "max_num_crops",
-                    "3": "height",
-                    "4": "width"
-                },
-                "image_sizes": {
-                    "0": "num_images"
-                },
-                "visual_features": {
-                    "0": "batch_size",
-                    "1": "num_img_tokens"
-                }
+                "pixel_values": { "0": "num_images", "1": "max_num_crops", "3": "height", "4": "width" },
+                "image_sizes": { "0": "num_images" },
+                "visual_features": { "0": "batch_size", "1": "num_img_tokens" }
             }
         },
         "dummy_inputs_func": "get_dummy_inputs"
@@ -33,14 +18,7 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "device": "CPU",
-                    "execution_providers": [
-                        "CPUExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "device": "CPU", "execution_providers": [ "CPUExecutionProvider" ] } ]
         }
     },
     "passes": {
@@ -59,16 +37,8 @@
             "hidden_size": 1024,
             "opt_level": 0
         },
-        "matmul_4bits": {
-            "type": "OnnxMatMul4Quantizer",
-            "block_size": 32
-        },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "<<str: model_path>>"
-            }
-        }
+        "matmul_4bits": { "type": "OnnxMatMul4Quantizer", "block_size": 32 },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "<<str: model_path>>" } }
     },
     "host": "local_system",
     "target": "local_system"

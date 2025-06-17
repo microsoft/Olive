@@ -1,26 +1,15 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "model_path": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-    },
+    "input_model": { "type": "HfModel", "model_path": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "execution_providers": [
-                        "OpenVINOExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "execution_providers": [ "OpenVINOExecutionProvider" ] } ]
         }
     },
     "passes": {
         "optimum_convert": {
             "type": "OpenVINOOptimumConversion",
-            "extra_args": {
-                "device": "npu"
-            },
+            "extra_args": { "device": "npu" },
             "ov_quant_config": {
                 "weight_format": "int4",
                 "group_size": 128,
@@ -34,11 +23,7 @@
                 "sensitivity_metric": "weight_quantization_error"
             }
         },
-        "io_update": {
-            "type": "OpenVINOIoUpdate",
-            "static": false,
-            "reuse_cache": true
-        },
+        "io_update": { "type": "OpenVINOIoUpdate", "static": false, "reuse_cache": true },
         "encapsulation": {
             "type": "OpenVINOEncapsulation",
             "target_device": "npu",
@@ -46,12 +31,7 @@
             "ov_version": "2025.1",
             "reuse_cache": true
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "DeepSeek-R1-Distill-Qwen-1.5B"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "DeepSeek-R1-Distill-Qwen-1.5B" } }
     },
     "search_strategy": false,
     "host": "local_system",

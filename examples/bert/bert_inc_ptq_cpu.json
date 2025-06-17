@@ -1,42 +1,20 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "model_path": "Intel/bert-base-uncased-mrpc",
-        "task": "text-classification"
-    },
+    "input_model": { "type": "HfModel", "model_path": "Intel/bert-base-uncased-mrpc", "task": "text-classification" },
     "data_configs": [
         {
             "name": "glue_mrpc",
             "type": "HuggingfaceContainer",
             "user_script": "user_script.py",
-            "load_dataset_config": {
-                "data_name": "glue",
-                "split": "validation",
-                "subset": "mrpc"
-            },
-            "pre_process_data_config": {
-                "input_cols": [
-                    "sentence1",
-                    "sentence2"
-                ],
-                "max_samples": 100
-            },
-            "post_process_data_config": {
-                "type": "bert_post_process"
-            },
-            "dataloader_config": {
-                "batch_size": 1
-            }
+            "load_dataset_config": { "data_name": "glue", "split": "validation", "subset": "mrpc" },
+            "pre_process_data_config": { "input_cols": [ "sentence1", "sentence2" ], "max_samples": 100 },
+            "post_process_data_config": { "type": "bert_post_process" },
+            "dataloader_config": { "batch_size": 1 }
         },
         {
             "name": "inc_quat_data_config",
             "user_script": "user_script.py",
-            "load_dataset_config": {
-                "type": "bert_inc_glue_calibration_dataset"
-            },
-            "dataloader_config": {
-                "type": "bert_inc_glue_calibration_dataloader"
-            }
+            "load_dataset_config": { "type": "bert_inc_glue_calibration_dataset" },
+            "dataloader_config": { "type": "bert_inc_glue_calibration_dataloader" }
         }
     ],
     "evaluators": {
@@ -50,10 +28,7 @@
                         {
                             "name": "accuracy_score",
                             "priority": 1,
-                            "goal": {
-                                "type": "percent-max-degradation",
-                                "value": 2
-                            }
+                            "goal": { "type": "percent-max-degradation", "value": 2 }
                         }
                     ]
                 },
@@ -62,28 +37,15 @@
                     "type": "latency",
                     "data_config": "glue_mrpc",
                     "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 2,
-                            "goal": {
-                                "type": "percent-min-improvement",
-                                "value": 20
-                            }
-                        }
+                        { "name": "avg", "priority": 2, "goal": { "type": "percent-min-improvement", "value": 20 } }
                     ]
                 }
             ]
         }
     },
     "passes": {
-        "conversion": {
-            "type": "OnnxConversion",
-            "target_opset": 17
-        },
-        "transformers_optimization": {
-            "type": "OrtTransformersOptimization",
-            "model_type": "bert"
-        },
+        "conversion": { "type": "OnnxConversion", "target_opset": 17 },
+        "transformers_optimization": { "type": "OrtTransformersOptimization", "model_type": "bert" },
         "quantization": {
             "type": "IncQuantization",
             "approach": "SEARCHABLE_VALUES",
@@ -96,25 +58,14 @@
                     {
                         "name": "accuracy_score",
                         "priority": 1,
-                        "goal": {
-                            "type": "percent-max-degradation",
-                            "value": 2
-                        }
+                        "goal": { "type": "percent-max-degradation", "value": 2 }
                     }
                 ]
             }
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "bert-base-uncased-mrpc"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
     },
-    "search_strategy": {
-        "execution_order": "joint",
-        "sampler": "sequential"
-    },
+    "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
     "output_dir": "models/bert_inc_ptq_cpu"

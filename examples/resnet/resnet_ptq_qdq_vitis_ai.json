@@ -4,20 +4,9 @@
         "model_path": "microsoft/resnet-50",
         "task": "image-classification",
         "io_config": {
-            "input_names": [
-                "pixel_values"
-            ],
-            "input_shapes": [
-                [
-                    1,
-                    3,
-                    224,
-                    224
-                ]
-            ],
-            "output_names": [
-                "logits"
-            ]
+            "input_names": [ "pixel_values" ],
+            "input_shapes": [ [ 1, 3, 224, 224 ] ],
+            "output_names": [ "logits" ]
         }
     },
     "data_configs": [
@@ -37,9 +26,7 @@
                 "cache_key": "imagenet",
                 "transpose": true
             },
-            "post_process_data_config": {
-                "type": "imagenet_post_fun"
-            }
+            "post_process_data_config": { "type": "imagenet_post_fun" }
         }
     ],
     "evaluators": {
@@ -53,10 +40,7 @@
                         {
                             "name": "accuracy_score",
                             "priority": 1,
-                            "metric_config": {
-                                "task": "multiclass",
-                                "num_classes": 1001
-                            }
+                            "metric_config": { "task": "multiclass", "num_classes": 1001 }
                         }
                     ]
                 },
@@ -64,11 +48,7 @@
                     "name": "latency",
                     "type": "latency",
                     "data_config": "quantize_data_config",
-                    "sub_types": [
-                        {
-                            "name": "avg"
-                        }
-                    ]
+                    "sub_types": [ { "name": "avg" } ]
                 }
             ]
         }
@@ -83,9 +63,7 @@
             "dynamic": false,
             "use_dynamo_exporter": false
         },
-        "transpose_input": {
-            "type": "InputNCHWtoNHWC"
-        },
+        "transpose_input": { "type": "InputNCHWtoNHWC" },
         "OnnxQuantization": {
             "type": "OnnxQuantization",
             "data_config": "quantize_data_config",
@@ -95,20 +73,12 @@
         },
         "addmetadata": {
             "type": "VitisAIAddMetaData",
-            "config_meta_data_keys": [
-                "architectures",
-                "model_type"
-            ],
+            "config_meta_data_keys": [ "architectures", "model_type" ],
             "activation_type": "uint8",
             "weight_type": "uint8",
             "quant_type": "OnnxStaticQuantization"
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "resnet-50"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "resnet-50" } }
     },
     "evaluate_input_model": false,
     "evaluator": "common_evaluator",

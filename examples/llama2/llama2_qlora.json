@@ -1,40 +1,25 @@
 {
     "input_model": {
         "type": "HfModel",
-        "load_kwargs": {
-            "attn_implementation": "eager"
-        },
+        "load_kwargs": { "attn_implementation": "eager" },
         "model_path": "meta-llama/Llama-2-7b-hf"
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "device": "gpu",
-                    "execution_providers": [
-                        "CUDAExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
     "data_configs": [
         {
             "name": "train_data",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "data_name": "timdettmers/openassistant-guanaco",
-                "split": "train[:4096]"
-            }
+            "load_dataset_config": { "data_name": "timdettmers/openassistant-guanaco", "split": "train[:4096]" }
         },
         {
             "name": "eval_data",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "data_name": "timdettmers/openassistant-guanaco",
-                "split": "train[4096:4224]"
-            }
+            "load_dataset_config": { "data_name": "timdettmers/openassistant-guanaco", "split": "train[4096:4224]" }
         }
     ],
     "passes": {
@@ -65,20 +50,9 @@
             "keep_io_types": false,
             "float16": true
         },
-        "e": {
-            "type": "ExtractAdapters"
-        },
-        "m": {
-            "type": "ModelBuilder",
-            "metadata_only": true,
-            "precision": "fp16"
-        },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "Llama-2-7b-hf"
-            }
-        }
+        "e": { "type": "ExtractAdapters" },
+        "m": { "type": "ModelBuilder", "metadata_only": true, "precision": "fp16" },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Llama-2-7b-hf" } }
     },
     "host": "local_system",
     "target": "local_system",

@@ -9,14 +9,7 @@
     "systems": {
         "qnn_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "device": "npu",
-                    "execution_providers": [
-                        "QNNExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "device": "npu", "execution_providers": [ "QNNExecutionProvider" ] } ]
         }
     },
     "data_configs": [
@@ -30,14 +23,8 @@
                 "streaming": true,
                 "trust_remote_code": true
             },
-            "pre_process_data_config": {
-                "type": "face_pre_process",
-                "size": 128,
-                "cache_key": "wider_face"
-            },
-            "dataloader_config": {
-                "type": "no_auto_batch_dataloader"
-            }
+            "pre_process_data_config": { "type": "face_pre_process", "size": 128, "cache_key": "wider_face" },
+            "dataloader_config": { "type": "no_auto_batch_dataloader" }
         }
     ],
     "evaluators": {
@@ -48,16 +35,8 @@
                     "type": "custom",
                     "data_config": "face_data_config",
                     "sub_types": [
-                        {
-                            "name": "map 50",
-                            "priority": 1,
-                            "higher_is_better": true
-                        },
-                        {
-                            "name": "map 50-95",
-                            "priority": 2,
-                            "higher_is_better": true
-                        }
+                        { "name": "map 50", "priority": 1, "higher_is_better": true },
+                        { "name": "map 50-95", "priority": 2, "higher_is_better": true }
                     ],
                     "user_config": {
                         "user_script": "user_script.py",
@@ -65,16 +44,10 @@
                         "inference_settings": {
                             "onnx": {
                                 "session_options": {
-                                    "extra_session_config": {
-                                        "session.disable_cpu_ep_fallback": "1"
-                                    }
+                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "1" }
                                 },
                                 "execution_provider": "QNNExecutionProvider",
-                                "provider_options": [
-                                    {
-                                        "backend_path": "QnnHtp.dll"
-                                    }
-                                ]
+                                "provider_options": [ { "backend_path": "QnnHtp.dll" } ]
                             }
                         }
                     }
@@ -84,51 +57,28 @@
                     "type": "custom",
                     "data_config": "face_data_config",
                     "sub_types": [
-                        {
-                            "name": "map 50",
-                            "priority": 3,
-                            "higher_is_better": true
-                        },
-                        {
-                            "name": "map 50-95",
-                            "priority": 4,
-                            "higher_is_better": true
-                        }
+                        { "name": "map 50", "priority": 3, "higher_is_better": true },
+                        { "name": "map 50-95", "priority": 4, "higher_is_better": true }
                     ],
                     "user_config": {
                         "user_script": "user_script.py",
                         "metric_func": "face_metric",
-                        "inference_settings": {
-                            "onnx": {
-                                "execution_provider": "CPUExecutionProvider"
-                            }
-                        }
+                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                     }
                 },
                 {
                     "name": "latency_qnn",
                     "type": "latency",
                     "data_config": "face_data_config",
-                    "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 5
-                        }
-                    ],
+                    "sub_types": [ { "name": "avg", "priority": 5 } ],
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
                                 "session_options": {
-                                    "extra_session_config": {
-                                        "session.disable_cpu_ep_fallback": "1"
-                                    }
+                                    "extra_session_config": { "session.disable_cpu_ep_fallback": "1" }
                                 },
                                 "execution_provider": "QNNExecutionProvider",
-                                "provider_options": [
-                                    {
-                                        "backend_path": "QnnHtp.dll"
-                                    }
-                                ]
+                                "provider_options": [ { "backend_path": "QnnHtp.dll" } ]
                             }
                         }
                     }
@@ -137,30 +87,17 @@
                     "name": "latency_cpu",
                     "type": "latency",
                     "data_config": "face_data_config",
-                    "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 6
-                        }
-                    ],
+                    "sub_types": [ { "name": "avg", "priority": 6 } ],
                     "user_config": {
-                        "inference_settings": {
-                            "onnx": {
-                                "execution_provider": "CPUExecutionProvider"
-                            }
-                        }
+                        "inference_settings": { "onnx": { "execution_provider": "CPUExecutionProvider" } }
                     }
                 }
             ]
         }
     },
     "passes": {
-        "conversion": {
-            "type": "OnnxConversion"
-        },
-        "QNNPreprocess": {
-            "type": "QNNPreprocess"
-        },
+        "conversion": { "type": "OnnxConversion" },
+        "QNNPreprocess": { "type": "QNNPreprocess" },
         "OnnxQuantization": {
             "type": "OnnxStaticQuantization",
             "quant_preprocess": true,
@@ -168,16 +105,9 @@
             "activation_type": "uint16",
             "precision": "uint8",
             "calibrate_method": "MinMax",
-            "op_types_to_exclude": [
-                "Mul"
-            ]
+            "op_types_to_exclude": [ "Mul" ]
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "adetailer"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "adetailer" } }
     },
     "host": "qnn_system",
     "target": "qnn_system",

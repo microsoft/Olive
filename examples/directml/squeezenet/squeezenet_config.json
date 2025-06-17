@@ -4,78 +4,33 @@
         "model_loader": "load_pytorch_origin_model",
         "model_script": "user_script.py",
         "io_config": {
-            "input_names": [
-                "input_image"
-            ],
-            "input_shapes": [
-                [
-                    1,
-                    3,
-                    224,
-                    224
-                ]
-            ],
-            "output_names": [
-                "output"
-            ]
+            "input_names": [ "input_image" ],
+            "input_shapes": [ [ 1, 3, 224, 224 ] ],
+            "output_names": [ "output" ]
         }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "device": "gpu"
-                }
-            ]
-        }
-    },
+    "systems": { "local_system": { "type": "LocalSystem", "accelerators": [ { "device": "gpu" } ] } },
     "evaluators": {
         "common_evaluator": {
             "metrics": [
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 1
-                        },
-                        {
-                            "name": "max"
-                        },
-                        {
-                            "name": "min"
-                        }
-                    ]
+                    "sub_types": [ { "name": "avg", "priority": 1 }, { "name": "max" }, { "name": "min" } ]
                 }
             ]
         }
     },
     "passes": {
-        "torch_to_onnx": {
-            "type": "OnnxConversion",
-            "target_opset": 13
-        },
-        "float16_conversion": {
-            "type": "OnnxFloatToFloat16"
-        },
+        "torch_to_onnx": { "type": "OnnxConversion", "target_opset": 13 },
+        "float16_conversion": { "type": "OnnxFloatToFloat16" },
         "session_params_tuning": {
             "type": "OrtSessionParamsTuning",
             "device": "gpu",
-            "execution_mode_list": [
-                "ORT_SEQUENTIAL"
-            ],
-            "providers_list": [
-                "DmlExecutionProvider"
-            ]
+            "execution_mode_list": [ "ORT_SEQUENTIAL" ],
+            "providers_list": [ "DmlExecutionProvider" ]
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "directml"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "directml" } }
     },
     "log_severity_level": 0,
     "evaluator": "common_evaluator",

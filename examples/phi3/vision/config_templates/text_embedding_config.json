@@ -5,44 +5,20 @@
         "model_loader": "text_embedding_loader",
         "model_script": "vision/scripts/user_script.py",
         "io_config": {
-            "input_names": [
-                "input_ids"
-            ],
-            "input_types": [
-                "int64"
-            ],
-            "input_shapes": [
-                [
-                    1,
-                    1
-                ]
-            ],
-            "output_names": [
-                "inputs_embeds"
-            ],
+            "input_names": [ "input_ids" ],
+            "input_types": [ "int64" ],
+            "input_shapes": [ [ 1, 1 ] ],
+            "output_names": [ "inputs_embeds" ],
             "dynamic_axes": {
-                "input_ids": {
-                    "0": "batch_size",
-                    "1": "sequence_length"
-                },
-                "inputs_embeds": {
-                    "0": "batch_size",
-                    "1": "sequence_length"
-                }
+                "input_ids": { "0": "batch_size", "1": "sequence_length" },
+                "inputs_embeds": { "0": "batch_size", "1": "sequence_length" }
             }
         }
     },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "device": "cpu",
-                    "execution_providers": [
-                        "CPUExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "device": "cpu", "execution_providers": [ "CPUExecutionProvider" ] } ]
         }
     },
     "passes": {
@@ -55,12 +31,7 @@
             "target_opset": 14,
             "torch_dtype": "<<str: float_precision>>"
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "<<str: model_path>>"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "<<str: model_path>>" } }
     },
     "host": "local_system",
     "target": "local_system"

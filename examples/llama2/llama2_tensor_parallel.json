@@ -1,19 +1,9 @@
 {
-    "input_model": {
-        "type": "HfModel",
-        "model_path": "meta-llama/Llama-2-7b-hf"
-    },
+    "input_model": { "type": "HfModel", "model_path": "meta-llama/Llama-2-7b-hf" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "accelerators": [
-                {
-                    "device": "gpu",
-                    "execution_providers": [
-                        "CUDAExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
     "passes": {
@@ -40,12 +30,7 @@
             "float16": true,
             "use_gqa": true
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "Llama-2-7b-hf"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Llama-2-7b-hf" } }
     },
     "host": "local_system",
     "target": "local_system",

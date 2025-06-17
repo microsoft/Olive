@@ -4,43 +4,20 @@
         "model_loader": "load_pytorch_model",
         "model_script": "loader.py",
         "io_config": {
-            "input_names": [
-                "input"
-            ],
-            "input_shapes": [
-                [
-                    1,
-                    1,
-                    224,
-                    224
-                ]
-            ],
-            "input_types": [
-                "float32"
-            ],
-            "output_names": [
-                "output"
-            ]
+            "input_names": [ "input" ],
+            "input_shapes": [ [ 1, 1, 224, 224 ] ],
+            "input_types": [ "float32" ],
+            "output_names": [ "output" ]
         }
     },
     "passes": {
-        "exporter": {
-            "type": "OnnxConversion",
-            "target_opset": 15
-        },
+        "exporter": { "type": "OnnxConversion", "target_opset": 15 },
         "prepost": {
             "type": "AppendPrePostProcessingOps",
             "tool_command": "superresolution",
-            "tool_command_args": {
-                "output_format": "png"
-            }
+            "tool_command_args": { "output_format": "png" }
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "super_resolution"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "super_resolution" } }
     },
     "log_severity_level": 0,
     "clean_cache": true,

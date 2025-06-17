@@ -4,60 +4,26 @@
         "model_path": "openai/clip-vit-base-patch32",
         "generative": false,
         "io_config": {
-            "input_names": [
-                "input_ids",
-                "attention_mask"
-            ],
-            "input_shapes": [
-                [
-                    1,
-                    77
-                ],
-                [
-                    1,
-                    77
-                ]
-            ],
-            "input_types": [
-                "int32",
-                "int32"
-            ],
-            "output_names": [
-                "embeds",
-                "last_hidden_state"
-            ]
+            "input_names": [ "input_ids", "attention_mask" ],
+            "input_shapes": [ [ 1, 77 ], [ 1, 77 ] ],
+            "input_types": [ "int32", "int32" ],
+            "output_names": [ "embeds", "last_hidden_state" ]
         },
         "model_loader": "load_text_encoder",
         "model_script": "clip_script.py"
     },
     "passes": {
-        "conversion": {
-            "type": "OnnxConversion",
-            "target_opset": 20,
-            "dynamic": true,
-            "use_dynamo_exporter": false
-        },
+        "conversion": { "type": "OnnxConversion", "target_opset": 20, "dynamic": true, "use_dynamo_exporter": false },
         "to_fixed_shape": {
             "type": "DynamicToFixedShape",
-            "dim_param": [
-                "batch_size",
-                "sequence_length"
-            ],
-            "dim_value": [
-                1,
-                77
-            ]
+            "dim_param": [ "batch_size", "sequence_length" ],
+            "dim_value": [ 1, 77 ]
         },
         "surgery": {
             "type": "GraphSurgeries",
             "surgeries": [
-                {
-                    "surgeon": "ReplaceAttentionMaskValue",
-                    "replacement": -100.0
-                },
-                {
-                    "surgeon": "MatMulAddToGemm"
-                }
+                { "surgeon": "ReplaceAttentionMaskValue", "replacement": -100.0 },
+                { "surgeon": "MatMulAddToGemm" }
             ]
         },
         "transformer_optimizer": {
@@ -80,39 +46,26 @@
             "activation_type": "uint16",
             "precision": "uint8"
         },
-        "add_metadata": {
-            "type": "AddOliveMetadata",
-            "config": {
-                "graph_name": "clip-vit-base-patch32"
-            }
-        }
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "clip-vit-base-patch32" } }
     },
     "data_configs": [
         {
             "name": "calib_data",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "data_name": "nlphuji/flickr30k",
-                "split": "test[:12]"
-            },
+            "load_dataset_config": { "data_name": "nlphuji/flickr30k", "split": "test[:12]" },
             "pre_process_data_config": {
                 "type": "pre_process_dataset",
                 "model_name": "openai/clip-vit-base-patch32",
                 "caption_col": "caption",
                 "max_length": 77
             },
-            "dataloader_config": {
-                "batch_size": 1
-            },
+            "dataloader_config": { "batch_size": 1 },
             "user_script": "clip_script.py"
         },
         {
             "name": "eval_data",
             "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "data_name": "nlphuji/flickr_1k_test_image_text_retrieval",
-                "split": "test"
-            },
+            "load_dataset_config": { "data_name": "nlphuji/flickr_1k_test_image_text_retrieval", "split": "test" },
             "pre_process_data_config": {
                 "type": "pre_process_dataset",
                 "model_name": "openai/clip-vit-base-patch32",
@@ -120,12 +73,8 @@
                 "caption_col": "caption",
                 "max_length": 77
             },
-            "post_process_data_config": {
-                "type": "embed_post_process"
-            },
-            "dataloader_config": {
-                "batch_size": 1
-            },
+            "post_process_data_config": { "type": "embed_post_process" },
+            "dataloader_config": { "batch_size": 1 },
             "user_script": "clip_script.py"
         }
     ],
@@ -136,37 +85,15 @@
                     "name": "degrad",
                     "type": "custom",
                     "data_config": "eval_data",
-                    "sub_types": [
-                        {
-                            "name": "percentage",
-                            "priority": 1,
-                            "higher_is_better": false
-                        }
-                    ],
-                    "user_config": {
-                        "user_script": "clip_script.py",
-                        "metric_func": "eval_similarity_degrad"
-                    }
+                    "sub_types": [ { "name": "percentage", "priority": 1, "higher_is_better": false } ],
+                    "user_config": { "user_script": "clip_script.py", "metric_func": "eval_similarity_degrad" }
                 },
                 {
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 2,
-                            "metric_config": {
-                                "warmup_num": 20,
-                                "repeat_test_num": 500
-                            }
-                        },
-                        {
-                            "name": "p90",
-                            "metric_config": {
-                                "warmup_num": 20,
-                                "repeat_test_num": 500
-                            }
-                        }
+                        { "name": "avg", "priority": 2, "metric_config": { "warmup_num": 20, "repeat_test_num": 500 } },
+                        { "name": "p90", "metric_config": { "warmup_num": 20, "repeat_test_num": 500 } }
                     ]
                 }
             ]
