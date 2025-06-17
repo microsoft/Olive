@@ -24,6 +24,9 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
+# pylint: disable=W0201
+
+
 class OnnxHqqQuantization(Pass):
     """Quantize ONNX models with HQQ algorithm."""
 
@@ -61,17 +64,17 @@ class OnnxHqqQuantization(Pass):
                 "HQQ quantization is not supported for models with adapters. Returning the model without quantization."
             )
             return model
+        self.block_size = config.block_size
+        self.axis = config.axis
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
         ir_model = model.load_ir_model()
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
-        self._quantize_model(ir_model, config.block_size, config.axis, config.nodes_to_exclude, config.nodes_to_include)
+        self._quantize_model(ir_model, config.nodes_to_exclude, config.nodes_to_include)
         return ir_model_to_olive_model(ir_model, output_model_path, config)
 
     def _quantize_model(
         self,
         ir_model: ir.Model,
-        block_size: int = 128,
-        axis: int = 0,
         nodes_to_exclude: Optional[list[str]] = None,
         nodes_to_include: Optional[list[str]] = None,
     ):
@@ -86,12 +89,12 @@ class OnnxHqqQuantization(Pass):
                 logger.debug("exclude to quantize %s as specified by nodes_to_exclude...", node_name)
                 continue
 
-            elif node.op_type == str(OpType.MatMul) and (node_name in nodes_to_include or not nodes_to_include):
+            elif node.op_type == OpType.MatMul and (node_name in nodes_to_include or not nodes_to_include):
                 if not node.inputs[1].is_initializer():
                     logger.debug("skip to quantize %s as it has no initializer", node_name)
                     continue
 
-                quantized_node, initializer_graph = self._quantize(node, block_size, axis)
+                quantized_node, initializer_graph = self._quantize(node)
 
                 if quantized_node.op_type == OpType.MatMulNBits:
                     registered = {}
@@ -113,7 +116,7 @@ class OnnxHqqQuantization(Pass):
             else:
                 logger.debug("skip to quantize %s ...", node_name)
 
-    def _quantize(self, node: ir.Node, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
+    def _quantize(self, node: ir.Node) -> tuple[ir.Node, ir.Graph]:
         """Quantize the weight of the target node and return the new nodes.
 
         Target node:        QOperator node:
@@ -125,12 +128,12 @@ class OnnxHqqQuantization(Pass):
         logger.debug("Start quantizing %s ...", node.name)
 
         if node.op_type == OpType.MatMul:
-            return self._quantize_matmul(node, block_size, axis)
+            return self._quantize_matmul(node)
         else:
             logger.error("Unsupported op %s for weight-only quantization.", node.op_type)
             return node, node.graph
 
-    def _quantize_matmul(self, node: ir.Node, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
+    def _quantize_matmul(self, node: ir.Node) -> tuple[ir.Node, ir.Graph]:
         """Quantize weight B of MatMul node to int4.
 
         Currently only support 2D constant matrix and axis 0 blockwise quantization.
@@ -139,11 +142,10 @@ class OnnxHqqQuantization(Pass):
         b_ndarray = node_initializer.const_value.numpy()
 
         if len(b_ndarray.shape) != 2:
-            logger.info("MatMul weight is not 2D. Skip to quantize")
+            logger.debug("MatMul weight is not 2D. Skip to quantize")
             return node, node.graph  # can only process 2-D matrix
 
-        quantizer = HqqQuantizer(block_size=block_size, axis=axis)
-        packed, scales, zero_points = quantizer.quantize_internal_numpy(b_ndarray)
+        packed, scales, zero_points = self._quantize_internal_numpy(b_ndarray)
 
         b_quant = ir.Value(name=node_initializer.name + "_Q4", const_value=ir.tensor(packed))
         scales_tensor = ir.Value(name=node_initializer.name + "_scales", const_value=ir.tensor(scales))
@@ -156,7 +158,7 @@ class OnnxHqqQuantization(Pass):
         kwargs["K"] = rows
         kwargs["N"] = cols
         kwargs["bits"] = 4
-        kwargs["block_size"] = block_size
+        kwargs["block_size"] = self.block_size
 
         node.outputs[0].name = node.outputs[0].name + "_Q4"
 
@@ -168,25 +170,13 @@ class OnnxHqqQuantization(Pass):
             attributes=kwargs,
         ), node_initializer.graph
 
-
-class HqqQuantizer:
-    """HQQ Quantizer class for quantizing ONNX models."""
-
-    def __init__(
-        self,
-        block_size: int,
-        axis: int,
-    ):
-        self.block_size = block_size
-        self.axis = axis
-
-    def quantize_internal_numpy(self, b_ndarray):
+    def _quantize_internal_numpy(self, b_ndarray):
         """Convert numpy array to torch, quantize, and return numpy arrays."""
         b_array_torch = torch.from_numpy(b_ndarray)
         if torch.cuda.is_available():
             b_array_torch = b_array_torch.cuda()
 
-        quant_weight_torch, scales_torch, zero_points_torch = self.quantize_internal(
+        quant_weight_torch, scales_torch, zero_points_torch = self._quantize_internal(
             b_array_torch.T, group_size=self.block_size
         )
         quant_weight_torch = quant_weight_torch.contiguous()
@@ -198,7 +188,7 @@ class HqqQuantizer:
             dtype=torch.uint8,
             device=quant_weight_torch.device,
         )
-        self.pack_on_row_fast_248bit(packed_torch, quant_weight_torch)
+        self._pack_on_row_fast_248bit(packed_torch, quant_weight_torch)
         scales = scales_torch
         zero_points = zero_points_torch
 
@@ -215,7 +205,7 @@ class HqqQuantizer:
 
     # Proximal solver || weight - dequantize(quantize(weight))||_p^p
     @staticmethod
-    def optimize_weights(tensor, scale, zero, min_max: list[int], axis: int = 0):
+    def _optimize_weights(tensor, scale, zero, min_max: list[int], axis: int = 0):
         lp_norm = 0.7
         beta = 1e1
         kappa = 1.01
@@ -255,7 +245,7 @@ class HqqQuantizer:
         return scale, zero
 
     @staticmethod
-    def pack_on_row_fast_248bit(pack_tensor, ori_int_tensor):
+    def _pack_on_row_fast_248bit(pack_tensor, ori_int_tensor):
         if pack_tensor.shape[0] == ori_int_tensor.shape[0]:
             ori_int_tensor = ori_int_tensor.T
             pack_tensor = pack_tensor.T
@@ -264,7 +254,7 @@ class HqqQuantizer:
             pack_tensor[0:] |= ori_int_tensor[j::compress_ratio] << (4 * (j))  # 4 bits
 
     # from Official implementation of Half-Quadratic Quantization (HQQ)
-    def quantize_internal(self, tensor, channel_wise=True, group_size=64, optimize=True, round_zero=True, axis=1):
+    def _quantize_internal(self, tensor, channel_wise=True, group_size=64, optimize=True, round_zero=True, axis=1):
         bits = 4  # 4 bits
         weight = tensor.float()
         ori_shape = weight.shape
@@ -306,7 +296,7 @@ class HqqQuantizer:
 
         # Fine-tune weights
         if optimize:
-            scale, zero = self.optimize_weights(tensor=weight, scale=scale, zero=zero, min_max=min_max, axis=axis)
+            scale, zero = self._optimize_weights(tensor=weight, scale=scale, zero=zero, min_max=min_max, axis=axis)
 
         # Quantize
         # Necessary for fake quantization backprop

@@ -159,7 +159,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
         b_ndarray = node_initializer.const_value.numpy()
 
         if len(b_ndarray.shape) != 2:
-            logger.info("MatMul weight is not 2D. Skip to quantize")
+            logger.debug("MatMul weight is not 2D. Skip to quantize")
             return node, node.graph  # can only process 2-D matrix
 
         packed, scales = self._qbits_block_quant(b_ndarray)
@@ -227,8 +227,6 @@ class OnnxBlockWiseRtnQuantization(Pass):
 
     def _qbits_block_quant(self, fp32weight: npt.ArrayLike) -> tuple[np.ndarray, np.ndarray]:
         """4b/8b quantize 2D fp32 weight to int4 using C++ kernels."""
-        from onnxruntime.capi._pybind_state import quantize_matmul_4bits
-
         qbits = self.bits
         kpack = 8 // qbits
         is_symmetric = True
@@ -248,8 +246,11 @@ class OnnxBlockWiseRtnQuantization(Pass):
         zero_point = np.zeros(cols * ((k_blocks + kpack - 1) // kpack), dtype="uint8")
         scales = np.zeros((cols * k_blocks), dtype=fp32weight.dtype)
         if qbits == 8:
-            from onnxruntime import __version__ as OrtVersion
-            from packaging import version
+            try:
+                from onnxruntime import __version__ as OrtVersion
+                from packaging import version
+            except ImportError as e:
+                raise ImportError("onnxruntime is required for RTN quantization.") from e
 
             if version.parse(OrtVersion) > version.parse("1.21.0"):
                 from onnxruntime.capi._pybind_state import quantize_matmul_8bits
@@ -258,6 +259,11 @@ class OnnxBlockWiseRtnQuantization(Pass):
             else:
                 raise ValueError("RTN quantization of 8-bit weights is not supported for onnxruntime<=1.21.1")
         else:
+            try:
+                from onnxruntime.capi._pybind_state import quantize_matmul_4bits
+            except ImportError as e:
+                raise ImportError("onnxruntime is required for RTN quantization.") from e
+
             quantize_matmul_4bits(packed, fp32weight, scales, zero_point, block_size, cols, rows, is_symmetric)
 
         return (packed, scales)

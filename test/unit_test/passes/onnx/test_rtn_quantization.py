@@ -195,9 +195,9 @@ class TestRTNQuantization:
         found_matmul_nbits = False
         found_original_matmul = False
         for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
-            if node.op_type == str(OpType.MatMulNBits):
+            if node.op_type == OpType.MatMulNBits:
                 found_matmul_nbits = True
-            elif node.op_type == str(OpType.MatMul):
+            elif node.op_type == OpType.MatMul:
                 found_original_matmul = True
 
         assert not found_matmul_nbits, "MatMulNBits node found despite exclusion"
