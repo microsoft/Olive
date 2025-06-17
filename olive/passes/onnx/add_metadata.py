@@ -98,9 +98,9 @@ class AddOliveMetadata(Pass):
                         for chunk in iter(lambda: f.read(4096), b""):
                             hash_obj.update(chunk)
                 else:
-                    logger.warning(f"External data file not found: {external_file_path}")
+                    logger.warning("External data file not found: %s", external_file_path)
         except Exception as e:
-            logger.warning(f"Could not process external data files for {onnx_file_path}: {e}")
+            logger.warning("Could not process external data files for %s: %s", onnx_file_path, e)
 
         return hash_obj.hexdigest()
 
@@ -125,7 +125,6 @@ class AddOliveMetadata(Pass):
         hf_model_name = self._get_original_hf_model_name(model)
         if hf_model_name:
             metadata["hf_model_name"] = str(hf_model_name)
-            logger.info(f"Hugging Face model name: {hf_model_name}")
 
         # Add optimization information
         if config.add_optimization_info and hasattr(model, "model_attributes") and model.model_attributes:
@@ -150,19 +149,22 @@ class AddOliveMetadata(Pass):
         return metadata
 
     def _get_original_hf_model_name(self, model: ONNXModelHandler) -> str:
-        """Get the original HF model name from the model's config if the original model was a HuggingFace model"""
+        """Get the original HF model name from the model's config if the original model was a HuggingFace model."""
         try:
             model_json = model.to_json()
             config = model_json.get("config", {})
+            model_attrs = config.get("model_attributes", {})
 
             # Check if the original model was a HuggingFace model
-            if config.get("type") == "HfModel":
-                original_model_path = config.get("model_path")
-                if original_model_path and isinstance(original_model_path, str):
-                    logger.debug(f"Found HF model name from original config: {original_model_path}")
-                    return original_model_path
-        except Exception as e:
-            logger.debug(f"Could not extract original model path from config: {e}")
+            model_type = model_attrs.get("model_type", "").lower()
+            if model_type in ["hfmodel", "hf_model"]:
+                # Try to get model path from _name_or_path in model_attributes
+                hf_model_name = model_attrs.get("_name_or_path")
+                if hf_model_name and isinstance(hf_model_name, str):
+                    return hf_model_name
+
+        except Exception:
+            pass
 
         return None
 
@@ -178,10 +180,6 @@ class AddOliveMetadata(Pass):
         # Get graph name from config
         graph_name = config.graph_name
 
-        # If no metadata to add, we still need to set the graph name since it's mandatory
-        if not metadata:
-            logger.info("No metadata to add, but will still set the mandatory graph name.")
-
         output_model_path = Path(resolve_onnx_path(output_model_path, Path(model.model_path).name))
 
         # Resave the original model to the new path
@@ -191,9 +189,8 @@ class AddOliveMetadata(Pass):
         try:
             model_hash = self._calculate_model_hash(output_model_path)
             metadata["model_hash"] = model_hash
-            logger.info(f"Model hash (before metadata): {model_hash}")
         except Exception as e:
-            logger.warning(f"Could not calculate model hash: {e}")
+            logger.warning("Could not calculate model hash: %s", e)
             metadata["model_hash"] = "unknown"
 
         # Load the model without external data to modify metadata
@@ -201,11 +198,9 @@ class AddOliveMetadata(Pass):
 
         # Add metadata
         if metadata:
-            logger.info("Adding metadata to ONNX model: %s", metadata)
             onnx_model = self._add_metadata(onnx_model, metadata)
 
         # Set graph name (always required)
-        logger.info("Setting ONNX graph name to: %s", graph_name)
         onnx_model = self._set_graph_name(onnx_model, graph_name)
 
         # Save the model with updated metadata

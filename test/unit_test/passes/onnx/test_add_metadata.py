@@ -371,15 +371,18 @@ class TestAddOliveMetadata:
         # Setup - Mock model.to_json() to return HfModel config
         input_model = get_onnx_model()
 
-        # Patch the to_json method to return HfModel configuration
+        # Patch the to_json method to return HfModel configuration with model_attributes
         with patch.object(
             input_model,
             "to_json",
             return_value={
                 "config": {
-                    "type": "HfModel",
-                    "model_path": "microsoft/Phi-3.5-mini-instruct",
-                    "task": "text-generation",
+                    "type": "ONNXModel",  # This would be ONNXModel for converted models
+                    "model_attributes": {
+                        "model_type": "hfmodel",  # Preserved original model type
+                        "_name_or_path": "microsoft/Phi-3.5-mini-instruct",
+                        "hf_task": "text-generation",
+                    },
                 }
             },
         ):
