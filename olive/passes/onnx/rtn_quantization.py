@@ -103,7 +103,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
                     logger.debug("skip to quantize %s as it has no initializer", node_name)
                     continue
 
-                if node.op_type == OpType.Gather and self.bits != 4:
+                if node.op_type == OpType.Gather and bits != 4:
                     logger.warning("Gather only supports 4-bit quantization.")
                     continue
 

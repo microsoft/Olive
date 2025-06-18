@@ -174,7 +174,7 @@ class OnnxHqqQuantization(Pass):
             b_array_torch = b_array_torch.cuda()
 
         quant_weight_torch, scales_torch, zero_points_torch = self._quantize_internal(
-            b_array_torch.T, group_size=block_size, axis=axis
+            b_array_torch, group_size=block_size, axis=axis
         )
         quant_weight_torch = quant_weight_torch.contiguous()
         scales_torch = scales_torch.contiguous()
