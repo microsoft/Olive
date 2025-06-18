@@ -23,8 +23,6 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
 
-# pylint: disable=W0201
-
 
 class OnnxBlockWiseRtnQuantization(Pass):
     """Quantize ONNX models with weight-only block-wise RTN algorithm."""

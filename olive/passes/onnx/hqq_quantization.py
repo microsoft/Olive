@@ -24,9 +24,6 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-# pylint: disable=W0201
-
-
 class OnnxHqqQuantization(Pass):
     """Quantize ONNX models with HQQ algorithm."""
 
