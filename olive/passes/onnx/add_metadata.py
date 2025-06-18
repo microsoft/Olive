@@ -75,13 +75,15 @@ class AddOliveMetadata(Pass):
         except Exception:
             metadata["olive_version"] = "unknown"
 
+        # Add Hugging Face model name (always included if available)
+        # Try to get the original HF model name from the model's config
+        hf_model_name = self._get_original_hf_model_name(model)
+        if hf_model_name:
+            metadata["hf_model_name"] = str(hf_model_name)
+
         # Add optimization information
         if config.add_optimization_info and hasattr(model, "model_attributes") and model.model_attributes:
             model_attrs = model.model_attributes
-
-            # Add original model information
-            if "original_model_path" in model_attrs:
-                metadata["original_model_path"] = str(model_attrs["original_model_path"])
 
             # Add optimization passes applied
             if "optimization_passes" in model_attrs:
@@ -101,37 +103,62 @@ class AddOliveMetadata(Pass):
 
         return metadata
 
+    def _get_original_hf_model_name(self, model: ONNXModelHandler) -> str:
+        """Get the original HF model name from the model's config if the original model was a HuggingFace model."""
+        try:
+            model_json = model.to_json()
+            config = model_json.get("config", {})
+            model_attrs = config.get("model_attributes", {})
+
+            # Check if the original model was a HuggingFace model
+            model_type = model_attrs.get("type", "").lower()
+            if model_type in ["hfmodel", "hf_model"]:
+                # Try to get model path from _name_or_path in model_attributes
+                hf_model_name = model_attrs.get("_name_or_path")
+                if hf_model_name and isinstance(hf_model_name, str):
+                    return hf_model_name
+
+        except Exception as e:
+            logger.warning("Could not extract original HF model name from model config: %s", e)
+
+        return None
+
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         if not isinstance(model, ONNXModelHandler):
             raise ValueError("Model must be an instance of ONNXModelHandler")
 
-        # Generate metadata
+        # Generate metadata (including original model hash if requested)
         metadata = self._generate_olive_metadata(model, config)
 
         # Get graph name from config
         graph_name = config.graph_name
-
-        # If no metadata to add, we still need to set the graph name since it's mandatory
-        if not metadata:
-            logger.info("No metadata to add, but will still set the mandatory graph name.")
 
         output_model_path = Path(resolve_onnx_path(output_model_path, Path(model.model_path).name))
 
         # Resave the original model to the new path
         has_external_data = resave_model(model.model_path, output_model_path)
 
+        # Calculate model hash (before adding metadata) - always included
+        try:
+            from olive.model.config.model_config import ModelConfig
+
+            model_config = ModelConfig.parse_obj(model.to_json())
+            model_hash = model_config.get_model_identifier()
+            metadata["model_hash"] = model_hash
+        except Exception as e:
+            logger.warning("Could not calculate model hash: %s", e)
+            metadata["model_hash"] = "unknown"
+
         # Load the model without external data to modify metadata
         onnx_model = onnx.load_model(output_model_path, load_external_data=False)
 
         # Add metadata
         if metadata:
-            logger.info("Adding metadata to ONNX model: %s", metadata)
             onnx_model = self._add_metadata(onnx_model, metadata)
 
         # Set graph name (always required)
-        logger.info("Setting ONNX graph name to: %s", graph_name)
         onnx_model = self._set_graph_name(onnx_model, graph_name)
 
         # Save the model with updated metadata
