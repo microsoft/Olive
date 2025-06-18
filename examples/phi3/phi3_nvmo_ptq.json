@@ -18,7 +18,6 @@
             "algorithm": "awq",
             "tokenizer_dir": "microsoft/Phi-3-mini-4k-instruct",
             "calibration": "awq_lite"
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Phi-3-mini-4k-instruct" } }
+        }
     }
 }

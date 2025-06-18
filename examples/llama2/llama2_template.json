@@ -115,8 +115,7 @@
             "block_size": 32,
             "is_symmetric": true
         },
-        "gptq_quant_int4": { "type": "GptqQuantizer", "data_config": "wikitext2_train" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "<model_name_placeholder>" } }
+        "gptq_quant_int4": { "type": "GptqQuantizer", "data_config": "wikitext2_train" }
     },
     "evaluator": "merged_evaluator",
     "evaluate_input_model": false,

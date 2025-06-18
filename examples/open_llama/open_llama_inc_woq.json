@@ -50,8 +50,7 @@
             "calibration_sampling_size": [ 8 ],
             "save_as_external_data": true,
             "all_tensors_to_one_file": true
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "open_llama_3b" } }
+        }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

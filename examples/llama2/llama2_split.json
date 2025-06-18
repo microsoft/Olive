@@ -13,8 +13,7 @@
     "passes": {
         "s": { "type": "CaptureSplitInfo", "num_splits": 3 },
         "c": { "type": "OnnxConversion", "target_opset": 17, "torch_dtype": "float32" },
-        "sm": { "type": "SplitModel" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Llama-2-7b-hf" } }
+        "sm": { "type": "SplitModel" }
     },
     "host": "local_system",
     "target": "local_system",

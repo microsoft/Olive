@@ -44,8 +44,7 @@
             "float16": false
         },
         "quantization": { "type": "OnnxQuantization", "data_config": "glue_mnli_matched" },
-        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mnli_matched" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "deberta" } }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mnli_matched" }
     },
     "search_strategy": { "execution_order": "joint", "sampler": "tpe", "max_samples": 3, "seed": 0 },
     "evaluator": "common_evaluator",

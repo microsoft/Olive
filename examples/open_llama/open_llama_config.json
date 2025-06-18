@@ -35,8 +35,7 @@
             "num_heads": 32,
             "hidden_size": 4096,
             "optimization_options": { "use_multi_head_attention": false }
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "open_llama_3b" } }
+        }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

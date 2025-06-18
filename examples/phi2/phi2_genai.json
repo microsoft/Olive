@@ -8,10 +8,7 @@
             ]
         }
     },
-    "passes": {
-        "builder": { "type": "ModelBuilder", "precision": "int4" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "phi-2" } }
-    },
+    "passes": { "builder": { "type": "ModelBuilder", "precision": "int4" } },
     "host": "local_system",
     "target": "local_system",
     "cache_dir": "cache",

@@ -103,8 +103,7 @@
             "type": "OrtSessionParamsTuning",
             "data_config": "transformer_prompt_dummy_data",
             "enable_profiling": false
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "phi-2" } }
+        }
     },
     "data_configs": [
         {

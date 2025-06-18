@@ -67,8 +67,7 @@
             "all_tensors_to_one_file": true,
             "block_size": 32,
             "is_symmetric": true
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Llama-2-7b-hf" } }
+        }
     },
     "pass_flows": [
         [ "conversion_merged", "transformers_optimization_fp32", "blockwise_quant_int4" ],

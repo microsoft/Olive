@@ -56,8 +56,7 @@
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "transformers_optimization": { "type": "OrtTransformersOptimization", "model_type": "vit" },
         "quantization": { "type": "OnnxQuantization", "data_config": "speech_commands_v002" },
-        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "speech_commands_v002" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "ast-finetuned-speech-commands-v2" } }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "speech_commands_v002" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

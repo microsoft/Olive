@@ -14,10 +14,7 @@
             "pre_process_data_config": { "add_special_tokens": false, "max_samples": 128 }
         }
     ],
-    "passes": {
-        "gptq_quant_int4": { "type": "GptqQuantizer", "data_config": "wikitext2_train" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "opt-125m" } }
-    },
+    "passes": { "gptq_quant_int4": { "type": "GptqQuantizer", "data_config": "wikitext2_train" } },
     "host": "local_system",
     "target": "local_system",
     "cache_dir": "cache",

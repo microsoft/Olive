@@ -152,8 +152,7 @@
             "precision": "uint8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "stable-diffusion-v1-4" } }
+        }
     },
     "log_severity_level": 0,
     "evaluator": "common_evaluator",

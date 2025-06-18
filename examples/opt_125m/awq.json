@@ -6,10 +6,7 @@
             "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
-    "passes": {
-        "4bit_awq_quantizer": { "type": "AutoAWQQuantizer" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "opt-125m" } }
-    },
+    "passes": { "4bit_awq_quantizer": { "type": "AutoAWQQuantizer" } },
     "host": "local_system",
     "target": "local_system",
     "cache_dir": "cache",

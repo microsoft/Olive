@@ -47,8 +47,7 @@
             "data_config": "mobilenet_data_config",
             "activation_type": "uint16",
             "precision": "uint8"
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "mobilenetv2-12.onnx" } }
+        }
     },
     "host": "local_system",
     "target": "local_system",

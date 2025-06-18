@@ -37,8 +37,7 @@
             "hidden_size": 1024,
             "opt_level": 0
         },
-        "matmul_4bits": { "type": "OnnxMatMul4Quantizer", "block_size": 32 },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "<<str: model_path>>" } }
+        "matmul_4bits": { "type": "OnnxMatMul4Quantizer", "block_size": 32 }
     },
     "host": "local_system",
     "target": "local_system"

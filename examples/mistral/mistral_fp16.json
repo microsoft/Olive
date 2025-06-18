@@ -27,8 +27,7 @@
             "data_config": "transformer_token_dummy_data",
             "io_bind": true,
             "enable_profiling": false
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Mistral-7B-v0.1" } }
+        }
     },
     "evaluate_input_model": false,
     "evaluator": "common_evaluator",

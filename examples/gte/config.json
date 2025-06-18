@@ -44,8 +44,7 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion" },
-        "OnnxQuantization": { "type": "OnnxStaticQuantization", "quant_preprocess": true, "data_config": "c4" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "gte-large-en-v1.5" } }
+        "OnnxQuantization": { "type": "OnnxStaticQuantization", "quant_preprocess": true, "data_config": "c4" }
     },
     "evaluator": "evaluator",
     "output_dir": "models/gte-large-en-v1.5"

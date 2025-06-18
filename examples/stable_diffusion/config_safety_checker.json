@@ -86,8 +86,7 @@
             "float16": true,
             "use_gpu": true,
             "keep_io_types": false
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "stable-diffusion-v1-4" } }
+        }
     },
     "log_severity_level": 0,
     "evaluator": "common_evaluator",

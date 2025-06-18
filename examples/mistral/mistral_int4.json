@@ -42,8 +42,7 @@
             "calibration_sampling_size": [ 8 ],
             "save_as_external_data": true,
             "all_tensors_to_one_file": true
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Mistral-7B-v0.1" } }
+        }
     },
     "evaluate_input_model": false,
     "evaluator": "common_evaluator",

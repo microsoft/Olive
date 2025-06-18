@@ -32,8 +32,7 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 13 },
-        "transformers_optimization": { "type": "OrtTransformersOptimization", "float16": true },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "falcon-7b" } }
+        "transformers_optimization": { "type": "OrtTransformersOptimization", "float16": true }
     },
     "evaluator": "common_evaluator",
     "host": "local_system",

@@ -16,8 +16,7 @@
             "type": "AppendPrePostProcessingOps",
             "tool_command": "superresolution",
             "tool_command_args": { "output_format": "png" }
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "super_resolution" } }
+        }
     },
     "log_severity_level": 0,
     "clean_cache": true,

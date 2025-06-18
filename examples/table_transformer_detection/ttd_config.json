@@ -55,8 +55,7 @@
             "precision": "uint8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "table-transformer-detection" } }
+        }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

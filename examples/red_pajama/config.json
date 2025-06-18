@@ -43,8 +43,7 @@
             "save_as_external_data": true,
             "all_tensors_to_one_file": true
         },
-        "merge": { "type": "OptimumMerging", "save_as_external_data": true, "all_tensors_to_one_file": true },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "RedPajama-INCITE-Base-3B-v1" } }
+        "merge": { "type": "OptimumMerging", "save_as_external_data": true, "all_tensors_to_one_file": true }
     },
     "evaluator": "common_evaluator",
     "host": "local_system",

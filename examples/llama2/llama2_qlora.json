@@ -51,8 +51,7 @@
             "float16": true
         },
         "e": { "type": "ExtractAdapters" },
-        "m": { "type": "ModelBuilder", "metadata_only": true, "precision": "fp16" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Llama-2-7b-hf" } }
+        "m": { "type": "ModelBuilder", "metadata_only": true, "precision": "fp16" }
     },
     "host": "local_system",
     "target": "local_system",

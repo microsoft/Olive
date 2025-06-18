@@ -31,8 +31,7 @@
             "type": "IncDynamicQuantization",
             "save_as_external_data": true,
             "all_tensors_to_one_file": true
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "gpt-j-6B" } }
+        }
     },
     "log_severity_level": 0,
     "evaluator": "common_evaluator",

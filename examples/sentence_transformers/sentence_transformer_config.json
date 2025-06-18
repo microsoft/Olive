@@ -46,8 +46,7 @@
             "precision": "uint8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "all-MiniLM-L6-v2" } }
+        }
     },
     "evaluate_input_model": false,
     "host": "qnn_system",

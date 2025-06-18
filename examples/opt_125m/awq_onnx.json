@@ -15,8 +15,7 @@
             "opt_level": 0,
             "keep_io_types": false,
             "float16": true
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "opt-125m" } }
+        }
     },
     "host": "local_system",
     "target": "local_system",

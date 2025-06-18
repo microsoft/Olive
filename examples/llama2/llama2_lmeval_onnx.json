@@ -11,8 +11,7 @@
         }
     },
     "passes": {
-        "mb": { "type": "ModelBuilder", "precision": "int4", "search": { "max_length": 2048, "min_length": 0 } },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Llama-2-7b-hf" } }
+        "mb": { "type": "ModelBuilder", "precision": "int4", "search": { "max_length": 2048, "min_length": 0 } }
     },
     "evaluators": {
         "evaluator": { "type": "LMEvaluator", "tasks": [ "hellaswag" ], "batch_size": 1, "limit": 4, "max_length": 128 }

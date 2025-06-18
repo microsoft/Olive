@@ -68,8 +68,7 @@
             "float16": true,
             "use_gpu": true,
             "optimization_options": { "enable_rotary_embeddings": false }
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "llama2" } }
+        }
     },
     "log_severity_level": 0,
     "evaluator": "common_evaluator",

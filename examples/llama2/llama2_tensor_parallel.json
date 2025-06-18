@@ -29,8 +29,7 @@
             "keep_io_types": false,
             "float16": true,
             "use_gqa": true
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Llama-2-7b-hf" } }
+        }
     },
     "host": "local_system",
     "target": "local_system",

@@ -30,8 +30,7 @@
             "size_threshold": 0,
             "target_opset": 14,
             "torch_dtype": "<<str: float_precision>>"
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "<<str: model_path>>" } }
+        }
     },
     "host": "local_system",
     "target": "local_system"

@@ -29,8 +29,7 @@
             "device": "gpu",
             "execution_mode_list": [ "ORT_SEQUENTIAL" ],
             "providers_list": [ "DmlExecutionProvider" ]
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "directml" } }
+        }
     },
     "log_severity_level": 0,
     "evaluator": "common_evaluator",

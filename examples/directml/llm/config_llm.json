@@ -88,8 +88,7 @@
                 "enable_bias_add": false,
                 "enable_rotary_embeddings": true
             }
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "directml" } }
+        }
     },
     "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "evaluator": "common_evaluator",

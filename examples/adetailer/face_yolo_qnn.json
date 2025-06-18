@@ -106,8 +106,7 @@
             "precision": "uint8",
             "calibrate_method": "MinMax",
             "op_types_to_exclude": [ "Mul" ]
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "adetailer" } }
+        }
     },
     "host": "qnn_system",
     "target": "qnn_system",

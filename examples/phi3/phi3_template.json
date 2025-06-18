@@ -103,8 +103,7 @@
             "execution_providers_list": [ "CUDAExecutionProvider" ],
             "opt_level_list": [ 0, 1 ],
             "execution_mode_list": [ 0, 1 ]
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Phi-3-mini-4k-instruct" } }
+        }
     },
     "cache_dir": "cache",
     "output_dir": "models",

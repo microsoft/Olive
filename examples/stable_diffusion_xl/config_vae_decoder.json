@@ -125,8 +125,7 @@
             "precision": "uint8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "stable-diffusion-xl-base-1.0" } }
+        }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

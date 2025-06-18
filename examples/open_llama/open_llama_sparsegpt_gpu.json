@@ -44,8 +44,7 @@
     },
     "passes": {
         "sparsegpt": { "type": "SparseGPT", "sparsity": [ 2, 4 ], "data_config": "c4_train" },
-        "trt_conversion": { "type": "TorchTRTConversion", "data_config": "c4_train" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "open_llama_3b" } }
+        "trt_conversion": { "type": "TorchTRTConversion", "data_config": "c4_train" }
     },
     "log_severity_level": 0,
     "search_strategy": false,

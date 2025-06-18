@@ -62,8 +62,7 @@
     "passes": {
         "conversion": { "type": "OnnxConversion" },
         "matmul4": { "type": "OnnxMatMul4Quantizer", "accuracy_level": 4 },
-        "mnb_to_qdq": { "type": "MatMulNBitsToQDQ" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "mobilenetv3_small_100.lamb_in1k" } }
+        "mnb_to_qdq": { "type": "MatMulNBitsToQDQ" }
     },
     "evaluator": "common_evaluator",
     "output_dir": "models/timm"
