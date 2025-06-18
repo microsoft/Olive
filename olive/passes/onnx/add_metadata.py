@@ -5,7 +5,6 @@
 
 import logging
 from pathlib import Path
-from typing import Union
 
 import onnx
 
@@ -144,6 +143,7 @@ class AddOliveMetadata(Pass):
         # Calculate model hash (before adding metadata) - always included
         try:
             from olive.model.config.model_config import ModelConfig
+
             model_config = ModelConfig.parse_obj(model.to_json())
             model_hash = model_config.get_model_identifier()
             metadata["model_hash"] = model_hash
