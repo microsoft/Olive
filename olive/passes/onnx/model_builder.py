@@ -148,12 +148,12 @@ class ModelBuilder(Pass):
     ) -> ONNXModelHandler:
         try:
             from onnxruntime_genai.models.builder import create_model
-        except ImportError:
+        except ImportError as ex:
             raise ImportError(
                 "onnxruntime-genai package is required to run ModelBuilder pass. Please install the package"
                 " corresponding to your onnxruntime installation using pip. cpu: onnxruntime-genai, cuda:"
                 " onnxruntime-genai-cuda, directml: onnxruntime-genai-directml"
-            ) from None
+            ) from ex
 
         precision = config.precision
         metadata_only = config.metadata_only
