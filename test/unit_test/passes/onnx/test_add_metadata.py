@@ -325,10 +325,10 @@ class TestAddOliveMetadata:
             "graph_name": "test_graph_hash_error",
         }
 
-        # Create pass and patch the hash calculation method to raise an exception
+        # Create pass and patch the ModelConfig.parse_obj method to raise an exception
         p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
 
-        with patch.object(p, "_calculate_model_hash", side_effect=Exception("Hash error")):
+        with patch("olive.model.config.model_config.ModelConfig.parse_obj", side_effect=Exception("Hash error")):
             output_folder = str(tmp_path / "onnx")
 
             # Execute - should not fail despite hash calculation error
@@ -349,16 +349,14 @@ class TestAddOliveMetadata:
         # Setup
         input_model = get_onnx_model()
 
-        # Create pass instance using the standard method
-        config_dict = {
-            "graph_name": "test_consistency",
-        }
-        add_metadata_pass = create_pass_from_dict(AddOliveMetadata, config_dict, disable_search=True)
+        # Calculate hash twice for same model using the actual implementation approach
+        from olive.model.config.model_config import ModelConfig
 
-        # Calculate hash twice for same model
-        # pylint: disable=protected-access
-        hash1 = add_metadata_pass._calculate_model_hash(input_model.model_path)
-        hash2 = add_metadata_pass._calculate_model_hash(input_model.model_path)
+        model_config1 = ModelConfig.parse_obj(input_model.to_json())
+        hash1 = model_config1.get_model_identifier()
+
+        model_config2 = ModelConfig.parse_obj(input_model.to_json())
+        hash2 = model_config2.get_model_identifier()
 
         # Hashes should be identical
         assert hash1 == hash2
