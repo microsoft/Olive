@@ -106,7 +106,8 @@
             "activation_type": "uint16",
             "weight_type": "uint8",
             "quant_type": "OnnxStaticQuantization"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "CLIP-ViT-B-32-laion2B-s34B-b79K" } }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache/clip_laion",

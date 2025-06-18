@@ -69,7 +69,8 @@
             "session_options": { "intra_op_num_threads": 2, "inter_op_num_threads": 1 },
             "weight_sharing": true
         },
-        "cp": { "type": "ComposeOnnxModels" }
+        "cp": { "type": "ComposeOnnxModels" },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Phi-3.5-mini-instruct" } }
     },
     "target": "qnn_system",
     "log_severity_level": 1,

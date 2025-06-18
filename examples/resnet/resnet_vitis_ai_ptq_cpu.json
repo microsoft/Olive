@@ -57,7 +57,8 @@
             "activation_type": "uint8",
             "precision": "int8",
             "data_config": "quantize_data_config"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "resnet-50" } }
     },
     "log_severity_level": 0,
     "evaluator": "common_evaluator",
