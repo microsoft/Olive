@@ -64,12 +64,10 @@ class OnnxHqqQuantization(Pass):
                 "HQQ quantization is not supported for models with adapters. Returning the model without quantization."
             )
             return model
-        self.block_size = config.block_size
-        self.axis = config.axis
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
         ir_model = model.load_ir_model()
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
-        self._quantize_model(ir_model, config.nodes_to_exclude, config.nodes_to_include)
+        self._quantize_model(ir_model, config.nodes_to_exclude, config.nodes_to_include, config.block_size, config.axis)
         return ir_model_to_olive_model(ir_model, output_model_path, config)
 
     def _quantize_model(
@@ -77,6 +75,8 @@ class OnnxHqqQuantization(Pass):
         ir_model: ir.Model,
         nodes_to_exclude: Optional[list[str]] = None,
         nodes_to_include: Optional[list[str]] = None,
+        block_size: int = 128,
+        axis: int = 0,
     ):
         nodes_to_exclude = nodes_to_exclude or []
         nodes_to_include = nodes_to_include or []
@@ -94,7 +94,7 @@ class OnnxHqqQuantization(Pass):
                     logger.debug("skip to quantize %s as it has no initializer", node_name)
                     continue
 
-                quantized_node, initializer_graph = self._quantize(node)
+                quantized_node, initializer_graph = self._quantize(node, block_size, axis)
 
                 if quantized_node.op_type == OpType.MatMulNBits:
                     registered = {}
@@ -116,7 +116,7 @@ class OnnxHqqQuantization(Pass):
             else:
                 logger.debug("skip to quantize %s ...", node_name)
 
-    def _quantize(self, node: ir.Node) -> tuple[ir.Node, ir.Graph]:
+    def _quantize(self, node: ir.Node, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
         """Quantize the weight of the target node and return the new nodes.
 
         Target node:        QOperator node:
@@ -128,12 +128,12 @@ class OnnxHqqQuantization(Pass):
         logger.debug("Start quantizing %s ...", node.name)
 
         if node.op_type == OpType.MatMul:
-            return self._quantize_matmul(node)
+            return self._quantize_matmul(node, block_size, axis)
         else:
             logger.error("Unsupported op %s for weight-only quantization.", node.op_type)
             return node, node.graph
 
-    def _quantize_matmul(self, node: ir.Node) -> tuple[ir.Node, ir.Graph]:
+    def _quantize_matmul(self, node: ir.Node, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
         """Quantize weight B of MatMul node to int4.
 
         Currently only support 2D constant matrix and axis 0 blockwise quantization.
@@ -145,7 +145,7 @@ class OnnxHqqQuantization(Pass):
             logger.debug("MatMul weight is not 2D. Skip to quantize")
             return node, node.graph  # can only process 2-D matrix
 
-        packed, scales, zero_points = self._quantize_internal_numpy(b_ndarray)
+        packed, scales, zero_points = self._quantize_internal_numpy(b_ndarray, block_size, axis)
 
         b_quant = ir.Value(name=node_initializer.name + "_Q4", const_value=ir.tensor(packed))
         scales_tensor = ir.Value(name=node_initializer.name + "_scales", const_value=ir.tensor(scales))
@@ -158,7 +158,7 @@ class OnnxHqqQuantization(Pass):
         kwargs["K"] = rows
         kwargs["N"] = cols
         kwargs["bits"] = 4
-        kwargs["block_size"] = self.block_size
+        kwargs["block_size"] = block_size
 
         node.outputs[0].name = node.outputs[0].name + "_Q4"
 
@@ -170,14 +170,14 @@ class OnnxHqqQuantization(Pass):
             attributes=kwargs,
         ), node_initializer.graph
 
-    def _quantize_internal_numpy(self, b_ndarray):
+    def _quantize_internal_numpy(self, b_ndarray, block_size: int, axis: int):
         """Convert numpy array to torch, quantize, and return numpy arrays."""
         b_array_torch = torch.from_numpy(b_ndarray)
         if torch.cuda.is_available():
             b_array_torch = b_array_torch.cuda()
 
         quant_weight_torch, scales_torch, zero_points_torch = self._quantize_internal(
-            b_array_torch.T, group_size=self.block_size
+            b_array_torch.T, group_size=block_size, axis=axis
         )
         quant_weight_torch = quant_weight_torch.contiguous()
         scales_torch = scales_torch.contiguous()
@@ -196,7 +196,6 @@ class OnnxHqqQuantization(Pass):
         scales = scales.reshape(-1)
         zero_points = zero_points.reshape(-1)
         rows, cols = b_array_torch.shape
-        block_size = self.block_size
         blob_size = block_size // 2
         k_blocks = (rows + block_size - 1) // block_size
         packed_torch = packed_torch.reshape(cols, k_blocks, blob_size)
@@ -254,7 +253,7 @@ class OnnxHqqQuantization(Pass):
             pack_tensor[0:] |= ori_int_tensor[j::compress_ratio] << (4 * (j))  # 4 bits
 
     # from Official implementation of Half-Quadratic Quantization (HQQ)
-    def _quantize_internal(self, tensor, channel_wise=True, group_size=64, optimize=True, round_zero=True, axis=1):
+    def _quantize_internal(self, tensor, group_size: int = 128, axis: int = 0):
         bits = 4  # 4 bits
         weight = tensor.float()
         ori_shape = weight.shape
@@ -267,16 +266,11 @@ class OnnxHqqQuantization(Pass):
         shape = weight.shape
 
         # Reshape for grouping
-        if (group_size is not None) and channel_wise:
-            weight = weight.reshape([-1, group_size]) if (axis == 1) else weight.reshape([group_size, -1])
+        weight = weight.reshape([-1, group_size]) if (axis == 1) else weight.reshape([group_size, -1])
 
         # Get min/max values
-        if channel_wise is False:
-            _min, _max = weight.min(), weight.max()
-            optimize = False
-        else:
-            _min = weight.min(axis=axis, keepdim=True)[0]
-            _max = weight.max(axis=axis, keepdim=True)[0]
+        _min = weight.min(axis=axis, keepdim=True)[0]
+        _max = weight.max(axis=axis, keepdim=True)[0]
 
         max_v = 2**bits - 1
         min_v = 0
@@ -289,14 +283,10 @@ class OnnxHqqQuantization(Pass):
         if (min_max_axis == 0).sum().item() > 0:
             min_max_axis[min_max_axis == 0] = max_v
             scale = (max_v / min_max_axis).clamp(max=2e4)
-        zero = -_min * scale
-
-        if round_zero:
-            zero = torch.round(zero)
+        zero = torch.round(-_min * scale)
 
         # Fine-tune weights
-        if optimize:
-            scale, zero = self._optimize_weights(tensor=weight, scale=scale, zero=zero, min_max=min_max, axis=axis)
+        scale, zero = self._optimize_weights(tensor=weight, scale=scale, zero=zero, min_max=min_max, axis=axis)
 
         # Quantize
         # Necessary for fake quantization backprop

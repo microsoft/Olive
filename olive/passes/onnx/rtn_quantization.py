@@ -67,14 +67,13 @@ class OnnxBlockWiseRtnQuantization(Pass):
                 "RTN quantization is not supported for models with adapters. Returning the model without quantization."
             )
             return model
-        self.bits = config.bits
-        self.block_size = config.block_size
-        self.axis = config.axis
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
         ir_model = model.load_ir_model()
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
-        self._quantize_model(ir_model, config.nodes_to_exclude, config.nodes_to_include)
+        self._quantize_model(
+            ir_model, config.nodes_to_exclude, config.nodes_to_include, config.bits, config.block_size, config.axis
+        )
         return ir_model_to_olive_model(ir_model, output_model_path, config)
 
     def _quantize_model(
@@ -82,6 +81,9 @@ class OnnxBlockWiseRtnQuantization(Pass):
         ir_model: ir.Model,
         nodes_to_exclude: Optional[list[str]] = None,
         nodes_to_include: Optional[list[str]] = None,
+        bits: int = 4,
+        block_size: int = 128,
+        axis: int = 0,
     ):
         nodes_to_exclude = nodes_to_exclude or []
         nodes_to_include = nodes_to_include or []
@@ -107,7 +109,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
                     logger.warning("Gather only supports 4-bit quantization.")
                     continue
 
-                quantized_node, initializer_graph = self._quantize(node)
+                quantized_node, initializer_graph = self._quantize(node, bits, block_size, axis)
 
                 if quantized_node.op_type in (OpType.MatMulNBits, OpType.GatherBlockQuantized):
                     registered = {}
@@ -129,7 +131,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
             else:
                 logger.debug("skip to quantize %s ...", node_name)
 
-    def _quantize(self, node: ir.Node) -> tuple[ir.Node, ir.Graph]:
+    def _quantize(self, node: ir.Node, bits: int, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
         """Quantize the weight of the target node and return the new nodes.
 
         Target node:        QOperator node:
@@ -142,27 +144,26 @@ class OnnxBlockWiseRtnQuantization(Pass):
         logger.debug("Start quantizing %s ...", node.name)
 
         if node.op_type == OpType.MatMul:
-            return self._quantize_matmul(node)
+            return self._quantize_matmul(node, bits, block_size)
         elif node.op_type == OpType.Gather:
-            return self._quantize_gather(node)
+            return self._quantize_gather(node, bits, block_size, axis)
         else:
             logger.error("Unsupported op %s for weight-only quantization.", node.op_type)
             return node, node.graph
 
-    def _quantize_matmul(self, node: ir.Node) -> tuple[ir.Node, ir.Graph]:
+    def _quantize_matmul(self, node: ir.Node, bits: int, block_size: int) -> tuple[ir.Node, ir.Graph]:
         """Quantize weight B of MatMul node to int4 or int8.
 
-        Currently only support 2D constant matrix and axis 0 blockwise quantization.
+        Currently only support 2D constant matrix blockwise quantization.
         """
         node_initializer = node.inputs[1]
-        bits = self.bits
         b_ndarray = node_initializer.const_value.numpy()
 
         if len(b_ndarray.shape) != 2:
             logger.debug("MatMul weight is not 2D. Skip to quantize")
             return node, node.graph  # can only process 2-D matrix
 
-        packed, scales = self._qbits_block_quant(b_ndarray)
+        packed, scales = self._qbits_block_quant(b_ndarray, bits, block_size)
 
         b_quant = ir.Value(name=node_initializer.name + f"_Q{bits}", const_value=ir.tensor(packed))
         scales_tensor = ir.Value(name=node_initializer.name + "_scales", const_value=ir.tensor(scales))
@@ -174,7 +175,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
         kwargs["K"] = rows
         kwargs["N"] = cols
         kwargs["bits"] = bits
-        kwargs["block_size"] = self.block_size
+        kwargs["block_size"] = block_size
 
         node.outputs[0].name = node.outputs[0].name + f"_Q{bits}"
 
@@ -186,13 +187,12 @@ class OnnxBlockWiseRtnQuantization(Pass):
             attributes=kwargs,
         ), node_initializer.graph
 
-    def _quantize_gather(self, node: ir.Node) -> tuple[ir.Node, ir.Graph]:
+    def _quantize_gather(self, node: ir.Node, bits: int, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
         """Quantize weight data of Gather node to int4."""
         node_initializer = node.inputs[0]
         data_ndarray = node_initializer.const_value.numpy()
         data_rank = len(data_ndarray.shape)
-        quantize_axis = self.axis
-        block_size = self.block_size
+        quantize_axis = axis
 
         assert -data_rank <= quantize_axis < data_rank, "Invalid quantize axis for Gather node."
         assert block_size >= 16, "Block size must be greater than or equal to 16."
@@ -202,7 +202,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
         quantized_data, scales = self._quantize_ndarray(data_ndarray, quantize_axis, block_size)
 
         quantized_data_tensorproto = ir.Value(
-            name=node_initializer.name + f"_Q{self.bits}", const_value=ir.tensor(quantized_data)
+            name=node_initializer.name + f"_Q{bits}", const_value=ir.tensor(quantized_data)
         )
         scales_tensorproto = ir.Value(name=node_initializer.name + "_scales", const_value=ir.tensor(scales))
         node_inputs = [quantized_data_tensorproto, node.inputs[1], scales_tensorproto]
@@ -215,24 +215,25 @@ class OnnxBlockWiseRtnQuantization(Pass):
             "block_size": block_size,
         }
 
-        node.outputs[0].name = node.outputs[0].name + f"_Q{self.bits}"
+        node.outputs[0].name = node.outputs[0].name + f"_Q{bits}"
 
         return ir.node(
             domain=MSFT_DOMAIN,
             op_type=str(OpType.GatherBlockQuantized),
             inputs=node_inputs,
-            name=node.name + f"_Q{self.bits}" if node.name else "",
+            name=node.name + f"_Q{bits}" if node.name else "",
             attributes=kwargs,
         ), node_initializer.graph
 
-    def _qbits_block_quant(self, fp32weight: npt.ArrayLike) -> tuple[np.ndarray, np.ndarray]:
+    def _qbits_block_quant(
+        self, fp32weight: npt.ArrayLike, bits: int, block_size: int
+    ) -> tuple[np.ndarray, np.ndarray]:
         """4b/8b quantize 2D fp32 weight to int4 using C++ kernels."""
-        qbits = self.bits
+        qbits = bits
         kpack = 8 // qbits
         is_symmetric = True
         rows, cols = fp32weight.shape
 
-        block_size = self.block_size
         k_blocks = (rows + block_size - 1) // block_size
 
         blob_size = (block_size + kpack - 1) // kpack
@@ -252,12 +253,12 @@ class OnnxBlockWiseRtnQuantization(Pass):
             except ImportError as e:
                 raise ImportError("onnxruntime is required for RTN quantization.") from e
 
-            if version.parse(OrtVersion) > version.parse("1.21.0"):
+            if version.parse(OrtVersion) < version.parse("1.22.0"):
+                raise ValueError("RTN quantization of 8-bit weights is not supported for onnxruntime<1.22.0")
+            else:
                 from onnxruntime.capi._pybind_state import quantize_matmul_8bits
 
                 quantize_matmul_8bits(packed, fp32weight, scales, zero_point, block_size, cols, rows, is_symmetric)
-            else:
-                raise ValueError("RTN quantization of 8-bit weights is not supported for onnxruntime<=1.21.1")
         else:
             try:
                 from onnxruntime.capi._pybind_state import quantize_matmul_4bits
