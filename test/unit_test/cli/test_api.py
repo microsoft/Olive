@@ -24,7 +24,7 @@ class TestOlivePythonAPI:
         """Test that API module has expected functions."""
         from olive import (
             auto_opt,
-            capture_onnx,
+            capture_onnx_graph,
             convert_adapters,
             extract_adapters,
             finetune,
@@ -38,7 +38,7 @@ class TestOlivePythonAPI:
         # Test that all functions are callable
         api_functions = [
             auto_opt,
-            capture_onnx,
+            capture_onnx_graph,
             convert_adapters,
             extract_adapters,
             finetune,
@@ -55,7 +55,7 @@ class TestOlivePythonAPI:
     def test_workflow_function_signatures(self):
         """Test that workflow functions have expected parameters."""
         try:
-            from olive.api.workflow import auto_opt, finetune, quantize, run
+            from olive.cli.api import auto_opt, finetune, quantize, run
 
             # Test run function signature
             run_sig = inspect.signature(run)
@@ -85,11 +85,11 @@ class TestOlivePythonAPI:
         except ImportError as e:
             pytest.skip(f"Skipping signature test due to missing dependencies: {e}")
 
-    @patch("olive.api.workflow.olive_run")
+    @patch("olive.cli.api.olive_run")
     def test_run_function_basic(self, mock_olive_run):
         """Test basic functionality of run function with mocked dependencies."""
         try:
-            from olive.api.workflow import run
+            from olive import run
 
             # Mock workflow output
             mock_output = MagicMock()
@@ -106,16 +106,16 @@ class TestOlivePythonAPI:
         except ImportError as e:
             pytest.skip(f"Skipping run function test due to missing dependencies: {e}")
 
-    @patch("olive.api.workflow.AutoOptCommand")
+    @patch("olive.cli.api.AutoOptCommand")
     def test_auto_opt_function_basic(self, mock_command_class):
         """Test basic functionality of auto_opt function with mocked dependencies."""
         try:
-            from olive.api.workflow import auto_opt
+            from olive import auto_opt
 
             # Mock command and output
             mock_command = MagicMock()
             mock_output = MagicMock()
-            mock_command._run_workflow.return_value = mock_output
+            mock_command.run.return_value = mock_output
             mock_command_class.return_value = mock_command
 
             # Test with minimal args
@@ -123,22 +123,22 @@ class TestOlivePythonAPI:
 
             # Verify command was created and run
             mock_command_class.assert_called_once()
-            mock_command._run_workflow.assert_called_once()
+            mock_command.run.assert_called_once()
             assert result is mock_output
 
         except ImportError as e:
             pytest.skip(f"Skipping auto_opt function test due to missing dependencies: {e}")
 
-    @patch("olive.api.workflow.FineTuneCommand")
+    @patch("olive.cli.api.FineTuneCommand")
     def test_finetune_function_basic(self, mock_command_class):
         """Test basic functionality of finetune function with mocked dependencies."""
         try:
-            from olive.api.workflow import finetune
+            from olive import finetune
 
             # Mock command and output
             mock_command = MagicMock()
             mock_output = MagicMock()
-            mock_command._run_workflow.return_value = mock_output
+            mock_command.run.return_value = mock_output
             mock_command_class.return_value = mock_command
 
             # Test with minimal args
@@ -146,7 +146,7 @@ class TestOlivePythonAPI:
 
             # Verify command was created and run
             mock_command_class.assert_called_once()
-            mock_command._run_workflow.assert_called_once()
+            mock_command.run.assert_called_once()
             assert result is mock_output
 
         except ImportError as e:
@@ -155,7 +155,7 @@ class TestOlivePythonAPI:
     def test_utility_function_signatures(self):
         """Test that utility functions have expected parameters."""
         try:
-            from olive.api.workflow import convert_adapters
+            from olive import convert_adapters
 
             # Test convert_adapters signature
             convert_sig = inspect.signature(convert_adapters)
@@ -168,7 +168,7 @@ class TestOlivePythonAPI:
     def test_function_docstrings(self):
         """Test that API functions have proper docstrings."""
         try:
-            from olive.api.workflow import auto_opt, finetune, run
+            from olive import auto_opt, finetune, run
 
             # Check that functions have docstrings
             assert auto_opt.__doc__ is not None, "auto_opt should have a docstring"

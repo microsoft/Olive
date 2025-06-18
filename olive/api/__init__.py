@@ -9,7 +9,7 @@ allowing users to programmatically execute Olive workflows and receive
 WorkflowOutput results containing ModelOutput instances.
 """
 
-from olive.api.workflow import (
+from olive.cli.api import (
     auto_opt,
     capture_onnx_graph,
     convert_adapters,
