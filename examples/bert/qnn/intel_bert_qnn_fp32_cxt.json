@@ -87,7 +87,8 @@
                 "vtcm_mb": "8",
                 "enable_htp_fp16_precision": "1"
             }
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

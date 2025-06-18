@@ -44,7 +44,8 @@
             "only_onnxruntime": false
         },
         "quantization": { "type": "OnnxQuantization", "data_config": "glue_mrpc" },
-        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mrpc" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mrpc" },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert" } }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

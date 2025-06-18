@@ -51,7 +51,8 @@
     "passes": {
         "onnx_conversion": { "type": "OnnxConversion", "target_opset": 13 },
         "onnx_static_quantization": { "type": "OnnxStaticQuantization", "data_config": "data_config" },
-        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "data_config" }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "data_config" },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "resnet-50" } }
     },
     "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "evaluator": "common_evaluator",

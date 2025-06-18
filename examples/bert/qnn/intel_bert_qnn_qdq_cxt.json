@@ -95,7 +95,8 @@
                 "htp_graph_finalization_optimization_mode": "3",
                 "offload_graph_io_quantization": "0"
             }
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,
