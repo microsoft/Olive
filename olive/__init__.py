@@ -19,7 +19,7 @@ __version__ = "0.10.0.dev0"
 # pylint: disable=C0413
 
 # Import Python API functions
-from olive.cli import (  # noqa: E402
+from olive.cli.api import (  # noqa: E402
     auto_opt,
     capture_onnx_graph,
     convert_adapters,
