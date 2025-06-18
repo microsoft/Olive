@@ -17,25 +17,28 @@
                 "max_samples": 128,
                 "max_seq_len": 512
             }
+        },
+        {
+            "name": "wikitext2_train",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": { "data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train" },
+            "pre_process_data_config": {
+                "strategy": "line-by-line",
+                "add_special_tokens": false,
+                "max_samples": 128,
+                "max_seq_len": 512
+            }
         }
     ],
     "passes": {
         "q": { "type": "QuaRot" },
-        "g": { "type": "GptqQuantizer", "sym": true, "group_size": -1 },
-        "cs": { "type": "CaptureSplitInfo", "num_splits": 4, "unique_embeds_lm_head_splits": true },
+        "g": { "type": "GptqQuantizer", "sym": true, "group_size": 128 },
         "mb": {
             "type": "ModelBuilder",
             "precision": "int4",
             "int4_block_size": 32,
             "int4_accuracy_level": 4,
             "int4_op_types_to_quantize": [ "MatMul", "Gather" ]
-        },
-        "mq": {
-            "type": "MatMulNBitsToQDQ",
-            "use_int4": true,
-            "add_zero_point": true,
-            "nodes_to_exclude": [ "/lm_head/MatMul_Q4" ],
-            "save_as_external_data": true
         },
         "gs": {
             "type": "GraphSurgeries",
@@ -55,9 +58,7 @@
             "quant_preprocess": true,
             "op_types_to_exclude": [ "GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits" ],
             "save_as_external_data": true
-        },
-        "sp": { "type": "SplitModel" },
-        "st": { "type": "StaticLLM", "batch_size": 1, "context_length": 64 }
+        }
     },
     "target": "local_system",
     "log_severity_level": 1,
