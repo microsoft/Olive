@@ -3,7 +3,7 @@
     "systems": {
         "qnn_system": {
             "type": "PythonEnvironment",
-            "python_environment_path": "/path/to/qnn/env/bin",
+            "python_environment_path": "/datadisks/jambaykinley/conda/envs/qnn/bin",
             "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ]
         }
     },
@@ -69,8 +69,7 @@
             "session_options": { "intra_op_num_threads": 2, "inter_op_num_threads": 1 },
             "weight_sharing": true
         },
-        "cp": { "type": "ComposeOnnxModels" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Phi-3.5-mini-instruct" } }
+        "cp": { "type": "ComposeOnnxModels" }
     },
     "target": "qnn_system",
     "log_severity_level": 1,
