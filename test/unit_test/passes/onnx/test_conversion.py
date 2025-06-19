@@ -272,7 +272,7 @@ class SingnatureOnlyModel(torch.nn.Module):
             ],
             [
                 {0: "axis_batch", 1: "x_axis"},
-                [{1: "x_axis"}, {0: "axis_batch"}],
+                ({1: "x_axis"}, {0: "axis_batch"}),
                 {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 None,
             ],
@@ -289,7 +289,7 @@ class SingnatureOnlyModel(torch.nn.Module):
             },
             {
                 "w": {0: "axis_batch", 1: "x_axis"},
-                "x": [{1: "x_axis"}, {0: "axis_batch"}],
+                "x": ({1: "x_axis"}, {0: "axis_batch"}),
                 "y": {"a": {0: "axis_batch"}, "b": {1: "x_axis"}},
                 "z": None,
             },

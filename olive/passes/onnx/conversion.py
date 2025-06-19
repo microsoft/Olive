@@ -691,7 +691,7 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
         for i, v in enumerate(dummy_inputs):
             if not isinstance(v, transformers.Cache):
                 input_tree_spec = _pytree.tree_flatten(v)[1]
-                flatten_dynamic_shapes = get_the_flattened_and_tree_spec(dynamic_shapes[k], leaf_is_str=False)[0]
+                flatten_dynamic_shapes = get_the_flattened_and_tree_spec(dynamic_shapes[i], leaf_is_str=False)[0]
                 dynamic_shapes[i] = _pytree.tree_unflatten(flatten_dynamic_shapes, input_tree_spec)
 
     # The input can only be either args or kwargs according to line 237.
