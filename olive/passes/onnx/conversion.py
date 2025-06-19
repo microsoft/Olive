@@ -266,14 +266,12 @@ class OnnxConversion(Pass):
                 io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
                     io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
                 )
-
                 # there might be multiple files created during export, so we need to track the dir
                 # if there are other processes writing to the same dir, we might end up deleting files created by
                 # other processes
                 with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
                     tmp_dir_path = Path(tmp_dir)
                     tmp_model_path = resolve_onnx_path(tmp_dir_path)
-
                     onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
                         pytorch_model,
                         dummy_inputs,
@@ -683,32 +681,32 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
 
     from torch.utils import _pytree
 
-    flat_dynamic_shapes, _ = get_the_flattened_and_tree_spec(dynamic_shapes)
-
-    # dict: {axis: axis_name} -> {int(axis): axis_name}
-    # list/tuple: [axis_name] -> [axis_name]
-    new_dynamic_shapes = [
-        {int(k): v for k, v in axes.items()} if isinstance(axes, dict) else axes for axes in flat_dynamic_shapes
-    ]
+    # Align tree spec only for not transformers.Cache.
+    if len(dummy_inputs) == 0:
+        for k, v in dummy_kwargs.items():
+            if not isinstance(v, transformers.Cache):
+                input_tree_spec = _pytree.tree_flatten(v)[1]
+                flatten_dynamic_shapes = get_the_flattened_and_tree_spec(dynamic_shapes[k], leaf_is_str=False)[0]
+                dynamic_shapes[k] = _pytree.tree_unflatten(flatten_dynamic_shapes, input_tree_spec)
+    else:
+        for i, v in enumerate(dummy_inputs):
+            if not isinstance(v, transformers.Cache):
+                input_tree_spec = _pytree.tree_flatten(v)[1]
+                flatten_dynamic_shapes = get_the_flattened_and_tree_spec(dynamic_shapes[i], leaf_is_str=False)[0]
+                dynamic_shapes[i] = _pytree.tree_unflatten(flatten_dynamic_shapes, input_tree_spec)
 
     # The input can only be either args or kwargs according to line 237.
     if len(dummy_inputs) == 0:
-        # dummy_inputs is empty, so it must be kwargs
-        _, tree_structure = get_the_flattened_and_tree_spec(dummy_kwargs, leave_is_str=False)
-        unflatten_dynamic_shapes = _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
-
         # NOTE: dynamic_shapes need to follow the same model.forward signature when it's referring to kwargs.
         param_order = list(inspect.signature(model.forward).parameters)
         # Sort io_config.dynamic_shapes based on this order
-        unflatten_dynamic_shapes = collections.OrderedDict(
-            sorted(unflatten_dynamic_shapes.items(), key=lambda item: param_order.index(item[0]))
+        dynamic_shapes = collections.OrderedDict(
+            sorted(dynamic_shapes.items(), key=lambda item: param_order.index(item[0]))
         )
         dummy_kwargs = collections.OrderedDict(
             sorted(dummy_kwargs.items(), key=lambda item: param_order.index(item[0]))
         )
-        return unflatten_dynamic_shapes, dummy_inputs, dummy_kwargs
+        return dynamic_shapes, dummy_inputs, dummy_kwargs
     # If dynamic_shapes and dummy_inputs are both list/tuple, we don't need to sort.
     # dummy_inputs is args
-    _, tree_structure = get_the_flattened_and_tree_spec(dummy_inputs, leave_is_str=False)
-    unflatten_dynamic_shapes = _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
-    return unflatten_dynamic_shapes, dummy_inputs, dummy_kwargs
+    return dynamic_shapes, dummy_inputs, dummy_kwargs
