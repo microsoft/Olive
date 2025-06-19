@@ -19,7 +19,7 @@ from onnxscript import version_converter
 from packaging import version
 from transformers.modeling_utils import PreTrainedModel
 
-from olive.common.config_utils import validate_config
+from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
 from olive.hardware import AcceleratorSpec
 from olive.model import (
@@ -265,14 +265,12 @@ class OnnxConversion(Pass):
                 io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
                     io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
                 )
-
                 # there might be multiple files created during export, so we need to track the dir
                 # if there are other processes writing to the same dir, we might end up deleting files created by
                 # other processes
                 with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
                     tmp_dir_path = Path(tmp_dir)
                     tmp_model_path = resolve_onnx_path(tmp_dir_path)
-
                     onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
                         pytorch_model,
                         dummy_inputs,
@@ -682,7 +680,20 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
 
     from torch.utils import _pytree
 
-    dummy_inputs = _pytree.tree_map_only(tuple, lambda x: [x], dummy_inputs)
+    # Align tree spec only for not transformers.Cache.
+    if len(dummy_inputs) == 0:
+        for k, v in dummy_kwargs.items():
+            if not isinstance(v, transformers.Cache):
+                input_tree_spec = _pytree.tree_flatten(v)[1]
+                flatten_dynamic_shapes = get_the_flattened_and_tree_spec(dynamic_shapes[k], leaf_is_str=False)[0]
+                dynamic_shapes[k] = _pytree.tree_unflatten(flatten_dynamic_shapes, input_tree_spec)
+    else:
+        for i, v in enumerate(dummy_inputs):
+            if not isinstance(v, transformers.Cache):
+                input_tree_spec = _pytree.tree_flatten(v)[1]
+                flatten_dynamic_shapes = get_the_flattened_and_tree_spec(dynamic_shapes[k], leaf_is_str=False)[0]
+                dynamic_shapes[i] = _pytree.tree_unflatten(flatten_dynamic_shapes, input_tree_spec)
+
     # The input can only be either args or kwargs according to line 237.
     if len(dummy_inputs) == 0:
         # NOTE: dynamic_shapes need to follow the same model.forward signature when it's referring to kwargs.
