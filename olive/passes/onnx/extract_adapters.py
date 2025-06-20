@@ -98,20 +98,20 @@ class ExtractAdapters(Pass):
         # dictionary to store adapter weights
         weights = {}
 
-        if config["adapter_type"] == AdapterType.LORA:
+        if config.adapter_type == AdapterType.LORA:
             weights = self._extract_adapter(dag, config, adapter_type=AdapterType.LORA)
-        elif config["adapter_type"] == AdapterType.DORA:
+        elif config.adapter_type == AdapterType.DORA:
             weights = self._extract_adapter(dag, config, adapter_type=AdapterType.DORA)
-        elif config["adapter_type"] == AdapterType.LOHA:
+        elif config.adapter_type == AdapterType.LOHA:
             weights = self._extract_loha_adapter(dag, config)
         else:
-            raise ValueError(f"Unsupported adapter type: {config['adapter_type']}")
+            raise ValueError(f"Unsupported adapter type: {config.adapter_type}")
 
         if not weights:
-            logger.info("No %s modules found in the model. Returning the original model.", config["adapter_type"])
+            logger.info("No %s modules found in the model. Returning the original model.", config.adapter_type)
             return model
 
-        if config["make_inputs"]:
+        if config.make_inputs:
             # create inputs for the weights
             for weight_name in weights:
                 dag.convert_initializer_to_input(weight_name)
@@ -209,7 +209,7 @@ class ExtractAdapters(Pass):
         for node_name in nodes_to_remove:
             dag.remove_node(node_name)
 
-        if config["make_inputs"] and quant_modules and config["dynamic_lora_r"]:
+        if config.make_inputs and quant_modules and config.dynamic_lora_r:
             # No use case for DequantizeLinear with dynamic lora_r
             logger.info("Quantized modules do not support dynamic_lora_r. Ignoring.")
 
@@ -282,7 +282,7 @@ class ExtractAdapters(Pass):
         for node_name in nodes_to_remove:
             dag.remove_node(node_name)
 
-        if config["make_inputs"] and quant_modules and config["dynamic_lora_r"]:
+        if config.make_inputs and quant_modules and config.dynamic_lora_r:
             # MatMulNBits has static K,N dimensions which are set as attributes
             # No use case for DequantizeLinear with dynamic lora_r
             logger.info("Quantized modules do not support dynamic_lora_r. Ignoring.")
@@ -491,11 +491,11 @@ class ExtractAdapters(Pass):
 
         # Determine which dimension should be made dynamic
         dim_idx = 1
-        if config["adapter_type"] == AdapterType.LORA:
+        if config.adapter_type == AdapterType.LORA:
             dim_idx = 1 if "lora_A" in name else 0
-        elif config["adapter_type"] == AdapterType.DORA:
+        elif config.adapter_type == AdapterType.DORA:
             dim_idx = 0 if "dora_B" in name else 1
-        elif config["adapter_type"] == AdapterType.LOHA:
+        elif config.adapter_type == AdapterType.LOHA:
             # LoHa uses multiple Hadamard product matrices
             if "hada_w1_a" in name or "hada_w2_a" in name:
                 dim_idx = 0  # For the first matrix in Hadamard products
