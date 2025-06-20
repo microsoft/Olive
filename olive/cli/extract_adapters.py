@@ -82,7 +82,9 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             is_peft = "adapter_config.json" in HfApi().list_repo_files(self.args.model_name_or_path)
 
         # Load LoRA config and LoRA model
-        config = AutoConfig.from_pretrained(self.args.model_name_or_path, cache_dir=self.args.cache_dir, trust_remote_code=True)
+        config = AutoConfig.from_pretrained(
+            self.args.model_name_or_path, cache_dir=self.args.cache_dir, trust_remote_code=True
+        )
         if is_peft:
             # Peft model
             first_adapter_name = Path(adapter_paths[0]).name
