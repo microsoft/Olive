@@ -64,7 +64,8 @@
             "activation_type": "uint16",
             "precision": "uint8",
             "calibrate_method": "MinMax"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "resnet-50" } }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
