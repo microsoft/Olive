@@ -19,7 +19,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         )
         sub_parser.add_argument(
             "-m",
-            "--model",
+            "--model_name_or_path",
             type=str,
             required=True,
             help="Path to the PyTorch model. Can be a local folder or Hugging Face id.",
@@ -37,6 +37,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             "--output",
             type=str,
             required=True,
+            default="adapters",
             help="Output folder to save the LoRAs in the requested format.",
         )
         sub_parser.add_argument(
