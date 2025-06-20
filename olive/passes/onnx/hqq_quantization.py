@@ -8,7 +8,7 @@ from typing import Optional
 
 import onnx_ir as ir
 import torch
-import onnx_ir as ir
+
 from olive.constants import MSFT_DOMAIN, OpType
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -82,8 +82,7 @@ class OnnxHqqQuantization(Pass):
         for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
             node_name = node.name
 
-        for node in ir.traversal.RecursiveGraphIterator(model.graph):
-            if node.name in nodes_to_exclude:
+            if node_name in nodes_to_exclude:
                 logger.debug("exclude to quantize %s as specified by nodes_to_exclude...", node_name)
                 continue
 
