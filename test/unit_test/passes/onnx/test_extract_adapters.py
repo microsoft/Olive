@@ -80,7 +80,7 @@ def input_model_info_fixture(tmp_path_factory, request):
         w.replace(".weight", suffix)
         for w in all_weights
         for suffix in [".quant.weight", ".quant.scale", ".quant.zero_point"]
-        if not w.endswith("M.weight")  # Dora Add is not quantized
+        if not w.endswith("M.weight")  # Dora Div is not quantized
     ]
     if adapter_type == AdapterType.DORA:
         all_quant_weights += [f"{m}.dora_M.weight" for m in all_modules]
