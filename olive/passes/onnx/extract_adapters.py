@@ -215,7 +215,9 @@ class ExtractAdapters(Pass):
 
         return weights
 
-    def _extract_adapter(self, dag: OnnxDAG, config: type[BasePassConfig], adapter_type: AdapterType = AdapterType.LORA):
+    def _extract_adapter(
+        self, dag: OnnxDAG, config: type[BasePassConfig], adapter_type: AdapterType = AdapterType.LORA
+    ):
         """Extract adapter weights for either LoRA or Dora from an ONNX model.
 
         LoRA:
