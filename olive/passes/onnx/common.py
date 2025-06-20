@@ -425,7 +425,7 @@ LOHA_NAME_PATTERNS = [f".*[./]{name}[./]default" for name in ["hada_w1_a", "hada
 DORA_NAME_PATTERNS = [
     f".*{pattern}$"
     for pattern in [
-        "default/Add",
+        "default/Div",
         "default/default/MatMul",
         "default/default_1/MatMul",
         "default/default/MatMul_Q4",
@@ -455,7 +455,7 @@ def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType =
 
 
 def is_dora_node(op_type: str, node_name: str) -> bool:
-    return op_type in {"MatMul", "MatMulNBits", "Add"} and any(
+    return op_type in {"MatMul", "MatMulNBits", "Div"} and any(
         re.match(pattern, node_name) for pattern in DORA_NAME_PATTERNS
     )
 
