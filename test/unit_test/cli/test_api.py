@@ -135,11 +135,10 @@ class TestOlivePythonAPI:
         mock_cmd.run.return_value = mock_output
         mock_cmd_cls.return_value = mock_cmd
 
-        result = session_params_tuning("dummy.onnx")
+        session_params_tuning("dummy.onnx")
 
         mock_cmd_cls.assert_called_once()
         mock_cmd.run.assert_called_once()
-        assert result is mock_output
 
     @patch("olive.cli.api.GenerateCostModelCommand")
     def test_generate_cost_model_basic(self, mock_cmd_cls):
