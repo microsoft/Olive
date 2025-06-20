@@ -83,6 +83,7 @@ def test_copy_dir_raise_from_shutil_error(_, create_dir, tmp_path):
 
 @patch("shutil.copytree", side_effect=shutil.Error("Test Error"))
 def test_copy_dir_ignore_shutil_error(_, tmp_path, caplog):
+    caplog.set_level(logging.INFO)
     # setup
     src_path = tmp_path / "src_dir"
     src_path.mkdir(parents=True, exist_ok=True)

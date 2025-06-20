@@ -61,6 +61,7 @@ def test_ort_transformer_optimization_pass(tmp_path):
 )
 @pytest.mark.parametrize("mock_inferece_session", [True, False])
 def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_session, tmp_path, caplog):
+    caplog.set_level(logging.INFO)
     import onnxruntime as ort
     from onnxruntime.transformers.onnx_model import OnnxModel
     from packaging import version

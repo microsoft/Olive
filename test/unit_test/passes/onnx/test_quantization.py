@@ -187,6 +187,7 @@ def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight
     reason="GPTQ quantization requires neural-compressor which is incompatible with newer versions of Windows.",
 )
 def test_matmul_4bits_gptq_with_dataloader(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
     input_model = get_onnx_model()
     config = {
         "block_size": 32,
