@@ -232,7 +232,7 @@ def session_params_tuning(model_name_or_path: str, **kwargs) -> WorkflowOutput:
 
     """
     kwargs["model_name_or_path"] = model_name_or_path
-    return _run_unified_command(SessionParamsTuningCommand, **kwargs)
+    _run_unified_command(SessionParamsTuningCommand, **kwargs)
 
 
 def generate_cost_model(model_name_or_path: str, **kwargs) -> None:
