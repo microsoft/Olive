@@ -310,7 +310,7 @@ class ExtractAdapters(Pass):
     ):
         # float or QDQ quantized
         # original weight name
-        old_weight_name = dag.get_node_inputs(node_name)[1]
+        old_weight_name = dag.get_node_inputs(node_name)[0]
         if dag.is_input(old_weight_name):
             # nothing to do here
             return
