@@ -224,8 +224,8 @@ class ExtractAdapters(Pass):
 
         DoRA:
         Besides LoRA A and LoRA B, DoRA also has a learnable magnitude vector M (dora_M):
-                         W' = mV + dV = mV + AB
-        AB + dora_M -> Add -> ...
+                         W' = mV + dV = mV + mAB
+        AB + dora_M -> Div -> ...
         """
         # dictionary to store adapter weights
         weights = {}
@@ -244,7 +244,7 @@ class ExtractAdapters(Pass):
             valid_ops = {"MatMul", "MatMulNBits"}
         if adapter_type == AdapterType.DORA:
             patterns = DORA_NAME_PATTERNS
-            valid_ops = {"MatMul", "MatMulNBits", "Add"}
+            valid_ops = {"MatMul", "MatMulNBits", "Div"}
 
         for node_name in dag.get_node_names():
             op_type = dag.get_node_op_type(node_name)
@@ -259,8 +259,8 @@ class ExtractAdapters(Pass):
             quantized_suffices = [".quant.weight", ".quant.scale", ".quant.zero_point"]
             new_quantized_names = [new_weight_name.replace(".weight", suffix) for suffix in quantized_suffices]
 
-            if op_type == "Add":
-                self._process_add_node(dag, node_name, weights, new_weight_name, float_modules)
+            if op_type == "Div":
+                self._process_div_node(dag, node_name, weights, new_weight_name, float_modules)
             elif op_type == "MatMul":
                 self._process_matmul_node(
                     dag,
@@ -287,10 +287,10 @@ class ExtractAdapters(Pass):
 
         return weights
 
-    def _process_add_node(
+    def _process_div_node(
         self, dag: OnnxDAG, node_name: str, weights: dict[str, "NDArray"], new_weight_name: str, float_modules: set[str]
     ):
-        old_weight_name = dag.get_node_inputs(node_name)[0]
+        old_weight_name = dag.get_node_inputs(node_name)[1]
         self._process_initializer(dag, node_name, weights, old_weight_name, new_weight_name)
         # add the module to the float modules
         float_modules.add(new_weight_name.replace(".weight", ""))
@@ -420,7 +420,7 @@ class ExtractAdapters(Pass):
                 weight_name.replace("/", ".")
                 .replace("default.default.", "dora_A.")  # For MatMul
                 .replace("default.default_1.", "dora_B.")  # For MatMul
-                .replace("default.", "dora_M.")  # For Add
+                .replace("default.", "dora_M.")  # For Div
                 .replace(op, "weight")
             )
         if adapter_type == AdapterType.LOHA:
