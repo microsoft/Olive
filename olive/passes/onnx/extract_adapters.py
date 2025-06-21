@@ -16,7 +16,14 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import LORA_NAME_PATTERNS, get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import (
+    DORA_NAME_PATTERNS,
+    LOHA_NAME_PATTERNS,
+    LORA_NAME_PATTERNS,
+    AdapterType,
+    get_external_data_config,
+    model_proto_to_olive_model,
+)
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
@@ -39,6 +46,11 @@ class ExtractAdapters(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
+            "adapter_type": PassConfigParam(
+                type_=AdapterType,
+                default_value=AdapterType.LORA,
+                description=f"Type of adapter to extract. Valid values are {AdapterType.__members__.values()}.",
+            ),
             "make_inputs": PassConfigParam(
                 type_=bool,
                 default_value=True,
@@ -85,108 +97,21 @@ class ExtractAdapters(Pass):
 
         # dictionary to store adapter weights
         weights = {}
-        # keep track of float and quantized modules
-        float_modules = set()
-        quant_modules = set()
 
-        # nodes to remove at the end
-        nodes_to_remove = set()
-        for node_name in dag.get_node_names():
-            op_type = dag.get_node_op_type(node_name)
-            if op_type not in {"MatMul", "MatMulNBits"} or not any(
-                re.match(pattern, node_name) for pattern in LORA_NAME_PATTERNS
-            ):
-                # not a lora module
-                continue
-
-            # new name for the float weight
-            new_weight_name = self._create_new_weight_name(node_name)
-            # new names for quantized weight and parameters
-            # zero point is optional if symmetric
-            quantized_suffices = [".quant.weight", ".quant.scale", ".quant.zero_point"]
-            new_quantized_names = [new_weight_name.replace(".weight", suffix) for suffix in quantized_suffices]
-
-            if op_type == "MatMul":
-                # float or QDQ quantized
-                # original weight name
-                old_weight_name = dag.get_node_inputs(node_name)[1]
-
-                if dag.is_input(old_weight_name):
-                    # nothing to do here
-                    continue
-                elif dag.is_initializer(old_weight_name):
-                    # weight is an float initializer
-                    # create initializer with new weight name
-                    self._externalize_initializer(dag, weights, old_weight_name, new_weight_name)
-
-                    # change input to the new name
-                    dag.replace_node_input(node_name, old_weight_name, new_weight_name)
-
-                    # add the module to the float modules
-                    float_modules.add(new_weight_name.replace(".weight", ""))
-                elif dag.get_node_op_type(dag.get_producer(old_weight_name)) == "DequantizeLinear":
-                    # weight is QDQ quantized
-                    # get the dequantize node
-                    old_dequantize_name = dag.get_producer(old_weight_name)
-                    old_dequantize_node = dag.get_node(old_dequantize_name)
-
-                    # zero point is optional so we keep track of used inputs
-                    used_inputs = []
-                    # create new initializers for the dequantize node
-                    for old_input, new_input in zip(old_dequantize_node.inputs, new_quantized_names):
-                        self._externalize_initializer(dag, weights, old_input, new_input)
-                        used_inputs.append(new_input)
-
-                    # create a new dequantize node
-                    # NOTE: We could directly modify the original dequantize node but this assumes that the dequantize
-                    # node is not used elsewhere
-                    # this cannot be guaranteed (for instance, if the float model has lora modules with same weights,
-                    # they might all share the same dequantize node)
-                    new_dequantize_proto = onnx.NodeProto()
-                    new_dequantize_proto.CopyFrom(old_dequantize_node.proto)
-                    # change node name
-                    new_dequantize_proto.name = new_weight_name.replace("weight", "dequantize")
-                    # change input names
-                    for i, new_input in enumerate(used_inputs):
-                        new_dequantize_proto.input[i] = new_input
-                    # change output name
-                    new_dequantize_proto.output[0] = new_weight_name
-
-                    # add new dequantize node
-                    dag.add_node(new_dequantize_proto, old_dequantize_node.graph_idx)
-
-                    # replace input to the new name
-                    dag.replace_node_input(node_name, old_weight_name, new_weight_name)
-
-                    # add old dequantize node to remove
-                    nodes_to_remove.add(old_dequantize_name)
-
-                    # add the module to the quant modules
-                    quant_modules.add(new_weight_name.replace(".weight", ".quant"))
-            elif op_type == "MatMulNBits":
-                # weight is Nbits quantized
-                # create empty initializers and change node inputs
-                for old_input, new_input in zip(dag.get_node_inputs(node_name)[1:], new_quantized_names):
-                    self._externalize_initializer(dag, weights, old_input, new_input)
-                    dag.replace_node_input(node_name, old_input, new_input)
-
-                # add the module to the quant modules
-                quant_modules.add(new_weight_name.replace(".weight", ".quant"))
+        if config.adapter_type == AdapterType.LORA:
+            weights = self._extract_adapter(dag, config, adapter_type=AdapterType.LORA)
+        elif config.adapter_type == AdapterType.DORA:
+            weights = self._extract_adapter(dag, config, adapter_type=AdapterType.DORA)
+        elif config.adapter_type == AdapterType.LOHA:
+            weights = self._extract_loha_adapter(dag, config)
+        else:
+            raise ValueError(f"Unsupported adapter type: {config.adapter_type}")
 
         if not weights:
-            logger.info("No lora modules found in the model. Returning the original model.")
+            logger.info("No %s modules found in the model. Returning the original model.", config.adapter_type)
             return model
 
-        # remove old dequantize nodes
-        for node_name in nodes_to_remove:
-            dag.remove_node(node_name)
-
         if config.make_inputs:
-            if quant_modules and config.dynamic_lora_r:
-                # MatMulNBits has static K,N dimensions which are set as attributes
-                # No use case for DequantizeLinear with dynamic lora_r
-                logger.info("Quantized modules do not support dynamic_lora_r. Ignoring.")
-
             # create inputs for the weights
             for weight_name in weights:
                 dag.convert_initializer_to_input(weight_name)
@@ -220,22 +145,289 @@ class ExtractAdapters(Pass):
             output_model.model_attributes["constant_inputs"] = weights_info
         return output_model
 
+    def _extract_loha_adapter(self, dag: OnnxDAG, config: type[BasePassConfig]):
+        """Extract LoHa adapter weights from all graphs in the ONNX model.
+
+        This version supports both normal float initializers and QDQ (DequantizeLinear) chains.
+
+        LoHa training adds 4 trainable initializers:
+            hada_w1_a.default + hada_w1_b.default -> MatMul -> ...
+            hada_w2_a.default + hada_w2_b.default -> MatMul -> ...
+
+        Quantization (MatMulNBits) quantizes b initializers:
+            hada_w1_a.default + hada_w1_b.default_Q4 + hada_w1_b.default_scales -> MatMulNBits -> ...
+            hada_w2_a.default + hada_w2_b.default_Q4 + hada_w2_b.default_scales -> MatMulNBits -> ...
+
+        QDQ quantizes b initializers:
+            DequantizeLinear (x + x_scale + x_zero_point) + hada_w1_a.default -> MatMul -> ...
+            DequantizeLinear (x + x_scale + x_zero_point) + hada_w2_a.default -> MatMul -> ...
+        """
+        weights = {}
+        nodes_to_remove = set()
+        float_modules = set()
+        quant_modules = set()
+
+        for graph in dag.graphs:
+            initializers_to_process = list(graph.initializer)
+
+            for initializer in initializers_to_process:
+                old_initializer_name = initializer.name
+
+                if any(re.match(pattern, initializer.name) for pattern in LOHA_NAME_PATTERNS):
+                    new_initializer_name = self._create_new_weight_name(old_initializer_name, AdapterType.LOHA)
+                    consumer_name = dag.get_consumers(old_initializer_name)[0]
+                    if dag.get_node_op_type(consumer_name) == "MatMulNBits":
+                        new_initializer_name = new_initializer_name + ".quant"
+                        quant_modules.add(new_initializer_name)
+                    else:
+                        float_modules.add(new_initializer_name.replace(".weight", ""))
+                    self._process_initializer(dag, consumer_name, weights, old_initializer_name, new_initializer_name)
+
+                    # check if the 2nd weight is quantized
+                    node_inputs = dag.get_node_inputs(consumer_name)
+                    if len(node_inputs) < 2:
+                        continue
+                    sec_weight_name = dag.get_node_inputs(consumer_name)[1]
+                    if dag.is_initializer(sec_weight_name):
+                        continue
+                    sec_weight_new_name = sec_weight_name + ".weight"
+                    producer_op_name = dag.get_producer(sec_weight_name)
+                    producer_op_type = dag.get_node_op_type(producer_op_name)
+
+                    if producer_op_type == "DequantizeLinear":
+                        quant_suffixes = [".quant.weight", ".quant.scale", ".quant.zero_point"]
+                        new_quant_names = [sec_weight_new_name.replace(".weight", suf) for suf in quant_suffixes]
+                        self._process_dequantizelinear(
+                            dag,
+                            consumer_name,
+                            weights,
+                            sec_weight_name,
+                            sec_weight_new_name,
+                            new_quant_names,
+                            nodes_to_remove,
+                        )
+        for node_name in nodes_to_remove:
+            dag.remove_node(node_name)
+
+        if config.make_inputs and quant_modules and config.dynamic_lora_r:
+            # No use case for DequantizeLinear with dynamic lora_r
+            logger.info("Quantized modules do not support dynamic_lora_r. Ignoring.")
+
+        return weights
+
+    def _extract_adapter(
+        self, dag: OnnxDAG, config: type[BasePassConfig], adapter_type: AdapterType = AdapterType.LORA
+    ):
+        """Extract adapter weights for either LoRA or Dora from an ONNX model.
+
+        LoRA:
+        output + default (lora_A) -> MatMul -> ...
+        output + default_1 (lora_B) -> MatMul -> ...
+
+        DoRA:
+        Besides LoRA A and LoRA B, DoRA also has a learnable magnitude vector M (dora_M):
+                         W' = mV + dV = mV + mAB
+        AB + dora_M -> Div -> ...
+        """
+        # dictionary to store adapter weights
+        weights = {}
+        # keep track of float and quantized modules
+        float_modules = set()
+        quant_modules = set()
+
+        # nodes to remove at the end
+        nodes_to_remove = set()
+
+        # lora and dora modules have different name patterns and valid ops
+        patterns = None
+        valid_ops = None
+        if adapter_type == AdapterType.LORA:
+            patterns = LORA_NAME_PATTERNS
+            valid_ops = {"MatMul", "MatMulNBits"}
+        if adapter_type == AdapterType.DORA:
+            patterns = DORA_NAME_PATTERNS
+            valid_ops = {"MatMul", "MatMulNBits", "Div"}
+
+        for node_name in dag.get_node_names():
+            op_type = dag.get_node_op_type(node_name)
+            if op_type not in valid_ops or not any(re.match(pattern, node_name) for pattern in patterns):
+                # not a lora module
+                continue
+
+            # new name for the float weight
+            new_weight_name = self._create_new_weight_name(node_name, adapter_type)
+            # new names for quantized weight and parameters
+            # zero point is optional if symmetric
+            quantized_suffices = [".quant.weight", ".quant.scale", ".quant.zero_point"]
+            new_quantized_names = [new_weight_name.replace(".weight", suffix) for suffix in quantized_suffices]
+
+            if op_type == "Div":
+                self._process_div_node(dag, node_name, weights, new_weight_name, float_modules)
+            elif op_type == "MatMul":
+                self._process_matmul_node(
+                    dag,
+                    node_name,
+                    weights,
+                    new_weight_name,
+                    float_modules,
+                    quant_modules,
+                    new_quantized_names,
+                    nodes_to_remove,
+                )
+            elif op_type == "MatMulNBits":
+                self._process_matmulnbits_node(
+                    dag, node_name, weights, new_weight_name, quant_modules, new_quantized_names
+                )
+
+        for node_name in nodes_to_remove:
+            dag.remove_node(node_name)
+
+        if config.make_inputs and quant_modules and config.dynamic_lora_r:
+            # MatMulNBits has static K,N dimensions which are set as attributes
+            # No use case for DequantizeLinear with dynamic lora_r
+            logger.info("Quantized modules do not support dynamic_lora_r. Ignoring.")
+
+        return weights
+
+    def _process_div_node(
+        self, dag: OnnxDAG, node_name: str, weights: dict[str, "NDArray"], new_weight_name: str, float_modules: set[str]
+    ):
+        old_weight_name = dag.get_node_inputs(node_name)[0]
+        self._process_initializer(dag, node_name, weights, old_weight_name, new_weight_name)
+        # add the module to the float modules
+        float_modules.add(new_weight_name.replace(".weight", ""))
+
+    def _process_matmul_node(
+        self,
+        dag: OnnxDAG,
+        node_name: str,
+        weights: dict[str, "NDArray"],
+        new_weight_name: str,
+        float_modules: set[str],
+        quant_modules: set[str],
+        new_quantized_names: list[str],
+        nodes_to_remove: set[str],
+    ):
+        # float or QDQ quantized
+        # original weight name
+        old_weight_name = dag.get_node_inputs(node_name)[1]
+        if dag.is_input(old_weight_name):
+            # nothing to do here
+            return
+        if dag.is_initializer(old_weight_name):
+            self._process_initializer(dag, node_name, weights, old_weight_name, new_weight_name)
+
+            # add the module to the float modules
+            float_modules.add(new_weight_name.replace(".weight", ""))
+        elif dag.get_node_op_type(dag.get_producer(old_weight_name)) == "DequantizeLinear":
+            self._process_dequantizelinear(
+                dag, node_name, weights, old_weight_name, new_weight_name, new_quantized_names, nodes_to_remove
+            )
+
+            # add the module to the quant modules
+            quant_modules.add(new_weight_name.replace(".weight", ".quant"))
+
+    def _process_matmulnbits_node(
+        self,
+        dag: OnnxDAG,
+        node_name: str,
+        weights: dict[str, "NDArray"],
+        new_weight_name: str,
+        quant_modules: set[str],
+        new_quantized_names: list[str],
+    ):
+        # weight is Nbits quantized
+        # create empty initializers and change node inputs
+        for old_input, new_input in zip(dag.get_node_inputs(node_name)[1:], new_quantized_names):
+            self._process_initializer(dag, node_name, weights, old_input, new_input)
+
+        # add the module to the quant modules
+        quant_modules.add(new_weight_name.replace(".weight", ".quant"))
+
+    def _process_initializer(
+        self, dag: OnnxDAG, node_name: str, weights: dict[str, "NDArray"], old_input: str, new_input: str
+    ):
+        # create initializer with new weight name
+        self._externalize_initializer(dag, weights, old_input, new_input)
+        # change input to the new name
+        dag.replace_node_input(node_name, old_input, new_input)
+
+    def _process_dequantizelinear(
+        self,
+        dag: OnnxDAG,
+        node_name: str,
+        weights: dict[str, "NDArray"],
+        old_weight_name: str,
+        new_weight_name: str,
+        new_quantized_names: list[str],
+        nodes_to_remove: set[str],
+    ):
+        # weight is QDQ quantized
+        # get the dequantize node
+        old_dequantize_name = dag.get_producer(old_weight_name)
+        old_dequantize_node = dag.get_node(old_dequantize_name)
+
+        # zero point is optional so we keep track of used inputs
+        used_inputs = []
+        # create new initializers for the dequantize node
+        for old_input, new_input in zip(old_dequantize_node.inputs, new_quantized_names):
+            self._externalize_initializer(dag, weights, old_input, new_input)
+            used_inputs.append(new_input)
+
+        # create a new dequantize node
+        # NOTE: We could directly modify the original dequantize node but this assumes that the dequantize
+        # node is not used elsewhere
+        # this cannot be guaranteed (for instance, if the float model has lora modules with same weights,
+        # they might all share the same dequantize node)
+        new_dequantize_proto = onnx.NodeProto()
+        new_dequantize_proto.CopyFrom(old_dequantize_node.proto)
+        # change node name
+        new_dequantize_proto.name = new_weight_name.replace("weight", "dequantize")
+        # change input names
+        for i, new_input in enumerate(used_inputs):
+            new_dequantize_proto.input[i] = new_input
+        # change output name
+        new_dequantize_proto.output[0] = new_weight_name
+
+        # add new dequantize node
+        dag.add_node(new_dequantize_proto, old_dequantize_node.graph_idx)
+
+        # replace input to the new name
+        dag.replace_node_input(node_name, old_weight_name, new_weight_name)
+
+        # add old dequantize node to remove
+        nodes_to_remove.add(old_dequantize_name)
+
     @staticmethod
-    def _create_new_weight_name(old_name: str) -> str:
+    def _create_new_weight_name(old_name: str, adapter_type: AdapterType = AdapterType.LORA) -> str:
         """Create new weight name based on old name.
 
-        The new weight name is of the form model.layers.0.self_attn.q_proj.lora_A.quant.weight
+        LORA: the new weight name is of the form model.layers.0.self_attn.q_proj.lora_A.quant.weight
+        DORA: the new weight name is of the form model.layers.0.self_attn.q_proj.dora_A.weight for MatMul and
+                model.layers.0.self_attn.q_proj.dora_M.weight for Mul
         """
         weight_name = old_name[1:] if old_name.startswith("/") else old_name
-        matmul_name = weight_name.split("/")[-1]
-        return (
-            weight_name.replace("/", ".")
-            .replace("default.", "lora_A.")
-            .replace("default_1.", "lora_B.")
-            .replace("default_0.", "lora_A.")
-            .replace("default_0_1.", "lora_B.")
-            .replace(matmul_name, "weight")
-        )
+        op = weight_name.split("/")[-1]
+        if adapter_type == AdapterType.LORA:
+            return (
+                weight_name.replace("/", ".")
+                .replace("default.", "lora_A.")
+                .replace("default_1.", "lora_B.")
+                .replace("default_0.", "lora_A.")
+                .replace("default_0_1.", "lora_B.")
+                .replace(op, "weight")
+            )
+        if adapter_type == AdapterType.DORA:
+            return (
+                weight_name.replace("/", ".")
+                .replace("default.default.", "dora_A.")  # For MatMul
+                .replace("default.default_1.", "dora_B.")  # For MatMul
+                .replace("default.", "dora_M.")  # For Div
+                .replace(op, "weight")
+            )
+        if adapter_type == AdapterType.LOHA:
+            return weight_name.replace("default", "weight")
+        raise ValueError(f"Unsupported adapter type: {adapter_type}")
 
     @staticmethod
     def _copy_initializer(old_initializer: onnx.TensorProto, new_name: str) -> onnx.TensorProto:
@@ -297,8 +489,22 @@ class ExtractAdapters(Pass):
 
             return
 
-        # lora r dimension index
-        dim_idx = 1 if "lora_A" in name else 0
+        if "dora_M" in name:
+            # magnitude vector's shape is independent of lora_r, so we do nothing
+            return
+
+        # Determine which dimension should be made dynamic
+        dim_idx = 1
+        if config.adapter_type == AdapterType.LORA:
+            dim_idx = 1 if "lora_A" in name else 0
+        elif config.adapter_type == AdapterType.DORA:
+            dim_idx = 0 if "dora_B" in name else 1
+        elif config.adapter_type == AdapterType.LOHA:
+            # LoHa uses multiple Hadamard product matrices
+            if "hada_w1_a" in name or "hada_w2_a" in name:
+                dim_idx = 0  # For the first matrix in Hadamard products
+            else:
+                dim_idx = 1  # For the second matrix in Hadamard products
 
         # make the input dynamic
         if config.dynamic_lora_r:

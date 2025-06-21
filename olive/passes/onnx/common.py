@@ -13,7 +13,7 @@ import onnx
 from onnx import external_data_helper
 from onnxscript import ir
 
-from olive.common.utils import hardlink_copy_file
+from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -22,6 +22,12 @@ from olive.resource_path import LocalFile, LocalFolder
 logger = logging.getLogger(__name__)
 
 _LARGE_IR_MODEL_THRESHOLD = 1536 * 1024 * 1024  # 1536MB
+
+
+class AdapterType(StrEnumBase):
+    LORA = "lora"
+    DORA = "dora"
+    LOHA = "loha"
 
 
 def get_external_data_config() -> dict[str, PassConfigParam]:
@@ -414,20 +420,55 @@ LORA_NAME_PATTERNS = [
     for name in ["default_0", "default_0_1", "default", "default_1", "lora_A", "lora_B"]
     for matmul in ["MatMul", "MatMul_Q4"]
 ]
+LOHA_NAME_PATTERNS = [f".*[./]{name}[./]default" for name in ["hada_w1_a", "hada_w1_b", "hada_w2_a", "hada_w2_b"]]
+
+DORA_NAME_PATTERNS = [
+    f".*{pattern}$"
+    for pattern in [
+        "default/Div",
+        "default/default/MatMul",
+        "default/default_1/MatMul",
+        "default/default/MatMul_Q4",
+        "default/default_1/MatMul_Q4",
+    ]
+]
 
 
 # TODO(jambayk): considering matching by subgraph pattern, more involved but more reliable
-def model_has_adapters(model_path: Union[str, Path]) -> bool:
+def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA) -> bool:
     """Check if the model has adapters.
 
     :param model_path: The path to the model.
     :return: True if the model has adapters, False otherwise.
     """
     dag = OnnxDAG(onnx.load(model_path, load_external_data=False))
-    for node_name in dag.get_node_names():
-        op_type = dag.get_node_op_type(node_name)
-        if op_type in {"MatMul", "MatMulNBits"} and any(re.match(pattern, node_name) for pattern in LORA_NAME_PATTERNS):
-            return True
+    if adapter_type == AdapterType.LOHA and is_loha_model(dag):
+        return True
+    else:
+        for node_name in dag.get_node_names():
+            op_type = dag.get_node_op_type(node_name)
+            if (adapter_type == AdapterType.LORA and is_lora_node(op_type, node_name)) or (
+                adapter_type == AdapterType.DORA and is_dora_node(op_type, node_name)
+            ):
+                return True
+    return False
+
+
+def is_dora_node(op_type: str, node_name: str) -> bool:
+    return op_type in {"MatMul", "MatMulNBits", "Div"} and any(
+        re.match(pattern, node_name) for pattern in DORA_NAME_PATTERNS
+    )
+
+
+def is_lora_node(op_type: str, node_name: str) -> bool:
+    return op_type in {"MatMul", "MatMulNBits"} and any(re.match(pattern, node_name) for pattern in LORA_NAME_PATTERNS)
+
+
+def is_loha_model(dag: OnnxDAG) -> bool:
+    for graph in dag.graphs:
+        for initializer in graph.initializer:
+            if any(re.match(pattern, initializer.name) for pattern in LOHA_NAME_PATTERNS):
+                return True
     return False
 
 
