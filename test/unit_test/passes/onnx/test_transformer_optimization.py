@@ -61,7 +61,6 @@ def test_ort_transformer_optimization_pass(tmp_path):
 )
 @pytest.mark.parametrize("mock_inferece_session", [True, False])
 def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_session, tmp_path, caplog):
-    caplog.set_level(logging.INFO)
     import onnxruntime as ort
     from onnxruntime.transformers.onnx_model import OnnxModel
     from packaging import version
@@ -69,31 +68,27 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
     if accelerator_spec == DEFAULT_GPU_TRT_ACCELERATOR and not mock_inferece_session:
         pytest.skip("Skipping test: TRT EP does not support compiled nodes when mock_inferece_session=False")
 
-    logger = logging.getLogger("olive")
-    logger.propagate = True
-
     input_model = get_onnx_model()
     config = {"model_type": "bert", "use_gpu": use_gpu, "float16": fp16}
-    config = OrtTransformersOptimization.generate_config(accelerator_spec, config, disable_search=True)
-    p = OrtTransformersOptimization(accelerator_spec, config, True)
-    is_pruned = not p.validate_config(config, accelerator_spec)
 
-    if accelerator_spec.execution_provider == "CPUExecutionProvider":
-        if fp16 and use_gpu:
-            assert is_pruned
-            assert (
-                "CPUExecutionProvider does not support float16 very well, please avoid to use float16." in caplog.text
-            )
-        elif use_gpu:
-            assert is_pruned
-            assert "CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu." in caplog.text
+    # Use caplog.at_level to capture logs from the "olive" logger specifically,
+    # bypassing the propagate=False issue in olive/__init__.py
+    with caplog.at_level(logging.INFO, logger="olive"):
+        pass_config = OrtTransformersOptimization.generate_config(accelerator_spec, config, disable_search=True)
+        p = OrtTransformersOptimization(accelerator_spec, pass_config, True)
+        is_pruned = not p.validate_config(pass_config, accelerator_spec)
 
-    if accelerator_spec.execution_provider == "TensorrtExecutionProvider" and fp16:
-        assert is_pruned
-        assert (
-            "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
-            "optimization. Suggest to set 'trt_fp16_enable' as True in OrtSessionParamsTuning." in caplog.text
-        )
+        if accelerator_spec.execution_provider == "CPUExecutionProvider":
+            if fp16 and use_gpu:
+                assert is_pruned
+                assert "CPUExecutionProvider does not support float16" in caplog.text
+            elif use_gpu:
+                assert is_pruned
+                assert "CPUExecutionProvider does not support GPU inference" in caplog.text
+
+        if accelerator_spec.execution_provider == "TensorrtExecutionProvider" and fp16:
+            assert is_pruned
+            assert "TensorRT has its own float16 implementation" in caplog.text
 
     if not is_pruned:
         inference_session_mock_call_count = 0
@@ -127,7 +122,8 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, mock_inferece_sessio
                     # https://github.com/microsoft/onnxruntime/blob/v1.15.1/onnxruntime/python/tools/transformers/optimizer.py#L280
                     if version.parse(ort.__version__) >= version.parse("1.16.0"):
                         # for TensorRT EP, the graph optimization will be skipped but the fusion will be applied.
-                        assert "There is no gpu for onnxruntime to do optimization." in caplog.text
+                        with caplog.at_level(logging.INFO, logger="olive"):
+                            assert "There is no gpu for onnxruntime to do optimization." in caplog.text
                         if mock_inferece_session:
                             assert inference_session_mock_call_count == 0
                 else:

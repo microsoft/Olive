@@ -83,7 +83,6 @@ def test_copy_dir_raise_from_shutil_error(_, create_dir, tmp_path):
 
 @patch("shutil.copytree", side_effect=shutil.Error("Test Error"))
 def test_copy_dir_ignore_shutil_error(_, tmp_path, caplog):
-    caplog.set_level(logging.INFO)
     # setup
     src_path = tmp_path / "src_dir"
     src_path.mkdir(parents=True, exist_ok=True)
@@ -93,12 +92,8 @@ def test_copy_dir_ignore_shutil_error(_, tmp_path, caplog):
     dest_path.mkdir(parents=True, exist_ok=True)
     shutil.copy(src_path / "file1.ext1", dest_path / "file1.ext1")
 
-    # capture log
-    logger = logging.getLogger("olive")
-    logger.propagate = True
-
     # test
-    copy_dir(src_path, dest_path, ignore_errors=True)
-
-    # assert
-    assert "Assuming all files were copied successfully and continuing." in caplog.text
+    with caplog.at_level(logging.INFO, logger="olive"):
+        copy_dir(src_path, dest_path, ignore_errors=True)
+        # assert
+        assert "Assuming all files were copied successfully and continuing." in caplog.text
