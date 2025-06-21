@@ -292,7 +292,7 @@ class ExtractAdapters(Pass):
     def _process_div_node(
         self, dag: OnnxDAG, node_name: str, weights: dict[str, "NDArray"], new_weight_name: str, float_modules: set[str]
     ):
-        old_weight_name = dag.get_node_inputs(node_name)[1]
+        old_weight_name = dag.get_node_inputs(node_name)[0]
         self._process_initializer(dag, node_name, weights, old_weight_name, new_weight_name)
         # add the module to the float modules
         float_modules.add(new_weight_name.replace(".weight", ""))
@@ -310,7 +310,7 @@ class ExtractAdapters(Pass):
     ):
         # float or QDQ quantized
         # original weight name
-        old_weight_name = dag.get_node_inputs(node_name)[0]
+        old_weight_name = dag.get_node_inputs(node_name)[1]
         if dag.is_input(old_weight_name):
             # nothing to do here
             return
