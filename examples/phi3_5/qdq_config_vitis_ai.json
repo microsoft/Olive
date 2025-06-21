@@ -43,7 +43,7 @@
         "sq": {
             "type": "OnnxStaticQuantization",
             "data_config": "wikitext2_train",
-            "activation_type": "uint16",
+            "activation_type": "uint16", # Can we try fp16 here?
             "precision": "uint8",
             "calibration_providers": [ "CUDAExecutionProvider" ],
             "quant_preprocess": true,
@@ -61,7 +61,7 @@
         "st": {
             "type": "StaticLLM",
             "batch_size": 1,
-            "context_length": 64,
+            "context_length": 128, # Updated context length to 128 from 64
             "group_session_options": {
                 "log_id": "onnxruntime-genai",
                 "provider_options": [ { "VitisAI": {  } } ],
@@ -71,7 +71,7 @@
         "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Phi-3.5-mini-instruct" } }
     },
     "log_severity_level": 1,
-    "output_dir": "models/phi3_5-vai",
+    "output_dir": "models/phi35_amd_uint16_int4_ctxt128",
     "cache_dir": "cache",
     "no_artifacts": true
 }
