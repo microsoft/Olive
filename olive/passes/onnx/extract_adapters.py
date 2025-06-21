@@ -489,6 +489,10 @@ class ExtractAdapters(Pass):
 
             return
 
+        if "dora_M" in name:
+            # magnitude vector's shape is independent of lora_r, so we do nothing
+            return
+
         # Determine which dimension should be made dynamic
         dim_idx = 1
         if config.adapter_type == AdapterType.LORA:
