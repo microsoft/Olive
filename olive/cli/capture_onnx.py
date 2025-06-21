@@ -163,7 +163,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         sub_parser.set_defaults(func=CaptureOnnxGraphCommand)
 
     def run(self):
-        self._run_workflow()
+        return self._run_workflow()
 
     def _get_run_config(self, tempdir: str) -> dict:
         config = deepcopy(TEMPLATE)

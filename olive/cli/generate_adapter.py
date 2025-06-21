@@ -44,7 +44,7 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
         sub_parser.set_defaults(func=GenerateAdapterCommand)
 
     def run(self):
-        self._run_workflow()
+        return self._run_workflow()
 
     def _get_run_config(self, tempdir: str) -> dict:
         input_model_config = get_input_model_config(self.args)

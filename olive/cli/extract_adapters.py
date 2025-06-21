@@ -19,7 +19,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         )
         sub_parser.add_argument(
             "-m",
-            "--model",
+            "--model_name_or_path",
             type=str,
             required=True,
             help="Path to the PyTorch model. Can be a local folder or Hugging Face id.",
@@ -37,6 +37,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             "--output",
             type=str,
             required=True,
+            default="adapters",
             help="Output folder to save the LoRAs in the requested format.",
         )
         sub_parser.add_argument(
@@ -70,23 +71,25 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         # Check if model is Transformers or Peft
         is_peft = False
         adapter_paths = []
-        if os.path.exists(self.args.model):
-            for root, _, files in os.walk(self.args.model):
+        if os.path.exists(self.args.model_name_or_path):
+            for root, _, files in os.walk(self.args.model_name_or_path):
                 for f in files:
                     path = os.path.join(root, f)
                     if "adapter_config.json" in path and self.args.cache_dir not in path:
                         adapter_paths.append(root)
                         is_peft = True
         else:
-            is_peft = "adapter_config.json" in HfApi().list_repo_files(self.args.model)
+            is_peft = "adapter_config.json" in HfApi().list_repo_files(self.args.model_name_or_path)
 
         # Load LoRA config and LoRA model
-        config = AutoConfig.from_pretrained(self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True)
+        config = AutoConfig.from_pretrained(
+            self.args.model_name_or_path, cache_dir=self.args.cache_dir, trust_remote_code=True
+        )
         if is_peft:
             # Peft model
             first_adapter_name = Path(adapter_paths[0]).name
             peft_model = AutoPeftModelForCausalLM.from_pretrained(
-                os.path.join(self.args.model, first_adapter_name),
+                os.path.join(self.args.model_name_or_path, first_adapter_name),
                 adapter_name=first_adapter_name,
                 cache_dir=self.args.cache_dir,
                 trust_remote_code=True,
@@ -97,7 +100,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         else:
             # Transformers model
             peft_model = AutoModelForCausalLM.from_pretrained(
-                self.args.model, cache_dir=self.args.cache_dir, trust_remote_code=True
+                self.args.model_name_or_path, cache_dir=self.args.cache_dir, trust_remote_code=True
             )
 
         head_size = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)

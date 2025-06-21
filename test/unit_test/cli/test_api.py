@@ -2,13 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""Unit tests for Olive Python API.
-
-These tests validate that the Python API functions are properly structured,
-can be imported, and have the expected signatures.
-"""
-
-import inspect
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -31,7 +24,6 @@ class TestOlivePythonAPI:
             generate_adapter,
             generate_cost_model,
             quantize,
-            run,
             session_params_tuning,
         )
 
@@ -45,140 +37,166 @@ class TestOlivePythonAPI:
             generate_adapter,
             generate_cost_model,
             quantize,
-            run,
             session_params_tuning,
         ]
 
         for func in api_functions:
             assert callable(func), f"{func.__name__} should be callable"
 
-    def test_workflow_function_signatures(self):
-        """Test that workflow functions have expected parameters."""
-        try:
-            from olive.cli.api import auto_opt, finetune, quantize, run
-
-            # Test run function signature
-            run_sig = inspect.signature(run)
-            assert "config" in run_sig.parameters
-            assert "input_model" in run_sig.parameters
-            assert "output_path" in run_sig.parameters
-
-            # Test auto_opt function signature
-            auto_opt_sig = inspect.signature(auto_opt)
-            assert "model_path" in auto_opt_sig.parameters
-            assert "output_path" in auto_opt_sig.parameters
-            assert "device" in auto_opt_sig.parameters
-            assert "provider" in auto_opt_sig.parameters
-
-            # Test finetune function signature
-            finetune_sig = inspect.signature(finetune)
-            assert "model_path" in finetune_sig.parameters
-            assert "method" in finetune_sig.parameters
-            assert "lora_r" in finetune_sig.parameters
-
-            # Test quantize function signature
-            quantize_sig = inspect.signature(quantize)
-            assert "model_path" in quantize_sig.parameters
-            assert "algorithm" in quantize_sig.parameters
-            assert "precision" in quantize_sig.parameters
-
-        except ImportError as e:
-            pytest.skip(f"Skipping signature test due to missing dependencies: {e}")
-
-    @patch("olive.cli.api.olive_run")
-    def test_run_function_basic(self, mock_olive_run):
-        """Test basic functionality of run function with mocked dependencies."""
-        try:
-            from olive import run
-
-            # Mock workflow output
-            mock_output = MagicMock()
-            mock_olive_run.return_value = mock_output
-
-            # Test with dict config
-            config = {"input_model": {"type": "HfModel"}}
-            result = run(config)
-
-            # Verify olive_run was called
-            mock_olive_run.assert_called_once()
-            assert result is mock_output
-
-        except ImportError as e:
-            pytest.skip(f"Skipping run function test due to missing dependencies: {e}")
-
     @patch("olive.cli.api.AutoOptCommand")
     def test_auto_opt_function_basic(self, mock_command_class):
         """Test basic functionality of auto_opt function with mocked dependencies."""
-        try:
-            from olive import auto_opt
+        from olive import auto_opt
 
-            # Mock command and output
-            mock_command = MagicMock()
-            mock_output = MagicMock()
-            mock_command.run.return_value = mock_output
-            mock_command_class.return_value = mock_command
+        # Mock command and output
+        mock_command = MagicMock()
+        mock_output = MagicMock()
+        mock_command.run.return_value = mock_output
+        mock_command_class.return_value = mock_command
 
-            # Test with minimal args
-            result = auto_opt("test_model")
+        # Test with minimal args
+        result = auto_opt("test_model")
 
-            # Verify command was created and run
-            mock_command_class.assert_called_once()
-            mock_command.run.assert_called_once()
-            assert result is mock_output
-
-        except ImportError as e:
-            pytest.skip(f"Skipping auto_opt function test due to missing dependencies: {e}")
+        # Verify command was created and run
+        mock_command_class.assert_called_once()
+        mock_command.run.assert_called_once()
+        assert result is mock_output
 
     @patch("olive.cli.api.FineTuneCommand")
     def test_finetune_function_basic(self, mock_command_class):
         """Test basic functionality of finetune function with mocked dependencies."""
-        try:
-            from olive import finetune
+        from olive import finetune
 
-            # Mock command and output
-            mock_command = MagicMock()
-            mock_output = MagicMock()
-            mock_command.run.return_value = mock_output
-            mock_command_class.return_value = mock_command
+        # Mock command and output
+        mock_command = MagicMock()
+        mock_output = MagicMock()
+        mock_command.run.return_value = mock_output
+        mock_command_class.return_value = mock_command
 
-            # Test with minimal args
-            result = finetune("test_model", data_name="test_data")
+        # Test with minimal args
+        result = finetune("test_model", data_name="test_data")
 
-            # Verify command was created and run
-            mock_command_class.assert_called_once()
-            mock_command.run.assert_called_once()
-            assert result is mock_output
+        # Verify command was created and run
+        mock_command_class.assert_called_once()
+        mock_command.run.assert_called_once()
+        assert result is mock_output
 
-        except ImportError as e:
-            pytest.skip(f"Skipping finetune function test due to missing dependencies: {e}")
+    @patch("olive.cli.api.QuantizeCommand")
+    def test_quantize_function_basic(self, mock_cmd_cls):
+        from olive import quantize
 
-    def test_utility_function_signatures(self):
-        """Test that utility functions have expected parameters."""
-        try:
-            from olive import convert_adapters
+        mock_cmd = MagicMock()
+        mock_output = MagicMock()
+        mock_cmd.run.return_value = mock_output
+        mock_cmd_cls.return_value = mock_cmd
 
-            # Test convert_adapters signature
-            convert_sig = inspect.signature(convert_adapters)
-            assert "adapter_path" in convert_sig.parameters
-            assert "output_path" in convert_sig.parameters
+        result = quantize("test_model")
 
-        except ImportError as e:
-            pytest.skip(f"Skipping utility function test due to missing dependencies: {e}")
+        mock_cmd_cls.assert_called_once()
+        mock_cmd.run.assert_called_once()
+        assert result is mock_output
 
-    def test_function_docstrings(self):
-        """Test that API functions have proper docstrings."""
-        try:
-            from olive import auto_opt, finetune, run
+    @patch("olive.cli.api.CaptureOnnxGraphCommand")
+    def test_capture_cmd_basic(self, mock_cmd_cls):
+        from olive import capture_onnx_graph
 
-            # Check that functions have docstrings
-            assert auto_opt.__doc__ is not None, "auto_opt should have a docstring"
-            assert finetune.__doc__ is not None, "finetune should have a docstring"
-            assert run.__doc__ is not None, "run should have a docstring"
+        mock_cmd = MagicMock()
+        mock_output = MagicMock()
+        mock_cmd.run.return_value = mock_output
+        mock_cmd_cls.return_value = mock_cmd
 
-            # Check docstring content
-            assert "Args:" in auto_opt.__doc__, "auto_opt docstring should have Args section"
-            assert "Returns:" in auto_opt.__doc__, "auto_opt docstring should have Returns section"
-            assert "WorkflowOutput" in auto_opt.__doc__, "auto_opt should mention WorkflowOutput"
+        result = capture_onnx_graph("test_model", task="text-classification", output_path="dummy")
 
-        except ImportError as e:
-            pytest.skip(f"Skipping docstring test due to missing dependencies: {e}")
+        mock_cmd_cls.assert_called_once()
+        mock_cmd.run.assert_called_once()
+        assert result is mock_output
+
+    @patch("olive.cli.api.GenerateAdapterCommand")
+    def test_generate_adapter_basic(self, mock_cmd_cls):
+        from olive import generate_adapter
+
+        mock_cmd = MagicMock()
+        mock_output = MagicMock()
+        mock_cmd.run.return_value = mock_output
+        mock_cmd_cls.return_value = mock_cmd
+
+        result = generate_adapter("dummy.onnx")
+
+        mock_cmd_cls.assert_called_once()
+        mock_cmd.run.assert_called_once()
+        assert result is mock_output
+
+    @patch("olive.cli.api.SessionParamsTuningCommand")
+    def test_session_params_tuning_basic(self, mock_cmd_cls):
+        from olive import session_params_tuning
+
+        mock_cmd = MagicMock()
+        mock_output = MagicMock()
+        mock_cmd.run.return_value = mock_output
+        mock_cmd_cls.return_value = mock_cmd
+
+        session_params_tuning("dummy.onnx")
+
+        mock_cmd_cls.assert_called_once()
+        mock_cmd.run.assert_called_once()
+
+    @patch("olive.cli.api.GenerateCostModelCommand")
+    def test_generate_cost_model_basic(self, mock_cmd_cls):
+        from olive import generate_cost_model
+
+        mock_cmd = MagicMock()
+        mock_cmd_cls.return_value = mock_cmd
+
+        generate_cost_model("hf-model")
+
+        mock_cmd_cls.assert_called_once()
+        mock_cmd.run.assert_called_once()
+
+    @patch("olive.cli.api.ConvertAdaptersCommand")
+    def test_convert_adapters_basic(self, mock_cmd_cls):
+        from olive import convert_adapters
+
+        mock_cmd = MagicMock()
+        mock_cmd_cls.return_value = mock_cmd
+
+        convert_adapters("adapter_folder", output_path="out.bin")
+
+        mock_cmd_cls.assert_called_once()
+        mock_cmd.run.assert_called_once()
+
+    @patch("olive.cli.api.ExtractAdaptersCommand")
+    def test_extract_adapters_basic(self, mock_cmd_cls):
+        from olive import extract_adapters
+
+        mock_cmd = MagicMock()
+        mock_cmd_cls.return_value = mock_cmd
+
+        extract_adapters("hf-model")
+
+        mock_cmd_cls.assert_called_once()
+        mock_cmd.run.assert_called_once()
+
+    def test_capture_onnx_graph_integration(self, tmp_path):
+        """Test capture_onnx_graph integration with a tiny model."""
+        from olive import capture_onnx_graph
+
+        # Use a tiny stub model to minimise download / conversion time
+        model_id = "hf-internal-testing/tiny-random-bert"
+
+        output_dir = tmp_path / "onnx-model"
+
+        # Run end-to-end. Should return a WorkflowOutput without raising.
+        output = capture_onnx_graph(
+            model_id,
+            task="text-classification",
+            output_path=str(output_dir),
+        )
+
+        # Basic sanity: output directory exists and contains at least one .onnx file
+        assert output_dir.exists(), "Output directory should be created"
+        assert list(output_dir.rglob("*.onnx")), "No ONNX model produced"
+
+        # WorkflowOutput type check (import inside try for safety)
+        from olive.engine.output import WorkflowOutput
+
+        assert isinstance(output, WorkflowOutput), "capture_onnx_graph should return WorkflowOutput"

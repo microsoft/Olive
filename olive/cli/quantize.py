@@ -181,7 +181,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         return config
 
     def run(self):
-        self._run_workflow()
+        return self._run_workflow()
 
 
 TEMPLATE = {

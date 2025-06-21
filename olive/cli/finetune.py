@@ -80,7 +80,7 @@ class FineTuneCommand(BaseOliveCLICommand):
         sub_parser.set_defaults(func=FineTuneCommand)
 
     def run(self):
-        self._run_workflow()
+        return self._run_workflow()
 
     def parse_training_args(self) -> dict:
         if not self.unknown_args:

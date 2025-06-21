@@ -123,7 +123,7 @@ class RunPassCommand(BaseOliveCLICommand):
         # Check if user wants to list passes
         if hasattr(self.args, "list_passes") and self.args.list_passes:
             self._list_passes()
-            return
+            return None
 
         # Validate required arguments when not listing passes
         if not self.args.pass_name:
@@ -132,7 +132,7 @@ class RunPassCommand(BaseOliveCLICommand):
         if not getattr(self.args, "model_name_or_path", None):
             raise ValueError("-m/--model_name_or_path is required when not using --list-passes")
 
-        self._run_workflow()
+        return self._run_workflow()
 
     def _ensure_device_provider_consistency(self, config):
         """Ensure device and provider are consistent."""
