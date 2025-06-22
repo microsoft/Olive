@@ -92,7 +92,7 @@ def test_copy_dir_ignore_shutil_error(_, tmp_path, caplog):
     dest_path.mkdir(parents=True, exist_ok=True)
     shutil.copy(src_path / "file1.ext1", dest_path / "file1.ext1")
 
-    with caplog.at_level(logging.INFO, logger="olive"):
+    with caplog.at_level(logging.INFO, logger="olive.common.utils"):
         copy_dir(src_path, dest_path, ignore_errors=True)
 
         # assert
