@@ -159,6 +159,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
                 with infer_setting_output_path.open("w") as f:
                     json.dump(infer_settings, f, indent=4)
         print(f"Inference session parameters are saved to {output_path}.")
+        return workflow_output
 
 
 TEMPLATE = {
