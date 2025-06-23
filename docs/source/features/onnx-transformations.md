@@ -590,6 +590,76 @@ graph {
 }
 ```
 
+### `IODataTypeConverter`
+
+#### Description
+
+Converts model inputs and outputs from a source data type to a target data type based on a name pattern. This provides the same functionality as the `OnnxIODataTypeConverter` pass but integrated as a graph surgery.
+
+#### Configurations
+
+- `source_dtype`: Source data type integer value to convert from (e.g., 10 for FLOAT16)
+- `target_dtype`: Target data type integer value to convert to (e.g., 1 for FLOAT)
+- `name_pattern`: Optional regular expression pattern to match input/output names (default: "logits")
+
+#### Example
+
+Initial ONNX model graph:
+
+```
+graph {
+  input: "logits_input" (FLOAT16) shape: [1, 512]
+  node {
+    op_type: "Add"
+    input: ["logits_input", "bias"]
+    output: ["logits_output"]
+  }
+  output: "logits_output" (FLOAT16) shape: [1, 512]
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "IODataTypeConverter",
+            "source_dtype": 10,
+            "target_dtype": 1,
+            "name_pattern": "logits"
+        }
+    ]
+}
+```
+
+Transformed ONNX model graph:
+
+```
+graph {
+  input: "logits_input" (FLOAT) shape: [1, 512]
+  node {
+    op_type: "Cast"
+    input: ["logits_input"]
+    output: ["logits_input_converted"]
+    to: 10
+  }
+  node {
+    op_type: "Add"
+    input: ["logits_input_converted", "bias"]
+    output: ["logits_output_converted"]
+  }
+  node {
+    op_type: "Cast"
+    input: ["logits_output_converted"]
+    output: ["logits_output"]
+    to: 1
+  }
+  output: "logits_output" (FLOAT) shape: [1, 512]
+}
+```
+
 
 ### `RemoveInputs`
 

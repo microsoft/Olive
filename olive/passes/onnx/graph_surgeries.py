@@ -1179,6 +1179,139 @@ class ReplaceAttentionMaskValue(ProtoSurgeon):
         return None
 
 
+class IODataTypeConverter(ProtoSurgeon):
+    """Converts model inputs/outputs from a source dtype to a target dtype based on a name pattern."""
+
+    def __init__(self, source_dtype: int, target_dtype: int, name_pattern: str = "logits"):
+        import re
+        from collections import defaultdict
+
+        self.source_dtype = source_dtype
+        self.target_dtype = target_dtype
+        self.name_pattern = name_pattern
+        self.pat = re.compile(name_pattern) if name_pattern else None
+        
+        # Verify element types
+        self._verify_elem_type(source_dtype)
+        self._verify_elem_type(target_dtype)
+        
+        # Convert to actual ONNX types
+        self.source_dtype_value = self.get_elem_type_from_number(source_dtype)
+        self.target_dtype_value = self.get_elem_type_from_number(target_dtype)
+
+    def __call__(self, model: ModelProto) -> ModelProto:
+        from collections import defaultdict
+        
+        # Create input/output mappings
+        i_map = defaultdict(list)
+        o_map = defaultdict(list)
+        self.create_io_mapping(model.graph, i_map, o_map)
+        
+        # Convert inputs and outputs
+        wrapped_inputs = self.wrap_inputs(model.graph, i_map, self.pat, self.source_dtype_value, self.target_dtype_value)
+        wrapped_outputs = self.wrap_outputs(model.graph, i_map, o_map, self.pat, self.source_dtype_value, self.target_dtype_value)
+        
+        if wrapped_inputs + wrapped_outputs == 0:
+            logger.info("No inputs/outputs found with source_dtype=%s. Skip conversion.", self.source_dtype_value)
+        else:
+            logger.info(
+                "Converted %d inputs and %d outputs from dtype=%s to dtype=%s",
+                wrapped_inputs,
+                wrapped_outputs,
+                self.source_dtype_value,
+                self.target_dtype_value,
+            )
+        
+        return model
+
+    def create_io_mapping(self, graph, i_map, o_map):
+        for n in graph.node:
+            for i in n.input:
+                i_map[i].append(n)
+        for n in graph.node:
+            for o in n.output:
+                assert o not in o_map[o]
+                o_map[o] = [n]
+
+    def wrap_inputs(self, graph, i_map, names, source_dtype, target_dtype) -> int:
+        # 1. find source_dtype inputs
+        # 2. rewrite all consumers
+        # 3. insert cast
+        # 4. rewrite graph inputs
+        inputs = [n for n in graph.input if n.type.tensor_type.elem_type == source_dtype]
+        converted_count = 0
+        for i in inputs:
+            if not self._is_name_matched(i.name, names):
+                continue
+            logger.debug("Converting input %s from %s to %s", i.name, source_dtype, target_dtype)
+            for n in i_map[i.name]:
+                for j, o in enumerate(n.input):
+                    if o == i.name:
+                        n.input[j] = i.name + "_converted"
+
+            cast = onnx.helper.make_node("Cast", inputs=[i.name], outputs=[i.name + "_converted"], to=source_dtype)
+
+            graph.node.insert(0, cast)
+            i.type.tensor_type.elem_type = target_dtype
+            converted_count += 1
+
+        return converted_count
+
+    def wrap_outputs(self, graph, i_map, o_map, names, source_dtype, target_dtype) -> int:
+        # 1. find source dtype outputs
+        # 2. rewrite all providers
+        # 3. append cast
+        # 4. rewrite graph outputs
+        outputs = [n for n in graph.output if n.type.tensor_type.elem_type == source_dtype]
+        converted_count = 0
+        for o in outputs:
+            if not self._is_name_matched(o.name, names):
+                continue
+            logger.debug("Converting output %s from %s to %s", o.name, source_dtype, target_dtype)
+            for n in o_map[o.name]:
+                for j, i_ in enumerate(n.output):
+                    if i_ == o.name:
+                        n.output[j] = o.name + "_converted"
+            for n in i_map[o.name]:
+                for j, i_ in enumerate(n.input):
+                    if i_ == o.name:
+                        n.input[j] = o.name + "_converted"
+
+            cast = onnx.helper.make_node(
+                "Cast",
+                inputs=[o.name + "_converted"],
+                outputs=[o.name],
+                to=target_dtype,
+            )
+            graph.node.append(cast)
+            o.type.tensor_type.elem_type = target_dtype
+            converted_count += 1
+
+        return converted_count
+
+    def _is_name_matched(self, name: str, names) -> bool:
+        return not names or bool(names.search(name))
+
+    @staticmethod
+    def get_elem_type_from_number(num):
+        for value in vars(onnx.TensorProto).values():
+            if isinstance(value, int) and value == num:
+                return value
+        raise ValueError(f"Invalid elem_type number: {num}")
+
+    def _get_available_elem_types(self):
+        return onnx.TensorProto.DataType.values()
+
+    def _verify_elem_type(self, elem_type):
+        available_elem_types = self._get_available_elem_types()
+        if elem_type not in available_elem_types:
+            raise ValueError(
+                f"Invalid elem_type: {elem_type}. Available values: {available_elem_types}. Check"
+                "https://github.com/onnx/onnx/blob/96a0ca4374d2198944ff882bd273e64222b59cb9/onnx/onnx.proto3#L503-L551"
+                "for details."
+            )
+
+
 class GraphSurgeries(Pass):
     """ONNX graph surgeries collections.
 
