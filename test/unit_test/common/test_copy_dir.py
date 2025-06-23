@@ -97,7 +97,7 @@ def test_copy_dir_ignore_shutil_error(_, tmp_path, caplog):
     olive_logger = logging.getLogger("olive")
     original_propagate = olive_logger.propagate
     olive_logger.propagate = True
-    
+
     try:
         with caplog.at_level(logging.WARNING, logger="olive"):
             copy_dir(src_path, dest_path, ignore_errors=True)
