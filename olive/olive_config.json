@@ -399,6 +399,16 @@
             "dataset": "dataset_optional",
             "module_dependencies": [ "auto-gptq", "optimum" ]
         },
+        "GPTQModelQuantizer": {
+            "module_path": "olive.passes.pytorch.gptqmodel_quantizer.GPTQModelQuantizer",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "int16", "uint4", "uint8", "uint16" ],
+            "supported_algorithms": [ "gptq" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional",
+            "module_dependencies": [ "gptqmodel" ]
+        },
         "CaptureSplitInfo": {
             "module_path": "olive.passes.pytorch.capture_split_info.CaptureSplitInfo",
             "supported_providers": [ "*" ],

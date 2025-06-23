@@ -15,7 +15,7 @@
     ],
     "passes": {
         "q": { "type": "QuaRot" },
-        "g": { "type": "GptqQuantizer", "sym": true, "group_size": -1 },
+        "g": { "type": "GPTQModelQuantizer", "sym": true, "group_size": -1 },
         "cs": { "type": "CaptureSplitInfo", "num_splits": 1, "unique_embeds_lm_head_splits": true },
         "mb": {
             "type": "ModelBuilder",

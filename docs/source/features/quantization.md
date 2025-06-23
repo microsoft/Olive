@@ -20,6 +20,38 @@ Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass 
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/llama2/llama2_template.json)
 for an example implementation of `"wikitext2_train"`.
 
+## GPTQModel
+Olive also integrates [GPTQModel](https://github.com/ModelCloud/GPTQModel) as a modern alternative to AutoGPTQ.
+
+GPTQModel is a production-ready LLM quantization toolkit that provides enhanced performance and additional features compared to AutoGPTQ. It supports multiple quantization methods including GPTQ, GPTQ v2, QQQ, and EoRA. GPTQModel is actively maintained and offers better performance and accuracy.
+
+**Note**: AutoGPTQ development has stopped, and the maintainers recommend transitioning to GPTQModel for new projects.
+
+Olive provides the GPTQModelQuantizer pass which offers the same functionality as GptqQuantizer with additional features like GPTQ v2.
+
+Please refer to [GPTQModelQuantizer](gptqmodel_quantizer) for more details about the pass and its config parameters.
+
+### Example Configuration
+```json
+{
+    "type": "GPTQModelQuantizer",
+    "bits": 4,
+    "group_size": 128,
+    "v2": true,
+    "data_config": "wikitext2_train"
+}
+```
+
+### Migration from AutoGPTQ
+To migrate from GptqQuantizer to GPTQModelQuantizer, simply change the pass type:
+```json
+// Before
+{"type": "GptqQuantizer", "sym": true, "group_size": 128}
+
+// After  
+{"type": "GPTQModelQuantizer", "sym": true, "group_size": 128}
+```
+
 ## AutoAWQ
 AutoAWQ is an easy-to-use package for 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16. AutoAWQ implements the Activation-aware Weight Quantization (AWQ) algorithm for quantizing LLMs. AutoAWQ was created and improved upon from the original work from MIT.
 
