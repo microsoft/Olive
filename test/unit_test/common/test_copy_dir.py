@@ -92,8 +92,18 @@ def test_copy_dir_ignore_shutil_error(_, tmp_path, caplog):
     dest_path.mkdir(parents=True, exist_ok=True)
     shutil.copy(src_path / "file1.ext1", dest_path / "file1.ext1")
 
-    with caplog.at_level(logging.WARNING, logger="olive"):
-        copy_dir(src_path, dest_path, ignore_errors=True)
+    # The olive logger has propagate=False, so we need to temporarily enable it
+    # to allow caplog to capture the logs
+    olive_logger = logging.getLogger("olive")
+    original_propagate = olive_logger.propagate
+    olive_logger.propagate = True
+    
+    try:
+        with caplog.at_level(logging.WARNING, logger="olive"):
+            copy_dir(src_path, dest_path, ignore_errors=True)
 
         # assert
         assert "Assuming all files were copied successfully and continuing." in caplog.text
+    finally:
+        # Restore original propagate setting
+        olive_logger.propagate = original_propagate
