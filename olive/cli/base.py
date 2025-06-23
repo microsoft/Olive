@@ -36,8 +36,7 @@ class BaseOliveCLICommand(ABC):
 
         from olive.workflows import run as olive_run
 
-        if not Path(self.args.output_path).exists():
-            Path(self.args.output_path).mkdir(parents=True, exist_ok=True)
+        Path(self.args.output_path).mkdir(parents=True, exist_ok=True)
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
