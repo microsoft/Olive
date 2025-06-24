@@ -136,7 +136,7 @@ class RunPassCommand(BaseOliveCLICommand):
 
     def _ensure_device_provider_consistency(self, config):
         """Ensure device and provider are consistent."""
-        from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
+        from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS, ExecutionProvider
 
         # Get the current accelerator config
         accelerator = config["systems"]["local_system"]["accelerators"][0]
@@ -151,17 +151,17 @@ class RunPassCommand(BaseOliveCLICommand):
         # Define provider-specific device preferences
         # For providers that can run on multiple devices, we choose the most appropriate one
         provider_device_preference = {
-            "CPUExecutionProvider": "cpu",
-            "CUDAExecutionProvider": "gpu",
-            "ROCMExecutionProvider": "gpu",
-            "TensorrtExecutionProvider": "gpu",
-            "NvTensorRTRTXExecutionProvider": "gpu",
-            "MIGraphXExecutionProvider": "gpu",
-            "JsExecutionProvider": "gpu",
-            "DmlExecutionProvider": "gpu",  # Prefer GPU for DirectML
-            "QNNExecutionProvider": "npu",
-            "VitisAIExecutionProvider": "npu",
-            "OpenVINOExecutionProvider": "cpu",  # Prefer CPU for OpenVINO (more common)
+            ExecutionProvider.CPUExecutionProvider: "cpu",
+            ExecutionProvider.CUDAExecutionProvider: "gpu",
+            ExecutionProvider.ROCMExecutionProvider: "gpu",
+            ExecutionProvider.TensorrtExecutionProvider: "gpu",
+            ExecutionProvider.NvTensorRTRTXExecutionProvider: "gpu",
+            ExecutionProvider.MIGraphXExecutionProvider: "gpu",
+            ExecutionProvider.JsExecutionProvider: "gpu",
+            ExecutionProvider.DmlExecutionProvider: "gpu",  # Prefer GPU for DirectML
+            ExecutionProvider.QNNExecutionProvider: "npu",
+            ExecutionProvider.VitisAIExecutionProvider: "npu",
+            ExecutionProvider.OpenVINOExecutionProvider: "cpu",  # Prefer CPU for OpenVINO (more common)
         }
 
         # Check if current device is valid for the provider

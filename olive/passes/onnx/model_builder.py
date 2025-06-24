@@ -16,6 +16,7 @@ import transformers
 from olive.common.utils import IntEnumBase
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
+from olive.hardware.constants import ExecutionProvider
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
@@ -125,7 +126,7 @@ class ModelBuilder(Pass):
         # if device is GPU, but user choose CPU EP, the is_cpu should be True
         if (config.precision == Precision.FP16) and not (
             accelerator_spec.accelerator_type == Device.GPU
-            and accelerator_spec.execution_provider != "CPUExecutionProvider"
+            and accelerator_spec.execution_provider != ExecutionProvider.CPUExecutionProvider
         ):
             logger.info(
                 "FP16 is not supported on CPU. Valid precision + execution"
@@ -171,11 +172,11 @@ class ModelBuilder(Pass):
             else Path(resolve_onnx_path(output_model_path, model.onnx_file_name))
         )
 
-        if self.accelerator_spec.execution_provider == "DmlExecutionProvider":
+        if self.accelerator_spec.execution_provider == ExecutionProvider.DmlExecutionProvider:
             target_execution_provider = "dml"
-        elif self.accelerator_spec.execution_provider == "CUDAExecutionProvider":
+        elif self.accelerator_spec.execution_provider == ExecutionProvider.CUDAExecutionProvider:
             target_execution_provider = "cuda"
-        elif self.accelerator_spec.execution_provider == "JsExecutionProvider":
+        elif self.accelerator_spec.execution_provider == ExecutionProvider.JsExecutionProvider:
             target_execution_provider = "web"
         else:
             target_execution_provider = "cpu"
