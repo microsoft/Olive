@@ -144,7 +144,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         workflow_output = self._run_workflow()
 
         if is_remote_run(self.args):
-            return
+            return None
 
         output_path = Path(self.args.output_path).resolve()
         for device in workflow_output.get_available_devices():
