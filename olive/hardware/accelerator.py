@@ -64,8 +64,12 @@ class AcceleratorSpec:
         return int(v[:-2]) * int(MEM_TO_INT[v[-2:]])
 
 
-DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider)
-DEFAULT_GPU_CUDA_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.GPU, execution_provider=ExecutionProvider.CUDAExecutionProvider)
+DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(
+    accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+)
+DEFAULT_GPU_CUDA_ACCELERATOR = AcceleratorSpec(
+    accelerator_type=Device.GPU, execution_provider=ExecutionProvider.CUDAExecutionProvider
+)
 DEFAULT_GPU_TRT_ACCELERATOR = AcceleratorSpec(
     accelerator_type=Device.GPU, execution_provider=ExecutionProvider.TensorrtExecutionProvider
 )

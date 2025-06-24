@@ -289,7 +289,10 @@ class AutoOptCommand(BaseOliveCLICommand):
             (
                 ("transformer_optimizer", "float16"),
                 self.args.precision == Precision.FP16
-                or (self.args.precision == Precision.INT4 and self.args.provider != ExecutionProvider.CPUExecutionProvider),
+                or (
+                    self.args.precision == Precision.INT4
+                    and self.args.provider != ExecutionProvider.CPUExecutionProvider
+                ),
             ),
             (("to_fixed_shape", "dim_param"), self.args.dynamic_to_fixed_shape_dim_param),
             (("to_fixed_shape", "dim_value"), self.args.dynamic_to_fixed_shape_dim_value),

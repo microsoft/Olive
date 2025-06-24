@@ -172,7 +172,10 @@ def get_ort_inference_session(
         ort.get_available_providers(),
     )
     for idx, provider in enumerate(providers):
-        if provider in [ExecutionProvider.CUDAExecutionProvider, ExecutionProvider.DmlExecutionProvider] and device_id is not None:
+        if (
+            provider in [ExecutionProvider.CUDAExecutionProvider, ExecutionProvider.DmlExecutionProvider]
+            and device_id is not None
+        ):
             provider_options[idx]["device_id"] = str(device_id)
         elif provider == ExecutionProvider.QNNExecutionProvider and "backend_path" not in provider_options[idx]:
             # add backend_path for QNNExecutionProvider

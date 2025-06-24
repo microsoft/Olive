@@ -6,8 +6,6 @@ import subprocess
 import sys
 from argparse import ArgumentParser
 
-from olive.hardware.constants import ExecutionProvider
-
 
 def test_run_pass_command_help():
     """Test that the run-pass command shows help properly."""

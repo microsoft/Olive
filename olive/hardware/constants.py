@@ -49,5 +49,10 @@ DEVICE_TO_EXECUTION_PROVIDERS = {
         ExecutionProvider.OpenVINOExecutionProvider,
         ExecutionProvider.JsExecutionProvider,
     },
-    "npu": {ExecutionProvider.DmlExecutionProvider, ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider, ExecutionProvider.OpenVINOExecutionProvider},
+    "npu": {
+        ExecutionProvider.DmlExecutionProvider,
+        ExecutionProvider.QNNExecutionProvider,
+        ExecutionProvider.VitisAIExecutionProvider,
+        ExecutionProvider.OpenVINOExecutionProvider,
+    },
 }
