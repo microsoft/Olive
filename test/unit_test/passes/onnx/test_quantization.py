@@ -205,18 +205,16 @@ def test_matmul_4bits_gptq_with_dataloader(tmp_path, caplog):
         accelerator_type="CPU",
         execution_provider="CPUExecutionProvider",
     )
-    # capture log
-    logger = logging.getLogger("olive")
-    logger.propagate = True
 
-    p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
-    out = p.run(input_model, tmp_path)
-    assert out is not None
-    assert "Invalid weight_only_quant_configs: {'use_less_config'} for algorithm gptq" in caplog.text
-    assert (
-        "The pass config parameter block_size's value 32 is different from the algorithm config's value 128. The"
-        " algorithm config's value will be used." in caplog.text
-    )
+    with caplog.at_level(logging.INFO, logger="olive"):
+        p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
+        out = p.run(input_model, tmp_path)
+        assert out is not None
+        assert "Invalid weight_only_quant_configs: {'use_less_config'} for algorithm gptq" in caplog.text
+        assert (
+            "The pass config parameter block_size's value 32 is different from the algorithm config's value 128. The"
+            " algorithm config's value will be used." in caplog.text
+        )
 
 
 def test_invalid_config_for_matmul_4bits():

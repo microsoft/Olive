@@ -28,10 +28,10 @@ from olive.cli.api import (  # noqa: E402
     generate_adapter,
     generate_cost_model,
     quantize,
-    run,
     session_params_tuning,
 )
 from olive.engine.output import DeviceOutput, ModelOutput, WorkflowOutput  # noqa: E402
+from olive.workflows import run  # noqa: E402
 
 __all__ = [
     "DeviceOutput",
