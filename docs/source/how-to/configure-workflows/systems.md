@@ -220,7 +220,7 @@ The AzureML system represents the Azure Machine Learning workspace where the Pas
     * `base_image`: The base image for the AzureML environment.
     * `dockerfile`: The path to the Dockerfile of the AzureML environment.
     * `build_context_path`: The path to the build context of the AzureML environment.
-    * `conda_file_path`: The path to the conda file.
+    * `conda_file_path`: The path to the [conda file](https://docs.conda.io/projects/conda/en/stable/user-guide/tasks/manage-environments.html#create-env-file-manually).
     * `name`: The name of the AzureML environment.
     * `version`: The version of the AzureML environment.
 

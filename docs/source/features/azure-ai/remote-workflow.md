@@ -32,6 +32,21 @@ python -m olive run --config <config_file.json>
 
 Olive will submit this workflow to the Azure ML system compute. It is safe to close your terminal session or turn off your local machine. The workflow will continue running on the Azure ML workspace compute.
 
+## Python Environment System
+
+Remote workflow supports separate Python Environment system, which can run some of the passes differently from the Olive workflow base Python environment. Add `conda_yaml_path` to the Python Environment System configuration, check more details on how to write a yaml file [here](https://docs.conda.io/projects/conda/en/stable/user-guide/tasks/manage-environments.html#create-env-file-manually).
+
+Here is the example:
+
+```
+"qnn_system": {
+    "type": "PythonEnvironment",
+    "conda_yaml_path": "qnn.yaml",
+    "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ]
+},
+```
+
+
 ## Workflow outputs
 
 The artifacts of the workflow, including cache and outputs, will be automatically exported as Azure Machine Learning and stored to Azure Machine Learning datastore. The Data asset name will be `<workflow_id>`. The default datastore is `workspaceblobstore`. If you want to export to your own datastore, please add `datastores: <your-datastore-name>` in AzureML system config:
