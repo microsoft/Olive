@@ -19,6 +19,8 @@ from olive.systems.common import (
     SystemType,
 )
 
+AML_PYTHON_ENV_PATH = "/conda"
+
 
 class TargetUserConfig(ConfigBase):
     accelerators: list[AcceleratorConfig] = None
@@ -68,26 +70,7 @@ class CommonPythonEnvTargetUserConfig(TargetUserConfig):
 class PythonEnvironmentTargetUserConfig(CommonPythonEnvTargetUserConfig):
     olive_managed_env: bool = False  # if True, the environment will be created and managed by Olive
     requirements_file: Union[Path, str] = None  # path to the requirements.txt file
-
-    @root_validator(pre=True)
-    def _validate_python_environment_path(cls, values):
-        # if olive_managed_env is True, python_environment_path is not required
-        if values.get("olive_managed_env"):
-            return values
-
-        python_environment_path = values.get("python_environment_path")
-        if python_environment_path is None:
-            raise ValueError("python_environment_path is required for PythonEnvironmentSystem native mode")
-
-        # check if the path exists
-        if not Path(python_environment_path).exists():
-            raise ValueError(f"Python path {python_environment_path} does not exist")
-
-        # check if python exists in the path
-        python_path = shutil.which("python", path=python_environment_path)
-        if not python_path:
-            raise ValueError(f"Python executable not found in the path {python_environment_path}")
-        return values
+    conda_yaml_path: Union[Path, str] = None  # path to the conda.yaml file
 
 
 class IsolatedORTTargetUserConfig(CommonPythonEnvTargetUserConfig):

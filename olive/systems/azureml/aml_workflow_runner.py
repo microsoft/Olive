@@ -10,7 +10,7 @@ from olive.common.constants import WORKFLOW_ARTIFACTS, WORKFLOW_CONFIG
 from olive.common.hf.login import aml_runner_hf_login
 from olive.common.utils import copy_dir
 from olive.logging import set_verbosity_from_env
-from olive.systems.utils.arg_parser import parse_config, parse_resources_args
+from olive.systems.utils.arg_parser import create_python_envs, parse_config, parse_resources_args
 from olive.workflows import run as olive_run
 
 # ruff: noqa: T201
@@ -34,6 +34,7 @@ def main(raw_args=None):
     workflow_artifacts_args, extra_args = parse_artifacts_config(raw_args)
     resources, extra_args = parse_resources_args(raw_args)
     olive_config, extra_args = parse_config(extra_args, WORKFLOW_CONFIG, resources)
+    create_python_envs(olive_config)
 
     print("Parsed Olive config: ", olive_config)
 

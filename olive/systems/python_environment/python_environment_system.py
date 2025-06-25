@@ -40,6 +40,7 @@ class PythonEnvironmentSystem(OliveSystem):
         accelerators: list[AcceleratorConfig] = None,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
+        conda_yaml_path: Union[Path, str] = None,  # Used for python environment system creation on remote workflow
         hf_token: bool = None,
     ):
         if python_environment_path is None:

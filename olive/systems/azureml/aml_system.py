@@ -162,15 +162,12 @@ class AzureMLSystem(OliveSystem):
         self.copy_files(code_files, config_root)
 
         workflow_config = run_config.to_json(make_absolute=False)
-        [
-            workflow_config.pop(component, None)
-            for component in ["evaluators", "systems", "data_configs", "azureml_client"]
-        ]
+        [workflow_config.pop(component, None) for component in ["evaluators", "data_configs", "azureml_client"]]
 
         inputs, args = self.create_inputs_and_args(
             {WORKFLOW_CONFIG: workflow_config},
             tmp_dir,
-            ignore_keys=["cache_dir", "output_dir", "model_attributes"],
+            ignore_keys=["cache_dir", "output_dir", "model_attributes", "python_environment_path"],
         )
 
         outputs = {

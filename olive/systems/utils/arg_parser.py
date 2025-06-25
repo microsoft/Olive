@@ -4,8 +4,11 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+import subprocess
+from pathlib import Path
 
 from olive.common.utils import set_nested_dict_value
+from olive.systems.system_config import AML_PYTHON_ENV_PATH
 
 
 def parse_resources_args(raw_args):
@@ -89,3 +92,15 @@ def get_common_args(raw_args):
     model_json, extra_args = parse_config(extra_args, "model", resources)
 
     return pipeline_output, resources, model_json, extra_args
+
+
+def create_python_envs(olive_config):
+    """Create python environments from the olive config."""
+    if "systems" not in olive_config:
+        return
+
+    for system_name, system_config in olive_config["systems"].items():
+        if system_config["type"] == "PythonEnvironment":
+            conda_yaml_path = system_config["config"]["conda_yaml_path"]
+            conda_env_path = Path(AML_PYTHON_ENV_PATH) / system_name
+            subprocess.run(["conda", "env", "create", "-f", conda_yaml_path, "-p", conda_env_path], check=True)
