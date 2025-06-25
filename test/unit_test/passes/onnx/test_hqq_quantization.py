@@ -7,6 +7,7 @@ import os
 
 import numpy as np
 import onnx
+import onnx_ir as ir
 import pytest
 
 from olive.constants import MSFT_DOMAIN, OpType
@@ -14,7 +15,6 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.hqq_quantization import OnnxHqqQuantization
-from olive.passes.onnx.onnx_dag import OnnxDAG
 
 
 class TestHQQQuantization:
@@ -59,41 +59,6 @@ class TestHQQQuantization:
         onnx.save(model_def, str(model_path))
         return model_path
 
-    def test__process_graph(self, matmul_model_path):
-        # Setup
-        olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
-        accelerator_spec = AcceleratorSpec(
-            accelerator_type="CPU",
-            execution_provider="CPUExecutionProvider",
-        )
-        pass_config = {"block_size": 128}
-        p = create_pass_from_dict(
-            OnnxHqqQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
-        )
-
-        # Get a copy of the original model graph
-        original_graph = olive_model.load_model().graph
-
-        # Execute
-        dag = OnnxDAG(olive_model.load_model())
-        processed_dag = p._process_graph(dag, pass_config["block_size"])  # pylint: disable=W0212
-
-        # Assert
-        assert processed_dag != original_graph
-        found_matmul_nbits = False
-        for node_name in processed_dag.get_node_names():
-            node = processed_dag.get_node(node_name)
-            if node.op_type == str(OpType.MatMulNBits):
-                found_matmul_nbits = True
-                assert node.proto.domain == MSFT_DOMAIN
-                assert any(attr.name == "bits" and attr.i == 4 for attr in node.proto.attribute)
-                assert any(
-                    attr.name == "block_size" and attr.i == pass_config["block_size"] for attr in node.proto.attribute
-                )
-                break
-
-        assert found_matmul_nbits, "No MatMulNBits node found in processed graph"
-
     def test_hqq_quantization_pass(self, matmul_model_path, tmp_path):
         # Setup
         olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
@@ -114,12 +79,15 @@ class TestHQQQuantization:
         assert os.path.exists(quantized_model.model_path)
 
         # Load the quantized model and check for MatMulNBits nodes
-        quantized_onnx = onnx.load(quantized_model.model_path)
+        ir_model = ir.load(quantized_model.model_path)
 
         found_matmul_nbits = False
-        for node in quantized_onnx.graph.node:
-            if node.op_type == str(OpType.MatMulNBits):
+        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
+            if node.op_type == OpType.MatMulNBits:
                 found_matmul_nbits = True
+                assert node.domain == MSFT_DOMAIN
+                assert node.attributes.get_int("bits") == 4
+                assert node.attributes.get_int("block_size") == pass_config["block_size"]
                 break
 
         assert found_matmul_nbits, "No MatMulNBits node found in quantized model"

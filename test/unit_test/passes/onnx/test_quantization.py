@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import platform
 from unittest.mock import patch
 
 import onnx
@@ -159,6 +160,10 @@ def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected, is_qnn)
     ],
 )
 def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight_only_quant_configs):
+    if algorithm == "rtn" and platform.system() == "Windows":
+        # neural-compressor calls 'wmic' which is not available anymore
+        pytest.skip("RTN quantization requires neural-compressor which is incompatible with newer versions of Windows.")
+
     input_model = get_onnx_model()
     config = {
         "block_size": 32,
@@ -177,6 +182,10 @@ def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight
     assert out is not None
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows",
+    reason="GPTQ quantization requires neural-compressor which is incompatible with newer versions of Windows.",
+)
 def test_matmul_4bits_gptq_with_dataloader(tmp_path, caplog):
     input_model = get_onnx_model()
     config = {
@@ -196,18 +205,16 @@ def test_matmul_4bits_gptq_with_dataloader(tmp_path, caplog):
         accelerator_type="CPU",
         execution_provider="CPUExecutionProvider",
     )
-    # capture log
-    logger = logging.getLogger("olive")
-    logger.propagate = True
 
-    p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
-    out = p.run(input_model, tmp_path)
-    assert out is not None
-    assert "Invalid weight_only_quant_configs: {'use_less_config'} for algorithm gptq" in caplog.text
-    assert (
-        "The pass config parameter block_size's value 32 is different from the algorithm config's value 128. The"
-        " algorithm config's value will be used." in caplog.text
-    )
+    with caplog.at_level(logging.INFO, logger="olive"):
+        p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
+        out = p.run(input_model, tmp_path)
+        assert out is not None
+        assert "Invalid weight_only_quant_configs: {'use_less_config'} for algorithm gptq" in caplog.text
+        assert (
+            "The pass config parameter block_size's value 32 is different from the algorithm config's value 128. The"
+            " algorithm config's value will be used." in caplog.text
+        )
 
 
 def test_invalid_config_for_matmul_4bits():

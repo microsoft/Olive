@@ -24,10 +24,6 @@ jobs:
     PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
 
   steps:
-  - script: docker system df && docker system prune -a -f && docker system df
-    displayName: Clean docker images
-    continueOnError: true
-
   - template: olive-setup-template.yaml
     parameters:
       python_version: ${{ parameters.python_version }}

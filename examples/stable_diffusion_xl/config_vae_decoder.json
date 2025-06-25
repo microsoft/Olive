@@ -31,6 +31,12 @@
             "user_script": "user_script.py",
             "load_dataset_config": { "type": "simple_dataset" },
             "dataloader_config": { "type": "vae_decoder_dataloader", "batch_size": 2 }
+        },
+        {
+            "name": "quantize_data_config",
+            "user_script": "user_script.py",
+            "load_dataset_config": { "type": "local_dataset" },
+            "dataloader_config": { "type": "vae_decoder_quantize_data_loader", "data_num": 100 }
         }
     ],
     "evaluators": {
@@ -46,7 +52,7 @@
         }
     },
     "passes": {
-        "convert": { "type": "OnnxConversion", "target_opset": 14 },
+        "convert": { "type": "OnnxConversion", "target_opset": 17 },
         "optimize": {
             "type": "OrtTransformersOptimization",
             "model_type": "vae",
@@ -106,6 +112,19 @@
             "opt_level": 0,
             "float16": false,
             "use_gpu": true
+        },
+        "dynamic_shape_to_fixed": {
+            "type": "DynamicToFixedShape",
+            "dim_param": [ "batch_size", "num_channels_latent", "height_latent", "width_latent" ],
+            "dim_value": [ 1, 4, 64, 64 ]
+        },
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "data_config": "quantize_data_config",
+            "activation_type": "uint16",
+            "precision": "uint8",
+            "calibrate_method": "MinMax",
+            "quant_preprocess": true
         }
     },
     "evaluator": "common_evaluator",

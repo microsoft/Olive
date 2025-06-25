@@ -52,19 +52,40 @@
         }
     },
     "passes": {
-        "conversion": { "type": "OnnxConversion", "target_opset": 17 },
+        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
         "dynamic_shape_to_fixed": {
             "type": "DynamicToFixedShape",
             "dim_param": [ "batch_size", "sequence_length" ],
             "dim_value": [ 1, 128 ]
         },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
+        "surgery": {
+            "type": "GraphSurgeries",
+            "surgeries": [
+                { "surgeon": "ReplaceAttentionMaskValue", "replacement": -100.0 },
+                { "surgeon": "MatMulAddToGemm" }
+            ]
+        },
+        "transformer_optimizer": {
+            "type": "OrtTransformersOptimization",
+            "model_type": "bert",
+            "opt_level": 1,
+            "optimization_options": {
+                "enable_gelu": true,
+                "enable_bias_gelu": false,
+                "enable_layer_norm": true,
+                "enable_skip_layer_norm": false,
+                "enable_bias_skip_layer_norm": false,
+                "enable_attention": false
+            }
+        },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "data_config": "glue_mrpc",
+            "quant_preprocess": true,
             "activation_type": "uint16",
             "precision": "uint8"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

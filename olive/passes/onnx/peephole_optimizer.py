@@ -238,14 +238,15 @@ class ModelOptimizer:
             logger.warning("Please install `onnxscript` to apply more optimization.")
             return
         try:
-            onnxscript.optimizer.optimize(self.model)
+            logger.debug("Running onnxscript optimizer")
+            self.model = onnxscript.optimizer.optimize(self.model)
         except Exception as e:
             if "TypeInferenceError" in str(e):
                 logger.info(
                     "onnxscript optimizer failed with %s. Rerunning with shape inference disabled.",
                     str(e),
                 )
-                onnxscript.optimizer.optimize(self.model, onnx_shape_inference=False)
+                self.model = onnxscript.optimizer.optimize(self.model, onnx_shape_inference=False)
             else:
                 raise
 

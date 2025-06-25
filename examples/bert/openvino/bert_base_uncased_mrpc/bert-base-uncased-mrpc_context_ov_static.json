@@ -43,7 +43,8 @@
             "target_device": "npu",
             "ov_version": "2025.1",
             "reuse_cache": true
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
     },
     "search_strategy": false,
     "host": "local_system",

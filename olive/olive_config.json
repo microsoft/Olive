@@ -172,6 +172,14 @@
             "supported_algorithms": [ "hqq" ],
             "supported_quantization_encodings": [  ]
         },
+        "OnnxBlockWiseRtnQuantization": {
+            "module_path": "olive.passes.onnx.rtn_quantization.OnnxBlockWiseRtnQuantization",
+            "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "int4" ],
+            "supported_algorithms": [ "rtn" ],
+            "supported_quantization_encodings": [  ]
+        },
         "OnnxPeepholeOptimizer": {
             "module_path": "olive.passes.onnx.peephole_optimizer.OnnxPeepholeOptimizer",
             "supported_providers": [ "*" ],
@@ -398,6 +406,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "SelectiveMixedPrecision": {
+            "module_path": "olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "MergeAdapterWeights": {
             "module_path": "olive.passes.pytorch.merge_adapter_weights.MergeAdapterWeights",
             "supported_providers": [ "*" ],
@@ -585,6 +601,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "onnxscript" ]
+        },
+        "AddOliveMetadata": {
+            "module_path": "olive.passes.onnx.add_metadata.AddOliveMetadata",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "VitisAIAddMetaData": {
             "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIAddMetaData",

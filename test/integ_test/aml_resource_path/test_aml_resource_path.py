@@ -82,7 +82,12 @@ class TestAMLResourcePath:
                 f"{ResourceType.AzureMLDatastore}_folder",
                 marks=pytest.mark.skip(reason="Credential bug in azureml-fsspec"),
             ),
-            ResourceType.AzureMLJobOutput,
+            pytest.param(
+                ResourceType.AzureMLJobOutput,
+                marks=pytest.mark.skip(
+                    reason="AzureML bug: BaseJob is not supported in the current API version Apr2023Preview"
+                ),
+            ),
         ],
     )
     def test_save_to_dir(self, resource_path_type, tmp_path):

@@ -73,6 +73,7 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 
       :octicon:`arrow-right;1em;sd-text-info` `olive run <cli/cli-run.html>`_
 
+
 How to prepare configuration
 ----------------------------
 
@@ -170,3 +171,25 @@ For more complex scenarios, you can customize configuration where you can run an
       Learn how to configure engine to control where output gets saved, logging verbosity, caching, and packaging.
 
       :octicon:`arrow-right;1em;sd-text-info` `Configure engine <configure-workflows/engine-configuration.html>`_
+
+How to use Python interface
+----------------------------
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   python_api
+
+You can use the Python API to run Olive workflows programmatically.
+
+.. grid:: 1 1 1 1
+   :class-container: cards
+
+   .. grid-item-card::
+      **Python API**
+
+      Learn how to use the Python API to run Olive workflows programmatically.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Python API <python_api.html>`_
+

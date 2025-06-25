@@ -196,6 +196,7 @@ class OpenVINOEncapsulation(Pass):
 
         # Define the model with an Execution Provider (EP) Context
         model_def = helper.make_model(graph_def, opset_imports=op_imports)
+        model_def.ir_version = 10
 
         # Save the model
         context_model_output = f"{model_name}.onnx"

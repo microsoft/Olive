@@ -14,7 +14,7 @@
                 "weight_format": "int4",
                 "group_size": 128,
                 "dataset": "wikitext2",
-                "ratio": 1.0,
+                "ratio": 1,
                 "awq": true,
                 "scale_estimation": true,
                 "sym": true,
@@ -29,7 +29,8 @@
             "keep_ov_dynamic_dims": true,
             "ov_version": "2025.1",
             "reuse_cache": true
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Llama-3.2-1B-Instruct" } }
     },
     "search_strategy": false,
     "host": "local_system",

@@ -15,11 +15,10 @@ pr: none
 
 jobs:
 # Linux examples test
-- template: job_templates/olive-example-linux-template.yaml
+- template: job_templates/olive-example-cpu-template.yaml
   parameters:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
-    onnxruntime: onnxruntime
     subfolder: azureml
     examples:
       bert_ptq_cpu_aml:
@@ -37,11 +36,10 @@ jobs:
         exampleRequirements: requirements-pipeline.txt
 
 # Windows examples test
-- template: job_templates/olive-example-win-template.yaml
+- template: job_templates/olive-example-cpu-template.yaml
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
-    onnxruntime: onnxruntime
     subfolder: azureml
     examples:
       bert_ptq_cpu_aml:

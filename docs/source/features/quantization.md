@@ -62,6 +62,18 @@ This pass only supports HuggingFace transformer PyTorch models.
 }
 ```
 
+## RTN
+`RTN (Round To Nearest)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization or calibration datasets. RTN quantization uses simple rounding to the nearest quantization level, making it extremely fast while maintaining reasonable accuracy.
+
+This pass supports ONNX models and can quantize `MatMul` and `Gather` nodes to 4 or 8 bits with block-wise quantization.
+
+### Example Configuration
+```json
+{
+    "type": "OnnxBlockWiseRtnQuantization"
+}
+```
+
 ## HQQ
 `HQQ (Half-Quadratic Quantization)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, [HQQ](https://mobiusml.github.io/hqq_blog/) uses half-quadratic splitting to minimize weight quantization error efficiently.
 
@@ -145,7 +157,7 @@ check out [this file](https://github.com/microsoft/Olive/tree/main/examples/bert
 ## Quantize with Intel® Neural Compressor
 In addition to the default onnxruntime quantization tool, Olive also integrates [Intel® Neural Compressor](https://github.com/intel/neural-compressor).
 
-Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.
+Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach "quantize once, run everywhere" goal.
 
 Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called `IncQuantization`, and provide the user with the ability to
 tune both quantization methods and hyperparameter at the same time.

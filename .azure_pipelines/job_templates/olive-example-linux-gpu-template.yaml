@@ -4,12 +4,12 @@ parameters:
   name: ''
   pool: ''
   python_version: '3.10'
-  device: 'cpu'
-  dockerfile: '.azure_pipelines/dockerfiles/linux-cpu.dockerfile'
+  device: 'gpu'
+  dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
   docker_image: 'olive-pipeline:latest'
-  base_image: 'mcr.microsoft.com/mirror/docker/library/ubuntu:22.04'
-  trt_version: ''
-  onnxruntime: 'onnxruntime'
+  base_image: 'mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
+  trt_version: '10.5.0.18-1+cuda12.6'
+  onnxruntime: 'onnxruntime-gpu'
   hf_token: false
   subfolder: 'local'
   torch: 'torch'
@@ -30,10 +30,6 @@ jobs:
     OLIVE_TEMPDIR: $(Pipeline.Workspace)/.olive_tempdir
 
   steps:
-  - script: docker system df && docker system prune -a -f && docker system df
-    displayName: Clean docker images
-    continueOnError: true
-
   - template: build-docker-image-template.yaml
     parameters:
       python_version: ${{ parameters.python_version }}

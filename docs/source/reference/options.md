@@ -398,6 +398,7 @@ Please also find the detailed options from following table for each pass:
 | [OnnxStaticQuantization](pass.rst#onnxstaticquantization) | ONNX Static Quantization Pass. |
 | [OnnxQuantization](pass.rst#onnxquantization) | Quantize ONNX model with onnxruntime where we can search for best parameters for static/dynamic quantization at same time. |
 | [OnnxMatMul4Quantizer](pass.rst#onnxmatmul4quantizer) | Quantize ONNX models' MatMul operations to 4-bit weights |
+| [OnnxBlockWiseRtnQuantization](pass.rst#onnxblockwisertnquantization) | Quantize ONNX models' MatMul and Gather operations to 4-bit or 8-bit weights by RTN algorithm. |
 | [OnnxHqqQuantization](pass.rst#onnxhqqquantization) | Quantize ONNX models' MatMul operations to 4-bit weights by HQQ algorithm. |
 | [GraphSurgeries](pass.rst#graphsurgeries) | ONNX graph surgeries collections. |
 | [MatMulNBitsToQDQ](pass.rst#matmulnbitstoqdq) | Convert ONNX MatMulNBits nodes to standard ONNX quantized-dequantized (QDQ) format. |
@@ -409,6 +410,7 @@ Please also find the detailed options from following table for each pass:
 | [AppendPrePostProcessingOps](pass.rst#appendprepostprocessing) | Add Pre/Post nodes to the input model. |
 | [ExtractAdapters](pass.rst#extractadapters) | Extract adapters from ONNX model |
 | [CaptureSplitInfo](pass.rst#capturesplitinfo) | Capture the split information of the model layers. Only splits the transformer layers. |
+| [SelectiveMixedPrecision](pass.rst#selectivemixedprecision) | Annotate the model with mixed precision information. |
 | [SplitModel](pass.rst#splitmodel) | Split an ONNX model into multiple smaller sub-models based on predefined assignments. |
 | [LoRA](pass.rst#lora) | Run LoRA fine-tuning on a Hugging Face PyTorch model. |
 | [LoHa](pass.rst#loha) | Run LoHa fine-tuning on a Hugging Face PyTorch model. |

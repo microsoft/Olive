@@ -91,7 +91,10 @@ class IoConfig(ConfigBase):
         if not v:
             return v
 
-        flattened, tree_spec = get_the_flattened_and_tree_spec(v, leave_is_str=True)
+        # dict: {axis: axis_name} -> {int(axis): axis_name}
+        # list/tuple: [axis_name] -> [axis_name]
+
+        flattened, tree_spec = get_the_flattened_and_tree_spec(v, leaf_is_str=True)
         new_flattened = []
         for axes in flattened:
             if isinstance(axes, dict):

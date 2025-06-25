@@ -31,7 +31,6 @@ class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin, PytorchKvCach
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[dict[str, Any]] = None,
         io_config: Union[dict[str, Any], "IoConfig", str, Callable] = None,
-        generative: bool = False,
     ):
         super().__init__(
             framework=Framework.PYTORCH,
@@ -40,7 +39,6 @@ class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin, PytorchKvCach
             model_attributes=model_attributes,
             io_config=io_config,
         )
-        self.generative = generative
 
     def prepare_session(
         self,
@@ -58,9 +56,9 @@ class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin, PytorchKvCach
         **kwargs: dict[str, Any],
     ) -> Any:
         if isinstance(inputs, dict):
-            results = session.generate(**inputs, **kwargs) if self.generative else session(**inputs, **kwargs)
+            results = session(**inputs, **kwargs)
         else:
-            results = session.generate(inputs, **kwargs) if self.generative else session(inputs, **kwargs)
+            results = session(inputs, **kwargs)
         return results
 
     @staticmethod
@@ -101,7 +99,7 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
     """
 
     resource_keys: tuple[str, ...] = ("model_path", "script_dir", "model_script")
-    json_config_keys: tuple[str, ...] = ("model_file_format", "model_loader", "dummy_inputs_func", "generative")
+    json_config_keys: tuple[str, ...] = ("model_file_format", "model_loader", "dummy_inputs_func")
 
     def __init__(
         self,
@@ -113,7 +111,6 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
         io_config: Union[dict[str, Any], IoConfig, str, Callable] = None,
         dummy_inputs_func: Union[str, Callable] = None,
         model_attributes: Optional[dict[str, Any]] = None,
-        generative: bool = False,
     ):
         if not (isinstance(model_loader, Callable) or (isinstance(model_loader, str) and model_script) or model_path):
             raise ValueError(
@@ -126,7 +123,6 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
             model_path=model_path,
             model_attributes=model_attributes,
             io_config=io_config,
-            generative=generative,
         )
         self.add_resources(locals())
 

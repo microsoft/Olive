@@ -93,6 +93,19 @@ def serialize_to_json(obj: Any, check_object: bool = False, make_absolute: bool 
     return json.loads(raw_json)
 
 
+def load_config_file(file_path: Union[str, Path]) -> dict:
+    """Load a file into a dictionary."""
+    file_path = Path(file_path)
+    if file_path.suffix in {".yaml", ".yml"}:
+        with open(file_path) as f:
+            return yaml.safe_load(f)
+    elif file_path.suffix == ".json":
+        with open(file_path) as f:
+            return json.load(f)
+    else:
+        raise ValueError(f"Unsupported file type: {file_path.suffix}")
+
+
 class ConfigBase(BaseModel):
     class Config:
         arbitrary_types_allowed = True
@@ -116,14 +129,11 @@ class ConfigBase(BaseModel):
         :return: ConfigBase object.
         """
         if isinstance(file_or_obj, dict):
-            return cls.parse_obj(file_or_obj)
+            obj = file_or_obj
+        else:
+            obj = load_config_file(file_or_obj)
 
-        file_path = Path(file_or_obj)
-        if file_path.suffix in {".yaml", ".yml"}:
-            with open(file_path) as f:
-                return cls.parse_obj(yaml.safe_load(f))
-
-        return cls.parse_file(file_path)
+        return cls.parse_obj(obj)
 
 
 class ConfigListBase(ConfigBase):
@@ -361,7 +371,7 @@ def convert_configs_to_dicts(config: Any) -> Any:
 
 
 def get_the_flattened_and_tree_spec(
-    dynamic_shapes: Union[dict[str, Any], list[Any]], leave_is_str: bool = False
+    dynamic_shapes: Union[dict[str, Any], list[Any]], leaf_is_str: bool = False
 ) -> tuple[list[Any], Any]:
     """Flattens a pytree into a list of values and a TreeSpec that can be used to reconstruct the pytree."""
     # More info: https://github.com/pytorch/pytorch/blob/48203bec636692e1a9140fe7f23ba1323b19550d/torch/utils/_pytree.py#L985
@@ -385,4 +395,4 @@ def get_the_flattened_and_tree_spec(
             and all(isinstance(k, int) and (v is None or isinstance(v, (str, int))) for k, v in x.items())
         ) or (isinstance(x, (list, tuple)) and all(v is None or isinstance(v, (str, int)) for v in x))
 
-    return _pytree.tree_flatten(dynamic_shapes, is_leaf=is_axes_with_str_key if leave_is_str else is_axes_with_int_key)
+    return _pytree.tree_flatten(dynamic_shapes, is_leaf=is_axes_with_str_key if leaf_is_str else is_axes_with_int_key)
