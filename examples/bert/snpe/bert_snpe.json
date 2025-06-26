@@ -44,7 +44,8 @@
             "input_names": [ "input_ids", "attention_mask", "token_type_ids" ],
             "input_shapes": [ [ 2, 128 ], [ 2, 128 ], [ 2, 128 ] ],
             "output_names": [ "logits" ]
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
     },
     "log_severity_level": 0,
     "evaluator": "snpe_evaluator",

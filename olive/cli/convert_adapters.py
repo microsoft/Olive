@@ -122,8 +122,6 @@ class ConvertAdaptersCommand(BaseOliveCLICommand):
         output_path = save_weights(transformed_weights, self.args.output_path, self.args.adapter_format)
         print(f"Exported adapter weights to {output_path}")
 
-        return output_path
-
     @staticmethod
     def int4_block_quant(
         float_weight: "NDArray", block_size: int, is_symmetric: bool

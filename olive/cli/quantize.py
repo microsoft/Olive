@@ -181,7 +181,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         return config
 
     def run(self):
-        self._run_workflow()
+        return self._run_workflow()
 
 
 TEMPLATE = {
@@ -226,5 +226,6 @@ ONNX_QUANT_IMPLEMENTATION_MAPPING = [
     {"impl_name": "nvmo", "pass_type": "NVModelOptQuantization"},
     {"impl_name": "inc", "pass_type": "IncDynamicQuantization"},
     {"impl_name": "olive", "pass_type": "OnnxHqqQuantization"},
+    {"impl_name": "olive", "pass_type": "OnnxBlockWiseRtnQuantization"},
     # "impl_name": "inc", "pass_type": "IncStaticQuantization"},
 ]

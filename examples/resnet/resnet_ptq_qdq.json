@@ -64,7 +64,8 @@
             "quant_preprocess": true,
             "prepare_qnn_config": true,
             "calibrate_method": "MinMax"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "resnet-50" } }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
