@@ -10,14 +10,15 @@ import onnxruntime as ort
 import pytest
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 from packaging import version
-from peft import LoraConfig, get_peft_model
+from peft import LoHaConfig, LoraConfig, get_peft_model
+from peft.tuners.loha import LoHaLayer
 from peft.tuners.lora import LoraLayer
 from transformers import AutoModelForCausalLM
 
 from olive.common.utils import WeightsFileFormat, find_submodules, load_weights
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.common import model_has_adapters
+from olive.passes.onnx.common import AdapterType, model_has_adapters
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
 from olive.passes.onnx.quantization import OnnxMatMul4Quantizer
@@ -48,29 +49,52 @@ def get_calib_data_loader(dummy_input):
 
 
 @pytest.fixture(name="input_model_info", scope="module")
-def input_model_info_fixture(tmp_path_factory):
-    # this tmp_path exists for the duration of the test session
-    # module is scope is used to ensure that the fixture is only created once
+def input_model_info_fixture(tmp_path_factory, request):
     tmp_path = tmp_path_factory.mktemp("extract-adapters-test")
 
     model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    adapter_type = request.param
+    use_dora = adapter_type == AdapterType.DORA
+
     pytorch_model = AutoModelForCausalLM.from_pretrained(model_name)
     # init_lora_weights are set so that lora_B weights are not all zeros
     # if they are all zeros, the exported onnx model uses identity node as input to lora_B
-    peft_model = get_peft_model(pytorch_model, LoraConfig(init_lora_weights=False))
 
     # keep track of all lora modules
-    all_lora_modules = [
-        m.replace("base_model.model.", "") for m in find_submodules(peft_model, LoraLayer, full_name=True) or []
-    ]
+    if adapter_type == AdapterType.LOHA:
+        peft_model = get_peft_model(pytorch_model, LoHaConfig(init_weights=False, target_modules="all-linear"))
+        all_modules = [
+            m.replace("base_model.model.", "") for m in find_submodules(peft_model, LoHaLayer, full_name=True) or []
+        ]
+        adapter_suffix = ["hada_w1_a", "hada_w1_b", "hada_w2_a", "hada_w2_b"]
+    else:
+        peft_model = get_peft_model(pytorch_model, LoraConfig(init_lora_weights=False, use_dora=use_dora))
+        all_modules = [
+            m.replace("base_model.model.", "") for m in find_submodules(peft_model, LoraLayer, full_name=True) or []
+        ]
+        adapter_suffix = ["dora_A", "dora_B", "dora_M"] if use_dora else ["lora_A", "lora_B"]
+
     # names of float weights
-    all_weights = [f"{m}.{lora_i}.weight" for m in all_lora_modules for lora_i in ["lora_A", "lora_B"]]
-    # names of quantized weights
+    all_weights = [f"{m}.{suffix}.weight" for m in all_modules for suffix in adapter_suffix]
     all_quant_weights = [
         w.replace(".weight", suffix)
         for w in all_weights
         for suffix in [".quant.weight", ".quant.scale", ".quant.zero_point"]
+        if not w.endswith("M.weight")  # Dora Div is not quantized
     ]
+    if adapter_type == AdapterType.DORA:
+        all_quant_weights += [f"{m}.dora_M.weight" for m in all_modules]
+    if adapter_type == AdapterType.LOHA:
+        int4_weight = [
+            "hada_w1_a.default",
+            "hada_w1_b.default_Q4",
+            "hada_w1_b.default_scales",
+            "hada_w2_a.default",
+            "hada_w2_b.default_Q4",
+            "hada_w2_b.default_scales",
+        ]
+        weights = [f"{m}.{suffix.replace('default', 'weight')}" for m in all_modules for suffix in int4_weight]
+        all_quant_weights = [w + ".quant" for w in weights]
 
     # dump adapters
     adapters_path = tmp_path / "pytorch-adapters"
@@ -102,6 +126,7 @@ def input_model_info_fixture(tmp_path_factory):
     olive_int4_onnx_model = matmul4_quantizer.run(olive_onnx_model, str(tmp_path / "int4-onnx"))
 
     return {
+        "adapter_type": adapter_type,
         "float": {"onnx_model": olive_onnx_model, "all_weights": all_weights},
         # "qdq": {
         #     "onnx_model": olive_qdq_onnx_model,
@@ -115,75 +140,22 @@ def input_model_info_fixture(tmp_path_factory):
     }
 
 
+@pytest.mark.parametrize("input_model_info", [AdapterType.LORA, AdapterType.DORA, AdapterType.LOHA], indirect=True)
 @pytest.mark.parametrize("model_type", [None, "float", "int4"])
 def test_model_has_adapters(input_model_info, model_type):
+    model_info = input_model_info
+    adapter_type = model_info["adapter_type"]
+
     if model_type is None:
-        assert not model_has_adapters(get_onnx_model().model_path)
+        assert not model_has_adapters(get_onnx_model().model_path, adapter_type)
     else:
-        assert model_has_adapters(input_model_info[model_type]["onnx_model"].model_path)
+        assert model_has_adapters(model_info[model_type]["onnx_model"].model_path, adapter_type)
 
 
-@pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
-def test_extract_adapters_as_initializers(tmp_path, input_model_info, model_type):
-    if model_type == "qdq":
-        pytest.skip("QDQ model test is disabled due to flaky quantization failure")
-
-    # setup
-    p = create_pass_from_dict(
-        ExtractAdapters, {"make_inputs": False, "save_format": WeightsFileFormat.NUMPY}, disable_search=True
-    )
-    output_folder = tmp_path / "extracted-adapters"
-
-    # execute
-    extracted_model: ONNXModelHandler = p.run(input_model_info[model_type]["onnx_model"], output_folder)
-
-    # assert
-    assert Path(extracted_model.model_path).is_file()
-    assert Path(extracted_model.external_initializers_path).is_file()
-    # all lora weights should be extracted as external initializers
-    expected_weights = set(input_model_info[model_type]["all_weights"])
-    assert expected_weights == set(extracted_model.model_attributes["external_initializers"])
-    assert expected_weights == set(np.load(extracted_model.external_initializers_path))
-    # ensure all external initializers are marked as such
-    model_proto = onnx.load(extracted_model.model_path, load_external_data=False)
-    seen_weights = set()
-    for initializer in model_proto.graph.initializer:
-        if initializer.name in expected_weights:
-            assert initializer.data_location == onnx.TensorProto.EXTERNAL
-            seen_weights.add(initializer.name)
-    assert seen_weights == expected_weights
-
-
-@pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
-@pytest.mark.parametrize("save_format", [el.value for el in WeightsFileFormat])
-def test_extract_adapters_as_inputs(tmp_path, input_model_info, save_format, model_type):
-    if model_type == "qdq":
-        pytest.skip("QDQ model test is disabled due to flaky quantization failure")
-    if save_format == WeightsFileFormat.ONNX_ADAPTER and version.parse(ort.__version__) < version.parse("1.20"):
-        pytest.skip("ONNX_ADAPTER format is only supported in onnxruntime 1.20+")
-
-    # setup
-    p = create_pass_from_dict(ExtractAdapters, {"save_format": save_format}, disable_search=True)
-    output_folder = tmp_path / "extracted-adapters"
-
-    # execute
-    extracted_model: ONNXModelHandler = p.run(input_model_info[model_type]["onnx_model"], output_folder)
-    io_config = extracted_model.io_config
-
-    # assert
-    assert Path(extracted_model.model_path).is_file()
-    assert Path(extracted_model.constant_inputs_path).is_file()
-    expected_weights = set(input_model_info[model_type]["all_weights"])
-    # all lora weights should be extracted as constant inputs
-    assert expected_weights == set(extracted_model.model_attributes["constant_inputs"])
-    assert expected_weights == set(load_weights(extracted_model.constant_inputs_path))
-    # ensure all constant inputs are marked as such
-    assert all(i in io_config["input_names"] for i in expected_weights)
-
-
+@pytest.mark.parametrize("input_model_info", [AdapterType.LORA], indirect=True)
 @pytest.mark.parametrize("quantize_int4", [1, 0])
 @pytest.mark.parametrize("adapter_format", [el.value for el in WeightsFileFormat])
-def test_convert_adapters_command(tmp_path, input_model_info, adapter_format, quantize_int4):
+def test_convert_adapters_command(tmp_path, adapter_format, quantize_int4, input_model_info):
     if adapter_format == WeightsFileFormat.ONNX_ADAPTER and version.parse(ort.__version__) < version.parse("1.20"):
         pytest.skip("ONNX_ADAPTER format is only supported in onnxruntime 1.20+")
 
@@ -211,3 +183,68 @@ def test_convert_adapters_command(tmp_path, input_model_info, adapter_format, qu
     assert Path(exported_adapters_path).is_file()
     weight_dtype = "int4" if quantize_int4 else "float"
     assert set(input_model_info[weight_dtype]["all_weights"]) == set(load_weights(exported_adapters_path))
+
+
+@pytest.mark.parametrize("input_model_info", [AdapterType.LORA, AdapterType.DORA, AdapterType.LOHA], indirect=True)
+@pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
+def test_extract_adapters(tmp_path, model_type, input_model_info):
+    if model_type == "qdq":
+        pytest.skip("QDQ model test is disabled due to flaky quantization failure")
+    adapter_type = input_model_info["adapter_type"]
+
+    pass_config = {"make_inputs": False, "save_format": WeightsFileFormat.NUMPY, "adapter_type": adapter_type}
+
+    p = create_pass_from_dict(ExtractAdapters, pass_config, disable_search=True)
+    output_folder = tmp_path / "extracted-adapters"
+    extracted_model: ONNXModelHandler = p.run(input_model_info[model_type]["onnx_model"], output_folder)
+
+    # assert
+    assert Path(extracted_model.model_path).is_file()
+    assert Path(extracted_model.external_initializers_path).is_file()
+    # all lora weights should be extracted as external initializers
+    expected_weights = set(input_model_info[model_type]["all_weights"])
+    assert expected_weights == set(extracted_model.model_attributes["external_initializers"])
+    assert expected_weights == set(np.load(extracted_model.external_initializers_path))
+    # ensure all external initializers are marked as such
+    model_proto = onnx.load(extracted_model.model_path, load_external_data=False)
+    seen_weights = set()
+    for initializer in model_proto.graph.initializer:
+        if initializer.name in expected_weights:
+            assert initializer.data_location == onnx.TensorProto.EXTERNAL
+            seen_weights.add(initializer.name)
+    assert seen_weights == expected_weights
+
+
+@pytest.mark.parametrize("input_model_info", [AdapterType.LORA, AdapterType.DORA, AdapterType.LOHA], indirect=True)
+@pytest.mark.parametrize("model_type", ["float", "qdq", "int4"])
+@pytest.mark.parametrize("save_format", [el.value for el in WeightsFileFormat])
+def test_extract_adapters_as_inputs(tmp_path, save_format, model_type, input_model_info):
+    if model_type == "qdq":
+        pytest.skip("QDQ model test is disabled due to flaky quantization failure")
+    if save_format == WeightsFileFormat.ONNX_ADAPTER and version.parse(ort.__version__) < version.parse("1.20"):
+        pytest.skip("ONNX_ADAPTER format is only supported in onnxruntime 1.20+")
+    adapter_type = input_model_info["adapter_type"]
+    if adapter_type == AdapterType.DORA and model_type == "int4":
+        pytest.skip("DORA model test is disabled for int4 model")
+
+    # Create the configuration for the pass
+    pass_config = {"save_format": save_format, "adapter_type": adapter_type}
+    p = create_pass_from_dict(ExtractAdapters, pass_config, disable_search=True)
+    output_folder = tmp_path / "extracted-adapters"
+
+    # Execute the pass
+    extracted_model: ONNXModelHandler = p.run(input_model_info[model_type]["onnx_model"], output_folder)
+    io_config = extracted_model.io_config
+
+    # Assertions
+    assert Path(extracted_model.model_path).is_file()
+    assert Path(extracted_model.constant_inputs_path).is_file()
+
+    expected_weights = set(input_model_info[model_type]["all_weights"])
+
+    # Check if all expected weights are extracted
+    assert expected_weights == set(extracted_model.model_attributes["constant_inputs"])
+    assert expected_weights == set(load_weights(extracted_model.constant_inputs_path))
+
+    # Ensure all constant inputs are present in the input names
+    assert all(i in io_config["input_names"] for i in expected_weights)
