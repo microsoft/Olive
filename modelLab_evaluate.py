@@ -15,6 +15,10 @@ from olive.evaluator import (
 from olive.evaluator.metric import MetricType
 from olive.hardware import Device
 from olive.model.handler import OliveModelHandler
+import os
+
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+
 
 @Registry.register("MyCustomEvaluator")
 class MyCustomEvaluator(OliveEvaluator):
@@ -64,39 +68,49 @@ class MyCustomEvaluator(OliveEvaluator):
         device: Device = Device.CPU,
         execution_providers: Union[str, list[str]] = None,
     ) -> list[list[float]]:
-        # import onnxruntime_genai as og
-        # model = og.Model(model_folder)
-        # tokenizer = og.Tokenizer(model)
-        # params = og.GeneratorParams(model)
-        # search_options = {}
-        # search_options["max_length"] = metric.user_config.max_length
-        # params.set_search_options(**search_options)
+        import onnxruntime_genai as og
+        # strange model.model_path is to XX\\cache\\default_workflow\\runs\\10cdfb01\\models
+        model_folder = os.path.dirname(next(model.model_components, None).model_path)
+        model = og.Model(model_folder)
+        tokenizer = og.Tokenizer(model)
+        tokenizer_stream = tokenizer.create_stream()
+        params = og.GeneratorParams(model)
+        search_options = {}
+        search_options["max_length"] = metric.user_config.run_kwargs["max_length"]
+        params.set_search_options(**search_options)
 
         result = []
         i = 0
         for input_data, _ in dataloader:
             # chat_template = "<｜User｜>{input}<｜Assistant｜><think>"
             # prompt = f"{chat_template.format(input=input_data)}"
-            # input_tokens = tokenizer.encode(prompt)
+            input_tokens = input_data['input_ids'][0]
+            test = ""
+            for key in input_tokens:
+                test += tokenizer_stream.decode(key)
 
-            # generator = og.Generator(model, params)
-            # generator.append_tokens(input_tokens)
+            generator = og.Generator(model, params)
+            generator.append_tokens(input_tokens)
 
+            test = ""
             latencies = [ 0 ]
-            # while not generator.is_done():
-            #     t = time.perf_counter()
-            #     generator.generate_next_token()
-            #     latencies.append(time.perf_counter() - t)
+            while not generator.is_done():
+                t = time.perf_counter()
+                generator.generate_next_token()
+                latencies.append(time.perf_counter() - t)
+                
+                new_token = generator.get_next_tokens()[0]
+                test += tokenizer_stream.decode(new_token)
             result.append(latencies)
             i += 1
-            if i >= metric.user_config.max_samples:
+            if i >= metric.user_config.run_kwargs["max_samples"]:
                 break
         return result
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="test.json", help="path to input config file")
-    parser.add_argument("--model_config", default="D:\\Downloads\\test-final\\huggingface_Intel_bert-base-uncased-mrpc_v1\\history\\no quant\\model_config.json", help="path to input model config file")
+    parser.add_argument("--model_config", default="D:\\Downloads\\test-llm\\huggingface_deepseek-ai_DeepSeek-R1-Distill-Qwen-1.5B_v1\\history\\new qpu_T(20250429_134754)\\model_config.json", help="path to input model config file")
     return parser.parse_args()
 
 def main():
@@ -139,11 +153,24 @@ def main():
     )
 
     #logger.info("Evaluating model ...")
-    result: MetricResult = target.evaluate_model(
-        model_config=model_config,
-        evaluator_config=engine.evaluator_config,
-        accelerator=accelerator_specs[0],
-    )
+
+    if model_config.type.lower() == "compositemodel":
+        evaluator_config=engine.evaluator_config
+        accelerator=accelerator_specs[0]
+        device = accelerator.accelerator_type if accelerator else Device.CPU
+        execution_providers = accelerator.execution_provider if accelerator else None
+
+        model = model_config.create_model()
+        evaluator: OliveEvaluator = evaluator_config.create_evaluator(model)
+        result: MetricResult = evaluator.evaluate(
+            model, evaluator_config.metrics, device=device, execution_providers=execution_providers
+        )
+    else:
+        result: MetricResult = target.evaluate_model(
+            model_config=model_config,
+            evaluator_config=engine.evaluator_config,
+            accelerator=accelerator_specs[0],
+        )
 
     output_file = Path(args.config).parent / "metrics.json"
     resultStr = str(result)

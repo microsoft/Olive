@@ -28,8 +28,8 @@
                 "strategy": "line-by-line",
                 "add_special_tokens": false,
                 "max_samples": 128,
-                "max_seq_len": 512,
-                "template":""
+                "max_seq_len": 50,
+                "text_template":"<｜User｜>{text}<｜Assistant｜><think>"
             }
         }
     ],
@@ -43,8 +43,10 @@
                     "data_config": "wikitext2_train",
                     "sub_types": [ { "name": "avg" } ],
                     "user_config": {
-                        "max_length": 100,
-                        "max_samples": 20
+                        "run_kwargs":{
+                            "max_length": 100,
+                            "max_samples": 20
+                        }
                     }
                 }
             ]
