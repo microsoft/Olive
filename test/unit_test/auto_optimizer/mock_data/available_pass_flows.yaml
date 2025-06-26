@@ -17,12 +17,14 @@ _variables:
       "OnnxConversion",
       "OrtTransformersOptimization",
       "OnnxQuantization",
+      "OnnxBlockWiseRtnQuantization",
       "OrtSessionParamsTuning",
     ]
   - &int4 [
       "OnnxConversion",
       "OrtTransformersOptimization",
-      "OnnxMatMul4Quantizer",
+      "OnnxBlockWiseRtnQuantization",
+      "OnnxHqqQuantization",
       "OrtSessionParamsTuning",
     ]
   - &inc_int8 [

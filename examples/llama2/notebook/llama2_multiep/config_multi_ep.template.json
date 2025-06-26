@@ -71,11 +71,10 @@
             "use_gqa": true
         },
         "blockwise_quant_int4": {
-            "type": "OnnxMatMul4Quantizer",
+            "type": "OnnxBlockWiseRtnQuantization",
             "save_as_external_data": true,
             "all_tensors_to_one_file": true,
-            "block_size": 32,
-            "is_symmetric": true
+            "block_size": 32
         }
     },
     "pass_flows": [

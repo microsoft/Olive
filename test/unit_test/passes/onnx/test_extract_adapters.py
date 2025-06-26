@@ -21,7 +21,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import AdapterType, model_has_adapters
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
-from olive.passes.onnx.quantization import OnnxMatMul4Quantizer
+from olive.passes.onnx.rtn_quantization import OnnxBlockWiseRtnQuantization
 from test.unit_test.utils import get_onnx_model
 
 
@@ -122,8 +122,8 @@ def input_model_info_fixture(tmp_path_factory, request):
     # olive_qdq_onnx_model = qdq_pass.run(olive_onnx_model, str(tmp_path / "qdq-onnx"))
 
     # int4 quantization
-    matmul4_quantizer = create_pass_from_dict(OnnxMatMul4Quantizer, {}, disable_search=True)
-    olive_int4_onnx_model = matmul4_quantizer.run(olive_onnx_model, str(tmp_path / "int4-onnx"))
+    rtn_quantizer = create_pass_from_dict(OnnxBlockWiseRtnQuantization, {}, disable_search=True)
+    olive_int4_onnx_model = rtn_quantizer.run(olive_onnx_model, str(tmp_path / "int4-onnx"))
 
     return {
         "adapter_type": adapter_type,

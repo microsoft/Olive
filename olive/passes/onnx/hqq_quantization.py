@@ -9,7 +9,7 @@ from typing import Optional
 import onnx_ir as ir
 import torch
 
-from olive.constants import MSFT_DOMAIN, OpType
+from olive.constants import MSFT_DOMAIN, AccuracyLevel, OpType
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -40,6 +40,15 @@ class OnnxHqqQuantization(Pass):
                 default_value=0,
                 description="Axis to quantize. Default value is 0.",
             ),
+            "accuracy_level": PassConfigParam(
+                type_=AccuracyLevel,
+                default_value=AccuracyLevel.unset,
+                description=(
+                    "Accuracy level of the 4-bit quantized MatMul computation. Refer to the MatMulNBits contrib op's"
+                    " 'accuracy_level' attribute for details"
+                    " (https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits)."
+                ),
+            ),
             "nodes_to_exclude": PassConfigParam(
                 type_=list,
                 default_value=None,
@@ -64,7 +73,14 @@ class OnnxHqqQuantization(Pass):
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
         ir_model = model.load_ir_model()
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
-        self._quantize_model(ir_model, config.nodes_to_exclude, config.nodes_to_include, config.block_size, config.axis)
+        self._quantize_model(
+            ir_model,
+            config.nodes_to_exclude,
+            config.nodes_to_include,
+            config.block_size,
+            config.axis,
+            config.accuracy_level,
+        )
         return ir_model_to_olive_model(ir_model, output_model_path, config)
 
     def _quantize_model(
@@ -74,6 +90,7 @@ class OnnxHqqQuantization(Pass):
         nodes_to_include: Optional[list[str]] = None,
         block_size: int = 128,
         axis: int = 0,
+        accuracy_level: AccuracyLevel = AccuracyLevel.unset,
     ):
         nodes_to_exclude = nodes_to_exclude or []
         nodes_to_include = nodes_to_include or []
@@ -91,7 +108,7 @@ class OnnxHqqQuantization(Pass):
                     logger.debug("skip to quantize %s as it has no initializer", node_name)
                     continue
 
-                quantized_node, initializer_graph = self._quantize(node, block_size, axis)
+                quantized_node, initializer_graph = self._quantize(node, block_size, axis, accuracy_level)
 
                 if quantized_node.op_type == OpType.MatMulNBits:
                     registered = {}
@@ -113,7 +130,9 @@ class OnnxHqqQuantization(Pass):
             else:
                 logger.debug("skip to quantize %s ...", node_name)
 
-    def _quantize(self, node: ir.Node, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
+    def _quantize(
+        self, node: ir.Node, block_size: int, axis: int, accuracy_level: AccuracyLevel
+    ) -> tuple[ir.Node, ir.Graph]:
         """Quantize the weight of the target node and return the new nodes.
 
         Target node:        QOperator node:
@@ -125,12 +144,14 @@ class OnnxHqqQuantization(Pass):
         logger.debug("Start quantizing %s ...", node.name)
 
         if node.op_type == OpType.MatMul:
-            return self._quantize_matmul(node, block_size, axis)
+            return self._quantize_matmul(node, block_size, axis, accuracy_level)
         else:
             logger.error("Unsupported op %s for weight-only quantization.", node.op_type)
             return node, node.graph
 
-    def _quantize_matmul(self, node: ir.Node, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
+    def _quantize_matmul(
+        self, node: ir.Node, block_size: int, axis: int, accuracy_level: AccuracyLevel
+    ) -> tuple[ir.Node, ir.Graph]:
         """Quantize weight B of MatMul node to int4.
 
         Currently only support 2D constant matrix and axis 0 blockwise quantization.
@@ -156,6 +177,8 @@ class OnnxHqqQuantization(Pass):
         kwargs["N"] = cols
         kwargs["bits"] = 4
         kwargs["block_size"] = block_size
+        if accuracy_level > 0:
+            kwargs["accuracy_level"] = accuracy_level
 
         node.outputs[0].name = node.outputs[0].name + "_Q4"
 
