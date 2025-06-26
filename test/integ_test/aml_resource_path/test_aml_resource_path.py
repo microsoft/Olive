@@ -38,15 +38,6 @@ class TestAMLResourcePath:
                     "relative_path": "LocalUpload/db47b57f5cb1f9da097f8d6e540eaab0/local_folder/",
                 },
             },
-            ResourceType.AzureMLJobOutput: {
-                "type": ResourceType.AzureMLJobOutput,
-                "config": {
-                    "azureml_client": workspace_config,
-                    "job_name": "23add417-6f33-4d4b-85aa-3f33d2b669a8",
-                    "output_name": "pipeline_output",
-                    "relative_path": "model.onnx",
-                },
-            },
         }
 
     @pytest.mark.parametrize(
@@ -62,7 +53,6 @@ class TestAMLResourcePath:
                 f"{ResourceType.AzureMLDatastore}_folder",
                 marks=pytest.mark.skip(reason="Credential bug in azureml-fsspec"),
             ),
-            ResourceType.AzureMLJobOutput,
         ],
     )
     def test_create_resource_path(self, resource_path_type):
@@ -81,12 +71,6 @@ class TestAMLResourcePath:
             pytest.param(
                 f"{ResourceType.AzureMLDatastore}_folder",
                 marks=pytest.mark.skip(reason="Credential bug in azureml-fsspec"),
-            ),
-            pytest.param(
-                ResourceType.AzureMLJobOutput,
-                marks=pytest.mark.skip(
-                    reason="AzureML bug: BaseJob is not supported in the current API version Apr2023Preview"
-                ),
             ),
         ],
     )

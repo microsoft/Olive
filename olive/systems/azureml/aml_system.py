@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
 from azure.ai.ml.dsl import pipeline
-from azure.ai.ml.entities import BuildContext, Environment, Model, UserIdentityConfiguration
+from azure.ai.ml.entities import BuildContext, Environment, UserIdentityConfiguration
 from azure.ai.ml.exceptions import JobException
 from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
@@ -27,7 +27,6 @@ from olive.model import ModelConfig
 from olive.resource_path import (
     AZUREML_RESOURCE_TYPES,
     LOCAL_RESOURCE_TYPES,
-    AzureMLModel,
     ResourcePath,
     ResourceType,
     create_resource_path,
@@ -52,7 +51,6 @@ RESOURCE_TYPE_TO_ASSET_TYPE = {
     ResourceType.AzureMLModel: AssetTypes.CUSTOM_MODEL,
     ResourceType.AzureMLRegistryModel: AssetTypes.CUSTOM_MODEL,
     ResourceType.AzureMLDatastore: None,
-    ResourceType.AzureMLJobOutput: AssetTypes.CUSTOM_MODEL,
 }
 
 
@@ -339,37 +337,6 @@ class AzureMLSystem(OliveSystem):
                         f" {system_workspace_config}. Olive will download the model to local storage, then upload it to"
                         "the system workspace."
                     )
-
-        if resource_path.type == ResourceType.AzureMLJobOutput:
-            # there is no direct way to use the output of a job as input to another job
-            # so we create a dummy aml model and use it as input
-            ml_client = self.azureml_client_config.create_client()
-
-            # create aml model
-            logger.debug("Creating aml model for job output %s", resource_path)
-            aml_model = retry_func(
-                ml_client.models.create_or_update,
-                [
-                    Model(
-                        path=resource_path.get_path(),
-                        name="olive-backend-model",
-                        description="Model created by Olive backend. Ignore this model.",
-                        type=AssetTypes.CUSTOM_MODEL,
-                    )
-                ],
-                max_tries=self.azureml_client_config.max_operation_retries,
-                delay=self.azureml_client_config.operation_retry_interval,
-                exceptions=ServiceResponseError,
-            )
-            resource_path = create_resource_path(
-                AzureMLModel(
-                    {
-                        "azureml_client": self.azureml_client_config,
-                        "name": aml_model.name,
-                        "version": aml_model.version,
-                    }
-                )
-            )
 
         return Input(type=asset_type), Input(type=asset_type, path=resource_path.get_path())
 
