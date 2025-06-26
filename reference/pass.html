@@ -3939,6 +3939,15 @@
 <p><strong>Input:</strong> handler.onnx.ONNXModelHandler</p>
 <p><strong>Output:</strong> handler.onnx.ONNXModelHandler</p>
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-adapter_type">
+<span class="sig-name descname"><span class="pre">adapter_type</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-adapter_type" title="Link to this definition">#</a></dt>
+<dd><p>Type of adapter to extract. Valid values are dict_values([&lt;AdapterType.LORA: ‘lora’&gt;, &lt;AdapterType.DORA: ‘dora’&gt;, &lt;AdapterType.LOHA: ‘loha’&gt;]).</p>
+<p><strong>type:</strong> olive.passes.onnx.common.AdapterType</p>
+<p><strong>default_value:</strong> lora</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-make_inputs">
 <span class="sig-name descname"><span class="pre">make_inputs</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-make_inputs" title="Link to this definition">#</a></dt>
 <dd><p>Convert adapter weights to inputs. If false, the adapter weights will be set as initializers with external data.</p>

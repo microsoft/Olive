@@ -1163,6 +1163,7 @@
 <h1>Generate Adapters<a class="headerlink" href="#generate-adapters" title="Link to this heading">#</a></h1>
 <p>Generate ONNX model with adapters as inputs.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">adapter</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+                              <span class="p">[</span><span class="o">--</span><span class="n">adapter_type</span> <span class="p">{</span><span class="n">lora</span><span class="p">,</span><span class="n">dora</span><span class="p">,</span><span class="n">loha</span><span class="p">}]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">adapter_format</span> <span class="p">{</span><span class="n">pt</span><span class="p">,</span><span class="n">numpy</span><span class="p">,</span><span class="n">safetensors</span><span class="p">,</span><span class="n">onnx_adapter</span><span class="p">}]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
@@ -1182,6 +1183,11 @@
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
 <p>Default: optimized-model</p>
+</dd>
+<dt><kbd>--adapter_type</kbd></dt>
+<dd><p>Possible choices: lora, dora, loha</p>
+<p>Type of adapters to extract. Default is lora.</p>
+<p>Default: lora</p>
 </dd>
 <dt><kbd>--adapter_format</kbd></dt>
 <dd><p>Possible choices: pt, numpy, safetensors, onnx_adapter</p>
