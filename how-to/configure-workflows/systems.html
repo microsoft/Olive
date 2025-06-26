@@ -680,6 +680,7 @@ From the time being, Olive only supports the following base Dockerfiles based on
 <li><p>The azureml extra dependencies are installed with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">olive-ai[azureml]</span></code> or <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">azure-ai-ml</span> <span class="pre">azure-identity</span></code>.</p></li>
 <li><p>AzureML Workspace with necessary compute created. Read <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/concept-workspace">Azure Machine Learning Workspace</a> for more details. Download
 the workspace config json.</p></li>
+<li><p>In order to submit and run a job on AzureML Workspace, you need either of the following roles assigned to the workspace: <code class="docutils literal notranslate"><span class="pre">AzureML</span> <span class="pre">Data</span> <span class="pre">Scientist</span></code>, <code class="docutils literal notranslate"><span class="pre">Contributor</span></code> or <code class="docutils literal notranslate"><span class="pre">Owner</span></code>. Find more details about permission requirement in this <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-assign-roles?view=azureml-api-2&amp;amp;tabs=team-lead#default-roles">document</a>.</p></li>
 </ol>
 </section>
 <section id="native-azureml-system">

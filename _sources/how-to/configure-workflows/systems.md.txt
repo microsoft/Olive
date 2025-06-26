@@ -251,6 +251,7 @@ The AzureML system represents the Azure Machine Learning workspace where the Pas
 1. The azureml extra dependencies are installed with `pip install olive-ai[azureml]` or `pip install azure-ai-ml azure-identity`.
 1. AzureML Workspace with necessary compute created. Read [Azure Machine Learning Workspace](https://learn.microsoft.com/en-us/azure/machine-learning/concept-workspace) for more details. Download
 the workspace config json.
+1. In order to submit and run a job on AzureML Workspace, you need either of the following roles assigned to the workspace: `AzureML Data Scientist`, `Contributor` or `Owner`. Find more details about permission requirement in this [document](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-assign-roles?view=azureml-api-2&tabs=team-lead#default-roles).
 
 ### Native AzureML System
 
