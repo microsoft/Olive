@@ -24,6 +24,7 @@ from olive.cli.base import (
 )
 from olive.common.utils import set_nested_dict_value
 from olive.constants import Precision
+from olive.hardware.constants import ExecutionProvider
 from olive.package_config import OlivePackageConfig
 
 
@@ -183,12 +184,12 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         # TODO(anyone): Change add_accelerator_options to have no default device, this can be inferred
         # by create_accelerators
-        if (self.args.provider == "DmlExecutionProvider") and (self.args.device not in ["gpu", "npu"]):
+        if (self.args.provider == ExecutionProvider.DmlExecutionProvider) and (self.args.device not in ["gpu", "npu"]):
             # Force the device to gpu for Direct ML provider
             self.args.device = "gpu"
-        elif self.args.provider in ["QNNExecutionProvider", "VitisAIExecutionProvider"]:
+        elif self.args.provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]:
             self.args.device = "npu"
-        elif self.args.provider == "CUDAExecutionProvider":
+        elif self.args.provider == ExecutionProvider.CUDAExecutionProvider:
             self.args.device = "gpu"
 
         # _get_passes_config requires input_model to be set
@@ -288,7 +289,10 @@ class AutoOptCommand(BaseOliveCLICommand):
             (
                 ("transformer_optimizer", "float16"),
                 self.args.precision == Precision.FP16
-                or (self.args.precision == Precision.INT4 and self.args.provider != "CPUExecutionProvider"),
+                or (
+                    self.args.precision == Precision.INT4
+                    and self.args.provider != ExecutionProvider.CPUExecutionProvider
+                ),
             ),
             (("to_fixed_shape", "dim_param"), self.args.dynamic_to_fixed_shape_dim_param),
             (("to_fixed_shape", "dim_value"), self.args.dynamic_to_fixed_shape_dim_value),
@@ -312,7 +316,7 @@ class AutoOptCommand(BaseOliveCLICommand):
         if self.args.cost_model is not None and self.args.memory is None:
             raise ValueError("memory is required if cost_model is provided.")
 
-        if self.args.provider != "QNNExecutionProvider":
+        if self.args.provider != ExecutionProvider.QNNExecutionProvider:
             # Use the DynamicToFixedShape pass only for QNNExecutionProvider
             # becase QNN doesn't support dynamic shaped inputs
             passes_to_remove.add("to_fixed_shape")
@@ -321,7 +325,7 @@ class AutoOptCommand(BaseOliveCLICommand):
             # will re-enable it if needed in the future
             passes_to_remove.update(["transformer_optimizer", "peephole_optimizer"])
 
-        if self.args.provider not in {"JsExecutionProvider", "WebGpuExecutionProvider"}:
+        if self.args.provider not in {ExecutionProvider.JsExecutionProvider, ExecutionProvider.WebGpuExecutionProvider}:
             # JS EP doesn't support fp16 io
             passes_to_remove.add("fp16_to_fp32")
 

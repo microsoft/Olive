@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Optional, Union
 
 from olive.common.utils import StrEnumBase
-from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
+from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS, ExecutionProvider
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +19,6 @@ class Device(StrEnumBase):
     NPU = "npu"
     VPU = "vpu"
     INTEL_MYRIAD = "intel_myriad"
-
-
-class ExecutionProvider(StrEnumBase):
-    CPUExecutionProvider = "CPUExecutionProvider"
-    CUDAExecutionProvider = "CUDAExecutionProvider"
-    DmlExecutionProvider = "DmlExecutionProvider"
-    OpenVINOExecutionProvider = "OpenVINOExecutionProvider"
-    TensorrtExecutionProvider = "TensorrtExecutionProvider"
 
 
 MEM_TO_INT = {"KB": 1e3, "MB": 1e6, "GB": 1e9, "TB": 1e12}
@@ -72,17 +64,21 @@ class AcceleratorSpec:
         return int(v[:-2]) * int(MEM_TO_INT[v[-2:]])
 
 
-DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="CPUExecutionProvider")
-DEFAULT_GPU_CUDA_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider")
+DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(
+    accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+)
+DEFAULT_GPU_CUDA_ACCELERATOR = AcceleratorSpec(
+    accelerator_type=Device.GPU, execution_provider=ExecutionProvider.CUDAExecutionProvider
+)
 DEFAULT_GPU_TRT_ACCELERATOR = AcceleratorSpec(
-    accelerator_type=Device.GPU, execution_provider="TensorrtExecutionProvider"
+    accelerator_type=Device.GPU, execution_provider=ExecutionProvider.TensorrtExecutionProvider
 )
 
 
 class AcceleratorLookup:
     @staticmethod
     def get_managed_supported_execution_providers(device: Device):
-        return [*DEVICE_TO_EXECUTION_PROVIDERS.get(device), "CPUExecutionProvider"]
+        return [*DEVICE_TO_EXECUTION_PROVIDERS.get(device), ExecutionProvider.CPUExecutionProvider]
 
     @staticmethod
     def get_execution_providers_for_device(device: Device):
@@ -130,7 +126,7 @@ class AcceleratorLookup:
 
         ep_to_devices = {}
         for ep in execution_providers:
-            if ep == "CPUExecutionProvider":
+            if ep == ExecutionProvider.CPUExecutionProvider:
                 # cannot infer device for CPUExecutionProvider since all ORT EP supports CPU
                 continue
 
@@ -172,7 +168,7 @@ class AcceleratorLookup:
         if not execution_providers:
             return None
 
-        if execution_providers == ["CPUExecutionProvider"]:
+        if execution_providers == [ExecutionProvider.CPUExecutionProvider]:
             inferred_devices = ["cpu"]
         else:
             inferred_devices = AcceleratorLookup.infer_devices_from_execution_providers(execution_providers)

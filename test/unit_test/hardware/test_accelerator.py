@@ -11,6 +11,7 @@ import pytest
 
 from olive.common.config_utils import validate_config
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
+from olive.hardware.constants import ExecutionProvider
 from olive.systems.accelerator_creator import AcceleratorNormalizer, create_accelerators
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.python_environment.python_environment_system import PythonEnvironmentSystem
@@ -20,13 +21,13 @@ from olive.systems.system_config import SystemConfig
 @pytest.mark.parametrize(
     "execution_providers_test",
     [
-        (["CPUExecutionProvider"], None),
+        ([ExecutionProvider.CPUExecutionProvider], None),
         (["AzureMLExecutionProvider"], None),
-        (["OpenVINOExecutionProvider"], None),
-        (["CUDAExecutionProvider"], ["gpu"]),
-        (["CPUExecutionProvider", "CUDAExecutionProvider"], ["gpu"]),
-        (["DmlExecutionProvider", "CUDAExecutionProvider"], None),
-        (["QNNExecutionProvider", "CUDAExecutionProvider"], ["npu", "gpu"]),
+        ([ExecutionProvider.OpenVINOExecutionProvider], None),
+        ([ExecutionProvider.CUDAExecutionProvider], ["gpu"]),
+        ([ExecutionProvider.CPUExecutionProvider, ExecutionProvider.CUDAExecutionProvider], ["gpu"]),
+        ([ExecutionProvider.DmlExecutionProvider, ExecutionProvider.CUDAExecutionProvider], None),
+        ([ExecutionProvider.QNNExecutionProvider, ExecutionProvider.CUDAExecutionProvider], ["npu", "gpu"]),
     ],
 )
 def test_infer_accelerators_from_execution_provider(execution_providers_test):
@@ -42,22 +43,28 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
         (
             {
                 "type": "LocalSystem",
-                "config": {"accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}]},
+                "config": {
+                    "accelerators": [{"device": "cpu", "execution_providers": [ExecutionProvider.CPUExecutionProvider]}]
+                },
             },
-            [("cpu", "CPUExecutionProvider")],
-            ["CPUExecutionProvider"],
+            [("cpu", ExecutionProvider.CPUExecutionProvider)],
+            [ExecutionProvider.CPUExecutionProvider],
         ),
         # PythonEnvironment
         # no accelerators provided
         (
             {"type": "PythonEnvironment", "config": {"python_environment_path": Path(sys.executable).parent}},
-            [("cpu", "CPUExecutionProvider")],
-            ["AzureExecutionProvider", "CPUExecutionProvider"],
+            [("cpu", ExecutionProvider.CPUExecutionProvider)],
+            ["AzureExecutionProvider", ExecutionProvider.CPUExecutionProvider],
         ),
         (
             {"type": "PythonEnvironment", "config": {"python_environment_path": Path(sys.executable).parent}},
-            [("cpu", "CPUExecutionProvider")],
-            ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"],
+            [("cpu", ExecutionProvider.CPUExecutionProvider)],
+            [
+                ExecutionProvider.TensorrtExecutionProvider,
+                ExecutionProvider.CUDAExecutionProvider,
+                ExecutionProvider.CPUExecutionProvider,
+            ],
         ),
         # only device provided
         (
@@ -65,40 +72,46 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
                 "type": "PythonEnvironment",
                 "config": {"accelerators": [{"device": "cpu"}], "python_environment_path": Path(sys.executable).parent},
             },
-            [("cpu", "CPUExecutionProvider")],
-            ["CPUExecutionProvider"],
+            [("cpu", ExecutionProvider.CPUExecutionProvider)],
+            [ExecutionProvider.CPUExecutionProvider],
         ),
         (
             {
                 "type": "PythonEnvironment",
                 "config": {"accelerators": [{"device": "gpu"}], "python_environment_path": Path(sys.executable).parent},
             },
-            [("gpu", "CUDAExecutionProvider")],
-            ["CUDAExecutionProvider"],
+            [("gpu", ExecutionProvider.CUDAExecutionProvider)],
+            [ExecutionProvider.CUDAExecutionProvider],
         ),
         # only EP provided
         (
             {
                 "type": "PythonEnvironment",
                 "config": {
-                    "accelerators": [{"execution_providers": ["CPUExecutionProvider"]}],
+                    "accelerators": [{"execution_providers": [ExecutionProvider.CPUExecutionProvider]}],
                     "python_environment_path": Path(sys.executable).parent,
                 },
             },
-            [("cpu", "CPUExecutionProvider")],
-            ["CPUExecutionProvider"],
+            [("cpu", ExecutionProvider.CPUExecutionProvider)],
+            [ExecutionProvider.CPUExecutionProvider],
         ),
         # both device and EP provided
         (
             {
                 "type": "PythonEnvironment",
                 "config": {
-                    "accelerators": [{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}],
+                    "accelerators": [
+                        {"device": "gpu", "execution_providers": [ExecutionProvider.CUDAExecutionProvider]}
+                    ],
                     "python_environment_path": Path(sys.executable).parent,
                 },
             },
-            [("gpu", "CUDAExecutionProvider")],
-            ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"],
+            [("gpu", ExecutionProvider.CUDAExecutionProvider)],
+            [
+                ExecutionProvider.TensorrtExecutionProvider,
+                ExecutionProvider.CUDAExecutionProvider,
+                ExecutionProvider.CPUExecutionProvider,
+            ],
         ),
         # AzureML system
         (
@@ -107,10 +120,12 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
                 "config": {
                     "aml_compute": "aml_compute",
                     "olive_managed_env": True,
-                    "accelerators": [{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}],
+                    "accelerators": [
+                        {"device": "gpu", "execution_providers": [ExecutionProvider.CUDAExecutionProvider]}
+                    ],
                 },
             },
-            [("gpu", "CUDAExecutionProvider")],
+            [("gpu", ExecutionProvider.CUDAExecutionProvider)],
             None,
         ),
         (
@@ -119,10 +134,12 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
                 "config": {
                     "aml_compute": "aml_compute",
                     "olive_managed_env": False,
-                    "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+                    "accelerators": [
+                        {"device": "cpu", "execution_providers": [ExecutionProvider.CPUExecutionProvider]}
+                    ],
                 },
             },
-            [("cpu", "CPUExecutionProvider")],
+            [("cpu", ExecutionProvider.CPUExecutionProvider)],
             None,
         ),
         (
@@ -130,7 +147,7 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
                 "type": "AzureML",
                 "config": {"aml_compute": "aml_compute", "olive_managed_env": False},
             },
-            [("cpu", "CPUExecutionProvider")],
+            [("cpu", ExecutionProvider.CPUExecutionProvider)],
             None,
         ),
         # Docker system
@@ -143,22 +160,30 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
                         "build_context_path": "docker",
                         "dockerfile": "Dockerfile",
                     },
-                    "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+                    "accelerators": [
+                        {"device": "cpu", "execution_providers": [ExecutionProvider.CPUExecutionProvider]}
+                    ],
                 },
             },
-            [("cpu", "CPUExecutionProvider")],
-            ["CPUExecutionProvider"],
+            [("cpu", ExecutionProvider.CPUExecutionProvider)],
+            [ExecutionProvider.CPUExecutionProvider],
         ),
         # LocalSystem with memory
         (
             {
                 "type": "LocalSystem",
                 "config": {
-                    "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"], "memory": 1234}]
+                    "accelerators": [
+                        {
+                            "device": "cpu",
+                            "execution_providers": [ExecutionProvider.CPUExecutionProvider],
+                            "memory": 1234,
+                        }
+                    ]
                 },
             },
-            [("cpu", "CPUExecutionProvider", 1234)],
-            ["CPUExecutionProvider"],
+            [("cpu", ExecutionProvider.CPUExecutionProvider, 1234)],
+            [ExecutionProvider.CPUExecutionProvider],
         ),
     ],
 )
@@ -195,21 +220,25 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
         (
             # fill both device and ep.
             {"type": "LocalSystem"},
-            [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+            [{"device": "cpu", "execution_providers": [ExecutionProvider.CPUExecutionProvider]}],
             ["No accelerators specified. Defaulting to cpu."],
-            ["AzureExecutionProvider", "CPUExecutionProvider"],
+            ["AzureExecutionProvider", ExecutionProvider.CPUExecutionProvider],
         ),
         (
             # fill both device and ep
             {"type": "LocalSystem"},
-            [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+            [{"device": "cpu", "execution_providers": [ExecutionProvider.CPUExecutionProvider]}],
             ["No accelerators specified. Defaulting to cpu."],
-            ["TensorrtExecutionProvider", "CUDAExecutionProvider", "CPUExecutionProvider"],
+            [
+                ExecutionProvider.TensorrtExecutionProvider,
+                ExecutionProvider.CUDAExecutionProvider,
+                ExecutionProvider.CPUExecutionProvider,
+            ],
         ),
         (
             # fill the EPs.
             {"type": "LocalSystem", "config": {"accelerators": [{"device": "cpu"}]}},
-            [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+            [{"device": "cpu", "execution_providers": [ExecutionProvider.CPUExecutionProvider]}],
             [
                 "The following execution providers are filtered: OpenVINOExecutionProvider,DmlExecutionProvider.",
                 (
@@ -217,12 +246,16 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                     "['CPUExecutionProvider']"
                 ),
             ],
-            ["OpenVINOExecutionProvider", "CPUExecutionProvider", "DmlExecutionProvider"],
+            [
+                ExecutionProvider.OpenVINOExecutionProvider,
+                ExecutionProvider.CPUExecutionProvider,
+                ExecutionProvider.DmlExecutionProvider,
+            ],
         ),
         (
             # fill the EPs.
             {"type": "LocalSystem", "config": {"accelerators": [{"device": "gpu"}]}},
-            [{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}],
+            [{"device": "gpu", "execution_providers": [ExecutionProvider.CUDAExecutionProvider]}],
             [
                 "The following execution providers are filtered: CPUExecutionProvider.",
                 (
@@ -230,47 +263,58 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                     "['CUDAExecutionProvider']"
                 ),
             ],
-            ["CPUExecutionProvider", "CUDAExecutionProvider"],
+            [ExecutionProvider.CPUExecutionProvider, ExecutionProvider.CUDAExecutionProvider],
         ),
         (
             # user only specify EPs
             {
                 "type": "LocalSystem",
-                "config": {"accelerators": [{"execution_providers": ["CPUExecutionProvider"]}]},
+                "config": {"accelerators": [{"execution_providers": [ExecutionProvider.CPUExecutionProvider]}]},
             },
-            [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+            [{"device": "cpu", "execution_providers": [ExecutionProvider.CPUExecutionProvider]}],
             ["the accelerator device is not specified. Inferred device: cpu."],
-            ["CPUExecutionProvider"],
+            [ExecutionProvider.CPUExecutionProvider],
         ),
         (
             # deduce device for GPU
             {
                 "type": "LocalSystem",
                 "config": {
-                    "accelerators": [{"execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"]}]
+                    "accelerators": [
+                        {
+                            "execution_providers": [
+                                ExecutionProvider.CUDAExecutionProvider,
+                                ExecutionProvider.CPUExecutionProvider,
+                            ]
+                        }
+                    ]
                 },
             },
             [
                 {
                     "device": "gpu",
                     "execution_providers": [
-                        "CUDAExecutionProvider",
-                        "CPUExecutionProvider",
+                        ExecutionProvider.CUDAExecutionProvider,
+                        ExecutionProvider.CPUExecutionProvider,
                     ],
                 }
             ],
             [],
-            ["CUDAExecutionProvider", "CPUExecutionProvider"],
+            [ExecutionProvider.CUDAExecutionProvider, ExecutionProvider.CPUExecutionProvider],
         ),
         (
             # doesn't fill both device and ep.
             {
                 "type": "LocalSystem",
-                "config": {"accelerators": [{"device": "cpu", "execution_providers": ["OpenVINOExecutionProvider"]}]},
+                "config": {
+                    "accelerators": [
+                        {"device": "cpu", "execution_providers": [ExecutionProvider.OpenVINOExecutionProvider]}
+                    ]
+                },
             },
-            [{"device": "cpu", "execution_providers": ["OpenVINOExecutionProvider"]}],
+            [{"device": "cpu", "execution_providers": [ExecutionProvider.OpenVINOExecutionProvider]}],
             ["The accelerator device and execution providers are specified, skipping deduce"],
-            ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
+            [ExecutionProvider.OpenVINOExecutionProvider, ExecutionProvider.CPUExecutionProvider],
         ),
         (
             # user specify invalid EPs.
@@ -280,9 +324,9 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                     "accelerators": [
                         {
                             "execution_providers": [
-                                "ROCMExecutionProvider",
-                                "CUDAExecutionProvider",
-                                "CPUExecutionProvider",
+                                ExecutionProvider.ROCMExecutionProvider,
+                                ExecutionProvider.CUDAExecutionProvider,
+                                ExecutionProvider.CPUExecutionProvider,
                             ]
                         }
                     ]
@@ -291,11 +335,14 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             [
                 {
                     "device": "gpu",
-                    "execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+                    "execution_providers": [
+                        ExecutionProvider.CUDAExecutionProvider,
+                        ExecutionProvider.CPUExecutionProvider,
+                    ],
                 }
             ],
             ["The following execution providers are not supported: 'ROCMExecutionProvider'"],
-            ["CUDAExecutionProvider", "CPUExecutionProvider"],
+            [ExecutionProvider.CUDAExecutionProvider, ExecutionProvider.CPUExecutionProvider],
         ),
         (
             {
@@ -305,9 +352,9 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                         {
                             "device": "gpu",
                             "execution_providers": [
-                                "ROCMExecutionProvider",
-                                "CUDAExecutionProvider",
-                                "CPUExecutionProvider",
+                                ExecutionProvider.ROCMExecutionProvider,
+                                ExecutionProvider.CUDAExecutionProvider,
+                                ExecutionProvider.CPUExecutionProvider,
                             ],
                         }
                     ]
@@ -316,11 +363,14 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             [
                 {
                     "device": "gpu",
-                    "execution_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+                    "execution_providers": [
+                        ExecutionProvider.CUDAExecutionProvider,
+                        ExecutionProvider.CPUExecutionProvider,
+                    ],
                 }
             ],
             ["The following execution providers are not supported: 'ROCMExecutionProvider'"],
-            ["CUDAExecutionProvider", "CPUExecutionProvider"],
+            [ExecutionProvider.CUDAExecutionProvider, ExecutionProvider.CPUExecutionProvider],
         ),
         (
             # fill the EPs. memory is provided.
@@ -328,7 +378,7 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             [
                 {
                     "device": "cpu",
-                    "execution_providers": ["CPUExecutionProvider"],
+                    "execution_providers": [ExecutionProvider.CPUExecutionProvider],
                     "memory": 10000,
                 }
             ],
@@ -339,7 +389,11 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                     "['CPUExecutionProvider']"
                 ),
             ],
-            ["OpenVINOExecutionProvider", "CPUExecutionProvider", "DmlExecutionProvider"],
+            [
+                ExecutionProvider.OpenVINOExecutionProvider,
+                ExecutionProvider.CPUExecutionProvider,
+                ExecutionProvider.DmlExecutionProvider,
+            ],
         ),
     ],
 )
@@ -389,23 +443,29 @@ def test_normalize_accelerators(
         (
             {
                 "type": "LocalSystem",
-                "config": {"accelerators": [{"device": "cpu", "execution_providers": ["CUDAExecutionProvider"]}]},
+                "config": {
+                    "accelerators": [
+                        {"device": "cpu", "execution_providers": [ExecutionProvider.CUDAExecutionProvider]}
+                    ]
+                },
             },
-            ("cpu", ["CPUExecutionProvider"]),
+            ("cpu", [ExecutionProvider.CPUExecutionProvider]),
         ),
         (
             {
                 "type": "LocalSystem",
-                "config": {"accelerators": [{"execution_providers": ["QNNExecutionProvider"]}]},
+                "config": {"accelerators": [{"execution_providers": [ExecutionProvider.QNNExecutionProvider]}]},
             },
-            ("npu", ["QNNExecutionProvider"]),
+            ("npu", [ExecutionProvider.QNNExecutionProvider]),
         ),
         (
             {
                 "type": "LocalSystem",
-                "config": {"accelerators": [{"execution_providers": ["QNNExecutionProvider"], "memory": "1gb"}]},
+                "config": {
+                    "accelerators": [{"execution_providers": [ExecutionProvider.QNNExecutionProvider], "memory": "1gb"}]
+                },
             },
-            ("npu", ["QNNExecutionProvider"], 1e9),
+            ("npu", [ExecutionProvider.QNNExecutionProvider], 1e9),
         ),
     ],
 )
@@ -444,10 +504,17 @@ def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
             {
                 "type": "LocalSystem",
                 "config": {
-                    "accelerators": [{"execution_providers": ["OpenVINOExecutionProvider", "CPUExecutionProvider"]}]
+                    "accelerators": [
+                        {
+                            "execution_providers": [
+                                ExecutionProvider.OpenVINOExecutionProvider,
+                                ExecutionProvider.CPUExecutionProvider,
+                            ]
+                        }
+                    ]
                 },
             },
-            ["CPUExecutionProvider"],
+            [ExecutionProvider.CPUExecutionProvider],
             AssertionError,
             (
                 "Cannot infer the devices from the execution providers "
@@ -458,10 +525,17 @@ def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
             {
                 "type": "LocalSystem",
                 "config": {
-                    "accelerators": [{"execution_providers": ["QNNExecutionProvider", "CUDAExecutionProvider"]}]
+                    "accelerators": [
+                        {
+                            "execution_providers": [
+                                ExecutionProvider.QNNExecutionProvider,
+                                ExecutionProvider.CUDAExecutionProvider,
+                            ]
+                        }
+                    ]
                 },
             },
-            ["CPUExecutionProvider"],
+            [ExecutionProvider.CPUExecutionProvider],
             AssertionError,
             (
                 "Cannot infer the devices from the execution providers "
@@ -490,9 +564,11 @@ def test_create_accelerator_with_error(
         (
             {
                 "type": "LocalSystem",
-                "config": {"accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}]},
+                "config": {
+                    "accelerators": [{"device": "cpu", "execution_providers": [ExecutionProvider.CPUExecutionProvider]}]
+                },
             },
-            [("cpu", "CPUExecutionProvider")],
+            [("cpu", ExecutionProvider.CPUExecutionProvider)],
         ),
         # doesn't specify the accelerator
         (
@@ -513,7 +589,7 @@ def test_create_accelerator_with_error(
         (
             {
                 "type": "LocalSystem",
-                "config": {"accelerators": [{"execution_providers": ["CPUExecutionProvider"]}]},
+                "config": {"accelerators": [{"execution_providers": [ExecutionProvider.CPUExecutionProvider]}]},
             },
             [("cpu", None)],
         ),
@@ -533,10 +609,16 @@ def test_create_accelerator_with_error(
             {
                 "type": "LocalSystem",
                 "config": {
-                    "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"], "memory": 1234}]
+                    "accelerators": [
+                        {
+                            "device": "cpu",
+                            "execution_providers": [ExecutionProvider.CPUExecutionProvider],
+                            "memory": 1234,
+                        }
+                    ]
                 },
             },
-            [("cpu", "CPUExecutionProvider", 1234)],
+            [("cpu", ExecutionProvider.CPUExecutionProvider, 1234)],
         ),
     ],
 )
@@ -557,7 +639,7 @@ def test_create_accelerator_without_ep(system_config, expected_acc_specs):
 def test_accelerator_config():
     acc_cfg1 = AcceleratorConfig.parse_obj({"device": "cpu"})
     assert acc_cfg1.execution_providers is None
-    acc_cfg2 = AcceleratorConfig.parse_obj({"execution_providers": ["CPUExecutionProvider"]})
+    acc_cfg2 = AcceleratorConfig.parse_obj({"execution_providers": [ExecutionProvider.CPUExecutionProvider]})
     assert acc_cfg2.device is None
     with pytest.raises(ValueError, match="Either device or execution_providers must be provided"):
         _ = AcceleratorConfig.parse_obj({})
