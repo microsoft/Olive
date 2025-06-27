@@ -61,7 +61,7 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion" },
-        "matmul4": { "type": "OnnxMatMul4Quantizer", "accuracy_level": 4 },
+        "matmul4": { "type": "OnnxBlockWiseRtnQuantization", "accuracy_level": 4 },
         "mnb_to_qdq": { "type": "MatMulNBitsToQDQ" }
     },
     "evaluator": "common_evaluator",

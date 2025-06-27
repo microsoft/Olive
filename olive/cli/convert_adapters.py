@@ -128,7 +128,7 @@ class ConvertAdaptersCommand(BaseOliveCLICommand):
     ) -> tuple["NDArray", "NDArray", "NDArray"]:
         """Quantize a weight tensor to int4."""
         # Only need to quantize the weight tensors directly
-        # Not the same as OnnxMatMul4Quantizer pass which quantizes an entire model
+        # Not the same as OnnxBlockWiseRtnQuantization pass which quantizes an entire model
         # TODO(jambayk): When ORT 1.18.0 is released, use DefaultWeightOnlyQuantizer.int4_block_quant
         import numpy as np
         from onnxruntime import __version__ as ort_version

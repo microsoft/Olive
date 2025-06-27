@@ -108,12 +108,10 @@
             "extra_options": { "MatMulConstBOnly": true }
         },
         "blockwise_quant_int4": {
-            "type": "OnnxMatMul4Quantizer",
-            "evaluator": "gqa_evaluator",
+            "type": "OnnxBlockWiseRtnQuantization",
             "save_as_external_data": true,
             "all_tensors_to_one_file": true,
-            "block_size": 32,
-            "is_symmetric": true
+            "block_size": 32
         },
         "gptq_quant_int4": { "type": "GptqQuantizer", "data_config": "wikitext2_train" }
     },

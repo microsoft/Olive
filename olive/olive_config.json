@@ -96,7 +96,7 @@
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
+            "supported_quantization_encodings": [ "qdq" ]
         },
         "MixedPrecisionOverrides": {
             "module_path": "olive.passes.onnx.mixed_precision_overrides.MixedPrecisionOverrides",
@@ -155,14 +155,6 @@
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
-        },
-        "OnnxMatMul4Quantizer": {
-            "module_path": "olive.passes.onnx.quantization.OnnxMatMul4Quantizer",
-            "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
-            "supported_accelerators": [ "cpu", "gpu" ],
-            "supported_precisions": [ "int4" ],
-            "supported_algorithms": [ "rtn" ],
-            "supported_quantization_encodings": [ "qdq" ]
         },
         "OnnxHqqQuantization": {
             "module_path": "olive.passes.onnx.hqq_quantization.OnnxHqqQuantization",

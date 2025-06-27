@@ -10,12 +10,13 @@ import numpy as np
 import numpy.typing as npt
 import onnx_ir as ir
 
-from olive.constants import MSFT_DOMAIN, OpType
+from olive.constants import MSFT_DOMAIN, AccuracyLevel, OpType
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (
+    get_external_data_config,
     ir_model_to_olive_model,
     model_has_adapters,
 )
@@ -45,6 +46,15 @@ class OnnxBlockWiseRtnQuantization(Pass):
                 default_value=0,
                 description="Axis to quantize. Default value is 0.",
             ),
+            "accuracy_level": PassConfigParam(
+                type_=AccuracyLevel,
+                default_value=AccuracyLevel.unset,
+                description=(
+                    "Accuracy level of the 4-bit quantized MatMul computation. Refer to the MatMulNBits contrib op's"
+                    " 'accuracy_level' attribute for details"
+                    " (https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#commicrosoftmatmulnbits)."
+                ),
+            ),
             "nodes_to_exclude": PassConfigParam(
                 type_=list,
                 default_value=None,
@@ -55,6 +65,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
                 default_value=None,
                 description="List of node names to include in quantization.",
             ),
+            **get_external_data_config(),
         }
 
     def _run_for_config(
@@ -70,7 +81,13 @@ class OnnxBlockWiseRtnQuantization(Pass):
         ir_model = model.load_ir_model()
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
         self._quantize_model(
-            ir_model, config.nodes_to_exclude, config.nodes_to_include, config.bits, config.block_size, config.axis
+            ir_model,
+            config.nodes_to_exclude,
+            config.nodes_to_include,
+            config.bits,
+            config.block_size,
+            config.axis,
+            config.accuracy_level,
         )
         return ir_model_to_olive_model(ir_model, output_model_path, config)
 
@@ -82,6 +99,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
         bits: int = 4,
         block_size: int = 128,
         axis: int = 0,
+        accuracy_level: AccuracyLevel = AccuracyLevel.unset,
     ):
         nodes_to_exclude = nodes_to_exclude or []
         nodes_to_include = nodes_to_include or []
@@ -107,7 +125,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
                     logger.warning("Gather only supports 4-bit quantization.")
                     continue
 
-                quantized_node, initializer_graph = self._quantize(node, bits, block_size, axis)
+                quantized_node, initializer_graph = self._quantize(node, bits, block_size, axis, accuracy_level)
 
                 if quantized_node.op_type in (OpType.MatMulNBits, OpType.GatherBlockQuantized):
                     registered = {}
@@ -129,7 +147,9 @@ class OnnxBlockWiseRtnQuantization(Pass):
             else:
                 logger.debug("skip to quantize %s ...", node_name)
 
-    def _quantize(self, node: ir.Node, bits: int, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
+    def _quantize(
+        self, node: ir.Node, bits: int, block_size: int, axis: int, accuracy_level: AccuracyLevel
+    ) -> tuple[ir.Node, ir.Graph]:
         """Quantize the weight of the target node and return the new nodes.
 
         Target node:        QOperator node:
@@ -142,14 +162,16 @@ class OnnxBlockWiseRtnQuantization(Pass):
         logger.debug("Start quantizing %s ...", node.name)
 
         if node.op_type == OpType.MatMul:
-            return self._quantize_matmul(node, bits, block_size)
+            return self._quantize_matmul(node, bits, block_size, accuracy_level)
         elif node.op_type == OpType.Gather:
             return self._quantize_gather(node, bits, block_size, axis)
         else:
             logger.error("Unsupported op %s for weight-only quantization.", node.op_type)
             return node, node.graph
 
-    def _quantize_matmul(self, node: ir.Node, bits: int, block_size: int) -> tuple[ir.Node, ir.Graph]:
+    def _quantize_matmul(
+        self, node: ir.Node, bits: int, block_size: int, accuracy_level: AccuracyLevel
+    ) -> tuple[ir.Node, ir.Graph]:
         """Quantize weight B of MatMul node to int4 or int8.
 
         Currently only support 2D constant matrix blockwise quantization.
@@ -174,6 +196,8 @@ class OnnxBlockWiseRtnQuantization(Pass):
         kwargs["N"] = cols
         kwargs["bits"] = bits
         kwargs["block_size"] = block_size
+        if accuracy_level > 0:
+            kwargs["accuracy_level"] = accuracy_level
 
         node.outputs[0].name = node.outputs[0].name + f"_Q{bits}"
 
