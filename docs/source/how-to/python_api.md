@@ -11,14 +11,11 @@ Olive workflows can be executed programmatically using the Python API. All funct
 This is the most generic way to run an Olive workflow from a configuration file.
 
 **Arguments:**
-- `config` (Union[str, dict]): Path to config file or config dictionary.
-- `input_model` (dict, optional): Input model configuration to override config file.
-- `output_path` (str, optional): Output directory path.
-- `log_level` (int, optional): Logging level (1-5).
+- `run_config` (str, Path, or dict): Path to config file or config dictionary.
 - `setup` (bool): Setup environment needed to run the workflow. Defaults to `False`.
+- `package_config` (str, Path, dict, optional): Path to optional package config file.
+- `tempdir` (str or Path, optional): Root directory for tempfile directories and files.
 - `packages` (bool): List packages required to run the workflow. Defaults to `False`.
-- `tempdir` (str, optional): Root directory for tempfile directories and files.
-- `package_config` (str, optional): Path to optional package config file.
 
 ```python
 from olive import run
@@ -34,30 +31,46 @@ The rest of the functions are specialized workflows for common tasks.
 Automatically optimize a model for performance.
 
 **Arguments:**
-- `model_path` (str): Path to model (file path or HuggingFace model name).
+- `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
+- `task` (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.
+- `trust_remote_code` (bool): Trust remote code when loading a huggingface model. Defaults to `False`.
+- `adapter_path` (str, optional): Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.
+- `model_script` (str, optional): The script file containing the model definition. Required for the local PyTorch model.
+- `script_dir` (str, optional): The directory containing the local PyTorch model script file.
 - `output_path` (str): Output directory path. Defaults to `"auto-opt-output"`.
 - `device` (str): Target device ("cpu", "gpu", "npu"). Defaults to `"cpu"`.
-- `provider` (str): Execution provider. Defaults to `"CPUExecutionProvider"`.
-- `precision` (str): Output precision (fp32, fp16, int8, int4, nf4). Defaults to `fp32`.
+- `provider` (str): Execution provider for ONNX model. Defaults to `"CPUExecutionProvider"`.
+- `memory` (int, optional): Memory limit for the accelerator in bytes.
 - `data_name` (str, optional): Dataset name for evaluation.
-- `split` (str, optional): Dataset split.
-- `subset` (str, optional): Dataset subset.
-- `input_cols` (list[str], optional): Input column names.
+- `split` (str, optional): Dataset split to use for evaluation.
+- `subset` (str, optional): Dataset subset to use for evaluation.
+- `input_cols` (list[str], optional): Input column names for evaluation.
 - `batch_size` (int): Batch size for evaluation. Defaults to `1`.
-- `task` (str, optional): Model task (for HuggingFace models).
-- `adapter_path` (str, optional): Path to adapter weights.
-- `use_dynamo_exporter` (bool): Use dynamo export API. Defaults to `False`.
-- `use_model_builder` (bool): Use model builder pass. Defaults to `False`.
-- `use_qdq_encoding` (bool): Use QDQ encoding for quantization. Defaults to `False`.
-- `use_ort_genai` (bool): Use ORT GenAI. Defaults to `False`.
-- `enable_search` (bool, optional): Enable search optimization.
-- `log_level` (int): Logging level (1-5). Defaults to `3`.
-- `**kwargs`: Additional arguments.
+- `precision` (str): Output precision (int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp4, fp8, fp16, fp32, nf4). Defaults to fp32 for cpu and fp16 for gpu.
+- `use_dynamo_exporter` (bool): Use dynamo export API to export ONNX model. Defaults to `False`.
+- `use_model_builder` (bool): Use model builder pass for optimization. Defaults to `False`.
+- `use_qdq_encoding` (bool): Use QDQ encoding for quantized operators. Defaults to `False`.
+- `dynamic_to_fixed_shape_dim_param` (list[str], optional): Symbolic parameter names for dynamic to fixed shape pass.
+- `dynamic_to_fixed_shape_dim_value` (list[int], optional): Symbolic parameter values for dynamic to fixed shape pass.
+- `num_splits` (int, optional): Number of splits for model splitting. Mutually exclusive with cost_model.
+- `cost_model` (str, optional): Path to cost model csv file for model splitting. Mutually exclusive with num_splits.
+- `mixed_precision_overrides_config` (list[str], optional): Dictionary of name to precision as key-value pairs.
+- `use_ort_genai` (bool): Use OnnxRuntime generate() API. Defaults to `False`.
+- `enable_search` (str, optional): Enable search optimization ("random", "sequential", "tpe").
+- `seed` (int, optional): Random seed for search sampler.
+- `resource_group` (str, optional): Resource group for AzureML workspace for remote workflow.
+- `workspace_name` (str, optional): Workspace name for AzureML workspace for remote workflow.
+- `keyvault_name` (str, optional): AzureML keyvault name with huggingface token for remote run.
+- `aml_compute` (str, optional): Compute name to run the workflow on.
+- `account_name` (str, optional): Azure storage account name for shared cache.
+- `container_name` (str, optional): Azure storage container name for shared cache.
+- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
+- `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
 
 ```python
 from olive import auto_opt
 
-workflow_output = auto_opt(model_path="path/to/model")
+workflow_output = auto_opt(model_name_or_path="path/to/model")
 ```
 
 ### `finetune`
@@ -65,24 +78,43 @@ workflow_output = auto_opt(model_path="path/to/model")
 Fine-tune a model using LoRA or QLoRA.
 
 **Arguments:**
-- `model_path` (str): Path to HuggingFace model.
+- `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
+- `task` (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.
+- `trust_remote_code` (bool): Trust remote code when loading a huggingface model. Defaults to `False`.
 - `output_path` (str): Output directory path. Defaults to `"finetuned-adapter"`.
 - `method` (str): Fine-tuning method ("lora", "qlora"). Defaults to `"lora"`.
-- `lora_r` (int): LoRA rank value. Defaults to `64`.
+- `lora_r` (int): LoRA R value. Defaults to `64`.
 - `lora_alpha` (int): LoRA alpha value. Defaults to `16`.
 - `target_modules` (str, optional): Target modules for LoRA (comma-separated).
-- `torch_dtype` (str): PyTorch dtype for training. Defaults to `"bfloat16"`.
-- `data_name` (str, optional): Dataset name.
-- `data_files` (str, optional): Path to data files.
-- `text_template` (str, optional): Text template for formatting.
-- `eval_split` (str, optional): Evaluation dataset split.
-- `log_level` (int): Logging level (1-5). Defaults to `3`.
+- `torch_dtype` (str): PyTorch dtype for training ("bfloat16", "float16", "float32"). Defaults to `"bfloat16"`.
+- `data_name` (str): Dataset name (required).
+- `train_subset` (str, optional): The subset to use for training.
+- `train_split` (str, optional): The split to use for training.
+- `eval_subset` (str, optional): The subset to use for evaluation.
+- `eval_split` (str, optional): The dataset split to evaluate on.
+- `data_files` (str, optional): The dataset files (comma-separated if multiple).
+- `text_field` (str, optional): The text field to use for fine-tuning.
+- `text_template` (str, optional): Template to generate text field from (e.g., '### Question: {prompt} \n### Answer: {response}').
+- `use_chat_template` (bool): Use chat template for text field. Defaults to `False`.
+- `max_seq_len` (int, optional): Maximum sequence length for the data.
+- `add_special_tokens` (bool, optional): Whether to add special tokens during preprocessing.
+- `max_samples` (int, optional): Maximum samples to select from the dataset.
+- `batch_size` (int, optional): Batch size.
+- `input_cols` (list[str], optional): List of input column names.
+- `resource_group` (str, optional): Resource group for AzureML workspace for remote workflow.
+- `workspace_name` (str, optional): Workspace name for AzureML workspace for remote workflow.
+- `keyvault_name` (str, optional): AzureML keyvault name with huggingface token for remote run.
+- `aml_compute` (str, optional): Compute name to run the workflow on.
+- `account_name` (str, optional): Azure storage account name for shared cache.
+- `container_name` (str, optional): Azure storage container name for shared cache.
+- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
+- `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
 - `**training_kwargs`: HuggingFace training arguments.
 
 ```python
 from olive import finetune
 
-workflow_output = finetune(model_path="hf_model_name")
+workflow_output = finetune(model_name_or_path="hf_model_name")
 ```
 
 ### `quantize`
@@ -90,21 +122,43 @@ workflow_output = finetune(model_path="hf_model_name")
 Quantize a PyTorch or ONNX model.
 
 **Arguments:**
-- `model_path` (str): Path to model file.
+- `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
+- `task` (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.
+- `trust_remote_code` (bool): Trust remote code when loading a huggingface model. Defaults to `False`.
+- `adapter_path` (str, optional): Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.
+- `model_script` (str, optional): The script file containing the model definition. Required for the local PyTorch model.
+- `script_dir` (str, optional): The directory containing the local PyTorch model script file.
 - `output_path` (str): Output directory path. Defaults to `"quantized-model"`.
-- `algorithm` (str): Quantization algorithm (e.g., "rtn", "gptq", "awq"). Defaults to `"rtn"`.
-- `precision` (str): Quantization precision (int8, int4, etc.). Defaults to `"int8"`.
-- `act_precision` (str): Activation precision for static quantization. Defaults to `"int8"`.
-- `implementation` (str, optional): Specific implementation of quantization algorithms.
-- `use_qdq_encoding` (bool): Use QDQ encoding in ONNX model. Defaults to `False`.
-- `data_name` (str, optional): Dataset name (for static quantization).
-- `log_level` (int): Logging level (1-5). Defaults to `3`.
-- `**kwargs`: Additional quantization parameters.
+- `algorithm` (str): Quantization algorithm ("awq", "gptq", "hqq", "rtn", "spinquant", "quarot"). Defaults to `"rtn"`.
+- `precision` (str): Quantization precision (int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp4, fp8, fp16, fp32, nf4, PrecisionBits.BITS4, PrecisionBits.BITS8, PrecisionBits.BITS16, PrecisionBits.BITS32). Defaults to `"int8"`.
+- `act_precision` (str): Activation precision for static quantization (int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp4, fp8, fp16, fp32, nf4). Defaults to `"int8"`.
+- `implementation` (str, optional): Specific implementation of quantization algorithms to use.
+- `use_qdq_encoding` (bool): Use QDQ encoding in ONNX model for quantized nodes. Defaults to `False`.
+- `data_name` (str, optional): Dataset name for static quantization.
+- `subset` (str, optional): The subset of the dataset to use.
+- `split` (str, optional): The dataset split to use.
+- `data_files` (str, optional): The dataset files (comma-separated if multiple).
+- `text_field` (str, optional): The text field to use for fine-tuning.
+- `text_template` (str, optional): Template to generate text field from (e.g., '### Question: {prompt} \n### Answer: {response}').
+- `use_chat_template` (bool): Use chat template for text field. Defaults to `False`.
+- `max_seq_len` (int, optional): Maximum sequence length for the data.
+- `add_special_tokens` (bool, optional): Whether to add special tokens during preprocessing.
+- `max_samples` (int, optional): Maximum samples to select from the dataset.
+- `batch_size` (int, optional): Batch size.
+- `input_cols` (list[str], optional): List of input column names.
+- `resource_group` (str, optional): Resource group for AzureML workspace for remote workflow.
+- `workspace_name` (str, optional): Workspace name for AzureML workspace for remote workflow.
+- `keyvault_name` (str, optional): AzureML keyvault name with huggingface token for remote run.
+- `aml_compute` (str, optional): Compute name to run the workflow on.
+- `account_name` (str, optional): Azure storage account name for shared cache.
+- `container_name` (str, optional): Azure storage container name for shared cache.
+- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
+- `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
 
 ```python
 from olive import quantize
 
-workflow_output = quantize(model_path="path/to/model")
+workflow_output = quantize(model_name_or_path="path/to/model")
 ```
 
 ### `capture_onnx_graph`
@@ -112,15 +166,40 @@ workflow_output = quantize(model_path="path/to/model")
 Capture ONNX graph for a PyTorch model.
 
 **Arguments**:
-- `model_path` (str): Path to PyTorch model or script.
+- `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
+- `task` (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.
+- `trust_remote_code` (bool): Trust remote code when loading a huggingface model. Defaults to `False`.
+- `adapter_path` (str, optional): Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.
+- `model_script` (str, optional): The script file containing the model definition. Required for the local PyTorch model.
+- `script_dir` (str, optional): The directory containing the local PyTorch model script file.
 - `output_path` (str): Output directory path. Defaults to `"captured-model"`.
-- `log_level` (int): Logging level (1-5). Defaults to `3`.
-- `**kwargs`: Additional arguments for `CaptureOnnxGraphCommand`.
+- `conversion_device` (str): The device used to run the model to capture the ONNX graph ("cpu", "gpu"). Defaults to `"cpu"`.
+- `use_ort_genai` (bool): Use OnnxRuntime generate() API to run the model. Defaults to `False`.
+- `resource_group` (str, optional): Resource group for AzureML workspace for remote workflow.
+- `workspace_name` (str, optional): Workspace name for AzureML workspace for remote workflow.
+- `keyvault_name` (str, optional): AzureML keyvault name with huggingface token for remote run.
+- `aml_compute` (str, optional): Compute name to run the workflow on.
+- `account_name` (str, optional): Azure storage account name for shared cache.
+- `container_name` (str, optional): Azure storage container name for shared cache.
+- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
+- `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
+- `use_dynamo_exporter` (bool): Use dynamo export API to export ONNX model. Defaults to `False`.
+- `fixed_param_dict` (str, optional): Fix dynamic input shapes by providing dimension names and values (e.g., 'batch_size=1,max_length=128').
+- `past_key_value_name` (str, optional): The arguments name to point to past key values (used with dynamo exporter).
+- `torch_dtype` (str, optional): The dtype to cast the model to before capturing ONNX graph (e.g., 'float32', 'float16').
+- `target_opset` (int): The target opset version for the ONNX model. Defaults to `17`.
+- `use_model_builder` (bool): Use Model Builder to capture ONNX model. Defaults to `False`.
+- `precision` (str): The precision of the ONNX model for Model Builder ("fp16", "fp32", "int4"). Defaults to `"fp32"`.
+- `int4_block_size` (int): Block size for int4 quantization (16, 32, 64, 128, 256). Defaults to `32`.
+- `int4_accuracy_level` (int, optional): Minimum accuracy level for activation of MatMul in int4 quantization.
+- `exclude_embeds` (bool): Remove embedding layer from ONNX model. Defaults to `False`.
+- `exclude_lm_head` (bool): Remove language modeling head from ONNX model. Defaults to `False`.
+- `enable_cuda_graph` (bool): Enable CUDA graph capture for CUDA execution provider. Defaults to `False`.
 
 ```python
 from olive import capture_onnx_graph
 
-workflow_output = capture_onnx_graph(model_path="path/to/model")
+workflow_output = capture_onnx_graph(model_name_or_path="path/to/model")
 ```
 
 ### `generate_adapter`
@@ -128,49 +207,102 @@ workflow_output = capture_onnx_graph(model_path="path/to/model")
 Generate adapter for an ONNX model.
 
 **Arguments**:
-- `model_path` (str): Path to ONNX model.
+- `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
 - `output_path` (str): Output directory path. Defaults to `"generated-adapter"`.
-- `adapter_format` (str): Format to save weights in. Defaults to `"onnx_adapter"`.
-- `log_level` (int): Logging level (1-5). Defaults to `3`.
-- `**kwargs`: Additional generation parameters.
+- `adapter_type` (str): Type of adapters to extract ("lora", "dora", "loha"). Defaults to `"lora"`.
+- `adapter_format` (str): Format to save weights in ("pt", "numpy", "safetensors", "onnx_adapter"). Defaults to `"onnx_adapter"`.
+- `resource_group` (str, optional): Resource group for AzureML workspace for remote workflow.
+- `workspace_name` (str, optional): Workspace name for AzureML workspace for remote workflow.
+- `keyvault_name` (str, optional): AzureML keyvault name with huggingface token for remote run.
+- `aml_compute` (str, optional): Compute name to run the workflow on.
+- `account_name` (str, optional): Azure storage account name for shared cache.
+- `container_name` (str, optional): Azure storage container name for shared cache.
+- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
+- `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
 
 ```python
 from olive import generate_adapter
 
-workflow_output = generate_adapter(model_path="path/to/onnx/model")
+workflow_output = generate_adapter(model_name_or_path="path/to/onnx/model")
 ```
 
-### `session_params_tuning`
+### `tune_session_params`
 
 Tune ONNX Runtime session parameters for optimal performance.
 
 **Arguments**:
-- `model_path` (str): Path to ONNX model.
+- `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
 - `output_path` (str): Output directory path. Defaults to `"tuned-params"`.
-- `device` (str): Target device. Defaults to `"cpu"`.
-- `provider` (str): Execution provider. Defaults to `"CPUExecutionProvider"`.
-- `cpu_cores` (int, optional): CPU cores for thread tuning.
-- `io_bind` (bool): Enable IOBinding search. Defaults to `False`.
-- `enable_cuda_graph` (bool): Enable CUDA graph. Defaults to `False`.
-- `log_level` (int): Logging level (1-5). Defaults to `3`.
-- `**kwargs`: Additional tuning parameters.
+- `cpu_cores` (int, optional): CPU cores used for thread tuning.
+- `io_bind` (bool): Enable IOBinding search for ONNX Runtime inference. Defaults to `False`.
+- `enable_cuda_graph` (bool): Enable CUDA graph for CUDA execution provider. Defaults to `False`.
+- `execution_mode_list` (list[int], optional): Parallelism list between operators.
+- `opt_level_list` (list[int], optional): Optimization level list for ONNX Model.
+- `trt_fp16_enable` (bool): Enable TensorRT FP16 mode. Defaults to `False`.
+- `intra_thread_num_list` (list[int], optional): List of intra thread number for test.
+- `inter_thread_num_list` (list[int], optional): List of inter thread number for test.
+- `extra_session_config` (str, optional): Extra customized session options during tuning process (JSON string).
+- `disable_force_evaluate_other_eps` (bool): Whether to disable force evaluation of all execution providers. Defaults to `False`.
+- `enable_profiling` (bool): Enable profiling for ONNX Runtime inference. Defaults to `False`.
+- `predict_with_kv_cache` (bool): Use key-value cache for ORT session parameter tuning. Defaults to `False`.
+- `device` (str): Target device ("gpu", "cpu", "npu"). Defaults to `"cpu"`.
+- `providers_list` (list[str], optional): List of execution providers to use for ONNX model (case sensitive).
+- `memory` (int, optional): Memory limit for the accelerator in bytes.
+- `resource_group` (str, optional): Resource group for AzureML workspace for remote workflow.
+- `workspace_name` (str, optional): Workspace name for AzureML workspace for remote workflow.
+- `keyvault_name` (str, optional): AzureML keyvault name with huggingface token for remote run.
+- `aml_compute` (str, optional): Compute name to run the workflow on.
+- `account_name` (str, optional): Azure storage account name for shared cache.
+- `container_name` (str, optional): Azure storage container name for shared cache.
+- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
+- `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
 
 ```python
-from olive import session_params_tuning
+from olive import tune_session_params
 
-workflow_output = session_params_tuning(model_path="path/to/onnx/model")
+workflow_output = tune_session_params(model_name_or_path="path/to/onnx/model")
 ```
 
 ### Utility Functions
 
 There are also utility functions that don't produce a `WorkflowOutput`:
 
-- **`convert_adapters`**: Convert LoRA adapter weights to a format consumable by ONNX models.
-  - **Arguments**: `adapter_path` (str), `output_path` (str), `adapter_format` (str), `dtype` (str), `log_level` (int), `**kwargs`.
-- **`extract_adapters`**: Extract LoRA adapters from PyTorch model to separate files.
-  - **Arguments**: `model_path` (str), `output_path` (str), `adapter_format` (str), `dtype` (str), `cache_dir` (str, optional), `log_level` (int), `**kwargs`.
-- **`generate_cost_model`**: Generate a cost model for model splitting (HuggingFace models only).
-  - **Arguments**: `model_path` (str), `output_path` (str), `log_level` (int), `**kwargs`.
+#### `convert_adapters`
+
+Convert lora adapter weights to a file that will be consumed by ONNX models generated by Olive ExtractedAdapters pass.
+
+**Arguments:**
+- `adapter_path` (str): Path to the adapters weights saved after peft fine-tuning. Can be a local folder or huggingface id.
+- `adapter_format` (str): Format to save weights in ("pt", "numpy", "safetensors", "onnx_adapter"). Defaults to `"onnx_adapter"`.
+- `output_path` (str): Path to save the exported weights. Will be saved in the specified format.
+- `dtype` (str): Data type to save float adapter weights as ("float32", "float16"). If quantize_int4 is True, this is the data type of the quantization scales. Defaults to `"float32"`.
+- `quantize_int4` (bool): Quantize the adapter weights to int4 using blockwise quantization. Defaults to `False`.
+- `int4_block_size` (int): Block size for int4 quantization of adapter weights (16, 32, 64, 128, 256). Defaults to `32`.
+- `int4_quantization_mode` (str): Quantization mode for int4 quantization ("symmetric", "asymmetric"). Defaults to `"symmetric"`.
+- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
+
+#### `extract_adapters`
+
+Extract LoRA adapters from PyTorch model to separate files.
+
+**Arguments:**
+- `model_name_or_path` (str): Path to the PyTorch model. Can be a local folder or Hugging Face id.
+- `format` (str): Format to save the LoRAs in ("pt", "numpy", "safetensors", "onnx_adapter").
+- `output` (str): Output folder to save the LoRAs in the requested format.
+- `dtype` (str): Data type to save LoRAs as ("float32", "float16"). Defaults to `"float32"`.
+- `cache_dir` (str, optional): Cache dir to store temporary files in. Default is Hugging Face's default cache dir.
+- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
+
+#### `generate_cost_model`
+
+Generate a cost model for a given model and save it as a csv file. This cost model is consumed by the CaptureSplitInfo pass. Only supports HfModel.
+
+**Arguments:**
+- `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
+- `task` (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.
+- `trust_remote_code` (bool): Trust remote code when loading a huggingface model. Defaults to `False`.
+- `output_path` (str): Output directory path. Defaults to current directory.
+- `weight_precision` (str): Weight precision ("fp32", "fp16", "fp8", "int32", "uint32", "int16", "uint16", "int8", "uint8", "int4", "uint4", "nf4", "fp4"). Defaults to `"fp32"`.
 
 ## Accessing Optimization Results
 

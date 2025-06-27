@@ -217,7 +217,7 @@ def run(
     run_config: Union[str, Path, dict],
     setup: bool = False,
     package_config: Optional[Union[str, Path, dict]] = None,
-    tempdir: Union[str, Path] = None,
+    tempdir: Optional[Union[str, Path]] = None,
     packages: bool = False,
 ):
     # set tempdir
