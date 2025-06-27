@@ -498,23 +498,6 @@ The default value is 3. User can increase if there are network issues and the op
 </pre></div>
 </div>
 </section>
-<section id="using-a-model-from-an-azureml-job-output">
-<h3>Using a model from an AzureML job output<a class="headerlink" href="#using-a-model-from-an-azureml-job-output" title="Link to this heading">#</a></h3>
-<p>You can specify your model path from an AzureML job output as:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_job_output&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;job_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_job_id&quot;</span><span class="p">,</span><span class="w"> </span><span class="c1">// id of the job</span>
-<span class="w">    </span><span class="nt">&quot;output_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_output_name&quot;</span><span class="p">,</span><span class="w"> </span><span class="c1">// name of the job output</span>
-<span class="w">    </span><span class="nt">&quot;relative_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir/my_model.pt&quot;</span><span class="w"> </span><span class="c1">// Relative path to the resource from the job output root</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
 <section id="using-data-stored-in-azureml-datastore">
 <h3>Using data stored in AzureML datastore<a class="headerlink" href="#using-data-stored-in-azureml-datastore" title="Link to this heading">#</a></h3>
 <p>You can use data files or folders that are stored in your Azure ML datastore as:</p>
@@ -609,7 +592,6 @@ The default value is 3. User can increase if there are network issues and the op
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-azureml-registered-model">Using AzureML registered model</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-azureml-curated-model">Using AzureML curated model</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-model-stored-in-azureml-datastore">Using model stored in AzureML datastore</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-a-model-from-an-azureml-job-output">Using a model from an AzureML job output</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-data-stored-in-azureml-datastore">Using data stored in AzureML datastore</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-azure-ml-compute-as-host-or-target">Using Azure ML compute as host or target</a></li>
 </ul>
