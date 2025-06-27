@@ -19,7 +19,7 @@ class Device(StrEnumBase):
     NPU = "npu"
     VPU = "vpu"
     INTEL_MYRIAD = "intel_myriad"
-    ANY = "any"
+    XPU = "any"
 
 
 class ExecutionProvider(StrEnumBase):
