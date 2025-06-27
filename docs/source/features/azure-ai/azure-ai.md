@@ -74,22 +74,6 @@ You can specify your model path from an AzureML datastore as:
 }
 ```
 
-### Using a model from an AzureML job output
-You can specify your model path from an AzureML job output as:
-```json
-"model_path": {
-    "type": "azureml_job_output",
-    "azureml_client": {
-        "subscription_id": "my_subscription_id",
-        "resource_group": "my_resource_group",
-        "workspace_name": "my_workspace"
-    },
-    "job_id": "my_job_id", // id of the job
-    "output_name": "my_output_name", // name of the job output
-    "relative_path": "model_dir/my_model.pt" // Relative path to the resource from the job output root
-}
-```
-
 ### Using data stored in AzureML datastore
 You can use data files or folders that are stored in your Azure ML datastore as:
 ```json
