@@ -87,7 +87,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
         nodes_to_include = nodes_to_include or []
 
         ir_model.graph.sort()
-        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
+        for node in ir_model.graph.all_nodes():
             node_name = node.name
 
             if node_name in nodes_to_exclude:

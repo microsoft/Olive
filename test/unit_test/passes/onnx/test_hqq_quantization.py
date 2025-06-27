@@ -82,7 +82,7 @@ class TestHQQQuantization:
         ir_model = ir.load(quantized_model.model_path)
 
         found_matmul_nbits = False
-        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
+        for node in ir_model.graph.all_nodes():
             if node.op_type == OpType.MatMulNBits:
                 found_matmul_nbits = True
                 assert node.domain == MSFT_DOMAIN

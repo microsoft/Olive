@@ -153,7 +153,7 @@ class TestRTNQuantization:
 
         # Assert
         found_gather_block_quantized = False
-        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
+        for node in ir_model.graph.all_nodes():
             if node.op_type == str(OpType.GatherBlockQuantized):
                 found_gather_block_quantized = True
                 assert node.domain == MSFT_DOMAIN
@@ -194,7 +194,7 @@ class TestRTNQuantization:
         # Assert
         found_matmul_nbits = False
         found_original_matmul = False
-        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
+        for node in ir_model.graph.all_nodes():
             if node.op_type == OpType.MatMulNBits:
                 found_matmul_nbits = True
             elif node.op_type == OpType.MatMul:
