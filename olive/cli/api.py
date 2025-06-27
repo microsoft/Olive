@@ -219,7 +219,7 @@ def generate_adapter(model_name_or_path: str, **kwargs) -> WorkflowOutput:
     return _run_unified_command(GenerateAdapterCommand, **kwargs)
 
 
-def session_params_tuning(model_name_or_path: str, **kwargs) -> WorkflowOutput:
+def tune_session_params(model_name_or_path: str, **kwargs) -> WorkflowOutput:
     """Tune ONNX Runtime session parameters for optimal performance.
 
     Args:
@@ -232,7 +232,7 @@ def session_params_tuning(model_name_or_path: str, **kwargs) -> WorkflowOutput:
 
     """
     kwargs["model_name_or_path"] = model_name_or_path
-    return _run_unified_command(SessionParamsTuningCommand, **kwargs)
+    return tune_session_params(SessionParamsTuningCommand, **kwargs)
 
 
 def generate_cost_model(model_name_or_path: str, **kwargs) -> None:
