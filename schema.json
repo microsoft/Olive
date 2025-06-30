@@ -191,7 +191,8 @@
         "gpu",
         "npu",
         "vpu",
-        "intel_myriad"
+        "intel_myriad",
+        "any"
       ],
       "type": "string"
     },
