@@ -81,6 +81,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--implementation",
             type=str,
+            default=ImplName.OLIVE,
             help="The specific implementation of quantization algorithms to use.",
         )
         sub_parser.add_argument(
@@ -114,7 +115,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         for r in available_passes_list:
             pinfo = olive_config.get_pass_module_config(r["pass_type"])
 
-            impl_match = impl is None or r["impl_name"] == impl
+            impl_match = r["impl_name"] == impl
             algo_match = algo is None or algo in pinfo.supported_algorithms
             precision_match = precision is None or precision in pinfo.supported_precisions
             qdq_match = (

@@ -18,7 +18,6 @@ from olive.passes import Pass
 from olive.passes.onnx.common import (
     get_external_data_config,
     ir_model_to_olive_model,
-    model_has_adapters,
 )
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
@@ -71,12 +70,6 @@ class OnnxBlockWiseRtnQuantization(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        if model_has_adapters(model.model_path):
-            logger.info(
-                "RTN quantization is not supported for models with adapters. Returning the model without quantization."
-            )
-            return model
-
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
         ir_model = model.load_ir_model()
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1

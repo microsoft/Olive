@@ -191,6 +191,8 @@ def test_extract_adapters(tmp_path, model_type, input_model_info):
     if model_type == "qdq":
         pytest.skip("QDQ model test is disabled due to flaky quantization failure")
     adapter_type = input_model_info["adapter_type"]
+    if adapter_type in (AdapterType.DORA, AdapterType.LOHA) and model_type == "int4":
+        pytest.skip("DORA/LoHa model test is disabled for int4 model")
 
     pass_config = {"make_inputs": False, "save_format": WeightsFileFormat.NUMPY, "adapter_type": adapter_type}
 
@@ -224,8 +226,8 @@ def test_extract_adapters_as_inputs(tmp_path, save_format, model_type, input_mod
     if save_format == WeightsFileFormat.ONNX_ADAPTER and version.parse(ort.__version__) < version.parse("1.20"):
         pytest.skip("ONNX_ADAPTER format is only supported in onnxruntime 1.20+")
     adapter_type = input_model_info["adapter_type"]
-    if adapter_type == AdapterType.DORA and model_type == "int4":
-        pytest.skip("DORA model test is disabled for int4 model")
+    if adapter_type in (AdapterType.DORA, AdapterType.LOHA) and model_type == "int4":
+        pytest.skip("DORA/LoHa model test is disabled for int4 model")
 
     # Create the configuration for the pass
     pass_config = {"save_format": save_format, "adapter_type": adapter_type}
