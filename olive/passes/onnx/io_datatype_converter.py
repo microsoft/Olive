@@ -21,7 +21,10 @@ logger = logging.getLogger(__name__)
 
 
 class OnnxIODataTypeConverter(Pass):
-    """Converts model inputs/outputs from a source dtype to a target dtype based on a name pattern."""
+    """
+    DEPRECATED: Use the IODataTypeConverter surgeon via the GraphSurgeries pass instead.
+    Converts model inputs/outputs from a source dtype to a target dtype based on a name pattern.
+    """
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
