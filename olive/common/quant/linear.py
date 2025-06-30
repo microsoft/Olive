@@ -63,7 +63,7 @@ class QuantLinear(nn.Module):
             "qweight",
             torch.zeros(
                 # in_features X out_features, packed as int32 along dim 0
-                (math.ceil(self.in_features // self.packing_factor), self.out_features),
+                (math.ceil(self.in_features / self.packing_factor), self.out_features),
                 dtype=torch.int32,
                 device=device,
             ),
@@ -76,7 +76,7 @@ class QuantLinear(nn.Module):
         self.register_buffer(
             "qzeros",
             torch.zeros(
-                (scale_shape[0], math.ceil(scale_shape[1] // self.packing_factor)),
+                (scale_shape[0], math.ceil(scale_shape[1] / self.packing_factor)),
                 dtype=torch.int32,
                 device=device,
             ),

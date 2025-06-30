@@ -48,7 +48,7 @@ def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTr
         elif model_config.quantization_config.get("quant_method") == "olive":
             # manually register OliveHfQuantizer and OliveHfQuantizationConfig
             # there are decorators to do this but depends on transformers version
-            from transformers.quantizer.auto import AUTO_QUANTIZATION_CONFIG_MAPPING, AUTO_QUANTIZER_MAPPING
+            from transformers.quantizers.auto import AUTO_QUANTIZATION_CONFIG_MAPPING, AUTO_QUANTIZER_MAPPING
 
             from olive.common.quant.hf_utils import OliveHfQuantizationConfig, OliveHfQuantizer
 

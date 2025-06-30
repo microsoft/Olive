@@ -46,7 +46,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         symmetric: Whether to use symmetric quantization.
         block_size: Quantization block size.
             -1 = per-channel, 0 = per-tensor, >0 = blockwise.
-        modules_to_exclude: List of module names to exclude from quantization.
+        modules_to_not_convert : List of module names to exclude from quantization.
         overrides: Per-module overrides for quantization parameters.
 
     """
@@ -57,8 +57,9 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         bits: int,
         symmetric: bool,
         block_size: int,
-        modules_to_exclude: list | None = None,
+        modules_to_not_convert: list | None = None,
         overrides: dict | None = None,
+        **kwargs,
     ):
         # pylint: disable=W0231
         self.quant_method = QUANTIZATION_METHOD
@@ -66,7 +67,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         self.bits = bits
         self.symmetric = symmetric
         self.block_size = block_size
-        self.modules_to_exclude = modules_to_exclude
+        self.modules_to_not_convert = modules_to_not_convert
         self.overrides = {
             module_name: OliveHfQuantizationOverrideConfig(**override)
             for module_name, override in (overrides or {}).items()
@@ -135,8 +136,14 @@ class OliveHfQuantizer(HfQuantizer):
     def _process_model_after_weight_loading(self, model: PreTrainedModel, **kwargs):
         return model
 
-    def is_serializable(self, safe_serialization=None):
+    def is_serializable(self, safe_serialization=None) -> bool:
         return True
+
+    @property
+    def is_trainable(self) -> bool:
+        # TODO(jambayk): investigate what this means (peft, scale+bias, etc.?)
+        # need to support peft, scale+bias comes for free since everything is in torch
+        return False
 
 
 def replace_with_quant_linear(
