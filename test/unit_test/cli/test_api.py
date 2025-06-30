@@ -24,7 +24,7 @@ class TestOlivePythonAPI:
             generate_adapter,
             generate_cost_model,
             quantize,
-            session_params_tuning,
+            tune_session_params,
         )
 
         # Test that all functions are callable
@@ -37,7 +37,7 @@ class TestOlivePythonAPI:
             generate_adapter,
             generate_cost_model,
             quantize,
-            session_params_tuning,
+            tune_session_params,
         ]
 
         for func in api_functions:
@@ -127,15 +127,15 @@ class TestOlivePythonAPI:
         assert result is mock_output
 
     @patch("olive.cli.api.SessionParamsTuningCommand")
-    def test_session_params_tuning_basic(self, mock_cmd_cls):
-        from olive import session_params_tuning
+    def test_tune_session_params_basic(self, mock_cmd_cls):
+        from olive import tune_session_params
 
         mock_cmd = MagicMock()
         mock_output = MagicMock()
         mock_cmd.run.return_value = mock_output
         mock_cmd_cls.return_value = mock_cmd
 
-        session_params_tuning("dummy.onnx")
+        tune_session_params("dummy.onnx")
 
         mock_cmd_cls.assert_called_once()
         mock_cmd.run.assert_called_once()
