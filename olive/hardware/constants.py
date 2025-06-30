@@ -3,33 +3,56 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+from olive.common.utils import StrEnumBase
+
+
+class ExecutionProvider(StrEnumBase):
+    CPUExecutionProvider = "CPUExecutionProvider"
+    CUDAExecutionProvider = "CUDAExecutionProvider"
+    DmlExecutionProvider = "DmlExecutionProvider"
+    OpenVINOExecutionProvider = "OpenVINOExecutionProvider"
+    TensorrtExecutionProvider = "TensorrtExecutionProvider"
+    ROCMExecutionProvider = "ROCMExecutionProvider"
+    MIGraphXExecutionProvider = "MIGraphXExecutionProvider"
+    NvTensorRTRTXExecutionProvider = "NvTensorRTRTXExecutionProvider"
+    JsExecutionProvider = "JsExecutionProvider"
+    QNNExecutionProvider = "QNNExecutionProvider"
+    VitisAIExecutionProvider = "VitisAIExecutionProvider"
+    WebGpuExecutionProvider = "WebGpuExecutionProvider"
+
+
 PROVIDER_DOCKERFILE_MAPPING = {
-    "CPUExecutionProvider": "Dockerfile.cpu",
-    "CUDAExecutionProvider": "Dockerfile.gpu",
-    "TensorrtExecutionProvider": "Dockerfile.gpu",
-    "OpenVINOExecutionProvider": "Dockerfile.openvino",
+    ExecutionProvider.CPUExecutionProvider: "Dockerfile.cpu",
+    ExecutionProvider.CUDAExecutionProvider: "Dockerfile.gpu",
+    ExecutionProvider.TensorrtExecutionProvider: "Dockerfile.gpu",
+    ExecutionProvider.OpenVINOExecutionProvider: "Dockerfile.openvino",
 }
 
 PROVIDER_PACKAGE_MAPPING = {
-    "CPUExecutionProvider": ("onnxruntime", "ort-nightly"),
-    "CUDAExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-    "TensorrtExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-    "ROCMExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
-    "OpenVINOExecutionProvider": ("onnxruntime-openvino", None),
-    "DmlExecutionProvider": ("onnxruntime-directml", "ort-nightly-directml"),
+    ExecutionProvider.CPUExecutionProvider: ("onnxruntime", "ort-nightly"),
+    ExecutionProvider.CUDAExecutionProvider: ("onnxruntime-gpu", "ort-nightly-gpu"),
+    ExecutionProvider.TensorrtExecutionProvider: ("onnxruntime-gpu", "ort-nightly-gpu"),
+    ExecutionProvider.ROCMExecutionProvider: ("onnxruntime-gpu", "ort-nightly-gpu"),
+    ExecutionProvider.OpenVINOExecutionProvider: ("onnxruntime-openvino", None),
+    ExecutionProvider.DmlExecutionProvider: ("onnxruntime-directml", "ort-nightly-directml"),
 }
 
 DEVICE_TO_EXECUTION_PROVIDERS = {
-    "cpu": {"CPUExecutionProvider", "OpenVINOExecutionProvider"},
+    "cpu": {ExecutionProvider.CPUExecutionProvider, ExecutionProvider.OpenVINOExecutionProvider},
     "gpu": {
-        "DmlExecutionProvider",
-        "CUDAExecutionProvider",
-        "ROCMExecutionProvider",
-        "MIGraphXExecutionProvider",
-        "TensorrtExecutionProvider",
-        "NvTensorRTRTXExecutionProvider",
-        "OpenVINOExecutionProvider",
-        "JsExecutionProvider",
+        ExecutionProvider.DmlExecutionProvider,
+        ExecutionProvider.CUDAExecutionProvider,
+        ExecutionProvider.ROCMExecutionProvider,
+        ExecutionProvider.MIGraphXExecutionProvider,
+        ExecutionProvider.TensorrtExecutionProvider,
+        ExecutionProvider.NvTensorRTRTXExecutionProvider,
+        ExecutionProvider.OpenVINOExecutionProvider,
+        ExecutionProvider.JsExecutionProvider,
     },
-    "npu": {"DmlExecutionProvider", "QNNExecutionProvider", "VitisAIExecutionProvider", "OpenVINOExecutionProvider"},
+    "npu": {
+        ExecutionProvider.DmlExecutionProvider,
+        ExecutionProvider.QNNExecutionProvider,
+        ExecutionProvider.VitisAIExecutionProvider,
+        ExecutionProvider.OpenVINOExecutionProvider,
+    },
 }

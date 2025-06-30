@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 import numpy as np
 from packaging import version
 
+from olive.hardware.constants import ExecutionProvider
+
 if TYPE_CHECKING:
     from numpy.typing import NDArray
     from onnxruntime import InferenceSession, IOBinding
@@ -170,15 +172,18 @@ def get_ort_inference_session(
         ort.get_available_providers(),
     )
     for idx, provider in enumerate(providers):
-        if provider in ["CUDAExecutionProvider", "DmlExecutionProvider"] and device_id is not None:
+        if (
+            provider in [ExecutionProvider.CUDAExecutionProvider, ExecutionProvider.DmlExecutionProvider]
+            and device_id is not None
+        ):
             provider_options[idx]["device_id"] = str(device_id)
-        elif provider == "QNNExecutionProvider" and "backend_path" not in provider_options[idx]:
+        elif provider == ExecutionProvider.QNNExecutionProvider and "backend_path" not in provider_options[idx]:
             # add backend_path for QNNExecutionProvider
             provider_options[idx]["backend_path"] = "QnnHtp.dll"
     logger.debug("Normalized providers: %s, provider_options: %s", providers, provider_options)
 
     # dml specific settings
-    if len(providers) >= 1 and providers[0] == "DmlExecutionProvider":
+    if len(providers) >= 1 and providers[0] == ExecutionProvider.DmlExecutionProvider:
         sess_options.enable_mem_pattern = False
 
     sess_kwargs = {}
