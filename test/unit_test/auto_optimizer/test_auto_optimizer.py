@@ -86,6 +86,11 @@ class TestAutoOptimizer:
                         "OnnxConversion",
                         "OrtTransformersOptimization",
                         "OnnxBlockWiseRtnQuantization",
+                        "OrtSessionParamsTuning",
+                    ],
+                    [
+                        "OnnxConversion",
+                        "OrtTransformersOptimization",
                         "OnnxHqqQuantization",
                         "OrtSessionParamsTuning",
                     ],
