@@ -11,20 +11,20 @@ import torch
 class WeightQuantizer:
     """Class to quantize weight tensors."""
 
-    def __init__(self, bits: int = 4, symmetric: bool = True, block_size: int = 0, signed: bool = False):
+    def __init__(self, bits: int = 4, symmetric: bool = True, group_size: int = 0, signed: bool = False):
         """Initialize the quantizer with parameters.
 
         Args:
             bits: Number of bits for quantization (4 or 8)
             symmetric: Whether to use symmetric quantization
-            block_size: Quantization block size (-1: per-channel, 0: per-tensor, >0: blockwise)
+            group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
             signed: Whether to use signed quantization (default is False, meaning unsigned)
 
         """
         assert bits in [4, 8], "Only 4-bit and 8-bit quantization supported"
         self.bits = bits
         self.symmetric = symmetric
-        self.block_size = block_size
+        self.group_size = group_size
         self.signed = signed
 
         if self.signed:
@@ -35,24 +35,24 @@ class WeightQuantizer:
             self.minq = 0
             self.maxq = (1 << self.bits) - 1
 
-    def get_num_blocks(self, shape: tuple[int, int]) -> int:
-        """Get the number of blocks for quantization based on the input shape and block_size.
+    def get_num_groups(self, shape: tuple[int, int]) -> int:
+        """Get the number of groups for quantization based on the input shape and group_size.
 
         Args:
             shape: The shape (out_features, in_features) of the tensor to quantize
 
         Returns:
-            The number of blocks for quantization
+            The number of groups for quantization
 
         """
-        if self.block_size == 0:
-            raise ValueError("block_size must be greater than 0 for blockwise quantization")
-        block_size = self.block_size if self.block_size > 0 else shape[1]
-        assert shape[1] % block_size == 0, "in_features must be divisible by block_size"
-        return shape[1] // block_size
+        if self.group_size == 0:
+            raise ValueError("group_size must be greater than 0 for groupwise quantization")
+        group_size = self.group_size if self.group_size > 0 else shape[1]
+        assert shape[1] % group_size == 0, "in_features must be divisible by group_size"
+        return shape[1] // group_size
 
     def get_qparam_shape(self, shape: tuple[int, int], transpose_out: bool = False) -> tuple[int, ...]:
-        """Get the shapes for quantization parameters based on the input shape and block_size.
+        """Get the shapes for quantization parameters based on the input shape and group_size.
 
         Args:
             shape: The shape (out_features, in_features) of the tensor to quantize
@@ -62,9 +62,9 @@ class WeightQuantizer:
             A tuple of shapes for scales and zero points
 
         """
-        if self.block_size == 0:
+        if self.group_size == 0:
             return (1, 1)
-        return (shape[0], self.get_num_blocks(shape)) if not transpose_out else (self.get_num_blocks(shape), shape[0])
+        return (shape[0], self.get_num_groups(shape)) if not transpose_out else (self.get_num_groups(shape), shape[0])
 
     @torch.no_grad()
     def find_qparams(self, tensor: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -161,7 +161,7 @@ class WeightQuantizer:
         return self.dequantize(q_tensor, scales, zero_points)
 
     def _reshape_tensor(self, tensor: torch.Tensor) -> tuple[torch.Tensor, tuple[int, ...]]:
-        """Reshape the tensor based on the block size.
+        """Reshape the tensor based on the group size.
 
         Args:
             tensor: The tensor to reshape.
@@ -171,8 +171,8 @@ class WeightQuantizer:
 
         """
         shape = tensor.shape
-        if self.block_size == 0:
+        if self.group_size == 0:
             tensor = tensor.reshape(1, 1, -1)
         else:
-            tensor = tensor.reshape(shape[0], self.get_num_blocks(shape), -1)
+            tensor = tensor.reshape(shape[0], self.get_num_groups(shape), -1)
         return tensor, shape

@@ -17,7 +17,7 @@ class QuantLinear(nn.Module):
     Supports:
     - 4-bit and 8-bit quantization
     - Symmetric and asymmetric quantization
-    - Per-tensor, per-channel, and blockwise quantization
+    - Per-tensor, per-channel, and groupwise quantization
     - Optional bias
     - Packed storage for 4-bit weights and zero points
     """
@@ -28,7 +28,7 @@ class QuantLinear(nn.Module):
         out_features: int,
         bits: int = 4,
         symmetric: bool = True,
-        block_size: int = -1,
+        group_size: int = -1,
         bias: bool = True,
         device: Optional[torch.device] = None,
         dtype: torch.dtype = torch.float32,
@@ -40,7 +40,7 @@ class QuantLinear(nn.Module):
             out_features: Size of output features
             bits: Number of bits for quantization (4 or 8)
             symmetric: Whether to use symmetric quantization
-            block_size: Quantization block size (-1: per-channel, 0: per-tensor, >0: blockwise)
+            group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
             bias: Whether to include bias
             device: Device to place tensors on
             dtype: Data type for scales and bias
@@ -52,7 +52,7 @@ class QuantLinear(nn.Module):
 
         self.in_features = in_features
         self.out_features = out_features
-        self.quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, block_size=block_size, signed=False)
+        self.quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
         self.device = device
         self.dtype = dtype
         self.packing_factor = 32 // bits
@@ -95,7 +95,7 @@ class QuantLinear(nn.Module):
         linear: nn.Linear,
         bits: int = 4,
         symmetric: bool = True,
-        block_size: int = -1,
+        group_size: int = -1,
         scales: Optional[torch.Tensor] = None,
         zero_points: Optional[torch.Tensor] = None,
     ) -> "QuantLinear":
@@ -105,7 +105,7 @@ class QuantLinear(nn.Module):
             linear: The nn.Linear layer to convert
             bits: Number of bits for quantization (4 or 8)
             symmetric: Whether to use symmetric quantization
-            block_size: Quantization block size (-1: per-channel, 0: per-tensor, >0: blockwise)
+            group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
             scales: Optional precomputed scales for quantization
             zero_points: Optional precomputed zero points for quantization
 
@@ -119,7 +119,7 @@ class QuantLinear(nn.Module):
             out_features=linear.out_features,
             bits=bits,
             symmetric=symmetric,
-            block_size=block_size,
+            group_size=group_size,
             bias=linear.bias is not None,
             device=linear.weight.device,
             dtype=linear.weight.dtype,
@@ -158,9 +158,9 @@ class QuantLinear(nn.Module):
         # unpack weights and zero points
         iweight = self._unpack_from_int32(self.qweight, (self.in_features, self.out_features), axis=0)
         izeros = self._unpack_from_int32(self.qzeros, self.scales.shape, axis=1) + 1
-        if self.quantizer.block_size > 0:
-            scales = self.scales.repeat_interleave(self.quantizer.block_size, dim=0)
-            izeros = izeros.repeat_interleave(self.quantizer.block_size, dim=0)
+        if self.quantizer.group_size > 0:
+            scales = self.scales.repeat_interleave(self.quantizer.group_size, dim=0)
+            izeros = izeros.repeat_interleave(self.quantizer.group_size, dim=0)
         else:
             scales = self.scales
         iweight = (iweight - izeros) * scales
@@ -177,7 +177,7 @@ class QuantLinear(nn.Module):
         Values are expected to be unsigned in the range [0, 2^bits - 1] of dtype int32.
 
         Args:
-            tensor: The tensor to pack, expected to be of shape (num_blocks, num_features)
+            tensor: The tensor to pack, expected to be of shape (num_groups, num_features)
             bits: Number of bits used for quantization (4 or 8)
             axis: Axis along which to pack the values into int32
 
@@ -218,7 +218,7 @@ class QuantLinear(nn.Module):
         """Unpack a tensor of packed int32 values back to quantized weights or zero points.
 
         Args:
-            packed_tensor: The packed tensor to unpack, expected to be of shape (num_blocks, num_features)
+            packed_tensor: The packed tensor to unpack, expected to be of shape (num_groups, num_features)
             shape: The original shape of the tensor before packing
             axis: Axis along which the values were packed
 
@@ -236,3 +236,11 @@ class QuantLinear(nn.Module):
             unpacked_tensor = unpacked_tensor.reshape(packed_tensor.shape[0], -1)
             unpacked_tensor = unpacked_tensor[:, : shape[1]]
         return torch.bitwise_and(unpacked_tensor, self.quantizer.maxq)
+
+    def extra_repr(self) -> str:
+        """String representation of the layer for printing."""
+        return (
+            f"in_features={self.in_features}, out_features={self.out_features}, bits={self.quantizer.bits},"
+            f" symmetric={self.quantizer.symmetric}, group_size={self.quantizer.group_size},"
+            f" bias={self.bias is not None}"
+        )

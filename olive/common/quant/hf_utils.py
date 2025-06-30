@@ -26,13 +26,13 @@ class OliveHfQuantizationOverrideConfig:
     Attributes:
         bits: Override for bit width (e.g. 4, 8).
         symmetric: Whether to use symmetric quantization for this module.
-        block_size: Size of quantization block for this module.
+        group_size: Size of quantization group for this module.
 
     """
 
     bits: int | None = None
     symmetric: bool | None = None
-    block_size: int | None = None
+    group_size: int | None = None
 
 
 @dataclass
@@ -44,8 +44,8 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
     Attributes:
         bits: Default bit width for quantization (e.g. 4, 8).
         symmetric: Whether to use symmetric quantization.
-        block_size: Quantization block size.
-            -1 = per-channel, 0 = per-tensor, >0 = blockwise.
+        group_size: Quantization group size.
+            -1 = per-channel, 0 = per-tensor, >0 = groupwise.
         modules_to_not_convert : List of module names to exclude from quantization.
         overrides: Per-module overrides for quantization parameters.
 
@@ -56,7 +56,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         self,
         bits: int,
         symmetric: bool,
-        block_size: int,
+        group_size: int,
         modules_to_not_convert: list | None = None,
         overrides: dict | None = None,
         **kwargs,
@@ -66,7 +66,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
 
         self.bits = bits
         self.symmetric = symmetric
-        self.block_size = block_size
+        self.group_size = group_size
         self.modules_to_not_convert = modules_to_not_convert
         self.overrides = {
             module_name: OliveHfQuantizationOverrideConfig(**override)
@@ -107,7 +107,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         init_args = {
             "bits": self.bits,
             "symmetric": self.symmetric,
-            "block_size": self.block_size,
+            "group_size": self.group_size,
         }
         if override := self.overrides.get(module_name):
             init_args.update({k: v for k, v in override.__dict__.items() if v is not None})
