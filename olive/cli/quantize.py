@@ -39,6 +39,16 @@ class ImplName(StrEnumBase):
     AUTOGPTQ = "autogptq"
 
 
+PRECISION_TO_BITS = {
+    Precision.INT4: 4,
+    Precision.INT8: 8,
+    Precision.INT16: 16,
+    Precision.UINT4: 4,
+    Precision.UINT8: 8,
+    Precision.UINT16: 16,
+}
+
+
 class QuantizeCommand(BaseOliveCLICommand):
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
@@ -150,8 +160,8 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         # config options to add for a given option
         to_add = {
-            "AutoAWQQuantizer": {"bits": self.args.precision},
-            "GptqQuantizer": {"bits": self.args.precision},
+            "AutoAWQQuantizer": {"bits": PRECISION_TO_BITS[self.args.precision]},
+            "GptqQuantizer": {"bits": PRECISION_TO_BITS[self.args.precision]},
             "OnnxBnB4Quantization": {"precision": self.args.precision},
             "NVModelOptQuantization": {"precision": self.args.precision, "algorithm": self.args.algorithm},
             "OnnxDynamicQuantization": {"precision": self.args.precision, "quant_format": quant_format},
