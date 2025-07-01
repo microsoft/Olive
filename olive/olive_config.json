@@ -150,7 +150,17 @@
         },
         "OnnxIODataTypeConverter": {
             "module_path": "olive.passes.onnx.io_datatype_converter.OnnxIODataTypeConverter",
-            "supported_providers": [ "*" ],
+            "supported_providers": [
+                "CPUExecutionProvider",
+                "CUDAExecutionProvider",
+                "DmlExecutionProvider",
+                "MIGraphXExecutionProvider",
+                "OpenVINOExecutionProvider",
+                "QNNExecutionProvider",
+                "ROCMExecutionProvider",
+                "TensorrtExecutionProvider",
+                "VitisAIExecutionProvider"
+            ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
