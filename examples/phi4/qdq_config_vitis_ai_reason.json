@@ -1,0 +1,76 @@
+{
+    "input_model": { "type": "HfModel", "model_path": "microsoft/Phi-4-reasoning" },
+    "data_configs": [
+        {
+            "name": "wikitext2_train",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": { "data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train" },
+            "pre_process_data_config": {
+                "strategy": "line-by-line",
+                "add_special_tokens": false,
+                "max_samples": 128,
+                "max_seq_len": 512
+            }
+        }
+    ],
+    "passes": {
+        "q": { "type": "QuaRot" },
+        "g": { "type": "GptqQuantizer", "sym": true, "group_size": -1 },
+        "cs": { "type": "CaptureSplitInfo", "num_splits": 1, "unique_embeds_lm_head_splits": true },
+        "mb": {
+            "type": "ModelBuilder",
+            "precision": "int4",
+            "int4_block_size": 32,
+            "int4_accuracy_level": 4,
+            "int4_op_types_to_quantize": [ "MatMul", "Gather" ]
+        },
+        "mq": {
+            "type": "MatMulNBitsToQDQ",
+            "use_int4": true,
+            "add_zero_point": true,
+            "nodes_to_exclude": [ "/lm_head/MatMul_Q4" ],
+            "save_as_external_data": true
+        },
+        "gs": {
+            "type": "GraphSurgeries",
+            "surgeries": [
+                { "surgeon": "RemoveRopeMultiCache" },
+                { "surgeon": "AttentionMaskToSequenceLengths" },
+                { "surgeon": "SimplifiedLayerNormToL2Norm" }
+            ],
+            "save_as_external_data": true
+        },
+        "sq": {
+            "type": "OnnxStaticQuantization",
+            "data_config": "wikitext2_train",
+            "activation_type": "uint16",
+            "precision": "uint8",
+            "calibration_providers": [ "CUDAExecutionProvider" ],
+            "quant_preprocess": true,
+            "op_types_to_exclude": [ "GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits" ],
+            "save_as_external_data": true
+        },
+        "addmetadata": {
+            "type": "VitisAIAddMetaData",
+            "config_meta_data_keys": [ "architectures", "model_type" ],
+            "activation_type": "uint16",
+            "weight_type": "int4",
+            "quant_type": "QuaRot"
+        },
+        "sp": { "type": "SplitModel" },
+        "st": {
+            "type": "StaticLLM",
+            "batch_size": 1,
+            "context_length": 64,
+            "group_session_options": {
+                "log_id": "onnxruntime-genai",
+                "provider_options": [ { "VitisAI": {  } } ],
+                "graph_optimization_level": "ORT_ENABLE_ALL"
+            }
+        }
+    },
+    "log_severity_level": 1,
+    "output_dir": "models/phi4-vai",
+    "cache_dir": "cache",
+    "no_artifacts": true
+}
