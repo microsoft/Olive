@@ -78,14 +78,14 @@ class QuantizeCommand(BaseOliveCLICommand):
             "--precision",
             type=str,
             default=Precision.INT8,
-            choices=list(Precision) + list(PrecisionBits),
+            choices=[p.value for p in Precision],
             help="The precision of the quantized model.",
         )
         sub_parser.add_argument(
             "--act_precision",
             type=str,
             default=Precision.INT8,
-            choices=list(Precision),
+            choices=[p.value for p in Precision],
             help="The precision of the activation quantization for static quantization.",
         )
         sub_parser.add_argument(
