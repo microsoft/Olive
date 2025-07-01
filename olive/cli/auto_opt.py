@@ -435,7 +435,7 @@ TEMPLATE = {
             ("mixed_precision_overrides", {"type": "MixedPrecisionOverrides", "overrides_config": None}),
             # quantization passes
             ("dynamic_quant", {"type": "OnnxDynamicQuantization", "precision": Precision.INT8}),
-            ("matmul4", {"type": "OnnxMatMul4Quantizer"}),
+            ("matmul4", {"type": "OnnxBlockWiseRtnQuantization"}),
             ("bnb4", {"type": "OnnxBnb4Quantization", "precision": Precision.NF4}),
             # post processing passes
             ("mnb_to_qdq", {"type": "MatMulNBitsToQDQ"}),

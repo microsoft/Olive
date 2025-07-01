@@ -37,7 +37,8 @@ def remove_incompatible_passes(pass_flows):
         "OnnxQuantization",
         "IncQuantization",
         "VitisAIQuantization",
-        "OnnxMatMul4Quantizer",
+        "OnnxBlockWiseRtnQuantization",
+        "OnnxHqqQuantization",
         "OrtTransformersOptimization",
         "OrtMixedPrecision",
     ]

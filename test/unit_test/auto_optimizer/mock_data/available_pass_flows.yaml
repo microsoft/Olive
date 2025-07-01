@@ -19,10 +19,22 @@ _variables:
       "OnnxQuantization",
       "OrtSessionParamsTuning",
     ]
+  - &rtn_int8 [
+      "OnnxConversion",
+      "OrtTransformersOptimization",
+      "OnnxBlockWiseRtnQuantization",
+      "OrtSessionParamsTuning",
+    ]
   - &int4 [
       "OnnxConversion",
       "OrtTransformersOptimization",
-      "OnnxMatMul4Quantizer",
+      "OnnxBlockWiseRtnQuantization",
+      "OrtSessionParamsTuning",
+    ]
+  - &hhq_int4 [
+      "OnnxConversion",
+      "OrtTransformersOptimization",
+      "OnnxHqqQuantization",
       "OrtSessionParamsTuning",
     ]
   - &inc_int8 [
@@ -51,6 +63,7 @@ mapping:
   gpu_cuda_int4:
     # TODO(anyone): unify int4 quantization
     - *int4
+    - *hhq_int4
     - *mp
 
   # gpu, TensorrtExecutionProvider, precision: fp32, fp16
@@ -74,8 +87,10 @@ mapping:
     - *int8
     - *inc_int8
     - *mp
+    - *rtn_int8
   cpu_cpu_int4:
     - *int4
+    - *hhq_int4
     - *mp
 
   # npu, VitisAIExecutionProvider, precision: fp32, int8

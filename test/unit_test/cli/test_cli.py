@@ -348,6 +348,9 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
 
     if algorithm_name == "gptq":
         command_args += ["-d", "dummy_dataset"]
+        command_args += ["--implementation", "autogptq"]
+    if algorithm_name == "awq":
+        command_args += ["--implementation", "awq"]
 
     # execute
     cli_main(command_args)

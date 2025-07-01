@@ -65,7 +65,17 @@ VitisAIQuantization:
     - int8
   accelerator:
     - npu
-OnnxMatMul4Quantizer:
+OnnxBlockWiseRtnQuantization:
+  EP:
+    - CPU
+    - CUDA
+  precision:
+    - int4
+    - int8
+  accelerator:
+    - cpu
+    - gpu
+OnnxHqqQuantization:
   EP:
     - CPU
     - CUDA

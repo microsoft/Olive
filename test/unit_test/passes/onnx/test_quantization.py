@@ -2,8 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import logging
-import platform
 from unittest.mock import patch
 
 import onnx
@@ -12,14 +10,12 @@ from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 from packaging import version
 
-from olive.common.pydantic_v1 import ValidationError
 from olive.constants import Precision
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.quantization import (
-    OnnxMatMul4Quantizer,
     OnnxQuantization,
     OnnxQuantizationPreprocess,
     OnnxStaticQuantization,
@@ -150,84 +146,3 @@ def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected, is_qnn)
     assert extra_options.get("MinimumRealRange") == (1e-4 if is_qnn else 5e-4)
     assert extra_options.get("WeightSymmetric") is True
     assert extra_options.get("ActivationSymmetric") is True
-
-
-@pytest.mark.parametrize(
-    ("algorithm", "weight_only_quant_configs"),
-    [
-        (None, None),
-        ("rtn", {"ratios": {}}),
-    ],
-)
-def test_matmul_4bit_quantization_without_dataloader(tmp_path, algorithm, weight_only_quant_configs):
-    if algorithm == "rtn" and platform.system() == "Windows":
-        # neural-compressor calls 'wmic' which is not available anymore
-        pytest.skip("RTN quantization requires neural-compressor which is incompatible with newer versions of Windows.")
-
-    input_model = get_onnx_model()
-    config = {
-        "block_size": 32,
-        "is_symmetric": True,
-        "nodes_to_exclude": [],
-        "accuracy_level": 4,
-        "algorithm": algorithm,
-        "weight_only_quant_configs": weight_only_quant_configs,
-    }
-    accelerator_spec = AcceleratorSpec(
-        accelerator_type="CPU",
-        execution_provider="CPUExecutionProvider",
-    )
-    p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
-    out = p.run(input_model, tmp_path)
-    assert out is not None
-
-
-@pytest.mark.skipif(
-    platform.system() == "Windows",
-    reason="GPTQ quantization requires neural-compressor which is incompatible with newer versions of Windows.",
-)
-def test_matmul_4bits_gptq_with_dataloader(tmp_path, caplog):
-    input_model = get_onnx_model()
-    config = {
-        "block_size": 32,
-        "is_symmetric": True,
-        "nodes_to_exclude": [],
-        "accuracy_level": 4,
-        "algorithm": "gptq",
-        "data_config": DataConfig(
-            name="test_quant_dc_config",
-            load_dataset_config=DataComponentConfig(type="simple_dataset"),
-            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
-        ),
-        "weight_only_quant_configs": {"percdamp": 0.01, "block_size": 128, "use_less_config": 1},
-    }
-    accelerator_spec = AcceleratorSpec(
-        accelerator_type="CPU",
-        execution_provider="CPUExecutionProvider",
-    )
-
-    with caplog.at_level(logging.INFO, logger="olive"):
-        p = create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
-        out = p.run(input_model, tmp_path)
-        assert out is not None
-        assert "Invalid weight_only_quant_configs: {'use_less_config'} for algorithm gptq" in caplog.text
-        assert (
-            "The pass config parameter block_size's value 32 is different from the algorithm config's value 128. The"
-            " algorithm config's value will be used." in caplog.text
-        )
-
-
-def test_invalid_config_for_matmul_4bits():
-    config = {
-        "block_size": 32,
-        "is_symmetric": True,
-        "nodes_to_exclude": [],
-        "accuracy_level": 5,
-        "algorithm": "TE",
-    }
-    accelerator_spec = AcceleratorSpec(
-        accelerator_type="CPU",
-        execution_provider="CPUExecutionProvider",
-    )
-    with pytest.raises(ValidationError):
-        create_pass_from_dict(OnnxMatMul4Quantizer, config, disable_search=True, accelerator_spec=accelerator_spec)
