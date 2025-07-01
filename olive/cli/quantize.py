@@ -23,7 +23,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import StrEnumBase, set_nested_dict_value
-from olive.constants import Precision, PrecisionBits, QuantAlgorithm
+from olive.constants import Precision, QuantAlgorithm
 from olive.package_config import OlivePackageConfig
 
 
@@ -172,7 +172,10 @@ class QuantizeCommand(BaseOliveCLICommand):
                 "data_config": "default_data_config",
             },
             "OnnxBlockWiseRtnQuantization": {},
-            "IncDynamicQuantization": {"algorithm": self.args.algorithm, "bits": self.args.precision},
+            "IncDynamicQuantization": {
+                "algorithm": self.args.algorithm,
+                "bits": PRECISION_TO_BITS[self.args.precision],
+            },
             "MatMulNBitsToQDQ": {},
         }
 
