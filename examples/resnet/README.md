@@ -68,12 +68,6 @@ This workflow performs ResNet optimization on AMD DPU with AMD Vitis-AI Quantiza
 
 Config file: [resnet_vitis_ai_ptq_cpu.json](resnet_vitis_ai_ptq_cpu.json)
 
-### ResNet optimization with OpenVINO and DML execution providers
-This example performs ResNet optimization with OpenVINO and DML execution providers in one workflow. It performs the optimization pipeline:
-- *ONNX Model -> ONNX Runtime performance tuning on multiple ep*
-
-Config file: [resnet_multiple_ep.json](resnet_multiple_ep.json)
-
 ### ResNet optimization with Nvidia TensorRT-RTX execution provider
 This example performs ResNet optimization with Nvidia TensorRT-RTX execution provider. It performs the optimization pipeline:
 - *ONNX Model -> fp16 Onnx Model*

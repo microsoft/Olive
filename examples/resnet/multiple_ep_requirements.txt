@@ -1,7 +1,0 @@
-azure-ai-ml
-azure-identity
-azureml-fsspec
-pytorch-lightning
-scipy
-tabulate
-torchvision
