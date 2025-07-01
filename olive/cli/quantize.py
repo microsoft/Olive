@@ -139,7 +139,7 @@ class QuantizeCommand(BaseOliveCLICommand):
                 f"with QDQ {self.args.use_qdq_encoding} is not supported"
             )
 
-        if impl is None or (impl == ImplName.OLIVE and self.args.use_qdq_encoding):
+        if impl == ImplName.OLIVE and self.args.use_qdq_encoding:
             pass_list.append("MatMulNBitsToQDQ")
 
         print(f"pass list: {pass_list}")
