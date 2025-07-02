@@ -23,7 +23,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import StrEnumBase, set_nested_dict_value
-from olive.constants import Precision, QuantAlgorithm
+from olive.constants import Precision, QuantAlgorithm, precision_bits_from_precision
 from olive.package_config import OlivePackageConfig
 
 
@@ -37,16 +37,6 @@ class ImplName(StrEnumBase):
     QUAROT = "quarot"
     AWQ = "awq"
     AUTOGPTQ = "autogptq"
-
-
-PRECISION_TO_BITS = {
-    Precision.INT4: 4,
-    Precision.INT8: 8,
-    Precision.INT16: 16,
-    Precision.UINT4: 4,
-    Precision.UINT8: 8,
-    Precision.UINT16: 16,
-}
 
 
 class QuantizeCommand(BaseOliveCLICommand):
@@ -160,8 +150,8 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         # config options to add for a given option
         to_add = {
-            "AutoAWQQuantizer": {"bits": PRECISION_TO_BITS[self.args.precision]},
-            "GptqQuantizer": {"bits": PRECISION_TO_BITS[self.args.precision]},
+            "AutoAWQQuantizer": {"bits": precision_bits_from_precision(self.args.precision)},
+            "GptqQuantizer": {"bits": precision_bits_from_precision(self.args.precision)},
             "OnnxBnB4Quantization": {"precision": self.args.precision},
             "NVModelOptQuantization": {"precision": self.args.precision, "algorithm": self.args.algorithm},
             "OnnxDynamicQuantization": {"precision": self.args.precision, "quant_format": quant_format},
@@ -174,7 +164,7 @@ class QuantizeCommand(BaseOliveCLICommand):
             "OnnxBlockWiseRtnQuantization": {},
             "IncDynamicQuantization": {
                 "algorithm": self.args.algorithm,
-                "bits": PRECISION_TO_BITS[self.args.precision],
+                "bits": precision_bits_from_precision(self.args.precision),
             },
             "MatMulNBitsToQDQ": {},
         }
