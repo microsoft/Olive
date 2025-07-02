@@ -419,7 +419,7 @@ def optimize(
 
         olive_run(olive_config)
 
-        footprints_file_path = Path(__file__).resolve().parent / "footprints" / submodel_name / "footprints.json"
+        footprints_file_path = script_dir / "footprints" / submodel_name / "footprints.json"
         with footprints_file_path.open("r") as footprint_file:
             footprints = json.load(footprint_file)
 
