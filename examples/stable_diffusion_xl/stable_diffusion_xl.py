@@ -522,7 +522,7 @@ def optimize(
 
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
     print("Copying optimized models...")
-    shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
+    shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("model.onnx", "weights.pb", "model.onnx.data"))
     for submodel_name in submodel_names:
         save_config(configs, submodel_name, model_info, optimized=True)
         src_path = model_info[submodel_name]["optimized"]["path"]
