@@ -69,6 +69,9 @@
             "float16": true,
             "use_gpu": true,
             "keep_io_types": true,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "external_data_name": "model.onnx.data",
             "optimization_options": {
                 "enable_gelu": true,
                 "enable_layer_norm": true,
@@ -99,7 +102,10 @@
             "opt_level": 0,
             "float16": true,
             "use_gpu": true,
-            "keep_io_types": true
+            "keep_io_types": true,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "external_data_name": "model.onnx.data"
         },
         "dynamic_shape_to_fixed": {
             "type": "DynamicToFixedShape",
@@ -123,6 +129,9 @@
             "type": "OrtTransformersOptimization",
             "model_type": "unet",
             "opt_level": 0,
+            "save_as_external_data": true,
+            "all_tensors_to_one_file": true,
+            "external_data_name": "model.onnx.data",
             "optimization_options": {
                 "enable_gelu": true,
                 "enable_layer_norm": true,
