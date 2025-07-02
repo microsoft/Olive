@@ -238,7 +238,6 @@ class QuantLinear(nn.Module):
         return torch.bitwise_and(unpacked_tensor, self.quantizer.maxq)
 
     def extra_repr(self) -> str:
-        """String representation of the layer for printing."""
         return (
             f"in_features={self.in_features}, out_features={self.out_features}, bits={self.quantizer.bits},"
             f" symmetric={self.quantizer.symmetric}, group_size={self.quantizer.group_size},"

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import torch.nn as nn
 from transformers.quantizers.base import HfQuantizer
@@ -123,15 +123,30 @@ class OliveHfQuantizer(HfQuantizer):
     def _process_model_before_weight_loading(
         self, model: PreTrainedModel, keep_in_fp32_modules: list[str] | None = None, **kwargs
     ):
+        from olive.common.quant.linear import QuantLinear
+
         # this helps skip modules such as lm_head which is generally not quantized
         # TODO(jambayk): maybe add an option to skip/include lm head if we start quantizing it
         self.modules_to_not_convert = self.get_modules_to_not_convert(
             model, self.quantization_config.modules_to_not_convert, keep_in_fp32_modules, add_default_skips=True
         )
 
-        model, _ = replace_with_quant_linear(
-            model, quantization_config=self.quantization_config, modules_to_not_convert=self.modules_to_not_convert
-        )
+        def should_quantize(module: nn.Module, name: str) -> bool:
+            """Check if a module should be quantized."""
+            return isinstance(module, nn.Linear) and not any(key in name for key in self.modules_to_not_convert)
+
+        def create_quantized_module(module: nn.Linear, name: str) -> QuantLinear:
+            """Create a quantized version of a module."""
+            return QuantLinear(
+                in_features=module.in_features,
+                out_features=module.out_features,
+                **self.quantization_config.get_qlinear_init_args(name),
+                bias=module.bias is not None,
+                device=module.weight.device,
+                dtype=module.weight.dtype,
+            )
+
+        replace_matching_submodules(model, should_quantize, create_quantized_module)
 
     def _process_model_after_weight_loading(self, model: PreTrainedModel, **kwargs):
         return model
@@ -146,64 +161,35 @@ class OliveHfQuantizer(HfQuantizer):
         return False
 
 
-def replace_with_quant_linear(
-    model: nn.Module,
-    quantization_config: OliveHfQuantizationConfig,
-    modules_to_not_convert: list[str] | None = None,
-    current_key_name: list[str] | None = None,
-    has_been_replaced: bool = False,
-) -> bool:
-    """Recursively replace the Linear layers of the given model with Olive quantized layers.
+def replace_matching_submodules(
+    module: nn.Module,
+    condition: Callable[[nn.Module, str], bool],
+    transform: Callable[[nn.Module], nn.Module],
+    path: list[str] | None = None,
+):
+    """Walk the module tree and replace every sub-module that meets a condition.
 
     Args:
-        model: The model to convert, can be any `torch.nn.Module` instance.
-        quantization_config: The quantization config object that contains the quantization parameters.
-        modules_to_not_convert: A list of modules to not convert. If a module name is in the list (e.g. `lm_head`), it will not be
-            converted.
-        current_key_name: A list that contains the current key name. This is used for recursion and should not be passed by the user.
-        has_been_replaced: A boolean that indicates if the conversion has been successful or not. This is used for recursion and
-            should not be passed by the user.
+        module: Root ``nn.Module`` to start from.
+        condition: ``condition(m, name) -> bool``. Return ``True`` to trigger
+            replacement.
+        transform: ``transform(m, name) -> nn.Module``. Produces the replacement.
+        path: (Internal) List of name segments used to build the dotted path.
 
     Returns:
-        A tuple containing the converted model and a boolean that indicates if the conversion has been successful or not.
+        The root module with all replacements applied. If the root matches,
+        the returned object is whatever ``transform`` returns.
 
     """
-    from olive.common.quant.linear import QuantLinear
+    path = [] if path is None else path
 
-    if modules_to_not_convert is None:
-        modules_to_not_convert = []
+    name = ".".join(path)
+    if condition(module, name):
+        # do we need to recurse into children first? no use case for that yet
+        return transform(module, name)
 
-    for name, module in model.named_children():
-        if current_key_name is None:
-            current_key_name = []
-        current_key_name.append(name)
+    for name, child in module.named_children():
+        new_child = replace_matching_submodules(child, condition, transform, [*path, name])
+        module.add_module(name, new_child)
 
-        if isinstance(module, nn.Linear) and name not in modules_to_not_convert:
-            # Check if the current key is not in the `modules_to_not_convert`
-            full_name = ".".join(current_key_name)
-            if not any(key in full_name for key in modules_to_not_convert):
-                # pylint: disable=W0212
-                model._modules[name] = QuantLinear(
-                    in_features=module.in_features,
-                    out_features=module.out_features,
-                    **quantization_config.get_qlinear_init_args(full_name),
-                    bias=module.bias is not None,
-                    device=module.weight.device,
-                    dtype=module.weight.dtype,
-                )
-
-                has_been_replaced = True
-
-                # Force requires grad to False to avoid unexpected errors
-                model._modules[name].requires_grad_(False)
-        if len(list(module.children())) > 0:
-            _, has_been_replaced = replace_with_quant_linear(
-                module,
-                modules_to_not_convert=modules_to_not_convert,
-                current_key_name=current_key_name,
-                quantization_config=quantization_config,
-                has_been_replaced=has_been_replaced,
-            )
-        # Remove the last key for recursion
-        current_key_name.pop(-1)
-    return model, has_been_replaced
+    return module
