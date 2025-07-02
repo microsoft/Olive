@@ -484,6 +484,7 @@ def test_simplifiedlayernorm_to_l2norm(tmp_path, all_ones):
         initializer=initializers,
     )
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
     onnx.save(model, str(tmp_path / "input_model.onnx"))
     input_model = ONNXModelHandler(model_path=str(tmp_path / "input_model.onnx"))
 
@@ -546,6 +547,7 @@ def test_simplifiedlayernorm_to_l2norm_skip(tmp_path, all_ones, output_skip_sum)
         initializer=initializers,
     )
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
     onnx.save(model, str(tmp_path / "input_model.onnx"))
     input_model = ONNXModelHandler(model_path=str(tmp_path / "input_model.onnx"))
 
@@ -715,6 +717,7 @@ def test_replace_attention_mask_value(tmp_path):
         initializer=initializers,
     )
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
     onnx.checker.check_model(model)
 
     model_path = tmp_path / "model.onnx"
@@ -778,6 +781,7 @@ def test_matmul_add_to_gemm(tmp_path):
         initializer=initializers,
     )
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
     onnx.checker.check_model(model)
 
     model_path = tmp_path / "model.onnx"
