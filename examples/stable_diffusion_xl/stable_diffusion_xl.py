@@ -343,11 +343,12 @@ def update_config_with_provider(
     elif provider == "qnn":
         config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
         config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
-    else:
+    elif provider == "cpu":
         config["systems"]["local_system"]["accelerators"][0]["device"] = "cpu"
         config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
         # not meaningful to evaluate QDQ latency on CPU
         config["evaluator"] = None
+    # else provider is dml, the default.
     return config
 
 
