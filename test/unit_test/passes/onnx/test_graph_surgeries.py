@@ -751,6 +751,94 @@ def test_replace_attention_mask_value(tmp_path):
     assert np.array_equal(outputs[4], expected_output_5)
 
 
+@pytest.mark.parametrize(
+    ("source_dtype", "target_dtype"),
+    [
+        (1, 10),  # FLOAT to FLOAT16
+        (10, 1),  # FLOAT16 to FLOAT
+    ],
+)
+def test_io_datatype_converter_surgeon(source_dtype, target_dtype, tmp_path):
+    # setup
+    node1 = helper.make_node("Add", ["logits_a", "logits_b"], ["logits_c"], name="add_node")
+
+    input_tensor_a = helper.make_tensor_value_info("logits_a", source_dtype, [None])
+    input_tensor_b = helper.make_tensor_value_info("logits_b", source_dtype, [None])
+    output_tensor_c = helper.make_tensor_value_info("logits_c", source_dtype, [None])
+
+    graph = helper.make_graph([node1], "example_graph", [input_tensor_a, input_tensor_b], [output_tensor_c])
+    onnx_model = helper.make_model(graph, producer_name="example_producer")
+    tmp_model_path = str(tmp_path / "model.onnx")
+    onnx.save(onnx_model, tmp_model_path)
+    input_model = ONNXModelHandler(model_path=tmp_model_path)
+    
+    p = create_pass_from_dict(
+        GraphSurgeries, 
+        {
+            "surgeries": [
+                {
+                    "surgeon": "IODataTypeConverter",
+                    "source_dtype": source_dtype,
+                    "target_dtype": target_dtype,
+                    "name_pattern": "logits"
+                }
+            ]
+        }, 
+        disable_search=True
+    )
+    output_folder = str(tmp_path / "onnx")
+
+    # execute
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    model_proto = output_model.load_model()
+    for i in model_proto.graph.input:
+        assert i.type.tensor_type.elem_type == target_dtype
+    for o in model_proto.graph.output:
+        assert o.type.tensor_type.elem_type == target_dtype
+
+
+@pytest.mark.parametrize(
+    ("source_dtype", "target_dtype"),
+    [
+        (-1, 10),
+        (10, 100),
+    ],
+)
+def test_io_datatype_converter_surgeon_invalid_datatype(source_dtype, target_dtype, tmp_path):
+    # setup
+    node1 = helper.make_node("Add", ["logits_a"], ["logits_b"], name="add_node")
+
+    input_tensor_a = helper.make_tensor_value_info("logits_a", 1, [None])
+    output_tensor_b = helper.make_tensor_value_info("logits_b", 1, [None])
+
+    graph = helper.make_graph([node1], "example_graph", [input_tensor_a], [output_tensor_b])
+    onnx_model = helper.make_model(graph, producer_name="example_producer")
+    tmp_model_path = str(tmp_path / "model.onnx")
+    onnx.save(onnx_model, tmp_model_path)
+    input_model = ONNXModelHandler(model_path=tmp_model_path)
+    
+    # execute
+    with pytest.raises(ValueError, match="Invalid elem_type"):
+        p = create_pass_from_dict(
+            GraphSurgeries, 
+            {
+                "surgeries": [
+                    {
+                        "surgeon": "IODataTypeConverter",
+                        "source_dtype": source_dtype,
+                        "target_dtype": target_dtype,
+                        "name_pattern": "logits"
+                    }
+                ]
+            }, 
+            disable_search=True
+        )
+        output_folder = str(tmp_path / "onnx")
+        p.run(input_model, output_folder)
+
+
 def test_matmul_add_to_gemm(tmp_path):
     # setup input and output tensors
     input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 3])
