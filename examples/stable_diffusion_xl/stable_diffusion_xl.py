@@ -368,6 +368,7 @@ def optimize(
     optimized_model_dir: Path,
     only_conversion: bool,
     model_format: str,
+    skip_evaluation: bool,
 ):
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
@@ -416,6 +417,9 @@ def optimize(
             olive_config["input_model"]["model_path"] = model_id
 
         configs[submodel_name] = olive_config["input_model"]["model_path"]
+
+        if skip_evaluation:
+            olive_config["evaluator"] = None
 
         olive_run(olive_config)
 
@@ -554,6 +558,7 @@ def main(raw_args=None):
     parser.add_argument("--base_images", default=None, nargs="+")
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
+    parser.add_argument("--skip_evaluation", action="store_true", help="Skip evaluation after optimization")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument(
@@ -686,6 +691,7 @@ def main(raw_args=None):
                 optimized_model_dir,
                 args.only_conversion,
                 args.format,
+                args.skip_evaluation,
             )
 
     # Run inference on the models
