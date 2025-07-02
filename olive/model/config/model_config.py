@@ -57,7 +57,6 @@ class ModelConfig(NestedConfig):
 
     def get_model_identifier(self):
         model_path = self.config.get("model_path")
-        hash_list = []
         if model_path:
             model_path_resource_path = create_resource_path(model_path)
             if (
@@ -78,12 +77,10 @@ class ModelConfig(NestedConfig):
 
             if model_path_resource_path.is_azureml_resource():
                 return model_path_resource_path.get_path()
-            hash_list.append(model_path)
 
         file_hashes = self._get_model_files_hash(self.config)
         sorted_file_hashes = sorted(file_hashes)
-        hash_list.extend(sorted_file_hashes)
-        return hash_string("".join(hash_list))
+        return hash_string("".join(sorted_file_hashes))
 
     def _get_model_files_hash(self, config: dict):
         keys = ["model_path", "adapter_path", "model_script", "script_dir"]
@@ -103,4 +100,8 @@ class ModelConfig(NestedConfig):
         elif file_path.is_dir():
             for file in file_path.iterdir():
                 file_hashes.extend(self._get_file_hash(file))
+        else:
+            # some model path or adapter path may be a hf repo string.
+            # if it is not a file or a directory, hash the path string.
+            file_hashes.append(hash_string(file_path.as_posix()))
         return file_hashes
