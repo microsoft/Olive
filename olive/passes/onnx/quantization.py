@@ -14,7 +14,7 @@ from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import exclude_keys, hash_string
-from olive.constants import Precision, PrecisionBits
+from olive.constants import Precision
 from olive.data.config import DataConfig
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
@@ -231,28 +231,6 @@ def quant_type_from_precision(p):
         Precision.UINT8: QuantType["QUInt8"],
         Precision.INT16: QuantType["QInt16"],
         Precision.UINT16: QuantType["QUInt16"],
-    }
-    return mapping.get(p)
-
-
-def bits_from_precision(p):
-    mapping = {
-        Precision.INT4: 4,
-        Precision.INT8: 8,
-    }
-    return mapping.get(p)
-
-
-def precision_bits_from_precision(p):
-    mapping = {
-        Precision.INT4: PrecisionBits.BITS4,
-        Precision.INT8: PrecisionBits.BITS8,
-        Precision.INT16: PrecisionBits.BITS16,
-        Precision.INT32: PrecisionBits.BITS32,
-        Precision.UINT4: PrecisionBits.BITS4,
-        Precision.UINT8: PrecisionBits.BITS8,
-        Precision.UINT16: PrecisionBits.BITS16,
-        Precision.UINT32: PrecisionBits.BITS32,
     }
     return mapping.get(p)
 

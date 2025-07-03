@@ -23,7 +23,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import StrEnumBase, set_nested_dict_value
-from olive.constants import Precision, PrecisionBits, QuantAlgorithm
+from olive.constants import Precision, QuantAlgorithm, precision_bits_from_precision
 from olive.package_config import OlivePackageConfig
 
 
@@ -68,14 +68,14 @@ class QuantizeCommand(BaseOliveCLICommand):
             "--precision",
             type=str,
             default=Precision.INT8,
-            choices=list(Precision) + list(PrecisionBits),
+            choices=[p.value for p in Precision],
             help="The precision of the quantized model.",
         )
         sub_parser.add_argument(
             "--act_precision",
             type=str,
             default=Precision.INT8,
-            choices=list(Precision),
+            choices=[p.value for p in Precision],
             help="The precision of the activation quantization for static quantization.",
         )
         sub_parser.add_argument(
@@ -150,8 +150,8 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         # config options to add for a given option
         to_add = {
-            "AutoAWQQuantizer": {"bits": self.args.precision},
-            "GptqQuantizer": {"bits": self.args.precision},
+            "AutoAWQQuantizer": {"bits": precision_bits_from_precision(self.args.precision)},
+            "GptqQuantizer": {"bits": precision_bits_from_precision(self.args.precision)},
             "OnnxBnB4Quantization": {"precision": self.args.precision},
             "NVModelOptQuantization": {"precision": self.args.precision, "algorithm": self.args.algorithm},
             "OnnxDynamicQuantization": {"precision": self.args.precision, "quant_format": quant_format},
@@ -162,7 +162,10 @@ class QuantizeCommand(BaseOliveCLICommand):
                 "data_config": "default_data_config",
             },
             "OnnxBlockWiseRtnQuantization": {},
-            "IncDynamicQuantization": {"algorithm": self.args.algorithm, "bits": self.args.precision},
+            "IncDynamicQuantization": {
+                "algorithm": self.args.algorithm,
+                "bits": precision_bits_from_precision(self.args.precision),
+            },
             "MatMulNBitsToQDQ": {},
         }
 

@@ -40,6 +40,7 @@ def create_model_with_matmul(tmp_path, input_shape, weight_shape):
     )
 
     model = helper.make_model(graph, producer_name="onnx-example")
+    model.ir_version = 10
     model.opset_import[0].version = 13
 
     onnx.save(model, model_path)
