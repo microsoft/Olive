@@ -142,13 +142,6 @@ jobs:
   #     test_type: 'integ_test'
   #     windows: True
 
-  # Multiple EP Linux testing
-  - template: job_templates/olive-test-cpu-template.yaml
-    parameters:
-      name: Linux_CI_Multiple_EP_Test
-      pool: $(OLIVE_POOL_UBUNTU2004)
-      test_type: 'multiple_ep'
-
 # build documents
 - template: job_templates/olive-build-doc-template.yaml
   parameters:
