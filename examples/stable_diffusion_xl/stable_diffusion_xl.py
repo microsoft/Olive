@@ -13,7 +13,7 @@ from pathlib import Path
 import config
 import onnxruntime as ort
 import torch
-from diffusers import DiffusionPipeline, OnnxRuntimeModel
+from diffusers import DiffusionPipeline, OnnxRuntimeModel, StableDiffusionXLPipeline # SDXL pipeline added for loading from single safetensors file.
 from diffusers.utils import load_image
 from huggingface_hub import hf_hub_download
 from onnxruntime import __version__ as OrtVersion
@@ -361,6 +361,7 @@ def save_config(configs: dict, module_name: str, model_info: dict, optimized: bo
 
 def optimize(
     model_id: str,
+    single_local_file: bool,
     is_refiner_model: bool,
     provider: str,
     use_fp16_fixed_vae: bool,
@@ -382,7 +383,22 @@ def optimize(
     # This avoids an issue where the non-ONNX components (tokenizer, scheduler, and feature extractor) are not
     # automatically cached correctly if individual models are fetched one at a time.
     print("Download stable diffusion PyTorch pipeline...")
-    pipeline = DiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
+
+    if single_local_file:
+        pipeline = StableDiffusionXLPipeline.from_single_file(model_id + ".safetensors", torch_dtype=torch.float32, use_safetensors=True, local_files_only=True)
+        # An unpacked version of the model must be created in the script folder for the conversion process.
+        # Check if a folder with the same name already exists, and get confirmation before overwriting.
+        if Path(script_dir / model_id).exists():
+            continueornot = input(f"WARNING: A folder named {model_id} already exists in the script folder, and will be overwritten while unpacking the safetensors file. Proceed? (y/n): ")
+            if continueornot in {"y", "Y"}:
+                print("OK")
+                shutil.rmtree(script_dir / model_id, ignore_errors=True) # Delete existing folder if user agrees.
+            else:
+                sys.exit("Canceling run...")
+        pipeline.save_pretrained(script_dir / model_id) # Save unpacked copy.
+    else:
+        pipeline = DiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
+
     config.vae_sample_size = pipeline.vae.config.sample_size
     config.cross_attention_dim = pipeline.unet.config.cross_attention_dim
     config.unet_sample_size = pipeline.unet.config.sample_size
@@ -467,20 +483,29 @@ def optimize(
     else:
         feature_extractor = None
 
-    vae_encoder_session = OnnxRuntimeModel.load_model(
-        model_info["vae_encoder"]["unoptimized"]["path"].parent / "model.onnx"
-    )
-    save_config(configs, "vae_encoder", model_info)
-    vae_decoder_session = OnnxRuntimeModel.load_model(
-        model_info["vae_decoder"]["unoptimized"]["path"].parent / "model.onnx"
-    )
-    save_config(configs, "vae_decoder", model_info)
-    text_encoder_2_session = OnnxRuntimeModel.load_model(
-        model_info["text_encoder_2"]["unoptimized"]["path"].parent / "model.onnx"
-    )
-    save_config(configs, "text_encoder_2", model_info)
+    vae_encoder_session = OnnxRuntimeModel.load_model(model_info["vae_encoder"]["unoptimized"]["path"].parent / "model.onnx")
+    if single_local_file:
+        pipeline.vae.save_config(model_info["vae_encoder"]["unoptimized"]["path"].parent)
+    else:
+        save_config(configs, "vae_encoder", model_info)
+
+    vae_decoder_session = OnnxRuntimeModel.load_model(model_info["vae_decoder"]["unoptimized"]["path"].parent / "model.onnx")
+    if single_local_file:
+        pipeline.vae.save_config(model_info["vae_decoder"]["unoptimized"]["path"].parent)
+    else:
+        save_config(configs, "vae_decoder", model_info)
+
+    text_encoder_2_session = OnnxRuntimeModel.load_model(model_info["text_encoder_2"]["unoptimized"]["path"].parent / "model.onnx")
+    if single_local_file:
+        pipeline.text_encoder_2.config.to_json_file(model_info["text_encoder_2"]["unoptimized"]["path"].parent / "config.json")
+    else:
+        save_config(configs, "text_encoder_2", model_info)
+
     unet_session = OnnxRuntimeModel.load_model(model_info["unet"]["unoptimized"]["path"].parent / "model.onnx")
-    save_config(configs, "unet", model_info)
+    if single_local_file:
+        pipeline.unet.save_config(model_info["unet"]["unoptimized"]["path"].parent)
+    else:
+        save_config(configs, "unet", model_info)
 
     if is_refiner_model:
         onnx_pipeline = ORTStableDiffusionXLImg2ImgPipeline(
@@ -494,10 +519,11 @@ def optimize(
             config=dict(pipeline.config),
         )
     else:
-        text_encoder_session = OnnxRuntimeModel.load_model(
-            model_info["text_encoder"]["unoptimized"]["path"].parent / "model.onnx"
-        )
-        save_config(configs, "text_encoder", model_info)
+        text_encoder_session = OnnxRuntimeModel.load_model(model_info["text_encoder"]["unoptimized"]["path"].parent / "model.onnx")
+        if single_local_file:
+            pipeline.text_encoder.config.to_json_file(model_info["text_encoder"]["unoptimized"]["path"].parent / "config.json")
+        else:
+            save_config(configs, "text_encoder", model_info)
 
         onnx_pipeline = ORTStableDiffusionXLPipeline(
             vae_encoder_session=vae_encoder_session,
@@ -524,7 +550,7 @@ def optimize(
     print("Copying optimized models...")
     shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("model.onnx", "weights.pb", "model.onnx.data"))
     for submodel_name in submodel_names:
-        save_config(configs, submodel_name, model_info, optimized=True)
+        # save_config(configs, submodel_name, model_info, optimized=True) # Redundant, since these configs were already downloaded into the unoptimized tree, and then copied into the optimized tree with copytree.
         src_path = model_info[submodel_name]["optimized"]["path"]
         dst_path = optimized_model_dir / submodel_name / "model.onnx"
         shutil.copyfile(src_path, dst_path)
@@ -534,12 +560,19 @@ def optimize(
             weights_dst_path = dst_path.parent / (dst_path.name + ".data")
             shutil.copyfile(weights_src_path, weights_dst_path)
 
+    # If input was single local file, clean up the unpacked temp version.
+    if single_local_file:
+        shutil.rmtree(script_dir / model_id, ignore_errors=True)
+
     print(f"The optimized pipeline is located here: {optimized_model_dir}")
 
 
 def main(raw_args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", default="stabilityai/stable-diffusion-xl-base-1.0", type=str)
+    parser.add_argument("--single_local_file", action="store_true",
+        help="Look for local .safetensors file with name matching --model_id to use as input for --optimize"
+    )
     parser.add_argument(
         "--provider", default="dml", type=str, choices=["dml", "cuda", "cpu", "qnn"], help="Execution provider to use"
     )
@@ -684,6 +717,7 @@ def main(raw_args=None):
             warnings.simplefilter("ignore")
             optimize(
                 args.model_id,
+                args.single_local_file,
                 is_refiner_model,
                 args.provider,
                 args.use_fp16_fixed_vae,
