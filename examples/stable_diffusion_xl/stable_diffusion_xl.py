@@ -171,26 +171,26 @@ def run_inference_gui(
     window.resizable(width=False, height=False)
     window.geometry(f"{window_width}x{window_height}")
 
-    gui_images = []
-    for row in range(image_rows):
-        for col in range(image_cols):
-            label = tk.Label(window, width=image_size, height=image_size, background="black")
-            gui_images.append(label)
-            label.place(x=col * image_size, y=row * image_size)
+    prompt_textbox = tk.Entry(window)
+    prompt_textbox.insert(tk.END, prompt)
+    prompt_textbox.place(x=0, y=0, width=window_width - button_width, height=button_height)
 
-    y = image_rows * image_size + (image_rows + 1) * padding
+    generate_button = tk.Button(window, text="Generate", command=on_generate_click)
+    generate_button.place(x=window_width - button_width, y=0, width=button_width, height=button_height)
+
+    y = button_height
 
     progress_bar = ttk.Progressbar(window, value=0, maximum=num_inference_steps * min_batches_required - 1)
     progress_bar.place(x=0, y=y, height=bar_height, width=window_width)
 
     y += bar_height
 
-    prompt_textbox = tk.Entry(window)
-    prompt_textbox.insert(tk.END, prompt)
-    prompt_textbox.place(x=0, y=y, width=window_width - button_width, height=button_height)
-
-    generate_button = tk.Button(window, text="Generate", command=on_generate_click)
-    generate_button.place(x=window_width - button_width, y=y, width=button_width, height=button_height)
+    gui_images = []
+    for row in range(image_rows):
+        for col in range(image_cols):
+            label = tk.Label(window, width=image_size, height=image_size, background="black")
+            gui_images.append(label)
+            label.place(x=col * image_size, y=y + row * image_size)
 
     window.mainloop()
 
