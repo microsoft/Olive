@@ -33,7 +33,8 @@ def run_inference_loop(
     prompt,
     num_images,
     batch_size,
-    image_size,
+    image_width,
+    image_height,
     num_inference_steps,
     disable_classifier_free_guidance,
     base_images=None,
@@ -56,8 +57,8 @@ def run_inference_loop(
             [prompt] * batch_size,
             num_inference_steps=num_inference_steps,
             callback_on_step_end=update_steps if step_callback else None,
-            height=image_size,
-            width=image_size,
+            height=image_height,
+            width=image_width,
             **kwargs,
         )
 
@@ -110,7 +111,8 @@ def run_inference_gui(
     prompt,
     num_images,
     batch_size,
-    image_size,
+    image_width,
+    image_height,
     num_inference_steps,
     disable_classifier_free_guidance,
     base_images=None,
@@ -142,7 +144,8 @@ def run_inference_gui(
                 prompt_textbox.get(),
                 num_images,
                 batch_size,
-                image_size,
+                image_width,
+                image_height,
                 num_inference_steps,
                 disable_classifier_free_guidance,
                 base_images,
@@ -163,8 +166,8 @@ def run_inference_gui(
     button_width = 80
     button_height = 30
     padding = 2
-    window_width = image_cols * image_size + (image_cols + 1) * padding
-    window_height = image_rows * image_size + (image_rows + 1) * padding + bar_height + button_height
+    window_width = image_cols * image_width + (image_cols + 1) * padding
+    window_height = image_rows * image_height + (image_rows + 1) * padding + bar_height + button_height
 
     window = tk.Tk()
     window.title("Stable Diffusion")
@@ -189,9 +192,9 @@ def run_inference_gui(
     gui_images = []
     for row in range(image_rows):
         for col in range(image_cols):
-            label = tk.Label(window, width=image_size, height=image_size, background="black")
+            label = tk.Label(window, width=image_width, height=image_height, background="black")
             gui_images.append(label)
-            label.place(x=col * image_size, y=y + row * image_size)
+            label.place(x=col * image_width, y=y + row * image_height)
 
     window.mainloop()
 
@@ -202,7 +205,8 @@ def run_inference(
     prompt,
     num_images,
     batch_size,
-    image_size,
+    image_width,
+    image_height,
     num_inference_steps,
     disable_classifier_free_guidance,
     static_dims,
@@ -226,8 +230,8 @@ def run_inference(
         hidden_batch_size = batch_size if disable_classifier_free_guidance else batch_size * 2
         sess_options.add_free_dimension_override_by_name("unet_sample_batch", hidden_batch_size)
         sess_options.add_free_dimension_override_by_name("unet_sample_channels", 4)
-        sess_options.add_free_dimension_override_by_name("unet_sample_height", image_size // 8)
-        sess_options.add_free_dimension_override_by_name("unet_sample_width", image_size // 8)
+        sess_options.add_free_dimension_override_by_name("unet_sample_height", image_height // 8)
+        sess_options.add_free_dimension_override_by_name("unet_sample_width", image_width // 8)
         sess_options.add_free_dimension_override_by_name("unet_time_batch", 1)
         sess_options.add_free_dimension_override_by_name("unet_hidden_batch", hidden_batch_size)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
@@ -266,7 +270,8 @@ def run_inference(
             prompt,
             num_images,
             batch_size,
-            image_size,
+            image_width,
+            image_height,
             num_inference_steps,
             disable_classifier_free_guidance,
             base_images,
@@ -277,7 +282,8 @@ def run_inference(
             prompt,
             num_images,
             batch_size,
-            image_size,
+            image_width,
+            image_height,
             num_inference_steps,
             disable_classifier_free_guidance,
             base_images,
@@ -606,7 +612,9 @@ def main(raw_args=None):
         help="The seed to give to the generator to generate deterministic results.",
     )
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
-    parser.add_argument("--image_size", default=768, type=int, help="Image size to use during inference")
+    parser.add_argument("--image_size", default=768, type=int, help="Image size to use during inference. Must be multiple of 32.")
+    parser.add_argument("--image_width", type=int, help="Image width to use during inference. Must be multiple of 32. Overrides --image_size.")
+    parser.add_argument("--image_height", type=int, help="Image height to use during inference. Must be multiple of 32. Overrides --image_size.")
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
     parser.add_argument(
         "--static_dims",
@@ -715,6 +723,11 @@ def main(raw_args=None):
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
         use_static_dims = not args.dynamic_dims
 
+        if args.image_width is None:
+            args.image_width = args.image_size
+        if args.image_height is None:
+            args.image_height = args.image_size
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             run_inference(
@@ -723,7 +736,8 @@ def main(raw_args=None):
                 args.prompt,
                 args.num_images,
                 args.batch_size,
-                args.image_size,
+                args.image_width,
+                args.image_height,
                 args.num_inference_steps,
                 disable_classifier_free_guidance,
                 use_static_dims,
