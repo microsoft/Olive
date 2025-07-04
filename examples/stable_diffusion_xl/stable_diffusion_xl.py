@@ -96,35 +96,6 @@ def run_inference_loop(
     print("Inference Batch End.")
 
 
-def run_refiner_inference_loop(
-    pipeline, prompt, num_images, batch_size, base_images, num_inference_steps, image_callback=None, step_callback=None
-):
-    images_saved = 0
-
-    def update_steps(step, timestep, latents):
-        if step_callback:
-            step_callback((images_saved // batch_size) * num_inference_steps + step)
-
-    print(f"\nInference Batch Start (batch size = {batch_size}).")
-    refiner_result = pipeline(
-        [prompt] * batch_size,
-        image=base_images,
-        num_inference_steps=num_inference_steps,
-        callback=update_steps if step_callback else None,
-    )
-
-    for image_index in range(batch_size):
-        if images_saved < num_images:
-            output_path = f"result_{images_saved}_refined.png"
-            refiner_result.images[image_index].save(output_path)
-            if image_callback:
-                image_callback(images_saved, output_path)
-            images_saved += 1
-            print(f"Generated {output_path}")
-
-    print("Inference Batch End.")
-
-
 def run_inference_gui(
     pipeline,
     prompt,
