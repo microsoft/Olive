@@ -558,7 +558,7 @@ def optimize(
                     ignore=shutil.ignore_patterns("model.onnx", "weights.pb", "model.onnx.data")
                    )
     for submodel_name in submodel_names:
-        # save_config(configs, submodel_name, model_info, optimized=True) # Redundant, since these configs were already downloaded into the unoptimized tree, and then copied into the optimized tree with copytree.
+        # save_config(configs, submodel_name, model_info, optimized=True) # Redundant after copytree
         src_path = model_info[submodel_name]["optimized"]["path"]
         dst_path = optimized_model_dir / submodel_name / "model.onnx"
         shutil.copyfile(src_path, dst_path)
