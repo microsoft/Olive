@@ -13,7 +13,7 @@ from pathlib import Path
 import config
 import onnxruntime as ort
 import torch
-from diffusers import DiffusionPipeline, OnnxRuntimeModel, StableDiffusionXLPipeline # SDXL pipeline added for loading from single safetensors file.
+from diffusers import DiffusionPipeline, OnnxRuntimeModel, StableDiffusionXLPipeline
 from diffusers.utils import load_image
 from huggingface_hub import hf_hub_download
 from onnxruntime import __version__ as OrtVersion
@@ -373,11 +373,17 @@ def optimize(
     print("Download stable diffusion PyTorch pipeline...")
 
     if single_local_file:
-        pipeline = StableDiffusionXLPipeline.from_single_file(model_id + ".safetensors", torch_dtype=torch.float32, use_safetensors=True, local_files_only=True)
+        pipeline = StableDiffusionXLPipeline.from_single_file(
+            model_id + ".safetensors", torch_dtype=torch.float32, use_safetensors=True, local_files_only=True
+        )
         # An unpacked version of the model must be created in the script folder for the conversion process.
         # Check if a folder with the same name already exists, and get confirmation before overwriting.
         if Path(script_dir / model_id).exists():
-            continueornot = input(f"WARNING: A folder named {model_id} already exists in the script folder, and will be overwritten while unpacking the safetensors file. Proceed? (y/n): ")
+            print(
+                f"WARNING: A folder named {model_id} already exists in the script folder, "
+                "and will be overwritten while unpacking the safetensors file."
+            )
+            continueornot = input("Proceed? (y/n): ")
             if continueornot in {"y", "Y"}:
                 print("OK")
                 shutil.rmtree(script_dir / model_id, ignore_errors=True) # Delete existing folder if user agrees.
@@ -471,21 +477,29 @@ def optimize(
     else:
         feature_extractor = None
 
-    vae_encoder_session = OnnxRuntimeModel.load_model(model_info["vae_encoder"]["unoptimized"]["path"].parent / "model.onnx")
+    vae_encoder_session = OnnxRuntimeModel.load_model(
+        model_info["vae_encoder"]["unoptimized"]["path"].parent / "model.onnx"
+    )
     if single_local_file:
         pipeline.vae.save_config(model_info["vae_encoder"]["unoptimized"]["path"].parent)
     else:
         save_config(configs, "vae_encoder", model_info)
 
-    vae_decoder_session = OnnxRuntimeModel.load_model(model_info["vae_decoder"]["unoptimized"]["path"].parent / "model.onnx")
+    vae_decoder_session = OnnxRuntimeModel.load_model(
+        model_info["vae_decoder"]["unoptimized"]["path"].parent / "model.onnx"
+    )
     if single_local_file:
         pipeline.vae.save_config(model_info["vae_decoder"]["unoptimized"]["path"].parent)
     else:
         save_config(configs, "vae_decoder", model_info)
 
-    text_encoder_2_session = OnnxRuntimeModel.load_model(model_info["text_encoder_2"]["unoptimized"]["path"].parent / "model.onnx")
+    text_encoder_2_session = OnnxRuntimeModel.load_model(
+        model_info["text_encoder_2"]["unoptimized"]["path"].parent / "model.onnx"
+    )
     if single_local_file:
-        pipeline.text_encoder_2.config.to_json_file(model_info["text_encoder_2"]["unoptimized"]["path"].parent / "config.json")
+        pipeline.text_encoder_2.config.to_json_file(
+            model_info["text_encoder_2"]["unoptimized"]["path"].parent / "config.json"
+        )
     else:
         save_config(configs, "text_encoder_2", model_info)
 
@@ -507,9 +521,13 @@ def optimize(
             config=dict(pipeline.config),
         )
     else:
-        text_encoder_session = OnnxRuntimeModel.load_model(model_info["text_encoder"]["unoptimized"]["path"].parent / "model.onnx")
+        text_encoder_session = OnnxRuntimeModel.load_model(
+            model_info["text_encoder"]["unoptimized"]["path"].parent / "model.onnx"
+        )
         if single_local_file:
-            pipeline.text_encoder.config.to_json_file(model_info["text_encoder"]["unoptimized"]["path"].parent / "config.json")
+            pipeline.text_encoder.config.to_json_file(
+                model_info["text_encoder"]["unoptimized"]["path"].parent / "config.json"
+            )
         else:
             save_config(configs, "text_encoder", model_info)
 
@@ -536,7 +554,9 @@ def optimize(
 
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
     print("Copying optimized models...")
-    shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("model.onnx", "weights.pb", "model.onnx.data"))
+    shutil.copytree(unoptimized_model_dir, optimized_model_dir,
+                    ignore=shutil.ignore_patterns("model.onnx", "weights.pb", "model.onnx.data")
+                   )
     for submodel_name in submodel_names:
         # save_config(configs, submodel_name, model_info, optimized=True) # Redundant, since these configs were already downloaded into the unoptimized tree, and then copied into the optimized tree with copytree.
         src_path = model_info[submodel_name]["optimized"]["path"]
@@ -612,9 +632,15 @@ def main(raw_args=None):
         help="The seed to give to the generator to generate deterministic results.",
     )
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
-    parser.add_argument("--image_size", default=768, type=int, help="Image size to use during inference. Must be multiple of 32.")
-    parser.add_argument("--image_width", type=int, help="Image width to use during inference. Must be multiple of 32. Overrides --image_size.")
-    parser.add_argument("--image_height", type=int, help="Image height to use during inference. Must be multiple of 32. Overrides --image_size.")
+    parser.add_argument("--image_size", default=768, type=int,
+                        help="Image size to use during inference. Must be multiple of 32."
+                       )
+    parser.add_argument("--image_width", type=int,
+                        help="Image width to use during inference. Must be multiple of 32. Overrides --image_size."
+                       )
+    parser.add_argument("--image_height", type=int,
+                        help="Image height to use during inference. Must be multiple of 32. Overrides --image_size."
+                       )
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
     parser.add_argument(
         "--static_dims",
