@@ -43,13 +43,33 @@ def run_inference_loop(
     seed=None,
 ):
     images_saved = 0
+    image_suffix = "base"
+    result = None
 
     def update_steps(step_callback_pipeline, step, timestep, latents):
         if step_callback:
             step_callback((images_saved // batch_size) * num_inference_steps + step)
         return latents
 
-    print(f"\nInference Batch Start (batch size = {batch_size}).")
+    def run_base_batch():
+        return pipeline(
+            [prompt] * batch_size,
+            num_inference_steps=num_inference_steps,
+            callback_on_step_end=update_steps if step_callback else None,
+            height=image_size,
+            width=image_size,
+            **kwargs,
+        )
+
+    def run_refined_batch():
+        return pipeline(
+            [prompt] * batch_size,
+            negative_prompt=[""] * batch_size,
+            image=base_images_rgb,
+            num_inference_steps=num_inference_steps,
+            callback_on_step_end=update_steps if step_callback else None,
+            **kwargs,
+        )
 
     kwargs = {}
     if disable_classifier_free_guidance:
@@ -62,38 +82,27 @@ def run_inference_loop(
 
         kwargs["generator"] = np.random.RandomState(seed=seed)
 
-    if base_images is None:
-        result = pipeline(
-            [prompt] * batch_size,
-            num_inference_steps=num_inference_steps,
-            callback_on_step_end=update_steps if step_callback else None,
-            height=image_size,
-            width=image_size,
-            **kwargs,
-        )
-    else:
+    if base_images is not None:
+        image_suffix = "refined"
         base_images_rgb = [load_image(base_image).convert("RGB") for base_image in base_images]
 
-        result = pipeline(
-            [prompt] * batch_size,
-            negative_prompt=[""] * batch_size,
-            image=base_images_rgb,
-            num_inference_steps=num_inference_steps,
-            callback_on_step_end=update_steps if step_callback else None,
-            **kwargs,
-        )
+    while images_saved < num_images:
+        print(f"\nInference Batch Start (batch size = {batch_size}).")
+        if base_images is None:
+            result = run_base_batch()
+        else:
+            result = run_refined_batch()
 
-    for image_index in range(batch_size):
-        if images_saved < num_images:
-            image_suffix = "base" if base_images is None else "refined"
-            output_path = f"result_{images_saved}_{image_suffix}.png"
-            result.images[image_index].save(output_path)
-            if image_callback:
-                image_callback(images_saved, output_path)
-            images_saved += 1
-            print(f"Generated {output_path}")
-
-    print("Inference Batch End.")
+        for image_index in range(batch_size):
+            if images_saved < num_images:
+                output_path = f"result_{images_saved}_{image_suffix}.png"
+                result.images[image_index].save(output_path)
+                if image_callback:
+                    image_callback(images_saved, output_path)
+                images_saved += 1
+                print(f"Generated {output_path}")
+        print("Inference Batch End.")
+    print(f"{images_saved} images saved.")
 
 
 def run_inference_gui(
