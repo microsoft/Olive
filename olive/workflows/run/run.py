@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
 from olive.common.utils import set_tempdir
+from olive.hardware.constants import ExecutionProvider
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerators
@@ -36,7 +37,7 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
             extra_name = "docker"
         elif host_type == SystemType.Local:
             if accelerators and "GPU" in list(map(str.upper, accelerators)):
-                if execution_providers and "DmlExecutionProvider" in execution_providers:
+                if execution_providers and ExecutionProvider.DmlExecutionProvider in execution_providers:
                     extra_name = "directml"
                 else:
                     extra_name = "gpu"

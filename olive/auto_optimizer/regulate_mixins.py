@@ -6,6 +6,7 @@
 from copy import deepcopy
 
 from olive.hardware.accelerator import Device
+from olive.hardware.constants import ExecutionProvider
 
 
 class RegulatePassConfigMixin:
@@ -60,15 +61,15 @@ class RegulatePassConfigMixin:
         # if it is model builder, we need to add suffix for all precisions to distinguish them
         self._fill_precision_for_model_builder(pass_config, pass_flows)
         is_gpu = self.accelerator_spec.accelerator_type == Device.GPU and self.accelerator_spec.execution_provider in [
-            "CUDAExecutionProvider",
-            "DmlExecutionProvider",
-            "TensorrtExecutionProvider",
+            ExecutionProvider.CUDAExecutionProvider,
+            ExecutionProvider.DmlExecutionProvider,
+            ExecutionProvider.TensorrtExecutionProvider,
         ]
         if not is_gpu:
             return pass_config, pass_flows
 
-        is_cuda_ep = self.accelerator_spec.execution_provider != "TensorrtExecutionProvider"
-        is_trt_ep = self.accelerator_spec.execution_provider == "TensorrtExecutionProvider"
+        is_cuda_ep = self.accelerator_spec.execution_provider != ExecutionProvider.TensorrtExecutionProvider
+        is_trt_ep = self.accelerator_spec.execution_provider == ExecutionProvider.TensorrtExecutionProvider
         assert not is_cuda_ep or not is_trt_ep, (
             "can not support CUDA/DmlExecutionProvider and TensorrtExecutionProvider at the same time"
         )
