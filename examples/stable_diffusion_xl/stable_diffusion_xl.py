@@ -132,7 +132,7 @@ def run_inference_gui(
         if index == num_images - 1:
             generate_button["state"] = "normal"
 
-    def on_generate_click():
+    def on_generate_click(event=None):
         generate_button["state"] = "disabled"
         progress_bar["value"] = 0
         threading.Thread(
@@ -174,6 +174,7 @@ def run_inference_gui(
     prompt_textbox = tk.Entry(window)
     prompt_textbox.insert(tk.END, prompt)
     prompt_textbox.place(x=0, y=0, width=window_width - button_width, height=button_height)
+    prompt_textbox.bind('<Return>', on_generate_click)
 
     generate_button = tk.Button(window, text="Generate", command=on_generate_click)
     generate_button.place(x=window_width - button_width, y=0, width=button_width, height=button_height)
