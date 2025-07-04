@@ -13,7 +13,7 @@ from pathlib import Path
 import config
 import onnxruntime as ort
 import torch
-from diffusers import DiffusionPipeline, OnnxRuntimeModel
+from diffusers import DiffusionPipeline, OnnxRuntimeModel, StableDiffusionXLPipeline
 from diffusers.utils import load_image
 from huggingface_hub import hf_hub_download
 from onnxruntime import __version__ as OrtVersion
@@ -33,7 +33,8 @@ def run_inference_loop(
     prompt,
     num_images,
     batch_size,
-    image_size,
+    image_width,
+    image_height,
     num_inference_steps,
     disable_classifier_free_guidance,
     base_images=None,
@@ -43,12 +44,33 @@ def run_inference_loop(
     seed=None,
 ):
     images_saved = 0
+    image_suffix = "base"
+    result = None
 
-    def update_steps(step, timestep, latents):
+    def update_steps(step_callback_pipeline, step, timestep, latents):
         if step_callback:
             step_callback((images_saved // batch_size) * num_inference_steps + step)
+        return latents
 
-    print(f"\nInference Batch Start (batch size = {batch_size}).")
+    def run_base_batch():
+        return pipeline(
+            [prompt] * batch_size,
+            num_inference_steps=num_inference_steps,
+            callback_on_step_end=update_steps if step_callback else None,
+            height=image_height,
+            width=image_width,
+            **kwargs,
+        )
+
+    def run_refined_batch():
+        return pipeline(
+            [prompt] * batch_size,
+            negative_prompt=[""] * batch_size,
+            image=base_images_rgb,
+            num_inference_steps=num_inference_steps,
+            callback_on_step_end=update_steps if step_callback else None,
+            **kwargs,
+        )
 
     kwargs = {}
     if disable_classifier_free_guidance:
@@ -61,67 +83,27 @@ def run_inference_loop(
 
         kwargs["generator"] = np.random.RandomState(seed=seed)
 
-    if base_images is None:
-        result = pipeline(
-            [prompt] * batch_size,
-            num_inference_steps=num_inference_steps,
-            callback=update_steps if step_callback else None,
-            height=image_size,
-            width=image_size,
-            **kwargs,
-        )
-    else:
+    if base_images is not None:
+        image_suffix = "refined"
         base_images_rgb = [load_image(base_image).convert("RGB") for base_image in base_images]
 
-        result = pipeline(
-            [prompt] * batch_size,
-            negative_prompt=[""] * batch_size,
-            image=base_images_rgb,
-            num_inference_steps=num_inference_steps,
-            callback=update_steps if step_callback else None,
-            **kwargs,
-        )
+    while images_saved < num_images:
+        print(f"\nInference Batch Start (batch size = {batch_size}).")
+        if base_images is None:
+            result = run_base_batch()
+        else:
+            result = run_refined_batch()
 
-    for image_index in range(batch_size):
-        if images_saved < num_images:
-            image_suffix = "base" if base_images is None else "refined"
-            output_path = f"result_{images_saved}_{image_suffix}.png"
-            result.images[image_index].save(output_path)
-            if image_callback:
-                image_callback(images_saved, output_path)
-            images_saved += 1
-            print(f"Generated {output_path}")
-
-    print("Inference Batch End.")
-
-
-def run_refiner_inference_loop(
-    pipeline, prompt, num_images, batch_size, base_images, num_inference_steps, image_callback=None, step_callback=None
-):
-    images_saved = 0
-
-    def update_steps(step, timestep, latents):
-        if step_callback:
-            step_callback((images_saved // batch_size) * num_inference_steps + step)
-
-    print(f"\nInference Batch Start (batch size = {batch_size}).")
-    refiner_result = pipeline(
-        [prompt] * batch_size,
-        image=base_images,
-        num_inference_steps=num_inference_steps,
-        callback=update_steps if step_callback else None,
-    )
-
-    for image_index in range(batch_size):
-        if images_saved < num_images:
-            output_path = f"result_{images_saved}_refined.png"
-            refiner_result.images[image_index].save(output_path)
-            if image_callback:
-                image_callback(images_saved, output_path)
-            images_saved += 1
-            print(f"Generated {output_path}")
-
-    print("Inference Batch End.")
+        for image_index in range(batch_size):
+            if images_saved < num_images:
+                output_path = f"result_{images_saved}_{image_suffix}.png"
+                result.images[image_index].save(output_path)
+                if image_callback:
+                    image_callback(images_saved, output_path)
+                images_saved += 1
+                print(f"Generated {output_path}")
+        print("Inference Batch End.")
+    print(f"{images_saved} images saved.")
 
 
 def run_inference_gui(
@@ -129,7 +111,8 @@ def run_inference_gui(
     prompt,
     num_images,
     batch_size,
-    image_size,
+    image_width,
+    image_height,
     num_inference_steps,
     disable_classifier_free_guidance,
     base_images=None,
@@ -151,7 +134,7 @@ def run_inference_gui(
         if index == num_images - 1:
             generate_button["state"] = "normal"
 
-    def on_generate_click():
+    def on_generate_click(event=None):
         generate_button["state"] = "disabled"
         progress_bar["value"] = 0
         threading.Thread(
@@ -161,7 +144,8 @@ def run_inference_gui(
                 prompt_textbox.get(),
                 num_images,
                 batch_size,
-                image_size,
+                image_width,
+                image_height,
                 num_inference_steps,
                 disable_classifier_free_guidance,
                 base_images,
@@ -182,34 +166,35 @@ def run_inference_gui(
     button_width = 80
     button_height = 30
     padding = 2
-    window_width = image_cols * image_size + (image_cols + 1) * padding
-    window_height = image_rows * image_size + (image_rows + 1) * padding + bar_height + button_height
+    window_width = image_cols * image_width + (image_cols + 1) * padding
+    window_height = image_rows * image_height + (image_rows + 1) * padding + bar_height + button_height
 
     window = tk.Tk()
     window.title("Stable Diffusion")
     window.resizable(width=False, height=False)
     window.geometry(f"{window_width}x{window_height}")
 
-    gui_images = []
-    for row in range(image_rows):
-        for col in range(image_cols):
-            label = tk.Label(window, width=image_size, height=image_size, background="black")
-            gui_images.append(label)
-            label.place(x=col * image_size, y=row * image_size)
+    prompt_textbox = tk.Entry(window)
+    prompt_textbox.insert(tk.END, prompt)
+    prompt_textbox.place(x=0, y=0, width=window_width - button_width, height=button_height)
+    prompt_textbox.bind('<Return>', on_generate_click)
 
-    y = image_rows * image_size + (image_rows + 1) * padding
+    generate_button = tk.Button(window, text="Generate", command=on_generate_click)
+    generate_button.place(x=window_width - button_width, y=0, width=button_width, height=button_height)
 
-    progress_bar = ttk.Progressbar(window, value=0, maximum=num_inference_steps * min_batches_required)
+    y = button_height
+
+    progress_bar = ttk.Progressbar(window, value=0, maximum=num_inference_steps * min_batches_required - 1)
     progress_bar.place(x=0, y=y, height=bar_height, width=window_width)
 
     y += bar_height
 
-    prompt_textbox = tk.Entry(window)
-    prompt_textbox.insert(tk.END, prompt)
-    prompt_textbox.place(x=0, y=y, width=window_width - button_width, height=button_height)
-
-    generate_button = tk.Button(window, text="Generate", command=on_generate_click)
-    generate_button.place(x=window_width - button_width, y=y, width=button_width, height=button_height)
+    gui_images = []
+    for row in range(image_rows):
+        for col in range(image_cols):
+            label = tk.Label(window, width=image_width, height=image_height, background="black")
+            gui_images.append(label)
+            label.place(x=col * image_width, y=y + row * image_height)
 
     window.mainloop()
 
@@ -220,7 +205,8 @@ def run_inference(
     prompt,
     num_images,
     batch_size,
-    image_size,
+    image_width,
+    image_height,
     num_inference_steps,
     disable_classifier_free_guidance,
     static_dims,
@@ -244,8 +230,8 @@ def run_inference(
         hidden_batch_size = batch_size if disable_classifier_free_guidance else batch_size * 2
         sess_options.add_free_dimension_override_by_name("unet_sample_batch", hidden_batch_size)
         sess_options.add_free_dimension_override_by_name("unet_sample_channels", 4)
-        sess_options.add_free_dimension_override_by_name("unet_sample_height", image_size // 8)
-        sess_options.add_free_dimension_override_by_name("unet_sample_width", image_size // 8)
+        sess_options.add_free_dimension_override_by_name("unet_sample_height", image_height // 8)
+        sess_options.add_free_dimension_override_by_name("unet_sample_width", image_width // 8)
         sess_options.add_free_dimension_override_by_name("unet_time_batch", 1)
         sess_options.add_free_dimension_override_by_name("unet_hidden_batch", hidden_batch_size)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
@@ -284,7 +270,8 @@ def run_inference(
             prompt,
             num_images,
             batch_size,
-            image_size,
+            image_width,
+            image_height,
             num_inference_steps,
             disable_classifier_free_guidance,
             base_images,
@@ -295,7 +282,8 @@ def run_inference(
             prompt,
             num_images,
             batch_size,
-            image_size,
+            image_width,
+            image_height,
             num_inference_steps,
             disable_classifier_free_guidance,
             base_images,
@@ -343,11 +331,12 @@ def update_config_with_provider(
     elif provider == "qnn":
         config["systems"]["local_system"]["accelerators"][0]["device"] = "npu"
         config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["QNNExecutionProvider"]
-    else:
+    elif provider == "cpu":
         config["systems"]["local_system"]["accelerators"][0]["device"] = "cpu"
         config["systems"]["local_system"]["accelerators"][0]["execution_providers"] = ["CPUExecutionProvider"]
         # not meaningful to evaluate QDQ latency on CPU
         config["evaluator"] = None
+    # else provider is dml, the default.
     return config
 
 
@@ -360,6 +349,7 @@ def save_config(configs: dict, module_name: str, model_info: dict, optimized: bo
 
 def optimize(
     model_id: str,
+    single_local_file: bool,
     is_refiner_model: bool,
     provider: str,
     use_fp16_fixed_vae: bool,
@@ -367,6 +357,7 @@ def optimize(
     optimized_model_dir: Path,
     only_conversion: bool,
     model_format: str,
+    skip_evaluation: bool,
 ):
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
@@ -380,7 +371,28 @@ def optimize(
     # This avoids an issue where the non-ONNX components (tokenizer, scheduler, and feature extractor) are not
     # automatically cached correctly if individual models are fetched one at a time.
     print("Download stable diffusion PyTorch pipeline...")
-    pipeline = DiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
+
+    if single_local_file:
+        pipeline = StableDiffusionXLPipeline.from_single_file(
+            model_id + ".safetensors", torch_dtype=torch.float32, use_safetensors=True, local_files_only=True
+        )
+        # An unpacked version of the model must be created in the script folder for the conversion process.
+        # Check if a folder with the same name already exists, and get confirmation before overwriting.
+        if Path(script_dir / model_id).exists():
+            print(
+                f"WARNING: A folder named {model_id} already exists in the script folder, "
+                "and will be overwritten while unpacking the safetensors file."
+            )
+            continueornot = input("Proceed? (y/n): ")
+            if continueornot in {"y", "Y"}:
+                print("OK")
+                shutil.rmtree(script_dir / model_id, ignore_errors=True) # Delete existing folder if user agrees.
+            else:
+                sys.exit("Canceling run...")
+        pipeline.save_pretrained(script_dir / model_id) # Save unpacked copy.
+    else:
+        pipeline = DiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
+
     config.vae_sample_size = pipeline.vae.config.sample_size
     config.cross_attention_dim = pipeline.unet.config.cross_attention_dim
     config.unet_sample_size = pipeline.unet.config.sample_size
@@ -416,9 +428,12 @@ def optimize(
 
         configs[submodel_name] = olive_config["input_model"]["model_path"]
 
+        if skip_evaluation:
+            olive_config["evaluator"] = None
+
         olive_run(olive_config)
 
-        footprints_file_path = Path(__file__).resolve().parent / "footprints" / submodel_name / "footprints.json"
+        footprints_file_path = script_dir / "footprints" / submodel_name / "footprints.json"
         with footprints_file_path.open("r") as footprint_file:
             footprints = json.load(footprint_file)
 
@@ -465,17 +480,34 @@ def optimize(
     vae_encoder_session = OnnxRuntimeModel.load_model(
         model_info["vae_encoder"]["unoptimized"]["path"].parent / "model.onnx"
     )
-    save_config(configs, "vae_encoder", model_info)
+    if single_local_file:
+        pipeline.vae.save_config(model_info["vae_encoder"]["unoptimized"]["path"].parent)
+    else:
+        save_config(configs, "vae_encoder", model_info)
+
     vae_decoder_session = OnnxRuntimeModel.load_model(
         model_info["vae_decoder"]["unoptimized"]["path"].parent / "model.onnx"
     )
-    save_config(configs, "vae_decoder", model_info)
+    if single_local_file:
+        pipeline.vae.save_config(model_info["vae_decoder"]["unoptimized"]["path"].parent)
+    else:
+        save_config(configs, "vae_decoder", model_info)
+
     text_encoder_2_session = OnnxRuntimeModel.load_model(
         model_info["text_encoder_2"]["unoptimized"]["path"].parent / "model.onnx"
     )
-    save_config(configs, "text_encoder_2", model_info)
+    if single_local_file:
+        pipeline.text_encoder_2.config.to_json_file(
+            model_info["text_encoder_2"]["unoptimized"]["path"].parent / "config.json"
+        )
+    else:
+        save_config(configs, "text_encoder_2", model_info)
+
     unet_session = OnnxRuntimeModel.load_model(model_info["unet"]["unoptimized"]["path"].parent / "model.onnx")
-    save_config(configs, "unet", model_info)
+    if single_local_file:
+        pipeline.unet.save_config(model_info["unet"]["unoptimized"]["path"].parent)
+    else:
+        save_config(configs, "unet", model_info)
 
     if is_refiner_model:
         onnx_pipeline = ORTStableDiffusionXLImg2ImgPipeline(
@@ -492,7 +524,12 @@ def optimize(
         text_encoder_session = OnnxRuntimeModel.load_model(
             model_info["text_encoder"]["unoptimized"]["path"].parent / "model.onnx"
         )
-        save_config(configs, "text_encoder", model_info)
+        if single_local_file:
+            pipeline.text_encoder.config.to_json_file(
+                model_info["text_encoder"]["unoptimized"]["path"].parent / "config.json"
+            )
+        else:
+            save_config(configs, "text_encoder", model_info)
 
         onnx_pipeline = ORTStableDiffusionXLPipeline(
             vae_encoder_session=vae_encoder_session,
@@ -517,9 +554,11 @@ def optimize(
 
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
     print("Copying optimized models...")
-    shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
+    shutil.copytree(unoptimized_model_dir, optimized_model_dir,
+                    ignore=shutil.ignore_patterns("model.onnx", "weights.pb", "model.onnx.data")
+                   )
     for submodel_name in submodel_names:
-        save_config(configs, submodel_name, model_info, optimized=True)
+        # save_config(configs, submodel_name, model_info, optimized=True) # Redundant after copytree
         src_path = model_info[submodel_name]["optimized"]["path"]
         dst_path = optimized_model_dir / submodel_name / "model.onnx"
         shutil.copyfile(src_path, dst_path)
@@ -529,12 +568,19 @@ def optimize(
             weights_dst_path = dst_path.parent / (dst_path.name + ".data")
             shutil.copyfile(weights_src_path, weights_dst_path)
 
+    # If input was single local file, clean up the unpacked temp version.
+    if single_local_file:
+        shutil.rmtree(script_dir / model_id, ignore_errors=True)
+
     print(f"The optimized pipeline is located here: {optimized_model_dir}")
 
 
 def main(raw_args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", default="stabilityai/stable-diffusion-xl-base-1.0", type=str)
+    parser.add_argument("--single_local_file", action="store_true",
+        help="Look for local .safetensors file with name matching --model_id to use as input for --optimize"
+    )
     parser.add_argument(
         "--provider", default="dml", type=str, choices=["dml", "cuda", "cpu", "qnn"], help="Execution provider to use"
     )
@@ -553,6 +599,7 @@ def main(raw_args=None):
     parser.add_argument("--base_images", default=None, nargs="+")
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
+    parser.add_argument("--skip_evaluation", action="store_true", help="Skip evaluation after optimization")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument(
@@ -585,7 +632,15 @@ def main(raw_args=None):
         help="The seed to give to the generator to generate deterministic results.",
     )
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
-    parser.add_argument("--image_size", default=768, type=int, help="Image size to use during inference")
+    parser.add_argument("--image_size", default=768, type=int,
+                        help="Image size to use during inference. Must be multiple of 32."
+                       )
+    parser.add_argument("--image_width", type=int,
+                        help="Image width to use during inference. Must be multiple of 32. Overrides --image_size."
+                       )
+    parser.add_argument("--image_height", type=int,
+                        help="Image height to use during inference. Must be multiple of 32. Overrides --image_size."
+                       )
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
     parser.add_argument(
         "--static_dims",
@@ -678,6 +733,7 @@ def main(raw_args=None):
             warnings.simplefilter("ignore")
             optimize(
                 args.model_id,
+                args.single_local_file,
                 is_refiner_model,
                 args.provider,
                 args.use_fp16_fixed_vae,
@@ -685,12 +741,18 @@ def main(raw_args=None):
                 optimized_model_dir,
                 args.only_conversion,
                 args.format,
+                args.skip_evaluation,
             )
 
     # Run inference on the models
     if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
         use_static_dims = not args.dynamic_dims
+
+        if args.image_width is None:
+            args.image_width = args.image_size
+        if args.image_height is None:
+            args.image_height = args.image_size
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -700,7 +762,8 @@ def main(raw_args=None):
                 args.prompt,
                 args.num_images,
                 args.batch_size,
-                args.image_size,
+                args.image_width,
+                args.image_height,
                 args.num_inference_steps,
                 disable_classifier_free_guidance,
                 use_static_dims,
