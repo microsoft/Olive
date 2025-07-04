@@ -200,7 +200,7 @@ def run_inference_gui(
 
     y = image_rows * image_size + (image_rows + 1) * padding
 
-    progress_bar = ttk.Progressbar(window, value=0, maximum=num_inference_steps * min_batches_required)
+    progress_bar = ttk.Progressbar(window, value=0, maximum=num_inference_steps * min_batches_required - 1)
     progress_bar.place(x=0, y=y, height=bar_height, width=window_width)
 
     y += bar_height
