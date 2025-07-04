@@ -100,4 +100,8 @@ class ModelConfig(NestedConfig):
         elif file_path.is_dir():
             for file in file_path.iterdir():
                 file_hashes.extend(self._get_file_hash(file))
+        else:
+            # some model path or adapter path may be a hf repo string.
+            # if it is not a file or a directory, hash the path string.
+            file_hashes.append(hash_string(file_path.as_posix()))
         return file_hashes
