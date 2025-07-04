@@ -44,9 +44,10 @@ def run_inference_loop(
 ):
     images_saved = 0
 
-    def update_steps(step, timestep, latents):
+    def update_steps(step_callback_pipeline, step, timestep, latents):
         if step_callback:
             step_callback((images_saved // batch_size) * num_inference_steps + step)
+        return latents
 
     print(f"\nInference Batch Start (batch size = {batch_size}).")
 
@@ -65,7 +66,7 @@ def run_inference_loop(
         result = pipeline(
             [prompt] * batch_size,
             num_inference_steps=num_inference_steps,
-            callback=update_steps if step_callback else None,
+            callback_on_step_end=update_steps if step_callback else None,
             height=image_size,
             width=image_size,
             **kwargs,
@@ -78,7 +79,7 @@ def run_inference_loop(
             negative_prompt=[""] * batch_size,
             image=base_images_rgb,
             num_inference_steps=num_inference_steps,
-            callback=update_steps if step_callback else None,
+            callback_on_step_end=update_steps if step_callback else None,
             **kwargs,
         )
 
