@@ -79,7 +79,7 @@ Inference Batch End.
 The result will be saved as `result_<i>.png` on disk, which is then loaded and displayed in the UI.
 
 Run `python stable_diffusion_xl.py --help` for additional options. A few particularly relevant ones:
-- `--model_id <string>` : name of a stable diffusion model ID hosted by huggingface.co. This script has been tested with the following:
+- `--model_id <string>` : name of a stable diffusion model ID hosted by huggingface.co, or alternatively, a matching .safetensors file in the local folder when using the `--single_local_file` option. This script has been tested with the following:
   - `stabilityai/stable-diffusion-xl-base-1.0` (default)
 - `--base_images <image_0.png> <image_1.png>` : specifies the base images to refine when running inference on the refiner model.
 - `--num_inference_steps <int>` : the number of sampling steps per inference. The default value is 50. A lower value (e.g. 20) will speed up inference at the expensive of quality, and a higher value (e.g. 100) may produce higher quality images.
@@ -101,6 +101,8 @@ The minimum number of inferences will be `ceil(num_images / batch_size)`; additi
 - If you want to use `stabilityai/stable-diffusion-xl-base-1.0` for image-to-image pipeline, set `"float16": false` in `config_vae_encoder.json`. Otherwise, the output image will be black.
 
 - Onnx conversion for unet terminates silently without any error message. This could be because your system ran out of disk space in the temp directory. You can add `--tempdir .` to the command line to use the current directory as the temp directory root. `.` can be replaced with any other directory with sufficient disk space and write permission.
+
+- If your GPU cannot complete evaluation steps during optimization, try the `--skip_evaluation` option.
 
 ## Stable Diffusion Pipeline
 
