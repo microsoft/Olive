@@ -11,6 +11,7 @@ from typing import Optional, Union
 from packaging import version
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
+from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
@@ -73,7 +74,7 @@ class EPContextBinaryGenerator(Pass):
         from onnxruntime import get_available_providers
 
         # TODO(jambayk): validate and support other NPU EPs
-        assert self.accelerator_spec.execution_provider == "QNNExecutionProvider", (
+        assert self.accelerator_spec.execution_provider == ExecutionProvider.QNNExecutionProvider, (
             "Only QNNExecutionProvider is supported for now."
         )
         assert self.accelerator_spec.execution_provider in get_available_providers(), (
@@ -137,7 +138,7 @@ class EPContextBinaryGenerator(Pass):
             provider_options = config.provider_options or {}
             if (
                 version.parse(OrtVersion).release < version.parse("1.22.0").release
-            ) and self.accelerator_spec.execution_provider == "QNNExecutionProvider":
+            ) and self.accelerator_spec.execution_provider == ExecutionProvider.QNNExecutionProvider:
                 provider_options["backend_path"] = "QnnHtp.dll"
             group_session_options["provider_options"] = [
                 {self.accelerator_spec.execution_provider.lower().replace("executionprovider", ""): provider_options}
@@ -232,7 +233,7 @@ class EPContextBinaryGenerator(Pass):
 
         # prepare provider options
         provider_options = provider_options or {}
-        if execution_provider == "QNNExecutionProvider":
+        if execution_provider == ExecutionProvider.QNNExecutionProvider:
             if version.parse(OrtVersion).release < version.parse("1.22.0").release:
                 provider_options["backend_path"] = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
             if share_ep_contexts:

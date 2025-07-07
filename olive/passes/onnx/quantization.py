@@ -18,6 +18,7 @@ from olive.constants import Precision
 from olive.data.config import DataConfig
 from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.constants import ExecutionProvider
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
@@ -534,7 +535,7 @@ class OnnxQuantization(Pass):
             run_config.pop("precision", None)
             return run_config
 
-        is_qnn_ep = self.accelerator_spec.execution_provider == "QNNExecutionProvider"
+        is_qnn_ep = self.accelerator_spec.execution_provider == ExecutionProvider.QNNExecutionProvider
 
         if is_qnn_ep:
             from onnxruntime.quantization.execution_providers.qnn import get_qnn_qdq_config as get_qdq_config
@@ -670,7 +671,7 @@ class OnnxDynamicQuantization(OnnxQuantization):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        if accelerator_spec.execution_provider == "QNNExecutionProvider":
+        if accelerator_spec.execution_provider == ExecutionProvider.QNNExecutionProvider:
             raise ValueError("QNNExecutionProvider is not supported for dynamic quantization.")
         config = {
             "quant_mode": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode")
@@ -700,7 +701,7 @@ class OnnxStaticQuantization(OnnxQuantization):
         config.update(deepcopy(_extra_options_config))
         # external data config
         config.update(get_external_data_config())
-        if accelerator_spec.execution_provider == "QNNExecutionProvider":
+        if accelerator_spec.execution_provider == ExecutionProvider.QNNExecutionProvider:
             config["quant_format"].search_defaults = Categorical(["QDQ"])
             # Recently Int16/Uint16 is added into onnx runtime quantization only in QDQ mode.
             # for QNN EP integration, we give this workaround to support Int16/Uint16 in QDQ mode.
