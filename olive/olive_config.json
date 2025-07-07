@@ -380,6 +380,15 @@
             "dataset": "dataset_optional",
             "module_dependencies": [ "autoawq" ]
         },
+        "Gptq": {
+            "module_path": "olive.passes.pytorch.gptq.Gptq",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
+            "supported_algorithms": [ "gptq", "quarot", "spinquant" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional"
+        },
         "GptqQuantizer": {
             "module_path": "olive.passes.pytorch.auto_gptq.GptqQuantizer",
             "supported_providers": [ "*" ],

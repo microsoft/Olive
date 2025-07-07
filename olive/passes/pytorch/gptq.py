@@ -74,7 +74,7 @@ class Gptq(Pass):
     ) -> PyTorchModelHandler:
         from tqdm.auto import tqdm
 
-        wrapper = ModelWrapper(load_hf_base_model(model, torch_dtype="auto"))
+        wrapper = ModelWrapper.from_model(load_hf_base_model(model, torch_dtype="auto"))
         wrapper.model.eval()
         original_use_cache = wrapper.model.config.use_cache
         wrapper.model.config.use_cache = False
@@ -98,7 +98,7 @@ class Gptq(Pass):
 
             # process each quantizable module
             for module in quantizable_modules:
-                self.process_module(module, percdamp=quant_config["damp_percent"])
+                self.process_module(module, percdamp=config.damp_percent)
 
             # run the layer again to get the quantized outputs
             hidden_states = self.run_layer(
@@ -197,7 +197,7 @@ class Gptq(Pass):
                 hs,
                 *layer_args[i],
                 **layer_kwargs[i],
-            )
+            )[0]
             if return_output:
                 outputs.append(layer_output)
 
