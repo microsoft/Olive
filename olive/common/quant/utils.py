@@ -48,7 +48,7 @@ class WeightQuantizer:
         if self.group_size == 0:
             raise ValueError("group_size must be greater than 0 for groupwise quantization")
         group_size = self.group_size if self.group_size > 0 else shape[1]
-        assert shape[1] % group_size == 0, "in_features must be divisible by group_size"
+        assert shape[1] % group_size == 0, f"in_features {shape[1]} must be divisible by group_size {group_size}"
         return shape[1] // group_size
 
     def get_qparam_shape(self, shape: tuple[int, int], transpose_out: bool = False) -> tuple[int, ...]:

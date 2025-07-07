@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
 import torch.nn as nn
+from tqdm.auto import tqdm
 from transformers.quantizers.base import HfQuantizer
 from transformers.utils.quantization_config import QuantizationConfigMixin
 
@@ -166,6 +167,8 @@ def replace_matching_submodules(
     condition: Callable[[nn.Module, str], bool],
     transform: Callable[[nn.Module], nn.Module],
     path: list[str] | None = None,
+    description: str | None = None,
+    pbar: tqdm | None = None,
 ):
     """Walk the module tree and replace every sub-module that meets a condition.
 
@@ -175,21 +178,33 @@ def replace_matching_submodules(
             replacement.
         transform: ``transform(m, name) -> nn.Module``. Produces the replacement.
         path: (Internal) List of name segments used to build the dotted path.
+        description: (Internal) Description for the progress bar.
+        pbar: (Internal) Progress bar to update. If ``None``, a new
+            ``tqdm`` progress bar will be created.
 
     Returns:
         The root module with all replacements applied. If the root matches,
         the returned object is whatever ``transform`` returns.
 
     """
+    is_root = pbar is None
+    if is_root:
+        # TODO(jambayk): check logging level and only show progress bar if debug
+        pbar = tqdm(total=None, desc=description or "Replacing submodules", unit="mod")
     path = [] if path is None else path
 
     name = ".".join(path)
     if condition(module, name):
+        pbar.set_postfix(module=name, refresh=False)
+        pbar.update(1)
         # do we need to recurse into children first? no use case for that yet
         return transform(module, name)
 
     for name, child in module.named_children():
-        new_child = replace_matching_submodules(child, condition, transform, [*path, name])
+        new_child = replace_matching_submodules(child, condition, transform, [*path, name], description, pbar)
         module.add_module(name, new_child)
+
+    if is_root:
+        pbar.close()
 
     return module
