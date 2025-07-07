@@ -381,7 +381,7 @@
             "module_dependencies": [ "autoawq" ]
         },
         "GptqQuantizer": {
-            "module_path": "olive.passes.pytorch.gptq.GptqQuantizer",
+            "module_path": "olive.passes.pytorch.autogptq.GptqQuantizer",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "int16", "uint4", "uint8", "uint16" ],
