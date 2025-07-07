@@ -5,7 +5,7 @@
 import logging
 import math
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Tuple
 
 import torch
 
@@ -71,7 +71,17 @@ class Gptq(Pass):
     @torch.no_grad()
     def _run_for_config(
         self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
-    ) -> PyTorchModelHandler:
+    ) -> HfModelHandler:
+        """Run GPTQ quantization on the model.
+
+        Args:
+            model: The HuggingFace model to quantize.
+            config: Configuration object containing quantization parameters.
+            output_model_path: Path where the quantized model will be saved.
+
+        Returns:
+            HfModelHandler for the quantized model.
+        """
         from tqdm.auto import tqdm
 
         wrapper = ModelWrapper.from_model(load_hf_base_model(model, torch_dtype="auto"))
@@ -120,6 +130,15 @@ class Gptq(Pass):
         return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
 
     def get_quant_config(self, model: HfModelHandler, config: type[BasePassConfig]) -> OliveHfQuantizationConfig:
+        """Get quantization configuration with mixed precision support.
+
+        Args:
+            model: The HuggingFace model to get configuration for.
+            config: Configuration object containing quantization parameters.
+
+        Returns:
+            OliveHfQuantizationConfig object with quantization settings.
+        """
         quant_config = {
             "bits": config.bits,
             "symmetric": config.sym,
@@ -133,15 +152,20 @@ class Gptq(Pass):
             quant_config["overrides"] = mp_info.get("overrides")
         return OliveHfQuantizationConfig(**quant_config)
 
-    def prepare_model(self, wrapper: ModelWrapper, quant_config: OliveHfQuantizationConfig) -> ModelWrapper:
-        """Prepare the model for quantization."""
+    def prepare_model(self, wrapper: ModelWrapper, quant_config: OliveHfQuantizationConfig) -> None:
+        """Prepare the model for quantization by adding quant_info to linear layers.
+
+        Args:
+            wrapper: ModelWrapper containing the model to prepare.
+            quant_config: Quantization configuration to use.
+        """
         # TODO(jambayk): make lm head quantization configurable
         lm_head_name = wrapper.get_lm_head()[1]
 
-        def should_quantize(module, name):
+        def should_quantize(module: torch.nn.Module, name: str) -> bool:
             return isinstance(module, torch.nn.Linear) and name != lm_head_name
 
-        def add_quant_info(module, name):
+        def add_quant_info(module: torch.nn.Module, name: str) -> torch.nn.Module:
             # TODO(jambayk): validate that the module and config are compatible
             module.quant_info = QuantInfo(quantizer=WeightQuantizer(**quant_config.get_qlinear_init_args(name)))
             return module
@@ -154,7 +178,20 @@ class Gptq(Pass):
         )
 
     @torch.no_grad()
-    def get_init_layer_inputs(self, model, wrapper, config: type[BasePassConfig], device: str):
+    def get_init_layer_inputs(
+        self, model: HfModelHandler, wrapper: ModelWrapper, config: type[BasePassConfig], device: str
+    ) -> Tuple[list[torch.Tensor], list[tuple], list[dict]]:
+        """Get initial layer inputs for quantization calibration.
+
+        Args:
+            model: The HuggingFace model.
+            wrapper: ModelWrapper containing the model.
+            config: Configuration object containing data settings.
+            device: Device to run calibration on.
+
+        Returns:
+            Tuple containing hidden states, layer args, and layer kwargs.
+        """
         hidden_states, layer_args, layer_kwargs = [], [], []
 
         pre_layer_modules = list(wrapper.get_embeds(return_name=False))
@@ -163,7 +200,7 @@ class Gptq(Pass):
         for module in pre_layer_modules:
             module.to(device)
 
-        def store_input_hook(_, args, kwargs):
+        def store_input_hook(_, args: tuple, kwargs: dict) -> None:
             # assume first argument is the hidden state
             hidden_states.append(args[0])
             layer_args.append(args[1:])
@@ -187,7 +224,26 @@ class Gptq(Pass):
         return hidden_states, layer_args, layer_kwargs
 
     @torch.no_grad()
-    def run_layer(self, layer, hidden_states, layer_args, layer_kwargs, return_output=False):
+    def run_layer(
+        self,
+        layer: torch.nn.Module,
+        hidden_states: list[torch.Tensor],
+        layer_args: list[tuple],
+        layer_kwargs: list[dict],
+        return_output: bool = False,
+    ) -> Optional[list[torch.Tensor]]:
+        """Run a layer with the given inputs.
+
+        Args:
+            layer: The model layer to run.
+            hidden_states: List of hidden state tensors.
+            layer_args: List of additional positional arguments for each input.
+            layer_kwargs: List of keyword arguments for each input.
+            return_output: Whether to return the layer outputs.
+
+        Returns:
+            List of output tensors if return_output is True, otherwise None.
+        """
         outputs = []
         layer.to(hidden_states[0].device)
 
@@ -205,7 +261,14 @@ class Gptq(Pass):
         return outputs or None
 
     @staticmethod
-    def accumulate_hessian(module, inp, _):
+    def accumulate_hessian(module: torch.nn.Module, inp: tuple, _: Any) -> None:
+        """Accumulate Hessian matrix for GPTQ quantization.
+
+        Args:
+            module: The linear module to accumulate Hessian for.
+            inp: Input tensors to the module.
+            _: Unused output parameter.
+        """
         if module.quant_info.data is None:
             module.quant_info.data = {
                 "H": torch.zeros((module.in_features, module.in_features), device=inp[0].device),
@@ -221,7 +284,14 @@ class Gptq(Pass):
         module.quant_info.data["H"] += inp.matmul(inp.t())
 
     @staticmethod
-    def process_module(module, percdamp=0.1, blocksize=128):
+    def process_module(module: torch.nn.Module, percdamp: float = 0.1, blocksize: int = 128) -> None:
+        """Process a module for GPTQ quantization using the accumulated Hessian.
+
+        Args:
+            module: The linear module to quantize.
+            percdamp: Damping factor for numerical stability.
+            blocksize: Block size for processing weights.
+        """
         if module.quant_info.data is None:
             raise ValueError(f"Module {module} does not have quant_info.data initialized!")
 
@@ -302,11 +372,19 @@ class Gptq(Pass):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    def finalize(self, wrapper, quant_config, device):
-        def should_quantize(module, _):
+    def finalize(self, wrapper: ModelWrapper, quant_config: OliveHfQuantizationConfig, device: str) -> None:
+        """Finalize quantization by replacing linear layers with quantized versions.
+
+        Args:
+            wrapper: ModelWrapper containing the model to finalize.
+            quant_config: Quantization configuration to use.
+            device: Device to perform quantization on.
+        """
+
+        def should_quantize(module: torch.nn.Module, _: str) -> bool:
             return hasattr(module, "quant_info")
 
-        def quantize_and_pack(module, _):
+        def quantize_and_pack(module: torch.nn.Module, _: str) -> QuantLinear:
             module.to(device)
             return QuantLinear.from_linear(
                 module.to(device),
@@ -315,7 +393,9 @@ class Gptq(Pass):
                 group_size=module.quant_info.quantizer.group_size,
                 scales=module.quant_info.scales.to(device),
                 zero_points=module.quant_info.zero_points.to(device),
-            ).to("cpu")  # move the original module to CPU
+            ).to(
+                "cpu"
+            )  # move the original module to CPU
 
         replace_matching_submodules(
             wrapper.model,
@@ -328,7 +408,18 @@ class Gptq(Pass):
         wrapper.model.config.quantization_config = quant_config
 
     def get_dataset(self, model: HfModelHandler, config: type[BasePassConfig]) -> list[dict[str, Any]]:
-        """Get the dataset for quantization."""
+        """Get the dataset for quantization calibration.
+
+        Args:
+            model: The HuggingFace model to get dataset for.
+            config: Configuration object containing data settings.
+
+        Returns:
+            List of tokenized data dictionaries for calibration.
+
+        Raises:
+            ValueError: If the dataset format is invalid.
+        """
         data_config = config.data_config or self.get_calibration_data_config(
             model.model_name_or_path, trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None)
         )
@@ -351,7 +442,16 @@ class Gptq(Pass):
         return dataset
 
     @staticmethod
-    def get_calibration_data_config(model_name_or_path: str, trust_remote_code: Optional[bool] = None):
+    def get_calibration_data_config(model_name_or_path: str, trust_remote_code: Optional[bool] = None) -> DataConfig:
+        """Get default calibration data configuration for GPTQ quantization.
+
+        Args:
+            model_name_or_path: Name or path of the model.
+            trust_remote_code: Whether to trust remote code when loading data.
+
+        Returns:
+            DataConfig object for calibration data.
+        """
         return huggingface_data_config_template(
             model_name=model_name_or_path,
             task="text-generation",
@@ -374,17 +474,20 @@ class Gptq(Pass):
 
 @dataclass
 class QuantInfo:
-    """Class to hold quantization information.
+    """Class to hold quantization information for GPTQ.
+
+    This class stores all the necessary information for quantizing a layer,
+    including the quantizer, computed scales and zero points, and calibration data.
 
     Attributes:
         quantizer: The weight quantizer used for quantization.
-        scales: Scales used for quantization.
-        zero_points: Zero points used for quantization.
-        data: Additional data related to quantization (e.g., calibration data).
-
+        scales: Computed scales for quantization. Set after processing.
+        zero_points: Computed zero points for quantization. Set after processing.
+        data: Calibration data including Hessian matrix and sample count.
+              Format: {"H": torch.Tensor, "N": int} or None.
     """
 
     quantizer: WeightQuantizer
-    scales: torch.Tensor = None
-    zero_points: torch.Tensor = None
-    data: dict = None
+    scales: Optional[torch.Tensor] = None
+    zero_points: Optional[torch.Tensor] = None
+    data: Optional[dict] = None
