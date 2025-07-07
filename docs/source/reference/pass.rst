@@ -300,6 +300,12 @@ SpinQuant
 ---------
 .. autoconfigclass:: olive.passes.SpinQuant
 
+.. _gptq:
+
+Gptq
+-----
+.. autoconfigclass:: olive.passes.Gptq
+
 .. _gptq_quantizer:
 
 GptqQuantizer
