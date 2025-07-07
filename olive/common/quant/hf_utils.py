@@ -8,11 +8,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
 import torch.nn as nn
-from tqdm.auto import tqdm
 from transformers.quantizers.base import HfQuantizer
 from transformers.utils.quantization_config import QuantizationConfigMixin
 
 if TYPE_CHECKING:
+    from tqdm.auto import tqdm
     from transformers import PreTrainedModel
 
 
@@ -189,6 +189,8 @@ def replace_matching_submodules(
     """
     is_root = pbar is None
     if is_root:
+        from tqdm.auto import tqdm
+
         # TODO(jambayk): check logging level and only show progress bar if debug
         pbar = tqdm(total=None, desc=description or "Replacing submodules", unit="mod")
     path = [] if path is None else path
