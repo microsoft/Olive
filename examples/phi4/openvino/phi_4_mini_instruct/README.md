@@ -1,9 +1,8 @@
-# Phi-3.5-mini-instruct Quantization
+# Phi-4-mini-instruct Quantization
 
-This folder contains a sample use case of Olive to optimize a Phi-3.5-mini-instruct model using OpenVINO tools.
+This folder contains a sample use case of Olive to optimize a Phi-4-mini-instruct model using OpenVINO tools.
 
-- Intel® NPU: [Phi 3.5 Mini Instruct Dynamic Shape Model](https://huggingface.co/microsoft/Phi-3.5-mini-instruct)
-- Intel® GPU: [Phi 3.5 Mini Instruct Dynamic Shape Model](https://huggingface.co/microsoft/Phi-3.5-mini-instruct)
+- Intel® GPU: [Phi 4 Mini Instruct Dynamic Shape Model](https://huggingface.co/microsoft/Phi-4-mini-instruct)
 
 ## Quantization Workflows
 
@@ -11,11 +10,10 @@ This workflow performs quantization with Optimum Intel®. It performs the optimi
 
 - *HuggingFace Model -> Quantized OpenVINO model -> Quantized encapsulated ONNX OpenVINO IR model*
 
-### Phi 3.5 Mini Instruct Dynamic Shape Model
+### Phi 4 Mini Instruct Dynamic Shape Model
 
-The flow in the following config files executes the above workflow producing a dynamic shape model.
-1. [Phi-3.5-mini-instruct-npu-context-ov-dynamic-sym-gs128-bkp-int8-sym.json](Phi-3.5-mini-instruct-npu-context-ov-dynamic-sym-gs128-bkp-int8-sym.json)
-2. [Phi-3.5-mini-instruct-gpu-context-ov-dynamic.json](Phi-3.5-mini-instruct-gpu-context-ov-dynamic.json)
+The flow in following config file executes the above workflow producing a dynamic shape model.
+1. [Phi-4-mini-instruct-gpu-context-dy.json](Phi-4-mini-instruct-gpu-context-dy.json)
 
 ## How to run
 
@@ -40,8 +38,9 @@ olive run --config <config_file.json>
 Example:
 
 ```bash
-olive run --config Phi-3.5-mini-instruct_context_ov_dynamic_sym_gs128_bkp_int8_sym.json
+olive run --config Phi-4-mini-instruct-gpu-context-dy.json
 ```
+
 
 or run simply with python code:
 
@@ -60,6 +59,7 @@ The sample chat app to run is found as [model-chat.py](https://github.com/micros
 
 The sample command to run after all setup would be as follows:
 
+
 ```bash
 python model-chat.py -e follow_config -v -g -m models/<model_folder>/model/
 ```
@@ -67,5 +67,5 @@ python model-chat.py -e follow_config -v -g -m models/<model_folder>/model/
 Example:
 
 ```bash
-python model-chat.py -e follow_config -v -g -m models/Phi-3.5-mini-instruct_context_ov_dynamic_sym_gs128_bkp_int8_sym/model/
+python model-chat.py -e follow_config -v -g -m models/Phi-4-mini-instruct/model/
 ```

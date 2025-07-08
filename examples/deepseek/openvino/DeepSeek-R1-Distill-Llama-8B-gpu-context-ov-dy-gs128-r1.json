@@ -1,0 +1,35 @@
+{
+    "input_model": { "type": "HfModel", "model_path": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B" },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [ { "execution_providers": [ "OpenVINOExecutionProvider" ] } ]
+        }
+    },
+    "passes": {
+        "optimum_convert": {
+            "type": "OpenVINOOptimumConversion",
+            "extra_args": { "device": "gpu" },
+            "ov_quant_config": {
+                "task": "text-generation-with-past",
+                "weight_format": "int4",
+                "group_size": 128,
+                "ratio": 0.8
+            }
+        },
+        "io_update": { "type": "OpenVINOIoUpdate", "static": false, "reuse_cache": true },
+        "encapsulation": {
+            "type": "OpenVINOEncapsulation",
+            "target_device": "gpu",
+            "keep_ov_dynamic_dims": true,
+            "ov_version": "2025.1",
+            "reuse_cache": true
+        }
+    },
+    "search_strategy": false,
+    "host": "local_system",
+    "cache_dir": "cache",
+    "clean_cache": true,
+    "evaluate_input_model": false,
+    "output_dir": "models/deepseek-ai/DeepSeek-R1-Distill-Llama-8B-gpu-context-ov-dy-gs128-r1"
+}
