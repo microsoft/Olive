@@ -3,8 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import shutil
+from unittest.mock import patch
 
 import pytest
+from packaging import version
 
 from test.unit_test.utils import create_onnx_model_file, delete_onnx_model_files
 
@@ -25,3 +27,14 @@ def setup_onnx_model(request, tmp_path_factory):
     yield
     delete_onnx_model_files()
     shutil.rmtree(cache_path, ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def maybe_patch_inc():
+    import peft
+
+    if version.parse(peft.__version__) >= version.parse("0.16.0"):
+        with patch("peft.tuners.lora.inc.is_inc_available", new=lambda: False):
+            yield
+    else:
+        yield

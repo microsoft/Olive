@@ -4,13 +4,11 @@
 # --------------------------------------------------------------------------
 import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
-import pytest
 import torch
 import torch.nn as nn
-from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.constants import Framework
@@ -366,14 +364,3 @@ def make_local_tiny_llama(save_path, model_type="hf"):
         if model_type == "hf"
         else ONNXModelHandler(model_path=save_path, onnx_file_name="model.onnx")
     )
-
-
-@pytest.fixture(scope="module")
-def maybe_patch_inc():
-    import peft
-
-    if version.parse(peft.__version__) >= version.parse("0.16.0"):
-        with patch("peft.tuners.lora.inc.is_inc_available", new=lambda: False):
-            yield
-    else:
-        yield
