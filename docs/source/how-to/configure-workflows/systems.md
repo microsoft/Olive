@@ -200,6 +200,8 @@ A typical managed Docker system can be configured by the following example:
 
 ## AzureML System
 
+> ⚠️ **DEPRECATION WARNING**: This feature will be deprecated in the next release.
+
 The AzureML system represents the Azure Machine Learning workspace where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The AzureML system is configured with the following attributes:
 
 * `accelerators`: The list of accelerators that are supported by the system, which is required.
