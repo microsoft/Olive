@@ -11,7 +11,7 @@ This workflow performs quantization with Optimum Intel®. It performs the optimi
 
 - *HuggingFace Model -> Quantized OpenVINO model -> Quantized encapsulated ONNX OpenVINO IR model*
 
-### Phi 3 Dynamic shape model 
+### Phi 3 Dynamic shape model
 
 The following config files executes the above workflow producing as dynamic shaped model:
 

@@ -15,7 +15,7 @@ This workflow performs quantization with Optimum Intel®. It performs the optimi
 
 - *HuggingFace Model -> Quantized OpenVINO model -> Quantized encapsulated ONNX OpenVINO IR model*
 
-### Deepseek R1 Distill Qwen Dynamic shape model 
+### Deepseek R1 Distill Qwen Dynamic shape model
 
 The following config files execute the above workflow, producing a dynamic shape model:
 
