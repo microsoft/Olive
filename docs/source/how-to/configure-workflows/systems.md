@@ -123,11 +123,6 @@ For managed python environment system, Olive can only infer the onnxruntime from
 }
 ```
 
-```{Note}
-Please refer to [this example](https://github.com/microsoft/Olive/blob/main/examples/resnet/resnet_multiple_ep.json)
-for how to use managed python environment system to optimize the model against different execution providers.
-```
-
 ## Docker System
 
 The docker system represents the docker container where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The docker system is configured with the following attributes:
