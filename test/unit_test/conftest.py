@@ -29,11 +29,12 @@ def setup_onnx_model(request, tmp_path_factory):
     shutil.rmtree(cache_path, ignore_errors=True)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session", autouse=True)
 def maybe_patch_inc():
     import peft
 
     if version.parse(peft.__version__) >= version.parse("0.16.0"):
+        # peft 0.16.0+ has a new dispatcher for inc which imports missing dependencies
         with patch("peft.tuners.lora.inc.is_inc_available", new=lambda: False):
             yield
     else:

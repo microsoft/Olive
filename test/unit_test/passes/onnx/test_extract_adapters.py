@@ -49,7 +49,7 @@ def get_calib_data_loader(dummy_input):
 
 
 @pytest.fixture(name="input_model_info", scope="module")
-def input_model_info_fixture(tmp_path_factory, request, maybe_patch_inc):
+def input_model_info_fixture(tmp_path_factory, request):
     tmp_path = tmp_path_factory.mktemp("extract-adapters-test")
 
     model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
