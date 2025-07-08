@@ -388,6 +388,7 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
 
 @patch("huggingface_hub.repo_exists", return_value=True)
 def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
+    # setup
     from peft import LoraConfig, get_peft_model
     from transformers import AutoModelForCausalLM
 
