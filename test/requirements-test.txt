@@ -9,7 +9,7 @@ azureml-fsspec
 azureml-metrics[all]>=0.0.26
 coverage
 cppimport
-datasets
+datasets==3.6.0
 docker>=7.1.0
 evaluate
 marshmallow<3.24.0
