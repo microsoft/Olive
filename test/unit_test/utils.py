@@ -383,5 +383,6 @@ def get_wikitext_data_config(
             "max_seq_len": max_seq_len,
             "max_samples": max_samples,
             "pad_to_max_len": pad_to_max_len,
+            "random_seed": 42,
         },
     )
