@@ -9,38 +9,19 @@ import pytest
 import torch
 
 from olive.common.constants import OS
-from olive.data.template import huggingface_data_config_template
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.lora import DoRA, LoftQ, LoHa, LoKr, LoRA, QLoRA
+from test.unit_test.utils import get_wikitext_data_config
 
 # pylint: disable=redefined-outer-name
 
 
 def get_pass_config(model_name, task, **kwargs):
-    dataset = {
-        "load_dataset_config": {
-            "params": {
-                "data_name": "ptb_text_only",
-                "subset": "penn_treebank",
-                "split": "train",
-                "trust_remote_code": True,
-            }
-        },
-        "pre_process_data_config": {
-            "params": {
-                "text_cols": ["sentence"],
-                "strategy": "line-by-line",
-                "max_seq_len": 512,
-                "max_samples": 10,
-                "pad_to_max_len": False,
-                "trust_remote_code": True,
-            }
-        },
-    }
-    data_config = huggingface_data_config_template(model_name=model_name, task=task, **dataset).to_json()
     return {
-        "train_data_config": data_config,
+        "train_data_config": get_wikitext_data_config(
+            model_name, strategy="line-by-line", max_seq_len=100, max_samples=10, pad_to_max_len=False
+        ),
         # hidden sizes are 4 or 16
         # will have invalid adapter weights since `in_features` and/or `out_features` say 64 (r) even though
         # the actual weights are 4 or 16. Bug not from our code, it's from peft

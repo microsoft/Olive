@@ -10,11 +10,11 @@ import torch
 
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.utils import get_attr
-from olive.data.template import huggingface_data_config_template
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.sparsegpt_utils import get_layer_submodules
 from olive.passes.pytorch.torch_trt_conversion import TorchTRTConversion
+from test.unit_test.utils import get_wikitext_data_config
 
 # pylint: disable=abstract-method
 
@@ -53,30 +53,8 @@ def test_torch_trt_conversion_success(tmp_path):
             ModelWrapper.from_model(input_model.load_model()).get_layers(False)[0], submodule_types=[torch.nn.Linear]
         ).keys()
     )
-
-    dataset = {
-        "load_dataset_config": {
-            "params": {
-                "data_name": "ptb_text_only",
-                "subset": "penn_treebank",
-                "split": "train",
-                "trust_remote_code": True,
-            }
-        },
-        "pre_process_data_config": {
-            "params": {
-                "text_cols": ["sentence"],
-                "strategy": "join-random",
-                "max_seq_len": 100,
-                "max_samples": 1,
-                "random_seed": 42,
-                "trust_remote_code": True,
-            }
-        },
-    }
-    data_config = huggingface_data_config_template(model_name=model_name, task=task, **dataset)
     config = {
-        "data_config": data_config,
+        "data_config": get_wikitext_data_config(model_name, max_seq_len=100),
     }
 
     p = create_pass_from_dict(TorchTRTConversion, config, disable_search=True)

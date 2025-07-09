@@ -14,6 +14,7 @@ from olive.common.config_utils import validate_config
 from olive.constants import Framework
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
+from olive.data.template import huggingface_data_config_template
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import HfModelHandler, ModelConfig, ONNXModelHandler, PyTorchModelHandler
@@ -363,4 +364,24 @@ def make_local_tiny_llama(save_path, model_type="hf"):
         HfModelHandler(model_path=save_path)
         if model_type == "hf"
         else ONNXModelHandler(model_path=save_path, onnx_file_name="model.onnx")
+    )
+
+
+def get_wikitext_data_config(
+    model_name_or_path, max_seq_len=1024, max_samples=1, strategy="join-random", pad_to_max_len=True
+):
+    return huggingface_data_config_template(
+        model_name=model_name_or_path,
+        task="text-generation",
+        load_dataset_config={
+            "data_name": "wikitext",
+            "subset": "wikitext-2-raw-v1",
+            "split": "train[:1000]",
+        },
+        pre_process_data_config={
+            "strategy": strategy,
+            "max_seq_len": max_seq_len,
+            "max_samples": max_samples,
+            "pad_to_max_len": pad_to_max_len,
+        },
     )
