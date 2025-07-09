@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
 import torch.nn as nn
+from transformers.integrations import get_keys_to_not_convert
 from transformers.quantizers.base import HfQuantizer
 from transformers.utils.quantization_config import QuantizationConfigMixin
 
@@ -134,10 +135,13 @@ class OliveHfQuantizer(HfQuantizer):
         from olive.common.quant.linear import QuantLinear
 
         # this helps skip modules such as lm_head which is generally not quantized
+        # newer transformers versions have a `get_keys_to_not_convert` function
         # TODO(jambayk): maybe add an option to skip/include lm head if we start quantizing it
-        self.modules_to_not_convert = self.get_modules_to_not_convert(
-            model, self.quantization_config.modules_to_not_convert, keep_in_fp32_modules, add_default_skips=True
-        )
+        self.modules_to_not_convert = get_keys_to_not_convert(model)
+        if self.quantization_config.modules_to_not_convert:
+            self.modules_to_not_convert.extend(self.quantization_config.modules_to_not_convert)
+        if keep_in_fp32_modules:
+            self.modules_to_not_convert.extend(keep_in_fp32_modules)
 
         def should_quantize(module: nn.Module, name: str) -> bool:
             """Check if a module should be quantized."""
