@@ -128,7 +128,8 @@ def test_openvino_optimum_conversion_pass_convert_multiple_components_without_ma
             "ratio": 1.0,
             "awq": True,
             "scale_estimation": True,
-        }
+        },
+        "extra_args": {"task": "image-text-to-text"},
     }
 
     p = create_pass_from_dict(OpenVINOOptimumConversion, openvino_optimum_conversion_config, disable_search=True)
