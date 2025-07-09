@@ -1,6 +1,8 @@
 # Self-hosted Kubernetes cluster
 
- In this document, you will learn how to create a local Kubernetes cluster, deploy it to Azure Arc, and link it to your Azure machine learning workspace computes.
+> ⚠️ **DEPRECATION WARNING**: This feature will be deprecated in the next release.
+
+In this document, you will learn how to create a local Kubernetes cluster, deploy it to Azure Arc, and link it to your Azure machine learning workspace computes.
 
 ## Create Kubernetes cluster
 

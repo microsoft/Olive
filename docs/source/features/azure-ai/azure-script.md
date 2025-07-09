@@ -1,5 +1,7 @@
 # Azure ML scripts
 
+> ⚠️ **DEPRECATION WARNING**: This feature will be deprecated in the next release.
+
 Olive provides a couple of scripts to help you manage your Azure ML assets.
 
 ## Scripts list

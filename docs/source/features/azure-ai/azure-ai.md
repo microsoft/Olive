@@ -90,6 +90,9 @@ You can use data files or folders that are stored in your Azure ML datastore as:
 ```
 
 ### Using Azure ML compute as host or target
+
+> ⚠️ **DEPRECATION WARNING**: This feature will be deprecated in the next release.
+
 You can specify your Azure ML Compute as an Olive System and use it as a host to run Pass, or a target to evaluate the model.
 
 ```json
