@@ -11,12 +11,19 @@ import torch.nn as nn
 from transformers.quantizers.base import HfQuantizer
 from transformers.utils.quantization_config import QuantizationConfigMixin
 
+from olive.common.utils import StrEnumBase
+
 if TYPE_CHECKING:
     from tqdm.auto import tqdm
     from transformers import PreTrainedModel
 
 
-QUANTIZATION_METHOD = "olive"
+# older transformers expects a StrEnum and accesses .value
+class OliveHfQuantizationMethod(StrEnumBase):
+    """Enumeration for Olive quantization methods."""
+
+    # Olive quantization method
+    OLIVE = "olive"
 
 
 # TODO(jambayk): standardize this with the default quantization settings
@@ -63,7 +70,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         **kwargs,
     ):
         # pylint: disable=W0231
-        self.quant_method = QUANTIZATION_METHOD
+        self.quant_method = OliveHfQuantizationMethod.OLIVE
 
         self.bits = bits
         self.symmetric = symmetric

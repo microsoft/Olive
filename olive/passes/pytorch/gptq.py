@@ -410,7 +410,7 @@ class Gptq(Pass):
             description="Quantizing and packing linear layers",
         )
 
-        wrapper.model.quantization_method = "olive"
+        wrapper.model.quantization_method = quant_config.quant_method
         wrapper.model.config.quantization_config = quant_config
 
     def get_dataset(self, model: HfModelHandler, config: type[BasePassConfig]) -> list[dict[str, Any]]:
