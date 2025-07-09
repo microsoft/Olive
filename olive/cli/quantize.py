@@ -15,7 +15,6 @@ from olive.cli.base import (
     add_dataset_options,
     add_input_model_options,
     add_logging_options,
-    add_remote_options,
     add_save_config_file_options,
     add_shared_cache_options,
     update_dataset_options,
@@ -91,7 +90,6 @@ class QuantizeCommand(BaseOliveCLICommand):
         )
 
         add_dataset_options(sub_parser, required=False, include_train=False, include_eval=False)
-        add_remote_options(sub_parser)
         add_shared_cache_options(sub_parser)
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)

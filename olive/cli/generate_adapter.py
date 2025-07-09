@@ -9,11 +9,9 @@ from olive.cli.base import (
     BaseOliveCLICommand,
     add_input_model_options,
     add_logging_options,
-    add_remote_options,
     add_save_config_file_options,
     add_shared_cache_options,
     get_input_model_config,
-    update_remote_options,
     update_shared_cache_options,
 )
 from olive.common.utils import WeightsFileFormat, set_nested_dict_value
@@ -44,7 +42,6 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
             help=f"Format to save the weights in. Default is {WeightsFileFormat.ONNX_ADAPTER}.",
         )
 
-        add_remote_options(sub_parser)
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
         add_shared_cache_options(sub_parser)
@@ -73,7 +70,6 @@ class GenerateAdapterCommand(BaseOliveCLICommand):
                 continue
             set_nested_dict_value(config, keys, value)
 
-        update_remote_options(config, self.args, "generate-adapter", tempdir)
         update_shared_cache_options(config, self.args)
         return config
 
