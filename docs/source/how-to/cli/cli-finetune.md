@@ -27,32 +27,6 @@ olive finetune \
 ```
 :::
 
-::: {tab-item} Azure AI
-
-You can fine-tune on remote Azure ML compute by updating the placeholders (`{}`) in the following code snippet with your workspace, resource group and compute name details. Read the [How to create a compute cluster](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-create-attach-compute-cluster?view=azureml-api-2&tabs=azure-studio) article for more details on setting up a GPU cluster in Azure ML.
-
-```bash
-olive finetune \
-    --model_name_or_path azureml://registries/azureml-meta/models/Llama-3.2-1B/versions/2 \
-    --trust_remote_code \
-    --output_path models/llama/ft \
-    --data_name xxyyzzz/phrase_classification \
-    --text_template "<|start_header_id|>user<|end_header_id|>\n{phrase}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n{tone}" \
-    --method lora \
-    --max_steps 100 \
-    --log_level 1 \
-    --resource_group {RESOURCE_GROUP_NAME} \
-    --workspace_name {WORKSPACE_NAME} \
-    --aml_compute {COMPUTE_NAME}
-```
-
-You can download the model artifact using the Azure ML CLI:
-
-```bash
-az ml job download --name {JOB_ID} --resource-group {RESOURCE_GROUP_NAME} --workspace-name {WORKSPACE_NAME} --all
-```
-:::
-
 ::::
 
 ### {octicon}`dependabot;1em` Auto-Optimize the model and adapters

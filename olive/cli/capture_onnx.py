@@ -10,11 +10,9 @@ from olive.cli.base import (
     BaseOliveCLICommand,
     add_input_model_options,
     add_logging_options,
-    add_remote_options,
     add_save_config_file_options,
     add_shared_cache_options,
     get_input_model_config,
-    update_remote_options,
     update_shared_cache_options,
 )
 from olive.common.utils import IntEnumBase, set_nested_dict_value
@@ -155,8 +153,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--use_ort_genai", action="store_true", help="Use OnnxRuntime generate() API to run the model"
         )
 
-        # remote options
-        add_remote_options(sub_parser)
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
         add_shared_cache_options(sub_parser)
@@ -235,7 +231,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             if value is None:
                 continue
             set_nested_dict_value(config, keys, value)
-        update_remote_options(config, self.args, "capture-onnx-graph", tempdir)
         update_shared_cache_options(config, self.args)
 
         return config
