@@ -85,6 +85,8 @@ class AzureMLSystem(OliveSystem):
         hf_token: bool = None,
         **kwargs,
     ):
+        logger.warning("⚠️  DEPRECATION WARNING: Azure ML system will be deprecated in the next release!")
+
         super().__init__(accelerators, hf_token=hf_token)
 
         self.config = AzureMLTargetUserConfig(**locals(), **kwargs)
