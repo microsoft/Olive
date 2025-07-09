@@ -47,8 +47,8 @@ olive run --config Phi-3-mini-4k-instruct-gpu-context-ov-dy.json
 or run simply with python code:
 
 ```python
-from olive.workflows import run as olive_run
-olive_run("<config_file.json>")
+from olive import run
+workflow_output = run("<config_file.json>")
 ```
 
 After running the above command, the model candidates and corresponding config will be saved in the output directory.

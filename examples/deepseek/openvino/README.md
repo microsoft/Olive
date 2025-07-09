@@ -58,8 +58,8 @@ olive run --config DeepSeek-R1-Distill-Qwen-1.5B-npu-context-ov-dy-sym-gs128-bkp
 or run simply with python code:
 
 ```python
-from olive.workflows import run as olive_run
-olive_run("<config_file.json>")
+from olive import run
+workflow_output = run("<config_file.json>")
 ```
 
 After running the above command, the model candidates and corresponding config will be saved in the output directory.

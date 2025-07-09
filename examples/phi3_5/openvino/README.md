@@ -46,8 +46,8 @@ olive run --config Phi-3.5-mini-instruct_context_ov_dynamic_sym_gs128_bkp_int8_s
 or run simply with python code:
 
 ```python
-from olive.workflows import run as olive_run
-olive_run("<config_file.json>")
+from olive import run
+workflow_output = run("<config_file.json>")
 ```
 
 After running the above command, the model candidates and corresponding config will be saved in the output directory.

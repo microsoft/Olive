@@ -37,8 +37,8 @@ olive run --config Phi-4-reasoning_context_ov_dynamic_sym_gs128_bkp_int8_sym.jso
 or run simply with python code:
 
 ```python
-from olive.workflows import run as olive_run
-olive_run("Phi-4-reasoning_context_ov_dynamic_sym_gs128_bkp_int8_sym.json")
+from olive import run
+workflow_output = run("Phi-4-reasoning_context_ov_dynamic_sym_gs128_bkp_int8_sym.json")
 ```
 
 After running the above command, the model candidates and corresponding config will be saved in the output directory.
