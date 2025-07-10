@@ -243,7 +243,7 @@ def run(
 
     if run_config.workflow_host is not None:
         workflow_host = run_config.workflow_host
-        if workflow_host.type == SystemType.AzureML or workflow_host.type == SystemType.Docker:
+        if workflow_host.type in (SystemType.AzureML, SystemType.Docker):
             logger.warning("⚠️  DEPRECATION WARNING: Azure ML system will be deprecated in the next release!")
             workflow_host = workflow_host.create_system()
             return workflow_host.submit_workflow(run_config)
