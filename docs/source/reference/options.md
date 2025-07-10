@@ -433,6 +433,7 @@ Please also find the detailed options from following table for each pass:
 | [SparseGPT](pass.rst#sparsegpt) | Run SparseGPT on a Hugging Face PyTorch model.  |
 | [SliceGPT](pass.rst#slicegpt) | Run SliceGPT on a Hugging Face PyTorch model. |
 | [QuaRot](pass.rst#quarot) | Rotate model using QuaRot. |
+| [Gptq](pass.rst#gptq) | Run GPTQ quantization on a Hugging Face PyTorch model. |
 | [GptqQuantizer](pass.rst#gptqquantizer) | GPTQ quantization Pass On Pytorch Model. |
 | [AutoAWQQuantizer](pass.rst#awqquantizer) | AWQ quantization Pass On Pytorch Model. |
 | [TorchTRTConversion](pass.rst#torchtrtconversion) | Convert torch.nn.Linear modules in the transformer layers of a HuggingFace PyTorch model to TensorRT modules. |

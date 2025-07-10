@@ -45,6 +45,15 @@ def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTr
                 model_config.quantization_config["use_exllama"] = kwargs_use_exllama
                 # provide config to the model load kwargs to override the saved config
                 kwargs["config"] = model_config
+        elif model_config.quantization_config.get("quant_method") == "olive":
+            # manually register OliveHfQuantizer and OliveHfQuantizationConfig
+            # there are decorators to do this but depends on transformers version
+            from transformers.quantizers.auto import AUTO_QUANTIZATION_CONFIG_MAPPING, AUTO_QUANTIZER_MAPPING
+
+            from olive.common.quant.hf_utils import OliveHfQuantizationConfig, OliveHfQuantizer
+
+            AUTO_QUANTIZATION_CONFIG_MAPPING["olive"] = OliveHfQuantizationConfig
+            AUTO_QUANTIZER_MAPPING["olive"] = OliveHfQuantizer
 
     class_tuple = targeted_task["pt"] or (AutoModel,)
     model = None
