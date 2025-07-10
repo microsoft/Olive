@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import shutil
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -19,7 +20,7 @@ from azure.core.exceptions import HttpResponseError, ServiceResponseError
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import validate_config
 from olive.common.constants import HF_LOGIN, KEYVAULT_NAME, WORKFLOW_ARTIFACTS, WORKFLOW_CONFIG
-from olive.common.utils import get_nested_dict_value, retry_func, set_nested_dict_value
+from olive.common.utils import copy_dir, get_nested_dict_value, retry_func, set_nested_dict_value
 from olive.evaluator.metric_result import MetricResult
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
@@ -661,6 +662,20 @@ class AzureMLSystem(OliveSystem):
 
         # metric component
         return cmd(**args)
+
+    def copy_files(self, code_files: list, target_path: Path):
+        target_path.mkdir(parents=True, exist_ok=True)
+        for code_file in code_files:
+            shutil.copy2(str(code_file), str(target_path))
+
+        if self.is_dev:
+            logger.warning(
+                "Dev mode is only enabled for CI pipeline! "
+                "It will overwrite the Olive package in AML computer with latest code."
+            )
+            cur_dir = Path(__file__).resolve().parent
+            project_folder = cur_dir.parents[1]
+            copy_dir(project_folder, target_path / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
     def remove(self):
         if self.temp_dirs:
