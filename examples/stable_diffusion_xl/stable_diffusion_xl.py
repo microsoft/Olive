@@ -95,7 +95,7 @@ def run_inference_loop(
         else:
             result = run_refined_batch()
 
-        for image_index in range(batch_size):
+        for image_index in range(len(result.images)):
             if images_saved < num_images:
                 output_path = f"result_{images_saved}_{image_suffix}.png"
                 result.images[image_index].save(output_path)
