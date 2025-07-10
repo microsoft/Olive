@@ -304,9 +304,10 @@ class RunConfig(NestedConfig):
 
     @validator("workflow_host", pre=True)
     def validate_workflow_host(cls, v, values):
-        systems = values.get("systems")
         if v is None:
-            _validate_python_environment_path(systems)
+            systems = values.get("systems")
+            if systems:
+                _validate_python_environment_path(systems)
             return v
         return _resolve_config(values, v)
 
