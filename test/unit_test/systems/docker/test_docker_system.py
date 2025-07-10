@@ -286,7 +286,7 @@ class TestDockerSystem:
             {"model_path": onnx_model.config["model_path"]},
             {},
         )
-        docker_utils.create_config_file(tmp_path, data, CONTAINER_ROOT_PATH)
+        docker_utils.create_config_file(tmp_path, data)
         with patch.object(OrtSessionParamsTuning, "run", return_value=onnx_model):
             docker_runner_entry(str(tmp_path / "config.json"), str(tmp_path), "runner_res.json")
             assert (tmp_path / "runner_res.json").exists()
