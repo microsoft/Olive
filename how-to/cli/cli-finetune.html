@@ -446,29 +446,6 @@ Local</label><div class="sd-tab-content docutils">
 </pre></div>
 </div>
 </div>
-<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-1">
-Azure AI</label><div class="sd-tab-content docutils">
-<p>You can fine-tune on remote Azure ML compute by updating the placeholders (<code class="docutils literal notranslate"><span class="pre">{}</span></code>) in the following code snippet with your workspace, resource group and compute name details. Read the <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-create-attach-compute-cluster?view=azureml-api-2&amp;amp;tabs=azure-studio">How to create a compute cluster</a> article for more details on setting up a GPU cluster in Azure ML.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>finetune<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--model_name_or_path<span class="w"> </span>azureml://registries/azureml-meta/models/Llama-3.2-1B/versions/2<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--trust_remote_code<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--output_path<span class="w"> </span>models/llama/ft<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--data_name<span class="w"> </span>xxyyzzz/phrase_classification<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--text_template<span class="w"> </span><span class="s2">&quot;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;\n{phrase}&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;\n{tone}&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--method<span class="w"> </span>lora<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--max_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--log_level<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--resource_group<span class="w"> </span><span class="o">{</span>RESOURCE_GROUP_NAME<span class="o">}</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--workspace_name<span class="w"> </span><span class="o">{</span>WORKSPACE_NAME<span class="o">}</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--aml_compute<span class="w"> </span><span class="o">{</span>COMPUTE_NAME<span class="o">}</span>
-</pre></div>
-</div>
-<p>You can download the model artifact using the Azure ML CLI:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>az<span class="w"> </span>ml<span class="w"> </span>job<span class="w"> </span>download<span class="w"> </span>--name<span class="w"> </span><span class="o">{</span>JOB_ID<span class="o">}</span><span class="w"> </span>--resource-group<span class="w"> </span><span class="o">{</span>RESOURCE_GROUP_NAME<span class="o">}</span><span class="w"> </span>--workspace-name<span class="w"> </span><span class="o">{</span>WORKSPACE_NAME<span class="o">}</span><span class="w"> </span>--all
-</pre></div>
-</div>
-</div>
 </div>
 <section id="auto-optimize-the-model-and-adapters">
 <h3><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-dependabot" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.75 7.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Zm5.25.75a.75.75 0 0 0-1.5 0v1.5a.75.75 0 0 0 1.5 0v-1.5Z"></path><path d="M6.25 0h2A.75.75 0 0 1 9 .75V3.5h3.25a2.25 2.25 0 0 1 2.25 2.25V8h.75a.75.75 0 0 1 0 1.5h-.75v2.75a2.25 2.25 0 0 1-2.25 2.25h-8.5a2.25 2.25 0 0 1-2.25-2.25V9.5H.75a.75.75 0 0 1 0-1.5h.75V5.75A2.25 2.25 0 0 1 3.75 3.5H7.5v-2H6.25a.75.75 0 0 1 0-1.5ZM3 5.75v6.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-6.5a.75.75 0 0 0-.75-.75h-8.5a.75.75 0 0 0-.75.75Z"></path></svg> Auto-Optimize the model and adapters<a class="headerlink" href="#auto-optimize-the-model-and-adapters" title="Link to this heading">#</a></h3>
@@ -500,8 +477,8 @@ Azure AI</label><div class="sd-tab-content docutils">
 <section id="inference-model-using-onnx-runtime">
 <h3>Inference model using ONNX Runtime<a class="headerlink" href="#inference-model-using-onnx-runtime" title="Link to this heading">#</a></h3>
 <div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-2">
+<input checked="checked" id="sd-tab-item-1" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
 Python</label><div class="sd-tab-content docutils">
 <p>Copy-and-paste the code below into a new Python file called <code class="docutils literal notranslate"><span class="pre">app.py</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime_genai</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">og</span>

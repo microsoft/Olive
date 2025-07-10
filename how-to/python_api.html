@@ -477,10 +477,6 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">use_ort_genai</span></code> (bool): Use OnnxRuntime generate() API. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">enable_search</span></code> (str, optional): Enable search optimization (“random”, “sequential”, “tpe”).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">seed</span></code> (int, optional): Random seed for search sampler.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">resource_group</span></code> (str, optional): Resource group for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">workspace_name</span></code> (str, optional): Workspace name for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">keyvault_name</span></code> (str, optional): AzureML keyvault name with huggingface token for remote run.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">aml_compute</span></code> (str, optional): Compute name to run the workflow on.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">account_name</span></code> (str, optional): Azure storage account name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">container_name</span></code> (str, optional): Azure storage container name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code> (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>
@@ -520,10 +516,6 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">max_samples</span></code> (int, optional): Maximum samples to select from the dataset.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">batch_size</span></code> (int, optional): Batch size.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">input_cols</span></code> (list[str], optional): List of input column names.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">resource_group</span></code> (str, optional): Resource group for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">workspace_name</span></code> (str, optional): Workspace name for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">keyvault_name</span></code> (str, optional): AzureML keyvault name with huggingface token for remote run.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">aml_compute</span></code> (str, optional): Compute name to run the workflow on.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">account_name</span></code> (str, optional): Azure storage account name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">container_name</span></code> (str, optional): Azure storage container name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code> (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>
@@ -565,10 +557,6 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">max_samples</span></code> (int, optional): Maximum samples to select from the dataset.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">batch_size</span></code> (int, optional): Batch size.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">input_cols</span></code> (list[str], optional): List of input column names.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">resource_group</span></code> (str, optional): Resource group for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">workspace_name</span></code> (str, optional): Workspace name for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">keyvault_name</span></code> (str, optional): AzureML keyvault name with huggingface token for remote run.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">aml_compute</span></code> (str, optional): Compute name to run the workflow on.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">account_name</span></code> (str, optional): Azure storage account name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">container_name</span></code> (str, optional): Azure storage container name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code> (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>
@@ -594,10 +582,6 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">output_path</span></code> (str): Output directory path. Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;captured-model&quot;</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">conversion_device</span></code> (str): The device used to run the model to capture the ONNX graph (“cpu”, “gpu”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">use_ort_genai</span></code> (bool): Use OnnxRuntime generate() API to run the model. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">resource_group</span></code> (str, optional): Resource group for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">workspace_name</span></code> (str, optional): Workspace name for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">keyvault_name</span></code> (str, optional): AzureML keyvault name with huggingface token for remote run.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">aml_compute</span></code> (str, optional): Compute name to run the workflow on.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">account_name</span></code> (str, optional): Azure storage account name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">container_name</span></code> (str, optional): Azure storage container name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code> (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>
@@ -630,10 +614,6 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">output_path</span></code> (str): Output directory path. Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;generated-adapter&quot;</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">adapter_type</span></code> (str): Type of adapters to extract (“lora”, “dora”, “loha”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;lora&quot;</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">adapter_format</span></code> (str): Format to save weights in (“pt”, “numpy”, “safetensors”, “onnx_adapter”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;onnx_adapter&quot;</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">resource_group</span></code> (str, optional): Resource group for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">workspace_name</span></code> (str, optional): Workspace name for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">keyvault_name</span></code> (str, optional): AzureML keyvault name with huggingface token for remote run.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">aml_compute</span></code> (str, optional): Compute name to run the workflow on.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">account_name</span></code> (str, optional): Azure storage account name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">container_name</span></code> (str, optional): Azure storage container name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code> (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>
@@ -667,10 +647,6 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">device</span></code> (str): Target device (“gpu”, “cpu”, “npu”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">providers_list</span></code> (list[str], optional): List of execution providers to use for ONNX model (case sensitive).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">memory</span></code> (int, optional): Memory limit for the accelerator in bytes.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">resource_group</span></code> (str, optional): Resource group for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">workspace_name</span></code> (str, optional): Workspace name for AzureML workspace for remote workflow.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">keyvault_name</span></code> (str, optional): AzureML keyvault name with huggingface token for remote run.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">aml_compute</span></code> (str, optional): Compute name to run the workflow on.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">account_name</span></code> (str, optional): Azure storage account name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">container_name</span></code> (str, optional): Azure storage container name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code> (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>

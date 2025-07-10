@@ -578,10 +578,6 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">add_special_tokens</span> <span class="n">ADD_SPECIAL_TOKENS</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">max_samples</span> <span class="n">MAX_SAMPLES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
@@ -658,18 +654,6 @@
 <dt><kbd>--input_cols</kbd></dt>
 <dd><p>List of input column names. Provide one or more names separated by space. Example: –input_cols sentence1 sentence2</p>
 </dd>
-<dt><kbd>--resource_group</kbd></dt>
-<dd><p>Resource group for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--workspace_name</kbd></dt>
-<dd><p>Workspace name for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--keyvault_name</kbd></dt>
-<dd><p>The azureml keyvault name with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login</a> for more details.</p>
-</dd>
-<dt><kbd>--aml_compute</kbd></dt>
-<dd><p>The compute name to run the workflow on.</p>
-</dd>
 <dt><kbd>--account_name</kbd></dt>
 <dd><p>Azure storage account name for shared cache.</p>
 </dd>
@@ -728,11 +712,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">mixed</span><span class="o">-</span><span class="n">precision</span><span class="o">-</span><span class="n">overrides</span><span class="o">-</span><span class="n">config</span> <span class="p">[</span><span class="n">MIXED_PRECISION_OVERRIDES_CONFIG</span> <span class="o">...</span><span class="p">]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">enable_search</span> <span class="p">[{</span><span class="n">random</span><span class="p">,</span><span class="n">sequential</span><span class="p">,</span><span class="n">tpe</span><span class="p">}]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
 </pre></div>
@@ -836,18 +816,6 @@
 <dd><p>Random seed for search sampler</p>
 <p>Default: 0</p>
 </dd>
-<dt><kbd>--resource_group</kbd></dt>
-<dd><p>Resource group for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--workspace_name</kbd></dt>
-<dd><p>Workspace name for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--keyvault_name</kbd></dt>
-<dd><p>The azureml keyvault name with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login</a> for more details.</p>
-</dd>
-<dt><kbd>--aml_compute</kbd></dt>
-<dd><p>The compute name to run the workflow on.</p>
-</dd>
 <dt><kbd>--account_name</kbd></dt>
 <dd><p>Azure storage account name for shared cache.</p>
 </dd>
@@ -883,10 +851,6 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">add_special_tokens</span> <span class="n">ADD_SPECIAL_TOKENS</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">max_samples</span> <span class="n">MAX_SAMPLES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
@@ -982,18 +946,6 @@
 <dt><kbd>--input_cols</kbd></dt>
 <dd><p>List of input column names. Provide one or more names separated by space. Example: –input_cols sentence1 sentence2</p>
 </dd>
-<dt><kbd>--resource_group</kbd></dt>
-<dd><p>Resource group for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--workspace_name</kbd></dt>
-<dd><p>Workspace name for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--keyvault_name</kbd></dt>
-<dd><p>The azureml keyvault name with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login</a> for more details.</p>
-</dd>
-<dt><kbd>--aml_compute</kbd></dt>
-<dd><p>The compute name to run the workflow on.</p>
-</dd>
 <dt><kbd>--account_name</kbd></dt>
 <dd><p>Azure storage account name for shared cache.</p>
 </dd>
@@ -1031,12 +983,8 @@
                                 <span class="p">[</span><span class="o">--</span><span class="n">exclude_embeds</span> <span class="n">EXCLUDE_EMBEDS</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">exclude_lm_head</span> <span class="n">EXCLUDE_LM_HEAD</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">enable_cuda_graph</span> <span class="n">ENABLE_CUDA_GRAPH</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
@@ -1075,18 +1023,6 @@
 <dt><kbd>--use_ort_genai</kbd></dt>
 <dd><p>Use OnnxRuntime generate() API to run the model</p>
 <p>Default: False</p>
-</dd>
-<dt><kbd>--resource_group</kbd></dt>
-<dd><p>Resource group for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--workspace_name</kbd></dt>
-<dd><p>Workspace name for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--keyvault_name</kbd></dt>
-<dd><p>The azureml keyvault name with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login</a> for more details.</p>
-</dd>
-<dt><kbd>--aml_compute</kbd></dt>
-<dd><p>The compute name to run the workflow on.</p>
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
@@ -1166,10 +1102,6 @@
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">adapter</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">adapter_type</span> <span class="p">{</span><span class="n">lora</span><span class="p">,</span><span class="n">dora</span><span class="p">,</span><span class="n">loha</span><span class="p">}]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">adapter_format</span> <span class="p">{</span><span class="n">pt</span><span class="p">,</span><span class="n">numpy</span><span class="p">,</span><span class="n">safetensors</span><span class="p">,</span><span class="n">onnx_adapter</span><span class="p">}]</span>
-                              <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
-                              <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
-                              <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
-                              <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
@@ -1194,18 +1126,6 @@
 <dd><p>Possible choices: pt, numpy, safetensors, onnx_adapter</p>
 <p>Format to save the weights in. Default is onnx_adapter.</p>
 <p>Default: “onnx_adapter”</p>
-</dd>
-<dt><kbd>--resource_group</kbd></dt>
-<dd><p>Resource group for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--workspace_name</kbd></dt>
-<dd><p>Workspace name for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--keyvault_name</kbd></dt>
-<dd><p>The azureml keyvault name with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login</a> for more details.</p>
-</dd>
-<dt><kbd>--aml_compute</kbd></dt>
-<dd><p>The compute name to run the workflow on.</p>
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
@@ -1293,12 +1213,8 @@
                                  <span class="p">[</span><span class="o">--</span><span class="n">predict_with_kv_cache</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">providers_list</span> <span class="p">[{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">}</span> <span class="o">...</span><span class="p">]]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">keyvault_name</span> <span class="n">KEYVAULT_NAME</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">aml_compute</span> <span class="n">AML_COMPUTE</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
@@ -1366,18 +1282,6 @@
 </dd>
 <dt><kbd>--memory</kbd></dt>
 <dd><p>Memory limit for the accelerator in bytes. Default is None.</p>
-</dd>
-<dt><kbd>--resource_group</kbd></dt>
-<dd><p>Resource group for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--workspace_name</kbd></dt>
-<dd><p>Workspace name for the AzureML workspace to run the workflow remotely.</p>
-</dd>
-<dt><kbd>--keyvault_name</kbd></dt>
-<dd><p>The azureml keyvault name with huggingface token to use for remote run. Refer to <a class="reference external" href="https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login">https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login</a> for more details.</p>
-</dd>
-<dt><kbd>--aml_compute</kbd></dt>
-<dd><p>The compute name to run the workflow on.</p>
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
