@@ -271,6 +271,5 @@ Licensed under the [MIT](./LICENSE) License.
 ## Pipeline Status
 
 [![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive%20CI?label=Olive-CI)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1240)
-[![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive%20AzureML%20Example%20Test?label=Olive-AML-CI)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1541)
 [![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive-ORT-Nightly?label=Olive-ORT-Nightly)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1279)
 
