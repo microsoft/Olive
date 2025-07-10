@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import shutil
 from pathlib import Path
 from typing import Any, Union
 
@@ -22,6 +23,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
+from olive.systems.common import SystemType
 from olive.systems.system_config import SystemConfig
 
 
@@ -302,9 +304,30 @@ class RunConfig(NestedConfig):
 
     @validator("workflow_host", pre=True)
     def validate_workflow_host(cls, v, values):
+        systems = values.get("systems")
         if v is None:
+            _validate_python_environment_path(systems)
             return v
         return _resolve_config(values, v)
+
+
+def _validate_python_environment_path(systems):
+    for system_config in systems.values():
+        if system_config.type != SystemType.PythonEnvironment:
+            continue
+
+        python_environment_path = system_config.config.python_environment_path
+        if python_environment_path is None:
+            raise ValueError("python_environment_path is required for PythonEnvironmentSystem native mode")
+
+        # check if the path exists
+        if not Path(python_environment_path).exists():
+            raise ValueError(f"Python path {python_environment_path} does not exist")
+
+        # check if python exists in the path
+        python_path = shutil.which("python", path=python_environment_path)
+        if not python_path:
+            raise ValueError(f"Python executable not found in the path {python_environment_path}")
 
 
 def _resolve_all_data_configs(config, values):

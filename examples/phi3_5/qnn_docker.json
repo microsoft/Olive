@@ -1,10 +1,21 @@
 {
+    "workflow_host": "docker_system",
     "input_model": { "type": "HfModel", "model_path": "microsoft/Phi-3.5-mini-instruct" },
     "systems": {
         "qnn_system": {
             "type": "PythonEnvironment",
-            "python_environment_path": "/opt/conda/envs/qnn/bin",
+            "python_environment_path": "/qnn-venv/bin",
             "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ]
+        },
+        "docker_system": {
+            "type": "Docker",
+            "local_docker_config": {
+                "image_name": "olive",
+                "build_context_path": "docker",
+                "dockerfile": "Dockerfile",
+                "run_params": { "mem_limit": "200g", "shm_size": "32g" }
+            },
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
     "data_configs": [
@@ -15,8 +26,8 @@
             "pre_process_data_config": {
                 "strategy": "line-by-line",
                 "add_special_tokens": false,
-                "max_samples": 128,
-                "max_seq_len": 512
+                "max_samples": 32,
+                "max_seq_len": 256
             }
         }
     ],
@@ -71,8 +82,9 @@
         },
         "cp": { "type": "ComposeOnnxModels" }
     },
+    "host": "docker_system",
     "target": "qnn_system",
-    "log_severity_level": 1,
+    "log_severity_level": 0,
     "output_dir": "models/phi3_5-qnn",
     "cache_dir": "cache",
     "no_artifacts": true

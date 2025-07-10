@@ -3,10 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import shutil
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Union
 
 from olive.common.config_utils import validate_config
+from olive.common.utils import copy_dir
 from olive.systems.common import AcceleratorConfig, SystemType
 
 if TYPE_CHECKING:
@@ -39,6 +42,20 @@ class OliveSystem(ABC):
             )
 
         self.hf_token = hf_token
+
+    def copy_files(self, code_files: list, target_path: Path):
+        target_path.mkdir(parents=True, exist_ok=True)
+        for code_file in code_files:
+            shutil.copy2(str(code_file), str(target_path))
+
+        if self.is_dev:
+            logger.warning(
+                "Dev mode is only enabled for CI pipeline! "
+                "It will overwrite the Olive package in AML computer with latest code."
+            )
+            cur_dir = Path(__file__).resolve().parent
+            project_folder = cur_dir.parents[1]
+            copy_dir(project_folder, target_path / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
     @abstractmethod
     def run_pass(self, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str) -> "ModelConfig":
