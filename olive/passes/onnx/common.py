@@ -117,7 +117,7 @@ def model_proto_to_file(
         # taking about 60GB of RAM/swap and ~5 minutes to check a ~10GB unet model. (YMMV)
         # See https://github.com/microsoft/Olive/issues/1165
         # Therefore, this code avoids running ByteSize() if save_as_external_data is already enabled.
-        if (model_size <= 0 or model_size >= onnx.checker.MAXIMUM_PROTOBUF):
+        if model_size <= 0 or model_size >= onnx.checker.MAXIMUM_PROTOBUF:
             save_as_external_data = True
             logger.debug(
                 "Model is too large to save as a single file but 'save_as_external_data' is False. Saving tensors as"
