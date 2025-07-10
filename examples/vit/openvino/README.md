@@ -47,8 +47,8 @@ olive run --config vit_base_patch16_224_context_ov_static.json
 or run simply with python code:
 
 ```python
-from olive.workflows import run as olive_run
-olive_run("vit_base_patch16_224_context_ov_static.json")
+from olive import run
+workflow_output = run("vit_base_patch16_224_context_ov_static.json")
 ```
 
 After running the above command, the model candidates and corresponding config will be saved in the output directory.
