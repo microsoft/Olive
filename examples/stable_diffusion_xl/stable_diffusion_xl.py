@@ -45,6 +45,7 @@ def run_inference_loop(
 ):
     images_saved = 0
     image_suffix = "base"
+    base_images_rgb = None
     result = None
 
     def update_steps(step_callback_pipeline, step, timestep, latents):
@@ -177,7 +178,7 @@ def run_inference_gui(
     prompt_textbox = tk.Entry(window)
     prompt_textbox.insert(tk.END, prompt)
     prompt_textbox.place(x=0, y=0, width=window_width - button_width, height=button_height)
-    prompt_textbox.bind('<Return>', on_generate_click)
+    prompt_textbox.bind("<Return>", on_generate_click)
 
     generate_button = tk.Button(window, text="Generate", command=on_generate_click)
     generate_button.place(x=window_width - button_width, y=0, width=button_width, height=button_height)
@@ -554,9 +555,11 @@ def optimize(
 
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
     print("Copying optimized models...")
-    shutil.copytree(unoptimized_model_dir, optimized_model_dir,
-                    ignore=shutil.ignore_patterns("model.onnx", "weights.pb", "model.onnx.data")
-                   )
+    shutil.copytree(
+        unoptimized_model_dir,
+        optimized_model_dir,
+        ignore=shutil.ignore_patterns("model.onnx", "weights.pb", "model.onnx.data"),
+    )
     for submodel_name in submodel_names:
         # save_config(configs, submodel_name, model_info, optimized=True) # Redundant after copytree
         src_path = model_info[submodel_name]["optimized"]["path"]
@@ -578,8 +581,10 @@ def optimize(
 def main(raw_args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_id", default="stabilityai/stable-diffusion-xl-base-1.0", type=str)
-    parser.add_argument("--single_local_file", action="store_true",
-        help="Look for local .safetensors file with name matching --model_id to use as input for --optimize"
+    parser.add_argument(
+        "--single_local_file",
+        action="store_true",
+        help="Look for local .safetensors file with name matching --model_id to use as input for --optimize",
     )
     parser.add_argument(
         "--provider", default="dml", type=str, choices=["dml", "cuda", "cpu", "qnn"], help="Execution provider to use"
@@ -632,15 +637,19 @@ def main(raw_args=None):
         help="The seed to give to the generator to generate deterministic results.",
     )
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
-    parser.add_argument("--image_size", default=768, type=int,
-                        help="Image size to use during inference. Must be multiple of 32."
-                       )
-    parser.add_argument("--image_width", type=int,
-                        help="Image width to use during inference. Must be multiple of 32. Overrides --image_size."
-                       )
-    parser.add_argument("--image_height", type=int,
-                        help="Image height to use during inference. Must be multiple of 32. Overrides --image_size."
-                       )
+    parser.add_argument(
+        "--image_size", default=768, type=int, help="Image size to use during inference. Must be multiple of 32."
+    )
+    parser.add_argument(
+        "--image_width",
+        type=int,
+        help="Image width to use during inference. Must be multiple of 32. Overrides --image_size.",
+    )
+    parser.add_argument(
+        "--image_height",
+        type=int,
+        help="Image height to use during inference. Must be multiple of 32. Overrides --image_size.",
+    )
     parser.add_argument("--device_id", default=0, type=int, help="GPU device to use during inference")
     parser.add_argument(
         "--static_dims",
