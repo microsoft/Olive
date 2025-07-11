@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def get_package_name_from_ep(execution_provider: str) -> str:
     """Get the package name from the execution provider."""
-    return PROVIDER_PACKAGE_MAPPING.get(execution_provider, ("onnxruntime", "ort-nightly"))
+    return PROVIDER_PACKAGE_MAPPING.get(execution_provider, "onnxruntime")
 
 
 @lru_cache(maxsize=8)
