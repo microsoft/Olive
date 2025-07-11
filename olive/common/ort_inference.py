@@ -78,7 +78,14 @@ def initialize_inference_session_options(
     provider_options = provider_options or []
     provider_options_by_ep = dict(zip(providers, provider_options))
     ort_device_type = get_ort_hardware_device_type(device)
-    for ep_device in ort.get_ep_devices():
+
+    # Remove duplicate EP devices to avoid conflicts
+    # In remote connection scenarios, ort.get_ep_devices() may return duplicate
+    # ep_device.ep_name and ep_device.device.type combinations, but we can only
+    # call add_provider_for_devices once for each unique EP device combination.
+    # Use a dictionary to deduplicate by (ep_name, device_type) key.
+    unique_ep_devices = { (ep.ep_name, ep.device.type): ep for ep in ort.get_ep_devices() }
+    for ep_device in unique_ep_devices.values():
         if ep_device.device.type == ort_device_type and ep_device.ep_name in provider_options_by_ep:
             sess_options.add_provider_for_devices([ep_device], provider_options_by_ep.get(ep_device.ep_name) or {})
 
