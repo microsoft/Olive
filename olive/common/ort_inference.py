@@ -84,6 +84,7 @@ def initialize_inference_session_options(
     # ep_device.ep_name and ep_device.device.type combinations, but we can only
     # call add_provider_for_devices once for each unique EP device combination.
     # Use a dictionary to deduplicate by (ep_name, device_type) key.
+    # Additionally, it can also happen when your device indeed has two identical graphics cards.
     unique_ep_devices = { (ep.ep_name, ep.device.type): ep for ep in ort.get_ep_devices() }
     for ep_device in unique_ep_devices.values():
         if ep_device.device.type == ort_device_type and ep_device.ep_name in provider_options_by_ep:
