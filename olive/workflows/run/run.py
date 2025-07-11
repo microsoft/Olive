@@ -282,16 +282,8 @@ def check_local_ort_installation(package_name: str):
     if not local_ort_packages:
         return package_name
 
-    if "-" in package_name:
-        night_package_name = f"ort-nightly-{package_name.split('-')[-1]}"
-    else:
-        night_package_name = "ort-nightly"
-
-    if len(local_ort_packages) == 1 and local_ort_packages[0] in [package_name, night_package_name]:
+    if len(local_ort_packages) == 1 and local_ort_packages[0] == package_name:
         # only if one ort package is installed and it is the one we want
-        # can be the stable or nightly version
-        # TODO(jambayk): will probably be fine if we want cpu package but some other ort package is installed
-        # but we can add a check for that if needed in the future
         logger.info("%s is already installed.", local_ort_packages[0])
         return None
 
@@ -321,7 +313,7 @@ def get_local_ort_packages() -> list[str]:
             # onnxruntime-genai is under onnxruntime_genai namespace
             # not onnxruntime packages
             continue
-        if package_name.startswith(("onnxruntime", "ort-nightly")):
+        if package_name.startswith("onnxruntime"):
             local_ort_packages.append(package_name)
     return local_ort_packages
 
