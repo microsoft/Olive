@@ -313,3 +313,46 @@ class TestPassConfigValidation:
         else:
             config = RunConfig.parse_obj(config_dict)
             assert config.passes["tuning"][0].config["approach"] == approach
+
+
+class TestPythonEnvironmentSystemConfig:
+    @pytest.mark.parametrize(
+        ("python_environment", "error_message"),
+        [
+            (
+                {
+                    "type": "PythonEnvironment",
+                    "config": {
+                        "python_environment_path": "invalid_path",
+                        "olive_managed_env": False,
+                    },
+                },
+                "Python path.*invalid_path does not exist",
+            ),
+            (
+                {
+                    "type": "PythonEnvironment",
+                    "config": {
+                        "olive_managed_env": False,
+                    },
+                },
+                "python_environment_path is required for PythonEnvironmentSystem native mode",
+            ),
+        ],
+    )
+    def test_python_environment_path(self, python_environment, error_message):
+        invalid_config = {
+            "input_model": {
+                "type": "OnnxModel",
+            },
+            "passes": {
+                "tuning": [
+                    {
+                        "type": "IncQuantization",
+                    }
+                ]
+            },
+            "systems": {"py_system": python_environment},
+        }
+        with pytest.raises(ValidationError, match=error_message):
+            RunConfig.parse_obj(invalid_config)

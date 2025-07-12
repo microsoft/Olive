@@ -299,29 +299,6 @@ class TestPythonEnvironmentSystem:
 
 
 class TestPythonEnvironmentSystemConfig:
-    def test_missing_python_environment_path(self):
-        invalid_config = {
-            "type": "PythonEnvironment",
-            "config": {
-                "olive_managed_env": False,
-            },
-        }
-        with pytest.raises(
-            ValueError, match="python_environment_path is required for PythonEnvironmentSystem native mode"
-        ):
-            SystemConfig.parse_obj(invalid_config)
-
-    def test_invalid_python_environment_path(self):
-        invalid_config = {
-            "type": "PythonEnvironment",
-            "config": {
-                "python_environment_path": "invalid_path",
-                "olive_managed_env": False,
-            },
-        }
-        with pytest.raises(ValueError, match="Python path invalid_path does not exist"):
-            SystemConfig.parse_obj(invalid_config)
-
     def test_managed_system_config(self):
         config = {
             "type": "PythonEnvironment",
