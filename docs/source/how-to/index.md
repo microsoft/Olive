@@ -1,4 +1,4 @@
-### How-tos
+# How-tos
 Find more details on specific Olive capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!
 
 ## Installation and Setup

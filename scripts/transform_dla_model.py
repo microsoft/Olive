@@ -13,6 +13,9 @@ from olive.passes.onnx.dla_transforms import transform_add_intermediate_tensors_
 logger = logging.getLogger(__name__)
 
 
+# pylint: disable=W0621
+
+
 def setup_logging(model_path):
     model_path = Path(model_path)
     model_name = model_path.stem

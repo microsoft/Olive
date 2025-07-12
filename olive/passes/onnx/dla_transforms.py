@@ -81,7 +81,7 @@ def transform_matmul_to_transpose_conv_transpose(model):
     initializer_dim_map = {init.name: len(init.dims) for init in graph.initializer}
     nodes_to_remove = []
     for node in graph.node:
-        if node.op_type == "MatMul" or node.op_type == "Gemm":
+        if node.op_type in ("MatMul", "Gemm"):
             need_transform = False
             for node_input in node.input:
                 # Input is either in initializer or value_info
@@ -220,7 +220,7 @@ def transform_remove_intermediary_squeeze_and_unsqueeze(model):
 
     # Find all Unsqueeze or Squeeze nodes not directly connected to inputs
     for node in graph.node:
-        if (node.op_type == "Unsqueeze" or node.op_type == "Squeeze") and node.input[0] not in input_names:
+        if (node.op_type in ("Unsqueeze", "Squeeze")) and node.input[0] not in input_names:
             # Get the input (source) of this Unsqueeze
             unsqueeze_input = node.input[0]
 
@@ -450,7 +450,7 @@ def transform_non4d_model_inputs(model):
     unsqueeze_to_add = []
     for graph_input in graph.input:
         dims = len(graph_input.type.tensor_type.shape.dim)
-        if dims == 2 or dims == 3:
+        if dims in (2, 3):
             unsqueeze_arr = np.array([0, -1], dtype=np.int64) if dims == 2 else np.array([1], dtype=np.int64)
 
             # Check if there's already an Unsqueeze node for this input
@@ -521,7 +521,7 @@ def transform_non4d_model_outputs(model):
     for graph_output in graph.output:
         update_existing_squeeze = False
         output_dim = len(graph_output.type.tensor_type.shape.dim)
-        if output_dim < 4 and output_dim > 1:
+        if 1 < output_dim < 4:
             for node in graph.node:
                 if node.op_type == "Squeeze" and (
                     node.output[0] == graph_output.name or is_squeeze_clip_output_pattern(node, model)
