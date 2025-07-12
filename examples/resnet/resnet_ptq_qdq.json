@@ -50,12 +50,10 @@
     },
     "passes": {
         "conversion": {
-            "device": "cpu",
             "type": "OnnxConversion",
             "target_opset": 17,
             "save_as_external_data": true,
             "all_tensors_to_one_file": true,
-            "dynamic": false,
             "use_dynamo_exporter": false
         },
         "OnnxQuantization": {
@@ -63,6 +61,8 @@
             "data_config": "quantize_data_config",
             "activation_type": "uint16",
             "precision": "uint8",
+            "quant_preprocess": true,
+            "prepare_qnn_config": true,
             "calibrate_method": "MinMax"
         }
     },
