@@ -77,8 +77,7 @@
             "activation_type": "uint8",
             "weight_type": "uint8",
             "quant_type": "OnnxStaticQuantization"
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "resnet-50" } }
+        }
     },
     "evaluate_input_model": false,
     "evaluator": "common_evaluator",
