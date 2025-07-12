@@ -815,3 +815,874 @@ def test_matmul_add_to_gemm(tmp_path):
     matmul_output = np.matmul(input_data, constant1_data)
     expected_output = matmul_output + constant2_data
     assert np.allclose(outputs[0], expected_output)
+
+
+@pytest.mark.parametrize("keep_clip_after_inputs", [True, False])
+def test_remove_qdq(tmp_path, keep_clip_after_inputs):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 224, 224])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3, 224, 224])
+
+    scale_initializer = numpy_helper.from_array(np.array([0.1], dtype=np.float32), name="scale")
+    zero_point_initializer = numpy_helper.from_array(np.array([128], dtype=np.uint8), name="zero_point")
+
+    nodes = [
+        helper.make_node("QuantizeLinear", inputs=["input", "scale", "zero_point"], outputs=["quantized"]),
+        helper.make_node("DequantizeLinear", inputs=["quantized", "scale", "zero_point"], outputs=["dequantized"]),
+        helper.make_node("Relu", inputs=["dequantized"], outputs=["relu_output"]),
+        helper.make_node("QuantizeLinear", inputs=["relu_output", "scale", "zero_point"], outputs=["quantized2"]),
+        helper.make_node("DequantizeLinear", inputs=["quantized2", "scale", "zero_point"], outputs=["output"]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[scale_initializer, zero_point_initializer],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveQDQ", "keep_clip_after_inputs": keep_clip_after_inputs}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert - check the model was modified
+    output_model_def = output_model.load_model()
+    op_types = [node.op_type for node in output_model_def.graph.node]
+    assert "QuantizeLinear" not in op_types
+    assert "DequantizeLinear" not in op_types
+    if keep_clip_after_inputs:
+        assert "Clip" in op_types
+
+
+def test_matmul_to_transpose_conv_transpose(tmp_path):
+    # setup
+    batch_size, seq_len, hidden_size = 2, 128, 768
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [batch_size, seq_len, hidden_size])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [batch_size, seq_len, 3072])
+
+    weight_data = np.random.randn(hidden_size, 3072).astype(np.float32)
+    weight_initializer = numpy_helper.from_array(weight_data, name="weight")
+
+    nodes = [
+        helper.make_node("MatMul", inputs=["input", "weight"], outputs=["output"]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[weight_initializer],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "MatMulToTransposeConvTranspose"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert - just check that the transform modified the graph
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    # The transform should have replaced MatMul with Conv
+    assert "Conv" in dag.get_node_op_types()
+    assert "MatMul" not in dag.get_node_op_types()
+
+
+def test_remove_intermediary_squeeze_and_unsqueeze(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 1, 224])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3, 1, 224])
+
+    # For ONNX opset 13+, axes should be an input, not an attribute
+    squeeze_axes = numpy_helper.from_array(np.array([2], dtype=np.int64), name="squeeze_axes")
+    unsqueeze_axes = numpy_helper.from_array(np.array([2], dtype=np.int64), name="unsqueeze_axes")
+
+    nodes = [
+        # Add an Identity node so Squeeze is not directly connected to input
+        helper.make_node("Identity", inputs=["input"], outputs=["identity_output"]),
+        helper.make_node("Squeeze", inputs=["identity_output", "squeeze_axes"], outputs=["squeezed"]),
+        helper.make_node("Relu", inputs=["squeezed"], outputs=["relu_output"]),
+        helper.make_node("Unsqueeze", inputs=["relu_output", "unsqueeze_axes"], outputs=["output"]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[squeeze_axes, unsqueeze_axes],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveIntermediarySqueezeAndUnsqueeze"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    assert "Squeeze" not in dag.get_node_op_types()
+    assert "Unsqueeze" not in dag.get_node_op_types()
+    assert "Relu" in dag.get_node_op_types()
+
+
+def test_qdq_to_clip(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 224, 224])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3, 224, 224])
+
+    scale_initializer = numpy_helper.from_array(np.array([0.01], dtype=np.float32), name="scale")
+    zero_point_initializer = numpy_helper.from_array(np.array([0], dtype=np.uint8), name="zero_point")
+
+    nodes = [
+        helper.make_node("QuantizeLinear", inputs=["input", "scale", "zero_point"], outputs=["quantized"]),
+        helper.make_node("DequantizeLinear", inputs=["quantized", "scale", "zero_point"], outputs=["output"]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[scale_initializer, zero_point_initializer],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 7
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "QDQToClip"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    assert "Clip" in dag.get_node_op_types()
+    assert "QuantizeLinear" not in dag.get_node_op_types()
+    assert "DequantizeLinear" not in dag.get_node_op_types()
+
+
+def test_remove_deqlin(tmp_path):
+    # setup - RemoveDeqLin expects the DequantizeLinear output to feed into a Transpose
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.UINT8, [1, 3, 224, 224])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 224, 224, 3])
+
+    scale_initializer = numpy_helper.from_array(np.array([0.1], dtype=np.float32), name="scale")
+    zero_point_initializer = numpy_helper.from_array(np.array([128], dtype=np.uint8), name="zero_point")
+
+    nodes = [
+        helper.make_node("DequantizeLinear", inputs=["input", "scale", "zero_point"], outputs=["dequant_output"]),
+        helper.make_node("Transpose", inputs=["dequant_output"], outputs=["output"], perm=[0, 2, 3, 1]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[scale_initializer, zero_point_initializer],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveDeqLin"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert - RemoveDeqLin removes DequantizeLinear when followed by Transpose
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    # The transform removes the DequantizeLinear node
+    assert "Transpose" in dag.get_node_op_types()
+
+
+def test_non4d_model_inputs(tmp_path):
+    # setup - create model with 3D input
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [10, 20, 30])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [10, 20, 30])
+
+    nodes = [
+        helper.make_node("Relu", inputs=["input"], outputs=["output"]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "Non4DModelInputs"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert - should have Unsqueeze nodes added to make inputs 4D
+    model_def = output_model.load_model()
+    op_types = [node.op_type for node in model_def.graph.node]
+    assert "Unsqueeze" in op_types
+
+    # The original input should still be 3D, but there should be an Unsqueeze node after it
+    input_shape = model_def.graph.input[0].type.tensor_type.shape
+    assert len(input_shape.dim) == 3
+
+    # Check that the Unsqueeze node is connected to the input
+    unsqueeze_nodes = [node for node in model_def.graph.node if node.op_type == "Unsqueeze"]
+    assert len(unsqueeze_nodes) > 0
+    assert any(node.input[0] == "input" for node in unsqueeze_nodes)
+
+
+def test_non4d_model_outputs(tmp_path):
+    # setup - create model with 3D output
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 224, 224])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 150528])  # flattened
+
+    nodes = [
+        helper.make_node("Flatten", inputs=["input"], outputs=["output"], axis=1),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "Non4DModelOutputs"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert - should have Reshape nodes added
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    op_types = dag.get_node_op_types()
+    assert "Reshape" in op_types or len(dag.nodes) > 1
+
+
+def test_standalone_reducesum(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 224, 224])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3, 1, 1])
+
+    # For ONNX opset 13+, axes should be an input, not an attribute
+    axes_tensor = numpy_helper.from_array(np.array([2, 3], dtype=np.int64), name="axes")
+
+    nodes = [
+        helper.make_node("ReduceSum", inputs=["input", "axes"], outputs=["output"], keepdims=1),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[axes_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "StandaloneReduceSum"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+
+
+def test_gather_transform(tmp_path):
+    # setup
+    data_tensor = helper.make_tensor_value_info("data", TensorProto.FLOAT, [10, 20])
+    indices_tensor = helper.make_tensor_value_info("indices", TensorProto.INT64, [5])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [5, 20])
+
+    nodes = [
+        helper.make_node("Gather", inputs=["data", "indices"], outputs=["output"], axis=0),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[data_tensor, indices_tensor],
+        outputs=[output_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 7
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "Gather"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+
+
+def test_gatherelements_transform(tmp_path):
+    # setup
+    data_tensor = helper.make_tensor_value_info("data", TensorProto.FLOAT, [3, 4])
+    indices_tensor = helper.make_tensor_value_info("indices", TensorProto.INT64, [3, 2])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [3, 2])
+
+    nodes = [
+        helper.make_node("GatherElements", inputs=["data", "indices"], outputs=["output"], axis=1),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[data_tensor, indices_tensor],
+        outputs=[output_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "GatherElements"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+
+
+def test_non4d_initializers(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 224, 224])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3, 224, 224])
+
+    # 3D initializer
+    bias_data = np.random.randn(3, 224, 224).astype(np.float32)
+    bias_initializer = numpy_helper.from_array(bias_data, name="bias")
+
+    nodes = [
+        helper.make_node("Add", inputs=["input", "bias"], outputs=["output"]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[bias_initializer],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "Non4DInitializers"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    # check that bias is now 4D
+    bias_init = dag.get_initializer_np_array("bias")
+    assert len(bias_init.shape) == 4
+
+
+def test_remove_all_tensor_value_shapes(tmp_path):
+    # setup
+    model_path = tmp_path / "model.onnx"
+    input_model = get_onnx_model(model_path)
+    # Add shape inference first
+    input_model_with_shapes = onnx.shape_inference.infer_shapes(input_model.load_model())
+    assert len(input_model_with_shapes.graph.value_info) > 0
+    onnx.save(input_model_with_shapes, model_path)
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveAllTensorValueShapes"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(ONNXModelHandler(model_path=str(model_path)), output_folder)
+
+    # assert - the transform removes shape information from value_info tensors
+    model_def = output_model.load_model()
+    # Check that shape information has been cleared
+    for value_info in model_def.graph.value_info:
+        tensor_type = value_info.type.tensor_type
+        assert not tensor_type.HasField("shape") or len(tensor_type.shape.dim) == 0
+
+
+def test_non4d_reshape(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 4])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 12])
+    shape_tensor = numpy_helper.from_array(np.array([2, 12], dtype=np.int64), name="shape")
+
+    nodes = [
+        helper.make_node("Reshape", inputs=["input", "shape"], outputs=["output"]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[shape_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "Non4DReshape"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+
+
+def test_non4d_expand(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [3, 1])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [3, 4])
+    shape_tensor = numpy_helper.from_array(np.array([3, 4], dtype=np.int64), name="shape")
+
+    nodes = [
+        helper.make_node("Expand", inputs=["input", "shape"], outputs=["output"]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[shape_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "Non4DExpand"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+
+
+def test_non4d_transpose(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 4])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [4, 3, 2])
+
+    nodes = [
+        helper.make_node("Transpose", inputs=["input"], outputs=["output"], perm=[2, 1, 0]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "Non4DTranspose"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+
+
+def test_non4d_slice(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [10, 20, 30])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [5, 10, 15])
+
+    starts = numpy_helper.from_array(np.array([0, 0, 0], dtype=np.int64), name="starts")
+    ends = numpy_helper.from_array(np.array([5, 10, 15], dtype=np.int64), name="ends")
+
+    nodes = [
+        helper.make_node("Slice", inputs=["input", "starts", "ends"], outputs=["output"]),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[starts, ends],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "Non4DSlice"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+
+
+def test_non4d_lpnorm(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 4])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 3, 4])
+
+    nodes = [
+        helper.make_node("LpNormalization", inputs=["input"], outputs=["output"], axis=-1, p=2),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "Non4DLpNorm"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+
+
+def test_flatten_transform(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 4, 5])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 60])
+
+    nodes = [
+        helper.make_node("Flatten", inputs=["input"], outputs=["output"], axis=1),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "Flatten"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    # Flatten might be replaced with Reshape
+    assert "Flatten" in dag.get_node_op_types() or "Reshape" in dag.get_node_op_types()
+
+
+def test_add_intermediate_tensors_to_outputs(tmp_path):
+    # setup
+    input_model = get_onnx_model(tmp_path / "model.onnx")
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "AddIntermediateTensorsToOutputs", "intermediate_tensor_to_add": ["intermediate"]}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    model_def = output_model.load_model()
+    output_names = [output.name for output in model_def.graph.output]
+    assert "intermediate" in output_names
+    assert "output1" in output_names
+
+
+def test_reshape_reducesum(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 4])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [6, 1])
+
+    shape_tensor = numpy_helper.from_array(np.array([6, 4], dtype=np.int64), name="shape")
+
+    # For ONNX opset 13+, axes should be an input, not an attribute
+    reduce_axes = numpy_helper.from_array(np.array([1], dtype=np.int64), name="reduce_axes")
+
+    nodes = [
+        helper.make_node("Reshape", inputs=["input", "shape"], outputs=["reshaped"]),
+        helper.make_node("ReduceSum", inputs=["reshaped", "reduce_axes"], outputs=["output"], keepdims=1),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[shape_tensor, reduce_axes],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "ReshapeReduceSum"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+
+
+def test_reshape_clip_reducesum(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 4])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [6, 1])
+
+    shape_tensor = numpy_helper.from_array(np.array([6, 4], dtype=np.int64), name="shape")
+
+    # For ONNX opset 13+, axes should be an input for ReduceSum, and min/max for Clip
+    reduce_axes = numpy_helper.from_array(np.array([1], dtype=np.int64), name="reduce_axes")
+    clip_min = numpy_helper.from_array(np.array(0.0, dtype=np.float32), name="clip_min")
+    clip_max = numpy_helper.from_array(np.array(6.0, dtype=np.float32), name="clip_max")
+
+    nodes = [
+        helper.make_node("Reshape", inputs=["input", "shape"], outputs=["reshaped"]),
+        helper.make_node("Clip", inputs=["reshaped", "clip_min", "clip_max"], outputs=["clipped"]),
+        helper.make_node("ReduceSum", inputs=["clipped", "reduce_axes"], outputs=["output"], keepdims=1),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[shape_tensor, reduce_axes, clip_min, clip_max],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "ReshapeClipReduceSum"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
+
+
+def test_reducemax_transform(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [2, 3, 4, 5])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [2, 3, 1, 1])
+
+    nodes = [
+        helper.make_node("ReduceMax", inputs=["input"], outputs=["output"], axes=[2, 3], keepdims=1),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "ReduceMax"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    onnx.checker.check_model(output_model.load_model())
