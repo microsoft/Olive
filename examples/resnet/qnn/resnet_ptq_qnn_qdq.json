@@ -115,8 +115,7 @@
             "precision": "uint8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "resnet-50" } }
+        }
     },
     "host": "qnn_system",
     "target": "qnn_system",

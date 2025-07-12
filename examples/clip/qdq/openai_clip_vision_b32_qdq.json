@@ -38,8 +38,7 @@
             "quant_preprocess": true,
             "activation_type": "uint16",
             "precision": "uint8"
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "clip-vit-base-patch32" } }
+        }
     },
     "data_configs": [
         {

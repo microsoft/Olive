@@ -84,8 +84,7 @@
             "activation_type": "uint16",
             "weight_type": "uint8",
             "quant_type": "OnnxStaticQuantization"
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
+        }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache/intel_bert",
