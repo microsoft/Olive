@@ -86,8 +86,7 @@
             "type": "OrtSessionParamsTuning",
             "io_bind": false,
             "data_config": "quant_data_config"
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "CLIP-ViT-B-32-laion2B-s34B-b79K" } }
+        }
     },
     "host": "local_system",
     "target": "local_system",
