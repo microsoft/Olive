@@ -3,7 +3,7 @@ How-to
 Find more details on specific Olive capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!
 
 Installation and Setup
-------
+----------------------
 
 .. toctree::
    :maxdepth: 1
@@ -75,8 +75,7 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 
 
 Olive Python API
-----------------------------
-
+----------------
 .. toctree::
    :maxdepth: 2
    :hidden:
@@ -94,7 +93,7 @@ Olive Python API
       :octicon:`arrow-right;1em;sd-text-info` `Python API <python_api.html>`_
 
 Customize Workflow (aka Recipes)
-------------------------------
+---------------------------------
 
 .. toctree::
    :maxdepth: 2
