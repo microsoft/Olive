@@ -176,10 +176,9 @@ def transform_matmul_to_transpose_conv_transpose(model):
         trans_b = False
         if node.op_type == "Gemm":
             for attr in node.attribute:
-                if attr.name == "transB":
-                    if attr.i == 1:
-                        trans_b = True
-                        break
+                if attr.name == "transB" and attr.i == 1:
+                    trans_b = True
+                    break
 
         update_initializers(graph, node.input[1], initializers_to_remove, initializers_to_add, trans_b)
 
@@ -206,7 +205,7 @@ def transform_remove_intermediary_squeeze_and_unsqueeze(model):
     graph = model.graph
 
     # Get all input names
-    input_names = set(graph_input.name for graph_input in graph.input)
+    input_names = {graph_input.name for graph_input in graph.input}
 
     # Track nodes to remove
     nodes_to_remove = []
@@ -401,6 +400,9 @@ def transform_remove_qdq(model, keep_clip_after_inputs=False):
 
 def transform_remove_deqlin(model):
     def dequantize_initializer(deq_initializers, node_input, graph):
+        x = None
+        scale = None
+        zero_point = None
         for init in deq_initializers:
             if init.name == node_input[0]:
                 x = numpy_helper.to_array(init).astype(np.int32)
@@ -408,21 +410,20 @@ def transform_remove_deqlin(model):
                 scale = numpy_helper.to_array(init).astype(np.float32)
             if init.name == node_input[2]:
                 zero_point = numpy_helper.to_array(init).astype(np.int32)
+        if x is None or scale is None or zero_point is None:
+            raise ValueError("Missing required initializers for dequantization")
         return ((x - zero_point) * scale).astype(
             np.float32
         )  # Might have type issues: X, zero_point uint16, scale float32
 
     cnt = 0
     graph = model.graph
-    initializer_names = set([init.name for init in graph.initializer])
+    initializer_names = {init.name for init in graph.initializer}
     deqlin_output_initializer_mapping = {}
     nodes_to_remove = []
     for node in graph.node:
         if node.op_type == "DequantizeLinear" and len(node.input) > 0 and node.input[0] in initializer_names:
-            deq_initializers = []
-            for init in graph.initializer:
-                if init.name in node.input:
-                    deq_initializers.append(init)
+            deq_initializers = [init for init in graph.initializer if init.name in node.input]
             dequantized_arr = dequantize_initializer(deq_initializers, node.input, graph).astype(np.float32)
             dequantized_init = numpy_helper.from_array(dequantized_arr, name=node.input[0])
             # remove all initializers in deq_initializers
@@ -634,7 +635,9 @@ def transform_gatherelements(model):
                     indices_array = np.array([existing_indices.item()], dtype=existing_indices.dtype)
                 elif existing_indices.ndim == 3:
                     # Handle 3D indices, reshape to 4D by adding dimension at front
-                    logger.info("Reshaping 3D indices %s from %s to 4D", initializer.name, existing_indices.shape)
+                    logger.info(
+                        "Reshaping 3D indices %s from %s to 4D", initializer_to_remove.name, existing_indices.shape
+                    )
                     indices_array = np.expand_dims(existing_indices, axis=0)  # Eg.[12,64,64]->[1,12,64,64]
                 else:
                     indices_array = existing_indices
@@ -650,31 +653,28 @@ def transform_gatherelements(model):
 
 
 def transform_non4d_initializers(model):
-    need_to_expand_4D_init_names = []
+    need_to_expand_4d_init_names = []
     skip_init_names = []
     unary_dim_at_front_init_names = []
     for node in model.graph.node:
         if node.op_type in ["Div", "Sub", "Mul"]:
-            for node_input in node.input:
-                need_to_expand_4D_init_names.append(node_input)
+            need_to_expand_4d_init_names = list(node.input)
         if node.op_type in ["MatMul"]:
-            for node_input in node.input:
-                skip_init_names.append(node_input)
+            skip_init_names = list(node.input)
         if node.op_type in ["Gemm"]:
-            for node_input in node.input:
-                unary_dim_at_front_init_names.append(node_input)
+            unary_dim_at_front_init_names = list(node.input)
 
     initializers_to_add = []
     initializer_to_remove = []
     for initializer in model.graph.initializer:
-        if len(initializer.dims) == 1 and initializer.name in need_to_expand_4D_init_names:
+        if len(initializer.dims) == 1 and initializer.name in need_to_expand_4d_init_names:
             # 1D: [K] -> [1x1x1xK]
             initializer.dims.insert(0, 1)
             initializer.dims.insert(0, 1)
             initializer.dims.insert(0, 1)
         elif len(initializer.dims) == 2 and initializer.name in unary_dim_at_front_init_names:
             # 2D: [K, C] -> [1, 1, K, C]
-            new_dims = [1, 1] + list(initializer.dims)
+            new_dims = [1, 1, *list(initializer.dims)]
             initializer.dims[:] = new_dims
         elif len(initializer.dims) == 2 and initializer.name not in skip_init_names:
             # 2D [CxK] -> [KxCx1x1]
@@ -691,7 +691,7 @@ def transform_non4d_initializers(model):
             # new_dims = [1] + list(initializer.dims)
         elif len(initializer.dims) == 3:
             # initializer.dims.insert(0, 1)
-            new_dims = [1] + list(initializer.dims)
+            new_dims = [1, *list(initializer.dims)]
             initializer.dims[:] = new_dims
 
     [model.graph.initializer.remove(init) for init in initializer_to_remove]
@@ -711,18 +711,17 @@ def transform_non4d_reshape(model):
         if node.op_type == "Reshape":
             # Check if axes
             for init in model.graph.initializer:
-                if init.name == node.input[1]:
-                    if init.dims[0] == 3:
-                        # eg [-1, 512, 768] or [0,0,-1]
-                        old_shape = numpy_helper.to_array(init)
-                        init.dims[0] = 4
-                        # insert at the first non-zero index
-                        idx = next(i for i, v in enumerate(old_shape) if v != 0)
-                        new_shape = np.insert(old_shape, idx, 1).astype(np.int64)
-                        new_init = numpy_helper.from_array(new_shape, name=init.name)
-                        model.graph.initializer.remove(init)
-                        model.graph.initializer.append(new_init)
-                        cnt += 1
+                if init.name == node.input[1] and init.dims[0] == 3:
+                    # eg [-1, 512, 768] or [0,0,-1]
+                    old_shape = numpy_helper.to_array(init)
+                    init.dims[0] = 4
+                    # insert at the first non-zero index
+                    idx = next(i for i, v in enumerate(old_shape) if v != 0)
+                    new_shape = np.insert(old_shape, idx, 1).astype(np.int64)
+                    new_init = numpy_helper.from_array(new_shape, name=init.name)
+                    model.graph.initializer.remove(init)
+                    model.graph.initializer.append(new_init)
+                    cnt += 1
     logger.info("Updated %d non4D Reshape nodes", cnt)
 
 
@@ -731,15 +730,14 @@ def transform_non4d_expand(model):
     for node in model.graph.node:
         if node.op_type == "Expand":
             for init in model.graph.initializer:
-                if init.name == node.input[1]:
-                    if init.dims[0] == 3:
-                        old_shape = numpy_helper.to_array(init)
-                        init.dims[0] = 4
-                        new_shape = np.insert(old_shape, 0, 1).astype(np.int64)
-                        new_init = numpy_helper.from_array(new_shape, name=init.name)
-                        model.graph.initializer.remove(init)
-                        model.graph.initializer.append(new_init)
-                        cnt += 1
+                if init.name == node.input[1] and init.dims[0] == 3:
+                    old_shape = numpy_helper.to_array(init)
+                    init.dims[0] = 4
+                    new_shape = np.insert(old_shape, 0, 1).astype(np.int64)
+                    new_init = numpy_helper.from_array(new_shape, name=init.name)
+                    model.graph.initializer.remove(init)
+                    model.graph.initializer.append(new_init)
+                    cnt += 1
     logger.info("Updated %d non4D Expand nodes", cnt)
 
 
@@ -811,8 +809,7 @@ def transform_flatten(model):
 
 def reshape_reducesum_pattern(op, x, shape, axes):
     reshape_output = op.Reshape(x, shape)
-    reducesum_output = op.ReduceSum(reshape_output, axes)
-    return reducesum_output
+    return op.ReduceSum(reshape_output, axes)
 
 
 def slice_reducesum_concat(op, x, shape, axes):
@@ -830,11 +827,10 @@ def slice_reducesum_concat(op, x, shape, axes):
 
 def transform_reshape_reducesum(model):
     reshape_reducesum_rule = pattern.RewriteRule(reshape_reducesum_pattern, slice_reducesum_concat, verbose=10)
-    model = onnxscript.rewriter.rewrite(
+    return onnxscript.rewriter.rewrite(
         model,
         pattern_rewrite_rules=[reshape_reducesum_rule],
     )
-    return model
 
 
 def reshape_clip_reducesum_pattern(op, x, shape, clip_min, clip_max, axes):
@@ -862,11 +858,10 @@ def transform_reshape_clip_reducesum(model):
     reshape_clip_reducesum_rule = pattern.RewriteRule(
         reshape_clip_reducesum_pattern, slice_clip_reducesum_concat, verbose=10
     )
-    model = onnxscript.rewriter.rewrite(
+    return onnxscript.rewriter.rewrite(
         model,
         pattern_rewrite_rules=[reshape_clip_reducesum_rule],
     )
-    return model
 
 
 def reducemax_pattern(op, data, axes, keepdims):
@@ -885,16 +880,15 @@ def reducemax_reshape(op, data, axes, keepdims):
 
 def transform_reducemax(model):
     reducemax_rule = pattern.RewriteRule(reducemax_pattern, reducemax_reshape, verbose=10)
-    model = onnxscript.rewriter.rewrite(
+    return onnxscript.rewriter.rewrite(
         model,
         pattern_rewrite_rules=[reducemax_rule],
     )
-    return model
 
 
 def transform_add_intermediate_tensors_to_outputs(model, intermediate_tensor_to_add=None):
     # Get existing output names
-    existing_outputs = set(output.name for output in model.graph.output)
+    existing_outputs = {output.name for output in model.graph.output}
 
     # Collect all intermediate tensor names from node outputs
     if intermediate_tensor_to_add is None:

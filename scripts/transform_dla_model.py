@@ -10,6 +10,8 @@ import onnx
 
 from olive.passes.onnx.dla_transforms import transform_add_intermediate_tensors_to_outputs
 
+logger = logging.getLogger(__name__)
+
 
 def setup_logging(model_path):
     model_path = Path(model_path)
@@ -26,7 +28,7 @@ def setup_logging(model_path):
 
 def execute_shape_inference(input_model, output_model):
     try:
-        print(f"Running shape inference on {input_model}")
+        logger.info("Running shape inference on %s", input_model)
         model = onnx.load(input_model)
 
         # Run shape inference
@@ -37,27 +39,27 @@ def execute_shape_inference(input_model, output_model):
             inferred_model = SymbolicShapeInference.infer_shapes(
                 model, int_max=2**31 - 1, auto_merge=True, guess_output_rank=False, verbose=3
             )
-            print("Symbolic shape inference completed successfully")
+            logger.info("Symbolic shape inference completed successfully")
         except ImportError:
             # Fall back to standard ONNX shape inference
-            print("Using standard ONNX shape inference (symbolic shape inference not available)")
+            logger.info("Using standard ONNX shape inference (symbolic shape inference not available)")
             inferred_model = onnx.shape_inference.infer_shapes(model)
-            print("Standard shape inference completed successfully")
+            logger.info("Standard shape inference completed successfully")
 
         # Save the inferred model
         onnx.save(inferred_model, output_model)
-        print(f"Shape inference completed successfully. Output saved to {output_model}")
+        logger.info("Shape inference completed successfully. Output saved to %s", output_model)
 
-    except Exception as e:
-        print(f"Error running shape inference: {str(e)}")
+    except Exception:
+        logger.exception("Error running shape inference")
         # If shape inference fails, just copy the original model
-        print("Falling back to original model without shape inference")
+        logger.info("Falling back to original model without shape inference")
         model = onnx.load(input_model)
         onnx.save(model, output_model)
 
 
 def all_tensors_are_4d(model_path):
-    """Check if all tensors in the model are already 4D"""
+    """Check if all tensors in the model are already 4D."""
     try:
         model = onnx.load(model_path)
         # Check all value_info, inputs, and outputs
@@ -72,36 +74,38 @@ def all_tensors_are_4d(model_path):
 
 
 def get_available_transforms() -> dict[str, Callable]:
-    """Dynamically load transform functions from transforms.py"""
+    """Dynamically load transform functions from transforms.py."""
     try:
         # Import the transforms module
         transforms = importlib.import_module("olive.passes.onnx.dla_transforms")
 
         # Find all functions starting with 'transform_'
-        transform_functions = {}
-        for name, func in inspect.getmembers(transforms, inspect.isfunction):
-            if name.startswith("transform_"):
-                transform_functions[name] = func
+        return {
+            name: func
+            for name, func in inspect.getmembers(transforms, inspect.isfunction)
+            if name.startswith("transform_")
+        }
 
-        return transform_functions
     except ImportError:
-        print("Error: transforms.py module not found. Make sure it exists in the same directory.")
+        logger.exception("transforms.py module not found. Make sure it exists in the same directory.")
         return {}
-    except Exception as e:
-        print(f"Error loading transforms: {str(e)}")
+    except Exception:
+        logger.exception("Error loading transforms")
         return {}
 
 
 def apply_transforms(
-    model, transform_sequence: list[str], transform_functions: dict[str, Callable], options={}
+    model, transform_sequence: list[str], transform_functions: dict[str, Callable], options=None
 ) -> onnx.ModelProto:
-    """Apply a sequence of transforms to the model"""
+    """Apply a sequence of transforms to the model."""
+    if options is None:
+        options = {}
     for transform_name in transform_sequence:
-        print(f"Applying transform: {transform_name}")
+        logger.info("Applying transform: %s", transform_name)
 
         # Check if the transform exists in our function map
         if transform_name not in transform_functions:
-            print(f"Warning: Transform '{transform_name}' not found in transforms.py - skipping")
+            logger.warning("Transform '%s' not found in transforms.py - skipping", transform_name)
             continue
 
         # Get the function
@@ -125,7 +129,7 @@ def apply_transforms(
                 transform_func(model, keep_clip_after_inputs)
             elif transform_name == "transform_add_intermediate_tensors_to_outputs":
                 # This function requires intermediate_tensor_to_add parameter
-                print(f"Warning: {transform_name} requires additional parameters, skipping")
+                logger.warning("%s requires additional parameters, skipping", transform_name)
                 continue
 
     return model
@@ -186,15 +190,15 @@ if __name__ == "__main__":
     execute_shape_inference(original_model, shape_inferenced_original_model)
 
     if all_tensors_are_4d(shape_inferenced_original_model):
-        print("All tensors are 4D")
+        logger.info("All tensors are 4D")
         sys.exit(0)
 
     if args.debug_outputs:
         intermediate_tensor_to_add = set()
         debug_original_model = onnx.load(shape_inferenced_original_model)
-        debug_transformed_model_name = original_model.replace(".onnx", "_debug.onnx")
+        debug_tranformed_model_name = original_model.replace(".onnx", "_debug.onnx")
         transform_add_intermediate_tensors_to_outputs(debug_original_model, intermediate_tensor_to_add)
-        onnx.save(debug_original_model, debug_transformed_model_name)
+        onnx.save(debug_original_model, debug_tranformed_model_name)
 
     model = onnx.load(shape_inferenced_original_model)
 

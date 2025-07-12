@@ -1197,7 +1197,7 @@ class RemoveQDQ(ProtoSurgeon):
 
 
 class MatMulToTransposeConvTranspose(ProtoSurgeon):
-    """Replace 2D Gemm/MatMul with Transpose and 1x1 Conv
+    """Replace 2D Gemm/MatMul with Transpose and 1x1 Conv.
 
     Modification requirement:
     When C==1, convert it to 1x1 Conv using TRANSPOSE + CONV + TRANSPOSE sequence
@@ -1212,6 +1212,7 @@ class MatMulToTransposeConvTranspose(ProtoSurgeon):
 
 class RemoveIntermediarySqueezeAndUnsqueeze(ProtoSurgeon):
     """Remove all Unsqueeze and Squeeze operations that aren't directly connected to model inputs.
+
     This optimization removes unnecessary dimension expansion operations in the middle of the graph.
     """
 
@@ -1267,7 +1268,7 @@ class Non4DModelInputs(ProtoSurgeon):
 
 
 class Non4DModelOutputs(ProtoSurgeon):
-    """Add Squeeze to non 4D model outputs
+    """Add Squeeze to non 4D model outputs.
 
     Ensures model outputs match expected dimensions by adding Squeeze operations:
     - For 2D outputs: squeeze dimensions [0, 3] or [0, 1]
@@ -1301,7 +1302,7 @@ class StandaloneReduceSum(ProtoSurgeon):
 
 
 class Gather(ProtoSurgeon):
-    """Change Gather indices from scalar to vector, may need to update axis
+    """Change Gather indices from scalar to vector, may need to update axis.
 
     Transforms Gather operations for DLA compatibility:
     - Converts scalar indices to 1D vector format
@@ -1317,7 +1318,7 @@ class Gather(ProtoSurgeon):
 
 
 class GatherElements(ProtoSurgeon):
-    """Change Gather indices from scalar to vector, may need to update axis
+    """Change Gather indices from scalar to vector, may need to update axis.
 
     Transforms GatherElements operations for DLA compatibility:
     - Converts scalar indices to 1D vector format
@@ -1411,7 +1412,7 @@ class Non4DTranspose(ProtoSurgeon):
 
 
 class Non4DSlice(ProtoSurgeon):
-    """Transform Slice axes of non4D tensors
+    """Transform Slice axes of non4D tensors.
 
     Updates Slice operations to work with 4D tensors:
     - Changes axes from specific dimensions to [-1] (last dimension)
@@ -1427,7 +1428,7 @@ class Non4DSlice(ProtoSurgeon):
 
 
 class Non4DLpNorm(ProtoSurgeon):
-    """Transform LpNormalization axes of non4D tensors
+    """Transform LpNormalization axes of non4D tensors.
 
     Updates LpNormalization operations for 4D tensor compatibility:
     - Changes axis attribute to -1 (last dimension)
@@ -1443,7 +1444,7 @@ class Non4DLpNorm(ProtoSurgeon):
 
 
 class Flatten(ProtoSurgeon):
-    """Flatten to Reshape
+    """Flatten to Reshape.
 
     Replaces Flatten operations with Reshape operations using shape [1, 1, 1, -1].
     This maintains compatibility with DLA which may not support Flatten directly,
@@ -1458,7 +1459,7 @@ class Flatten(ProtoSurgeon):
 
 
 class AddIntermediateTensorsToOutputs(ProtoSurgeon):
-    """Debug function to add intermediate tensors to outputs
+    """Debug function to add intermediate tensors to outputs.
 
     Exposes intermediate tensor values as model outputs for debugging:
     - Can specify specific tensors to add via intermediate_tensor_to_add list
