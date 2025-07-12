@@ -20,7 +20,7 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 
 ## Customize Workflow (aka Recipes)
 
-- [How to write a new workflow configure from scratch](configure-workflows/build-workflow.html)
+- [How to write a new workflow from scratch](configure-workflows/build-workflow.html)
 - [How to define input model for a new workflow](configure-workflows/how-to-configure-model.html)
 - [How to customize a pass parameters](configure-workflows/pass-configuration.html)
 - [How to setup custom dataset for calibration and evaluation](configure-workflows/how-to-configure-data.html)
