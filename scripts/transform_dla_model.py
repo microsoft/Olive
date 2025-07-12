@@ -196,9 +196,9 @@ if __name__ == "__main__":
     if args.debug_outputs:
         intermediate_tensor_to_add = set()
         debug_original_model = onnx.load(shape_inferenced_original_model)
-        debug_tranformed_model_name = original_model.replace(".onnx", "_debug.onnx")
+        debug_transformed_model_name = original_model.replace(".onnx", "_debug.onnx")
         transform_add_intermediate_tensors_to_outputs(debug_original_model, intermediate_tensor_to_add)
-        onnx.save(debug_original_model, debug_tranformed_model_name)
+        onnx.save(debug_original_model, debug_transformed_model_name)
 
     model = onnx.load(shape_inferenced_original_model)
 
