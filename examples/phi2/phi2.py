@@ -73,8 +73,10 @@ def get_args(raw_args):
         "--finetune_method",
         type=str,
         default=None,
-        help="Finetune method before onnxruntime optimization, use 'qlora' as of now "
-        "it should be same with the pass name in phi2_optimize_template.json",
+        help=(
+            "Finetune method before onnxruntime optimization, use 'qlora' as of now "
+            "it should be same with the pass name in phi2_optimize_template.json"
+        ),
     )
     parser.add_argument(
         "--inference",
@@ -159,13 +161,8 @@ def main(raw_args=None):
             # in windows, it requires the
             # 1. model_type as `gpt2`
             # 2. "optimization_options": {"attention_op_type": "MultiHeadAttention"}
-            # and `phi` and `MultiHeadAttention` requires ort-nightly version >= 1.18.0
-            raise ValueError(
-                "Please use onnxruntime>=1.18.0 for phi2 optimization in Linux, you can refer to "
-                "https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages "
-                "for ort-nightly installation. If you are optimizing phi2 model in GPU, only cuda11 "
-                "is supported in onnxruntime>=1.18.0"
-            )
+            # and `phi` and `MultiHeadAttention` requires ort version >= 1.18.0
+            raise ValueError("Please use onnxruntime>=1.18.0 for phi2 optimization in Linux")
 
         json_file_template = "phi2_optimize_template.json"
         with open(json_file_template) as f:

@@ -29,12 +29,12 @@ PROVIDER_DOCKERFILE_MAPPING = {
 }
 
 PROVIDER_PACKAGE_MAPPING = {
-    ExecutionProvider.CPUExecutionProvider: ("onnxruntime", "ort-nightly"),
-    ExecutionProvider.CUDAExecutionProvider: ("onnxruntime-gpu", "ort-nightly-gpu"),
-    ExecutionProvider.TensorrtExecutionProvider: ("onnxruntime-gpu", "ort-nightly-gpu"),
-    ExecutionProvider.ROCMExecutionProvider: ("onnxruntime-gpu", "ort-nightly-gpu"),
-    ExecutionProvider.OpenVINOExecutionProvider: ("onnxruntime-openvino", None),
-    ExecutionProvider.DmlExecutionProvider: ("onnxruntime-directml", "ort-nightly-directml"),
+    ExecutionProvider.CPUExecutionProvider: "onnxruntime",
+    ExecutionProvider.CUDAExecutionProvider: "onnxruntime-gpu",
+    ExecutionProvider.TensorrtExecutionProvider: "onnxruntime-gpu",
+    ExecutionProvider.ROCMExecutionProvider: "onnxruntime-gpu",
+    ExecutionProvider.OpenVINOExecutionProvider: "onnxruntime-openvino",
+    ExecutionProvider.DmlExecutionProvider: "onnxruntime-directml",
 }
 
 DEVICE_TO_EXECUTION_PROVIDERS = {

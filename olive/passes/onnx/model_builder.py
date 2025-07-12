@@ -178,6 +178,8 @@ class ModelBuilder(Pass):
             target_execution_provider = "cuda"
         elif self.accelerator_spec.execution_provider == ExecutionProvider.JsExecutionProvider:
             target_execution_provider = "web"
+        elif self.accelerator_spec.execution_provider == ExecutionProvider.NvTensorRTRTXExecutionProvider:
+            target_execution_provider = "NvTensorRtRtx"
         else:
             target_execution_provider = "cpu"
 
