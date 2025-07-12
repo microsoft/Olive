@@ -68,8 +68,7 @@
                     "evaluate_func_kwargs": { "batch_size": 1 }
                 }
             }
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
+        }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

@@ -162,8 +162,7 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 20 },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "CLIP-ViT-B-32-laion2B-s34B-b79K" } }
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

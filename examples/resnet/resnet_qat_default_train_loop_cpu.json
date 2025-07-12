@@ -70,8 +70,7 @@
             "qconfig_func": "create_qat_config"
         },
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
-        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "latency_data_config" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "resnet_trained_for_cifar10.pt" } }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "latency_data_config" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

@@ -38,8 +38,7 @@
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "peephole_optimizer": { "type": "OnnxPeepholeOptimizer" },
         "transformers_optimization": { "type": "OrtTransformersOptimization" },
-        "session_params_tuning": { "type": "OrtSessionParamsTuning" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

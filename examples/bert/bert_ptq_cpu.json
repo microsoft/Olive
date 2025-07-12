@@ -65,8 +65,7 @@
             "calibrate_method": "MinMax",
             "data_config": "glue_mrpc"
         },
-        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mrpc" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
+        "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "glue_mrpc" }
     },
     "search_strategy": { "execution_order": "joint", "sampler": "tpe", "max_samples": 3, "seed": 0 },
     "evaluator": "common_evaluator",

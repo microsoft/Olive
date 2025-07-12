@@ -152,8 +152,7 @@
                 "offload_graph_io_quantization": "0"
             },
             "session_options": { "optimization.disable_specified_optimizers": "MatMulAddFusion" }
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "clip-vit-base-patch32" } }
+        }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

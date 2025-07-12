@@ -176,8 +176,7 @@
             "activation_type": "uint16",
             "precision": "uint8",
             "calibrate_method": "MinMax"
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "clip-vit-base-patch16" } }
+        }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

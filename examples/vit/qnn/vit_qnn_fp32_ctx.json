@@ -102,8 +102,7 @@
                 "vtcm_mb": "8",
                 "enable_htp_fp16_precision": "1"
             }
-        },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "vit-base-patch16-224" } }
+        }
     },
     "host": "qnn_system",
     "target": "qnn_system",
