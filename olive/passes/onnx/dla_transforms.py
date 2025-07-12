@@ -62,7 +62,7 @@ def _get_initializer_by_name(model, init_name):
 def _calculate_clip_range(node, model):
     x_scale = _get_initializer_by_name(model, node.input[1])
     x_zero_point = _get_initializer_by_name(model, node.input[2])
-    assert (x_scale, f"{node.name} should have x_scale value")
+    assert x_scale, f"{node.name} should have x_scale value"
     int_max = np.int32(65535 if x_zero_point.dtype == np.uint16 else 255)
     if x_zero_point is None:
         logger.info("x_zero_point is None!")
@@ -83,10 +83,10 @@ def transform_matmul_to_transpose_conv_transpose(model):
     for node in graph.node:
         if node.op_type == "MatMul" or node.op_type == "Gemm":
             need_transform = False
-            for input in node.input:
+            for node_input in node.input:
                 # Input is either in initializer or value_info
-                if (input in initializer_dim_map and initializer_dim_map[input] != 4) or (
-                    input in tensor_name_dim_map and len(tensor_name_dim_map[input]) != 4
+                if (node_input in initializer_dim_map and initializer_dim_map[node_input] != 4) or (
+                    node_input in tensor_name_dim_map and len(tensor_name_dim_map[node_input]) != 4
                 ):
                     need_transform = True
                     break
@@ -106,9 +106,9 @@ def transform_matmul_to_transpose_conv_transpose(model):
         # If C (channel) dimesion is 1, needs to add Transposes around Conv.
         # Otherwise, no need to add Transposes for now.
         def check_to_apply_transpose(conv_node):
-            input = conv_node.input[0]
-            if input in tensor_name_dim_map:
-                shape = tensor_name_dim_map[input]
+            node_input = conv_node.input[0]
+            if node_input in tensor_name_dim_map:
+                shape = tensor_name_dim_map[node_input]
                 if (
                     len(shape) == 2 and shape[0] != 1 and shape[1] != 1
                 ):  # The 2D tesnor (MxN, width and height) will later adding leading dimensions to 4D with 1x1xMxN
@@ -124,8 +124,7 @@ def transform_matmul_to_transpose_conv_transpose(model):
             # Otherwise, we considered the input tensor has been "transposed" to perform 1x1 Conv
             return False
 
-        need_to_apply_transpose = True
-        # need_to_apply_transpose = check_to_apply_transpose(node)
+        need_to_apply_transpose = check_to_apply_transpose(node)
         graph.node.remove(node)
 
         # Add Transpose if needed
@@ -207,7 +206,7 @@ def transform_remove_intermediary_squeeze_and_unsqueeze(model):
     graph = model.graph
 
     # Get all input names
-    input_names = set(input.name for input in graph.input)
+    input_names = set(graph_input.name for graph_input in graph.input)
 
     # Track nodes to remove
     nodes_to_remove = []
@@ -254,7 +253,6 @@ def transform_qdq_to_clip(model):
         {},
         {},
     )  # quantize_output_name -> quantize_node, dequantize_input_name -> dequantize_node
-    i = 0
     graph = model.graph
     clip_range = {}  # deq_input_name -> (clip_min, clip_max)
     for node in graph.node:
@@ -270,7 +268,7 @@ def transform_qdq_to_clip(model):
             deqlin_name_node_map[node.input[0]] = node
             x_scale = _get_initializer_by_name(model, node.input[1])
             x_zero_point = _get_initializer_by_name(model, node.input[2])
-            assert (x_scale, f"{node.name} should have x_scale value")
+            assert x_scale, f"{node.name} should have x_scale value"
             int_max = np.int32(65535 if x_zero_point.dtype == np.uint16 else 255)
             if x_zero_point is None:
                 logger.info("x_zero_point is None!")
@@ -434,9 +432,9 @@ def transform_remove_deqlin(model):
             deqlin_output_initializer_mapping[node.output[0]] = node.input[0]
             nodes_to_remove.append(node)
         # Replace the node input after DequantizeLinear with initializer
-        for i, input in enumerate(node.input):
-            if input in deqlin_output_initializer_mapping:
-                node.input[i] = deqlin_output_initializer_mapping[input]
+        for i, node_input in enumerate(node.input):
+            if node_input in deqlin_output_initializer_mapping:
+                node.input[i] = deqlin_output_initializer_mapping[node_input]
 
     # Remove the nodes
     for node in nodes_to_remove:
@@ -453,38 +451,55 @@ def transform_non4d_model_inputs(model):
         dims = len(graph_input.type.tensor_type.shape.dim)
         if dims == 2 or dims == 3:
             unsqueeze_arr = np.array([0, -1], dtype=np.int64) if dims == 2 else np.array([1], dtype=np.int64)
+
+            # Check if there's already an Unsqueeze node for this input
+            has_unsqueeze = False
             for node in graph.node:
-                if len(node.input) > 0 and node.input[0] == graph_input.name:
-                    if node.op_type == "Unsqueeze":
-                        existing_unsqueeze_axes = None
-                        for init in graph.initializer:
-                            if init.name == node.input[1]:
-                                existing_unsqueeze_axes = numpy_helper.to_array(init)
-                                break
-                        if existing_unsqueeze_axes is not None:
-                            if len(existing_unsqueeze_axes) + dims == 4:
-                                continue
-                            new_unsqueeze_axes_name = node.name + "unsqueeze_axes_transformed"
-                            unsqueeze_axes = numpy_helper.from_array(unsqueeze_arr, new_unsqueeze_axes_name)
-                            node.input[1] = new_unsqueeze_axes_name
-                            graph.initializer.append(unsqueeze_axes)
-                    else:
-                        new_unsqueeze_axes_name = graph_input.name + "_unsqueeze_axes"
-                        unsqueezed_input_name = graph_input.name + "_unsqueeze_input"
+                if len(node.input) > 0 and node.input[0] == graph_input.name and node.op_type == "Unsqueeze":
+                    has_unsqueeze = True
+                    existing_unsqueeze_axes = None
+                    for init in graph.initializer:
+                        if init.name == node.input[1]:
+                            existing_unsqueeze_axes = numpy_helper.to_array(init)
+                            break
+                    if existing_unsqueeze_axes is not None:
+                        if len(existing_unsqueeze_axes) + dims == 4:
+                            continue
+                        new_unsqueeze_axes_name = node.name + "unsqueeze_axes_transformed"
                         unsqueeze_axes = numpy_helper.from_array(unsqueeze_arr, new_unsqueeze_axes_name)
+                        node.input[1] = new_unsqueeze_axes_name
                         graph.initializer.append(unsqueeze_axes)
-                        unsqueeze_node = helper.make_node(
-                            "Unsqueeze",
-                            inputs=[graph_input.name, new_unsqueeze_axes_name],
-                            outputs=[unsqueezed_input_name],
-                            name=graph_input.name + "_unsqueeze",
-                        )
-                        unsqueeze_to_add.append(unsqueeze_node)
-                        for node in graph.node:
-                            for i, node_input_name in enumerate(node.input):
-                                if node_input_name == graph_input.name:
-                                    node.input[i] = unsqueezed_input_name
                     cnt += 1
+                    break
+
+            # If no Unsqueeze exists and this input is used by other nodes, create one
+            if not has_unsqueeze:
+                input_is_used = False
+                for node in graph.node:
+                    if graph_input.name in node.input:
+                        input_is_used = True
+                        break
+
+                if input_is_used:
+                    new_unsqueeze_axes_name = graph_input.name + "_unsqueeze_axes"
+                    unsqueezed_input_name = graph_input.name + "_unsqueeze_input"
+                    unsqueeze_axes = numpy_helper.from_array(unsqueeze_arr, new_unsqueeze_axes_name)
+                    graph.initializer.append(unsqueeze_axes)
+                    unsqueeze_node = helper.make_node(
+                        "Unsqueeze",
+                        inputs=[graph_input.name, new_unsqueeze_axes_name],
+                        outputs=[unsqueezed_input_name],
+                        name=graph_input.name + "_unsqueeze",
+                    )
+                    unsqueeze_to_add.append(unsqueeze_node)
+
+                    # Update all nodes that use this input
+                    for node in graph.node:
+                        for i, node_input_name in enumerate(node.input):
+                            if node_input_name == graph_input.name:
+                                node.input[i] = unsqueezed_input_name
+                    cnt += 1
+
     # Add all new unsqueeze nodes
     for node in unsqueeze_to_add:
         graph.node.append(node)
@@ -564,7 +579,6 @@ def transform_standalone_reducesum(model):
                     if not (current_axes.size == 1 and current_axes[0] == -1):
                         reducesum_axes_name = node.name + "_axes"
                         new_reducesum_axes = numpy_helper.from_array(np.array([2], dtype=np.int64), reducesum_axes_name)
-                        initialize_to_remove = initializer
                         node.input[1] = reducesum_axes_name
             if new_reducesum_axes is not None:
                 graph.initializer.append(new_reducesum_axes)
@@ -641,14 +655,14 @@ def transform_non4d_initializers(model):
     unary_dim_at_front_init_names = []
     for node in model.graph.node:
         if node.op_type in ["Div", "Sub", "Mul"]:
-            for input in node.input:
-                need_to_expand_4D_init_names.append(input)
+            for node_input in node.input:
+                need_to_expand_4D_init_names.append(node_input)
         if node.op_type in ["MatMul"]:
-            for input in node.input:
-                skip_init_names.append(input)
+            for node_input in node.input:
+                skip_init_names.append(node_input)
         if node.op_type in ["Gemm"]:
-            for input in node.input:
-                unary_dim_at_front_init_names.append(input)
+            for node_input in node.input:
+                unary_dim_at_front_init_names.append(node_input)
 
     initializers_to_add = []
     initializer_to_remove = []
@@ -679,7 +693,6 @@ def transform_non4d_initializers(model):
             # initializer.dims.insert(0, 1)
             new_dims = [1] + list(initializer.dims)
             initializer.dims[:] = new_dims
-            data = numpy_helper.to_array(initializer)
 
     [model.graph.initializer.remove(init) for init in initializer_to_remove]
     [model.graph.initializer.append(init) for init in initializers_to_add]
