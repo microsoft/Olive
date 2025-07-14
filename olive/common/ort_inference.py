@@ -78,10 +78,10 @@ def initialize_inference_session_options(
     provider_options = provider_options or []
     provider_options_by_ep = dict(zip(providers, provider_options))
     ort_device_type = get_ort_hardware_device_type(device)
-
-    # ort.get_ep_devices could return eps with same name like when we have multiple graphcards
-    # but in onnxruntime, for each ep name, could only add once https://github.com/microsoft/onnxruntime/blob/fb0f6c652be5db0a3182c424a995efecf792d41c/onnxruntime/core/framework/execution_providers.h#L75
-    added_ep_names = {}
+    
+    # ort.get_ep_devices may return ep_devices with the same name and device, for example when connecting remotely or when there are multiple graph cards.
+    # However, in onnxruntime, each EP name can only be added once. See: https://github.com/microsoft/onnxruntime/blob/fb0f6c652be5db0a3182c424a995efecf792d41c/onnxruntime/core/framework/execution_providers.h#L75
+    added_ep_names = set()
     for ep_device in ort.get_ep_devices():
         if ep_device.device.type == ort_device_type and ep_device.ep_name in provider_options_by_ep and ep_device.ep_name not in added_ep_names:
             added_ep_names.add(ep_device.ep_name)
