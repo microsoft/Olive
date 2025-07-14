@@ -302,7 +302,7 @@ class RunConfig(NestedConfig):
                     )
         return v
 
-    @validator("workflow_host", pre=True)
+    @validator("workflow_host", pre=True, always=True)
     def validate_workflow_host(cls, v, values):
         if v is None:
             systems = values.get("systems")

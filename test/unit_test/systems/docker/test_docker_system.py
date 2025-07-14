@@ -155,7 +155,7 @@ class TestDockerSystem:
         if exit_code != 0:
             with pytest.raises(
                 docker.errors.ContainerError,
-                match=r".*returned non-zero exit status 1: Docker container evaluation failed with: mock_error",
+                match=r".*returned non-zero exit status 1: Docker container run failed. Please check the logs for more details.",
             ):
                 _ = docker_system.evaluate_model(model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
         else:
