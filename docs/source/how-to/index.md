@@ -1,30 +1,50 @@
-### How-tos
+# How-to
 Find more details on specific Olive capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!
 
 ## Installation and Setup
-- [How to install Olive](installation.html)
-
+- [How to install Olive](installation)
 
 ## Olive Command Lines
 
 The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx-graph-capture`, `auto-opt` that enable you to *easily* optimize select models and experiment with different cutting-edge optimization strategies without the need to define workflows.
 
-- [How to use the `olive auto-opt` command to take a PyTorch/Hugging Face model and turn it into an optimized ONNX model](cli/cli-auto-opt.html)
-- [how to use the `olive finetune` command to create (Q)LoRA adapters](cli/cli-finetune.html)
-- [How to use the `olive quantize` command to quantize your model with different precisions and techniques such as AWQ](cli/cli-quantize.html)
-- [How to use the `olive run` command to execute an Olive workflow.](cli/cli-run.html>)
+- [How to use the `olive auto-opt` command to take a PyTorch/Hugging Face model and turn it into an optimized ONNX model](cli/cli-auto-opt)
+- [how to use the `olive finetune` command to create (Q)LoRA adapters](cli/cli-finetune)
+- [How to use the `olive quantize` command to quantize your model with different precisions and techniques such as AWQ](cli/cli-quantize)
+- [How to use the `olive run` command to execute an Olive workflow.](cli/cli-run)
 
 ## Olive Python API
 
-- [How to use the Python API to run Olive workflows programmatically](python_api.html)
+- [How to use the Python API to run Olive workflows programmatically](python_api)
 
 ## Customize Workflow (aka Recipes)
 
-- [How to write a new workflow from scratch](configure-workflows/build-workflow.html)
-- [How to define input model for a new workflow](configure-workflows/how-to-configure-model.html)
-- [How to customize a pass parameters](configure-workflows/pass-configuration.html)
-- [How to setup custom dataset for calibration and evaluation](configure-workflows/how-to-configure-data.html)
-- [How to define evaluation metrics such as accuracy, latency, throughput, and your own custom metrics](configure-workflows/metrics-configuration.html)
-- [How to package output model for deployment](configure-workflows/model-packaging.html)
-- [How to define `host` or `target` systems](configure-workflows/systems.html>)
-- [How to configure Olive `engine`](configure-workflows/engine-configuration.html)
+- [How to write a new workflow from scratch](configure-workflows/build-workflow)
+- [How to define input model for a new workflow](configure-workflows/how-to-configure-model)
+- [How to customize a pass parameters](configure-workflows/pass-configuration)
+- [How to setup custom dataset for calibration and evaluation](configure-workflows/how-to-configure-data)
+- [How to define evaluation metrics such as accuracy, latency, throughput, and your own custom metrics](configure-workflows/metrics-configuration)
+- [How to package output model for deployment](configure-workflows/model-packaging)
+- [How to define `host` or `target` systems](configure-workflows/systems)
+- [How to configure Olive `engine`](configure-workflows/engine-configuration)
+
+<!-- Required by sphinx -->
+```{toctree}
+:maxdepth: 2
+:hidden:
+
+installation
+cli/cli-auto-opt
+cli/cli-finetune
+cli/cli-quantize
+cli/cli-run
+python_api
+configure-workflows/build-workflow
+configure-workflows/how-to-configure-model
+configure-workflows/pass-configuration
+configure-workflows/how-to-configure-data
+configure-workflows/metrics-configuration
+configure-workflows/model-packaging
+configure-workflows/systems
+configure-workflows/engine-configuration
+```
