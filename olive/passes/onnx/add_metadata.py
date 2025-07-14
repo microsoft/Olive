@@ -4,15 +4,13 @@
 # --------------------------------------------------------------------------
 
 import logging
-from pathlib import Path
 
 import onnx
 
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
-from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import model_proto_to_file, resave_model
+from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -23,7 +21,7 @@ class AddOliveMetadata(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        return {
+        config = {
             "graph_name": PassConfigParam(
                 type_=str,
                 required=True,
@@ -40,6 +38,8 @@ class AddOliveMetadata(Pass):
                 description="Add optimization information to metadata",
             ),
         }
+        config.update(get_external_data_config())
+        return config
 
     def _add_metadata(self, onnx_model: onnx.ModelProto, metadata: dict[str, str]) -> onnx.ModelProto:
         """Add metadata to the ONNX model."""
@@ -67,7 +67,7 @@ class AddOliveMetadata(Pass):
         if config.custom_metadata:
             metadata.update({str(k): str(v) for k, v in config.custom_metadata.items()})
 
-        # Add Olive version (always included)
+        # Add Olive version
         try:
             import olive
 
@@ -75,8 +75,7 @@ class AddOliveMetadata(Pass):
         except Exception:
             metadata["olive_version"] = "unknown"
 
-        # Add Hugging Face model name (always included if available)
-        # Try to get the original HF model name from the model's config
+        # Add Hugging Face model name if available
         hf_model_name = self._get_original_hf_model_name(model)
         if hf_model_name:
             metadata["hf_model_name"] = str(hf_model_name)
@@ -129,18 +128,33 @@ class AddOliveMetadata(Pass):
         if not isinstance(model, ONNXModelHandler):
             raise ValueError("Model must be an instance of ONNXModelHandler")
 
-        # Generate metadata (including original model hash if requested)
+        import shutil
+        from pathlib import Path
+
+        input_model_path = Path(model.model_path)
+        output_path = Path(output_model_path)
+
+        # Determine input model directory and ONNX file
+        if input_model_path.is_dir():
+            input_model_dir = input_model_path
+            if model.onnx_file_name:
+                input_onnx_file = input_model_path / model.onnx_file_name
+            else:
+                onnx_files = list(input_model_path.glob("*.onnx"))
+                if not onnx_files:
+                    raise ValueError(f"No ONNX file found in model directory: {input_model_path}")
+                input_onnx_file = onnx_files[0]
+        else:
+            input_model_dir = input_model_path.parent
+            input_onnx_file = input_model_path
+
+        # Load ONNX model without external data to preserve file structure
+        onnx_model = onnx.load_model(str(input_onnx_file), load_external_data=False)
+
+        # Generate metadata
         metadata = self._generate_olive_metadata(model, config)
 
-        # Get graph name from config
-        graph_name = config.graph_name
-
-        output_model_path = Path(resolve_onnx_path(output_model_path, Path(model.model_path).name))
-
-        # Resave the original model to the new path
-        has_external_data = resave_model(model.model_path, output_model_path)
-
-        # Calculate model hash (before adding metadata) - always included
+        # Calculate model hash
         try:
             from olive.model.config.model_config import ModelConfig
 
@@ -151,20 +165,25 @@ class AddOliveMetadata(Pass):
             logger.warning("Could not calculate model hash: %s", e)
             metadata["model_hash"] = "unknown"
 
-        # Load the model without external data to modify metadata
-        onnx_model = onnx.load_model(output_model_path, load_external_data=False)
-
-        # Add metadata
+        # Add metadata and set graph name
         if metadata:
             onnx_model = self._add_metadata(onnx_model, metadata)
+        onnx_model = self._set_graph_name(onnx_model, config.graph_name)
 
-        # Set graph name (always required)
-        onnx_model = self._set_graph_name(onnx_model, graph_name)
+        # Determine output directory
+        if output_path.suffix == ".onnx":
+            output_dir = output_path.parent / output_path.stem
+        else:
+            output_dir = output_path
 
-        # Save the model with updated metadata
-        model_proto_to_file(onnx_model, output_model_path)
+        # Copy entire input directory to preserve external files
+        output_dir.parent.mkdir(parents=True, exist_ok=True)
+        if output_dir.exists():
+            shutil.rmtree(output_dir)
+        shutil.copytree(input_model_dir, output_dir)
 
-        return ONNXModelHandler(
-            model_path=output_model_path.parent if has_external_data else output_model_path,
-            onnx_file_name=output_model_path.name if has_external_data else None,
-        )
+        # Save updated ONNX file
+        output_onnx_file = output_dir / input_onnx_file.name
+        onnx.save_model(onnx_model, str(output_onnx_file))
+
+        return ONNXModelHandler(model_path=output_dir, onnx_file_name=input_onnx_file.name)
