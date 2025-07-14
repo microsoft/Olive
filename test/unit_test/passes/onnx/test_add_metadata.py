@@ -590,8 +590,6 @@ class TestAddOliveMetadata:
         """Test that external data files are preserved when adding metadata to directory-based models."""
         import shutil
 
-        import onnx
-
         from olive.model import ONNXModelHandler
 
         # Create a test model directory with external data files
@@ -654,13 +652,12 @@ class TestAddOliveMetadata:
         assert "olive_version" in metadata_dict
         assert "model_hash" in metadata_dict
 
-        # Most importantly: verify all external files were preserved
-        for filename in external_files:
+        # Verify all external files were preserved
+        for filename, original_content in external_files.items():
             external_file_path = output_dir / filename
             assert external_file_path.exists(), f"External file {filename} was not preserved"
 
             # Verify file content is identical
-            original_content = external_files[filename]
             preserved_content = external_file_path.read_bytes()
             assert preserved_content == original_content, f"Content of {filename} was modified"
 
