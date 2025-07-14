@@ -1,10 +1,7 @@
-# How-to
-Find more details on specific Olive capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!
-
-## Installation and Setup
+# Installation and Setup
 - [How to install Olive](installation)
 
-## Olive Command Lines
+# Olive Command Lines
 
 The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx-graph-capture`, `auto-opt` that enable you to *easily* optimize select models and experiment with different cutting-edge optimization strategies without the need to define workflows.
 
@@ -13,11 +10,11 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 - [How to use the `olive quantize` command to quantize your model with different precisions and techniques such as AWQ](cli/cli-quantize)
 - [How to use the `olive run` command to execute an Olive workflow.](cli/cli-run)
 
-## Olive Python API
+# Olive Python API
 
 - [How to use the Python API to run Olive workflows programmatically](python_api)
 
-## Customize Workflow (aka Recipes)
+# Customize Workflow (aka Recipes)
 
 - [How to write a new workflow from scratch](configure-workflows/build-workflow)
 - [How to define input model for a new workflow](configure-workflows/how-to-configure-model)
