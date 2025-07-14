@@ -420,184 +420,42 @@
   <section id="how-to">
 <h1>How-to<a class="headerlink" href="#how-to" title="Link to this heading">#</a></h1>
 <p>Find more details on specific Olive capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!</p>
-<section id="set-up">
-<h2>Set-up<a class="headerlink" href="#set-up" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-</div>
-<div class="sd-container-fluid sd-sphinx-override sd-mb-4 cards docutils">
-<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-1 sd-row-cols-lg-1 docutils">
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to install Olive</strong></p>
-<p class="sd-card-text">Learn how to install <cite>olive-ai</cite>.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="installation.html">Install Olive</a></p>
-</div>
-</div>
-</div>
-</div>
-</div>
+<section id="installation-and-setup">
+<h2>Installation and Setup<a class="headerlink" href="#installation-and-setup" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="installation.html"><span class="doc std std-doc">How to install Olive</span></a></p></li>
+</ul>
 </section>
-<section id="working-with-the-cli">
-<h2>Working with the CLI<a class="headerlink" href="#working-with-the-cli" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-</div>
-<p>The Olive CLI provides a set of primitives such as <cite>quantize</cite>, <cite>finetune</cite>, <cite>onnx-graph-capture</cite>, <cite>auto-opt</cite> that enable you to <em>easily</em> optimize select models and experiment with different cutting-edge optimization strategies without the need to define workflows.</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>For users new to Olive, we recommend that you start with the CLI.</p>
-</div>
-<div class="sd-container-fluid sd-sphinx-override sd-mb-4 cards docutils">
-<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-3 docutils">
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>Auto Optimizer</strong></p>
-<p class="sd-card-text">Learn how to use the <cite>olive auto-opt</cite> command to take a PyTorch/Hugging Face model and turn it into an optimized ONNX model.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="cli/cli-auto-opt.html">olive auto-opt</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>Finetune</strong></p>
-<p class="sd-card-text">Learn how to use the <cite>olive finetune</cite> command to create (Q)LoRA adapters.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="cli/cli-finetune.html">olive finetune</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>Quantize</strong></p>
-<p class="sd-card-text">Learn how to use the <cite>olive quantize</cite> command to quantize your model with different precisions and techniques such as AWQ.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="cli/cli-quantize.html">olive quantize</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>Execute Olive Workflows</strong></p>
-<p class="sd-card-text">Learn how to use the <cite>olive run</cite> command to execute an Olive workflow.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="cli/cli-run.html">olive run</a></p>
-</div>
-</div>
-</div>
-</div>
-</div>
+<section id="olive-command-lines">
+<h2>Olive Command Lines<a class="headerlink" href="#olive-command-lines" title="Link to this heading">#</a></h2>
+<p>The Olive CLI provides a set of primitives such as <code class="docutils literal notranslate"><span class="pre">quantize</span></code>, <code class="docutils literal notranslate"><span class="pre">finetune</span></code>, <code class="docutils literal notranslate"><span class="pre">onnx-graph-capture</span></code>, <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> that enable you to <em>easily</em> optimize select models and experiment with different cutting-edge optimization strategies without the need to define workflows.</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="cli/cli-auto-opt.html"><span class="doc std std-doc">How to use the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">auto-opt</span></code> command to take a PyTorch/Hugging Face model and turn it into an optimized ONNX model</span></a></p></li>
+<li><p><a class="reference internal" href="cli/cli-finetune.html"><span class="doc std std-doc">how to use the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">finetune</span></code> command to create (Q)LoRA adapters</span></a></p></li>
+<li><p><a class="reference internal" href="cli/cli-quantize.html"><span class="doc std std-doc">How to use the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">quantize</span></code> command to quantize your model with different precisions and techniques such as AWQ</span></a></p></li>
+<li><p><a class="reference internal" href="cli/cli-run.html"><span class="doc std std-doc">How to use the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span></code> command to execute an Olive workflow.</span></a></p></li>
+</ul>
 </section>
-<section id="how-to-prepare-configuration">
-<h2>How to prepare configuration<a class="headerlink" href="#how-to-prepare-configuration" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-</div>
-<p>For more complex scenarios, you can create a new configuration from scratch.</p>
-<div class="sd-container-fluid sd-sphinx-override sd-mb-4 cards docutils">
-<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-3 docutils">
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to write a new .json configuration</strong></p>
-<p class="sd-card-text">Learn how to write a new .json configure from scratch.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/build-workflow.html">Configure workflow</a></p>
-</div>
-</div>
-</div>
-</div>
-</div>
+<section id="olive-python-api">
+<h2>Olive Python API<a class="headerlink" href="#olive-python-api" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="python_api.html"><span class="doc std std-doc">How to use the Python API to run Olive workflows programmatically</span></a></p></li>
+</ul>
 </section>
-<section id="how-to-customize-configuration">
-<h2>How to customize configuration<a class="headerlink" href="#how-to-customize-configuration" title="Link to this heading">#</a></h2>
+<section id="customize-workflow-aka-recipes">
+<h2>Customize Workflow (aka Recipes)<a class="headerlink" href="#customize-workflow-aka-recipes" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="configure-workflows/build-workflow.html"><span class="doc std std-doc">How to write a new workflow from scratch</span></a></p></li>
+<li><p><a class="reference internal" href="configure-workflows/how-to-configure-model.html"><span class="doc std std-doc">How to define input model for a new workflow</span></a></p></li>
+<li><p><a class="reference internal" href="configure-workflows/pass-configuration.html"><span class="doc std std-doc">How to customize a pass parameters</span></a></p></li>
+<li><p><a class="reference internal" href="configure-workflows/how-to-configure-data.html"><span class="doc std std-doc">How to setup custom dataset for calibration and evaluation</span></a></p></li>
+<li><p><a class="reference internal" href="configure-workflows/metrics-configuration.html"><span class="doc std std-doc">How to define evaluation metrics such as accuracy, latency, throughput, and your own custom metrics</span></a></p></li>
+<li><p><a class="reference internal" href="configure-workflows/model-packaging.html"><span class="doc std std-doc">How to package output model for deployment</span></a></p></li>
+<li><p><a class="reference internal" href="configure-workflows/systems.html"><span class="doc std std-doc">How to define <code class="docutils literal notranslate"><span class="pre">host</span></code> or <code class="docutils literal notranslate"><span class="pre">target</span></code> systems</span></a></p></li>
+<li><p><a class="reference internal" href="configure-workflows/engine-configuration.html"><span class="doc std std-doc">How to configure Olive <code class="docutils literal notranslate"><span class="pre">engine</span></code></span></a></p></li>
+</ul>
+<!-- Required by sphinx -->
 <div class="toctree-wrapper compound">
-</div>
-<p>For more complex scenarios, you can customize configuration where you can run any of the 40+ supported optimization techniques in a sequence.</p>
-<div class="sd-container-fluid sd-sphinx-override sd-mb-4 cards docutils">
-<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-3 docutils">
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to configure model</strong></p>
-<p class="sd-card-text">Learn how to configure input model.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/how-to-configure-model.html">Configure models</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to configure passes</strong></p>
-<p class="sd-card-text">Learn how to configure passes.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/pass-configuration.html">Configure pass</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to configure data</strong></p>
-<p class="sd-card-text">Learn how to configure data such as pre and post processing instructions.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/how-to-configure-data.html">Configure data</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to configure metrics</strong></p>
-<p class="sd-card-text">Learn how to configure metrics such as accuracy, latency, throughput, and your own custom metrics.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/metrics-configuration.html">Configure metrics</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to package models</strong></p>
-<p class="sd-card-text">Learn how to package models for deployment.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/model-packaging.html">Model packaging</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to configure systems</strong></p>
-<p class="sd-card-text">Learn how to configure systems such as local compute and remote compute to be a <em>host</em> (machine that executes optimization) and/or a <em>target</em> (machine that model will inference on).</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/systems.html">Configure systems</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to configure engine</strong></p>
-<p class="sd-card-text">Learn how to configure engine to control where output gets saved, logging verbosity, caching, and packaging.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="configure-workflows/engine-configuration.html">Configure engine</a></p>
-</div>
-</div>
-</div>
-</div>
-</div>
-</section>
-<section id="how-to-use-python-interface">
-<h2>How to use Python interface<a class="headerlink" href="#how-to-use-python-interface" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-</div>
-<p>You can use the Python API to run Olive workflows programmatically.</p>
-<div class="sd-container-fluid sd-sphinx-override sd-mb-4 cards docutils">
-<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-1 sd-row-cols-md-1 sd-row-cols-lg-1 docutils">
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<div class="sd-card-title sd-font-weight-bold docutils">
-<strong>Python API</strong></div>
-<p class="sd-card-text">Learn how to use the Python API to run Olive workflows programmatically.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="python_api.html">Python API</a></p>
-</div>
-</div>
-</div>
-</div>
 </div>
 </section>
 </section>
@@ -649,11 +507,10 @@
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up">Set-up</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#working-with-the-cli">Working with the CLI</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-prepare-configuration">How to prepare configuration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-customize-configuration">How to customize configuration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-use-python-interface">How to use Python interface</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation-and-setup">Installation and Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-command-lines">Olive Command Lines</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-python-api">Olive Python API</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#customize-workflow-aka-recipes">Customize Workflow (aka Recipes)</a></li>
 </ul>
   </nav></div>
 

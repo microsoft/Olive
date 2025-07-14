@@ -433,8 +433,8 @@
 <label class="sd-tab-label" for="sd-tab-item-0">
 Windows/Linux/Mac CPU</label><div class="sd-tab-content docutils">
 <p>If your machine only has a CPU device, install the following libraries:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>cpu,finetune<span class="o">]</span>
-pip<span class="w"> </span>install<span class="w"> </span>transformers<span class="w"> </span>onnxruntime-genai
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>cpu<span class="o">]</span>
+pip<span class="w"> </span>install<span class="w"> </span>transformers
 </pre></div>
 </div>
 </div>
@@ -442,17 +442,8 @@ pip<span class="w"> </span>install<span class="w"> </span>transformers<span clas
 <label class="sd-tab-label" for="sd-tab-item-1">
 Windows/Linux/Mac GPU</label><div class="sd-tab-content docutils">
 <p>If your machine has a GPU device (e.g. CUDA), install the following libraries:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>gpu,finetune<span class="o">]</span>
-pip<span class="w"> </span>install<span class="w"> </span>transformers<span class="w"> </span>onnxruntime-genai-cuda
-</pre></div>
-</div>
-</div>
-<input id="sd-tab-item-2" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-2">
-Windows DirectML</label><div class="sd-tab-content docutils">
-<p>DirectML provides GPU acceleration on Windows for machine learning tasks across a broad range of supported hardware and drivers, including all DirectX 12-capable GPUs.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>directml,finetune<span class="o">]</span>
-pip<span class="w"> </span>install<span class="w"> </span>transformers<span class="w"> </span>onnxruntime-genai-directml
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>gpu<span class="o">]</span>
+pip<span class="w"> </span>install<span class="w"> </span>transformers
 </pre></div>
 </div>
 </div>
@@ -477,13 +468,9 @@ pip<span class="w"> </span>install<span class="w"> </span>transformers<span clas
 <h2><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-dependabot" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.75 7.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Zm5.25.75a.75.75 0 0 0-1.5 0v1.5a.75.75 0 0 0 1.5 0v-1.5Z"></path><path d="M6.25 0h2A.75.75 0 0 1 9 .75V3.5h3.25a2.25 2.25 0 0 1 2.25 2.25V8h.75a.75.75 0 0 1 0 1.5h-.75v2.75a2.25 2.25 0 0 1-2.25 2.25h-8.5a2.25 2.25 0 0 1-2.25-2.25V9.5H.75a.75.75 0 0 1 0-1.5h.75V5.75A2.25 2.25 0 0 1 3.75 3.5H7.5v-2H6.25a.75.75 0 0 1 0-1.5ZM3 5.75v6.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-6.5a.75.75 0 0 0-.75-.75h-8.5a.75.75 0 0 0-.75.75Z"></path></svg> Automatic model optimization with Olive<a class="headerlink" href="#automatic-model-optimization-with-olive" title="Link to this heading">#</a></h2>
 <p>Once you have installed Olive, next you’ll run the <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (<code class="docutils literal notranslate"><span class="pre">int4</span></code>), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>auto-opt<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--model_name_or_path<span class="w"> </span>meta-llama/Llama-3.2-1B-Instruct<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--trust_remote_code<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--output_path<span class="w"> </span>models/llama/ao<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--provider<span class="w"> </span>CPUExecutionProvider<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--use_ort_genai<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--model_name_or_path<span class="w"> </span>HuggingFaceTB/SmolLM-360M-Instruct<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--precision<span class="w"> </span>int4<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output_path<span class="w"> </span>models/llama/ao<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--log_level<span class="w"> </span><span class="m">1</span>
 </pre></div>
 </div>
@@ -492,91 +479,14 @@ pip<span class="w"> </span>install<span class="w"> </span>transformers<span clas
 <ul class="simple">
 <li><p>The <code class="docutils literal notranslate"><span class="pre">model_name_or_path</span></code> can be either (a) the Hugging Face Repo ID for the model <code class="docutils literal notranslate"><span class="pre">{username}/{repo-name}</span></code> or (b) a path on local disk to the model or (c) an Azure AI Model registry ID.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">output_path</span></code> is the path on local disk to store the optimized model.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">device</span></code> is the device the model will execute on - CPU/NPU/GPU.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">provider</span></code> is the hardware provider of the device to inference the model on. For example, Nvidia CUDA (<code class="docutils literal notranslate"><span class="pre">CUDAExecutionProvider</span></code>), DirectML (<code class="docutils literal notranslate"><span class="pre">DmlExecutionProvider</span></code>), AMD (<code class="docutils literal notranslate"><span class="pre">MIGraphXExecutionProvider</span></code>, <code class="docutils literal notranslate"><span class="pre">ROCMExecutionProvider</span></code>), OpenVINO (<code class="docutils literal notranslate"><span class="pre">OpenVINOExecutionProvider</span></code>), Qualcomm (<code class="docutils literal notranslate"><span class="pre">QNNExecutionProvider</span></code>), Nvidia TensorRT (<code class="docutils literal notranslate"><span class="pre">TensorrtExecutionProvider</span></code>, <code class="docutils literal notranslate"><span class="pre">NvTensorRTRTXExecutionProvider</span></code>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">precision</span></code> is the precision for the optimized model (<code class="docutils literal notranslate"><span class="pre">fp16</span></code>, <code class="docutils literal notranslate"><span class="pre">fp32</span></code>, <code class="docutils literal notranslate"><span class="pre">int4</span></code>, <code class="docutils literal notranslate"><span class="pre">int8</span></code>).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_ort_genai</span></code> will create the configuration files so that you can consume the model using the Generate API for ONNX Runtime.</p></li>
 </ul>
-<p>With the <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> command, you can change the input model to one that is available on Hugging Face - for example, to <a class="reference external" href="https://huggingface.co/HuggingFaceTB/SmolLM-360M-Instruct">HuggingFaceTB/SmolLM-360M-Instruct</a> - or a model that resides on local disk. Olive, will go through the same process of <em>automatically</em> converting (to ONNX), optimizing the graph and quantizing the weights. The model can be optimized for different providers and devices.</p>
+<p>With the <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> command, you can change the input model to one that is available on Hugging Face or a model that resides on local disk. Olive, will go through the same process of <em>automatically</em> converting (to ONNX), optimizing the graph and quantizing the weights. The model can be optimized for different providers and devices using <code class="docutils literal notranslate"><span class="pre">provider</span></code> and <code class="docutils literal notranslate"><span class="pre">device</span></code> options respectively.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">device</span></code> is the device the model will execute on - CPU/NPU/GPU.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">provider</span></code> is the hardware provider of the device to inference the model on. For example, Nvidia CUDA (<code class="docutils literal notranslate"><span class="pre">CUDAExecutionProvider</span></code>), AMD (<code class="docutils literal notranslate"><span class="pre">MIGraphXExecutionProvider</span></code>, <code class="docutils literal notranslate"><span class="pre">ROCMExecutionProvider</span></code>), OpenVINO (<code class="docutils literal notranslate"><span class="pre">OpenVINOExecutionProvider</span></code>), Qualcomm (<code class="docutils literal notranslate"><span class="pre">QNNExecutionProvider</span></code>), Nvidia TensorRT (<code class="docutils literal notranslate"><span class="pre">TensorrtExecutionProvider</span></code>, <code class="docutils literal notranslate"><span class="pre">NvTensorRTRTXExecutionProvider</span></code>).</p></li>
+</ul>
 </section>
-</section>
-<section id="inference-model-using-onnx-runtime">
-<h2>Inference model using ONNX Runtime<a class="headerlink" href="#inference-model-using-onnx-runtime" title="Link to this heading">#</a></h2>
-<p>The ONNX Runtime (ORT) is a fast and light-weight package (available in many programming languages) that runs cross-platform. ORT enables you to infuse your AI models into your applications so that inference is handled <em>on-device</em>. The following code creates a simple console-based chat interface that inferences your optimized model.</p>
-<div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-3">
-Python</label><div class="sd-tab-content docutils">
-<p>Copy-and-paste the code below into a new Python file called <code class="docutils literal notranslate"><span class="pre">app.py</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime_genai</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">og</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-
-<span class="n">model_folder</span> <span class="o">=</span> <span class="s2">&quot;models/llama/ao/model&quot;</span>
-
-<span class="c1"># Load the base model and tokenizer</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">model_folder</span><span class="p">)</span>
-<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Tokenizer</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-<span class="n">tokenizer_stream</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">create_stream</span><span class="p">()</span>
-
-<span class="c1"># Set the max length to something sensible by default,</span>
-<span class="c1"># since otherwise it will be set to the entire context length</span>
-<span class="n">search_options</span> <span class="o">=</span> <span class="p">{}</span>
-<span class="n">search_options</span><span class="p">[</span><span class="s1">&#39;max_length&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">200</span>
-
-<span class="c1"># Encode the system prompt</span>
-<span class="n">system_template</span> <span class="o">=</span> <span class="s2">&quot;&lt;|begin_of_text|&gt;&lt;|start_header_id|&gt;system&lt;|end_header_id|&gt;You are a helpful assistant&lt;|eot_id|&gt;&quot;</span>
-<span class="n">system_tokens</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">system_prompt</span><span class="p">)</span>
-
-<span class="n">chat_template</span> <span class="o">=</span> <span class="s2">&quot;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;</span><span class="si">{input}</span><span class="s2">&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;&quot;</span>
-
-<span class="c1"># Keep asking for input prompts in a loop</span>
-<span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-    <span class="n">text</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Prompt (Use quit() to exit): &quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">text</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error, input cannot be empty&quot;</span><span class="p">)</span>
-        <span class="k">continue</span>
-
-    <span class="k">if</span> <span class="n">text</span> <span class="o">==</span> <span class="s2">&quot;quit()&quot;</span><span class="p">:</span>
-        <span class="k">break</span>
-
-    <span class="c1"># Generate prompt (prompt template + input)</span>
-    <span class="n">prompt</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">chat_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">input</span><span class="o">=</span><span class="n">text</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span>
-
-    <span class="c1"># encode the prompt using the tokenizer</span>
-    <span class="n">input_tokens</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
-
-    <span class="c1"># Create params and generator</span>
-    <span class="n">params</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">GeneratorParams</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-    <span class="n">params</span><span class="o">.</span><span class="n">set_search_options</span><span class="p">(</span><span class="o">**</span><span class="n">search_options</span><span class="p">)</span>
-    <span class="n">generator</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Generator</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
-
-    <span class="c1"># Append system and input tokens to the generator</span>
-    <span class="n">generator</span><span class="o">.</span><span class="n">append_tokens</span><span class="p">(</span><span class="n">system_tokens</span> <span class="o">+</span> <span class="n">input_tokens</span><span class="p">)</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output: &quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="c1"># Stream the output</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">while</span> <span class="ow">not</span> <span class="n">generator</span><span class="o">.</span><span class="n">is_done</span><span class="p">():</span>
-            <span class="n">generator</span><span class="o">.</span><span class="n">generate_next_token</span><span class="p">()</span>
-
-            <span class="n">new_token</span> <span class="o">=</span> <span class="n">generator</span><span class="o">.</span><span class="n">get_next_tokens</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="nb">print</span><span class="p">(</span><span class="n">tokenizer_stream</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">new_token</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  --control+c pressed, aborting generation--&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">()</span>
-    <span class="nb">print</span><span class="p">()</span>
-
-    <span class="k">del</span> <span class="n">generator</span>
-</pre></div>
-</div>
-</div>
-</div>
-<p>Run the code with:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>app.py
-</pre></div>
-</div>
 </section>
 </section>
 
@@ -634,7 +544,6 @@ Python</label><div class="sd-tab-content docutils">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#more-details-on-arguments">More details on arguments</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#inference-model-using-onnx-runtime">Inference model using ONNX Runtime</a></li>
 </ul>
   </nav></div>
 

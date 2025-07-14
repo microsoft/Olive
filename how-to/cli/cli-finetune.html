@@ -474,53 +474,6 @@ Local</label><div class="sd-tab-content docutils">
 </figcaption>
 </figure>
 </section>
-<section id="inference-model-using-onnx-runtime">
-<h3>Inference model using ONNX Runtime<a class="headerlink" href="#inference-model-using-onnx-runtime" title="Link to this heading">#</a></h3>
-<div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-1" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-1">
-Python</label><div class="sd-tab-content docutils">
-<p>Copy-and-paste the code below into a new Python file called <code class="docutils literal notranslate"><span class="pre">app.py</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime_genai</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">og</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;loading model and adapters...&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="s2">&quot;models/llama/onnx/model&quot;</span><span class="p">)</span>
-<span class="n">adapters</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Adapters</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-<span class="n">adapters</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;models/llama/onnx/model/adapter_weights.onnx_adapter&quot;</span><span class="p">,</span> <span class="s2">&quot;phrase_classifier&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;DONE!&quot;</span><span class="p">)</span>
-
-<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Tokenizer</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-<span class="n">tokenizer_stream</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">create_stream</span><span class="p">()</span>
-
-<span class="n">params</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">GeneratorParams</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-<span class="n">params</span><span class="o">.</span><span class="n">set_search_options</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">past_present_share_buffer</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
-<span class="n">generator</span> <span class="o">=</span> <span class="n">og</span><span class="o">.</span><span class="n">Generator</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
-<span class="n">generator</span><span class="o">.</span><span class="n">set_active_adapter</span><span class="p">(</span><span class="n">adapters</span><span class="p">,</span> <span class="s2">&quot;phrase_classifier&quot;</span><span class="p">)</span>
-
-<span class="n">user_input</span> <span class="o">=</span> <span class="s2">&quot;cricket is a wonderful sport&quot;</span>
-<span class="n">generator</span><span class="o">.</span><span class="n">append_tokens</span><span class="p">(</span>
-    <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;</span><span class="se">\n</span><span class="si">{</span><span class="n">user_input</span><span class="si">}</span><span class="s2">&lt;|eot_id|&gt;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">user_input</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-<span class="k">while</span> <span class="ow">not</span> <span class="n">generator</span><span class="o">.</span><span class="n">is_done</span><span class="p">():</span>
-    <span class="n">generator</span><span class="o">.</span><span class="n">generate_next_token</span><span class="p">()</span>
-
-    <span class="n">new_token</span> <span class="o">=</span> <span class="n">generator</span><span class="o">.</span><span class="n">get_next_tokens</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">tokenizer_stream</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">new_token</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Run the code with:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>app.py
-</pre></div>
-</div>
-</div>
-</div>
-</section>
 </section>
 </section>
 
@@ -573,7 +526,6 @@ Python</label><div class="sd-tab-content docutils">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quickstart"><svg aria-hidden="true" class="sd-octicon sd-octicon-zap" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"></path></svg> Quickstart</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-optimize-the-model-and-adapters"><svg aria-hidden="true" class="sd-octicon sd-octicon-dependabot" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M5.75 7.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Zm5.25.75a.75.75 0 0 0-1.5 0v1.5a.75.75 0 0 0 1.5 0v-1.5Z"></path><path d="M6.25 0h2A.75.75 0 0 1 9 .75V3.5h3.25a2.25 2.25 0 0 1 2.25 2.25V8h.75a.75.75 0 0 1 0 1.5h-.75v2.75a2.25 2.25 0 0 1-2.25 2.25h-8.5a2.25 2.25 0 0 1-2.25-2.25V9.5H.75a.75.75 0 0 1 0-1.5h.75V5.75A2.25 2.25 0 0 1 3.75 3.5H7.5v-2H6.25a.75.75 0 0 1 0-1.5ZM3 5.75v6.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-6.5a.75.75 0 0 0-.75-.75h-8.5a.75.75 0 0 0-.75.75Z"></path></svg> Auto-Optimize the model and adapters</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#inference-model-using-onnx-runtime">Inference model using ONNX Runtime</a></li>
 </ul>
 </li>
 </ul>
