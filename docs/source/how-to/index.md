@@ -25,6 +25,13 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 - [How to define `host` or `target` systems](configure-workflows/systems)
 - [How to configure Olive `engine`](configure-workflows/engine-configuration)
 
+# Extend Olive
+
+- [Olive design overview](extending/design)
+- [How to add a new Pass](extending/how-to-add-optimization-pass)
+- [How to add custom model evaluator](extending/custom-model-evalutor)
+- [How to add custom scripts to load datasets](extending/custom-scripts)
+
 <!-- Required by sphinx -->
 ```{toctree}
 :maxdepth: 2

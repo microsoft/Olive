@@ -9,7 +9,7 @@ olive run --config my_model_processing_description.json
 ```
 
 > **Note:**
-> If you prefer to run Olive workflows programmatically or want to access optimization results from Python, refer to the [Python Interface documentation](../../extending/python_interface.md) for details on using Olive from Python.
+> If you prefer to run Olive workflows programmatically or want to access optimization results from Python, refer to the [Python Interface documentation](../python_api.md) for details on using Olive from Python.
 
 
 ## Input Model
