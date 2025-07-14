@@ -165,9 +165,8 @@ class ModelOptimizer:
         o_model.topological_sort()  # Prerequisite for SymbolicShapeInference to succeed
 
         try:
-            s_model = TransformersOnnxModel(
-                SymbolicShapeInference.infer_shapes(o_model.model, auto_merge=True, guess_output_rank=True)
-            )
+            model_proto = SymbolicShapeInference.infer_shapes(o_model.model, auto_merge=True, guess_output_rank=True)
+            s_model = TransformersOnnxModel(model_proto) if model_proto is not None else o_model
         except Exception as e:
             logger.debug("Shape inference failed. Will try to continue without it. Error: %s", e)
             s_model = o_model
@@ -219,7 +218,8 @@ class ModelOptimizer:
             input_node_0 = o_producers.get(o_reshape_node.input[0])
 
             previous_is_reshape = input_node_0 and (input_node_0.op_type == "Reshape")
-            current_flattens = o_model.get_constant_value(o_reshape_node.input[1]) == expected_constant_value
+            current_value = o_model.get_constant_value(o_reshape_node.input[1])
+            current_flattens = np.array_equal(current_value, expected_constant_value)
             only_consumer = len(o_consumers[o_reshape_node.input[0]]) == 1
 
             if previous_is_reshape and current_flattens and only_consumer:
