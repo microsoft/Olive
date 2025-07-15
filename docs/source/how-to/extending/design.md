@@ -1,4 +1,4 @@
-# Design
+# Olive Design
 In this section, we discuss the core design concepts of Olive. Olive is composed of modular components
 that are composed to construct a model optimization workflow.
 

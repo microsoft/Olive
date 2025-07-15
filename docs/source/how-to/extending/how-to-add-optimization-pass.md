@@ -1,4 +1,4 @@
-# How to add new optimization Pass
+# How to Add a New Pass
 
 Olive provides simple interface to introduce new model optimization techniques. Each optimization technique is
 represented as a Pass in Olive.

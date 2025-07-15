@@ -1,4 +1,4 @@
-# How To Configure Model
+# How to Define Input Model for a New Workflow
 
 This document describes how to configure the different types of Models in Olive.
 

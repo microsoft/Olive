@@ -1,3 +1,5 @@
+# How Tos
+
 # Installation and Setup
 - [How to install Olive](installation)
 

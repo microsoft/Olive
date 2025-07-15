@@ -1,5 +1,4 @@
-# How To Configure Data
-
+# How to Setup Custom Dataset for Calibration and Evaluation
 Olive Data config organizes the data loading, preprocessing, batching and post processing into a single json config and defines several **popular templates** to serve Olive optimization.
 
 The configuration of Olive data config is positioned under Olive run config with the field of `data_configs`, which is a list of data config items.

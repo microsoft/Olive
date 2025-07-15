@@ -1,4 +1,4 @@
-# Auto Optimization
+# How To Use `auto-opt` Command
 
 The `olive auto-opt` command automatically optimizes a PyTorch/Hugging Face model into the ONNX format so that it runs with quality and efficiency on the ONNX Runtime.
 
