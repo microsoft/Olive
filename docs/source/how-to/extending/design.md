@@ -14,7 +14,7 @@ that meets some metric goals.
 
 The following diagram illustrates the relationship between the different components:
 
-```{figure} ../images/olive-design.png
+```{figure} ../../images/olive-design.png
 :width: 700px
 :align: center
 
