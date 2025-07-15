@@ -9,7 +9,13 @@ trigger:
   branches:
     include:
     - main
-pr: none
+pr:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - docs/*
 
 variables:
   runCodesignValidationInjection: false
@@ -28,6 +34,7 @@ stages:
 
   - stage: Publish_Docs
     dependsOn: [Build_Docs]
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     jobs:
     - job: PublishDocs
       displayName: Publish Docs
