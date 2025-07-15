@@ -1,6 +1,7 @@
 # Reference
 
 - [Olive Command Line Interface (CLI)](cli)
+- [Olive Python API](python_api)
 - [Olive Passes](pass)
 - [Olive Workflow Options](options)
 
@@ -12,4 +13,5 @@
 cli
 options
 pass
+python_api
 ```

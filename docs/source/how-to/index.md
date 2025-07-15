@@ -12,10 +12,6 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 - [How to use the `olive quantize` command to quantize your model with different precisions and techniques such as AWQ](cli/cli-quantize)
 - [How to use the `olive run` command to execute an Olive workflow.](cli/cli-run)
 
-# Olive Python API
-
-- [How to use the Python API to run Olive workflows programmatically](python_api)
-
 # Customize Workflow (aka Recipes)
 
 - [How to write a new workflow from scratch](configure-workflows/build-workflow)
@@ -44,7 +40,6 @@ cli/cli-auto-opt
 cli/cli-finetune
 cli/cli-quantize
 cli/cli-run
-python_api
 configure-workflows/build-workflow
 configure-workflows/how-to-configure-model
 configure-workflows/pass-configuration
