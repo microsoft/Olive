@@ -125,7 +125,7 @@ class Gptq(Pass):
         wrapper.model.config.use_cache = original_use_cache
 
         # save the quantized model
-        wrapper.save_model(output_model_path)
+        wrapper.model.save_pretrained(output_model_path)
         model.save_metadata(output_model_path)
 
         return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
