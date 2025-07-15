@@ -1464,12 +1464,821 @@ for more details on the optimizations done by this tool.</p>
 </div>
 </section>
 </section>
+<section id="removeqdq">
+<h3><code class="docutils literal notranslate"><span class="pre">RemoveQDQ</span></code><a class="headerlink" href="#removeqdq" title="Link to this heading">#</a></h3>
+<section id="id37">
+<h4>Description<a class="headerlink" href="#id37" title="Link to this heading">#</a></h4>
+<p>Remove QuantizeLinear and DequantizeLinear node pairs from the graph. Finds Q-&gt;DQ patterns and removes them, directly connecting their inputs/outputs. Optionally keeps Clip nodes after graph inputs for value range constraints.</p>
+</section>
+<section id="id38">
+<h4>Configurations<a class="headerlink" href="#id38" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">keep_clip_after_inputs</span></code>: Whether to keep Clip nodes after graph inputs (default: false).</p></li>
+</ul>
+</section>
+<section id="id39">
+<h4>Example<a class="headerlink" href="#id39" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;QuantizeLinear&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;scale&quot;</span><span class="p">,</span> <span class="s2">&quot;zero_point&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;quantized&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;DequantizeLinear&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;quantized&quot;</span><span class="p">,</span> <span class="s2">&quot;scale&quot;</span><span class="p">,</span> <span class="s2">&quot;zero_point&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;dequantized&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Conv&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;dequantized&quot;</span><span class="p">,</span> <span class="s2">&quot;weight&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveQDQ&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;keep_clip_after_inputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Conv&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;weight&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="qdqtoclip">
+<h3><code class="docutils literal notranslate"><span class="pre">QDQToClip</span></code><a class="headerlink" href="#qdqtoclip" title="Link to this heading">#</a></h3>
+<section id="id40">
+<h4>Description<a class="headerlink" href="#id40" title="Link to this heading">#</a></h4>
+<p>Replace QuantizeLinear-DequantizeLinear pairs with Clip operations. Converts Q-&gt;DQ patterns to Clip nodes with computed min/max values based on quantization scale and zero point, maintaining the same value constraints.</p>
+</section>
+<section id="id41">
+<h4>Example<a class="headerlink" href="#id41" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;QuantizeLinear&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="s2">&quot;scale&quot;</span><span class="p">,</span> <span class="s2">&quot;zero_point&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;quantized&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;DequantizeLinear&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;quantized&quot;</span><span class="p">,</span> <span class="s2">&quot;scale&quot;</span><span class="p">,</span> <span class="s2">&quot;zero_point&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;scale&quot;</span> <span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">)</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;zero_point&quot;</span> <span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">128</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QDQToClip&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Clip&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="s2">&quot;clip_min&quot;</span><span class="p">,</span> <span class="s2">&quot;clip_max&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;clip_min&quot;</span> <span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="o">-</span><span class="mf">12.8</span><span class="p">)</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;clip_max&quot;</span> <span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mf">12.7</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="matmultotransposeconvtranspose">
+<h3><code class="docutils literal notranslate"><span class="pre">MatMulToTransposeConvTranspose</span></code><a class="headerlink" href="#matmultotransposeconvtranspose" title="Link to this heading">#</a></h3>
+<section id="id42">
+<h4>Description<a class="headerlink" href="#id42" title="Link to this heading">#</a></h4>
+<p>Replace 2D Gemm/MatMul with Transpose and 1x1 Conv. When C==1, convert it to 1x1 Conv using TRANSPOSE + CONV + TRANSPOSE sequence for better DLA compatibility.</p>
+</section>
+<section id="id43">
+<h4>Example<a class="headerlink" href="#id43" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MatMulToTransposeConvTranspose&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="removeintermediarysqueezeandunsqueeze">
+<h3><code class="docutils literal notranslate"><span class="pre">RemoveIntermediarySqueezeAndUnsqueeze</span></code><a class="headerlink" href="#removeintermediarysqueezeandunsqueeze" title="Link to this heading">#</a></h3>
+<section id="id44">
+<h4>Description<a class="headerlink" href="#id44" title="Link to this heading">#</a></h4>
+<p>Remove all Unsqueeze and Squeeze operations that aren’t directly connected to model inputs. This optimization removes unnecessary dimension expansion operations in the middle of the graph.</p>
+</section>
+<section id="id45">
+<h4>Example<a class="headerlink" href="#id45" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveIntermediarySqueezeAndUnsqueeze&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="removedeqlin">
+<h3><code class="docutils literal notranslate"><span class="pre">RemoveDeqLin</span></code><a class="headerlink" href="#removedeqlin" title="Link to this heading">#</a></h3>
+<section id="id46">
+<h4>Description<a class="headerlink" href="#id46" title="Link to this heading">#</a></h4>
+<p>Remove DequantizeLinear nodes that operate on constant initializers. Dequantizes constant initializers at compile time and replaces DequantizeLinear nodes with the pre-computed float values, reducing runtime operations.</p>
+</section>
+<section id="id47">
+<h4>Example<a class="headerlink" href="#id47" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveDeqLin&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="non4dmodelinputs">
+<h3><code class="docutils literal notranslate"><span class="pre">Non4DModelInputs</span></code><a class="headerlink" href="#non4dmodelinputs" title="Link to this heading">#</a></h3>
+<section id="id48">
+<h4>Description<a class="headerlink" href="#id48" title="Link to this heading">#</a></h4>
+<p>Add Unsqueeze node to model inputs if input is 2D or 3D. Ensures all model inputs are 4D by adding Unsqueeze operations:</p>
+<ul class="simple">
+<li><p>2D inputs: adds dimensions at positions [0, -1]</p></li>
+<li><p>3D inputs: adds dimension at position <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html" title="ONNX Runtime Quantization">1</a></p></li>
+</ul>
+<p>Updates existing Unsqueeze nodes if present to maintain 4D output.</p>
+</section>
+<section id="id49">
+<h4>Example<a class="headerlink" href="#id49" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">]</span>  <span class="c1"># 2D input</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">32</span><span class="p">]</span>  <span class="c1"># 3D input</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Conv&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;weight1&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;conv1_out&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input2&quot;</span><span class="p">,</span> <span class="s2">&quot;bias&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_out&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Non4DModelInputs&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input1&quot;</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">]</span>  <span class="c1"># 2D input</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input2&quot;</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">32</span><span class="p">]</span>  <span class="c1"># 3D input</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Unsqueeze&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1&quot;</span><span class="p">,</span> <span class="s2">&quot;input1_unsqueeze_axes&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1_unsqueeze_input&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Unsqueeze&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input2&quot;</span><span class="p">,</span> <span class="s2">&quot;input2_unsqueeze_axes&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input2_unsqueeze_input&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Conv&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input1_unsqueeze_input&quot;</span><span class="p">,</span> <span class="s2">&quot;weight1&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;conv1_out&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Add&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input2_unsqueeze_input&quot;</span><span class="p">,</span> <span class="s2">&quot;bias&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;add_out&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;input1_unsqueeze_axes&quot;</span> <span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;input2_unsqueeze_axes&quot;</span> <span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="non4dmodeloutputs">
+<h3><code class="docutils literal notranslate"><span class="pre">Non4DModelOutputs</span></code><a class="headerlink" href="#non4dmodeloutputs" title="Link to this heading">#</a></h3>
+<section id="id50">
+<h4>Description<a class="headerlink" href="#id50" title="Link to this heading">#</a></h4>
+<p>Add Squeeze to non 4D model outputs. Ensures model outputs match expected dimensions by adding Squeeze operations:</p>
+<ul class="simple">
+<li><p>For 2D outputs: squeeze dimensions [0, 3] or [0, 1]</p></li>
+<li><p>For 3D outputs: squeeze dimension <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#dynamic-quantization" title="Dynamic Quantization">2</a></p></li>
+</ul>
+<p>Handles special case of Squeeze-&gt;Clip-&gt;Output pattern.</p>
+</section>
+<section id="id51">
+<h4>Example<a class="headerlink" href="#id51" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Non4DModelOutputs&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="standalonereducesum">
+<h3><code class="docutils literal notranslate"><span class="pre">StandaloneReduceSum</span></code><a class="headerlink" href="#standalonereducesum" title="Link to this heading">#</a></h3>
+<section id="id52">
+<h4>Description<a class="headerlink" href="#id52" title="Link to this heading">#</a></h4>
+<p>Modifies standalone ReduceSum operations (not already transformed) to:</p>
+<ul class="simple">
+<li><p>Set keepdims=1 to preserve dimensions</p></li>
+<li><p>Change reduction axis from <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html" title="ONNX Runtime Quantization">1</a> to <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#dynamic-quantization" title="Dynamic Quantization">2</a> for DLA compatibility</p></li>
+<li><p>Skip if axes is already [-1] (reduce last dimension)</p></li>
+</ul>
+</section>
+<section id="id53">
+<h4>Example<a class="headerlink" href="#id53" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;StandaloneReduceSum&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="gather">
+<h3><code class="docutils literal notranslate"><span class="pre">Gather</span></code><a class="headerlink" href="#gather" title="Link to this heading">#</a></h3>
+<section id="id54">
+<h4>Description<a class="headerlink" href="#id54" title="Link to this heading">#</a></h4>
+<p>Transforms Gather operations for DLA compatibility:</p>
+<ul class="simple">
+<li><p>Converts scalar indices to 1D vector format</p></li>
+<li><p>Updates axis attribute from 1 to 2 when needed</p></li>
+<li><p>Ensures indices are always in array format</p></li>
+</ul>
+</section>
+<section id="id55">
+<h4>Example<a class="headerlink" href="#id55" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Gather&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="gatherelements">
+<h3><code class="docutils literal notranslate"><span class="pre">GatherElements</span></code><a class="headerlink" href="#gatherelements" title="Link to this heading">#</a></h3>
+<section id="id56">
+<h4>Description<a class="headerlink" href="#id56" title="Link to this heading">#</a></h4>
+<p>Transforms GatherElements operations for DLA compatibility:</p>
+<ul class="simple">
+<li><p>Converts scalar indices to 1D vector format</p></li>
+<li><p>Reshapes 3D indices to 4D by adding dimension at front</p></li>
+<li><p>Ensures indices match expected tensor format</p></li>
+</ul>
+</section>
+<section id="id57">
+<h4>Example<a class="headerlink" href="#id57" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GatherElements&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="non4dinitializers">
+<h3><code class="docutils literal notranslate"><span class="pre">Non4DInitializers</span></code><a class="headerlink" href="#non4dinitializers" title="Link to this heading">#</a></h3>
+<section id="id58">
+<h4>Description<a class="headerlink" href="#id58" title="Link to this heading">#</a></h4>
+<p>Expand non-4D initializers to 4D format for DLA compatibility:</p>
+<ul class="simple">
+<li><p>1D [K] → [1×1×1×K] for Div/Sub/Mul operations</p></li>
+<li><p>2D [C×K] → [K×C×1×1] (transpose and reshape) for most operations</p></li>
+<li><p>2D [K,C] → [1,1,K,C] for Gemm operations</p></li>
+<li><p>3D → 4D by adding dimension at front</p></li>
+</ul>
+<p>Skips MatMul inputs and only expands initializers used by specific operations.</p>
+</section>
+<section id="id59">
+<h4>Example<a class="headerlink" href="#id59" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Mul&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="s2">&quot;scale&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;scaled&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Conv&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;scaled&quot;</span><span class="p">,</span> <span class="s2">&quot;weight&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;scale&quot;</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">64</span><span class="p">]</span>  <span class="c1"># 1D</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;weight&quot;</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">]</span>  <span class="c1"># 2D</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Non4DInitializers&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Mul&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="s2">&quot;scale&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;scaled&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Conv&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;scaled&quot;</span><span class="p">,</span> <span class="s2">&quot;weight&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;scale&quot;</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">]</span>  <span class="c1"># 1D -&gt; 4D</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;weight&quot;</span> <span class="n">shape</span><span class="p">:</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>  <span class="c1"># 2D -&gt; 4D (transposed)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="removealltensorvalueshapes">
+<h3><code class="docutils literal notranslate"><span class="pre">RemoveAllTensorValueShapes</span></code><a class="headerlink" href="#removealltensorvalueshapes" title="Link to this heading">#</a></h3>
+<section id="id60">
+<h4>Description<a class="headerlink" href="#id60" title="Link to this heading">#</a></h4>
+<p>Remove all tensor shape information from value_info. Clears shape fields from all value_info entries in the graph, useful for models where shape inference is not needed or causes issues.</p>
+</section>
+<section id="id61">
+<h4>Example<a class="headerlink" href="#id61" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveAllTensorValueShapes&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="non4dreshape">
+<h3><code class="docutils literal notranslate"><span class="pre">Non4DReshape</span></code><a class="headerlink" href="#non4dreshape" title="Link to this heading">#</a></h3>
+<section id="id62">
+<h4>Description<a class="headerlink" href="#id62" title="Link to this heading">#</a></h4>
+<p>Convert 3D Reshape operations to 4D for DLA compatibility. Updates Reshape nodes with 3D target shapes to 4D by inserting 1 at the appropriate position (e.g., [-1, 512, 768] -&gt; [1, -1, 512, 768]).</p>
+</section>
+<section id="id63">
+<h4>Example<a class="headerlink" href="#id63" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Non4DReshape&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="non4dexpand">
+<h3><code class="docutils literal notranslate"><span class="pre">Non4DExpand</span></code><a class="headerlink" href="#non4dexpand" title="Link to this heading">#</a></h3>
+<section id="id64">
+<h4>Description<a class="headerlink" href="#id64" title="Link to this heading">#</a></h4>
+<p>Convert 3D Expand operations to 4D for DLA compatibility. Updates Expand nodes with 3D shapes to 4D by inserting 1 at dimension 0 (e.g., [2, 3, 4] -&gt; [1, 2, 3, 4]).</p>
+</section>
+<section id="id65">
+<h4>Example<a class="headerlink" href="#id65" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Non4DExpand&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="non4dtranspose">
+<h3><code class="docutils literal notranslate"><span class="pre">Non4DTranspose</span></code><a class="headerlink" href="#non4dtranspose" title="Link to this heading">#</a></h3>
+<section id="id66">
+<h4>Description<a class="headerlink" href="#id66" title="Link to this heading">#</a></h4>
+<p>Update Transpose permutation attributes for non-4D tensors. Adjusts perm attribute of Transpose nodes to handle 4D tensors:</p>
+<ul class="simple">
+<li><p>2D: [T0, T1] -&gt; [0, 1, T0 + 2, T1 + 2]</p></li>
+<li><p>3D: [T0, T1, T2] -&gt; [0, T0 + 1, T1 + 1, T2 + 1]</p></li>
+</ul>
+<p>Ensures transpose operations work correctly when tensors are expanded to 4D.</p>
+</section>
+<section id="id67">
+<h4>Example<a class="headerlink" href="#id67" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Non4DTranspose&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="non4dslice">
+<h3><code class="docutils literal notranslate"><span class="pre">Non4DSlice</span></code><a class="headerlink" href="#non4dslice" title="Link to this heading">#</a></h3>
+<section id="id68">
+<h4>Description<a class="headerlink" href="#id68" title="Link to this heading">#</a></h4>
+<p>Transform Slice axes of non4D tensors. Updates Slice operations to work with 4D tensors:</p>
+<ul class="simple">
+<li><p>Changes axes from specific dimensions to [-1] (last dimension)</p></li>
+<li><p>Only processes nodes not already transformed</p></li>
+<li><p>Ensures slicing operations remain valid after tensor expansion</p></li>
+</ul>
+</section>
+<section id="id69">
+<h4>Example<a class="headerlink" href="#id69" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Non4DSlice&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="non4dlpnorm">
+<h3><code class="docutils literal notranslate"><span class="pre">Non4DLpNorm</span></code><a class="headerlink" href="#non4dlpnorm" title="Link to this heading">#</a></h3>
+<section id="id70">
+<h4>Description<a class="headerlink" href="#id70" title="Link to this heading">#</a></h4>
+<p>Transform LpNormalization axes of non4D tensors. Updates LpNormalization operations for 4D tensor compatibility:</p>
+<ul class="simple">
+<li><p>Changes axis attribute to -1 (last dimension)</p></li>
+<li><p>Ensures normalization occurs along the correct dimension after tensor expansion to 4D</p></li>
+</ul>
+</section>
+<section id="id71">
+<h4>Example<a class="headerlink" href="#id71" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Non4DLpNorm&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="flatten">
+<h3><code class="docutils literal notranslate"><span class="pre">Flatten</span></code><a class="headerlink" href="#flatten" title="Link to this heading">#</a></h3>
+<section id="id72">
+<h4>Description<a class="headerlink" href="#id72" title="Link to this heading">#</a></h4>
+<p>Replace Flatten operations with Reshape operations using shape [1, 1, 1, -1]. This maintains compatibility with DLA which may not support Flatten directly, while preserving the flattening behavior.</p>
+</section>
+<section id="id73">
+<h4>Example<a class="headerlink" href="#id73" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Flatten&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;flattened&quot;</span><span class="p">]</span>
+    <span class="n">axis</span><span class="p">:</span> <span class="mi">1</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Flatten&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Reshape&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="s2">&quot;reshape_axes&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;flattened&quot;</span><span class="p">]</span>
+    <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;flatten_reshape&quot;</span>
+  <span class="p">}</span>
+  <span class="n">initializer</span><span class="p">:</span> <span class="s2">&quot;reshape_axes&quot;</span> <span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="addintermediatetensorstooutputs">
+<h3><code class="docutils literal notranslate"><span class="pre">AddIntermediateTensorsToOutputs</span></code><a class="headerlink" href="#addintermediatetensorstooutputs" title="Link to this heading">#</a></h3>
+<section id="id74">
+<h4>Description<a class="headerlink" href="#id74" title="Link to this heading">#</a></h4>
+<p>Debug function to add intermediate tensors to outputs. Exposes intermediate tensor values as model outputs for debugging:</p>
+<ul class="simple">
+<li><p>Can specify specific tensors to add via intermediate_tensor_to_add list</p></li>
+<li><p>If not specified, adds all intermediate tensors from node outputs</p></li>
+<li><p>Useful for inspecting values at different stages of the graph</p></li>
+</ul>
+</section>
+<section id="id75">
+<h4>Configurations<a class="headerlink" href="#id75" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">intermediate_tensor_to_add</span></code>: List of intermediate tensor names to expose as outputs.</p></li>
+</ul>
+</section>
+<section id="id76">
+<h4>Example<a class="headerlink" href="#id76" title="Link to this heading">#</a></h4>
+<p>Initial model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Conv&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="s2">&quot;weight&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;conv1_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Relu&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;conv1_output&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relu1_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Conv&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relu1_output&quot;</span><span class="p">,</span> <span class="s2">&quot;weight2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;final_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;final_output&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AddIntermediateTensorsToOutputs&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;intermediate_tensor_to_add&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;conv1_output&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;relu1_output&quot;</span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed model graph:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span> <span class="p">{</span>
+  <span class="nb">input</span><span class="p">:</span> <span class="s2">&quot;input&quot;</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Conv&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="s2">&quot;weight&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;conv1_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Relu&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;conv1_output&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relu1_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">node</span> <span class="p">{</span>
+    <span class="n">op_type</span><span class="p">:</span> <span class="s2">&quot;Conv&quot;</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;relu1_output&quot;</span><span class="p">,</span> <span class="s2">&quot;weight2&quot;</span><span class="p">]</span>
+    <span class="n">output</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;final_output&quot;</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;final_output&quot;</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;conv1_output&quot;</span>    <span class="c1"># Added for debugging</span>
+  <span class="n">output</span><span class="p">:</span> <span class="s2">&quot;relu1_output&quot;</span>     <span class="c1"># Added for debugging</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="reshapereducesum">
+<h3><code class="docutils literal notranslate"><span class="pre">ReshapeReduceSum</span></code><a class="headerlink" href="#reshapereducesum" title="Link to this heading">#</a></h3>
+<section id="id77">
+<h4>Description<a class="headerlink" href="#id77" title="Link to this heading">#</a></h4>
+<p>Transform Reshape-ReduceSum pattern to parallel Slice-ReduceSum-Concat for DLA. Splits a Reshape-ReduceSum operation into parallel paths to improve DLA performance:</p>
+<ul class="simple">
+<li><p>Replaces single Reshape-ReduceSum with two parallel Slice operations</p></li>
+<li><p>Each slice processes part of the data with ReduceSum</p></li>
+<li><p>Results are concatenated to produce the same output</p></li>
+<li><p>Enables better parallelization on DLA hardware</p></li>
+</ul>
+</section>
+<section id="id78">
+<h4>Example<a class="headerlink" href="#id78" title="Link to this heading">#</a></h4>
+<p>Initial pattern:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">x</span><span class="p">,</span> <span class="n">shape</span>
+        <span class="o">|</span>
+    <span class="n">Reshape</span> <span class="n">axes</span>
+        <span class="o">|</span>   <span class="o">/</span>
+    <span class="n">ReduceSum</span>
+        <span class="o">|</span>
+    <span class="n">reducesum_output</span>
+</pre></div>
+</div>
+<p>after applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ReshapeReduceSum&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed pattern:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>        <span class="n">x</span>
+    <span class="o">/</span>        \
+    <span class="n">Slice</span>      <span class="n">Slice</span>
+    <span class="o">|</span>           <span class="o">|</span>
+    <span class="n">ReduceSum</span>   <span class="n">ReduceSum</span>
+        \       <span class="o">/</span>
+        <span class="n">Concat</span>
+        <span class="o">|</span>
+    <span class="n">reducesum_output</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="reshapeclipreducesum">
+<h3><code class="docutils literal notranslate"><span class="pre">ReshapeClipReduceSum</span></code><a class="headerlink" href="#reshapeclipreducesum" title="Link to this heading">#</a></h3>
+<section id="id79">
+<h4>Description<a class="headerlink" href="#id79" title="Link to this heading">#</a></h4>
+<p>Transform Reshape-Clip-ReduceSum pattern to parallel paths for DLA optimization. Similar to ReshapeReduceSum but includes Clip operation:</p>
+<ul class="simple">
+<li><p>Splits Reshape-Clip-ReduceSum into two parallel processing paths</p></li>
+<li><p>Each path: Slice -&gt; Clip -&gt; ReduceSum</p></li>
+<li><p>Maintains numerical equivalence while improving DLA parallelization</p></li>
+<li><p>Useful for quantized models where Clip enforces value ranges</p></li>
+</ul>
+</section>
+<section id="id80">
+<h4>Example<a class="headerlink" href="#id80" title="Link to this heading">#</a></h4>
+<p>Initial pattern:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>        <span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="o">|</span>
+    <span class="n">Reshape</span>
+        <span class="o">|</span>
+    <span class="n">Clip</span>
+        <span class="o">|</span>
+    <span class="n">ReduceSum</span>
+        <span class="o">|</span>
+    <span class="p">(</span><span class="n">reducesum_output</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>after applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ReshapeClipReduceSum&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed pattern:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>        <span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="o">/</span>        \
+    <span class="n">Slice</span>      <span class="n">Slice</span>
+    <span class="o">|</span>           <span class="o">|</span>
+    <span class="n">Clip</span>        <span class="n">Clip</span>
+    <span class="o">|</span>           <span class="o">|</span>
+    <span class="n">ReduceSum</span>   <span class="n">ReduceSum</span>
+        \\       <span class="o">/</span>
+        <span class="n">Concat</span>
+        <span class="o">|</span>
+    <span class="p">(</span><span class="n">reducesum_output</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="reducemax">
+<h3><code class="docutils literal notranslate"><span class="pre">ReduceMax</span></code><a class="headerlink" href="#reducemax" title="Link to this heading">#</a></h3>
+<section id="id81">
+<h4>Description<a class="headerlink" href="#id81" title="Link to this heading">#</a></h4>
+<p>Add Reshape after ReduceMax operations for DLA compatibility. Modifies ReduceMax operations to ensure output shape compatibility:</p>
+<ul class="simple">
+<li><p>Adds a Reshape node after ReduceMax with shape [1,1,1,3600]</p></li>
+<li><p>Updates axes to <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#static-quantization" title="Static Quantization">3</a> and keepdims to 1</p></li>
+<li><p>Ensures ReduceMax output has the expected 4D shape for DLA</p></li>
+<li><p>Hardcoded output shape may need adjustment for different models</p></li>
+</ul>
+</section>
+<section id="id82">
+<h4>Example<a class="headerlink" href="#id82" title="Link to this heading">#</a></h4>
+<p>Initial pattern:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">data</span>   <span class="n">axes</span>   <span class="n">keepdims</span>
+        <span class="o">|</span>   <span class="o">/</span>     <span class="o">/</span>
+    <span class="n">ReduceMax</span>
+        <span class="o">|</span>
+    <span class="n">reducemax_output</span>
+</pre></div>
+</div>
+<p>after applying:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ReduceMax&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Transformed pattern:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">data</span>   <span class="n">axes</span>   <span class="n">keepdims</span>
+        <span class="o">|</span>   <span class="o">/</span>     <span class="o">/</span>
+    <span class="n">ReduceMax</span>
+        <span class="o">|</span>    <span class="n">reshape_shape</span>
+        <span class="o">|</span>   <span class="o">/</span>
+    <span class="n">Reshape</span>
+        <span class="o">|</span>
+    <span class="n">reducemax_output</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 <section id="append-pre-post-processing-ops">
 <h2>Append Pre/Post Processing Ops<a class="headerlink" href="#append-pre-post-processing-ops" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">AppendPrePostProcessingOps</span></code> inserts pre and post processing ops into the ONNX graph.</p>
-<section id="id37">
-<h3>Example Configuration<a class="headerlink" href="#id37" title="Link to this heading">#</a></h3>
+<section id="id83">
+<h3>Example Configuration<a class="headerlink" href="#id83" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;superresolution&quot;</span><span class="p">,</span>
@@ -1588,8 +2397,8 @@ environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
 <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
-<section id="id38">
-<h3>Example Configuration<a class="headerlink" href="#id38" title="Link to this heading">#</a></h3>
+<section id="id84">
+<h3>Example Configuration<a class="headerlink" href="#id84" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtSessionParamsTuning&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;session_params_tuning_data_config&quot;</span><span class="p">,</span>
@@ -1756,14 +2565,126 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id36">Example</a></li>
 </ul>
 </li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeqdq"><code class="docutils literal notranslate"><span class="pre">RemoveQDQ</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id37">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id38">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id39">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#qdqtoclip"><code class="docutils literal notranslate"><span class="pre">QDQToClip</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id40">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id41">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#matmultotransposeconvtranspose"><code class="docutils literal notranslate"><span class="pre">MatMulToTransposeConvTranspose</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id42">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id43">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removeintermediarysqueezeandunsqueeze"><code class="docutils literal notranslate"><span class="pre">RemoveIntermediarySqueezeAndUnsqueeze</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id44">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id45">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removedeqlin"><code class="docutils literal notranslate"><span class="pre">RemoveDeqLin</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id46">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id47">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dmodelinputs"><code class="docutils literal notranslate"><span class="pre">Non4DModelInputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id48">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id49">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dmodeloutputs"><code class="docutils literal notranslate"><span class="pre">Non4DModelOutputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id50">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id51">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#standalonereducesum"><code class="docutils literal notranslate"><span class="pre">StandaloneReduceSum</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id52">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id53">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gather"><code class="docutils literal notranslate"><span class="pre">Gather</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id54">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id55">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gatherelements"><code class="docutils literal notranslate"><span class="pre">GatherElements</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id56">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id57">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dinitializers"><code class="docutils literal notranslate"><span class="pre">Non4DInitializers</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id58">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id59">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removealltensorvalueshapes"><code class="docutils literal notranslate"><span class="pre">RemoveAllTensorValueShapes</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id60">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id61">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dreshape"><code class="docutils literal notranslate"><span class="pre">Non4DReshape</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id62">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id63">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dexpand"><code class="docutils literal notranslate"><span class="pre">Non4DExpand</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id64">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id65">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dtranspose"><code class="docutils literal notranslate"><span class="pre">Non4DTranspose</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id66">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id67">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dslice"><code class="docutils literal notranslate"><span class="pre">Non4DSlice</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id68">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id69">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#non4dlpnorm"><code class="docutils literal notranslate"><span class="pre">Non4DLpNorm</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id70">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id71">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#flatten"><code class="docutils literal notranslate"><span class="pre">Flatten</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id72">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id73">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#addintermediatetensorstooutputs"><code class="docutils literal notranslate"><span class="pre">AddIntermediateTensorsToOutputs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id74">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id75">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id76">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reshapereducesum"><code class="docutils literal notranslate"><span class="pre">ReshapeReduceSum</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id77">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id78">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reshapeclipreducesum"><code class="docutils literal notranslate"><span class="pre">ReshapeClipReduceSum</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id79">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id80">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reducemax"><code class="docutils literal notranslate"><span class="pre">ReduceMax</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id81">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id82">Example</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#append-pre-post-processing-ops">Append Pre/Post Processing Ops</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id37">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id83">Example Configuration</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ort-performance-tuning">ORT Performance Tuning</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id38">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id84">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
