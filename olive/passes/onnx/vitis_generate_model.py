@@ -5,7 +5,7 @@ from model_generate import generate_npu_model
 from pathlib import Path
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model.utils import resolve_onnx_path
-from olive.model.utils import model_proto_to_olive_model
+from olive.passes.onnx.common import model_proto_to_olive_model
 import onnx
 
 

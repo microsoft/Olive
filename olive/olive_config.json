@@ -626,6 +626,15 @@
             "supported_precisions": [ "int8" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [ "qop" ]
+        }, 
+        "VitisGenerateModel": {
+            "module_path": "olive.passes.onnx.vitis_generate_model.VitisGenerateModel",  
+            "supported_providers": ["CPUExecutionProvider"],  
+            "supported_accelerators": ["cpu"],
+            "supported_precisions": ["int8"],
+            "supported_algorithms": [],
+            "supported_quantization_encodings": [],
+            "run_on_target": true
         }
     },
     "extra_dependencies": {
