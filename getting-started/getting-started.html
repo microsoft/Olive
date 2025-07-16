@@ -60,7 +60,7 @@
         </script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="How-to" href="../how-to/index.html" />
+    <link rel="next" title="How Tos" href="../how-to/index.html" />
     <link rel="prev" title="Overview" href="../why-olive.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -156,7 +156,7 @@
 
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../how-to/index.html">
-    How-to
+    How Tos
   </a>
 </li>
 
@@ -185,13 +185,6 @@
 <li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
     Reference
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../extending/index.html">
-    Extending Olive
   </a>
 </li>
 
@@ -299,7 +292,7 @@
 
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../how-to/index.html">
-    How-to
+    How Tos
   </a>
 </li>
 
@@ -321,13 +314,6 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../reference/index.html">
     Reference
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../extending/index.html">
-    Extending Olive
   </a>
 </li>
 
@@ -453,17 +439,6 @@ pip<span class="w"> </span>install<span class="w"> </span>transformers
 <p>For more details on installing Olive from source and other installation options available, <a class="reference internal" href="../how-to/installation.html"><span class="std std-doc">read the installation guide</span></a>.</p>
 </div>
 </section>
-<section id="log-in-to-hugging-face">
-<h2>Log-in to Hugging Face<a class="headerlink" href="#log-in-to-hugging-face" title="Link to this heading">#</a></h2>
-<p>The Olive automatic optimization command (<code class="docutils literal notranslate"><span class="pre">auto-opt</span></code>) can pull models from Hugging Face, Local disk, or the Azure AI Model Catalog. In this getting started guide, you’ll be optimizing <a class="reference external" href="https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main">Llama-3.2-1B-Instruct from Hugging Face</a>. Llama 3.2 is a gated model and therefore you’ll need to be signed into Hugging-Face to get access.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>login<span class="w"> </span>--token<span class="w"> </span><span class="o">{</span>TOKEN<span class="o">}</span>
-</pre></div>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Follow the <a class="reference external" href="https://huggingface.co/docs/hub/security-tokens">Hugging Face documentation for setting up User Access Tokens</a></p>
-</div>
-</section>
 <section id="automatic-model-optimization-with-olive">
 <h2><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-dependabot" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.75 7.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Zm5.25.75a.75.75 0 0 0-1.5 0v1.5a.75.75 0 0 0 1.5 0v-1.5Z"></path><path d="M6.25 0h2A.75.75 0 0 1 9 .75V3.5h3.25a2.25 2.25 0 0 1 2.25 2.25V8h.75a.75.75 0 0 1 0 1.5h-.75v2.75a2.25 2.25 0 0 1-2.25 2.25h-8.5a2.25 2.25 0 0 1-2.25-2.25V9.5H.75a.75.75 0 0 1 0-1.5h.75V5.75A2.25 2.25 0 0 1 3.75 3.5H7.5v-2H6.25a.75.75 0 0 1 0-1.5ZM3 5.75v6.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-6.5a.75.75 0 0 0-.75-.75h-8.5a.75.75 0 0 0-.75.75Z"></path></svg> Automatic model optimization with Olive<a class="headerlink" href="#automatic-model-optimization-with-olive" title="Link to this heading">#</a></h2>
 <p>Once you have installed Olive, next you’ll run the <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (<code class="docutils literal notranslate"><span class="pre">int4</span></code>), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).</p>
@@ -514,7 +489,7 @@ pip<span class="w"> </span>install<span class="w"> </span>transformers
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">How-to</p>
+        <p class="prev-next-title">How Tos</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -539,7 +514,6 @@ pip<span class="w"> </span>install<span class="w"> </span>transformers
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#notebook-available">Notebook available!</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-with-pip"><span class="fab fa-python"></span> Install with pip</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#log-in-to-hugging-face">Log-in to Hugging Face</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#automatic-model-optimization-with-olive"><svg aria-hidden="true" class="sd-octicon sd-octicon-dependabot" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M5.75 7.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Zm5.25.75a.75.75 0 0 0-1.5 0v1.5a.75.75 0 0 0 1.5 0v-1.5Z"></path><path d="M6.25 0h2A.75.75 0 0 1 9 .75V3.5h3.25a2.25 2.25 0 0 1 2.25 2.25V8h.75a.75.75 0 0 1 0 1.5h-.75v2.75a2.25 2.25 0 0 1-2.25 2.25h-8.5a2.25 2.25 0 0 1-2.25-2.25V9.5H.75a.75.75 0 0 1 0-1.5h.75V5.75A2.25 2.25 0 0 1 3.75 3.5H7.5v-2H6.25a.75.75 0 0 1 0-1.5ZM3 5.75v6.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-6.5a.75.75 0 0 0-.75-.75h-8.5a.75.75 0 0 0-.75.75Z"></path></svg> Automatic model optimization with Olive</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#more-details-on-arguments">More details on arguments</a></li>
 </ul>

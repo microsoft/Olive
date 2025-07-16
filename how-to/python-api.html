@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Extending Olive &#8212; Olive latest documentation</title>
+    <title>How to Use Python Interface &#8212; Olive latest documentation</title>
   
   
   
@@ -50,7 +50,7 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'extending/index';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/python-api';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
@@ -60,8 +60,8 @@
         </script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Design" href="design.html" />
-    <link rel="prev" title="Passes" href="../reference/pass.html" />
+    <link rel="next" title="How To Write New Olive workflow" href="configure-workflows/build-workflow.html" />
+    <link rel="prev" title="How To Run Olive Workflows" href="cli/cli-run.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="latest" />
@@ -154,9 +154,9 @@
 </li>
 
 
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../how-to/index.html">
-    How-to
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    How Tos
   </a>
 </li>
 
@@ -185,13 +185,6 @@
 <li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
     Reference
-  </a>
-</li>
-
-
-<li class=" current active">
-  <a class="nav-link dropdown-item nav-internal" href="#">
-    Extending Olive
   </a>
 </li>
 
@@ -253,6 +246,10 @@
   
 
   
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
 </div>
 
     </header>
@@ -293,9 +290,9 @@
 </li>
 
 
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../how-to/index.html">
-    How-to
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    How Tos
   </a>
 </li>
 
@@ -317,13 +314,6 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../reference/index.html">
     Reference
-  </a>
-</li>
-
-
-<li class="nav-item current active">
-  <a class="nav-link nav-internal" href="#">
-    Extending Olive
   </a>
 </li>
 
@@ -396,7 +386,10 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Extending Olive</span></li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">How Tos</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How to Use Python Interface</span></li>
   </ul>
 </nav>
 </div>
@@ -413,53 +406,53 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="extending-olive">
-<h1>Extending Olive<a class="headerlink" href="#extending-olive" title="Link to this heading">#</a></h1>
-<div class="sd-container-fluid sd-sphinx-override sd-mb-4 cards docutils">
-<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-3 docutils">
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<div class="sd-card-title sd-font-weight-bold docutils">
-<strong>Design</strong></div>
-<p class="sd-card-text">Learn about the design and architecture of Olive.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="design.html">Design</a></p>
+  <section id="how-to-use-python-interface">
+<h1>How to Use Python Interface<a class="headerlink" href="#how-to-use-python-interface" title="Link to this heading">#</a></h1>
+<p>Olive provides Python API to transform models. See <a class="reference internal" href="../reference/python_api.html"><span class="std std-doc">Python API Reference</span></a> for list of supported APIs.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">run</span><span class="p">,</span> <span class="n">WorkflowOutput</span>
+
+<span class="n">workflow_output</span><span class="p">:</span> <span class="n">WorkflowOutput</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="s2">&quot;config.json&quot;</span><span class="p">)</span>
+
+<span class="c1"># Check if optimization produced any results</span>
+<span class="k">if</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">has_output_model</span><span class="p">():</span>
+    <span class="c1"># Get the best model overall</span>
+    <span class="n">best_model</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_best_candidate</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model path: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">model_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model type: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">model_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Device: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">from_device</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Execution provider: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">from_execution_provider</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metrics: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">metrics_value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Get the best model for CPU</span>
+    <span class="n">best_cpu_model</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_best_candidate_by_device</span><span class="p">(</span><span class="s2">&quot;CPU&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Get all models for GPU</span>
+    <span class="n">gpu_models</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_output_models_by_device</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+</pre></div>
 </div>
+<section id="accessing-metrics-and-configuration">
+<h2>Accessing Metrics and Configuration<a class="headerlink" href="#accessing-metrics-and-configuration" title="Link to this heading">#</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Access metrics for input model</span>
+<span class="n">input_metrics</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_input_model_metrics</span><span class="p">()</span>
+
+<span class="c1"># Get all available devices</span>
+<span class="n">devices</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_available_devices</span><span class="p">()</span>
+
+<span class="c1"># Get model list from specific device and execution provider</span>
+<span class="n">output_models</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">CPU</span><span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
+</pre></div>
 </div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<div class="sd-card-title sd-font-weight-bold docutils">
-<strong>Adding new Passes</strong></div>
-<p class="sd-card-text">Learn how to extend Olive by adding your own model optimization techniques as a workflow pass.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="how-to-add-optimization-pass.html">Add new pass</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<p class="sd-card-text"><strong>How to add custom model evaluator</strong></p>
-<p class="sd-card-text">Learn how to add custom model evaluator.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="custom-model-evaluator.html">Add custom model evaluator</a></p>
-</div>
-</div>
-</div>
-<div class="sd-col sd-d-flex-row docutils">
-<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
-<div class="sd-card-body docutils">
-<div class="sd-card-title sd-font-weight-bold docutils">
-<strong>Custom Scripts</strong></div>
-<p class="sd-card-text">Learn how to extend Olive by adding your own custom scripts for specific tasks like loading datasets.</p>
-<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right sd-text-info" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference external" href="custom-scripts.html">Custom scripts</a></p>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="toctree-wrapper compound">
-</div>
+</section>
+</section>
+<section id="practical-tips">
+<h1>Practical Tips<a class="headerlink" href="#practical-tips" title="Link to this heading">#</a></h1>
+<ul class="simple">
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">get_best_candidate()</span></code> to quickly obtain the model with the best metrics across all devices</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">get_output_models()</span></code> to get a list of all optimized models sorted by metrics</p></li>
+<li><p>Access device-specific outputs using the device value as a key or attribute: <code class="docutils literal notranslate"><span class="pre">workflow_output[&quot;cpu&quot;]</span></code> or <code class="docutils literal notranslate"><span class="pre">workflow_output.cpu</span></code>. Device keys are case insensitive.</p></li>
+<li><p>Always verify the existence of specific devices or execution providers before accessing them, since the output model might be empty if a pass run has failed.</p></li>
+<li><p>Compare the input model metrics with optimized model metrics to quantify improvements</p></li>
+</ul>
 </section>
 
 
@@ -473,20 +466,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../reference/pass.html"
+       href="cli/cli-run.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Passes</p>
+        <p class="prev-next-title">How To Run Olive Workflows</p>
       </div>
     </a>
     <a class="right-next"
-       href="design.html"
+       href="configure-workflows/build-workflow.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Design</p>
+        <p class="prev-next-title">How To Write New Olive workflow</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -496,6 +489,29 @@
             </div>
             
             
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">How to Use Python Interface</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#accessing-metrics-and-configuration">Accessing Metrics and Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#practical-tips">Practical Tips</a></li>
+</ul>
+
+  </nav></div>
+
+</div></div>
               
             
           </div>

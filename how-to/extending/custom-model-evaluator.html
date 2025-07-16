@@ -2,13 +2,13 @@
 <!DOCTYPE html>
 
 
-<html lang="en" data-content_root="../" >
+<html lang="en" data-content_root="../../" >
 
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>How to extend Olive to add custom model evaluator &#8212; Olive latest documentation</title>
+    <title>How to Add Custom Model Evaluator &#8212; Olive latest documentation</title>
   
   
   
@@ -27,30 +27,30 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
-    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
-    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
   
   <!-- So that users can add custom icons -->
-  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/jquery.js?v=5d32c60e"></script>
-    <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-    <script src="../_static/documentation_options.js?v=c6e86fd7"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
-    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
-    <script src="../_static/copybutton.js?v=f281be69"></script>
-    <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'extending/custom-model-evaluator';</script>
+    <script src="../../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../../_static/documentation_options.js?v=c6e86fd7"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/extending/custom-model-evaluator';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
@@ -58,10 +58,10 @@
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             true;
         </script>
-    <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Custom Scripts" href="custom-scripts.html" />
-    <link rel="prev" title="How to add new optimization Pass" href="how-to-add-optimization-pass.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="How to Add Custom Scripts to Load Datasets" href="custom-scripts.html" />
+    <link rel="prev" title="How to Add a New Pass" href="how-to-add-optimization-pass.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="latest" />
@@ -83,7 +83,7 @@
   <dialog id="pst-search-dialog">
     
 <form class="bd-search d-flex align-items-center"
-      action="../search.html"
+      action="../../search.html"
       method="get">
   <i class="fa-solid fa-magnifying-glass"></i>
   <input type="search"
@@ -119,7 +119,7 @@
     
   
 
-<a class="navbar-brand logo" href="../index.html">
+<a class="navbar-brand logo" href="../../index.html">
   
   
   
@@ -141,28 +141,28 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../why-olive.html">
+  <a class="nav-link nav-internal" href="../../why-olive.html">
     Overview
   </a>
 </li>
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+  <a class="nav-link nav-internal" href="../../getting-started/getting-started.html">
     Getting started
   </a>
 </li>
 
 
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../how-to/index.html">
-    How-to
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    How Tos
   </a>
 </li>
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../examples.html">
+  <a class="nav-link nav-internal" href="../../examples.html">
     Examples
   </a>
 </li>
@@ -176,22 +176,15 @@
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
 <li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../features/index.html">
+  <a class="nav-link dropdown-item nav-internal" href="../../features/index.html">
     Features
   </a>
 </li>
 
 
 <li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
+  <a class="nav-link dropdown-item nav-internal" href="../../reference/index.html">
     Reference
-  </a>
-</li>
-
-
-<li class=" current active">
-  <a class="nav-link dropdown-item nav-internal" href="index.html">
-    Extending Olive
   </a>
 </li>
 
@@ -280,50 +273,43 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../why-olive.html">
+  <a class="nav-link nav-internal" href="../../why-olive.html">
     Overview
   </a>
 </li>
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+  <a class="nav-link nav-internal" href="../../getting-started/getting-started.html">
     Getting started
   </a>
 </li>
 
 
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../how-to/index.html">
-    How-to
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    How Tos
   </a>
 </li>
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../examples.html">
+  <a class="nav-link nav-internal" href="../../examples.html">
     Examples
   </a>
 </li>
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../features/index.html">
+  <a class="nav-link nav-internal" href="../../features/index.html">
     Features
   </a>
 </li>
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../reference/index.html">
+  <a class="nav-link nav-internal" href="../../reference/index.html">
     Reference
-  </a>
-</li>
-
-
-<li class="nav-item current active">
-  <a class="nav-link nav-internal" href="index.html">
-    Extending Olive
   </a>
 </li>
 
@@ -392,14 +378,14 @@
   <ul class="bd-breadcrumbs">
     
     <li class="breadcrumb-item breadcrumb-home">
-      <a href="../index.html" class="nav-link" aria-label="Home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Extending Olive</a></li>
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">How Tos</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How to extend Olive to add custom model evaluator</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How to Add Custom Model Evaluator</span></li>
   </ul>
 </nav>
 </div>
@@ -416,8 +402,8 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="how-to-extend-olive-to-add-custom-model-evaluator">
-<h1>How to extend Olive to add custom model evaluator<a class="headerlink" href="#how-to-extend-olive-to-add-custom-model-evaluator" title="Link to this heading">#</a></h1>
+  <section id="how-to-add-custom-model-evaluator">
+<h1>How to Add Custom Model Evaluator<a class="headerlink" href="#how-to-add-custom-model-evaluator" title="Link to this heading">#</a></h1>
 <p>This document describes how to add custom model evaluator to Olive.</p>
 <p>Olive implements evaluation logic via class (<code class="docutils literal notranslate"><span class="pre">OliveEvaluator</span></code>)[https://github.com/microsoft/Olive/blob/main/olive/evaluator/olive_evaluator.py#L59]. Users can extend this implementation and override the <code class="docutils literal notranslate"><span class="pre">evaluate</span></code> method to implement their own custom logic.</p>
 <p>Arguments to the <code class="docutils literal notranslate"><span class="pre">OliveEvaluator.evaluate</span></code> function:</p>
@@ -458,7 +444,7 @@
       <span class="k">return</span> <span class="n">flatten_metric_result</span><span class="p">(</span><span class="n">metrics</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>For detailed information on supported metric types, refer to <a class="reference internal" href="#../configure-workflows/metrics-configuration.md#metric-types"><span class="xref myst"><code class="docutils literal notranslate"><span class="pre">Metric</span></code></span></a>. <code class="docutils literal notranslate"><span class="pre">MetricResult</span></code> holds the final result of evaluation. Snippet below demonstrates how to build the final results from computed metrics.</p>
+<p>For detailed information on supported metric types, refer to <a class="reference internal" href="../configure-workflows/metrics-configuration.html#metric-types"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">Metric</span></code></span></a>. <code class="docutils literal notranslate"><span class="pre">MetricResult</span></code> holds the final result of evaluation. Snippet below demonstrates how to build the final results from computed metrics.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;metrics&quot;</span><span class="p">:[</span>
 <span class="w">        </span><span class="p">{</span>
@@ -513,7 +499,7 @@
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">How to add new optimization Pass</p>
+        <p class="prev-next-title">How to Add a New Pass</p>
       </div>
     </a>
     <a class="right-next"
@@ -521,7 +507,7 @@
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Custom Scripts</p>
+        <p class="prev-next-title">How to Add Custom Scripts to Load Datasets</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -543,8 +529,8 @@
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
-<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">

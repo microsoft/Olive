@@ -50,7 +50,7 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/python_api';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/python_api';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
@@ -60,8 +60,7 @@
         </script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="How to prepare Olive configuration" href="configure-workflows/build-workflow.html" />
-    <link rel="prev" title="Run Olive workflows" href="cli/cli-run.html" />
+    <link rel="prev" title="Passes" href="pass.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="latest" />
@@ -154,9 +153,9 @@
 </li>
 
 
-<li class="nav-item current active">
-  <a class="nav-link nav-internal" href="index.html">
-    How-to
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How Tos
   </a>
 </li>
 
@@ -182,16 +181,9 @@
 </li>
 
 
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
+<li class=" current active">
+  <a class="nav-link dropdown-item nav-internal" href="index.html">
     Reference
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../extending/index.html">
-    Extending Olive
   </a>
 </li>
 
@@ -297,9 +289,9 @@
 </li>
 
 
-<li class="nav-item current active">
-  <a class="nav-link nav-internal" href="index.html">
-    How-to
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How Tos
   </a>
 </li>
 
@@ -318,16 +310,9 @@
 </li>
 
 
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../reference/index.html">
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
     Reference
-  </a>
-</li>
-
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../extending/index.html">
-    Extending Olive
   </a>
 </li>
 
@@ -401,7 +386,7 @@
       </a>
     </li>
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">How-to</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Reference</a></li>
     
     <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Python Interface</span></li>
   </ul>
@@ -422,12 +407,9 @@
                   
   <section id="python-interface">
 <h1>Python Interface<a class="headerlink" href="#python-interface" title="Link to this heading">#</a></h1>
-<p>This document describes the Python interface of Olive, focusing on how to run optimization workflows and access their results.</p>
-<section id="running-a-workflow-with-python">
-<h2>Running a Workflow with Python<a class="headerlink" href="#running-a-workflow-with-python" title="Link to this heading">#</a></h2>
-<p>Olive workflows can be executed programmatically using the Python API. All functions are available directly from the <code class="docutils literal notranslate"><span class="pre">olive</span></code> package.</p>
+<p>Olive provides Python API to transform models. All functions are available directly from the <code class="docutils literal notranslate"><span class="pre">olive</span></code> package.</p>
 <section id="run">
-<h3><code class="docutils literal notranslate"><span class="pre">run</span></code><a class="headerlink" href="#run" title="Link to this heading">#</a></h3>
+<h2><code class="docutils literal notranslate"><span class="pre">run(...)</span></code><a class="headerlink" href="#run" title="Link to this heading">#</a></h2>
 <p>This is the most generic way to run an Olive workflow from a configuration file.</p>
 <p><strong>Arguments:</strong></p>
 <ul class="simple">
@@ -446,7 +428,7 @@
 <p>The rest of the functions are specialized workflows for common tasks.</p>
 </section>
 <section id="auto-opt">
-<h3><code class="docutils literal notranslate"><span class="pre">auto_opt</span></code><a class="headerlink" href="#auto-opt" title="Link to this heading">#</a></h3>
+<h2><code class="docutils literal notranslate"><span class="pre">auto_opt(...)</span></code><a class="headerlink" href="#auto-opt" title="Link to this heading">#</a></h2>
 <p>Automatically optimize a model for performance.</p>
 <p><strong>Arguments:</strong></p>
 <ul class="simple">
@@ -488,48 +470,8 @@
 </pre></div>
 </div>
 </section>
-<section id="finetune">
-<h3><code class="docutils literal notranslate"><span class="pre">finetune</span></code><a class="headerlink" href="#finetune" title="Link to this heading">#</a></h3>
-<p>Fine-tune a model using LoRA or QLoRA.</p>
-<p><strong>Arguments:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">model_name_or_path</span></code> (str): Path to the input model (file path or HuggingFace model name).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">task</span></code> (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">trust_remote_code</span></code> (bool): Trust remote code when loading a huggingface model. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">output_path</span></code> (str): Output directory path. Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;finetuned-adapter&quot;</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">method</span></code> (str): Fine-tuning method (“lora”, “qlora”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;lora&quot;</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">lora_r</span></code> (int): LoRA R value. Defaults to <code class="docutils literal notranslate"><span class="pre">64</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">lora_alpha</span></code> (int): LoRA alpha value. Defaults to <code class="docutils literal notranslate"><span class="pre">16</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">target_modules</span></code> (str, optional): Target modules for LoRA (comma-separated).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">torch_dtype</span></code> (str): PyTorch dtype for training (“bfloat16”, “float16”, “float32”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;bfloat16&quot;</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_name</span></code> (str): Dataset name (required).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">train_subset</span></code> (str, optional): The subset to use for training.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">train_split</span></code> (str, optional): The split to use for training.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">eval_subset</span></code> (str, optional): The subset to use for evaluation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">eval_split</span></code> (str, optional): The dataset split to evaluate on.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_files</span></code> (str, optional): The dataset files (comma-separated if multiple).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">text_field</span></code> (str, optional): The text field to use for fine-tuning.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">text_template</span></code> (str, optional): Template to generate text field from (e.g., ‘### Question: {prompt} \n### Answer: {response}’).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_chat_template</span></code> (bool): Use chat template for text field. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">max_seq_len</span></code> (int, optional): Maximum sequence length for the data.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">add_special_tokens</span></code> (bool, optional): Whether to add special tokens during preprocessing.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">max_samples</span></code> (int, optional): Maximum samples to select from the dataset.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">batch_size</span></code> (int, optional): Batch size.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">input_cols</span></code> (list[str], optional): List of input column names.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">account_name</span></code> (str, optional): Azure storage account name for shared cache.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">container_name</span></code> (str, optional): Azure storage container name for shared cache.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code> (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">save_config_file</span></code> (bool): Generate and save the config file for the command. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">**training_kwargs</span></code>: HuggingFace training arguments.</p></li>
-</ul>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">finetune</span>
-
-<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">finetune</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">&quot;hf_model_name&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
 <section id="quantize">
-<h3><code class="docutils literal notranslate"><span class="pre">quantize</span></code><a class="headerlink" href="#quantize" title="Link to this heading">#</a></h3>
+<h2><code class="docutils literal notranslate"><span class="pre">quantize(...)</span></code><a class="headerlink" href="#quantize" title="Link to this heading">#</a></h2>
 <p>Quantize a PyTorch or ONNX model.</p>
 <p><strong>Arguments:</strong></p>
 <ul class="simple">
@@ -569,7 +511,7 @@
 </div>
 </section>
 <section id="capture-onnx-graph">
-<h3><code class="docutils literal notranslate"><span class="pre">capture_onnx_graph</span></code><a class="headerlink" href="#capture-onnx-graph" title="Link to this heading">#</a></h3>
+<h2><code class="docutils literal notranslate"><span class="pre">capture_onnx_graph(...)</span></code><a class="headerlink" href="#capture-onnx-graph" title="Link to this heading">#</a></h2>
 <p>Capture ONNX graph for a PyTorch model.</p>
 <p><strong>Arguments</strong>:</p>
 <ul class="simple">
@@ -605,8 +547,48 @@
 </pre></div>
 </div>
 </section>
+<section id="finetune">
+<h2><code class="docutils literal notranslate"><span class="pre">finetune(...)</span></code><a class="headerlink" href="#finetune" title="Link to this heading">#</a></h2>
+<p>Fine-tune a model using LoRA or QLoRA.</p>
+<p><strong>Arguments:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model_name_or_path</span></code> (str): Path to the input model (file path or HuggingFace model name).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">task</span></code> (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trust_remote_code</span></code> (bool): Trust remote code when loading a huggingface model. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_path</span></code> (str): Output directory path. Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;finetuned-adapter&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">method</span></code> (str): Fine-tuning method (“lora”, “qlora”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;lora&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lora_r</span></code> (int): LoRA R value. Defaults to <code class="docutils literal notranslate"><span class="pre">64</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lora_alpha</span></code> (int): LoRA alpha value. Defaults to <code class="docutils literal notranslate"><span class="pre">16</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">target_modules</span></code> (str, optional): Target modules for LoRA (comma-separated).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">torch_dtype</span></code> (str): PyTorch dtype for training (“bfloat16”, “float16”, “float32”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;bfloat16&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_name</span></code> (str): Dataset name (required).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train_subset</span></code> (str, optional): The subset to use for training.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">train_split</span></code> (str, optional): The split to use for training.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">eval_subset</span></code> (str, optional): The subset to use for evaluation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">eval_split</span></code> (str, optional): The dataset split to evaluate on.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_files</span></code> (str, optional): The dataset files (comma-separated if multiple).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">text_field</span></code> (str, optional): The text field to use for fine-tuning.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">text_template</span></code> (str, optional): Template to generate text field from (e.g., ‘### Question: {prompt} \n### Answer: {response}’).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_chat_template</span></code> (bool): Use chat template for text field. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_seq_len</span></code> (int, optional): Maximum sequence length for the data.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">add_special_tokens</span></code> (bool, optional): Whether to add special tokens during preprocessing.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_samples</span></code> (int, optional): Maximum samples to select from the dataset.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">batch_size</span></code> (int, optional): Batch size.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">input_cols</span></code> (list[str], optional): List of input column names.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">account_name</span></code> (str, optional): Azure storage account name for shared cache.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">container_name</span></code> (str, optional): Azure storage container name for shared cache.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code> (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">save_config_file</span></code> (bool): Generate and save the config file for the command. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">**training_kwargs</span></code>: HuggingFace training arguments.</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">finetune</span>
+
+<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">finetune</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">&quot;hf_model_name&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 <section id="generate-adapter">
-<h3><code class="docutils literal notranslate"><span class="pre">generate_adapter</span></code><a class="headerlink" href="#generate-adapter" title="Link to this heading">#</a></h3>
+<h2><code class="docutils literal notranslate"><span class="pre">generate_adapter(...)</span></code><a class="headerlink" href="#generate-adapter" title="Link to this heading">#</a></h2>
 <p>Generate adapter for an ONNX model.</p>
 <p><strong>Arguments</strong>:</p>
 <ul class="simple">
@@ -626,7 +608,7 @@
 </div>
 </section>
 <section id="tune-session-params">
-<h3><code class="docutils literal notranslate"><span class="pre">tune_session_params</span></code><a class="headerlink" href="#tune-session-params" title="Link to this heading">#</a></h3>
+<h2><code class="docutils literal notranslate"><span class="pre">tune_session_params</span></code><a class="headerlink" href="#tune-session-params" title="Link to this heading">#</a></h2>
 <p>Tune ONNX Runtime session parameters for optimal performance.</p>
 <p><strong>Arguments</strong>:</p>
 <ul class="simple">
@@ -659,10 +641,10 @@
 </div>
 </section>
 <section id="utility-functions">
-<h3>Utility Functions<a class="headerlink" href="#utility-functions" title="Link to this heading">#</a></h3>
+<h2>Utility Functions<a class="headerlink" href="#utility-functions" title="Link to this heading">#</a></h2>
 <p>There are also utility functions that don’t produce a <code class="docutils literal notranslate"><span class="pre">WorkflowOutput</span></code>:</p>
 <section id="convert-adapters">
-<h4><code class="docutils literal notranslate"><span class="pre">convert_adapters</span></code><a class="headerlink" href="#convert-adapters" title="Link to this heading">#</a></h4>
+<h3><code class="docutils literal notranslate"><span class="pre">convert_adapters(...)</span></code><a class="headerlink" href="#convert-adapters" title="Link to this heading">#</a></h3>
 <p>Convert lora adapter weights to a file that will be consumed by ONNX models generated by Olive ExtractedAdapters pass.</p>
 <p><strong>Arguments:</strong></p>
 <ul class="simple">
@@ -677,7 +659,7 @@
 </ul>
 </section>
 <section id="extract-adapters">
-<h4><code class="docutils literal notranslate"><span class="pre">extract_adapters</span></code><a class="headerlink" href="#extract-adapters" title="Link to this heading">#</a></h4>
+<h3><code class="docutils literal notranslate"><span class="pre">extract_adapters(...)</span></code><a class="headerlink" href="#extract-adapters" title="Link to this heading">#</a></h3>
 <p>Extract LoRA adapters from PyTorch model to separate files.</p>
 <p><strong>Arguments:</strong></p>
 <ul class="simple">
@@ -690,7 +672,7 @@
 </ul>
 </section>
 <section id="generate-cost-model">
-<h4><code class="docutils literal notranslate"><span class="pre">generate_cost_model</span></code><a class="headerlink" href="#generate-cost-model" title="Link to this heading">#</a></h4>
+<h3><code class="docutils literal notranslate"><span class="pre">generate_cost_model(...)</span></code><a class="headerlink" href="#generate-cost-model" title="Link to this heading">#</a></h3>
 <p>Generate a cost model for a given model and save it as a csv file. This cost model is consumed by the CaptureSplitInfo pass. Only supports HfModel.</p>
 <p><strong>Arguments:</strong></p>
 <ul class="simple">
@@ -702,9 +684,8 @@
 </ul>
 </section>
 </section>
-</section>
-<section id="accessing-optimization-results">
-<h2>Accessing Optimization Results<a class="headerlink" href="#accessing-optimization-results" title="Link to this heading">#</a></h2>
+<section id="accessing-api-results">
+<h2>Accessing API Results<a class="headerlink" href="#accessing-api-results" title="Link to this heading">#</a></h2>
 <p>Most API functions return a <code class="docutils literal notranslate"><span class="pre">WorkflowOutput</span></code> object. You can use it to access the optimized models and their metrics.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">run</span><span class="p">,</span> <span class="n">WorkflowOutput</span>
 
@@ -809,56 +790,6 @@
 </section>
 </section>
 </section>
-<section id="usage-examples">
-<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">#</a></h2>
-<section id="id4">
-<h3>Accessing Optimization Results<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">run</span><span class="p">,</span> <span class="n">WorkflowOutput</span>
-
-<span class="n">workflow_output</span><span class="p">:</span> <span class="n">WorkflowOutput</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="s2">&quot;config.json&quot;</span><span class="p">)</span>
-
-<span class="c1"># Check if optimization produced any results</span>
-<span class="k">if</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">has_output_model</span><span class="p">():</span>
-    <span class="c1"># Get the best model overall</span>
-    <span class="n">best_model</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_best_candidate</span><span class="p">()</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model path: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">model_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model type: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">model_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Device: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">from_device</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Execution provider: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">from_execution_provider</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metrics: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">metrics_value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-    <span class="c1"># Get the best model for CPU</span>
-    <span class="n">best_cpu_model</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_best_candidate_by_device</span><span class="p">(</span><span class="s2">&quot;CPU&quot;</span><span class="p">)</span>
-
-    <span class="c1"># Get all models for GPU</span>
-    <span class="n">gpu_models</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_output_models_by_device</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="accessing-metrics-and-configuration">
-<h3>Accessing Metrics and Configuration<a class="headerlink" href="#accessing-metrics-and-configuration" title="Link to this heading">#</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Access metrics for input model</span>
-<span class="n">input_metrics</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_input_model_metrics</span><span class="p">()</span>
-
-<span class="c1"># Get all available devices</span>
-<span class="n">devices</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_available_devices</span><span class="p">()</span>
-
-<span class="c1"># Get model list from specific device and execution provider</span>
-<span class="n">output_models</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">CPU</span><span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
-</pre></div>
-</div>
-</section>
-</section>
-<section id="practical-tips">
-<h2>Practical Tips<a class="headerlink" href="#practical-tips" title="Link to this heading">#</a></h2>
-<ul class="simple">
-<li><p>Use <code class="docutils literal notranslate"><span class="pre">get_best_candidate()</span></code> to quickly obtain the model with the best metrics across all devices</p></li>
-<li><p>Use <code class="docutils literal notranslate"><span class="pre">get_output_models()</span></code> to get a list of all optimized models sorted by metrics</p></li>
-<li><p>Access device-specific outputs using the device value as a key or attribute: <code class="docutils literal notranslate"><span class="pre">workflow_output[&quot;cpu&quot;]</span></code> or <code class="docutils literal notranslate"><span class="pre">workflow_output.cpu</span></code>. Device keys are case insensitive.</p></li>
-<li><p>Always verify the existence of specific devices or execution providers before accessing them, since the output model might be empty if a pass run has failed.</p></li>
-<li><p>Compare the input model metrics with optimized model metrics to quantify improvements</p></li>
-</ul>
-</section>
 </section>
 
 
@@ -872,22 +803,13 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="cli/cli-run.html"
+       href="pass.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Run Olive workflows</p>
+        <p class="prev-next-title">Passes</p>
       </div>
-    </a>
-    <a class="right-next"
-       href="configure-workflows/build-workflow.html"
-       title="next page">
-      <div class="prev-next-info">
-        <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">How to prepare Olive configuration</p>
-      </div>
-      <i class="fa-solid fa-angle-right"></i>
     </a>
 </div>
                 </footer>
@@ -908,23 +830,20 @@
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-a-workflow-with-python">Running a Workflow with Python</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#run"><code class="docutils literal notranslate"><span class="pre">run</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-opt"><code class="docutils literal notranslate"><span class="pre">auto_opt</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#finetune"><code class="docutils literal notranslate"><span class="pre">finetune</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize"><code class="docutils literal notranslate"><span class="pre">quantize</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#capture-onnx-graph"><code class="docutils literal notranslate"><span class="pre">capture_onnx_graph</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-adapter"><code class="docutils literal notranslate"><span class="pre">generate_adapter</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tune-session-params"><code class="docutils literal notranslate"><span class="pre">tune_session_params</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#utility-functions">Utility Functions</a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#convert-adapters"><code class="docutils literal notranslate"><span class="pre">convert_adapters</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#extract-adapters"><code class="docutils literal notranslate"><span class="pre">extract_adapters</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-cost-model"><code class="docutils literal notranslate"><span class="pre">generate_cost_model</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run"><code class="docutils literal notranslate"><span class="pre">run(...)</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-opt"><code class="docutils literal notranslate"><span class="pre">auto_opt(...)</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize"><code class="docutils literal notranslate"><span class="pre">quantize(...)</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#capture-onnx-graph"><code class="docutils literal notranslate"><span class="pre">capture_onnx_graph(...)</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#finetune"><code class="docutils literal notranslate"><span class="pre">finetune(...)</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-adapter"><code class="docutils literal notranslate"><span class="pre">generate_adapter(...)</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tune-session-params"><code class="docutils literal notranslate"><span class="pre">tune_session_params</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#utility-functions">Utility Functions</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#convert-adapters"><code class="docutils literal notranslate"><span class="pre">convert_adapters(...)</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#extract-adapters"><code class="docutils literal notranslate"><span class="pre">extract_adapters(...)</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-cost-model"><code class="docutils literal notranslate"><span class="pre">generate_cost_model(...)</span></code></a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#accessing-optimization-results">Accessing Optimization Results</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#accessing-api-results">Accessing API Results</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#output-class-hierarchy">Output Class Hierarchy</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#output-classes-in-detail">Output Classes in Detail</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#workflowoutput">WorkflowOutput</a><ul class="nav section-nav flex-column">
@@ -943,12 +862,6 @@
 </li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-examples">Usage Examples</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">Accessing Optimization Results</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#accessing-metrics-and-configuration">Accessing Metrics and Configuration</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#practical-tips">Practical Tips</a></li>
 </ul>
   </nav></div>
 
