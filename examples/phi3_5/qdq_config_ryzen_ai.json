@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HFModel", "model_path": "C:\\Users\\pooja\\Olive\\examples\\phi3_5\\Phi-3.5-mini-instruct"},
+    "input_model": { "type": "HFModel", "model_path": "<local/hf path to quark quantized>/Phi-3.5-mini-instruct"},
     "passes": {
         "mg": {
             "type": "VitisGenerateModel",
