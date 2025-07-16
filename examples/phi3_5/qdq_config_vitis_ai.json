@@ -40,10 +40,6 @@
             ],
             "save_as_external_data": true
         },
-        "mg": {
-            "type": "VitisGenerateModel",
-            "packed_const": true
-        },
         "sq": {
             "type": "OnnxStaticQuantization",
             "data_config": "wikitext2_train",

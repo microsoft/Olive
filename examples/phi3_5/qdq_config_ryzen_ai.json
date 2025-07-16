@@ -1,0 +1,13 @@
+{
+    "input_model": { "type": "HFModel", "model_path": "C:\\Users\\pooja\\Olive\\examples\\phi3_5\\Phi-3.5-mini-instruct"},
+    "passes": {
+        "mg": {
+            "type": "VitisGenerateModel",
+            "packed_const": true
+        }
+    },
+    "log_severity_level": 1,
+    "output_dir": "models/phi3_5-vai",
+    "cache_dir": "cache",
+    "no_artifacts": true
+}
