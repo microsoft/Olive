@@ -372,6 +372,7 @@ class Gptq(Pass):
         if not all_scales:
             all_scales.append(active_scale)
             all_zp.append(active_zp)
+        module.weight.data = Q.to(module.weight.data.device).to(module.weight.data.dtype)
         module.quant_info.scales = torch.cat(all_scales, dim=1).to("cpu")
         module.quant_info.zero_points = torch.cat(all_zp, dim=1).to("cpu")
 
@@ -399,8 +400,6 @@ class Gptq(Pass):
                 bits=module.quant_info.quantizer.bits,
                 symmetric=module.quant_info.quantizer.symmetric,
                 group_size=module.quant_info.quantizer.group_size,
-                scales=module.quant_info.scales.to(device),
-                zero_points=module.quant_info.zero_points.to(device),
             ).to("cpu")  # move the original module to CPU
 
         replace_matching_submodules(

@@ -29,6 +29,8 @@ class SelectiveMixedPrecision(Pass):
 
         K_QUANT_MIXED = "k_quant_mixed"
         K_QUANT_LAST = "k_quant_last"
+        K_QUANT_MIXED_V = "k_quant_mixed_v"
+        K_QUANT_MIXED_QKV = "k_quant_mixed_qkv"
         # TODO(jambayk): add other heuristic/algorithms
 
     @classmethod
@@ -54,7 +56,7 @@ class SelectiveMixedPrecision(Pass):
         override_config = {"bits": PrecisionBits.BITS8}
         overrides = {model_wrapper.get_lm_head()[1]: override_config}
 
-        if config.algorithm == SelectiveMixedPrecision.Algorithm.K_QUANT_MIXED:
+        if config.algorithm != SelectiveMixedPrecision.Algorithm.K_QUANT_LAST:
             layer_prefix = model_wrapper.get_layers()[1]
             num_layers = model_wrapper.num_hidden_layers
             for layer_idx, layer_wrapper in enumerate(model_wrapper.get_layer_wrappers()):
@@ -65,12 +67,16 @@ class SelectiveMixedPrecision(Pass):
                 ):
                     continue
 
-                # Add v_proj if exists
                 attn_input_names = layer_wrapper.get_attention_inputs(return_name=True)[1]
-                if len(attn_input_names) == 3:
+                if config.algorithm == SelectiveMixedPrecision.Algorithm.K_QUANT_MIXED_QKV:
+                    for attn_input_name in attn_input_names:
+                        overrides[f"{layer_prefix}.{layer_idx}.{attn_input_name}"] = override_config
+                elif (
+                    len(attn_input_names) == 3 and config.algorithm == SelectiveMixedPrecision.Algorithm.K_QUANT_MIXED_V
+                ):
+                    # Add v_proj if exists
+                    # what if downstream passes merge qkv for non-phi models?
                     overrides[f"{layer_prefix}.{layer_idx}.{attn_input_names[2]}"] = override_config
-                # TODO(jambayk): how to handle models like phi-3/4 which have qkv merged?
-                # what if downstream passes merge qkv for non-phi models?
 
                 # Add down_proj
                 mlp_output_names = layer_wrapper.get_mlp_outputs(return_name=True)[1]
