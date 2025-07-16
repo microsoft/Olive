@@ -1,5 +1,4 @@
-# How To Configure Engine
-
+# How To Configure Olive Engine
 Engine, in Olive, is the driver of the entire workflow. Engine dictates how a model gets processed, cached, evaluated, and finally packaged. As a developer, you can configure each of these aspects of the engine through the various available options.
 
 ## Output configuration

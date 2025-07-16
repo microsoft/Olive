@@ -1,4 +1,4 @@
-# How to configure a Pass
+# How to Customize a Pass Parameters
 
 This document describes how to configure an Olive Pass.
 

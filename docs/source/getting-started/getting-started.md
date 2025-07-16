@@ -50,18 +50,6 @@ pip install transformers
 For more details on installing Olive from source and other installation options available, [read the installation guide](../how-to/installation.md).
 ```
 
-## Log-in to Hugging Face
-
-The Olive automatic optimization command (`auto-opt`) can pull models from Hugging Face, Local disk, or the Azure AI Model Catalog. In this getting started guide, you'll be optimizing [Llama-3.2-1B-Instruct from Hugging Face](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main). Llama 3.2 is a gated model and therefore you'll need to be signed into Hugging-Face to get access.
-
-``` bash
-huggingface-cli login --token {TOKEN}
-```
-
-```{tip}
-Follow the [Hugging Face documentation for setting up User Access Tokens](https://huggingface.co/docs/hub/security-tokens)
-```
-
 ## {octicon}`dependabot;1em` Automatic model optimization with Olive
 
 Once you have installed Olive, next you'll run the `auto-opt` command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (`int4`), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).

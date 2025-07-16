@@ -1,5 +1,4 @@
-# How To Configure Systems
-
+# How to Define `host` or `target` Systems
 A system is a environment concept (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model is evaluated on.
 
 There are five systems in Olive: **local system**, **Python environment system**, **Docker system**, **AzureML system**, **Isolated ORT system**. Each system is categorized in one of two types of systems: **host** and **target**. A **host** is the environment where the Pass is run, and a **target** is the environment where the Model is evaluated. Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.

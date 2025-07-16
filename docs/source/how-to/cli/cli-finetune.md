@@ -1,4 +1,4 @@
-# Finetune
+# How To use `finetune` Command
 
 The `olive finetune` command will finetune a PyTorch/Hugging Face model and output a Hugging Face PEFT adapter. If you want to convert the PEFT adapter into a format for the ONNX Runtime, you can execute the `olive generate-adapter` command after finetuning.
 

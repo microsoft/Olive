@@ -1,4 +1,4 @@
-# Packaging Olive artifacts
+# How to Package Output Model for Deployment
 
 ## What is Olive Packaging
 

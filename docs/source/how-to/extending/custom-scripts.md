@@ -1,4 +1,4 @@
-# Custom Scripts
+# How to Add Custom Scripts to Load Datasets
 
 Olive provides ability to write custom scripts for specific tasks such as loading a dataset using `user_script`.
 
