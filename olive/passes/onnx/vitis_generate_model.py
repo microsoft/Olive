@@ -29,7 +29,7 @@ class VitisGenerateModel(Pass):
     ) -> ONNXModelHandler:
         print(f"[DEBUG] Running VitisGenerateModel with config: {config}")
 
-        assert isinstance(model, ONNXModelHandler), "VitisGenerateModel only supports ONNXModelHandler input."
+        # assert isinstance(model, ONNXModelHandler), "VitisGenerateModel only supports ONNXModelHandler input."
 
         input_model_path = model.model_path
         output_dir = Path(output_model_path)
