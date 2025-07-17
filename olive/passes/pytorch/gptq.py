@@ -290,7 +290,7 @@ class Gptq(Pass):
         module.quant_info.data["H"] += inp.matmul(inp.t())
 
     @staticmethod
-    def process_module(module: torch.nn.Module, percdamp: float = 0.1, blocksize: int = 128) -> None:
+    def process_module(module: torch.nn.Module, percdamp: float = 0.01, blocksize: int = 128) -> None:
         """Process a module for GPTQ quantization using the accumulated Hessian.
 
         Args:
@@ -356,7 +356,7 @@ class Gptq(Pass):
                         all_zp.append(active_zp)
                         now_idx += 1
 
-                q = quantizer.quantize(w.unsqueeze(1), active_scale, active_zp).flatten()
+                q = quantizer.fake_quantize(w.unsqueeze(1), active_scale, active_zp).flatten()
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2
 
