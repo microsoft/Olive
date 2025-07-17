@@ -6,6 +6,7 @@ import copy
 import json
 import logging
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
@@ -15,12 +16,16 @@ from docker.errors import BuildError, ContainerError
 
 import olive.systems.docker.utils as docker_utils
 from olive.common.config_utils import ParamCategory, validate_config
+from olive.common.utils import set_nested_dict_value
 from olive.evaluator.metric_result import MetricResult
 from olive.hardware import Device
 from olive.model import ModelConfig
+from olive.resource_path import find_all_resources
 from olive.systems.common import AcceleratorConfig, LocalDockerConfig, SystemType
+from olive.systems.docker.constants import CONTAINER_ROOT_PATH
 from olive.systems.olive_system import OliveSystem
-from olive.systems.system_config import DockerTargetUserConfig
+from olive.systems.system_config import DockerTargetUserConfig, LocalTargetUserConfig, SystemConfig
+from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
     from olive.evaluator.metric import Metric
@@ -103,6 +108,64 @@ class DockerSystem(OliveSystem):
                     _print_docker_logs(e.build_log, logging.ERROR)
                     raise
 
+    def submit_workflow(self, run_config: RunConfig):
+        with tempfile.TemporaryDirectory() as tempdir:
+            self._run_workflow(run_config, tempdir)
+
+    def _ensure_directory(self, path: str, default: str) -> str:
+        dir_path = Path(path or default)
+        dir_path.mkdir(parents=True, exist_ok=True)
+        return str(dir_path)
+
+    def _run_workflow(self, run_config: RunConfig, tmp_dir):
+        run_config.workflow_host = None
+        run_config.engine.output_dir = self._ensure_directory(run_config.engine.output_dir, "output")
+        run_config.engine.cache_dir = self._ensure_directory(run_config.engine.cache_dir, "cache")
+
+        volumes_list = []
+
+        # mount runner script
+        runner_script_name = "workflow_runner.py"
+        docker_runner_path, runner_file_mount_str = docker_utils.create_runner_script_mount(runner_script_name)
+        volumes_list.append(runner_file_mount_str)
+
+        # Replace docker system
+        acc = run_config.engine.host.config.accelerators
+        run_config.engine.host = SystemConfig(type=SystemType.Local, config=LocalTargetUserConfig(accelerators=acc))
+
+        workflow_config = run_config.to_json(make_absolute=False)
+        workflow_config.pop("evaluators")
+        ignore_keys = ["systems", "evaluators"]
+        config_copy = self._mount_workflow_config(workflow_config, volumes_list, ignore_keys)
+
+        config_mount_path, config_file_mount_str = docker_utils.create_config_file(
+            workdir=tmp_dir,
+            config=config_copy,
+        )
+        volumes_list.append(config_file_mount_str)
+
+        runner_command = f"python {docker_runner_path} --config {config_mount_path}"
+
+        self._run_container(runner_command, volumes_list, device=acc[0].device)
+
+    def _mount_workflow_config(
+        self,
+        config: dict,
+        volumes_list: list[str],
+        ignore_keys: Optional[list[str]] = None,
+    ):
+        config_copy = copy.deepcopy(config)
+        all_resources = find_all_resources(config_copy, ignore_keys=ignore_keys)
+        for resource_key, resource_path in all_resources.items():
+            container_path = str(CONTAINER_ROOT_PATH / Path(resource_path.get_path()).name)
+            mount_string = f"{resource_path.get_path()}:{container_path}"
+
+            volumes_list.append(mount_string)
+            set_nested_dict_value(config_copy, resource_key, container_path)
+
+        logger.debug("The config is %s", config_copy)
+        return config_copy
+
     def run_pass(self, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str) -> "ModelConfig":
         """Run the pass on the model."""
         with tempfile.TemporaryDirectory() as tempdir:
@@ -116,24 +179,23 @@ class DockerSystem(OliveSystem):
         volumes_list = []
         runner_output_path = "runner_output"
         runner_output_name = "runner_res.json"
-        container_root_path = Path("/olive-ws/")
         # mount pass_runner script
-        docker_runner_path, pass_runner_file_mount_str = docker_utils.create_runner_script_mount(container_root_path)
+        docker_runner_path, pass_runner_file_mount_str = docker_utils.create_runner_script_mount("runner.py")
         volumes_list.append(pass_runner_file_mount_str)
 
         # mount dev stuff
         if self.is_dev:
-            _, dev_mount_str = docker_utils.create_dev_mount(workdir, container_root_path)
+            _, dev_mount_str = docker_utils.create_dev_mount(workdir)
             volumes_list.append(dev_mount_str)
 
         # mount model
         docker_model_files, model_mount_str_list, mount_model_to_local = docker_utils.create_model_mount(
-            model_config=model_config, container_root_path=container_root_path
+            model_config=model_config
         )
         volumes_list.extend(model_mount_str_list)
 
         # data_dir or data_config
-        docker_data_paths, data_mount_str_list = self._create_data_mounts_for_pass(container_root_path, the_pass)
+        docker_data_paths, data_mount_str_list = self._create_data_mounts_for_pass(the_pass)
         volumes_list.extend(data_mount_str_list)
 
         # mount config file
@@ -142,7 +204,6 @@ class DockerSystem(OliveSystem):
         docker_config_file, config_file_mount_str = docker_utils.create_config_file(
             workdir=workdir,
             config=data,
-            container_root_path=container_root_path,
         )
         volumes_list.append(config_file_mount_str)
 
@@ -150,7 +211,6 @@ class DockerSystem(OliveSystem):
         output_local_path, docker_output_path, output_mount_str = docker_utils.create_output_mount(
             workdir=workdir,
             docker_output_path=runner_output_path,
-            container_root_path=container_root_path,
         )
         volumes_list.append(output_mount_str)
         logger.debug("The volumes list is %s", volumes_list)
@@ -163,7 +223,11 @@ class DockerSystem(OliveSystem):
         )
 
         model_output_json_file = self._run_container(
-            runner_command, volumes_list, output_local_path, runner_output_name, the_pass.accelerator_spec
+            runner_command,
+            volumes_list,
+            output_local_path,
+            runner_output_name,
+            the_pass.accelerator_spec.accelerator_type,
         )
         if model_output_json_file.is_file():
             with model_output_json_file.open() as f:
@@ -202,11 +266,8 @@ class DockerSystem(OliveSystem):
     def evaluate_model(
         self, model_config: "ModelConfig", evaluator_config: "OliveEvaluatorConfig", accelerator: "AcceleratorSpec"
     ) -> dict[str, Any]:
-        container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
-            metric_json = self._run_eval_container(
-                tempdir, model_config, evaluator_config, accelerator, container_root_path
-            )
+            metric_json = self._run_eval_container(tempdir, model_config, evaluator_config, accelerator)
             if metric_json.is_file():
                 with metric_json.open() as f:
                     metrics_res = json.load(f)
@@ -221,25 +282,22 @@ class DockerSystem(OliveSystem):
         model_config: "ModelConfig",
         evaluator_config: "OliveEvaluatorConfig",
         accelerator: "AcceleratorSpec",
-        container_root_path: Path,
     ):
         eval_output_path = "eval_output"
         eval_output_name = "eval_res.json"
 
         volumes_list = []
         # mount eval script
-        eval_file_mount_path, eval_file_mount_str = docker_utils.create_eval_script_mount(container_root_path)
+        eval_file_mount_path, eval_file_mount_str = docker_utils.create_eval_script_mount()
         volumes_list.append(eval_file_mount_str)
 
         # mount dev stuff
         if self.is_dev:
-            _, dev_mount_str = docker_utils.create_dev_mount(workdir, container_root_path)
+            _, dev_mount_str = docker_utils.create_dev_mount(workdir)
             volumes_list.append(dev_mount_str)
 
         # mount model
-        model_mounts, model_mount_str_list, _ = docker_utils.create_model_mount(
-            model_config=model_config, container_root_path=container_root_path
-        )
+        model_mounts, model_mount_str_list, _ = docker_utils.create_model_mount(model_config=model_config)
         volumes_list += model_mount_str_list
 
         metrics_copy = copy.deepcopy(evaluator_config.metrics)
@@ -248,7 +306,6 @@ class DockerSystem(OliveSystem):
             # the metrics_copy is modified when creating the volumes list
             docker_utils.create_metric_volumes_list(
                 metrics=metrics_copy,
-                container_root_path=container_root_path,
             )
         )
 
@@ -257,14 +314,12 @@ class DockerSystem(OliveSystem):
         config_mount_path, config_file_mount_str = docker_utils.create_config_file(
             workdir=workdir,
             config=data,
-            container_root_path=container_root_path,
         )
         volumes_list.append(config_file_mount_str)
 
         output_local_path, output_mount_path, output_mount_str = docker_utils.create_output_mount(
             workdir=workdir,
             docker_output_path=eval_output_path,
-            container_root_path=container_root_path,
         )
         volumes_list.append(output_mount_str)
         logger.debug("The volumes list is %s", volumes_list)
@@ -276,7 +331,9 @@ class DockerSystem(OliveSystem):
             output_name=eval_output_name,
             accelerator=accelerator,
         )
-        return self._run_container(eval_command, volumes_list, output_local_path, eval_output_name, accelerator)
+        return self._run_container(
+            eval_command, volumes_list, output_local_path, eval_output_name, accelerator.accelerator_type
+        )
 
     @staticmethod
     def _create_eval_config(model_config: "ModelConfig", metrics: list["Metric"], model_mounts: dict[str, str]):
@@ -307,9 +364,9 @@ class DockerSystem(OliveSystem):
         self,
         command,
         volumes_list: list[str],
-        output_local_path,
-        output_name,
-        accelerator: "AcceleratorSpec",
+        output_local_path: str = "output",
+        output_name: str = "output.json",
+        device: Device = None,
     ):
         run_command = docker_utils.create_run_command(run_params=self.run_params)
 
@@ -328,9 +385,10 @@ class DockerSystem(OliveSystem):
         environment.update({"OLIVE_LOG_LEVEL": log_level})
 
         logger.debug("Running container with command: %s", command)
-        if accelerator.accelerator_type == Device.GPU:
+        if device == Device.GPU:
             run_command["device_requests"] = [docker.types.DeviceRequest(capabilities=[["gpu"]])]
 
+        logger.info("Container is running, it will take a while...")
         container = self.docker_client.containers.run(
             image=self.image,
             command=command,
@@ -339,33 +397,35 @@ class DockerSystem(OliveSystem):
             environment=environment,
             **run_command,
         )
-        docker_logs = []
-        for line in container.logs(stream=True):
+        for line in container.logs(stream=True, follow=True):
             # containers.logs can accept stdout/stderr as arguments, but it doesn't work
             # as we cannot ensure that all the logs will be printed in the correct channel(out/err)
             # so, we collect all the logs and print them in the end if there is an error.
             log = line.decode().strip()
-            logger.debug(log)
-            docker_logs.append(log)
+            if log:  # Only print non-empty lines
+                logger.info("[Docker] %s", log)
+                sys.stdout.flush()  # Force immediate output
         exit_code = container.wait()["StatusCode"]
         container.remove()
         if exit_code != 0:
-            error_msg = "\n".join(docker_logs)
             raise ContainerError(
-                container, exit_code, command, self.image, f"Docker container evaluation failed with: {error_msg}"
+                container,
+                exit_code,
+                command,
+                self.image,
+                "Docker container run failed. Please check the logs for more details.",
             )
         logger.debug("Docker container run completed successfully")
-
         return Path(output_local_path) / output_name
 
-    def _create_data_mounts_for_pass(self, container_root_path: Path, the_pass: "Pass"):
+    def _create_data_mounts_for_pass(self, the_pass: "Pass"):
         mounts = {}
         mount_strs = []
         config_dict = the_pass.config.dict()
         for param, _, category in the_pass.path_params:
             param_val = config_dict.get(param)
             if category == ParamCategory.DATA and param_val:
-                mount = str(container_root_path / param)
+                mount = str(CONTAINER_ROOT_PATH / param)
                 mounts[param] = mount
                 mount_strs.append(f"{param_val}:{mount}")
 
