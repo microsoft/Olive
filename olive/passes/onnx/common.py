@@ -346,7 +346,7 @@ def copy_context_bin_files(
             continue
         elif dest_file_path.exists():
             # File already exists in destination, skip copying
-            logger.info(f"Context binary file {cb_file_name} already exists in {model_dir}, skipping copy")
+            logger.info("Context binary file %s already exists in %s, skipping copy", cb_file_name, model_dir)
             saved_cb_files[cb_file_path] = cb_file_name
             continue
         elif cb_file_name in saved_cb_files.values():
