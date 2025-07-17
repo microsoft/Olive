@@ -340,14 +340,21 @@ def copy_context_bin_files(
     cb_file_names = get_context_bin_file_names(model_path)
     for cb_file_name in cb_file_names:
         cb_file_path = str(model_path.parent / cb_file_name)
+        dest_file_path = model_dir / cb_file_name
+
         if cb_file_path in saved_cb_files:
+            continue
+        elif dest_file_path.exists():
+            # File already exists in destination, skip copying
+            logger.info(f"Context binary file {cb_file_name} already exists in {model_dir}, skipping copy")
+            saved_cb_files[cb_file_path] = cb_file_name
             continue
         elif cb_file_name in saved_cb_files.values():
             raise RuntimeError(
                 f"Context binary file name {cb_file_name} already exists in {model_dir}. Please rename the file."
             )
 
-        hardlink_copy_file(cb_file_path, model_dir / cb_file_name)
+        hardlink_copy_file(cb_file_path, dest_file_path)
         saved_cb_files[cb_file_path] = cb_file_name
 
     return bool(cb_file_names)
