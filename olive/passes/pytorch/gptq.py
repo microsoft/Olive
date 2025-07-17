@@ -400,7 +400,11 @@ class Gptq(Pass):
                 bits=module.quant_info.quantizer.bits,
                 symmetric=module.quant_info.quantizer.symmetric,
                 group_size=module.quant_info.quantizer.group_size,
-            ).to("cpu")  # move the original module to CPU
+                scales=module.quant_info.scales,
+                zero_points=module.quant_info.zero_points,
+            ).to(
+                "cpu"
+            )  # move the original module to CPU
 
         replace_matching_submodules(
             wrapper.model,
