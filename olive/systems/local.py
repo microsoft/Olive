@@ -49,6 +49,10 @@ class LocalSystem(OliveSystem):
         """Get the available execution providers."""
         import onnxruntime as ort
 
+        if hasattr(ort, "get_ep_devices"):
+            ep_devices = ort.get_ep_devices()
+            return [ep_device.ep_name for ep_device in ep_devices]
+
         return ort.get_available_providers()
 
     def remove(self):
