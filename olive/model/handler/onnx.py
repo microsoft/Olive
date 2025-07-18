@@ -258,20 +258,3 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         **kwargs: dict[str, Any],
     ) -> Any:
         raise RuntimeError("DistributedOnnxModel doesn't have a session of its own")
-
-    def get_default_execution_providers_with_model(self, filepath: str, device: Device):
-        # return firstly available ep as ort default ep
-        available_providers = self.get_execution_providers(device)
-        for ep in available_providers:
-            if self.is_valid_ep(filepath, ep):
-                return [ep]
-
-        return ["CUDAExecutionProvider", "CPUExecutionProvider"]
-
-    @staticmethod
-    def get_execution_providers(device: Device):
-        import onnxruntime as ort
-
-        eps_per_device = DistributedOnnxModelHandler.EXECUTION_PROVIDERS.get(device)
-        available_providers = ort.get_available_providers()
-        return AcceleratorLookup.get_execution_providers(eps_per_device, available_providers)
