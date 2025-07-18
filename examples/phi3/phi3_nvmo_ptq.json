@@ -17,7 +17,7 @@
             "type": "NVModelOptQuantization",
             "algorithm": "awq",
             "tokenizer_dir": "microsoft/Phi-3-mini-4k-instruct",
-            "calibration": "awq_lite"
+            "calibration_method": "awq_lite"
         }
     }
 }
