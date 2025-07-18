@@ -330,8 +330,8 @@
         },
         "OnnxStaticQuantization": {
             "module_path": "olive.passes.onnx.quantization.OnnxStaticQuantization",
-            "supported_providers": [ "CPUExecutionProvider" ],
-            "supported_accelerators": [ "cpu" ],
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int8", "int16", "uint8", "uint16" ],
             "supported_algorithms": [ "rtn" ],
             "supported_quantization_encodings": [ "qdq" ],
