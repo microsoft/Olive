@@ -21,8 +21,6 @@ logger = logging.getLogger(__name__)
 class AddOliveMetadata(Pass):
     """Adds Olive-specific metadata to an ONNX model."""
 
-    _accepts_composite_model = True
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
@@ -127,19 +125,8 @@ class AddOliveMetadata(Pass):
         return None
 
     def _run_for_config(
-        self,
-        model: Union[ONNXModelHandler, CompositeModelHandler],
-        config: type[BasePassConfig],
-        output_model_path: str,
-    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
-        # Check if this is a multi-modal model and skip with warning
-        if self._is_multimodal_model(model):
-            logger.warning(
-                "AddOliveMetadata pass is not supported for multi-modal models. "
-                "Skipping metadata addition and returning original model."
-            )
-            return model
-
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> ONNXModelHandler:
         if not isinstance(model, ONNXModelHandler):
             raise ValueError("Model must be an instance of ONNXModelHandler")
 
