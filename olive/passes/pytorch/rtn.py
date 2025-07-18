@@ -18,9 +18,7 @@ from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
-from olive.passes.pytorch.train_utils import (
-    load_hf_base_model,
-)
+from olive.passes.pytorch.train_utils import load_hf_base_model
 
 logger = logging.getLogger(__name__)
 
