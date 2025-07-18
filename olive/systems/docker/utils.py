@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from olive.common.utils import copy_dir
+from olive.systems.docker.constants import CONTAINER_ROOT_PATH
 
 if TYPE_CHECKING:
     from olive.evaluator.metric import Metric
@@ -18,12 +19,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def create_config_file(workdir, config: dict, container_root_path: Path):
+def create_config_file(workdir, config: dict):
     config_file_path = Path(workdir) / "config.json"
     # the config yaml file saved to local disk
     with config_file_path.open("w") as f:
         json.dump(config, f, indent=4)
-    config_mount_path = str(container_root_path / "config.json")
+    config_mount_path = str(CONTAINER_ROOT_PATH / "config.json")
     config_file_mount_str = f"{config_file_path}:{config_mount_path}"
     return config_mount_path, config_file_mount_str
 
@@ -67,10 +68,10 @@ def create_run_command(run_params: dict):
     return run_command_dict
 
 
-def create_metric_volumes_list(metrics: list["Metric"], container_root_path: Path) -> list[str]:
+def create_metric_volumes_list(metrics: list["Metric"]) -> list[str]:
     volume_list = []
     for metric in metrics:
-        metric_path = container_root_path / "metrics" / metric.name
+        metric_path = CONTAINER_ROOT_PATH / "metrics" / metric.name
         if metric.user_config.user_script:
             user_script_path = str(Path(metric.user_config.user_script).resolve())
             user_script_name = Path(metric.user_config.user_script).name
@@ -112,7 +113,7 @@ def create_metric_volumes_list(metrics: list["Metric"], container_root_path: Pat
     return volume_list
 
 
-def create_model_mount(model_config: "ModelConfig", container_root_path: Path):
+def create_model_mount(model_config: "ModelConfig"):
     mounts = {}
     mount_strs = []
     mount_to_local = {}
@@ -124,7 +125,7 @@ def create_model_mount(model_config: "ModelConfig", container_root_path: Path):
 
         relevant_path = resource_path.get_path()
         local_path = str(Path(relevant_path).resolve())
-        resource_path_mount_path = str(container_root_path / Path(relevant_path).name)
+        resource_path_mount_path = str(CONTAINER_ROOT_PATH / Path(relevant_path).name)
         resource_path_mount_str = f"{local_path}:{resource_path_mount_path}"
         mounts[resource_name] = resource_path_mount_path
         mount_strs.append(resource_path_mount_str)
@@ -132,21 +133,21 @@ def create_model_mount(model_config: "ModelConfig", container_root_path: Path):
     return mounts, mount_strs, mount_to_local
 
 
-def create_runner_script_mount(container_root_path: Path):
-    runner_file_mount_path = str(container_root_path / "runner.py")
+def create_runner_script_mount(runner_script_name: str):
+    runner_file_mount_path = str(CONTAINER_ROOT_PATH / runner_script_name)
     current_dir = Path(__file__).resolve().parent
-    runner_file_mount_str = f"{str(current_dir / 'runner.py')}:{runner_file_mount_path}"
+    runner_file_mount_str = f"{str(current_dir / runner_script_name)}:{runner_file_mount_path}"
     return runner_file_mount_path, runner_file_mount_str
 
 
-def create_eval_script_mount(container_root_path: Path):
-    eval_file_mount_path = str(container_root_path / "eval.py")
+def create_eval_script_mount():
+    eval_file_mount_path = str(CONTAINER_ROOT_PATH / "eval.py")
     current_dir = Path(__file__).resolve().parent
     eval_file_mount_str = f"{str(current_dir / 'eval.py')}:{eval_file_mount_path}"
     return eval_file_mount_path, eval_file_mount_str
 
 
-def create_dev_mount(workdir: Path, container_root_path: Path):
+def create_dev_mount(workdir: Path):
     logger.warning(
         "Dev mode is only enabled for CI pipeline! "
         "It will overwrite the Olive package in docker container with latest code."
@@ -157,14 +158,14 @@ def create_dev_mount(workdir: Path, container_root_path: Path):
     project_folder = Path(__file__).resolve().parents[2]
     copy_dir(project_folder, workdir / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
-    project_folder_mount_path = str(container_root_path / "olive")
+    project_folder_mount_path = str(CONTAINER_ROOT_PATH / "olive")
     project_folder_mount_str = f"{workdir / 'olive'}:{project_folder_mount_path}"
     return project_folder_mount_path, project_folder_mount_str
 
 
-def create_output_mount(workdir, docker_output_path: str, container_root_path: Path):
+def create_output_mount(workdir, docker_output_path: str):
     output_local_path = Path(workdir) / docker_output_path
     output_local_path.mkdir(parents=True, exist_ok=True)
-    output_mount_path = str(container_root_path / docker_output_path)
+    output_mount_path = str(CONTAINER_ROOT_PATH / docker_output_path)
     output_mount_str = f"{output_local_path}:{output_mount_path}"
     return output_local_path, output_mount_path, output_mount_str
