@@ -4,11 +4,13 @@
 # --------------------------------------------------------------------------
 
 import logging
+from typing import Union
 
 import onnx
 
+from olive.common.utils import hardlink_copy_dir
 from olive.hardware import AcceleratorSpec
-from olive.model import ONNXModelHandler
+from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -18,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 class AddOliveMetadata(Pass):
     """Adds Olive-specific metadata to an ONNX model."""
+
+    _accepts_composite_model = True
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -123,8 +127,19 @@ class AddOliveMetadata(Pass):
         return None
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
-    ) -> ONNXModelHandler:
+        self,
+        model: Union[ONNXModelHandler, CompositeModelHandler],
+        config: type[BasePassConfig],
+        output_model_path: str,
+    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+        # Check if this is a multi-modal model and skip with warning
+        if self._is_multimodal_model(model):
+            logger.warning(
+                "AddOliveMetadata pass is not supported for multi-modal models. "
+                "Skipping metadata addition and returning original model."
+            )
+            return model
+
         if not isinstance(model, ONNXModelHandler):
             raise ValueError("Model must be an instance of ONNXModelHandler")
 
@@ -176,14 +191,19 @@ class AddOliveMetadata(Pass):
         else:
             output_dir = output_path
 
-        # Copy entire input directory to preserve external files
+        # Copy entire input directory to preserve external files using hardlinks
         output_dir.parent.mkdir(parents=True, exist_ok=True)
         if output_dir.exists():
             shutil.rmtree(output_dir)
-        shutil.copytree(input_model_dir, output_dir)
+        hardlink_copy_dir(input_model_dir, output_dir)
 
         # Save updated ONNX file
         output_onnx_file = output_dir / input_onnx_file.name
         onnx.save_model(onnx_model, str(output_onnx_file))
 
         return ONNXModelHandler(model_path=output_dir, onnx_file_name=input_onnx_file.name)
+
+    def _is_multimodal_model(self, model: Union[ONNXModelHandler, CompositeModelHandler]) -> bool:
+        """Check if the model is a multi-modal model that should be skipped."""
+        # Only check for CompositeModelHandler which indicates multi-component models
+        return isinstance(model, CompositeModelHandler)
