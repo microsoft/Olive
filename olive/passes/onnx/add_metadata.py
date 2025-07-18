@@ -4,13 +4,12 @@
 # --------------------------------------------------------------------------
 
 import logging
-from typing import Union
 
 import onnx
 
 from olive.common.utils import hardlink_copy_dir
 from olive.hardware import AcceleratorSpec
-from olive.model import CompositeModelHandler, ONNXModelHandler
+from olive.model import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -133,22 +132,15 @@ class AddOliveMetadata(Pass):
         import shutil
         from pathlib import Path
 
-        input_model_path = Path(model.model_path)
+        input_onnx_file = Path(model.model_path)
         output_path = Path(output_model_path)
 
-        # Determine input model directory and ONNX file
-        if input_model_path.is_dir():
-            input_model_dir = input_model_path
-            if model.onnx_file_name:
-                input_onnx_file = input_model_path / model.onnx_file_name
-            else:
-                onnx_files = list(input_model_path.glob("*.onnx"))
-                if not onnx_files:
-                    raise ValueError(f"No ONNX file found in model directory: {input_model_path}")
-                input_onnx_file = onnx_files[0]
-        else:
-            input_model_dir = input_model_path.parent
-            input_onnx_file = input_model_path
+        # Determine input model directory
+        if input_onnx_file.is_dir():
+            # This shouldn't happen since model.model_path should resolve to the ONNX file
+            raise ValueError(f"Model path resolved to directory, expected ONNX file: {input_onnx_file}")
+
+        input_model_dir = input_onnx_file.parent
 
         # Load ONNX model without external data to preserve file structure
         onnx_model = onnx.load_model(str(input_onnx_file), load_external_data=False)
@@ -189,8 +181,3 @@ class AddOliveMetadata(Pass):
         onnx.save_model(onnx_model, str(output_onnx_file))
 
         return ONNXModelHandler(model_path=output_dir, onnx_file_name=input_onnx_file.name)
-
-    def _is_multimodal_model(self, model: Union[ONNXModelHandler, CompositeModelHandler]) -> bool:
-        """Check if the model is a multi-modal model that should be skipped."""
-        # Only check for CompositeModelHandler which indicates multi-component models
-        return isinstance(model, CompositeModelHandler)
