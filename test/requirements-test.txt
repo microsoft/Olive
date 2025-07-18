@@ -8,27 +8,33 @@ azureml-fsspec
 # Pin azureml-metrics[all] greater than 0.0.26 to avoid breaking change in azureml-evaluate-mlflow
 azureml-metrics[all]>=0.0.26
 coverage
+cppimport
+cupy-cuda12x
 datasets
 docker>=7.1.0
 evaluate
 marshmallow<3.24.0
+ml_dtypes
 mlflow>=2.4.0, <2.20.0
 neural-compressor<2.4
 nncf>=2.16.0
 numpy<2.0.0
-nvidia-modelopt[onnx]
+nvidia-modelopt
+onnx>=1.18.0
 onnx-graphsurgeon
 onnxconverter_common
 onnxmltools
 onnxoptimizer
 onnxruntime_extensions
 onnxscript>=0.2.4
+onnxsim
 openvino>=2025.1.0
 optimum[openvino]>=1.17.0, <=1.24
 optuna
 pandas
 peft
 plotly
+polygraphy>=0.49.22
 psutil
 pytest
 pytorch_lightning

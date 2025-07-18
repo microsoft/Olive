@@ -158,11 +158,9 @@ class NVModelOptQuantization(Pass):
         elif "DmlExecutionProvider" in available_eps:
             ep_list = ["dml", "cpu"]
         else:
-            raise ValueError(
-                f"No execution provider is detected for NVIDIA GPU acceleraton."
-                f" Available providers are: {available_eps} "
-            )
-        assert ep_list is not None, "No NVIDIA GPU acceleated EP is detected."
+            logger.warning("No execution provider is detected for NVIDIA GPU acceleration.")
+            logger.warning("Available EPs = %s, falling back to CPU EP.", available_eps)
+            ep_list = ["cpu"]
         return ep_list
 
     def get_calibration_param(self, calibration_params_config, param_name):
