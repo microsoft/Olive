@@ -58,7 +58,7 @@ class OnnxConversion(Pass):
             **get_user_script_data_config(),
             **get_external_data_config(),
             "target_opset": PassConfigParam(
-                type_=int, default_value=20, description="The version of the default (ai.onnx) opset to target."
+                type_=int, default_value=21, description="The version of the default (ai.onnx) opset to target."
             ),
             "use_dynamo_exporter": PassConfigParam(
                 type_=bool, default_value=False, description="Whether to use dynamo_export API to export ONNX model."
