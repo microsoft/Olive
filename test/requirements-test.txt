@@ -8,7 +8,6 @@ azureml-fsspec
 # Pin azureml-metrics[all] greater than 0.0.26 to avoid breaking change in azureml-evaluate-mlflow
 azureml-metrics[all]>=0.0.26
 coverage
-cppimport
 datasets
 docker>=7.1.0
 evaluate
@@ -17,7 +16,7 @@ mlflow>=2.4.0, <2.20.0
 neural-compressor<2.4
 nncf>=2.16.0
 numpy<2.0.0
-nvidia-modelopt
+nvidia-modelopt[onnx]
 onnx-graphsurgeon
 onnxconverter_common
 onnxmltools
