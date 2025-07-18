@@ -585,3 +585,112 @@ class TestAddOliveMetadata:
 
             # Verify HF model name is not included due to exception
             assert "hf_model_name" not in metadata_dict
+
+    def test_add_metadata_with_external_data_files(self, tmp_path):
+        """Test that external data files are preserved when adding metadata to directory-based models."""
+        import shutil
+
+        from olive.model import ONNXModelHandler
+
+        # Create a test model directory with external data files
+        model_dir = tmp_path / "test_model_with_external_data"
+        model_dir.mkdir()
+
+        # Create a simple ONNX model
+        input_model = get_onnx_model()
+        test_onnx_path = model_dir / "model.onnx"
+        shutil.copy(input_model.model_path, test_onnx_path)
+
+        # Create mock external data files (simulating OpenVINO model files)
+        external_files = {
+            "model.bin": b"mock binary data for weights",
+            "model.xml": b"<xml>mock xml configuration</xml>",
+            "config.json": b'{"model_type": "openvino"}',
+        }
+
+        for filename, content in external_files.items():
+            (model_dir / filename).write_bytes(content)
+
+        # Create ONNXModelHandler pointing to the directory
+        input_model_handler = ONNXModelHandler(model_path=str(model_dir), onnx_file_name="model.onnx")
+
+        # Setup pass
+        config = {"graph_name": "external_data_test_graph"}
+        p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
+        # Use a directory path (without .onnx extension) to ensure directory-based output
+        output_folder = str(tmp_path / "output_model_dir")
+
+        # Execute
+        output_model = p.run(input_model_handler, output_folder)
+
+        # The framework may return either a directory-based model or a file-based model
+        # Both are valid as long as all external files are preserved
+        output_path = Path(output_model.model_path)
+
+        if output_path.is_file():
+            # If it's a file, it should be in the expected output directory
+            expected_dir = Path(output_folder)
+            actual_parent = output_path.parent
+            assert actual_parent == expected_dir, f"Expected parent {expected_dir} but got {actual_parent}"
+            assert output_path.name == "model.onnx"
+            output_dir = actual_parent
+        else:
+            # If it's a directory, use it directly
+            assert output_path.is_dir(), f"Expected directory but got: {output_path}"
+            assert output_model.onnx_file_name == "model.onnx"
+            output_dir = output_path
+
+        # Verify ONNX file exists and has correct metadata
+        output_onnx_path = output_dir / "model.onnx"
+        assert output_onnx_path.exists()
+
+        onnx_model = onnx.load_model(str(output_onnx_path))
+        assert onnx_model.graph.name == "external_data_test_graph"
+
+        # Check metadata was added
+        metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
+        assert "olive_version" in metadata_dict
+        assert "model_hash" in metadata_dict
+
+        # Verify all external files were preserved
+        for filename, original_content in external_files.items():
+            external_file_path = output_dir / filename
+            assert external_file_path.exists(), f"External file {filename} was not preserved"
+
+            # Verify file content is identical
+            preserved_content = external_file_path.read_bytes()
+            assert preserved_content == original_content, f"Content of {filename} was modified"
+
+    def test_add_metadata_single_file_to_directory_conversion(self, tmp_path):
+        """Test that metadata is correctly added to single ONNX files."""
+        # Setup single file model
+        input_model = get_onnx_model()
+        config = {"graph_name": "single_to_dir_test"}
+        p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
+        output_folder = str(tmp_path / "output")
+
+        # Execute
+        output_model = p.run(input_model, output_folder)
+
+        # For single-file models without external data, the framework may return either
+        # a directory-based model or a file-based model
+        output_path = Path(output_model.model_path)
+
+        if output_path.is_file():
+            # If it's a file, verify it's in the expected location
+            assert output_path.parent == Path(output_folder)
+            onnx_file_path = output_path
+        else:
+            # If it's a directory, verify the structure
+            assert output_path.is_dir()
+            assert output_model.onnx_file_name is not None
+            onnx_file_path = output_path / output_model.onnx_file_name
+
+        # Verify the ONNX file exists and has correct metadata
+        assert onnx_file_path.exists()
+        onnx_model = onnx.load_model(str(onnx_file_path))
+        assert onnx_model.graph.name == "single_to_dir_test"
+
+        metadata_dict = {entry.key: entry.value for entry in onnx_model.metadata_props}
+        assert "olive_version" in metadata_dict
+        assert "model_hash" in metadata_dict
