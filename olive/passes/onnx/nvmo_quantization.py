@@ -190,25 +190,25 @@ class NVModelOptQuantization(Pass):
             calib_inputs = None
             logger.warning("Not providing calibration data for quantization.")
 
-        logger.info("===== Quantization Settings =====")
-        logger.info(
+        logger.debug("===== Quantization Settings =====")
+        logger.debug(
             "algo=%s, precision=%s, calib-method=%s",
             config.algorithm,
             config.precision,
             config.calibration_method,
         )
-        logger.info("tokenizer-dir=%s, int4-block-size=%d", config.tokenizer_dir, config.int4_block_size)
-        logger.info("dataset=%s", self.get_calibration_param(config.calibration_params, "dataset"))
-        logger.info("calib-size=%d", self.get_calibration_param(config.calibration_params, "calib_size"))
-        logger.info("batch-size=%d", self.get_calibration_param(config.calibration_params, "batch_size"))
-        logger.info(
-            "use_fp16_calib_data=%d", self.get_calibration_param(config.calibration_params, "use_fp16_calib_data")
+        logger.debug("tokenizer-dir=%s, int4-block-size=%d", config.tokenizer_dir, config.int4_block_size)
+        logger.debug("dataset=%s", self.get_calibration_param(config.calibration_params, "dataset"))
+        logger.debug("calib-size=%d", self.get_calibration_param(config.calibration_params, "calib_size"))
+        logger.debug("batch-size=%d", self.get_calibration_param(config.calibration_params, "batch_size"))
+        logger.debug(
+            "use_fp16_calib_data=%s", self.get_calibration_param(config.calibration_params, "use_fp16_calib_data")
         )
-        logger.info("add_position_ids=%d", self.get_calibration_param(config.calibration_params, "add_position_ids"))
-        logger.info(
+        logger.debug("add_position_ids=%s", self.get_calibration_param(config.calibration_params, "add_position_ids"))
+        logger.debug(
             "calibration_eps=%s", config.calibration_providers or NVModelOptQuantization.get_execution_providers()
         )
-        logger.info("=============================")
+        logger.debug("=============================")
 
         # Return a dictionary containing necessary configuration for quantization
         return {

@@ -114,6 +114,7 @@ pip install onnxruntime-genai-directml>=0.4.0
 pip install onnxruntime-directml==1.20.0
 pip install -r requirements-nvmo-awq.txt
 ```
+Refer TensorRT Model Optimizer documentation for detailed [installation instructions](https://nvidia.github.io/TensorRT-Model-Optimizer/getting_started/windows/_installation_with_olive.html).
 
 ## Validate Installation
 After setup, confirm the correct installation of the `modelopt` package by running:
@@ -132,7 +133,7 @@ olive run --config phi3_nvmo_ptq.json
 ## Steps to Use Different Execution-Providers
 
 The example `phi3_nvmo_ptq.json` demonstrates model building and quantization with DirectML execution-provider (EP). In order to use any other EP for the passes:
-- Use corresponding onnxruntime-genai and onnxruntime packages, along with suitable setup of thier dependencies/requirements as needed. Refer documentation for [execution-providers](https://onnxruntime.ai/docs/execution-providers/).
+- Use corresponding onnxruntime-genai and onnxruntime packages, along with suitable setup of their dependencies/requirements as needed. Refer documentation for [execution-providers](https://onnxruntime.ai/docs/execution-providers/).
 - Update olive config (json) as needed for that EP. For instance, model built with DirectML EP has position_ids input but model built with CUDA EP or NvTensorRtRtx EP doesn't have position_ids input. So, while preparing calibration-data, this difference needs to be taken care of, and therefore, it requires update in the olive config for position_ids input. See below for an example:
 
 ```
