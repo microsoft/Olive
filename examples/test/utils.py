@@ -160,12 +160,9 @@ def set_docker_system(olive_config):
     olive_config["systems"]["docker_system"] = {
         "type": "Docker",
         "accelerators": [{"device": "CPU", "execution_providers": ["CPUExecutionProvider"]}],
-        "local_docker_config": {
-            "image_name": "olive-image",
-            "build_context_path": "docker",
-            "dockerfile": "Dockerfile",
-        },
-        "is_dev": True,
+        "image_name": "olive-image",
+        "build_context_path": "docker",
+        "dockerfile": "Dockerfile",
     }
 
 
