@@ -17,6 +17,11 @@ class RyzenGenerateModel(Pass):
                 type_=bool,
                 default_value=False,
                 description="Enable packed constants optimization in NPU export."
+            ), 
+            "cpu_only": PassConfigParam(
+            type_=bool,
+            default_value=False,
+            description="Run only model builder -OGA CPU only model, skip NPU-related steps."
             )
         }
 
@@ -43,7 +48,8 @@ class RyzenGenerateModel(Pass):
         generate_npu_model(
             input_model=str(input_model_path),
             output_dir=str(output_dir),
-            packed_const=config.packed_const
+            packed_const=config.packed_const, 
+            cpu_only=config.cpu_only
         )
 
         # Load final ONNX model to wrap into Olive model

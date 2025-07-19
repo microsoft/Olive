@@ -3,7 +3,8 @@
     "passes": {
         "mg": {
             "type": "RyzenGenerateModel",
-            "packed_const": false
+            "packed_const": false,
+            "cpu_only": false
         }
     },
     "log_severity_level": 1,
