@@ -1,9 +1,9 @@
 {
-    "input_model": { "type": "HFModel", "model_path": "<local/hf path to quark quantized>/Phi-3.5-mini-instruct"},
+    "input_model": { "type": "HFModel", "model_path": "<path_to>\\Phi-3.5-mini-instruct"},
     "passes": {
         "mg": {
-            "type": "VitisGenerateModel",
-            "packed_const": true
+            "type": "RyzenGenerateModel",
+            "packed_const": false
         }
     },
     "log_severity_level": 1,

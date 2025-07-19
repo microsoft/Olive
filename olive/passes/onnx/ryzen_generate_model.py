@@ -9,7 +9,7 @@ from olive.passes.onnx.common import model_proto_to_olive_model
 import onnx
 
 
-class VitisGenerateModel(Pass):
+class RyzenGenerateModel(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec):
         return {
@@ -27,17 +27,17 @@ class VitisGenerateModel(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: BasePassConfig, output_model_path: str
     ) -> ONNXModelHandler:
-        print(f"[DEBUG] Running VitisGenerateModel with config: {config}")
+        print(f"[DEBUG] Running RyzenGenerateModel with config: {config}")
 
-        # assert isinstance(model, ONNXModelHandler), "VitisGenerateModel only supports ONNXModelHandler input."
+        # assert isinstance(model, ONNXModelHandler), "RyzenGenerateModel only supports ONNXModelHandler input." # uncomment once quark and model bu
 
         input_model_path = model.model_path
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        print(f"[VitisGenerateModel] Generating Vitis NPU model from: {input_model_path}")
-        print(f"[VitisGenerateModel] Output directory: {output_dir}")
-        print(f"[VitisGenerateModel] Packed constants: {config.packed_const}")
+        print(f"[RyzenGenerateModel] Generating Ryzen NPU model from: {input_model_path}")
+        print(f"[RyzenGenerateModel] Output directory: {output_dir}")
+        print(f"[RyzenGenerateModel] Packed constants: {config.packed_const}")
 
         # Generate the NPU model
         generate_npu_model(
