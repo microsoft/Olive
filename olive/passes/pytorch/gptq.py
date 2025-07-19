@@ -102,6 +102,8 @@ class Gptq(Pass):
             quantizable_modules = [module for module in layer.modules() if hasattr(module, "quant_info")]
 
             # collect calibration data
+            # we could only collect for only one module per group but the space and time savings are probably
+            # not worth the complexity
             handles = [module.register_forward_hook(self.accumulate_hessian) for module in quantizable_modules]
             self.run_layer(layer, hidden_states, layer_args, layer_kwargs)
             for handle in handles:
