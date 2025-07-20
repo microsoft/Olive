@@ -73,8 +73,7 @@ class QuarkQuantizationPass(Pass):
             model_export=config.model_export,
             exclude_layers=config.exclude_layers,
 
-            # Optional args with sensible defaults
-            # Optional args with sensible defaults
+            # Other args 
             device="cuda",
             multi_gpu=False,
             model_attn_implementation="eager",
@@ -122,8 +121,8 @@ class QuarkQuantizationPass(Pass):
             use_tp=False,
             seq_len=512,
             batch_size=1,
-            model_decoder_layers="model.layers"
         )
+        # model_decoder_layers="model.layers"
 
         run_quark_quantization(args)
         print(f"[INFO] Quark quantized model saved to: {output_model_path}")
