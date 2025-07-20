@@ -1,6 +1,19 @@
 {
-    "input_model": { "type": "HFModel", "model_path": "<path_to>\\Phi-3.5-mini-instruct"},
+    "input_model": {
+        "type": "HFModel",
+        "model_path": "microsoft/Phi-3.5-mini-instruct"
+    },
     "passes": {
+        "qq": {
+            "type": "QuarkQuantizationPass",
+            "quant_scheme": "w_uint4_per_group_asym",
+            "quant_algo": "awq",
+            "dataset": "pileval_for_awq_benchmark",
+            "data_type": "float32",
+            "num_calib_data": 128,
+            "model_export": ["hf_format"],
+            "exclude_layers": []
+        },
         "mg": {
             "type": "RyzenGenerateModel",
             "packed_const": false,

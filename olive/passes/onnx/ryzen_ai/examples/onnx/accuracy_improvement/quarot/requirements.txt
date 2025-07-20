@@ -1,0 +1,15 @@
+datasets
+huggingface-hub~=0.25.1
+numpy
+onnx>=1.16.2
+onnxruntime>=1.20.1,<=1.22.0
+onnxruntime-genai==0.4.0
+onnxruntime_extensions
+optimum~=1.21.4
+protobuf
+rich
+torch>=2.3.0,<=2.4.0
+torchvision
+transformers~=4.43.4
+zstandard
+zstd

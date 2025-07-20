@@ -1,0 +1,8 @@
+{
+    "activation_checkpointing": false,
+    "transformer_layer_cls_to_wrap": [
+        "Phi3DecoderLayer"
+    ],
+    "state_dict_type": "FULL_STATE_DICT",
+    "forward_prefetch": true
+}

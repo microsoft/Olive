@@ -1,5 +1,5 @@
 from olive.passes import Pass
-from olive.model import ONNXModelHandler
+from olive.model import ONNXModelHandler, HfModelHandler
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from model_generate import generate_npu_model
 from pathlib import Path
@@ -30,7 +30,7 @@ class RyzenGenerateModel(Pass):
         return False
 
     def _run_for_config(
-        self, model: ONNXModelHandler, config: BasePassConfig, output_model_path: str
+        self, model: HfModelHandler, config: BasePassConfig, output_model_path: str
     ) -> ONNXModelHandler:
         print(f"[DEBUG] Running RyzenGenerateModel with config: {config}")
 

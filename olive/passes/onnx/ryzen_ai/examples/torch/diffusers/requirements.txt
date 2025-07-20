@@ -1,0 +1,8 @@
+accelerate
+diffusers==0.31.0
+huggingface-hub==0.25.2
+open-clip-torch==2.7.0
+opencv-python
+optimum
+scipy==1.9.1
+sentencepiece

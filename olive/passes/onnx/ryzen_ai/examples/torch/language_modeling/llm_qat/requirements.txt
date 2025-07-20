@@ -1,0 +1,4 @@
+accelerate>=1.4.0
+datasets
+importlib_metadata
+transformers>=4.48.3

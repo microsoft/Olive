@@ -635,6 +635,16 @@
             "supported_algorithms": [],
             "supported_quantization_encodings": [],
             "run_on_target": true
+        },
+        "QuarkQuantizationPass": {
+            "module_path": "olive.passes.onnx.quark_quantization.QuarkQuantizationPass",
+            "supported_providers": ["CPUExecutionProvider", "ROCMExecutionProvider", "CUDAExecutionProvider"],
+            "supported_accelerators": ["cpu", "gpu"],
+            "supported_precisions": ["fp16", "fp32"],
+            "supported_algorithms": ["awq"],
+            "supported_quantization_encodings": [],
+            "run_on_target": true,
+            "extra_dependencies": ["amd-quark"]
         }
     },
     "extra_dependencies": {
