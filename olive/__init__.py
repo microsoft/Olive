@@ -18,7 +18,6 @@ __version__ = "0.10.0.dev0"
 
 try:
     import onnxruntime as ort
-    from onnxruntime import winml  # noqa: F401 # pylint: disable=unused-import
 
     # pylint: disable=protected-access
     ort._get_available_providers = ort.get_available_providers
