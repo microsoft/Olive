@@ -9,7 +9,7 @@ import argparse
 import copy
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from olive.passes.onnx.ryzen_ai.examples.torch.language_modeling.llm_utils.model_preparation import MODEL_NAME_KV_LAYERS_MAP, MODEL_NAME_EXCLUDE_LAYERS_MAP, MODEL_NAME_Q_LAYERS_MAP, MOE_MODEL_NAME_EXPERTS_LAYERS_MAP
+from llm_utils.model_preparation import MODEL_NAME_KV_LAYERS_MAP, MODEL_NAME_EXCLUDE_LAYERS_MAP, MODEL_NAME_Q_LAYERS_MAP, MOE_MODEL_NAME_EXPERTS_LAYERS_MAP
 
 from quark.torch.quantization import Config, QuantizationConfig, FP8E4M3PerTensorSpec, Int4PerChannelSpec, ProgressiveSpec, load_pre_optimization_config_from_file, load_quant_algo_config_from_file, AWQConfig, AutoSmoothQuantConfig
 from quark.torch.export import ExporterConfig, JsonExporterConfig, OnnxExporterConfig
@@ -18,7 +18,7 @@ from quark.shares.utils.log import ScreenLogger
 from olive.passes.onnx.ryzen_ai.examples.torch.language_modeling.llm_ptq.customized_configuration import get_global_config, INT8_PER_TENSOR_SPEC, INT8_PER_TOKEN_DYNAMIC_SPEC, INT8_PER_TENSOR_DYNAMIC_SPEC, \
     UINT4_PER_CHANNEL_ASYM_DYNAMIC_SPEC, FP4_PER_GROUP_SYM_SPEC, OCP_MXFP4_SPEC, FP6_E2M3_PER_GROUP_SYM_SPEC, OCP_MXFP6_E2M3_SPEC, \
     FP6_E3M2_PER_GROUP_SYM_SPEC, OCP_MXFP6_E3M2_SPEC, OCP_MXFP8_E4M3_SPEC, DEPRECATED_QUANT_SCHEME
-
+EXAMPLES_DIR = os.path.abspath(os.path.dirname(__file__))
 logger = ScreenLogger(__name__)
 
 '''
@@ -174,17 +174,17 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
     # Set up `pre_opt_config`
     pre_optimization_configs = []
     if "rotation" in pre_quantization_optimization:
-        pre_optimization_config_file_path = pre_optimization_config_file_path if pre_optimization_config_file_path else 'models/' + model_type + '/rotation_config.json'
+        pre_optimization_config_file_path = pre_optimization_config_file_path if pre_optimization_config_file_path else os.path.join(EXAMPLES_DIR, 'models', model_type, 'rotation_config.json')
         pre_quant_opt_config = load_pre_optimization_config_from_file(pre_optimization_config_file_path)
         pre_optimization_configs.append(pre_quant_opt_config)
     if "quarot" in pre_quantization_optimization:
-        pre_optimization_config_file_path = pre_optimization_config_file_path if pre_optimization_config_file_path else 'models/' + model_type + '/quarot_config.json'
+        pre_optimization_config_file_path = pre_optimization_config_file_path if pre_optimization_config_file_path else os.path.join(EXAMPLES_DIR, 'models', model_type, 'quarot_config.json')
         pre_quant_opt_config = load_pre_optimization_config_from_file(pre_optimization_config_file_path)
         pre_quant_opt_config.kv_cache_quant = kv_cache_dtype is not None
         pre_quant_opt_config.act_quant = global_quant_config.input_tensors is not None
         pre_optimization_configs.append(pre_quant_opt_config)
     if 'smoothquant' in pre_quantization_optimization:
-        pre_optimization_config_file_path = pre_optimization_config_file_path if pre_optimization_config_file_path else 'models/' + model_type + '/smooth_config.json'
+        pre_optimization_config_file_path = pre_optimization_config_file_path if pre_optimization_config_file_path else os.path.join(EXAMPLES_DIR, 'models', model_type, 'smooth_config.json')
         pre_opt_config = load_pre_optimization_config_from_file(pre_optimization_config_file_path)
         pre_optimization_configs.append(pre_opt_config)
 
@@ -224,14 +224,15 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
 
 
 def load_algo_config(quant_algo, quant_scheme, quant_algo_config_file_path, model_type):
+    
     if quant_algo == 'awq':
-        default_algo_config_file = 'models/' + model_type + '/awq_config.json'
+        default_algo_config_file = os.path.join(EXAMPLES_DIR, 'models', model_type, 'awq_config.json')
     elif quant_algo == 'autosmoothquant':
-        default_algo_config_file = 'models/' + model_type + '/autosmoothquant_config.json'
+        default_algo_config_file = os.path.join(EXAMPLES_DIR, 'models', model_type, 'autosmoothquant_config.json')
     elif quant_algo == 'gptq':
         if quant_scheme not in ['w_uint4_per_group_asym', 'w_uint4_per_channel_asym', 'w_mxfp4_a_mxfp4']:
             logger.warning(f"GPTQ is only tested with uint4_per_group, w_uint4_per_channel_asym, and w_mxfp4_a_mxfp4 quantization in Quark, be careful to apply GPTQ on {quant_scheme}.")
-        default_algo_config_file = 'models/' + model_type + '/gptq_config.json'
+        default_algo_config_file = os.path.join(EXAMPLES_DIR, 'models', model_type, 'gptq_config.json')
     quant_algo_config_file_path = quant_algo_config_file_path if quant_algo_config_file_path else default_algo_config_file
     if os.path.exists(quant_algo_config_file_path):
         algo_config = load_quant_algo_config_from_file(quant_algo_config_file_path)
