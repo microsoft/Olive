@@ -372,6 +372,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
         for i in range(0, k, block_size):
             end_idx = min(i + block_size, k)
             block_slice = data_reshape[:, i:end_idx, :]
+            zero_point_slice = None
             if is_symmetric:
                 quantized_slice_int8, scale_slice = self._quant_slice_symmetric(block_slice)
             else:
