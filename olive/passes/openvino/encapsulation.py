@@ -282,7 +282,7 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
                 "session_options": {
                     "log_id": "onnxruntime-genai",
                     "graph_optimization_level": "ORT_DISABLE_ALL",
-                    "provider_options": [{"OpenVINO": {"device_type": "NPU", "enable_causallm": "True"}}],
+                    "provider_options": [{"OpenVINO": {"device_type": config.target_device.upper(), "enable_causallm": "True"}}],
                 },
                 "filename": "openvino_model.onnx",
                 "head_size": -1,
@@ -344,7 +344,6 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
         "num_attention_heads", -1
     )
     genai_config["model"]["decoder"]["hidden_size"] = src_config.get("hidden_size", -1)
-    genai_config["model"]["decoder"]["session_options"]["provider_options"][0]["OpenVINO"]["device_type"] = config.target_device.upper()
 
     for name in inputs:
         if name != "beam_idx":
