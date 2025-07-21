@@ -81,30 +81,11 @@ def create_managed_system(system_config: "SystemConfig", accelerator: "Accelerat
             requirements_file=system_config.config.requirements_file,
         )
         new_system.install_requirements(accelerator)
-    elif system_config.type == SystemType.Docker:
-        from olive.systems.docker import DockerSystem
-
-        assert accelerator.execution_provider, "Execution provider must be specified for Docker system"
-        dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
-        # TODO(myguo): create a temp dir for the build context
-        new_system = DockerSystem(
-            local_docker_config={
-                "image_name": f"olive_{accelerator.execution_provider[:-17].lower()}",
-                "dockerfile": dockerfile,
-                "build_context_path": Path(__file__).parents[1] / "docker",
-            },
-            accelerators=accelerator_cfg,
-            is_dev=system_config.config.is_dev,
-            olive_managed_env=True,
-            requirements_file=(
-                str(system_config.config.requirements_file) if system_config.config.requirements_file else None
-            ),
-        )
 
     elif system_config.type == SystemType.AzureML:
         from olive.systems.azureml import AzureMLSystem
 
-        assert accelerator.execution_provider, "Execution provider must be specified for Docker system"
+        assert accelerator.execution_provider, "Execution provider must be specified for AzureML system"
         dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
         temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
         build_context_path = Path(temp_dir.name)

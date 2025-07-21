@@ -78,6 +78,15 @@ class RunEngineConfig(EngineConfig):
         ),
     )
 
+    @validator("output_dir", pre=True, always=True)
+    def validate_output_dir(cls, v):
+        if v is None:
+            v = Path.cwd().resolve()
+        else:
+            v = Path(v).resolve()
+        v.mkdir(parents=True, exist_ok=True)
+        return v
+
     def create_engine(self, olive_config, azureml_client_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
         if self.cache_config:
@@ -268,6 +277,14 @@ class RunConfig(NestedConfig):
                 "Can't search without a valid evaluator config. "
                 "Either provider a valid evaluator config or disable search."
             )
+
+        # Check if we need to validate python environment path
+        engine_host = v.get("host")
+        if not engine_host or engine_host.type != SystemType.Docker:
+            systems = values.get("systems")
+            if systems:
+                _validate_python_environment_path(systems)
+
         return _resolve_evaluator(v, values)
 
     @validator("passes", pre=True, each_item=True)
@@ -302,13 +319,8 @@ class RunConfig(NestedConfig):
                     )
         return v
 
-    @validator("workflow_host", pre=True, always=True)
+    @validator("workflow_host", pre=True)
     def validate_workflow_host(cls, v, values):
-        if v is None:
-            systems = values.get("systems")
-            if systems:
-                _validate_python_environment_path(systems)
-            return v
         return _resolve_config(values, v)
 
 
