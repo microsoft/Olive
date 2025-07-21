@@ -12,7 +12,7 @@ cppimport
 datasets
 docker>=7.1.0
 evaluate
-marshmallow<3.24.0
+marshmallow
 mlflow>=2.4.0, <2.20.0
 neural-compressor<2.4
 nncf>=2.16.0

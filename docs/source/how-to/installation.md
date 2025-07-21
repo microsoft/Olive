@@ -1,4 +1,4 @@
-# Installation
+# How To Install Olive
 
 We recommend installing Olive in a [virtual environment](https://docs.python.org/3/library/venv.html) or a
 [conda environment](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html). Olive is installed using
