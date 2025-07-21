@@ -1,4 +1,4 @@
-# Run Olive workflows
+# How To Run Olive Workflows
 
 The Olive `run` command allows you to execute any of the 40+ optimizations available in Olive in a sequence you define in a YAML/JSON file called a *workflow*.
 

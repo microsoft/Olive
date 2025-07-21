@@ -1,4 +1,4 @@
-# How to prepare Olive configuration
+# How To Write New Olive workflow
 
 To convert, quantize, optimize and tune your model Olive needs information about your model. For example, how to load the model, name and shape of input tensors. You can also select the target hardware and list of optimizations you want to perform on the model. You can provide this information in a json file as an input to the Olive. In this document we will walk through how to generate such .json configuration from scratch.
 
@@ -9,7 +9,7 @@ olive run --config my_model_processing_description.json
 ```
 
 > **Note:**
-> If you prefer to run Olive workflows programmatically or want to access optimization results from Python, refer to the [Python Interface documentation](../../extending/python_interface.md) for details on using Olive from Python.
+> If you prefer to run Olive workflows programmatically or want to access optimization results from Python, refer to the [Python Interface documentation](../python_api.md) for details on using Olive from Python.
 
 
 ## Input Model

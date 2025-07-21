@@ -125,7 +125,7 @@ class Gptq(Pass):
         wrapper.model.config.use_cache = original_use_cache
 
         # save the quantized model
-        wrapper.save_model(output_model_path)
+        wrapper.model.save_pretrained(output_model_path)
         model.save_metadata(output_model_path)
 
         return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
@@ -290,7 +290,7 @@ class Gptq(Pass):
         module.quant_info.data["H"] += inp.matmul(inp.t())
 
     @staticmethod
-    def process_module(module: torch.nn.Module, percdamp: float = 0.1, blocksize: int = 128) -> None:
+    def process_module(module: torch.nn.Module, percdamp: float = 0.01, blocksize: int = 128) -> None:
         """Process a module for GPTQ quantization using the accumulated Hessian.
 
         Args:
@@ -356,7 +356,7 @@ class Gptq(Pass):
                         all_zp.append(active_zp)
                         now_idx += 1
 
-                q = quantizer.quantize(w.unsqueeze(1), active_scale, active_zp).flatten()
+                q = quantizer.fake_quantize(w.unsqueeze(1), active_scale, active_zp).flatten()
                 Q1[:, i] = q
                 Losses1[:, i] = (w - q) ** 2 / d**2
 
@@ -372,6 +372,7 @@ class Gptq(Pass):
         if not all_scales:
             all_scales.append(active_scale)
             all_zp.append(active_zp)
+        module.weight.data = Q.to(module.weight.data.device).to(module.weight.data.dtype)
         module.quant_info.scales = torch.cat(all_scales, dim=1).to("cpu")
         module.quant_info.zero_points = torch.cat(all_zp, dim=1).to("cpu")
 
@@ -399,8 +400,8 @@ class Gptq(Pass):
                 bits=module.quant_info.quantizer.bits,
                 symmetric=module.quant_info.quantizer.symmetric,
                 group_size=module.quant_info.quantizer.group_size,
-                scales=module.quant_info.scales.to(device),
-                zero_points=module.quant_info.zero_points.to(device),
+                scales=module.quant_info.scales,
+                zero_points=module.quant_info.zero_points,
             ).to("cpu")  # move the original module to CPU
 
         replace_matching_submodules(

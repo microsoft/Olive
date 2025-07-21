@@ -128,6 +128,9 @@ class QuantLinear(nn.Module):
         # compute quantization parameters if not provided
         if scales is None:
             scales, zero_points = qlinear.quantizer.find_qparams(linear.weight)
+        else:
+            scales = scales.to(qlinear.device)
+            zero_points = zero_points.to(qlinear.device)
 
         # quantize weights
         qweight = qlinear.quantizer.quantize(linear.weight, scales, zero_points)
