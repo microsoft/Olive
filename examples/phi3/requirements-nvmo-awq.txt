@@ -1,5 +1,3 @@
-cppimport==22.8.2
-cupy-cuda12x
 datasets>=2.14.4
 torch
 transformers
