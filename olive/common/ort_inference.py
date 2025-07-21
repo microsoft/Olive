@@ -75,24 +75,17 @@ def initialize_inference_session_options(
     provider_options_by_ep = dict(zip(providers, provider_options))
     ort_device_type = get_ort_hardware_device_type(device)
 
-    # NOTE: In the current latest version 1.22.0:
     # ort.get_ep_devices may return ep_devices with the same ep_name and device, for example when connecting remotely or when there are multiple graph cards.
     # However, in onnxruntime, each EP name can only be added once. See: https://github.com/microsoft/onnxruntime/blob/fb0f6c652be5db0a3182c424a995efecf792d41c/onnxruntime/core/framework/execution_providers.h#L75
-    if version.parse(ort.__version__) < version.parse("1.22.0"):
-        added_ep_names = set()
-        for ep_device in ort.get_ep_devices():
-            if (
-                ep_device.device.type == ort_device_type
-                and ep_device.ep_name in provider_options_by_ep
-                and ep_device.ep_name not in added_ep_names
-            ):
-                added_ep_names.add(ep_device.ep_name)
-                sess_options.add_provider_for_devices([ep_device], provider_options_by_ep.get(ep_device.ep_name) or {})
-    else:
-        # In ort v1.22.0 and later, we can use add_provider_for_devices to add providers with options.
-        for ep_device in ort.get_ep_devices():
-            if ep_device.device.type == ort_device_type and ep_device.ep_name in provider_options_by_ep:
-                sess_options.add_provider_for_devices([ep_device], provider_options_by_ep.get(ep_device.ep_name) or {})
+    added_ep_names = set()
+    for ep_device in ort.get_ep_devices():
+        if (
+            ep_device.device.type == ort_device_type
+            and ep_device.ep_name in provider_options_by_ep
+            and ep_device.ep_name not in added_ep_names
+        ):
+            added_ep_names.add(ep_device.ep_name)
+            sess_options.add_provider_for_devices([ep_device], provider_options_by_ep.get(ep_device.ep_name) or {})
 
     if provider_selection_policy:
         provider_selection_policy = get_ort_execution_provider_device_policy(provider_selection_policy)
