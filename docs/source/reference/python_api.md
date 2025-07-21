@@ -1,12 +1,8 @@
 # Python Interface
 
-This document describes the Python interface of Olive, focusing on how to run optimization workflows and access their results.
+Olive provides Python API to transform models. All functions are available directly from the `olive` package.
 
-## Running a Workflow with Python
-
-Olive workflows can be executed programmatically using the Python API. All functions are available directly from the `olive` package.
-
-### `run`
+## `run(...)`
 
 This is the most generic way to run an Olive workflow from a configuration file.
 
@@ -26,7 +22,7 @@ workflow_output = run("config.json")
 
 The rest of the functions are specialized workflows for common tasks.
 
-### `auto_opt`
+## `auto_opt(...)`
 
 Automatically optimize a model for performance.
 
@@ -69,47 +65,7 @@ from olive import auto_opt
 workflow_output = auto_opt(model_name_or_path="path/to/model")
 ```
 
-### `finetune`
-
-Fine-tune a model using LoRA or QLoRA.
-
-**Arguments:**
-- `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
-- `task` (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.
-- `trust_remote_code` (bool): Trust remote code when loading a huggingface model. Defaults to `False`.
-- `output_path` (str): Output directory path. Defaults to `"finetuned-adapter"`.
-- `method` (str): Fine-tuning method ("lora", "qlora"). Defaults to `"lora"`.
-- `lora_r` (int): LoRA R value. Defaults to `64`.
-- `lora_alpha` (int): LoRA alpha value. Defaults to `16`.
-- `target_modules` (str, optional): Target modules for LoRA (comma-separated).
-- `torch_dtype` (str): PyTorch dtype for training ("bfloat16", "float16", "float32"). Defaults to `"bfloat16"`.
-- `data_name` (str): Dataset name (required).
-- `train_subset` (str, optional): The subset to use for training.
-- `train_split` (str, optional): The split to use for training.
-- `eval_subset` (str, optional): The subset to use for evaluation.
-- `eval_split` (str, optional): The dataset split to evaluate on.
-- `data_files` (str, optional): The dataset files (comma-separated if multiple).
-- `text_field` (str, optional): The text field to use for fine-tuning.
-- `text_template` (str, optional): Template to generate text field from (e.g., '### Question: {prompt} \n### Answer: {response}').
-- `use_chat_template` (bool): Use chat template for text field. Defaults to `False`.
-- `max_seq_len` (int, optional): Maximum sequence length for the data.
-- `add_special_tokens` (bool, optional): Whether to add special tokens during preprocessing.
-- `max_samples` (int, optional): Maximum samples to select from the dataset.
-- `batch_size` (int, optional): Batch size.
-- `input_cols` (list[str], optional): List of input column names.
-- `account_name` (str, optional): Azure storage account name for shared cache.
-- `container_name` (str, optional): Azure storage container name for shared cache.
-- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
-- `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
-- `**training_kwargs`: HuggingFace training arguments.
-
-```python
-from olive import finetune
-
-workflow_output = finetune(model_name_or_path="hf_model_name")
-```
-
-### `quantize`
+## `quantize(...)`
 
 Quantize a PyTorch or ONNX model.
 
@@ -149,7 +105,7 @@ from olive import quantize
 workflow_output = quantize(model_name_or_path="path/to/model")
 ```
 
-### `capture_onnx_graph`
+## `capture_onnx_graph(...)`
 
 Capture ONNX graph for a PyTorch model.
 
@@ -186,7 +142,47 @@ from olive import capture_onnx_graph
 workflow_output = capture_onnx_graph(model_name_or_path="path/to/model")
 ```
 
-### `generate_adapter`
+## `finetune(...)`
+
+Fine-tune a model using LoRA or QLoRA.
+
+**Arguments:**
+- `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
+- `task` (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.
+- `trust_remote_code` (bool): Trust remote code when loading a huggingface model. Defaults to `False`.
+- `output_path` (str): Output directory path. Defaults to `"finetuned-adapter"`.
+- `method` (str): Fine-tuning method ("lora", "qlora"). Defaults to `"lora"`.
+- `lora_r` (int): LoRA R value. Defaults to `64`.
+- `lora_alpha` (int): LoRA alpha value. Defaults to `16`.
+- `target_modules` (str, optional): Target modules for LoRA (comma-separated).
+- `torch_dtype` (str): PyTorch dtype for training ("bfloat16", "float16", "float32"). Defaults to `"bfloat16"`.
+- `data_name` (str): Dataset name (required).
+- `train_subset` (str, optional): The subset to use for training.
+- `train_split` (str, optional): The split to use for training.
+- `eval_subset` (str, optional): The subset to use for evaluation.
+- `eval_split` (str, optional): The dataset split to evaluate on.
+- `data_files` (str, optional): The dataset files (comma-separated if multiple).
+- `text_field` (str, optional): The text field to use for fine-tuning.
+- `text_template` (str, optional): Template to generate text field from (e.g., '### Question: {prompt} \n### Answer: {response}').
+- `use_chat_template` (bool): Use chat template for text field. Defaults to `False`.
+- `max_seq_len` (int, optional): Maximum sequence length for the data.
+- `add_special_tokens` (bool, optional): Whether to add special tokens during preprocessing.
+- `max_samples` (int, optional): Maximum samples to select from the dataset.
+- `batch_size` (int, optional): Batch size.
+- `input_cols` (list[str], optional): List of input column names.
+- `account_name` (str, optional): Azure storage account name for shared cache.
+- `container_name` (str, optional): Azure storage container name for shared cache.
+- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
+- `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
+- `**training_kwargs`: HuggingFace training arguments.
+
+```python
+from olive import finetune
+
+workflow_output = finetune(model_name_or_path="hf_model_name")
+```
+
+## `generate_adapter(...)`
 
 Generate adapter for an ONNX model.
 
@@ -206,7 +202,7 @@ from olive import generate_adapter
 workflow_output = generate_adapter(model_name_or_path="path/to/onnx/model")
 ```
 
-### `tune_session_params`
+## `tune_session_params`
 
 Tune ONNX Runtime session parameters for optimal performance.
 
@@ -239,11 +235,11 @@ from olive import tune_session_params
 workflow_output = tune_session_params(model_name_or_path="path/to/onnx/model")
 ```
 
-### Utility Functions
+## Utility Functions
 
 There are also utility functions that don't produce a `WorkflowOutput`:
 
-#### `convert_adapters`
+### `convert_adapters(...)`
 
 Convert lora adapter weights to a file that will be consumed by ONNX models generated by Olive ExtractedAdapters pass.
 
@@ -257,7 +253,7 @@ Convert lora adapter weights to a file that will be consumed by ONNX models gene
 - `int4_quantization_mode` (str): Quantization mode for int4 quantization ("symmetric", "asymmetric"). Defaults to `"symmetric"`.
 - `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
 
-#### `extract_adapters`
+### `extract_adapters(...)`
 
 Extract LoRA adapters from PyTorch model to separate files.
 
@@ -269,7 +265,7 @@ Extract LoRA adapters from PyTorch model to separate files.
 - `cache_dir` (str, optional): Cache dir to store temporary files in. Default is Hugging Face's default cache dir.
 - `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
 
-#### `generate_cost_model`
+### `generate_cost_model(...)`
 
 Generate a cost model for a given model and save it as a csv file. This cost model is consumed by the CaptureSplitInfo pass. Only supports HfModel.
 
@@ -280,7 +276,7 @@ Generate a cost model for a given model and save it as a csv file. This cost mod
 - `output_path` (str): Output directory path. Defaults to current directory.
 - `weight_precision` (str): Weight precision ("fp32", "fp16", "fp8", "int32", "uint32", "int16", "uint16", "int8", "uint8", "int4", "uint4", "nf4", "fp4"). Defaults to `"fp32"`.
 
-## Accessing Optimization Results
+## Accessing API Results
 
 Most API functions return a `WorkflowOutput` object. You can use it to access the optimized models and their metrics.
 
@@ -371,51 +367,3 @@ from olive import ModelOutput
 - `get_parent_model_id()` - Get the ID of the parent model this was derived from
 - `use_ort_extension()` - Check if the model uses the ONNXRuntime extension
 - `get_inference_config()` - Get the model's inference configuration
-
-
-## Usage Examples
-
-### Accessing Optimization Results
-
-```python
-from olive import run, WorkflowOutput
-
-workflow_output: WorkflowOutput = run("config.json")
-
-# Check if optimization produced any results
-if workflow_output.has_output_model():
-    # Get the best model overall
-    best_model = workflow_output.get_best_candidate()
-    print(f"Model path: {best_model.model_path}")
-    print(f"Model type: {best_model.model_type}")
-    print(f"Device: {best_model.from_device()}")
-    print(f"Execution provider: {best_model.from_execution_provider()}")
-    print(f"Metrics: {best_model.metrics_value}")
-
-    # Get the best model for CPU
-    best_cpu_model = workflow_output.get_best_candidate_by_device("CPU")
-
-    # Get all models for GPU
-    gpu_models = workflow_output.get_output_models_by_device("GPU")
-```
-
-### Accessing Metrics and Configuration
-
-```python
-# Access metrics for input model
-input_metrics = workflow_output.get_input_model_metrics()
-
-# Get all available devices
-devices = workflow_output.get_available_devices()
-
-# Get model list from specific device and execution provider
-output_models = workflow_output.CPU["CPUExecutionProvider"]
-```
-
-## Practical Tips
-
-- Use `get_best_candidate()` to quickly obtain the model with the best metrics across all devices
-- Use `get_output_models()` to get a list of all optimized models sorted by metrics
-- Access device-specific outputs using the device value as a key or attribute: `workflow_output["cpu"]` or `workflow_output.cpu`. Device keys are case insensitive.
-- Always verify the existence of specific devices or execution providers before accessing them, since the output model might be empty if a pass run has failed.
-- Compare the input model metrics with optimized model metrics to quantify improvements

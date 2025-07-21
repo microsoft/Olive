@@ -17,6 +17,7 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.session_params_tuning import OrtSessionParamsTuning
 from olive.systems.common import LocalDockerConfig
+from olive.systems.docker.constants import CONTAINER_ROOT_PATH
 from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig, SystemConfig
 from olive.systems.utils import create_managed_system
@@ -154,27 +155,26 @@ class TestDockerSystem:
         if exit_code != 0:
             with pytest.raises(
                 docker.errors.ContainerError,
-                match=r".*returned non-zero exit status 1: Docker container evaluation failed with: mock_error",
+                match=r".*returned non-zero exit status 1: Docker container run failed. Please check the logs for more details.",
             ):
                 _ = docker_system.evaluate_model(model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
         else:
             actual_res = docker_system.evaluate_model(model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
 
-            container_root_path = Path("/olive-ws/")
             eval_local_path = Path(__file__).resolve().parents[4] / "olive" / "systems" / "docker" / "eval.py"
             volumes_list = [
-                f"{eval_local_path}:{container_root_path / 'eval.py'}",  # eval script
-                f"{tmp_path / 'olive'}:{container_root_path / 'olive'}",  # olive dev
-                f"{tmp_path / 'config.json'}:{container_root_path / 'config.json'}",  # config
-                f"{tmp_path / eval_output_path}:{container_root_path / eval_output_path}",  # output
+                f"{eval_local_path}:{CONTAINER_ROOT_PATH / 'eval.py'}",  # eval script
+                f"{tmp_path / 'olive'}:{CONTAINER_ROOT_PATH / 'olive'}",  # olive dev
+                f"{tmp_path / 'config.json'}:{CONTAINER_ROOT_PATH / 'config.json'}",  # config
+                f"{tmp_path / eval_output_path}:{CONTAINER_ROOT_PATH / eval_output_path}",  # output
             ]
             eval_command = [
                 "python",
-                str(container_root_path / "eval.py"),
+                str(CONTAINER_ROOT_PATH / "eval.py"),
                 "--config",
-                str(container_root_path / "config.json"),
+                str(CONTAINER_ROOT_PATH / "config.json"),
                 "--output_path",
-                str(container_root_path / eval_output_path),
+                str(CONTAINER_ROOT_PATH / eval_output_path),
                 "--output_name",
                 eval_output_name,
                 "--accelerator_type",
@@ -203,7 +203,6 @@ class TestDockerSystem:
 
         exit_code = 0
         onnx_model = get_onnx_model_config()
-        container_root_path = Path("/olive-ws/")
 
         def container_run(image, command=None, stdout=True, stderr=False, remove=False, **kwargs):
             container_obj = MagicMock()
@@ -211,7 +210,7 @@ class TestDockerSystem:
             container_obj.logs.return_value = [b"mock_error"] if exit_code != 0 else []
             with (tmp_path / runner_output_path / runner_output_name).open("w") as f:
                 output_model = copy.deepcopy(onnx_model)
-                output_model.config["model_path"] = str(container_root_path / ONNX_MODEL_PATH.name)
+                output_model.config["model_path"] = str(CONTAINER_ROOT_PATH / ONNX_MODEL_PATH.name)
                 json.dump(output_model.to_json(), f, indent=4)
             return container_obj
 
@@ -247,19 +246,19 @@ class TestDockerSystem:
         runner_local_path = Path(__file__).resolve().parents[4] / "olive" / "systems" / "docker" / "runner.py"
         model_path = onnx_model.config["model_path"]
         volumes_list = [
-            f"{runner_local_path}:{container_root_path / 'runner.py'}",  # runner script
-            f"{tmp_path / 'olive'}:{container_root_path / 'olive'}",  # olive dev
-            f"{Path(model_path).resolve()}:{container_root_path / Path(model_path).name}",  # model
-            f"{tmp_path / 'config.json'}:{container_root_path / 'config.json'}",  # config
-            f"{tmp_path / runner_output_path}:{container_root_path / runner_output_path}",  # output
+            f"{runner_local_path}:{CONTAINER_ROOT_PATH / 'runner.py'}",  # runner script
+            f"{tmp_path / 'olive'}:{CONTAINER_ROOT_PATH / 'olive'}",  # olive dev
+            f"{Path(model_path).resolve()}:{CONTAINER_ROOT_PATH / Path(model_path).name}",  # model
+            f"{tmp_path / 'config.json'}:{CONTAINER_ROOT_PATH / 'config.json'}",  # config
+            f"{tmp_path / runner_output_path}:{CONTAINER_ROOT_PATH / runner_output_path}",  # output
         ]
         runner_command = [
             "python",
-            str(container_root_path / "runner.py"),
+            str(CONTAINER_ROOT_PATH / "runner.py"),
             "--config",
-            str(container_root_path / "config.json"),
+            str(CONTAINER_ROOT_PATH / "config.json"),
             "--output_path",
-            str(container_root_path / runner_output_path),
+            str(CONTAINER_ROOT_PATH / runner_output_path),
             "--output_name",
             runner_output_name,
         ]
@@ -281,14 +280,13 @@ class TestDockerSystem:
 
         onnx_model = get_onnx_model_config()
 
-        container_root_path = Path("/olive-ws/")
         data = DockerSystem._create_runner_config(
             onnx_model,
             pass_config,
             {"model_path": onnx_model.config["model_path"]},
             {},
         )
-        docker_utils.create_config_file(tmp_path, data, container_root_path)
+        docker_utils.create_config_file(tmp_path, data)
         with patch.object(OrtSessionParamsTuning, "run", return_value=onnx_model):
             docker_runner_entry(str(tmp_path / "config.json"), str(tmp_path), "runner_res.json")
             assert (tmp_path / "runner_res.json").exists()

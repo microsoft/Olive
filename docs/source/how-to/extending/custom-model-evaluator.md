@@ -1,4 +1,4 @@
-# How to extend Olive to add custom model evaluator
+# How to Add Custom Model Evaluator
 
 This document describes how to add custom model evaluator to Olive.
 
