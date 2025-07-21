@@ -129,7 +129,6 @@ class AddOliveMetadata(Pass):
         if not isinstance(model, ONNXModelHandler):
             raise ValueError("Model must be an instance of ONNXModelHandler")
 
-        import shutil
         from pathlib import Path
 
         input_onnx_file = Path(model.model_path)
@@ -172,12 +171,15 @@ class AddOliveMetadata(Pass):
 
         # Copy entire input directory to preserve external files using hardlinks
         output_dir.parent.mkdir(parents=True, exist_ok=True)
-        if output_dir.exists():
-            shutil.rmtree(output_dir)
         hardlink_copy_dir(input_model_dir, output_dir)
 
         # Save updated ONNX file
         output_onnx_file = output_dir / input_onnx_file.name
+        if output_onnx_file.exists():
+            # Remove the hard-linked file to break the connection to the original
+            output_onnx_file.unlink()
+
+        # Save updated ONNX file (now it's a new independent file)
         onnx.save_model(onnx_model, str(output_onnx_file))
 
         return ONNXModelHandler(model_path=output_dir, onnx_file_name=input_onnx_file.name)
