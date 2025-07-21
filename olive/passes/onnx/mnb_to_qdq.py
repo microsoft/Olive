@@ -252,6 +252,10 @@ class MatMulNBitsToQDQ(Pass):
 
             # MatMul
             matmul_name = self._get_new_node_name(dag, node_name, "MatMul")
+            suffix_for_mutmul = "/Q4"
+            if "MatMulNBits" in node_name:
+                suffix_for_mutmul = "/NBits"
+            matmul_name = matmul_name + suffix_for_mutmul
             matmul_output = f"{matmul_name}/output_0"
             new_nodes.append(
                 onnx.helper.make_node("MatMul", [node_inputs[0], matmul_input], [matmul_output], name=matmul_name)
