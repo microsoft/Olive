@@ -233,7 +233,7 @@ class OpenVINOEncapsulation(Pass):
                 hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
 
         # generate the genai_config.json file for GenAI models
-        create_genai_config(context_model_output, output_model_path)
+        create_genai_config(context_model_output, output_model_path, config)
 
         return ONNXModelHandler(model_path=output_model_path)
 
@@ -252,7 +252,7 @@ def extract_shape_list(shape, config, prefix: str = "input_0_") -> list:
     return shape_list
 
 
-def create_genai_config(model_name: str, output_path: str) -> None:
+def create_genai_config(model_name: str, output_path: str, config: type[BasePassConfig]) -> None:
     """Generate the genai_config.json from the model config files.
 
     This is only for Generative AI models for which the config.json and generation_config.json files exist
@@ -344,6 +344,7 @@ def create_genai_config(model_name: str, output_path: str) -> None:
         "num_attention_heads", -1
     )
     genai_config["model"]["decoder"]["hidden_size"] = src_config.get("hidden_size", -1)
+    genai_config["model"]["decoder"]["session_options"]["provider_options"][0]["OpenVINO"]["device_type"] = config.target_device.upper()
 
     for name in inputs:
         if name != "beam_idx":
