@@ -182,6 +182,18 @@ class RunConfig(NestedConfig):
         _insert_azureml_client(values, values.get("azureml_client"))
         return values
 
+    @root_validator()
+    def validate_python_environment_paths(cls, values):
+        # Check if we need to validate python environment path
+        engine = values.get("engine")
+        if engine:
+            engine_host = engine.host
+            if not engine_host or engine_host.type != SystemType.Docker:
+                systems = values.get("systems")
+                if systems:
+                    _validate_python_environment_path(systems)
+        return values
+
     @validator("data_configs", pre=True)
     def validate_data_config_names(cls, v):
         if not v:
@@ -277,13 +289,6 @@ class RunConfig(NestedConfig):
                 "Can't search without a valid evaluator config. "
                 "Either provider a valid evaluator config or disable search."
             )
-
-        # Check if we need to validate python environment path
-        engine_host = v.get("host")
-        if not engine_host or engine_host.type != SystemType.Docker:
-            systems = values.get("systems")
-            if systems:
-                _validate_python_environment_path(systems)
 
         return _resolve_evaluator(v, values)
 
