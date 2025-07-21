@@ -97,6 +97,7 @@ class Gptq(Pass):
         # get the inputs for the first layer
         device = "cuda" if torch.cuda.is_available() else "cpu"
         hidden_states, layer_args, layer_kwargs = self.get_init_layer_inputs(model, wrapper, config, device)
+        native_hidden_states = [hidden_state.clone() for hidden_state in hidden_states]
 
         for layer in tqdm(wrapper.get_layers(return_name=False), desc="Quantizing layers"):
             quantizable_modules = [module for module in layer.modules() if hasattr(module, "quant_info")]
@@ -105,7 +106,9 @@ class Gptq(Pass):
             # we could only collect for only one module per group but the space and time savings are probably
             # not worth the complexity
             handles = [module.register_forward_hook(self.accumulate_hessian) for module in quantizable_modules]
-            self.run_layer(layer, hidden_states, layer_args, layer_kwargs)
+            native_hidden_states = self.run_layer(
+                layer, hidden_states, layer_args, layer_kwargs, native_hidden_states=native_hidden_states
+            )[1]
             for handle in handles:
                 handle.remove()
 
@@ -120,7 +123,7 @@ class Gptq(Pass):
                 layer_args,
                 layer_kwargs,
                 return_output=True,
-            )
+            )[0]
 
         # finalize the quantization
         self.finalize(wrapper, quant_config, device)
@@ -237,7 +240,8 @@ class Gptq(Pass):
         layer_args: list[tuple],
         layer_kwargs: list[dict],
         return_output: bool = False,
-    ) -> Optional[list[torch.Tensor]]:
+        native_hidden_states: list[torch.Tensor] | None = None,
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
         """Run a layer with the given inputs.
 
         Args:
@@ -246,16 +250,26 @@ class Gptq(Pass):
             layer_args: List of additional positional arguments for each input.
             layer_kwargs: List of keyword arguments for each input.
             return_output: Whether to return the layer outputs.
+            native_hidden_states: Optional list of hidden states used to run original activations.
 
         Returns:
-            List of output tensors if return_output is True, otherwise None.
+            A tuple (outputs, native_outputs). If return_output is False, outputs will be empty.
+            If native_hidden_states is None, native_outputs will be empty.
 
         """
         outputs = []
+        native_outputs = []
         layer.to(hidden_states[0].device)
 
         for i, hs in enumerate(hidden_states):
-            # TODO(jambayk): support non true-sequential if needed
+            if native_hidden_states:
+                native_outputs.append(
+                    layer(
+                        native_hidden_states[i],
+                        *layer_args[i],
+                        **layer_kwargs[i],
+                    )[0]
+                )
             layer_output = layer(
                 hs,
                 *layer_args[i],
@@ -265,7 +279,8 @@ class Gptq(Pass):
                 outputs.append(layer_output)
 
         layer.to("cpu")
-        return outputs or None
+
+        return outputs, native_outputs
 
     @staticmethod
     def accumulate_hessian(module: torch.nn.Module, inp: tuple, _: Any) -> None:
@@ -281,45 +296,70 @@ class Gptq(Pass):
             module.quant_info.data = {
                 "H": torch.zeros((module.in_features, module.in_features), device=inp[0].device),
                 "N": 0,
+                "dXXT": torch.zeros((module.in_features, module.in_features), device=inp[0].device),
+                "native_inp": None,
             }
+
+        if module.quant_info.data["native_inp"] is None:
+            module.quant_info.data["native_inp"] = inp[0].reshape(-1, module.in_features).t()
+            return
 
         batch_size = inp[0].shape[0]
         inp = inp[0].reshape(-1, module.in_features).t()
-
+        # scale wit batch size
         module.quant_info.data["H"] *= module.quant_info.data["N"] / (module.quant_info.data["N"] + batch_size)
+        module.quant_info.data["dXXT"] *= module.quant_info.data["N"] / (module.quant_info.data["N"] + batch_size)
         module.quant_info.data["N"] += batch_size
+        # normalize the input
         inp = math.sqrt(2 / module.quant_info.data["N"]) * inp.float()
+        # update the Hessian
         module.quant_info.data["H"] += inp.matmul(inp.t())
+        # update dXXT
+        dX = module.quant_info.data["native_inp"].float() * math.sqrt(2 / module.quant_info.data["N"]) - inp
+        module.quant_info.data["dXXT"] += dX.matmul(inp.t())
+        # clear native input for next iteration
+        module.quant_info.data["native_inp"] = None
 
     @staticmethod
-    def process_module(module: torch.nn.Module, percdamp: float = 0.01, blocksize: int = 128) -> None:
+    def process_module(
+        module: torch.nn.Module, percdamp: float = 0.01, blocksize: int = 128, alpha: float = 0.25
+    ) -> None:
         """Process a module for GPTQ quantization using the accumulated Hessian.
 
         Args:
             module: The linear module to quantize.
             percdamp: Damping factor for numerical stability.
             blocksize: Block size for processing weights.
+            alpha: Scaling factor for the quantization error.
 
         """
         if module.quant_info.data is None:
             raise ValueError(f"Module {module} does not have quant_info.data initialized!")
 
         H = module.quant_info.data["H"]
+        dXXT = module.quant_info.data["dXXT"]
         W = module.weight.data.clone().float().to(H.device)
+        num_cols = H.shape[0]
+        module.quant_info.data = None
+
         dead = torch.diag(H) == 0
         H[dead, dead] = 1
         W[:, dead] = 0
+        dXXT[:, dead] = 0
 
         Losses = torch.zeros_like(W)
         Q = torch.zeros_like(W)
 
         damp = percdamp * torch.mean(torch.diag(H))
-        diag = torch.arange(H.shape[0], device=H.device)
+        diag = torch.arange(num_cols, device=H.device)
         H[diag, diag] += damp
-        H = torch.linalg.cholesky(H)  # pylint: disable=not-callable
-        H = torch.cholesky_inverse(H)
-        H = torch.linalg.cholesky(H, upper=True)  # pylint: disable=not-callable
-        Hinv = H
+        Hinv = torch.linalg.cholesky(H)  # pylint: disable=not-callable
+        del H
+        Hinv = torch.cholesky_inverse(Hinv)
+        Hinv = torch.linalg.cholesky(Hinv, upper=True)  # pylint: disable=not-callable
+
+        P = alpha * ((dXXT @ Hinv.T).triu_(diagonal=1)) @ Hinv
+        del dXXT
 
         all_scales = []
         all_zp = []
@@ -333,8 +373,8 @@ class Gptq(Pass):
         else:
             active_scale, active_zp = None, None
 
-        for i1 in range(0, H.shape[0], blocksize):
-            i2 = min(i1 + blocksize, H.shape[0])
+        for i1 in range(0, num_cols, blocksize):
+            i2 = min(i1 + blocksize, num_cols)
             count = i2 - i1
 
             W1 = W[:, i1:i2].clone()
@@ -342,6 +382,7 @@ class Gptq(Pass):
             Err1 = torch.zeros_like(W1)
             Losses1 = torch.zeros_like(W1)
             Hinv1 = Hinv[i1:i2, i1:i2]
+            P1 = P[i1:i2, i1:i2]
 
             for i in range(count):
                 w = W1[:, i]
@@ -363,13 +404,15 @@ class Gptq(Pass):
                 Losses1[:, i] = (w - q) ** 2 / d**2
 
                 err1 = (w - q) / d
-                W1[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[i, i:].unsqueeze(0))
+                W1[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[i, i:].unsqueeze(0)) - w.unsqueeze(1).matmul(
+                    P1[i, i:].unsqueeze(0)
+                )
                 Err1[:, i] = err1
 
             Q[:, i1:i2] = Q1
             Losses[:, i1:i2] = Losses1 / 2
 
-            W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
+            W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:]) - W1.matmul(P[i1:i2, i2:])
 
         if not all_scales:
             all_scales.append(active_scale)
