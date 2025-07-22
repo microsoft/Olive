@@ -16,9 +16,10 @@ import numpy as np
 import onnx
 from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
-from onnxscript import ir
+from onnxscript import ir, rewriter
 from onnxscript.rewriter import pattern
 
+from olive.constants import MSFT_DOMAIN
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -28,6 +29,9 @@ from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
+
+
+# pylint: disable=W0621
 
 
 class Surgeon:
@@ -474,7 +478,7 @@ class QuickGeluToSigmoid(Surgeon):
         )
 
     def _target_pattern(self, op, x):
-        return op.QuickGelu(x)
+        return op.QuickGelu(x, _domain=MSFT_DOMAIN)
 
     def _replacement_pattern(self, op, x):
         # Create alpha constant
@@ -486,8 +490,6 @@ class QuickGeluToSigmoid(Surgeon):
         return op.Mul(x, sigmoid_alpha_x)
 
     def call_ir(self, model: ir.Model) -> ir.Model:
-        from onnxscript import rewriter
-
         modified_model = rewriter.rewrite(model, pattern_rewrite_rules=[self._rule])
         logger.debug("Applied QuickGelu to Mul->Sigmoid->Mul rewrite rule")
         return modified_model
