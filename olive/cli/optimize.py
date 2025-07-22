@@ -282,7 +282,14 @@ class OptimizeCommand(BaseOliveCLICommand):
 
         # 12. MatMulNBitsToQDQ
         if is_hf_model and "gptq" in passes_config and self.args.use_qdq_format:
-            passes_config["matmul_nbits_to_qdq"] = {"type": "MatMulNBitsToQDQ"}
+            passes_config["matmul_nbits_to_qdq"] = {
+                "type": "MatMulNBitsToQDQ",
+                "add_zero_point": "true",
+                "save_as_external_data": "true",
+            }
+            passes_config["matmul_nbits_to_qdq"]["nodes_to_exclude"] = ["/lm_head/MatMul_Q4"]
+            if precision.value == Precision.INT4:
+                passes_config["matmul_nbits_to_qdq"]["use_int4"] = "true"
 
         # 13. GraphSurgeries
         if self.args.surgeries is not None:
