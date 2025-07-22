@@ -282,7 +282,9 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
                 "session_options": {
                     "log_id": "onnxruntime-genai",
                     "graph_optimization_level": "ORT_DISABLE_ALL",
-                    "provider_options": [{"OpenVINO": {"device_type": config.target_device.upper(), "enable_causallm": "True"}}],
+                    "provider_options": [
+                        {"OpenVINO": {"device_type": config.target_device.upper(), "enable_causallm": "True"}}
+                    ],
                 },
                 "filename": "openvino_model.onnx",
                 "head_size": -1,
