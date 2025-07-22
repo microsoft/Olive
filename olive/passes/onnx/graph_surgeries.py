@@ -489,9 +489,7 @@ class QuickGeluToSigmoid(Surgeon):
         from onnxscript import rewriter
 
         modified_model = rewriter.rewrite(model, pattern_rewrite_rules=[self._rule])
-
         logger.debug("Applied QuickGelu to Mul->Sigmoid->Mul rewrite rule")
-
         return modified_model
 
 
