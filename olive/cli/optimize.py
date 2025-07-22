@@ -15,9 +15,7 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_save_config_file_options,
-    add_shared_cache_options,
     get_input_model_config,
-    update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
 from olive.constants import Precision
@@ -128,7 +126,6 @@ class OptimizeCommand(BaseOliveCLICommand):
             help="List of graph surgeries to apply (optional).",
         )
 
-        add_shared_cache_options(sub_parser)
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=OptimizeCommand)
@@ -161,8 +158,6 @@ class OptimizeCommand(BaseOliveCLICommand):
         for keys, value in to_replace:
             if value is not None:
                 set_nested_dict_value(config, keys, value)
-
-        update_shared_cache_options(config, self.args)
 
         return config
 
@@ -213,15 +208,16 @@ class OptimizeCommand(BaseOliveCLICommand):
             and is_quantized_precision(precision)
             and provider != ExecutionProvider.OpenVINOExecutionProvider
         ):
-            passes_config["gptq"] = {"type": "GptqQuantizer", "bits": self._precision_to_bits(precision)}
+            passes_config["gptq"] = {"type": "Gptq", "bits": self._precision_to_bits(precision)}
 
         # 3. CaptureSplitInfo
         if is_hf_model and (self.args.num_split is not None or self.args.memory is not None):
-            passes_config["capture_split_info"] = {
-                "type": "CaptureSplitInfo",
-                "num_splits": self.args.num_split,
-                "memory": self.args.memory,
-            }
+            passes_config["capture_split_info"] = {"type": "CaptureSplitInfo"}
+            passes_config["capture_split_info"]["unique_embeds_lm_head_splits"] = True
+            if self.args.num_split is not None:
+                passes_config["capture_split_info"]["num_splits"] = self.args.num_split
+            if self.args.memory is not None:
+                passes_config["capture_split_info"]["memory"] = self.args.memory
 
         # 4. ModelBuilder
         if (
@@ -230,6 +226,10 @@ class OptimizeCommand(BaseOliveCLICommand):
             and self.args.exporter == "model_builder"
         ):
             passes_config["model_builder"] = {"type": "ModelBuilder", "precision": precision.value}
+            if precision.value == Precision.INT4:
+                passes_config["model_builder"]["int4_block_size"] = 32
+                passes_config["model_builder"]["int4_accuracy_level"] = 4
+                passes_config["model_builder"]["int4_op_types_to_quantize"] = ["MatMul", "Gather"]
 
         # 5. OnnxConversion
         if (
