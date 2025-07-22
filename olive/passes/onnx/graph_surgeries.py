@@ -482,7 +482,8 @@ class QuickGeluToSigmoid(Surgeon):
 
     def _replacement_pattern(self, op, x):
         # Create alpha constant
-        alpha = op.Constant(value_float=self.ALPHA)
+        x_dtype = x.dtype if x.dtype is not None else ir.DataType.FLOAT
+        alpha = op.Constant(value=ir.tensor(self.ALPHA, dtype=x_dtype))
 
         # Compute: x * sigmoid(alpha * x)
         alpha_x = op.Mul(alpha, x)

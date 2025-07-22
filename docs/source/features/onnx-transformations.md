@@ -759,7 +759,7 @@ Reference: https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/core/g
 
 Initial model graph:
 
-```
+```proto
 graph {
   input: "input"
   node {
@@ -787,7 +787,7 @@ After applying:
 
 Transformed model graph:
 
-```
+```proto
 graph {
   input: "input"
   initializer: "QuickGeluNode_alpha" (FLOAT, value: 1.702)
