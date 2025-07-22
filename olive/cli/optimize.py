@@ -294,7 +294,11 @@ class OptimizeCommand(BaseOliveCLICommand):
         # 13. GraphSurgeries
         if self.args.surgeries is not None:
             surgeries_list = [{"surgeon": item} for item in self.args.surgeries[0].split(",")]
-            passes_config["graph_surgeries"] = {"type": "GraphSurgeries", "surgeries": surgeries_list}
+            passes_config["graph_surgeries"] = {
+                "type": "GraphSurgeries",
+                "surgeries": surgeries_list,
+                "save_as_external_data": "true",
+            }
 
         # 14. OnnxBlockWiseRtnQuantization
         if not is_hf_model and precision == Precision.INT4:
