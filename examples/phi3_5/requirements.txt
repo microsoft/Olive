@@ -1,2 +1,20 @@
-datasets
 optimum
+onnxruntime==1.21.1
+onnxruntime-genai==0.7.1
+sentencepiece
+tabulate
+
+# Quark
+datasets
+transformers
+accelerate
+evaluate
+numpy==1.24.6
+nltk
+
+# ROCm PyTorch for Quark
+torch --index-url https://download.pytorch.org/whl/rocm6.1
+torchvision --index-url https://download.pytorch.org/whl/rocm6.1
+torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
+
+amd-quark==0.9

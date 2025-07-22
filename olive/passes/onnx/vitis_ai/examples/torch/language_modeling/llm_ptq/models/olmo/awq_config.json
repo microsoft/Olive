@@ -1,0 +1,16 @@
+{
+    "name": "awq",
+    "scaling_layers":[
+        {
+            "prev_op": "self_attn.v_proj",
+            "layers": ["self_attn.o_proj"],
+            "inp": "self_attn.o_proj"
+        },
+        {
+            "prev_op": "mlp.up_proj",
+            "layers": ["mlp.down_proj"],
+            "inp": "mlp.down_proj"
+        }
+    ],
+    "model_decoder_layers": "model.layers"
+}

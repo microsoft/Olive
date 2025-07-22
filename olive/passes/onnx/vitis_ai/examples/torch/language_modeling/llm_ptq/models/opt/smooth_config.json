@@ -1,0 +1,29 @@
+{
+    "name": "smooth",
+    "alpha": 1,
+    "scale_clamp_min": 1e-3,
+    "scaling_layers":[
+        {
+            "prev_op": "self_attn_layer_norm",
+            "layers": ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj"],
+            "inp": "self_attn.q_proj",
+            "module2inspect": "self_attn"
+        },
+        {
+            "prev_op": "self_attn.v_proj",
+            "layers": ["self_attn.out_proj"],
+            "inp":"self_attn.out_proj"
+        },
+        {
+            "prev_op": "final_layer_norm",
+            "layers": ["fc1"],
+            "inp": "fc1"
+        },
+        {
+            "prev_op": "fc1",
+            "layers": ["fc2"],
+            "inp": "fc2"
+        }
+    ],
+    "model_decoder_layers": "model.decoder.layers"
+}

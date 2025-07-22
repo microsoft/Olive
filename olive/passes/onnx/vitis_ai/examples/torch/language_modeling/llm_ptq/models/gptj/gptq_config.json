@@ -1,0 +1,7 @@
+{
+    "name": "gptq",
+    "inside_layer_modules": [
+        "attn.q_proj", "attn.k_proj", "attn.v_proj", "mlp.fc_in", "attn.out_proj", "mlp.fc_out"
+    ],
+    "model_decoder_layers": "transformer.h"
+}

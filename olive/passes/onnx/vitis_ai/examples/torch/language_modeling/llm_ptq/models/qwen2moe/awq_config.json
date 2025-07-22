@@ -1,0 +1,317 @@
+{
+    "name": "awq",
+    "scaling_layers":[
+        {
+            "prev_op": "input_layernorm",
+            "layers": ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj"],
+            "inp": "self_attn.q_proj",
+            "module2inspect": ""
+        },
+        {
+            "prev_op": "self_attn.v_proj",
+            "layers": ["self_attn.o_proj"],
+            "inp": "self_attn.o_proj"
+        },
+        {
+            "prev_op": "mlp.experts.0.up_proj",
+            "layers": ["mlp.experts.0.down_proj"],
+            "inp": "mlp.experts.0.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.1.up_proj",
+            "layers": ["mlp.experts.1.down_proj"],
+            "inp": "mlp.experts.1.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.2.up_proj",
+            "layers": ["mlp.experts.2.down_proj"],
+            "inp": "mlp.experts.2.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.3.up_proj",
+            "layers": ["mlp.experts.3.down_proj"],
+            "inp": "mlp.experts.3.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.4.up_proj",
+            "layers": ["mlp.experts.4.down_proj"],
+            "inp": "mlp.experts.4.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.5.up_proj",
+            "layers": ["mlp.experts.5.down_proj"],
+            "inp": "mlp.experts.5.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.6.up_proj",
+            "layers": ["mlp.experts.6.down_proj"],
+            "inp": "mlp.experts.6.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.7.up_proj",
+            "layers": ["mlp.experts.7.down_proj"],
+            "inp": "mlp.experts.7.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.8.up_proj",
+            "layers": ["mlp.experts.8.down_proj"],
+            "inp": "mlp.experts.8.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.9.up_proj",
+            "layers": ["mlp.experts.9.down_proj"],
+            "inp": "mlp.experts.9.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.10.up_proj",
+            "layers": ["mlp.experts.10.down_proj"],
+            "inp": "mlp.experts.10.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.11.up_proj",
+            "layers": ["mlp.experts.11.down_proj"],
+            "inp": "mlp.experts.11.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.12.up_proj",
+            "layers": ["mlp.experts.12.down_proj"],
+            "inp": "mlp.experts.12.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.13.up_proj",
+            "layers": ["mlp.experts.13.down_proj"],
+            "inp": "mlp.experts.13.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.14.up_proj",
+            "layers": ["mlp.experts.14.down_proj"],
+            "inp": "mlp.experts.14.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.15.up_proj",
+            "layers": ["mlp.experts.15.down_proj"],
+            "inp": "mlp.experts.15.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.16.up_proj",
+            "layers": ["mlp.experts.16.down_proj"],
+            "inp": "mlp.experts.16.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.17.up_proj",
+            "layers": ["mlp.experts.17.down_proj"],
+            "inp": "mlp.experts.17.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.18.up_proj",
+            "layers": ["mlp.experts.18.down_proj"],
+            "inp": "mlp.experts.18.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.19.up_proj",
+            "layers": ["mlp.experts.19.down_proj"],
+            "inp": "mlp.experts.19.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.20.up_proj",
+            "layers": ["mlp.experts.20.down_proj"],
+            "inp": "mlp.experts.20.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.21.up_proj",
+            "layers": ["mlp.experts.21.down_proj"],
+            "inp": "mlp.experts.21.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.22.up_proj",
+            "layers": ["mlp.experts.22.down_proj"],
+            "inp": "mlp.experts.22.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.23.up_proj",
+            "layers": ["mlp.experts.23.down_proj"],
+            "inp": "mlp.experts.23.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.24.up_proj",
+            "layers": ["mlp.experts.24.down_proj"],
+            "inp": "mlp.experts.24.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.25.up_proj",
+            "layers": ["mlp.experts.25.down_proj"],
+            "inp": "mlp.experts.25.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.26.up_proj",
+            "layers": ["mlp.experts.26.down_proj"],
+            "inp": "mlp.experts.26.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.27.up_proj",
+            "layers": ["mlp.experts.27.down_proj"],
+            "inp": "mlp.experts.27.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.28.up_proj",
+            "layers": ["mlp.experts.28.down_proj"],
+            "inp": "mlp.experts.28.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.29.up_proj",
+            "layers": ["mlp.experts.29.down_proj"],
+            "inp": "mlp.experts.29.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.30.up_proj",
+            "layers": ["mlp.experts.30.down_proj"],
+            "inp": "mlp.experts.30.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.31.up_proj",
+            "layers": ["mlp.experts.31.down_proj"],
+            "inp": "mlp.experts.31.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.32.up_proj",
+            "layers": ["mlp.experts.32.down_proj"],
+            "inp": "mlp.experts.32.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.33.up_proj",
+            "layers": ["mlp.experts.33.down_proj"],
+            "inp": "mlp.experts.33.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.34.up_proj",
+            "layers": ["mlp.experts.34.down_proj"],
+            "inp": "mlp.experts.34.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.35.up_proj",
+            "layers": ["mlp.experts.35.down_proj"],
+            "inp": "mlp.experts.35.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.36.up_proj",
+            "layers": ["mlp.experts.36.down_proj"],
+            "inp": "mlp.experts.36.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.37.up_proj",
+            "layers": ["mlp.experts.37.down_proj"],
+            "inp": "mlp.experts.37.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.38.up_proj",
+            "layers": ["mlp.experts.38.down_proj"],
+            "inp": "mlp.experts.38.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.39.up_proj",
+            "layers": ["mlp.experts.39.down_proj"],
+            "inp": "mlp.experts.39.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.40.up_proj",
+            "layers": ["mlp.experts.40.down_proj"],
+            "inp": "mlp.experts.40.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.41.up_proj",
+            "layers": ["mlp.experts.41.down_proj"],
+            "inp": "mlp.experts.41.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.42.up_proj",
+            "layers": ["mlp.experts.42.down_proj"],
+            "inp": "mlp.experts.42.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.43.up_proj",
+            "layers": ["mlp.experts.43.down_proj"],
+            "inp": "mlp.experts.43.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.44.up_proj",
+            "layers": ["mlp.experts.44.down_proj"],
+            "inp": "mlp.experts.44.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.45.up_proj",
+            "layers": ["mlp.experts.45.down_proj"],
+            "inp": "mlp.experts.45.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.46.up_proj",
+            "layers": ["mlp.experts.46.down_proj"],
+            "inp": "mlp.experts.46.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.47.up_proj",
+            "layers": ["mlp.experts.47.down_proj"],
+            "inp": "mlp.experts.47.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.48.up_proj",
+            "layers": ["mlp.experts.48.down_proj"],
+            "inp": "mlp.experts.48.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.49.up_proj",
+            "layers": ["mlp.experts.49.down_proj"],
+            "inp": "mlp.experts.49.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.50.up_proj",
+            "layers": ["mlp.experts.50.down_proj"],
+            "inp": "mlp.experts.50.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.51.up_proj",
+            "layers": ["mlp.experts.51.down_proj"],
+            "inp": "mlp.experts.51.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.52.up_proj",
+            "layers": ["mlp.experts.52.down_proj"],
+            "inp": "mlp.experts.52.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.53.up_proj",
+            "layers": ["mlp.experts.53.down_proj"],
+            "inp": "mlp.experts.53.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.54.up_proj",
+            "layers": ["mlp.experts.54.down_proj"],
+            "inp": "mlp.experts.54.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.55.up_proj",
+            "layers": ["mlp.experts.55.down_proj"],
+            "inp": "mlp.experts.55.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.56.up_proj",
+            "layers": ["mlp.experts.56.down_proj"],
+            "inp": "mlp.experts.56.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.57.up_proj",
+            "layers": ["mlp.experts.57.down_proj"],
+            "inp": "mlp.experts.57.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.58.up_proj",
+            "layers": ["mlp.experts.58.down_proj"],
+            "inp": "mlp.experts.58.down_proj"
+        },
+        {
+            "prev_op": "mlp.experts.59.up_proj",
+            "layers": ["mlp.experts.59.down_proj"],
+            "inp": "mlp.experts.59.down_proj"
+        }
+    ],
+    "model_decoder_layers": "model.layers"
+}

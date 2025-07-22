@@ -96,10 +96,35 @@ olive run --config qdq_config.json
 
 #### **Run the Quantization Config**
 
+##### **For Quark quantization**
+
+For LLMs - Follow the below commands to generate the optimized model for VitisAI EP.
+
+```bash
+cd Olive
+pip install -e .
+pip install -r requirements.txt
+```
+
+The model generate wheel can be downloaded from here (to be updated in PyPI)- `/proj/xsjhdstaff4/pooja/olive_wheels/model_generate-1.0.0-py3-none-any.whl`
+
+```bash
+pip install "model_generate-1.0.0-py3-none-any.whl"
+cd examples/phi3_5
+pip install --force-reinstall -r requirements.txt
+```
+
+```bash
+olive run --config quark_config_vitis_ai_llm.json
+```
+
+✅ Optimized model saved in: `models/phi3_5-vai/`
+
+##### **For QDQ quantization**
 Follow above mentioned setup instruction and run the below command to generate the optimized model for VitisAI EP.
 
 ```bash
-olive run --config qdq_config_vitis_ai.json.json
+olive run --config qdq_config_vitis_ai.json
 ```
 
 ✅ Optimized model saved in: `models/phi3_5-vai/`

@@ -1,0 +1,7 @@
+{
+    "name":"gptq",
+    "inside_layer_modules": [
+        "self_attn.k_proj", "self_attn.v_proj", "self_attn.q_proj", "self_attn.dense", "mlp.fc1", "mlp.fc2"
+    ],
+    "model_decoder_layers": "model.layers"
+}

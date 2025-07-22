@@ -1,0 +1,25 @@
+{
+    "name": "smooth",
+    "alpha": 1,
+    "scale_clamp_min": 1e-3,
+    "scaling_layers":[
+        {
+            "prev_op": "ln_1",
+            "layers": ["attn.c_attn"],
+            "inp": "attn.c_attn",
+            "module2inspect": "attn"
+        },
+        {
+            "prev_op": "ln_2",
+            "layers": ["mlp.w2", "mlp.w1"],
+            "inp": "mlp.w2",
+            "module2inspect": "mlp"
+        },
+        {
+            "prev_op": "mlp.w1",
+            "layers": ["mlp.c_proj"],
+            "inp": "mlp.c_proj"
+        }
+    ],
+    "model_decoder_layers": "transformer.h"
+}

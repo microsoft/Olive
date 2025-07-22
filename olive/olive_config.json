@@ -627,8 +627,8 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [ "qop" ]
         }, 
-        "RyzenGenerateModel": {
-            "module_path": "olive.passes.onnx.ryzen_generate_model.RyzenGenerateModel",  
+        "VitisGenerateModelLLM": {
+            "module_path": "olive.passes.onnx.vitis_generate_model_llm.VitisGenerateModelLLM",  
             "supported_providers": ["CPUExecutionProvider"],  
             "supported_accelerators": ["cpu"],
             "supported_precisions": ["int8"],

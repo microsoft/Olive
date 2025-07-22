@@ -1,0 +1,28 @@
+{
+    "name": "awq",
+    "scaling_layers":[
+        {
+            "prev_op": "input_layernorm",
+            "layers": ["self_attn.qkv_proj"],
+            "inp": "self_attn.qkv_proj",
+            "module2inspect": "self_attn"
+        },
+        {
+            "prev_op": "self_attn.qkv_proj",
+            "layers": ["self_attn.o_proj"],
+            "inp": "self_attn.o_proj"
+        },
+        {
+            "prev_op": "post_attention_layernorm",
+            "layers": ["mlp.gate_up_proj"],
+            "inp": "mlp.gate_up_proj",
+            "module2inspect": "mlp"
+        },
+        {
+            "prev_op": "mlp.gate_up_proj",
+            "layers": ["mlp.down_proj"],
+            "inp": "mlp.down_proj"
+        }
+    ],
+    "model_decoder_layers": "model.layers"
+}

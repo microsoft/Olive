@@ -1,0 +1,78 @@
+{
+    "name": "awq",
+    "scaling_layers":[
+        {
+            "prev_op": "pre_attn_norm",
+            "layers": ["attn.q_proj", "attn.k_proj", "attn.v_proj"],
+            "inp": "attn.q_proj",
+            "module2inspect": "attn",
+            "has_kwargs": true,
+            "help": "attention input"
+        },
+        {
+            "prev_op": "attn.v_proj",
+            "layers": ["attn.o_proj"],
+            "inp": "attn.o_proj",
+            "has_kwargs": false
+        },
+        {
+            "prev_op": "pre_moe_norm",
+            "layers": ["moe_block.experts.0.linear_v", "moe_block.experts.0.linear"],
+            "inp": "moe_block",
+            "module2inspect": "moe_block",
+            "has_kwargs": false,
+            "help": "linear in"
+        },
+        {
+            "prev_op": "moe_block.experts.0.linear",
+            "layers": ["moe_block.experts.0.linear_1"],
+            "inp": "moe_block.experts.0.linear_1",
+            "has_kwargs": false
+        },
+        {
+            "prev_op": "moe_block.experts.1.linear",
+            "layers": ["moe_block.experts.1.linear_1"],
+            "inp": "moe_block.experts.1.linear_1",
+            "has_kwargs": false
+        },        {
+            "prev_op": "moe_block.experts.2.linear",
+            "layers": ["moe_block.experts.2.linear_1"],
+            "inp": "moe_block.experts.2.linear_1",
+            "has_kwargs": false
+        },
+        {
+            "prev_op": "moe_block.experts.3.linear",
+            "layers": ["moe_block.experts.3.linear_1"],
+            "inp": "moe_block.experts.3.linear_1",
+            "has_kwargs": false
+        },
+        {
+            "prev_op": "moe_block.experts.4.linear",
+            "layers": ["moe_block.experts.4.linear_1"],
+            "inp": "moe_block.experts.4.linear_1",
+            "has_kwargs": false
+        },
+        {
+            "prev_op": "moe_block.experts.5.linear",
+            "layers": ["moe_block.experts.5.linear_1"],
+            "inp": "moe_block.experts.5.linear_1",
+            "has_kwargs": false
+        },
+        {
+            "prev_op": "moe_block.experts.6.linear",
+            "layers": ["moe_block.experts.6.linear_1"],
+            "inp": "moe_block.experts.6.linear_1",
+            "has_kwargs": false
+            },
+        {
+                "prev_op": "moe_block.experts.7.linear",
+                "layers": ["moe_block.experts.7.linear_1"],
+                "inp": "moe_block.experts.7.linear_1",
+                "has_kwargs": false
+            }
+
+        ],
+        "model_decoder_layers": "model.layers",
+        "num_attention_heads": 48,
+        "num_key_value_heads": 8
+    }

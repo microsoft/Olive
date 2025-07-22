@@ -1,4 +1,7 @@
-
+#
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: MIT
+#
 
 import os
 from argparse import Namespace
@@ -7,8 +10,7 @@ from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from pathlib import Path
 
-# Adjust this import based on actual relative path
-from olive.passes.onnx.ryzen_ai.examples.torch.language_modeling.llm_ptq.quantize_quark import run_quark_quantization
+from olive.passes.onnx.vitis_ai.examples.torch.language_modeling.llm_ptq.quantize_quark import run_quark_quantization
 
 
 class QuarkQuantizationPass(Pass):
@@ -122,7 +124,6 @@ class QuarkQuantizationPass(Pass):
             seq_len=512,
             batch_size=1,
         )
-        # model_decoder_layers="model.layers"
 
         run_quark_quantization(args)
         print(f"[INFO] Quark quantized model saved to: {output_model_path}")

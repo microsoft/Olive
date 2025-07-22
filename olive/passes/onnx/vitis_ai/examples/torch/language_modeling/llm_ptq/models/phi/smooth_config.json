@@ -1,0 +1,13 @@
+{
+    "name": "smooth",
+    "alpha": 1,
+    "scale_clamp_min": 1e-3,
+    "scaling_layers":[
+        {
+            "prev_op": "self_attn.v_proj",
+            "layers": ["self_attn.dense"],
+            "inp":"self_attn.dense"
+        }
+    ],
+    "model_decoder_layers": "model.layers"
+}

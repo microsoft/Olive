@@ -1,0 +1,19 @@
+{
+    "name": "smooth",
+    "alpha": 1,
+    "scale_clamp_min": 1e-3,
+    "scaling_layers":[
+        {
+            "prev_op": "ln_1",
+            "layers": ["attn.q_proj", "attn.k_proj", "attn.v_proj", "mlp.fc_in"],
+            "inp": "attn.q_proj",
+            "module2inspect": ""
+        },
+        {
+            "prev_op": "attn.v_proj",
+            "layers": ["attn.out_proj"],
+            "inp": "attn.out_proj"
+        }
+    ],
+    "model_decoder_layers": "transformer.h"
+}

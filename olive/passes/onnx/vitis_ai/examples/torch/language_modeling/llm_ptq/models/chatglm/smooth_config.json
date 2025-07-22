@@ -1,0 +1,19 @@
+{
+    "name": "smooth",
+    "alpha": 1,
+    "scale_clamp_min": 1e-3,
+    "scaling_layers":[
+        {
+            "prev_op": "input_layernorm",
+            "layers": ["self_attention.query_key_value"],
+            "inp": "self_attention.query_key_value"
+        },
+        {
+            "prev_op": "post_attention_layernorm",
+            "layers": ["mlp.dense_h_to_4h"],
+            "inp": "mlp.dense_h_to_4h",
+            "module2inspect": "mlp"
+        }
+    ],
+    "model_decoder_layers": "transformer.encoder.layers"
+}

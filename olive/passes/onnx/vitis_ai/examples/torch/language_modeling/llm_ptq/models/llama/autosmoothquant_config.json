@@ -1,0 +1,29 @@
+{
+    "name": "autosmoothquant",
+    "scaling_layers":[
+        {
+            "prev_op": "input_layernorm",
+            "layers": ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj"],
+            "inp": "self_attn.q_proj",
+            "module2inspect": "self_attn"
+        },
+        {
+            "prev_op": "self_attn.v_proj",
+            "layers": ["self_attn.o_proj"],
+            "inp": "self_attn.o_proj"
+        },
+        {
+            "prev_op": "post_attention_layernorm",
+            "layers": ["mlp.gate_proj", "mlp.up_proj"],
+            "inp": "mlp.gate_proj",
+            "module2inspect": "mlp"
+        },
+        {
+            "prev_op": "mlp.up_proj",
+            "layers": ["mlp.down_proj"],
+            "inp": "mlp.down_proj"
+        }
+    ],
+    "model_decoder_layers": "model.layers",
+    "compute_scale_loss": "MAE"
+}
