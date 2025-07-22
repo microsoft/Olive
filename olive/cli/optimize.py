@@ -126,6 +126,13 @@ class OptimizeCommand(BaseOliveCLICommand):
             help="List of graph surgeries to apply (optional).",
         )
 
+        # Block size option
+        sub_parser.add_argument(
+            "--block_size",
+            type=int,
+            help="Block size for quantization. Use -1 for per-channel quantization (optional).",
+        )
+
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=OptimizeCommand)
@@ -208,7 +215,15 @@ class OptimizeCommand(BaseOliveCLICommand):
             and is_quantized_precision(precision)
             and provider != ExecutionProvider.OpenVINOExecutionProvider
         ):
-            passes_config["gptq"] = {"type": "Gptq", "bits": self._precision_to_bits(precision)}
+            gptq_config = {"type": "Gptq", "bits": self._precision_to_bits(precision)}
+            if self.args.block_size is not None:
+                if self.args.block_size == -1:
+                    # For per-channel quantization in GPTQ, use a special value or handle differently
+                    # Based on the INC quantization pattern, -1 typically means per-channel
+                    gptq_config["group_size"] = -1
+                else:
+                    gptq_config["group_size"] = self.args.block_size
+            passes_config["gptq"] = gptq_config
 
         # 3. CaptureSplitInfo
         if is_hf_model and (self.args.num_split is not None or self.args.memory is not None):
@@ -227,7 +242,17 @@ class OptimizeCommand(BaseOliveCLICommand):
         ):
             passes_config["model_builder"] = {"type": "ModelBuilder", "precision": precision.value}
             if precision.value == Precision.INT4:
-                passes_config["model_builder"]["int4_block_size"] = 32
+                # Use provided block_size if available, otherwise default to 32
+                block_size_value = self.args.block_size if self.args.block_size is not None else 32
+                # For ModelBuilder, -1 block_size should use a reasonable default since it doesn't support per-channel
+                if block_size_value == -1:
+                    block_size_value = 32
+                # Ensure block_size is valid for ModelBuilder (16, 32, 64, 128, 256)
+                valid_block_sizes = [16, 32, 64, 128, 256]
+                if block_size_value not in valid_block_sizes:
+                    # Find the closest valid block size
+                    block_size_value = min(valid_block_sizes, key=lambda x: abs(x - block_size_value))
+                passes_config["model_builder"]["int4_block_size"] = block_size_value
                 passes_config["model_builder"]["int4_accuracy_level"] = 4
                 passes_config["model_builder"]["int4_op_types_to_quantize"] = ["MatMul", "Gather"]
 
@@ -302,7 +327,17 @@ class OptimizeCommand(BaseOliveCLICommand):
 
         # 14. OnnxBlockWiseRtnQuantization
         if not is_hf_model and precision == Precision.INT4:
-            passes_config["onnx_blockwise_rtn_quantization"] = {"type": "OnnxBlockWiseRtnQuantization"}
+            onnx_blockwise_config = {"type": "OnnxBlockWiseRtnQuantization"}
+            if self.args.block_size is not None:
+                if self.args.block_size == -1:
+                    # For per-channel quantization, we can use axis=0 and set block_size to a large value
+                    # or let the pass handle per-channel internally
+                    onnx_blockwise_config["axis"] = 0
+                    # Some implementations use block_size = -1 to indicate per-channel
+                    onnx_blockwise_config["block_size"] = -1
+                else:
+                    onnx_blockwise_config["block_size"] = self.args.block_size
+            passes_config["onnx_blockwise_rtn_quantization"] = onnx_blockwise_config
 
         # 15. OnnxFloatToFloat16
         if precision == Precision.FP16:
@@ -321,12 +356,17 @@ class OptimizeCommand(BaseOliveCLICommand):
         )
 
         if precision_check or act_precision_check:
-            passes_config["onnx_static_quantization"] = {
+            onnx_static_config = {
                 "type": "OnnxStaticQuantization",
                 "precision": precision.value,
                 "act_precision": self.args.act_precision,
                 "quant_format": "QDQ" if self.args.use_qdq_format else "QOperator",
             }
+            # Handle block_size parameter
+            if self.args.block_size == -1:
+                # Use per-channel quantization when block_size is -1
+                onnx_static_config["per_channel"] = True
+            passes_config["onnx_static_quantization"] = onnx_static_config
 
         # 17. OrtTransformersOptimization
         if self.args.exporter in ["torchscript_exporter", "dynamo_exporter"]:

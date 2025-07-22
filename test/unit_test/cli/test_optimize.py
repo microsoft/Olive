@@ -77,6 +77,8 @@ class TestOptimizeCommand:
                 "--surgeries",
                 "surgery1",
                 "surgery2",
+                "--block_size",
+                "64",
             ]
         )
 
@@ -91,6 +93,7 @@ class TestOptimizeCommand:
         assert args.dim_value == [1, 128]
         assert args.use_qdq_format is True
         assert args.surgeries == ["surgery1", "surgery2"]
+        assert args.block_size == 64
 
     def test_device_provider_validation(self):
         """Test device and provider compatibility validation."""
@@ -108,6 +111,7 @@ class TestOptimizeCommand:
             dim_value=None,
             use_qdq_format=False,
             surgeries=None,
+            block_size=None,
             log_level=None,
         )
 
@@ -149,6 +153,7 @@ class TestOptimizeCommand:
             dim_value=None,
             use_qdq_format=False,
             surgeries=None,
+            block_size=None,
             log_level=None,
         )
 
@@ -157,7 +162,7 @@ class TestOptimizeCommand:
 
         # Should include GPTQ pass for HF model with int4 precision
         assert "gptq" in passes_config
-        assert passes_config["gptq"]["type"] == "GptqQuantizer"
+        assert passes_config["gptq"]["type"] == "Gptq"
         assert passes_config["gptq"]["bits"] == 4
 
     @patch("olive.cli.optimize.get_input_model_config")
@@ -179,6 +184,7 @@ class TestOptimizeCommand:
             dim_value=None,
             use_qdq_format=False,
             surgeries=None,
+            block_size=None,
             log_level=None,
         )
 
@@ -208,6 +214,7 @@ class TestOptimizeCommand:
             dim_value=[1],
             use_qdq_format=False,
             surgeries=None,
+            block_size=None,
             log_level=None,
         )
 
@@ -239,6 +246,7 @@ class TestOptimizeCommand:
             dim_value=None,
             use_qdq_format=False,
             surgeries=None,
+            block_size=None,
             log_level=None,
         )
 
@@ -267,6 +275,7 @@ class TestOptimizeCommand:
             dim_value=None,
             use_qdq_format=False,
             surgeries=["surgery1", "surgery2"],
+            block_size=None,
             log_level=None,
         )
 
@@ -276,3 +285,257 @@ class TestOptimizeCommand:
         # Should include GraphSurgeries pass
         assert "graph_surgeries" in passes_config
         assert passes_config["graph_surgeries"]["surgeries"] == ["surgery1", "surgery2"]
+
+    def test_block_size_argument_parsing(self):
+        """Test block_size argument parsing."""
+        parser = ArgumentParser()
+        subparsers = parser.add_subparsers()
+        OptimizeCommand.register_subcommand(subparsers)
+
+        # Test with positive block_size
+        args = parser.parse_args(["optimize", "--model_path", "test_model", "--block_size", "128"])
+        assert args.block_size == 128
+
+        # Test with -1 block_size (per-channel)
+        args = parser.parse_args(["optimize", "--model_path", "test_model", "--block_size", "-1"])
+        assert args.block_size == -1
+
+        # Test without block_size (should be None)
+        args = parser.parse_args(["optimize", "--model_path", "test_model"])
+        assert args.block_size is None
+
+    @patch("olive.cli.optimize.get_input_model_config")
+    def test_block_size_in_model_builder_pass(self, mock_get_input):
+        """Test block_size usage in ModelBuilder pass."""
+        mock_get_input.return_value = {"type": "HfModel", "model_path": "test_model"}
+
+        # Test with custom block_size
+        args = Namespace(
+            model_path="test_model",
+            output_path="output",
+            provider="CPUExecutionProvider",
+            device="cpu",
+            precision="int4",
+            act_precision=None,
+            num_split=None,
+            memory=None,
+            exporter="model_builder",
+            dim_param=None,
+            dim_value=None,
+            use_qdq_format=False,
+            surgeries=None,
+            block_size=64,
+            log_level=None,
+        )
+
+        command = OptimizeCommand(ArgumentParser(), args)
+        passes_config = command._build_passes_config(is_hf_model=True)
+
+        assert "model_builder" in passes_config
+        assert passes_config["model_builder"]["int4_block_size"] == 64
+
+    @patch("olive.cli.optimize.get_input_model_config")
+    def test_block_size_minus_one_in_model_builder(self, mock_get_input):
+        """Test block_size -1 in ModelBuilder pass (should default to 32)."""
+        mock_get_input.return_value = {"type": "HfModel", "model_path": "test_model"}
+
+        args = Namespace(
+            model_path="test_model",
+            output_path="output",
+            provider="CPUExecutionProvider",
+            device="cpu",
+            precision="int4",
+            act_precision=None,
+            num_split=None,
+            memory=None,
+            exporter="model_builder",
+            dim_param=None,
+            dim_value=None,
+            use_qdq_format=False,
+            surgeries=None,
+            block_size=-1,
+            log_level=None,
+        )
+
+        command = OptimizeCommand(ArgumentParser(), args)
+        passes_config = command._build_passes_config(is_hf_model=True)
+
+        assert "model_builder" in passes_config
+        # Should default to 32 since ModelBuilder doesn't support per-channel
+        assert passes_config["model_builder"]["int4_block_size"] == 32
+
+    @patch("olive.cli.optimize.get_input_model_config")
+    def test_block_size_in_onnx_blockwise_pass(self, mock_get_input):
+        """Test block_size usage in OnnxBlockWiseRtnQuantization pass."""
+        mock_get_input.return_value = {"type": "OnnxModel", "model_path": "test_model.onnx"}
+
+        args = Namespace(
+            model_path="test_model.onnx",
+            output_path="output",
+            provider="CPUExecutionProvider",
+            device="cpu",
+            precision="int4",
+            act_precision=None,
+            num_split=None,
+            memory=None,
+            exporter=None,
+            dim_param=None,
+            dim_value=None,
+            use_qdq_format=False,
+            surgeries=None,
+            block_size=256,
+            log_level=None,
+        )
+
+        command = OptimizeCommand(ArgumentParser(), args)
+        passes_config = command._build_passes_config(is_hf_model=False)
+
+        assert "onnx_blockwise_rtn_quantization" in passes_config
+        assert passes_config["onnx_blockwise_rtn_quantization"]["block_size"] == 256
+
+    @patch("olive.cli.optimize.get_input_model_config")
+    def test_block_size_minus_one_in_onnx_blockwise_pass(self, mock_get_input):
+        """Test block_size -1 in OnnxBlockWiseRtnQuantization pass (per-channel)."""
+        mock_get_input.return_value = {"type": "OnnxModel", "model_path": "test_model.onnx"}
+
+        args = Namespace(
+            model_path="test_model.onnx",
+            output_path="output",
+            provider="CPUExecutionProvider",
+            device="cpu",
+            precision="int4",
+            act_precision=None,
+            num_split=None,
+            memory=None,
+            exporter=None,
+            dim_param=None,
+            dim_value=None,
+            use_qdq_format=False,
+            surgeries=None,
+            block_size=-1,
+            log_level=None,
+        )
+
+        command = OptimizeCommand(ArgumentParser(), args)
+        passes_config = command._build_passes_config(is_hf_model=False)
+
+        assert "onnx_blockwise_rtn_quantization" in passes_config
+        assert passes_config["onnx_blockwise_rtn_quantization"]["block_size"] == -1
+        assert passes_config["onnx_blockwise_rtn_quantization"]["axis"] == 0
+
+    @patch("olive.cli.optimize.get_input_model_config")
+    def test_block_size_minus_one_in_static_quantization(self, mock_get_input):
+        """Test block_size -1 enables per_channel in OnnxStaticQuantization."""
+        mock_get_input.return_value = {"type": "HfModel", "model_path": "test_model"}
+
+        args = Namespace(
+            model_path="test_model",
+            output_path="output",
+            provider="CPUExecutionProvider",
+            device="cpu",
+            precision="int8",
+            act_precision=None,
+            num_split=None,
+            memory=None,
+            exporter=None,
+            dim_param=None,
+            dim_value=None,
+            use_qdq_format=False,
+            surgeries=None,
+            block_size=-1,
+            log_level=None,
+        )
+
+        command = OptimizeCommand(ArgumentParser(), args)
+        passes_config = command._build_passes_config(is_hf_model=True)
+
+        assert "onnx_static_quantization" in passes_config
+        assert passes_config["onnx_static_quantization"]["per_channel"] is True
+
+    @patch("olive.cli.optimize.get_input_model_config")
+    def test_block_size_invalid_value_model_builder(self, mock_get_input):
+        """Test invalid block_size value gets adjusted to closest valid value for ModelBuilder."""
+        mock_get_input.return_value = {"type": "HfModel", "model_path": "test_model"}
+
+        args = Namespace(
+            model_path="test_model",
+            output_path="output",
+            provider="CPUExecutionProvider",
+            device="cpu",
+            precision="int4",
+            act_precision=None,
+            num_split=None,
+            memory=None,
+            exporter="model_builder",
+            dim_param=None,
+            dim_value=None,
+            use_qdq_format=False,
+            surgeries=None,
+            block_size=100,  # Not a valid ModelBuilder block size
+            log_level=None,
+        )
+
+        command = OptimizeCommand(ArgumentParser(), args)
+        passes_config = command._build_passes_config(is_hf_model=True)
+
+        assert "model_builder" in passes_config
+        # Should be adjusted to the closest valid value (128)
+        assert passes_config["model_builder"]["int4_block_size"] == 128
+
+    @patch("olive.cli.optimize.get_input_model_config")
+    def test_block_size_in_gptq_pass(self, mock_get_input):
+        """Test block_size usage in Gptq pass as group_size."""
+        mock_get_input.return_value = {"type": "HfModel", "model_path": "test_model"}
+
+        args = Namespace(
+            model_path="test_model",
+            output_path="output",
+            provider="CPUExecutionProvider",
+            device="cpu",
+            precision="int4",
+            act_precision=None,
+            num_split=None,
+            memory=None,
+            exporter=None,
+            dim_param=None,
+            dim_value=None,
+            use_qdq_format=False,
+            surgeries=None,
+            block_size=64,
+            log_level=None,
+        )
+
+        command = OptimizeCommand(ArgumentParser(), args)
+        passes_config = command._build_passes_config(is_hf_model=True)
+
+        assert "gptq" in passes_config
+        assert passes_config["gptq"]["group_size"] == 64
+
+    @patch("olive.cli.optimize.get_input_model_config")
+    def test_block_size_minus_one_in_gptq_pass(self, mock_get_input):
+        """Test block_size -1 in Gptq pass (per-channel quantization)."""
+        mock_get_input.return_value = {"type": "HfModel", "model_path": "test_model"}
+
+        args = Namespace(
+            model_path="test_model",
+            output_path="output",
+            provider="CPUExecutionProvider",
+            device="cpu",
+            precision="int4",
+            act_precision=None,
+            num_split=None,
+            memory=None,
+            exporter=None,
+            dim_param=None,
+            dim_value=None,
+            use_qdq_format=False,
+            surgeries=None,
+            block_size=-1,
+            log_level=None,
+        )
+
+        command = OptimizeCommand(ArgumentParser(), args)
+        passes_config = command._build_passes_config(is_hf_model=True)
+
+        assert "gptq" in passes_config
+        assert passes_config["gptq"]["group_size"] == -1
