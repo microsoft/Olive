@@ -107,7 +107,7 @@ class QuantLinear(nn.Module):
             symmetric: Whether to use symmetric quantization
             group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
             scales: Optional precomputed scales for quantization
-            zero_points: Optional precomputed zero points for quantization
+            zero_points: Optional precomputed zero points for quantization. Must be unsigned and in the range [1, 2^bits - 1].
 
         Returns:
             A QuantLinear instance with quantized weights and scales
@@ -129,8 +129,8 @@ class QuantLinear(nn.Module):
         if scales is None:
             scales, zero_points = qlinear.quantizer.find_qparams(linear.weight)
         else:
-            scales = scales.to(qlinear.device)
-            zero_points = zero_points.to(qlinear.device)
+            scales = scales.to(qlinear.device).to(linear.weight.dtype)
+            zero_points = zero_points.to(qlinear.device).to(torch.int32)
 
         # quantize weights
         qweight = qlinear.quantizer.quantize(linear.weight, scales, zero_points)

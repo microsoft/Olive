@@ -304,6 +304,8 @@ class Gptq(Pass):
 
         H = module.quant_info.data["H"]
         W = module.weight.data.clone().float().to(H.device)
+        num_cols = H.shape[0]
+
         dead = torch.diag(H) == 0
         H[dead, dead] = 1
         W[:, dead] = 0
@@ -312,12 +314,12 @@ class Gptq(Pass):
         Q = torch.zeros_like(W)
 
         damp = percdamp * torch.mean(torch.diag(H))
-        diag = torch.arange(H.shape[0], device=H.device)
+        diag = torch.arange(num_cols, device=H.device)
         H[diag, diag] += damp
-        H = torch.linalg.cholesky(H)  # pylint: disable=not-callable
-        H = torch.cholesky_inverse(H)
-        H = torch.linalg.cholesky(H, upper=True)  # pylint: disable=not-callable
-        Hinv = H
+        Hinv = torch.linalg.cholesky(H)  # pylint: disable=not-callable
+        del H
+        Hinv = torch.cholesky_inverse(Hinv)
+        Hinv = torch.linalg.cholesky(Hinv, upper=True)  # pylint: disable=not-callable
 
         all_scales = []
         all_zp = []
@@ -331,8 +333,8 @@ class Gptq(Pass):
         else:
             active_scale, active_zp = None, None
 
-        for i1 in range(0, H.shape[0], blocksize):
-            i2 = min(i1 + blocksize, H.shape[0])
+        for i1 in range(0, num_cols, blocksize):
+            i2 = min(i1 + blocksize, num_cols)
             count = i2 - i1
 
             W1 = W[:, i1:i2].clone()
