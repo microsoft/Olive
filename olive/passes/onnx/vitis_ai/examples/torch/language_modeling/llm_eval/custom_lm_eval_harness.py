@@ -2,27 +2,23 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
-
-import torch
-import numpy as np
-import transformers
+# ruff: noqa: T201
 import json
-
-from transformers import AutoConfig
 from typing import Optional, Union
 
+import numpy as np
+import torch
+import transformers
 from lm_eval import evaluator
-from lm_eval.models.huggingface import HFLM
 from lm_eval.api.model import LM
+from lm_eval.models.huggingface import HFLM
 from lm_eval.models.utils import (
     get_dtype,
 )
-
-from optimum.onnxruntime import ORTModelForCausalLM
 from onnxruntime import InferenceSession
-
+from optimum.onnxruntime import ORTModelForCausalLM
 from quark.torch import ModelImporter
-
+from transformers import AutoConfig
 
 eval_logger = evaluator.eval_logger
 
@@ -33,8 +29,8 @@ eval_logger = evaluator.eval_logger
 
 """
 
-class LMEvalModelWrapper(HFLM):
 
+class LMEvalModelWrapper(HFLM):
     def __init__(
         self,
         pretrained: str,
@@ -45,7 +41,6 @@ class LMEvalModelWrapper(HFLM):
         dtype: Optional[Union[str, torch.dtype]] = "auto",
         **kwargs,
     ) -> None:
-
         self.import_file_format = import_file_format
         self.import_model_dir = import_model_dir
         self.model_reload = model_reload
@@ -71,17 +66,22 @@ class LMEvalModelWrapper(HFLM):
         gptqmodel: Optional[bool] = False,
         **kwargs,
     ) -> None:
-
         model_kwargs = kwargs if kwargs else {}
         model_kwargs.update(
             self._get_accelerate_args(
-                parallelize=parallelize, device_map=kwargs.get("device_map", None), max_memory_per_gpu=max_memory_per_gpu,
-                max_cpu_memory=max_cpu_memory, offload_folder=offload_folder, gpus=gpus
+                parallelize=parallelize,
+                device_map=kwargs.get("device_map"),
+                max_memory_per_gpu=max_memory_per_gpu,
+                max_cpu_memory=max_cpu_memory,
+                offload_folder=offload_folder,
+                gpus=gpus,
             )
         )
 
-        self._model = self.AUTO_MODEL_CLASS.from_pretrained(self.pretrained, torch_dtype="auto", trust_remote_code=True, **model_kwargs)
-        if(dtype != "auto"):
+        self._model = self.AUTO_MODEL_CLASS.from_pretrained(
+            self.pretrained, torch_dtype="auto", trust_remote_code=True, **model_kwargs
+        )
+        if dtype != "auto":
             self._model = self._model.to(get_dtype(dtype))
 
         if self.model_reload:
@@ -93,7 +93,7 @@ class LMEvalModelWrapper(HFLM):
             eval_logger.info(f"LOADING MODEL IN DTYPE:{self._model.dtype}")
 
         if self.import_file_format == "onnx_format":
-            self.session = InferenceSession(self.import_model_dir + "/model.onnx", providers= ["CPUExecutionProvider"])
+            self.session = InferenceSession(self.import_model_dir + "/model.onnx", providers=["CPUExecutionProvider"])
             self.config_ = AutoConfig.from_pretrained(self.pretrained, trust_remote_code=True)
             # also parse the genai config file
             with open(self.import_model_dir + "/genai_config.json") as f:
@@ -104,14 +104,13 @@ class LMEvalModelWrapper(HFLM):
             # hotfix needed for CHATGLM specifically
             if self.pretrained == "THUDM/chatglm3-6b":
                 self.config_.num_key_value_heads = self.genai_config["model"]["decoder"]["num_key_value_heads"]
-            self._model = ORTModelForCausalLM(self.session, self.config, use_cache = True)
+            self._model = ORTModelForCausalLM(self.session, self.config, use_cache=True)
             eval_logger.info(f"LOADING ONNX EXPORTED MODEL FROM:{self.import_model_dir}")
 
-        return None
+        return
 
     def _model_call(self, inps):
-        """
-        :param inps: torch.Tensor
+        """:param inps: torch.Tensor
             A torch tensor of shape [batch, (sequence_ctx + sequence_cont)] or of shape
             [batch, sequence_ctx]. the size of sequence may vary from call to call
         :return
@@ -119,7 +118,7 @@ class LMEvalModelWrapper(HFLM):
         logits returned from the model's decoder
         """
         with torch.no_grad():
-            assert self.AUTO_MODEL_CLASS == transformers.AutoModelForCausalLM
+            assert transformers.AutoModelForCausalLM == self.AUTO_MODEL_CLASS
 
             if self.import_file_format == "onnx_format":
                 attention_mask = torch.Tensor(np.where(inps != self.tokenizer.pad_token_id, 1, 0))
@@ -128,8 +127,22 @@ class LMEvalModelWrapper(HFLM):
                 if self.pretrained == "THUDM/chatglm3-6b":
                     past_key_values = [
                         (
-                            torch.zeros((self.batch_size, self.config_.num_key_value_heads, inps.shape[1], self.config_.hidden_size // self.config_.num_attention_heads)),
-                            torch.zeros((self.batch_size, self.config_.num_key_value_heads, inps.shape[1], self.config_.hidden_size // self.config_.num_attention_heads))
+                            torch.zeros(
+                                (
+                                    self.batch_size,
+                                    self.config_.num_key_value_heads,
+                                    inps.shape[1],
+                                    self.config_.hidden_size // self.config_.num_attention_heads,
+                                )
+                            ),
+                            torch.zeros(
+                                (
+                                    self.batch_size,
+                                    self.config_.num_key_value_heads,
+                                    inps.shape[1],
+                                    self.config_.hidden_size // self.config_.num_attention_heads,
+                                )
+                            ),
                         )
                         for i in range(self.config_.num_layers)
                     ]
@@ -141,7 +154,6 @@ class LMEvalModelWrapper(HFLM):
 
 
 class LMEvalModelGenWrapper(LM):
-
     def __init__(
         self,
         outputs_path="",
@@ -154,10 +166,9 @@ class LMEvalModelGenWrapper(LM):
         self.limit = limit
         self.eor = eor
 
-
     def generate_until(self, requests, disable_tqdm: bool = False):
         resps = [" "] * len(requests)
-        with open(self.outputs_path, "r") as outputs_file:
+        with open(self.outputs_path) as outputs_file:
             self.outputs = outputs_file.read().strip().rstrip(self.eor).split(self.eor)
 
         resps = self.outputs
@@ -166,10 +177,10 @@ class LMEvalModelGenWrapper(LM):
             raise ValueError(f"Outputs len - {len(self.outputs)}, Requests len - {len(requests)}. Did you set --limit?")
 
         if self.limit is not None:
-            self.outputs = self.outputs[0:self.limit]
+            self.outputs = self.outputs[0 : self.limit]
             eval_logger.info(f"Sliced outputs to len {self.outputs}; limit set to {self.limit}")
 
-        until_tokens = [request.args[1]['until'] for request in requests]
+        until_tokens = [request.args[1]["until"] for request in requests]
 
         res = []
         for resp, tokens in zip(resps, until_tokens):

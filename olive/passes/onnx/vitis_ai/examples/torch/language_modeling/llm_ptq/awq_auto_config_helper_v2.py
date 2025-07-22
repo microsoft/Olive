@@ -2,30 +2,31 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
+# ruff: noqa: T201
 
+import argparse
+import json
 import os
 import re
-import json
-import torch
-import argparse
 from operator import add, mul
-from typing import Tuple, Dict, List, Any
+from typing import Any, Dict, List, Tuple
+
+import torch
 
 is_rotation_mode = False
 
 
 def find_nearest_module_name(node: torch.fx.node.Node) -> str:
     module_info: str = ""
-    if 'nn_module_stack' in node.meta.keys():
-        name_info = [value for name, value in node.meta['nn_module_stack'].items()][-1][0]
+    if "nn_module_stack" in node.meta.keys():
+        name_info = [value for name, value in node.meta["nn_module_stack"].items()][-1][0]
         module_info = name_info.replace("L['self'].", "")
-        module_info = re.sub(r'\[(\d+)\]\.', r'.\1.', module_info)
-        module_info = re.sub(r'\[(\d+)\]', r'.\1', module_info)
+        module_info = re.sub(r"\[(\d+)\]\.", r".\1.", module_info)
+        module_info = re.sub(r"\[(\d+)\]", r".\1", module_info)
     return module_info
 
 
-class EasyGraph():
-
+class EasyGraph:
     def __init__(self, model: torch.nn.Module, sample_input: torch.Tensor) -> None:
         self.name_2_module = {}
         for name, module in model.named_modules():
@@ -38,7 +39,7 @@ class EasyGraph():
             if not os.path.exists(model_graph):
                 os.makedirs(model_graph)
             graph_str = gm.print_readable()
-            with open(os.path.join(model_graph, self.model.__class__.__name__ + ".txt"), 'w') as f:
+            with open(os.path.join(model_graph, self.model.__class__.__name__ + ".txt"), "w") as f:
                 f.write(graph_str)
             self.gm = gm
             # ---------------------------------------------------------------------
@@ -62,7 +63,7 @@ class EasyGraph():
         torch.compile(model, backend=custom_backend)(sample_input, use_cache=False)
 
     def _is_weight_node(self, node: torch.fx.node.Node) -> bool:
-        return "source_fn_stack" not in node.meta.keys() and node.op == 'get_attr'
+        return "source_fn_stack" not in node.meta.keys() and node.op == "get_attr"
 
     def _check_has_non_linear_sub_node(self, node: torch.fx.node.Node) -> bool:
         node_stack = [node]
@@ -90,13 +91,15 @@ class EasyGraph():
             "mean",
         ]
         node_has_const_parameters = [
-            torch.nn.modules.linear.Linear, torch.nn.modules.normalization.LayerNorm, torch.nn.modules.sparse.Embedding
+            torch.nn.modules.linear.Linear,
+            torch.nn.modules.normalization.LayerNorm,
+            torch.nn.modules.sparse.Embedding,
         ]
         while len(node_stack) > 0:
             tmp_node = node_stack.pop()
             if tmp_node.op == "output":
                 continue
-            node_type = [x for x in tmp_node.meta['source_fn_stack']][-1][-1]
+            node_type = [x for x in tmp_node.meta["source_fn_stack"]][-1][-1]
             if any(keyword is node_type for keyword in node_has_const_parameters):
                 continue
             if any(str(keyword) in str(node_type) for keyword in linear_node_list):
@@ -118,14 +121,14 @@ class EasyGraph():
 
     def get_module_name_by_node(self, node: torch.fx.node.Node) -> Any:
         if "source_fn_stack" in node.meta.keys():
-            module_info = [x for x in node.meta['source_fn_stack']]
+            module_info = [x for x in node.meta["source_fn_stack"]]
             node_name = module_info[-1][0]
             if node_name in self.parameters_convert.keys():
                 return self.parameters_convert[node_name]
-            elif (node_name.lower() + '.weight') in self.parameters_convert.keys():
-                return self.parameters_convert[node_name + '.weight'][:-7]
-            elif (node_name.lower() + '_weight') in self.parameters_convert.keys():
-                return self.parameters_convert[node_name + '.weight'][:-7]
+            elif (node_name.lower() + ".weight") in self.parameters_convert.keys() or (
+                node_name.lower() + "_weight"
+            ) in self.parameters_convert.keys():
+                return self.parameters_convert[node_name + ".weight"][:-7]
             else:
                 return find_nearest_module_name(node)
         else:
@@ -133,8 +136,8 @@ class EasyGraph():
 
     def find_nn_linear(self) -> None:
         for node in self.gm.graph.nodes:
-            if 'source_fn_stack' in node.meta.keys():
-                module_info = [x for x in node.meta['source_fn_stack']]
+            if "source_fn_stack" in node.meta.keys():
+                module_info = [x for x in node.meta["source_fn_stack"]]
                 if module_info[-1][-1] is torch.nn.Linear:
                     args_name_list = node.args
                     module_name = self.get_module_name_by_node(node)
@@ -164,7 +167,7 @@ class EasyGraph():
                 self.rotation_pair_list.append(prefix_model)
         else:
             if not self._check_node(node):
-                return
+                return None
             if module_name not in self.pair_list.keys():
                 self.pair_list[module_name] = prefix_model
             else:
@@ -172,20 +175,30 @@ class EasyGraph():
 
     def find_merge_pair(self, node: torch.fx.node.Node, prefix_model: List[str]) -> None:
         node_has_const_parameters = [
-            torch.nn.modules.linear.Linear, torch.nn.modules.normalization.LayerNorm, torch.nn.modules.sparse.Embedding
+            torch.nn.modules.linear.Linear,
+            torch.nn.modules.normalization.LayerNorm,
+            torch.nn.modules.sparse.Embedding,
         ]
         node_has_double_input_tensor = [mul, add]
         node_has_double_input_tensor_only_left = [torch.matmul, torch.bmm]
         node_has_one_input_tensor = [
-            "getitem", "expand", "reshape", "contiguous", "transpose", "view", "permute", "to", "chunk"
+            "getitem",
+            "expand",
+            "reshape",
+            "contiguous",
+            "transpose",
+            "view",
+            "permute",
+            "to",
+            "chunk",
         ]
 
         if not isinstance(node, torch.fx.node.Node):
             print("node may is not torch.fx.node.Node")
-            return
+            return None
 
         if node.op == "placeholder":
-            return
+            return None
 
         if self._is_weight_node(node):
             return self._add_pair_list(node, prefix_model)
@@ -216,7 +229,7 @@ class EasyGraph():
         model_config_result = "model_config_result"
         if not os.path.exists(model_config_result):
             os.makedirs(model_config_result)
-        with open(os.path.join(model_config_result, args.model_dir.replace('/', '_') + "_v2.json"), 'w') as f:
+        with open(os.path.join(model_config_result, args.model_dir.replace("/", "_") + "_v2.json"), "w") as f:
             f.write(json_str)
 
 
@@ -224,7 +237,7 @@ def format_to_json(data: List[Tuple[str, str, str]]) -> List[Dict[str, str]]:
     data_dict: Dict[Any, Any] = {}
     result = []
     for k in data:
-        if (k[2], k[1]) not in data_dict.keys():
+        if (k[2], k[1]) not in data_dict:
             data_dict[(k[2], k[1])] = [k[0]]
         else:
             data_dict[(k[2], k[1])].append(k[0])
@@ -234,7 +247,7 @@ def format_to_json(data: List[Tuple[str, str, str]]) -> List[Dict[str, str]]:
     for k, v in data_dict.items():
         v.sort()
         v = tuple(v)
-        if (v, k[1]) not in data_dict2.keys():
+        if (v, k[1]) not in data_dict2:
             data_dict2[(v, k[1])] = [k[0]]
         else:
             data_dict2[(v, k[1])].append(k[0])
@@ -247,33 +260,35 @@ def format_to_json(data: List[Tuple[str, str, str]]) -> List[Dict[str, str]]:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model_dir",
-                        default="facebook/opt-125m",
-                        help="Specify where the HuggingFace model is. This example support Llama, OPT models")
+    parser.add_argument(
+        "--model_dir",
+        default="facebook/opt-125m",
+        help="Specify where the HuggingFace model is. This example support Llama, OPT models",
+    )
     args = parser.parse_args()
 
-    from transformers import AutoModelForCausalLM, AutoConfig
+    from transformers import AutoConfig, AutoModelForCausalLM
 
-    def get_model(ckpt_path: str,
-                  data_type: str = 'auto',
-                  device: str = "cuda",
-                  multi_gpu: bool = False) -> torch.nn.Module:
+    def get_model(
+        ckpt_path: str, data_type: str = "auto", device: str = "cuda", multi_gpu: bool = False
+    ) -> torch.nn.Module:
         config = AutoConfig.from_pretrained(ckpt_path, trust_remote_code=True)
         config.num_hidden_layers = 2
-        model = AutoModelForCausalLM.from_config(config, trust_remote_code=True,
-                                                 attn_implementation="eager").half().cuda()
+        model = (
+            AutoModelForCausalLM.from_config(config, trust_remote_code=True, attn_implementation="eager").half().cuda()
+        )
         model.eval()
-        assert (isinstance(model, torch.nn.Module))
+        assert isinstance(model, torch.nn.Module)
         return model
 
     def main(args: argparse.Namespace) -> None:
         model = get_model(args.model_dir)
-        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         input_data = torch.randint(0, 100, [1, 512], dtype=torch.int64).to(device)
         eg = EasyGraph(model, input_data)
         if is_rotation_mode:
             data_dict = format_to_json(eg.rotation_pair_list)  # type: ignore
-            with open('tmp_rotations.json', 'w', encoding='utf-8') as f:
+            with open("tmp_rotations.json", "w", encoding="utf-8") as f:
                 json.dump(data_dict, f, ensure_ascii=False, indent=4)
         eg.dump_json()
 

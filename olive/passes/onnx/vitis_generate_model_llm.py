@@ -3,15 +3,18 @@
 # SPDX-License-Identifier: MIT
 #
 
-from olive.passes import Pass
-from olive.model import ONNXModelHandler, HfModelHandler
-from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from model_generate import generate_npu_model
+# ruff: noqa: T201
 from pathlib import Path
-from olive.hardware.accelerator import AcceleratorSpec
-from olive.model.utils import resolve_onnx_path
-from olive.passes.onnx.common import model_proto_to_olive_model
+
 import onnx
+from model_generate import generate_npu_model
+
+from olive.hardware.accelerator import AcceleratorSpec
+from olive.model import HfModelHandler, ONNXModelHandler
+from olive.model.utils import resolve_onnx_path
+from olive.passes import Pass
+from olive.passes.onnx.common import model_proto_to_olive_model
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 
 class VitisGenerateModelLLM(Pass):
@@ -19,15 +22,13 @@ class VitisGenerateModelLLM(Pass):
     def _default_config(cls, accelerator_spec):
         return {
             "packed_const": PassConfigParam(
+                type_=bool, default_value=False, description="Enable packed constants optimization in NPU export."
+            ),
+            "cpu_only": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Enable packed constants optimization in NPU export."
-            ), 
-            "cpu_only": PassConfigParam(
-            type_=bool,
-            default_value=False,
-            description="Run only model builder -OGA CPU only model, skip NPU-related steps."
-            )
+                description="Run only model builder -OGA CPU only model, skip NPU-related steps.",
+            ),
         }
 
     @staticmethod
@@ -53,8 +54,8 @@ class VitisGenerateModelLLM(Pass):
         generate_npu_model(
             input_model=str(input_model_path),
             output_dir=str(output_dir),
-            packed_const=config.packed_const, 
-            cpu_only=config.cpu_only
+            packed_const=config.packed_const,
+            cpu_only=config.cpu_only,
         )
 
         # Load final ONNX model to wrap into Olive model

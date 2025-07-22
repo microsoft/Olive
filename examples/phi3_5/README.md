@@ -99,7 +99,7 @@ olive run --config qdq_config.json
 ##### **For Quark quantization**
 
 For LLMs - Follow the below commands to generate the optimized model for VitisAI EP.
-
+(Currently tested on Linux + Ro)
 ```bash
 cd Olive
 pip install -e .
@@ -110,11 +110,18 @@ The model generate wheel can be downloaded from here (to be updated in PyPI)- `/
 
 ```bash
 pip install "model_generate-1.0.0-py3-none-any.whl"
-cd examples/phi3_5
-pip install --force-reinstall -r requirements.txt
+```
+
+Make sure to install the correct version of PyTorch before running quantization. If using AMD GPUs, update PyTorch to use ROCm
+
+```bash
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
+python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
 ```
 
 ```bash
+cd examples/phi3_5
+pip install --force-reinstall -r requirements.txt
 olive run --config quark_config_vitis_ai_llm.json
 ```
 

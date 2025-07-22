@@ -1,8 +1,5 @@
 {
-    "input_model": {
-        "type": "HFModel",
-        "model_path": "microsoft/Phi-3.5-mini-instruct"
-    },
+    "input_model": { "type": "HFModel", "model_path": "microsoft/Phi-3.5-mini-instruct" },
     "passes": {
         "qq": {
             "type": "QuarkQuantizationPass",
@@ -11,14 +8,10 @@
             "dataset": "pileval_for_awq_benchmark",
             "data_type": "float32",
             "num_calib_data": 128,
-            "model_export": ["hf_format"],
-            "exclude_layers": []
+            "model_export": [ "hf_format" ],
+            "exclude_layers": [  ]
         },
-        "mg": {
-            "type": "VitisGenerateModelLLM",
-            "packed_const": false,
-            "cpu_only": false
-        }
+        "mg": { "type": "VitisGenerateModelLLM", "packed_const": false, "cpu_only": false }
     },
     "log_severity_level": 1,
     "output_dir": "models/phi3_5-vai",

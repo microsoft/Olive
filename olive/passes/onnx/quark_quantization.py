@@ -3,14 +3,14 @@
 # SPDX-License-Identifier: MIT
 #
 
-import os
+# ruff: noqa: T201
 from argparse import Namespace
-from olive.model import HfModelHandler
-from olive.passes import Pass
-from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from pathlib import Path
 
+from olive.model import HfModelHandler
+from olive.passes import Pass
 from olive.passes.onnx.vitis_ai.examples.torch.language_modeling.llm_ptq.quantize_quark import run_quark_quantization
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 
 class QuarkQuantizationPass(Pass):
@@ -18,40 +18,24 @@ class QuarkQuantizationPass(Pass):
     def _default_config(cls, accelerator_spec=None):
         return {
             "quant_scheme": PassConfigParam(
-                type_=str,
-                default_value="w_uint4_per_group_asym",
-                description="Quantization scheme to use."
+                type_=str, default_value="w_uint4_per_group_asym", description="Quantization scheme to use."
             ),
-            "quant_algo": PassConfigParam(
-                type_=str,
-                default_value="awq",
-                description="Quantization algorithm."
-            ),
+            "quant_algo": PassConfigParam(type_=str, default_value="awq", description="Quantization algorithm."),
             "dataset": PassConfigParam(
-                type_=str,
-                default_value="pileval_for_awq_benchmark",
-                description="Calibration dataset to use."
+                type_=str, default_value="pileval_for_awq_benchmark", description="Calibration dataset to use."
             ),
-            "data_type": PassConfigParam(
-                type_=str,
-                default_value="float32",
-                description="Data type for model."
-            ),
+            "data_type": PassConfigParam(type_=str, default_value="float32", description="Data type for model."),
             "num_calib_data": PassConfigParam(
-                type_=int,
-                default_value=128,
-                description="Number of calibration samples."
+                type_=int, default_value=128, description="Number of calibration samples."
             ),
             "model_export": PassConfigParam(
-                type_=list,
-                default_value=["hf_format"],
-                description="Model export format."
+                type_=list, default_value=["hf_format"], description="Model export format."
             ),
             "exclude_layers": PassConfigParam(
                 type_=list,
                 default_value=None,
-                description="List of layers to exclude. Set to [] to exclude nothing explicitly."
-            )
+                description="List of layers to exclude. Set to [] to exclude nothing explicitly.",
+            ),
         }
 
     @staticmethod
@@ -74,8 +58,7 @@ class QuarkQuantizationPass(Pass):
             num_calib_data=config.num_calib_data,
             model_export=config.model_export,
             exclude_layers=config.exclude_layers,
-
-            # Other args 
+            # Other args
             device="cuda",
             multi_gpu=False,
             model_attn_implementation="eager",

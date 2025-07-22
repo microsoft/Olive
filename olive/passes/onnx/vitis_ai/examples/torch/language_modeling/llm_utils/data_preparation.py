@@ -3,17 +3,23 @@
 # SPDX-License-Identifier: MIT
 #
 
+# ruff: noqa: T201
+
 from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Union
+
 import torch
-from torch.utils.data import DataLoader, TensorDataset, Subset, Dataset
-from typing import List, Optional, Dict, Any, Union
 from datasets import load_dataset
-from transformers import PreTrainedTokenizer, AutoTokenizer, AutoProcessor, default_data_collator
 from PIL import Image
+from torch.utils.data import DataLoader, Dataset, Subset, TensorDataset
 from tqdm import tqdm
+from transformers import AutoProcessor, AutoTokenizer, PreTrainedTokenizer, default_data_collator
 
 
-def get_pileval(tokenizer: PreTrainedTokenizer, nsamples: int, seqlen: int, device: Optional[str], seed: int = 0) -> DataLoader[torch.Tensor]:
+def get_pileval(
+    tokenizer: PreTrainedTokenizer, nsamples: int, seqlen: int, device: Optional[str], seed: int = 0
+) -> DataLoader[torch.Tensor]:
     dataset = load_dataset("mit-han-lab/pile-val-backup", split="validation").shuffle(seed=seed)
 
     samples = []
@@ -32,7 +38,7 @@ def get_pileval(tokenizer: PreTrainedTokenizer, nsamples: int, seqlen: int, devi
     n_split = cat_samples.shape[1] // seqlen
 
     # Create training dataset by splitting concatenated samples
-    train_dataset = [cat_samples[:, i * seqlen:(i + 1) * seqlen] for i in range(n_split)]
+    train_dataset = [cat_samples[:, i * seqlen : (i + 1) * seqlen] for i in range(n_split)]
 
     # Create batched samples
     batch_inps = torch.cat(train_dataset, dim=0)
@@ -40,17 +46,15 @@ def get_pileval(tokenizer: PreTrainedTokenizer, nsamples: int, seqlen: int, devi
     return batch_inps
 
 
-def get_wikitext2(tokenizer: PreTrainedTokenizer,
-                  nsamples: int,
-                  seqlen: int,
-                  device: Optional[str],
-                  seed: int = 0) -> DataLoader[torch.Tensor]:
-
-    traindata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='train')
-    trainenc = tokenizer("\n\n".join(traindata['text']), return_tensors='pt')
+def get_wikitext2(
+    tokenizer: PreTrainedTokenizer, nsamples: int, seqlen: int, device: Optional[str], seed: int = 0
+) -> DataLoader[torch.Tensor]:
+    traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
+    trainenc = tokenizer("\n\n".join(traindata["text"]), return_tensors="pt")
     trainenc = trainenc.to(device)
 
     import random
+
     random.seed(seed)
     torch.random.manual_seed(seed)
 
@@ -60,40 +64,47 @@ def get_wikitext2(tokenizer: PreTrainedTokenizer,
         j = i + seqlen
         inp = trainenc.input_ids[:, i:j]
         attention_mask = torch.ones_like(inp)
-        traindataset.append({'input_ids': inp, 'attention_mask': attention_mask})
-    batch_inps = torch.cat([sample['input_ids'] for sample in traindataset], dim=0)
+        traindataset.append({"input_ids": inp, "attention_mask": attention_mask})
+    batch_inps = torch.cat([sample["input_ids"] for sample in traindataset], dim=0)
     return batch_inps
 
 
-def get_calib_dataloader_for_benchmark(dataset_name: str = "pileval_for_awq_benchmark",
-                                       tokenizer: AutoTokenizer = None,
-                                       batch_size: int = 1,
-                                       num_calib_data: int = 128,
-                                       seqlen: int = 2048,
-                                       device: str = 'cpu') -> DataLoader[torch.Tensor]:
+def get_calib_dataloader_for_benchmark(
+    dataset_name: str = "pileval_for_awq_benchmark",
+    tokenizer: AutoTokenizer = None,
+    batch_size: int = 1,
+    num_calib_data: int = 128,
+    seqlen: int = 2048,
+    device: str = "cpu",
+) -> DataLoader[torch.Tensor]:
     if dataset_name == "pileval_for_awq_benchmark":
         samples = get_pileval(tokenizer, num_calib_data, seqlen, device, seed=42)
         if batch_size != len(samples):
-            print(f"[INFO-Warning] For AWQ benchmark, batch_size should be {len(samples)}. Changing batch_size to {len(samples)}.")
+            print(
+                f"[INFO-Warning] For AWQ benchmark, batch_size should be {len(samples)}. Changing batch_size to {len(samples)}."
+            )
             batch_size = len(samples)
     elif dataset_name == "wikitext_for_gptq_benchmark":
         samples = get_wikitext2(tokenizer, num_calib_data, seqlen, device)
     else:
         raise NotImplementedError
 
-    calib_dataloader: DataLoader[List[Dict[str, torch.Tensor]]] = DataLoader(samples, batch_size=batch_size,
-                                                                             shuffle=False, drop_last=True)  # type: ignore
+    calib_dataloader: DataLoader[List[Dict[str, torch.Tensor]]] = DataLoader(
+        samples, batch_size=batch_size, shuffle=False, drop_last=True
+    )  # type: ignore
 
     return calib_dataloader
 
 
-def get_calib_dataloader_to_tensor(dataset_name: str = "cnn_dailymail",
-                                   tokenizer: AutoTokenizer = None,
-                                   batch_size: int = 1,
-                                   num_calib_data: int = 512,
-                                   seqlen: int = 512,
-                                   shuffle: bool = False,
-                                   device: Optional[str] = None) -> DataLoader[torch.Tensor]:
+def get_calib_dataloader_to_tensor(
+    dataset_name: str = "cnn_dailymail",
+    tokenizer: AutoTokenizer = None,
+    batch_size: int = 1,
+    num_calib_data: int = 512,
+    seqlen: int = 512,
+    shuffle: bool = False,
+    device: Optional[str] = None,
+) -> DataLoader[torch.Tensor]:
     if dataset_name == "pileval":
         dataset = load_dataset("mit-han-lab/pile-val-backup", split="validation")
         text_data = dataset["text"][:num_calib_data]
@@ -101,7 +112,7 @@ def get_calib_dataloader_to_tensor(dataset_name: str = "cnn_dailymail",
         dataset = load_dataset("cnn_dailymail", name="3.0.0", split="train")
         text_data = dataset["article"][:num_calib_data]
     elif dataset_name == "wikitext":
-        dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='train')
+        dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
         text_data = dataset["text"][:num_calib_data]
     else:
         raise NotImplementedError
@@ -116,21 +127,23 @@ def get_calib_dataloader_to_tensor(dataset_name: str = "cnn_dailymail",
     return calib_dataloader
 
 
-def get_calib_dataloader_to_dict(dataset_name: str = "cnn_dailymail",
-                                 tokenizer: AutoTokenizer = None,
-                                 batch_size: int = 1,
-                                 num_calib_data: int = 512,
-                                 seqlen: int = 512,
-                                 device: Optional[str] = None) -> DataLoader[Dict[str, torch.Tensor]]:
-
-    def make_data_block(examples: Dict[str, List[str]],
-                        tokenizer: AutoTokenizer = None,
-                        prompt_col_name: str = '',
-                        max_length: int = 512) -> dict[str, List[List[torch.Tensor]]]:
-        res: dict[str, List[List[torch.Tensor]]] = tokenizer(examples[prompt_col_name],
-                                                             padding=True,
-                                                             truncation=True,
-                                                             max_length=max_length)
+def get_calib_dataloader_to_dict(
+    dataset_name: str = "cnn_dailymail",
+    tokenizer: AutoTokenizer = None,
+    batch_size: int = 1,
+    num_calib_data: int = 512,
+    seqlen: int = 512,
+    device: Optional[str] = None,
+) -> DataLoader[Dict[str, torch.Tensor]]:
+    def make_data_block(
+        examples: Dict[str, List[str]],
+        tokenizer: AutoTokenizer = None,
+        prompt_col_name: str = "",
+        max_length: int = 512,
+    ) -> dict[str, List[List[torch.Tensor]]]:
+        res: dict[str, List[List[torch.Tensor]]] = tokenizer(
+            examples[prompt_col_name], padding=True, truncation=True, max_length=max_length
+        )
         return res
 
     def my_collate_fn(blocks: List[Dict[str, List[List[str]]]]) -> Dict[str, torch.Tensor]:
@@ -147,7 +160,7 @@ def get_calib_dataloader_to_dict(dataset_name: str = "cnn_dailymail",
         dataset = load_dataset("cnn_dailymail", name="3.0.0", split="train")
         prompt_col_name = "article"
     elif dataset_name == "wikitext":
-        dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='train')
+        dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
         prompt_col_name = "text"
     else:
         raise NotImplementedError
@@ -156,61 +169,69 @@ def get_calib_dataloader_to_dict(dataset_name: str = "cnn_dailymail",
         indices=[i for i in range(min(len(dataset), num_calib_data))],
         keep_in_memory=True,
     )
-    tokenized_datasets = dataset.map(make_data_block,
-                                     batched=True,
-                                     batch_size=len(dataset),
-                                     num_proc=1,
-                                     remove_columns=dataset.column_names,
-                                     keep_in_memory=True,
-                                     fn_kwargs={
-                                         'tokenizer': tokenizer,
-                                         'prompt_col_name': prompt_col_name,
-                                         'max_length': seqlen
-                                     })
+    tokenized_datasets = dataset.map(
+        make_data_block,
+        batched=True,
+        batch_size=len(dataset),
+        num_proc=1,
+        remove_columns=dataset.column_names,
+        keep_in_memory=True,
+        fn_kwargs={"tokenizer": tokenizer, "prompt_col_name": prompt_col_name, "max_length": seqlen},
+    )
 
     calib_dataloader = DataLoader(tokenized_datasets, batch_size=batch_size, collate_fn=my_collate_fn)
 
     return calib_dataloader
 
 
-def get_ultrachat(dataset_name: str = "HuggingFaceH4/ultrachat_200k",
-                  tokenizer: AutoTokenizer = None,
-                  batch_size: int = 1,
-                  num_calib_data: int = 512,
-                  seqlen: int = 512,
-                  device: Optional[str] = None) -> DataLoader[List[Dict[str, torch.Tensor]]]:
+def get_ultrachat(
+    dataset_name: str = "HuggingFaceH4/ultrachat_200k",
+    tokenizer: AutoTokenizer = None,
+    batch_size: int = 1,
+    num_calib_data: int = 512,
+    seqlen: int = 512,
+    device: Optional[str] = None,
+) -> DataLoader[List[Dict[str, torch.Tensor]]]:
     MAX_SEQUENCE_LENGTH = seqlen
 
     ds = load_dataset(dataset_name, split="train_sft")
     ds = ds.shuffle(seed=42).select(range(num_calib_data))
 
     def preprocess(example):
-        return {"text": tokenizer.apply_chat_template(example["messages"], tokenize=False,)}
+        return {
+            "text": tokenizer.apply_chat_template(
+                example["messages"],
+                tokenize=False,
+            )
+        }
 
     ds = ds.map(preprocess)
 
     def tokenize(sample):
-        return tokenizer(sample["text"],
-                         padding=False,
-                         max_length=MAX_SEQUENCE_LENGTH,
-                         truncation=True,
-                         add_special_tokens=False,)
+        return tokenizer(
+            sample["text"],
+            padding=False,
+            max_length=MAX_SEQUENCE_LENGTH,
+            truncation=True,
+            add_special_tokens=False,
+        )
 
     ds = ds.map(tokenize, remove_columns=ds.column_names)
 
     traindataset = []
-    for i in range(len(ds['input_ids'])):
-        inp = torch.tensor([ds['input_ids'][i]], device=device)
-        attention_mask = torch.tensor([ds['attention_mask'][i]], device=device)
-        traindataset.append({'input_ids': inp, 'attention_mask': attention_mask})
+    for i in range(len(ds["input_ids"])):
+        inp = torch.tensor([ds["input_ids"][i]], device=device)
+        attention_mask = torch.tensor([ds["attention_mask"][i]], device=device)
+        traindataset.append({"input_ids": inp, "attention_mask": attention_mask})
 
-    calib_dataloader: DataLoader[List[Dict[str, torch.Tensor]]] = DataLoader(traindataset, batch_size=None,
-                                                                             shuffle=False)  # type: ignore
+    calib_dataloader: DataLoader[List[Dict[str, torch.Tensor]]] = DataLoader(
+        traindataset, batch_size=None, shuffle=False
+    )  # type: ignore
     return calib_dataloader
 
 
 def get_calib_dataloader(
-        dataset_name: str, processor: AutoProcessor = None, **kwargs: Any
+    dataset_name: str, processor: AutoProcessor = None, **kwargs: Any
 ) -> Union[DataLoader[torch.Tensor], DataLoader[List[Dict[str, torch.Tensor]]], DataLoader[Dict[str, torch.Tensor]]]:
     if dataset_name in ["pileval", "cnn_dailymail", "wikitext"]:
         return get_calib_dataloader_to_tensor(dataset_name, **kwargs)
@@ -244,11 +265,11 @@ class ConcatDataset(Dataset):
 
 def get_trainer_dataset(path, subset, tokenizer, max_train_samples, max_eval_samples, seqlen=1024):
     def tokenize_add_label(sample):
-        if path in ['wikitext']:
-            input_text = sample['text']
+        if path in ["wikitext"]:
+            input_text = sample["text"]
 
-        elif path in ['shibing624/AdvertiseGen']:
-            input_text = sample['content'] + sample['summary']
+        elif path in ["shibing624/AdvertiseGen"]:
+            input_text = sample["content"] + sample["summary"]
 
         input_ids = tokenizer.encode(tokenizer.bos_token + input_text + tokenizer.eos_token, add_special_tokens=False)
 
@@ -259,44 +280,40 @@ def get_trainer_dataset(path, subset, tokenizer, max_train_samples, max_eval_sam
         }
         return sample
 
-    if path in ['wikitext']:
-        train_dataset = load_dataset(path=path, name='wikitext-2-raw-v1', split=subset, trust_remote_code=True)
-    elif path in ['shibing624/AdvertiseGen']:
+    if path in ["wikitext"]:
+        train_dataset = load_dataset(path=path, name="wikitext-2-raw-v1", split=subset, trust_remote_code=True)
+    elif path in ["shibing624/AdvertiseGen"]:
         train_dataset = load_dataset(path=path, split=subset, trust_remote_code=True)
 
     # Using wikitext as default eval_dataset
-    eval_dataset = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test', trust_remote_code=True)
+    eval_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="test", trust_remote_code=True)
 
     if max_train_samples:
         max_train_samples = min(len(train_dataset), max_train_samples)
         train_dataset = train_dataset.select(range(max_train_samples))
-        print(f'select {max_train_samples} from training data to build train dataset ...')
+        print(f"select {max_train_samples} from training data to build train dataset ...")
 
     if max_eval_samples:
         max_eval_samples = min(len(eval_dataset), max_eval_samples)
         eval_dataset = eval_dataset.select(range(max_eval_samples))
-        print(f'select {max_eval_samples} from test data to build eval dataset ...')
-
+        print(f"select {max_eval_samples} from test data to build eval dataset ...")
 
     train_dataset = train_dataset.map(tokenize_add_label, remove_columns=list(train_dataset.features))
     train_dataset = ConcatDataset(train_dataset, seqlen)
 
-
     eval_dataset = eval_dataset.map(tokenize_add_label, remove_columns=list(eval_dataset.features))
     eval_dataset = ConcatDataset(eval_dataset, seqlen)
-    return dict(
-        train_dataset=train_dataset, data_collator=default_data_collator, eval_dataset=eval_dataset
-    )
+    return dict(train_dataset=train_dataset, data_collator=default_data_collator, eval_dataset=eval_dataset)
 
 
 def get_dataset(path, subset, tokenizer, seqlen):
-    if path in ['wikitext']:
-        text = load_dataset(path=path, name='wikitext-2-raw-v1', split=subset)
-        strtext = "\n\n".join(text['text'])
-    elif path in ['shibing624/AdvertiseGen']:
+    if path in ["wikitext"]:
+        text = load_dataset(path=path, name="wikitext-2-raw-v1", split=subset)
+        strtext = "\n\n".join(text["text"])
+    elif path in ["shibing624/AdvertiseGen"]:
         text = load_dataset(path=path, split=subset)
-        strtext = "\n\n".join(str(i[0]) + str(i[1]) for i in list(zip(list(text['content']), list(text['summary']))))
-    tokenized_text = tokenizer(strtext, return_tensors='pt')
+        strtext = "\n\n".join(str(i[0]) + str(i[1]) for i in list(zip(list(text["content"]), list(text["summary"]))))
+    tokenized_text = tokenizer(strtext, return_tensors="pt")
     tokenized_text_len = tokenized_text.input_ids.shape[1]
 
     sample = []
@@ -322,7 +339,7 @@ def get_loader(path, subset, tokenizer, seqlen=1024, num_batch=-1, batch_size=1,
 
 
 # for VLM
-def image_parser(image_file, sep=','):
+def image_parser(image_file, sep=","):
     out = image_file.split(sep)
     return out
 
@@ -344,20 +361,21 @@ def load_images(image_files):
     return out
 
 
-def get_scienceqa(dataset_name: str = "ScienceQA_VAL",
-                  processor: AutoProcessor = None,
-                  tokenizer: AutoTokenizer = None,
-                  batch_size: int = 1,
-                  num_calib_data: int = 512,
-                  seqlen: int = 512,
-                  device: Optional[str] = None) -> DataLoader[List[Dict[str, torch.Tensor]]]:
-
-    from vlmeval.dataset import build_dataset
+def get_scienceqa(
+    dataset_name: str = "ScienceQA_VAL",
+    processor: AutoProcessor = None,
+    tokenizer: AutoTokenizer = None,
+    batch_size: int = 1,
+    num_calib_data: int = 512,
+    seqlen: int = 512,
+    device: Optional[str] = None,
+) -> DataLoader[List[Dict[str, torch.Tensor]]]:
     from transformers.feature_extraction_utils import BatchFeature
+    from vlmeval.dataset import build_dataset
 
     dataset = build_dataset(dataset_name)
     data = dataset.data
-    data_indices = [i for i in data['index']]
+    data_indices = [i for i in data["index"]]
     lt = min(num_calib_data, len(dataset))
 
     traindataset = []
@@ -368,14 +386,9 @@ def get_scienceqa(dataset_name: str = "ScienceQA_VAL",
         image = Image.open(image_path)
 
         # inputs
-        messages = [
-            {'role': 'user', 'content': [
-                {'type': 'image'},
-                {'type': 'text', 'text': prompt}
-            ]}
-        ]
+        messages = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": prompt}]}]
         input_text = processor.apply_chat_template(messages, add_generation_prompt=True)
-        inputs = processor(image, input_text, return_tensors='pt').to(device)
+        inputs = processor(image, input_text, return_tensors="pt").to(device)
 
         traindataset.append(inputs)
 
@@ -384,14 +397,14 @@ def get_scienceqa(dataset_name: str = "ScienceQA_VAL",
 
 
 def message_to_promptimg(message, dataset=None):
-    num_images = len([x for x in message if x['type'] == 'image'])
+    num_images = len([x for x in message if x["type"] == "image"])
     if num_images == 0:
-        prompt = '\n'.join([x['value'] for x in message if x['type'] == 'text'])
+        prompt = "\n".join([x["value"] for x in message if x["type"] == "text"])
         image = None
     else:
-        prompt = '\n'.join([x['value'] for x in message if x['type'] == 'text'])
-        images = [x['value'] for x in message if x['type'] == 'image']
-        if 'BLINK' == dataset:
+        prompt = "\n".join([x["value"] for x in message if x["type"] == "text"])
+        images = [x["value"] for x in message if x["type"] == "image"]
+        if dataset == "BLINK":
             image = concat_images_vlmeval(images, target_size=512)
         else:
             image = images[0]
