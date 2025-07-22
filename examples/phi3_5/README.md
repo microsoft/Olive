@@ -99,7 +99,10 @@ olive run --config qdq_config.json
 ##### **For Quark quantization**
 
 For LLMs - Follow the below commands to generate the optimized model for VitisAI EP.
-(Currently tested on Linux + Ro)
+(Currently tested on Linux + ROCm and Linux + CUDA). 
+
+For Quark details, see [Quark Documentation](https://quark.docs.amd.com/latest/) 
+
 ```bash
 cd Olive
 pip install -e .
