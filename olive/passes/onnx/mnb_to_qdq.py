@@ -269,10 +269,10 @@ class MatMulNBitsToQDQ(Pass):
             final_name = matmul_name
             final_output = matmul_output
 
-            if len(node_inputs) >= 5 and node_inputs[4]:
+            if len(node_inputs) >= 6 and node_inputs[5]:
                 # Bias Add
                 # it has bias
-                bias_i_name = node_inputs[4]
+                bias_i_name = node_inputs[5]
                 new_bias_i_name = bias_i_name.replace("MatMulNBits", "MatMul")
                 bias_initiaizer = onnx.numpy_helper.from_array(
                     dag.get_initializer_np_array(bias_i_name), name=new_bias_i_name
