@@ -24,6 +24,7 @@ from olive.cli.launcher import main as cli_main
         "convert-adapters",
         "tune-session-params",
         "auto-opt",
+        "optimize",
     ],
 )
 def test_valid_command(console_script, command):
