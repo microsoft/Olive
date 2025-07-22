@@ -745,6 +745,87 @@ graph {
 }
 ```
 
+### `QuickGeluToSigmoid`
+
+#### Description
+
+Replaces QuickGelu operators with equivalent standard ONNX operators. This surgery converts a single QuickGelu node into a subgraph composed of Mul, Sigmoid, and Mul operations.
+
+The QuickGelu function is mathematically defined as: `QuickGelu(x) = x * sigmoid(alpha * x)`, where alpha defaults to 1.702.
+
+Reference: https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/core/graph/contrib_ops/contrib_defs.cc
+
+#### Example
+
+Initial model graph:
+
+```
+graph {
+  input: "input"
+  node {
+    op_type: "QuickGelu"
+    input: ["input"]
+    output: ["quickgelu_output"]
+    name: "QuickGeluNode"
+  }
+  output: "quickgelu_output"
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "QuickGeluToSigmoid"
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```
+graph {
+  input: "input"
+  initializer: "QuickGeluNode_alpha" (FLOAT, value: 1.702)
+  node {
+    op_type: "Mul"
+    input: ["input", "QuickGeluNode_alpha"]
+    output: ["QuickGeluNode_mul1_output"]
+    name: "QuickGeluNode_mul1"
+  }
+  node {
+    op_type: "Sigmoid"
+    input: ["QuickGeluNode_mul1_output"]
+    output: ["QuickGeluNode_sigmoid_output"]
+    name: "QuickGeluNode_sigmoid"
+  }
+  node {
+    op_type: "Mul"
+    input: ["input", "QuickGeluNode_sigmoid_output"]
+    output: ["QuickGeluNode_mul2_output"]
+    name: "QuickGeluNode_mul2"
+  }
+  output: "QuickGeluNode_mul2_output"
+}
+```
+
+Pattern transformation:
+
+```
+Original pattern:
+[Input] --> QuickGelu --> [Output]
+
+Replaced pattern:
+[Input] --> Mul --> Sigmoid --> Mul --> [Output]
+             |                    ^
+             |                    |
+             +--------------------+
+             (alpha=1.702)
+```
 
 ### `RMSNormToL2Norm`
 

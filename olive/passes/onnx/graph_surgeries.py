@@ -17,6 +17,7 @@ import onnx
 from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
 from onnxscript import ir
+from onnxscript.rewriter import pattern
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -445,6 +446,53 @@ class ExposeQuantizedOutput(ProtoSurgeon):
         zero_point_onnx_dtype = zero_point_initializer.data_type
         zero_point_np_dtype = tensor_dtype_to_np_dtype(zero_point_onnx_dtype)
         return self._add_zero_point(model, zero_point_value, zero_point_onnx_dtype, zero_point_np_dtype)
+
+
+class QuickGeluToSigmoid(Surgeon):
+    """Lower QuickGelu operator to standard ONNX operators.
+
+    QuickGelu pattern:
+    [Input] --> QuickGelu --> [Output]
+
+    Replaced with:
+    [Input] --> Mul --> Sigmoid --> Mul --> [Output]
+                 |                    ^
+                 |                    |
+                 +--------------------+
+
+    Where the first Mul multiplies by alpha (default 1.702).
+    QuickGelu(x) = x * sigmoid(alpha * x)
+    """
+
+    ALPHA = 1.702  # QuickGelu default alpha
+
+    def __init__(self):
+        super().__init__()
+        self._rule = pattern.RewriteRule(
+            self._target_pattern,
+            self._replacement_pattern,
+        )
+
+    def _target_pattern(self, op, x):
+        return op.QuickGelu(x)
+
+    def _replacement_pattern(self, op, x):
+        # Create alpha constant
+        alpha = op.Constant(value_float=self.ALPHA)
+
+        # Compute: x * sigmoid(alpha * x)
+        alpha_x = op.Mul(alpha, x)
+        sigmoid_alpha_x = op.Sigmoid(alpha_x)
+        return op.Mul(x, sigmoid_alpha_x)
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        from onnxscript import rewriter
+
+        modified_model = rewriter.rewrite(model, pattern_rewrite_rules=[self._rule])
+
+        logger.debug("Applied QuickGelu to Mul->Sigmoid->Mul rewrite rule")
+
+        return modified_model
 
 
 class RMSNormToL2Norm(ProtoSurgeon):
