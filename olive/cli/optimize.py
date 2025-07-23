@@ -142,6 +142,13 @@ class OptimizeCommand(BaseOliveCLICommand):
             help="Model modality for optimization. Default is 'text'.",
         )
 
+        # QDQ format option
+        sub_parser.add_argument(
+            "--enable_aot",
+            action="store_true",
+            help="Enable Ahead-of-Time (AOT) compilation.",
+        )
+
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=OptimizeCommand)
@@ -414,12 +421,22 @@ class OptimizeCommand(BaseOliveCLICommand):
             passes_config["vitis_ai_add_metadata"] = {"type": "VitisAIAddMetaData"}
 
         # 21. EPContextBinaryGenerator
-        if provider == ExecutionProvider.QNNExecutionProvider:
-            passes_config["ep_context_binary_generator"] = {"type": "QNNContextBinaryGenerator"}
+        if self.args.enable_aot and provider == ExecutionProvider.QNNExecutionProvider:
+            passes_config["ep_context_binary_generator"] = {
+                "type": "EPContextBinaryGenerator",
+                "session_options": {"intra_op_num_threads": 2, "inter_op_num_threads": 1},
+                "weight_sharing": True,
+            }
+            passes_config["ep_context_binary_generator"]["provider_options"] = {
+                "htp_performance_mode": "burst",
+                "htp_graph_finalization_optimization_mode": "3",
+                "soc_model": "60",
+            }
 
         # 22. ComposeOnnxModels
         if (
             is_hf_model
+            and (self.args.enable_aot)
             and (self.args.num_split is not None or self.args.memory is not None)
             and provider == ExecutionProvider.QNNExecutionProvider
         ):
