@@ -103,13 +103,20 @@ For LLMs - Follow the below commands to generate the optimized model for VitisAI
 
 For Quark details, see [Quark Documentation](https://quark.docs.amd.com/latest/) 
 
+Create a Python 3.10 conda environment and run the below commands
+
+```bash
+conda create -n olive_mg python=3.10
+conda activate olive_mg
+```
+
 ```bash
 cd Olive
 pip install -e .
 pip install -r requirements.txt
 ```
 
-The model generate wheel can be downloaded from here (to be updated in PyPI)- `/proj/xsjhdstaff4/pooja/olive_wheels/model_generate-1.0.0-py3-none-any.whl`
+The model generate wheel can be downloaded from here (to be updated in PyPI)- `/proj/xsjhdstaff4/pooja/olive_wheels/model_generate-1.0.0-py3-none-manylinux2014_x86_64.whl` (Linux, python 3.10 wheel)
 
 ```bash
 pip install "model_generate-1.0.0-py3-none-any.whl"
