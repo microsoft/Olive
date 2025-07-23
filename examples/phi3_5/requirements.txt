@@ -4,7 +4,7 @@ amd-quark==0.9
 datasets
 evaluate
 nltk
-numpy==1.24.6
+numpy
 onnxruntime==1.21.1
 onnxruntime-genai==0.7.1
 optimum
