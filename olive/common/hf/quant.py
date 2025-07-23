@@ -66,15 +66,10 @@ def get_auto_gptq_qlinear_cls(quantization_config):
         )
     return None
 
-
-def get_bnb_qlinear_cls(quantization_config):
-    """Get the right BNBQuantLinear class based on the quantization config."""
-    if transformers.utils.import_utils.is_bitsandbytes_available() and quantization_config.load_in_4bit:
-        from bitsandbytes.nn import Linear4bit
-
-        return Linear4bit
-    return None
-
+def get_olive_qlinear_cls(quantization_config):
+    """Get the right OliveQuantLinear class based on the quantization config."""
+    from olive.common.quant.linear import QuantLinear
+    return QuantLinear
 
 @torch.no_grad()
 def _replace_qlinear_modules(
@@ -117,8 +112,6 @@ def _replace_qlinear_modules(
 
     return model, num_modified > 0
 
-
-# Should we also support QDQ export? Need different packing and symbolic for that
 class QuantLinearTorchFunction(torch.autograd.Function):
     """Used to export the quantized linear layer to onnx using the contrib operator MatMulNBits."""
 
@@ -133,6 +126,7 @@ class QuantLinearTorchFunction(torch.autograd.Function):
             "N_i": out_features,
             "bits_i": bits,
             "block_size_i": group_size,
+            "accuracy_level_i": 4
         }
 
         output = g.op(
@@ -173,6 +167,7 @@ class QuantLinearTorchFunction(torch.autograd.Function):
                     "N": out_features,
                     "bits": bits,
                     "block_size": group_size,
+                    "accuracy_level": 4
                 }
                 return torch.onnx.ops.symbolic(
                     "com.microsoft::MatMulNBits",
@@ -188,8 +183,8 @@ class QuantLinearTorchFunction(torch.autograd.Function):
         raise NotImplementedError("QuantLinearTorchFunction forward is only implemented for onnx export")
 
 
-class QuantLinear4bit(torch.nn.Module):
-    """Quantized linear layer with 4 bits per element.
+class QuantLinearNbit(torch.nn.Module):
+    """Quantized linear layer with 4/8 bits per element.
 
     Packing is done in the same way as MatMulNBits operator in onnxruntime.
     """
@@ -201,6 +196,7 @@ class QuantLinear4bit(torch.nn.Module):
         out_features: int,
         g_idx: bool = False,
         bias: bool = False,
+        bits: int = 4,
         dtype: torch.dtype = torch.float32,
     ):
         super().__init__()
@@ -209,20 +205,20 @@ class QuantLinear4bit(torch.nn.Module):
 
         self.group_size = group_size
 
-        # only support 4 bits for now
-        bits = 4
+        assert bits in [4, 8], "Only 4 and 8 bits are supported for QuantLinearNbit"
+        self.bits = bits
         n_blocks_per_col = math.ceil(in_features / self.group_size)
 
         self.register_buffer(
             "qweight",
             torch.zeros(
-                (out_features, n_blocks_per_col, math.ceil(self.group_size * bits / 8)),
+                (out_features, n_blocks_per_col, math.ceil(self.group_size * self.bits / 8)),
                 dtype=torch.uint8,
             ),
         )
         self.register_buffer(
             "qzeros",
-            torch.zeros(out_features * math.ceil(n_blocks_per_col * bits / 8), dtype=torch.uint8),
+            torch.zeros(out_features * math.ceil(n_blocks_per_col * self.bits / 8), dtype=torch.uint8),
         )
         self.register_buffer("scales", torch.zeros((out_features * n_blocks_per_col), dtype=dtype))
         if g_idx:
@@ -254,7 +250,7 @@ class QuantLinear4bit(torch.nn.Module):
         """Pack int8 weight and zeros to int4 and int8 respectively.
 
         iweight, izeros and scales must have out_features as the first dimension
-        iweight, izeros must be uint8 tensors with each holding 4bit values
+        iweight, izeros must be uint8 tensors with each holding 4/8 bit values
         """
         # pylint: disable=W0201
         # shapes for packing
@@ -283,8 +279,8 @@ class QuantLinear4bit(torch.nn.Module):
         self.g_idx = g_idx
 
 
-def make_auto_awq_qlinear4bit(qlinear):
-    if qlinear.w_bit != 4:
+def make_auto_awq_qlinearnbit(qlinear):
+    if qlinear.w_bit not in [4, 8]:
         return qlinear
 
     from awq.utils.packing_utils import reverse_awq_order, unpack_awq
@@ -297,11 +293,12 @@ def make_auto_awq_qlinear4bit(qlinear):
     izeros = izeros.to(torch.uint8).t()
     scales = qlinear.scales.t()
 
-    new_qlinear = QuantLinear4bit(
+    new_qlinear = QuantLinearNbit(
         qlinear.group_size,
         iweight.shape[1],
         iweight.shape[0],
         bias=qlinear.bias is not None,
+        bits=qlinear.w_bit,
         dtype=qlinear.scales.dtype,
     )
     new_qlinear.pack(iweight, izeros, scales)
@@ -311,7 +308,7 @@ def make_auto_awq_qlinear4bit(qlinear):
     return new_qlinear
 
 
-def make_auto_gptq_qlinear4bit(qlinear):
+def make_auto_gptq_qlinearnbit(qlinear):
     if qlinear.bits != 4:
         return qlinear
 
@@ -327,7 +324,7 @@ def make_auto_gptq_qlinear4bit(qlinear):
     g_idx_trivial = torch.arange(iweight.shape[1], device=qlinear.g_idx.device, dtype=torch.int32) // qlinear.group_size
     g_idx = qlinear.g_idx if not torch.equal(qlinear.g_idx, g_idx_trivial) else None
 
-    new_qlinear = QuantLinear4bit(
+    new_qlinear = QuantLinearNbit(
         qlinear.group_size,
         iweight.shape[1],
         iweight.shape[0],
@@ -344,8 +341,9 @@ def make_auto_gptq_qlinear4bit(qlinear):
 
 # TODO(jambayk): maybe support bitsandbytes too. Need to consider dtype compatibility
 EXPORT_QLINEAR_MAPPING = {
-    "awq": (get_auto_awq_qlinear_cls, make_auto_awq_qlinear4bit),
-    "gptq": (get_auto_gptq_qlinear_cls, make_auto_gptq_qlinear4bit),
+    "awq": (get_auto_awq_qlinear_cls, make_auto_awq_qlinearnbit),
+    "gptq": (get_auto_gptq_qlinear_cls, make_auto_gptq_qlinearnbit),
+    "olive": (get_olive_qlinear_cls, lambda x: x),  # OliveQuantLinear is already export compatible
 }
 
 
