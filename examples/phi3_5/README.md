@@ -119,19 +119,22 @@ pip install -r requirements.txt
 The model generate wheel can be downloaded from here (to be updated in PyPI)- `/proj/xsjhdstaff4/pooja/olive_wheels/model_generate-1.0.0-py3-none-manylinux2014_x86_64.whl` (Linux, python 3.10 wheel)
 
 ```bash
-pip install "model_generate-1.0.0-py3-none-any.whl"
-```
-
-Make sure to install the correct version of PyTorch before running quantization. If using AMD GPUs, update PyTorch to use ROCm
-
-```bash
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
-python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
+pip install "model_generate-1.0.0-py3-none-manylinux2014_x86_64.whl"
 ```
 
 ```bash
 cd examples/phi3_5
-pip install --force-reinstall -r requirements.txt
+pip install -r requirements.txt
+```
+Make sure to install the correct version of PyTorch before running quantization. If using AMD GPUs, update PyTorch to use ROCm
+
+```bash
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
+
+python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
+```
+
+```bash
 olive run --config quark_config_vitis_ai_llm.json
 ```
 
