@@ -39,6 +39,7 @@ class TestOptimizeCommand:
         assert args.provider == ExecutionProvider.CPUExecutionProvider.value
         assert args.device == "cpu"
         assert args.precision == Precision.FP32.value
+        assert args.modality == "text"  # Default modality
 
     def test_all_arguments_parsing(self):
         """Test parsing with all optional arguments."""
@@ -79,6 +80,8 @@ class TestOptimizeCommand:
                 "surgery2",
                 "--block_size",
                 "64",
+                "--modality",
+                "vision",
             ]
         )
 
@@ -94,6 +97,7 @@ class TestOptimizeCommand:
         assert args.use_qdq_format is True
         assert args.surgeries == ["surgery1", "surgery2"]
         assert args.block_size == 64
+        assert args.modality == "vision"
 
     def test_device_provider_validation(self):
         """Test device and provider compatibility validation."""
@@ -112,6 +116,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=None,
+            modality="text",
             log_level=None,
         )
 
@@ -154,6 +159,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=None,
+            modality="text",
             log_level=None,
         )
 
@@ -185,6 +191,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=None,
+            modality="text",
             log_level=None,
         )
 
@@ -215,6 +222,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=None,
+            modality="text",
             log_level=None,
         )
 
@@ -247,6 +255,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=None,
+            modality="text",
             log_level=None,
         )
 
@@ -276,6 +285,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=["surgery1", "surgery2"],
             block_size=None,
+            modality="text",
             log_level=None,
         )
 
@@ -325,6 +335,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=64,
+            modality="text",
             log_level=None,
         )
 
@@ -354,6 +365,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=-1,
+            modality="text",
             log_level=None,
         )
 
@@ -384,6 +396,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=256,
+            modality="text",
             log_level=None,
         )
 
@@ -413,6 +426,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=-1,
+            modality="text",
             log_level=None,
         )
 
@@ -443,6 +457,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=-1,
+            modality="text",
             log_level=None,
         )
 
@@ -502,6 +517,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=64,
+            modality="text",
             log_level=None,
         )
 
@@ -531,6 +547,7 @@ class TestOptimizeCommand:
             use_qdq_format=False,
             surgeries=None,
             block_size=-1,
+            modality="text",
             log_level=None,
         )
 
@@ -539,3 +556,132 @@ class TestOptimizeCommand:
 
         assert "gptq" in passes_config
         assert passes_config["gptq"]["group_size"] == -1
+
+    def test_modality_argument_parsing(self):
+        """Test modality argument parsing."""
+        parser = ArgumentParser()
+        subparsers = parser.add_subparsers()
+        OptimizeCommand.register_subcommand(subparsers)
+
+        # Test default modality (text)
+        args = parser.parse_args(["optimize", "--model_path", "test_model"])
+        assert args.modality == "text"
+
+        # Test explicit text modality
+        args = parser.parse_args(["optimize", "--model_path", "test_model", "--modality", "text"])
+        assert args.modality == "text"
+
+        # Test vision modality
+        args = parser.parse_args(["optimize", "--model_path", "test_model", "--modality", "vision"])
+        assert args.modality == "vision"
+
+    @patch("olive.cli.optimize.get_input_model_config")
+    def test_modality_text_adds_data_config(self, mock_get_input):
+        """Test that text modality adds data_config to OnnxStaticQuantization."""
+        mock_get_input.return_value = {"type": "HfModel", "model_path": "test_model"}
+
+        args = Namespace(
+            model_path="test_model",
+            output_path="output",
+            provider="CPUExecutionProvider",
+            device="cpu",
+            precision="int8",
+            act_precision=None,
+            num_split=None,
+            memory=None,
+            exporter=None,
+            dim_param=None,
+            dim_value=None,
+            use_qdq_format=False,
+            surgeries=None,
+            block_size=None,
+            modality="text",
+            log_level=None,
+        )
+
+        command = OptimizeCommand(ArgumentParser(), args)
+        passes_config = command._build_passes_config(is_hf_model=True)
+
+        assert "onnx_static_quantization" in passes_config
+        config = passes_config["onnx_static_quantization"]
+        assert "data_configs" in config
+        assert len(config["data_configs"]) == 1
+        
+        data_config = config["data_configs"][0]
+        assert data_config["name"] == "wikitext2_train"
+        assert data_config["type"] == "HuggingfaceContainer"
+        assert data_config["load_dataset_config"]["data_name"] == "wikitext"
+        assert data_config["load_dataset_config"]["subset"] == "wikitext-2-raw-v1"
+        assert data_config["load_dataset_config"]["split"] == "train"
+        
+        pre_process_config = data_config["pre_process_data_config"]
+        assert pre_process_config["strategy"] == "line-by-line"
+        assert pre_process_config["add_special_tokens"] is False
+        assert pre_process_config["max_samples"] == 128
+        assert pre_process_config["max_seq_len"] == 512
+
+    @patch("olive.cli.optimize.get_input_model_config")
+    def test_modality_vision_no_data_config(self, mock_get_input):
+        """Test that vision modality does not add data_config to OnnxStaticQuantization."""
+        mock_get_input.return_value = {"type": "HfModel", "model_path": "test_model"}
+
+        args = Namespace(
+            model_path="test_model",
+            output_path="output",
+            provider="CPUExecutionProvider",
+            device="cpu",
+            precision="int8",
+            act_precision=None,
+            num_split=None,
+            memory=None,
+            exporter=None,
+            dim_param=None,
+            dim_value=None,
+            use_qdq_format=False,
+            surgeries=None,
+            block_size=None,
+            modality="vision",
+            log_level=None,
+        )
+
+        command = OptimizeCommand(ArgumentParser(), args)
+        passes_config = command._build_passes_config(is_hf_model=True)
+
+        assert "onnx_static_quantization" in passes_config
+        config = passes_config["onnx_static_quantization"]
+        assert "data_configs" not in config
+
+    @patch("olive.cli.optimize.get_input_model_config")
+    def test_modality_text_with_block_size_and_data_config(self, mock_get_input):
+        """Test that text modality works correctly with block_size -1 and adds data_config."""
+        mock_get_input.return_value = {"type": "HfModel", "model_path": "test_model"}
+
+        args = Namespace(
+            model_path="test_model",
+            output_path="output",
+            provider="CPUExecutionProvider",
+            device="cpu",
+            precision="int8",
+            act_precision=None,
+            num_split=None,
+            memory=None,
+            exporter=None,
+            dim_param=None,
+            dim_value=None,
+            use_qdq_format=False,
+            surgeries=None,
+            block_size=-1,
+            modality="text",
+            log_level=None,
+        )
+
+        command = OptimizeCommand(ArgumentParser(), args)
+        passes_config = command._build_passes_config(is_hf_model=True)
+
+        assert "onnx_static_quantization" in passes_config
+        config = passes_config["onnx_static_quantization"]
+        
+        # Should have both per_channel and data_configs
+        assert config["per_channel"] is True
+        assert "data_configs" in config
+        assert len(config["data_configs"]) == 1

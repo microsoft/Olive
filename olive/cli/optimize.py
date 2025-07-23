@@ -133,6 +133,15 @@ class OptimizeCommand(BaseOliveCLICommand):
             help="Block size for quantization. Use -1 for per-channel quantization (optional).",
         )
 
+        # Modality option
+        sub_parser.add_argument(
+            "--modality",
+            type=str,
+            default="text",
+            choices=["text", "vision"],
+            help="Model modality for optimization. Default is 'text'.",
+        )
+
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=OptimizeCommand)
@@ -366,6 +375,27 @@ class OptimizeCommand(BaseOliveCLICommand):
             if self.args.block_size == -1:
                 # Use per-channel quantization when block_size is -1
                 onnx_static_config["per_channel"] = True
+            
+            # Add data_config for text modality
+            if self.args.modality == "text":
+                onnx_static_config["data_configs"] = [
+                    {
+                        "name": "wikitext2_train",
+                        "type": "HuggingfaceContainer",
+                        "load_dataset_config": {
+                            "data_name": "wikitext",
+                            "subset": "wikitext-2-raw-v1",
+                            "split": "train"
+                        },
+                        "pre_process_data_config": {
+                            "strategy": "line-by-line",
+                            "add_special_tokens": False,
+                            "max_samples": 128,
+                            "max_seq_len": 512
+                        }
+                    }
+                ]
+            
             passes_config["onnx_static_quantization"] = onnx_static_config
 
         # 17. OrtTransformersOptimization
