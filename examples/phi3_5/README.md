@@ -106,8 +106,8 @@ For Quark details, see [Quark Documentation](https://quark.docs.amd.com/latest/)
 Create a Python 3.10 conda environment and run the below commands
 
 ```bash
-conda create -n olive_mg python=3.10
-conda activate olive_mg
+conda create -n olive python=3.10
+conda activate olive
 ```
 
 ```bash
