@@ -274,10 +274,10 @@ class MatMulNBitsToQDQ(Pass):
                 # it has bias
                 bias_i_name = node_inputs[5]
                 new_bias_i_name = bias_i_name.replace("MatMulNBits", "MatMul")
-                bias_initiaizer = onnx.numpy_helper.from_array(
+                bias_initializer = onnx.numpy_helper.from_array(
                     dag.get_initializer_np_array(bias_i_name), name=new_bias_i_name
                 )
-                dag.add_initializer(bias_initiaizer, graph_idx)
+                dag.add_initializer(bias_initializer, graph_idx)
 
                 bias_name = self._get_new_node_name(dag, node_name, "Add")
                 bias_output = f"{bias_name}/output_0"
