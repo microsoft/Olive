@@ -5,10 +5,10 @@
 
 # ruff: noqa: T201
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any
+from typing import Any, Optional
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -146,6 +146,10 @@ class OptimizeCommand(BaseOliveCLICommand):
         add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=OptimizeCommand)
 
+    def __init__(self, parser: ArgumentParser, args: Namespace, unknown_args: Optional[list] = None):
+        super().__init__(parser, args, unknown_args)
+        self.need_wikitest_data_config = False
+
     def run(self):
         return self._run_workflow()
 
@@ -162,6 +166,9 @@ class OptimizeCommand(BaseOliveCLICommand):
         # Build the pass list based on conditions
         passes_config = self._build_passes_config(is_hf_model)
         config["passes"] = passes_config
+
+        # Set data config
+        self._add_data_config(config)
 
         # Set system configuration
         self._update_system_config(config)
@@ -196,6 +203,9 @@ class OptimizeCommand(BaseOliveCLICommand):
         config["systems"]["local_system"]["accelerators"] = [
             {"device": self.args.device, "execution_providers": [provider.value]}
         ]
+
+    def _add_data_config(self, config: dict[str, Any]):
+        config["data_configs"] = WIKITEXT2_DATA_CONFIG_TEMPLATE if self.need_wikitest_data_config else {}
 
     def _build_passes_config(self, is_hf_model: bool) -> dict[str, Any]:
         """Build the passes configuration based on user selections and conditions."""
@@ -375,27 +385,12 @@ class OptimizeCommand(BaseOliveCLICommand):
             if self.args.block_size == -1:
                 # Use per-channel quantization when block_size is -1
                 onnx_static_config["per_channel"] = True
-            
+
             # Add data_config for text modality
             if self.args.modality == "text":
-                onnx_static_config["data_configs"] = [
-                    {
-                        "name": "wikitext2_train",
-                        "type": "HuggingfaceContainer",
-                        "load_dataset_config": {
-                            "data_name": "wikitext",
-                            "subset": "wikitext-2-raw-v1",
-                            "split": "train"
-                        },
-                        "pre_process_data_config": {
-                            "strategy": "line-by-line",
-                            "add_special_tokens": False,
-                            "max_samples": 128,
-                            "max_seq_len": 512
-                        }
-                    }
-                ]
-            
+                self.need_wikitest_data_config = True
+                onnx_static_config["data_config"] = "wikitext2_train"
+
             passes_config["onnx_static_quantization"] = onnx_static_config
 
         # 17. OrtTransformersOptimization
@@ -465,3 +460,17 @@ TEMPLATE = {
     "target": "local_system",
     "no_artifacts": True,
 }
+
+WIKITEXT2_DATA_CONFIG_TEMPLATE = [
+    {
+        "name": "wikitext2_train",
+        "type": "HuggingfaceContainer",
+        "load_dataset_config": {"data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train"},
+        "pre_process_data_config": {
+            "strategy": "line-by-line",
+            "add_special_tokens": False,
+            "max_samples": 128,
+            "max_seq_len": 512,
+        },
+    }
+]

@@ -606,14 +606,14 @@ class TestOptimizeCommand:
         config = passes_config["onnx_static_quantization"]
         assert "data_configs" in config
         assert len(config["data_configs"]) == 1
-        
+
         data_config = config["data_configs"][0]
         assert data_config["name"] == "wikitext2_train"
         assert data_config["type"] == "HuggingfaceContainer"
         assert data_config["load_dataset_config"]["data_name"] == "wikitext"
         assert data_config["load_dataset_config"]["subset"] == "wikitext-2-raw-v1"
         assert data_config["load_dataset_config"]["split"] == "train"
-        
+
         pre_process_config = data_config["pre_process_data_config"]
         assert pre_process_config["strategy"] == "line-by-line"
         assert pre_process_config["add_special_tokens"] is False
@@ -680,7 +680,7 @@ class TestOptimizeCommand:
 
         assert "onnx_static_quantization" in passes_config
         config = passes_config["onnx_static_quantization"]
-        
+
         # Should have both per_channel and data_configs
         assert config["per_channel"] is True
         assert "data_configs" in config
