@@ -51,6 +51,12 @@ def test_selective_mixed_precision(algorithm, expected_layer_indices, input_mode
         },
     }
     for idx in expected_layer_indices:
-        expected_mp_info["overrides"][f"model.layers.{idx}.self_attn.v_proj"] = {"bits": PrecisionBits.BITS8}
-        expected_mp_info["overrides"][f"model.layers.{idx}.mlp.down_proj"] = {"bits": PrecisionBits.BITS8}
+        expected_mp_info["overrides"].update(
+            {
+                f"model.layers.{idx}.self_attn.q_proj": {"bits": PrecisionBits.BITS8},
+                f"model.layers.{idx}.self_attn.k_proj": {"bits": PrecisionBits.BITS8},
+                f"model.layers.{idx}.self_attn.v_proj": {"bits": PrecisionBits.BITS8},
+                f"model.layers.{idx}.mlp.down_proj": {"bits": PrecisionBits.BITS8},
+            }
+        )
     assert output_model.model_attributes["mixed_precision_info"] == expected_mp_info

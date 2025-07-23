@@ -17,8 +17,8 @@ from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
-from olive.passes.pytorch.gptq import Gptq
 from olive.passes.pytorch.autogptq import GptqQuantizer
+from olive.passes.pytorch.gptq import Gptq
 from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
 
 
@@ -47,14 +47,15 @@ def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, d
 
     assert Path(onnx_model.model_path).exists()
 
-@pytest.mark.parametrize("quantizer_pass", [Gptq])
+
+@pytest.mark.parametrize("quantizer_pass", [Gptq, GptqQuantizer])
 def test_onnx_conversion_pass_quant_model(quantizer_pass, tmp_path):
     if quantizer_pass == GptqQuantizer and not torch.cuda.is_available():
         pytest.skip("GptqQuantizer requires CUDA")
 
     # setup
     base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
-    quantizer_pass = create_pass_from_dict(quantizer_pass,  {"group_size": 16}, disable_search=True)
+    quantizer_pass = create_pass_from_dict(quantizer_pass, {"group_size": 16}, disable_search=True)
     quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
 
     p = create_pass_from_dict(OnnxConversion, {"torch_dtype": "float32"}, disable_search=True)

@@ -159,29 +159,13 @@ class QuantLinear(nn.Module):
         x_dtype = x.dtype
 
         # unpack weights and zero points
-        qweight = self._unpack_from_int32(self.qweight, (self.in_features, self.out_features), axis=0)
-        qzeros = self._unpack_from_int32(self.qzeros, self.scales.shape, axis=1) + 1
-        scales = self.scales
+        qweight, scales, qzeros = self.get_unpacked_params()
+        if self.quantizer.group_size > 0:
+            scales = scales.repeat_interleave(self.quantizer.group_size, dim=0)
+            qzeros = qzeros.repeat_interleave(self.quantizer.group_size, dim=0)
 
-        if torch.onnx.is_in_onnx_export():
-            out = QuantLinearExportFunction.apply(
-                x,
-                *self._pack_mnb_format(
-                    qweight.detach(),
-                    scales.detach(),
-                    qzeros.detach(),
-                ),
-                self.quantizer.bits,
-                self.quantizer.group_size,
-                self.in_features,
-                self.out_features,
-            )
-        else:
-            if self.quantizer.group_size > 0:
-                scales = self.scales.repeat_interleave(self.quantizer.group_size, dim=0)
-                qzeros = qzeros.repeat_interleave(self.quantizer.group_size, dim=0)
-            qweight = (qweight - qzeros) * scales
-            out = torch.matmul(x, qweight)
+        qweight = (qweight - qzeros) * scales
+        out = torch.matmul(x, qweight)
 
         if self.bias is not None:
             out += self.bias
@@ -189,7 +173,7 @@ class QuantLinear(nn.Module):
         return out.to(x_dtype)
 
     @torch.no_grad()
-    def get_unpacked_qparams(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def get_unpacked_params(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Get unpacked quantization parameters.
 
         Returns:
@@ -268,118 +252,9 @@ class QuantLinear(nn.Module):
             unpacked_tensor = unpacked_tensor[:, : shape[1]]
         return torch.bitwise_and(unpacked_tensor, self.quantizer.maxq)
 
-    @torch.no_grad()
-    def _pack_mnb_format(
-        self,
-        qweight: torch.Tensor,
-        scales: torch.Tensor,
-        qzeros: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        print("here")
-        """Pack the quantized weight, scales, and zero points into the format expected by MatMulNBits."""
-        # convert to shape and dtype expected by MatMulNBits
-        # QuantLinear has K X N layout, while MatMulNBits expects N X K
-        assert self.quantizer.bits in [4, 8], "Only 4-bit and 8-bit quantization supported"
-        qweight = qweight.t().to(torch.uint8)
-        # expect the scales to already be in the expected float type
-        scales = scales.t()
-        qzeros = qzeros.t().to(torch.uint8)
-
-        # shapes for packing
-        bits = self.quantizer.bits
-        n, k = qweight.shape
-        k_pack = 8 // bits
-        block_size = self.quantizer.group_size
-        blob_size = (block_size + k_pack - 1) // k_pack
-        k_blocks = (k + block_size - 1) // block_size
-
-        # pad qweight to make the k dimension divisible by block_size
-        padded_k = k_blocks * block_size
-        pad_len = padded_k - k
-        if pad_len > 0:
-            qweight = torch.nn.functional.pad(qweight, (0, pad_len), value=0)
-        # pack qweight
-        if bits == 4:
-            qweight = (qweight[:, 0::2] & 0xF) | ((qweight[:, 1::2] & 0xF) << 4)
-        qweight = qweight.reshape(n, k_blocks, blob_size).contiguous()
-
-        # pad qzeros to make the k dimension even
-        qzeros = torch.nn.functional.pad(qzeros, (0, qzeros.shape[1] & 1), value=0)
-        # pack qzeros
-        if bits == 4:
-            qzeros = (qzeros[:, 0::2] & 0xF) | ((qzeros[:, 1::2] & 0xF) << 4)
-        qzeros = qzeros.flatten().contiguous()
-
-        # flatten scales
-        scales = scales.flatten().contiguous()
-        print("here")
-
-        return qweight, scales, qzeros
-
     def extra_repr(self) -> str:
         return (
             f"in_features={self.in_features}, out_features={self.out_features}, bits={self.quantizer.bits},"
             f" symmetric={self.quantizer.symmetric}, group_size={self.quantizer.group_size},"
             f" bias={self.bias is not None}"
         )
-
-
-class QuantLinearExportFunction(torch.autograd.Function):
-    """Function for QuantLinear layer to support export to MatMulNBits."""
-
-    # pylint: disable=W0221
-    @staticmethod
-    def symbolic(g, x, qweight, scales, qzeros, bits, group_size, in_features, out_features):
-        tensor_args = [x, qweight, scales, qzeros]
-        attrs = {
-            "K_i": in_features,
-            "N_i": out_features,
-            "bits_i": bits,
-            "block_size_i": group_size,
-            "accuracy_level_i": 4,
-        }
-        output = g.op(
-            "com.microsoft::MatMulNBits",
-            *tensor_args,
-            outputs=1,
-            **attrs,
-        )
-        input_shape = x.type().varyingSizes()
-        if input_shape is not None and hasattr(x.type(), "with_sizes"):
-            output_type = x.type().with_sizes(input_shape[:-1] + [qweight.type().varyingSizes()[0]])
-            output.setType(output_type)
-
-        return output
-
-    @staticmethod
-    def forward(
-        ctx,
-        x: torch.Tensor,
-        qweight: torch.Tensor,
-        scales: torch.Tensor,
-        qzeros: torch.Tensor,
-        bits: int,
-        group_size: int,
-        in_features: int,
-        out_features: int,
-    ):
-        if hasattr(torch.onnx, "ops"):
-            # torch.onnx.ops was introduced in 2.8
-            tensor_args = [x, qweight, scales, qzeros]
-            attrs = {
-                "K": in_features,
-                "N": out_features,
-                "bits": bits,
-                "block_size": group_size,
-                "accuracy_level": 4,
-            }
-            return torch.onnx.ops.symbolic(
-                "com.microsoft::MatMulNBits",
-                tensor_args,
-                attrs=attrs,
-                dtype=x.dtype,
-                shape=[*x.shape[:-1], out_features],
-                version=1,
-            )
-        else:
-            return torch.zeros(x.shape[:-1] + (out_features,), dtype=x.dtype, device=x.device)
