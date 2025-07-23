@@ -134,6 +134,8 @@ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.o
 python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
 ```
 
+Follow above mentioned setup instructions and run the below command to generate the optimized LLM model for VitisAI EP
+
 ```bash
 olive run --config quark_config_vitis_ai_llm.json
 ```
