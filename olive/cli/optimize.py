@@ -226,158 +226,328 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Build the passes configuration based on user selections and conditions."""
         passes_config = OrderedDict()
 
-        provider = ExecutionProvider(self.args.provider)
-        precision = Precision(self.args.precision)
-
-        # Helper function to check if precision is quantized
-        def is_quantized_precision(p):
-            return p in [Precision.INT4, Precision.INT8, Precision.UINT4, Precision.UINT8]
-
         # Schedule passes in the specified order
-
         # 1. QuaRot
-        if (
-            is_quantized_precision(precision)
-            and is_hf_model
-            and provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]
-        ):
-            passes_config["quarot"] = {"type": "QuaRot"}
+        if self._enable_quarot_pass(is_hf_model):
+            passes_config["quarot"] = self._get_quarot_pass_config()
 
         # 2. Gptq
-        if (
-            is_hf_model
-            and is_quantized_precision(precision)
-            and provider != ExecutionProvider.OpenVINOExecutionProvider
-        ):
-            gptq_config = {"type": "Gptq", "bits": self._precision_to_bits(precision)}
-            if self.args.block_size is not None:
-                if self.args.block_size == -1:
-                    # For per-channel quantization in GPTQ, use a special value or handle differently
-                    # Based on the INC quantization pattern, -1 typically means per-channel
-                    gptq_config["group_size"] = -1
-                else:
-                    gptq_config["group_size"] = self.args.block_size
-            passes_config["gptq"] = gptq_config
+        if self._enable_gptq_pass(is_hf_model):
+            passes_config["gptq"] = self._get_gptq_pass_config()
 
         # 3. CaptureSplitInfo
-        if is_hf_model and (self.args.num_split is not None or self.args.memory is not None):
-            passes_config["capture_split_info"] = {"type": "CaptureSplitInfo"}
-            passes_config["capture_split_info"]["unique_embeds_lm_head_splits"] = True
-            if self.args.num_split is not None:
-                passes_config["capture_split_info"]["num_splits"] = self.args.num_split
-            if self.args.memory is not None:
-                passes_config["capture_split_info"]["memory"] = self.args.memory
+        if self._enable_capture_split_info_pass(is_hf_model):
+            passes_config["capture_split_info"] = self._get_capture_split_info_pass_config()
 
         # 4. ModelBuilder
-        if (
+        if self._enable_model_builder_pass(is_hf_model):
+            passes_config["model_builder"] = self._get_model_builder_pass_config()
+
+        # 5. OnnxConversion
+        if self._enable_onnx_conversion_pass(is_hf_model):
+            passes_config["onnx_conversion"] = self._get_onnx_conversion_pass_config()
+
+        # 6. OptimumConversion
+        if self._enable_optimum_conversion_pass(is_hf_model):
+            passes_config["optimum_conversion"] = self._get_optimum_conversion_pass_config()
+
+        # 7. OptimumOpenvinoConversion
+        if self._enable_optimum_openvino_conversion_pass(is_hf_model):
+            passes_config["optimum_openvino_conversion"] = self._get_optimum_openvino_conversion_pass_config()
+
+        # 8. DynamicToFixedShape
+        if self._enable_dynamic_to_fixed_shape_pass():
+            passes_config["dynamic_to_fixed_shape"] = self._get_dynamic_to_fixed_shape_pass_config()
+
+        # 9. InputNCHWtoNHWC (For VitisAI, this would be part of VitisAIQuantization)
+        if self._enable_vitis_ai_preprocess_pass():
+            passes_config["vitis_ai_preprocess"] = self._get_vitis_ai_preprocess_pass_config()
+
+        # 10. OpenVINOIoUpdate
+        if self._enable_openvino_io_update_pass(is_hf_model):
+            passes_config["openvino_io_update"] = self._get_openvino_io_update_pass_config()
+
+        # 11. OnnxPeepholeOptimizer
+        if self._enable_onnx_peephole_optimizer_pass():
+            passes_config["onnx_peephole_optimizer"] = self._get_onnx_peephole_optimizer_pass_config()
+
+        # 12. MatMulNBitsToQDQ
+        if self._enable_matmul_nbits_to_qdq_pass(is_hf_model, passes_config):
+            passes_config["matmul_nbits_to_qdq"] = self._get_matmul_nbits_to_qdq_pass_config()
+
+        # 13. GraphSurgeries
+        if self._enable_graph_surgeries_pass():
+            passes_config["graph_surgeries"] = self._get_graph_surgeries_pass_config()
+
+        # 14. OnnxBlockWiseRtnQuantization
+        if self._enable_onnx_blockwise_rtn_quantization_pass(is_hf_model):
+            passes_config["onnx_blockwise_rtn_quantization"] = self._get_onnx_blockwise_rtn_quantization_pass_config()
+
+        # 15. OnnxFloatToFloat16
+        if self._enable_onnx_float_to_float16_pass():
+            passes_config["onnx_float_to_float16"] = self._get_onnx_float_to_float16_pass_config()
+
+        # 16. OnnxStaticQuantization
+        if self._enable_onnx_static_quantization_pass(passes_config):
+            passes_config["onnx_static_quantization"] = self._get_onnx_static_quantization_pass_config()
+
+        # 17. OrtTransformersOptimization
+        if self._enable_ort_transformers_optimization_pass():
+            passes_config["ort_transformers_optimization"] = self._get_ort_transformers_optimization_pass_config()
+
+        # 18. SplitModel
+        if self._enable_split_model_pass(is_hf_model):
+            passes_config["split_model"] = self._get_split_model_pass_config()
+
+        # 19. StaticLLM
+        if self._enable_static_llm_pass():
+            passes_config["static_llm"] = self._get_static_llm_pass_config()
+
+        # 20. VitisAIAddMetaData
+        if self._enable_vitis_ai_add_metadata_pass():
+            passes_config["vitis_ai_add_metadata"] = self._get_vitis_ai_add_metadata_pass_config()
+
+        # 21. EPContextBinaryGenerator
+        if self._enable_ep_context_binary_generator_pass():
+            passes_config["ep_context_binary_generator"] = self._get_ep_context_binary_generator_pass_config()
+
+        # 22. ComposeOnnxModels
+        if self._enable_compose_onnx_models_pass(is_hf_model):
+            passes_config["compose_onnx_models"] = self._get_compose_onnx_models_pass_config()
+
+        # 23. OpenVINOEncapsulation
+        if self._enable_openvino_encapsulation_pass(is_hf_model):
+            passes_config["openvino_encapsulation"] = self._get_openvino_encapsulation_pass_config()
+
+        return passes_config
+
+    def _is_quantized_precision(self, precision: Precision) -> bool:
+        """Helper function to check if precision is quantized."""
+        return precision in [Precision.INT4, Precision.INT8, Precision.UINT4, Precision.UINT8]
+
+    def _enable_quarot_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add QuaRot pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        precision = Precision(self.args.precision)
+        return (
+            self._is_quantized_precision(precision)
+            and is_hf_model
+            and provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]
+        )
+
+    def _get_quarot_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for QuaRot pass."""
+        return {"type": "QuaRot"}
+
+    def _enable_gptq_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add Gptq pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        precision = Precision(self.args.precision)
+        return (
+            is_hf_model
+            and self._is_quantized_precision(precision)
+            and provider != ExecutionProvider.OpenVINOExecutionProvider
+        )
+
+    def _get_gptq_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for Gptq pass."""
+        precision = Precision(self.args.precision)
+        gptq_config = {"type": "Gptq", "bits": self._precision_to_bits(precision)}
+        if self.args.block_size is not None:
+            if self.args.block_size == -1:
+                # For per-channel quantization in GPTQ, use a special value or handle differently
+                # Based on the INC quantization pattern, -1 typically means per-channel
+                gptq_config["group_size"] = -1
+            else:
+                gptq_config["group_size"] = self.args.block_size
+        return gptq_config
+
+    def _enable_capture_split_info_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add CaptureSplitInfo pass is met."""
+        return is_hf_model and (self.args.num_split is not None or self.args.memory is not None)
+
+    def _get_capture_split_info_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for CaptureSplitInfo pass."""
+        config = {"type": "CaptureSplitInfo"}
+        config["unique_embeds_lm_head_splits"] = True
+        if self.args.num_split is not None:
+            config["num_splits"] = self.args.num_split
+        if self.args.memory is not None:
+            config["memory"] = self.args.memory
+        return config
+
+    def _enable_model_builder_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add ModelBuilder pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return (
             is_hf_model
             and provider != ExecutionProvider.OpenVINOExecutionProvider
             and self.args.exporter == "model_builder"
-        ):
-            passes_config["model_builder"] = {"type": "ModelBuilder", "precision": precision.value}
-            if precision.value == Precision.INT4:
-                # Use provided block_size if available, otherwise default to 32
-                block_size_value = self.args.block_size if self.args.block_size is not None else 32
-                # For ModelBuilder, -1 block_size should use a reasonable default since it doesn't support per-channel
-                if block_size_value == -1:
-                    block_size_value = 32
-                # Ensure block_size is valid for ModelBuilder (16, 32, 64, 128, 256)
-                valid_block_sizes = [16, 32, 64, 128, 256]
-                if block_size_value not in valid_block_sizes:
-                    # Find the closest valid block size
-                    block_size_value = min(valid_block_sizes, key=lambda x: abs(x - block_size_value))
-                passes_config["model_builder"]["int4_block_size"] = block_size_value
-                passes_config["model_builder"]["int4_accuracy_level"] = 4
-                passes_config["model_builder"]["int4_op_types_to_quantize"] = ["MatMul", "Gather"]
+        )
 
-        # 5. OnnxConversion
-        if (
+    def _get_model_builder_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for ModelBuilder pass."""
+        precision = Precision(self.args.precision)
+        config = {"type": "ModelBuilder", "precision": precision.value}
+        if precision.value == Precision.INT4:
+            # Use provided block_size if available, otherwise default to 32
+            block_size_value = self.args.block_size if self.args.block_size is not None else 32
+            # For ModelBuilder, -1 block_size should use a reasonable default since it doesn't support per-channel
+            if block_size_value == -1:
+                block_size_value = 32
+            # Ensure block_size is valid for ModelBuilder (16, 32, 64, 128, 256)
+            valid_block_sizes = [16, 32, 64, 128, 256]
+            if block_size_value not in valid_block_sizes:
+                # Find the closest valid block size
+                block_size_value = min(valid_block_sizes, key=lambda x: abs(x - block_size_value))
+            config["int4_block_size"] = block_size_value
+            config["int4_accuracy_level"] = 4
+            config["int4_op_types_to_quantize"] = ["MatMul", "Gather"]
+        return config
+
+    def _enable_onnx_conversion_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add OnnxConversion pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return (
             is_hf_model
             and provider != ExecutionProvider.OpenVINOExecutionProvider
             and self.args.exporter in ["dynamo_exporter", "torchscript_exporter"]
-        ):
-            passes_config["onnx_conversion"] = {
-                "type": "OnnxConversion",
-                "use_dynamo_exporter": self.args.exporter == "dynamo_exporter",
-                "torch_dtype": "float32",
-            }
+        )
 
-        # 6. OptimumConversion
-        if (
+    def _get_onnx_conversion_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OnnxConversion pass."""
+        return {
+            "type": "OnnxConversion",
+            "use_dynamo_exporter": self.args.exporter == "dynamo_exporter",
+            "torch_dtype": "float32",
+        }
+
+    def _enable_optimum_conversion_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add OptimumConversion pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return (
             is_hf_model
             and provider != ExecutionProvider.OpenVINOExecutionProvider
             and self.args.exporter == "optimum_exporter"
-        ):
-            passes_config["optimum_conversion"] = {"type": "OptimumConversion"}
+        )
 
-        # 7. OptimumOpenvinoConversion
-        if is_hf_model and provider == ExecutionProvider.OpenVINOExecutionProvider:
-            passes_config["optimum_openvino_conversion"] = {"type": "OpenVINOConversion"}
+    def _get_optimum_conversion_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OptimumConversion pass."""
+        return {"type": "OptimumConversion"}
 
-        # 8. DynamicToFixedShape
-        if (
+    def _enable_optimum_openvino_conversion_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add OptimumOpenvinoConversion pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return is_hf_model and provider == ExecutionProvider.OpenVINOExecutionProvider
+
+    def _get_optimum_openvino_conversion_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OptimumOpenvinoConversion pass."""
+        return {"type": "OpenVINOConversion"}
+
+    def _enable_dynamic_to_fixed_shape_pass(self) -> bool:
+        """Return true if condition to add DynamicToFixedShape pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return (
             provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]
             and self.args.dim_param is not None
             and self.args.dim_value is not None
-        ):
-            passes_config["dynamic_to_fixed_shape"] = {
-                "type": "DynamicToFixedShape",
-                "dim_param": self.args.dim_param,
-                "dim_value": self.args.dim_value,
-            }
+        )
 
-        # 9. InputNCHWtoNHWC (For VitisAI, this would be part of VitisAIQuantization)
-        if provider == ExecutionProvider.VitisAIExecutionProvider:
-            # VitisAI preprocessing pass
-            passes_config["vitis_ai_preprocess"] = {"type": "VitisAIQuantization"}
+    def _get_dynamic_to_fixed_shape_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for DynamicToFixedShape pass."""
+        return {
+            "type": "DynamicToFixedShape",
+            "dim_param": self.args.dim_param,
+            "dim_value": self.args.dim_value,
+        }
 
-        # 10. OpenVINOIoUpdate
-        if provider == ExecutionProvider.OpenVINOExecutionProvider and is_hf_model:
-            passes_config["openvino_io_update"] = {"type": "OpenVINOConversion"}
+    def _enable_vitis_ai_preprocess_pass(self) -> bool:
+        """Return true if condition to add VitisAI preprocessing pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return provider == ExecutionProvider.VitisAIExecutionProvider
 
-        # 11. OnnxPeepholeOptimizer
-        if self.args.exporter != "model_builder":
-            passes_config["onnx_peephole_optimizer"] = {"type": "OnnxPeepholeOptimizer"}
+    def _get_vitis_ai_preprocess_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for VitisAI preprocessing pass."""
+        return {"type": "VitisAIQuantization"}
 
-        # 12. MatMulNBitsToQDQ
-        if is_hf_model and "gptq" in passes_config and self.args.use_qdq_format:
-            passes_config["matmul_nbits_to_qdq"] = {
-                "type": "MatMulNBitsToQDQ",
-                "add_zero_point": "true",
-                "save_as_external_data": "true",
-            }
-            passes_config["matmul_nbits_to_qdq"]["nodes_to_exclude"] = ["/lm_head/MatMul_Q4"]
-            if precision.value == Precision.INT4:
-                passes_config["matmul_nbits_to_qdq"]["use_int4"] = "true"
+    def _enable_openvino_io_update_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add OpenVINOIoUpdate pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return provider == ExecutionProvider.OpenVINOExecutionProvider and is_hf_model
 
-        # 13. GraphSurgeries
-        if self.args.surgeries is not None:
-            surgeries_list = [{"surgeon": item} for item in self.args.surgeries[0].split(",")]
-            passes_config["graph_surgeries"] = {
-                "type": "GraphSurgeries",
-                "surgeries": surgeries_list,
-                "save_as_external_data": "true",
-            }
+    def _get_openvino_io_update_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OpenVINOIoUpdate pass."""
+        return {"type": "OpenVINOConversion"}
 
-        # 14. OnnxBlockWiseRtnQuantization
-        if not is_hf_model and precision == Precision.INT4:
-            onnx_blockwise_config = {"type": "OnnxBlockWiseRtnQuantization"}
-            if self.args.block_size is not None:
-                if self.args.block_size == -1:
-                    # For per-channel quantization, we can use axis=0 and set block_size to a large value
-                    # or let the pass handle per-channel internally
-                    onnx_blockwise_config["axis"] = 0
-                    # Some implementations use block_size = -1 to indicate per-channel
-                    onnx_blockwise_config["block_size"] = -1
-                else:
-                    onnx_blockwise_config["block_size"] = self.args.block_size
-            passes_config["onnx_blockwise_rtn_quantization"] = onnx_blockwise_config
+    def _enable_onnx_peephole_optimizer_pass(self) -> bool:
+        """Return true if condition to add OnnxPeepholeOptimizer pass is met."""
+        return self.args.exporter != "model_builder"
 
-        # 15. OnnxFloatToFloat16
-        if precision == Precision.FP16:
-            passes_config["onnx_float_to_float16"] = {"type": "OnnxFloatToFloat16"}
+    def _get_onnx_peephole_optimizer_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OnnxPeepholeOptimizer pass."""
+        return {"type": "OnnxPeepholeOptimizer"}
 
-        # 16. OnnxStaticQuantization
+    def _enable_matmul_nbits_to_qdq_pass(self, is_hf_model: bool, passes_config: dict[str, Any]) -> bool:
+        """Return true if condition to add MatMulNBitsToQDQ pass is met."""
+        return is_hf_model and "gptq" in passes_config and self.args.use_qdq_format
+
+    def _get_matmul_nbits_to_qdq_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for MatMulNBitsToQDQ pass."""
+        precision = Precision(self.args.precision)
+        config = {
+            "type": "MatMulNBitsToQDQ",
+            "add_zero_point": "true",
+            "save_as_external_data": "true",
+        }
+        config["nodes_to_exclude"] = ["/lm_head/MatMul_Q4"]
+        if precision.value == Precision.INT4:
+            config["use_int4"] = "true"
+        return config
+
+    def _enable_graph_surgeries_pass(self) -> bool:
+        """Return true if condition to add GraphSurgeries pass is met."""
+        return self.args.surgeries is not None
+
+    def _get_graph_surgeries_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for GraphSurgeries pass."""
+        surgeries_list = [{"surgeon": item} for item in self.args.surgeries[0].split(",")]
+        return {
+            "type": "GraphSurgeries",
+            "surgeries": surgeries_list,
+            "save_as_external_data": "true",
+        }
+
+    def _enable_onnx_blockwise_rtn_quantization_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add OnnxBlockWiseRtnQuantization pass is met."""
+        precision = Precision(self.args.precision)
+        return not is_hf_model and precision == Precision.INT4
+
+    def _get_onnx_blockwise_rtn_quantization_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OnnxBlockWiseRtnQuantization pass."""
+        config = {"type": "OnnxBlockWiseRtnQuantization"}
+        if self.args.block_size is not None:
+            if self.args.block_size == -1:
+                # For per-channel quantization, we can use axis=0 and set block_size to a large value
+                # or let the pass handle per-channel internally
+                config["axis"] = 0
+                # Some implementations use block_size = -1 to indicate per-channel
+                config["block_size"] = -1
+            else:
+                config["block_size"] = self.args.block_size
+        return config
+
+    def _enable_onnx_float_to_float16_pass(self) -> bool:
+        """Return true if condition to add OnnxFloatToFloat16 pass is met."""
+        precision = Precision(self.args.precision)
+        return precision == Precision.FP16
+
+    def _get_onnx_float_to_float16_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OnnxFloatToFloat16 pass."""
+        return {"type": "OnnxFloatToFloat16"}
+
+    def _enable_onnx_static_quantization_pass(self, passes_config: dict[str, Any]) -> bool:
+        """Return true if condition to add OnnxStaticQuantization pass is met."""
+        precision = Precision(self.args.precision)
         act_precision_check = (
             self.args.act_precision
             in [Precision.INT8.value, Precision.UINT8.value, Precision.INT16.value, Precision.UINT16.value]
@@ -388,73 +558,109 @@ class OptimizeCommand(BaseOliveCLICommand):
             precision in [Precision.INT8, Precision.UINT8, Precision.INT16, Precision.UINT16]
             and "gptq" not in passes_config
         )
+        return precision_check or act_precision_check
 
-        if precision_check or act_precision_check:
-            onnx_static_config = {
-                "type": "OnnxStaticQuantization",
-                "precision": precision.value,
-                "act_precision": self.args.act_precision,
-                "quant_format": "QDQ" if self.args.use_qdq_format else "QOperator",
-            }
-            # Handle block_size parameter
-            if self.args.block_size == -1:
-                # Use per-channel quantization when block_size is -1
-                onnx_static_config["per_channel"] = True
+    def _get_onnx_static_quantization_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OnnxStaticQuantization pass."""
+        precision = Precision(self.args.precision)
+        config = {
+            "type": "OnnxStaticQuantization",
+            "precision": precision.value,
+            "act_precision": self.args.act_precision,
+            "quant_format": "QDQ" if self.args.use_qdq_format else "QOperator",
+        }
+        # Handle block_size parameter
+        if self.args.block_size == -1:
+            # Use per-channel quantization when block_size is -1
+            config["per_channel"] = True
 
-            # Add data_config for text modality
-            if self.args.modality == "text":
-                self.need_wikitest_data_config = True
-                onnx_static_config["data_config"] = "wikitext2_train"
+        # Add data_config for text modality
+        if self.args.modality == "text":
+            self.need_wikitest_data_config = True
+            config["data_config"] = "wikitext2_train"
 
-            passes_config["onnx_static_quantization"] = onnx_static_config
+        return config
 
-        # 17. OrtTransformersOptimization
-        if self.args.exporter in ["torchscript_exporter", "dynamo_exporter"]:
-            passes_config["ort_transformers_optimization"] = {
-                "type": "OrtTransformersOptimization",
-                "opt_level": 0,
-                "float16": precision == Precision.FP16,
-            }
+    def _enable_ort_transformers_optimization_pass(self) -> bool:
+        """Return true if condition to add OrtTransformersOptimization pass is met."""
+        return self.args.exporter in ["torchscript_exporter", "dynamo_exporter"]
 
-        # 18. SplitModel
-        if is_hf_model and (self.args.num_split is not None or self.args.memory is not None):
-            passes_config["split_model"] = {"type": "SplitModel"}
+    def _get_ort_transformers_optimization_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OrtTransformersOptimization pass."""
+        precision = Precision(self.args.precision)
+        return {
+            "type": "OrtTransformersOptimization",
+            "opt_level": 0,
+            "float16": precision == Precision.FP16,
+        }
 
-        # 19. StaticLLM
-        if provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]:
-            passes_config["static_llm"] = {"type": "StaticLLM"}
+    def _enable_split_model_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add SplitModel pass is met."""
+        return is_hf_model and (self.args.num_split is not None or self.args.memory is not None)
 
-        # 20. VitisAIAddMetaData
-        if provider == ExecutionProvider.VitisAIExecutionProvider:
-            passes_config["vitis_ai_add_metadata"] = {"type": "VitisAIAddMetaData"}
+    def _get_split_model_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for SplitModel pass."""
+        return {"type": "SplitModel"}
 
-        # 21. EPContextBinaryGenerator
-        if self.args.enable_aot and provider == ExecutionProvider.QNNExecutionProvider:
-            passes_config["ep_context_binary_generator"] = {
-                "type": "EPContextBinaryGenerator",
-                "session_options": {"intra_op_num_threads": 2, "inter_op_num_threads": 1},
-                "weight_sharing": True,
-            }
-            passes_config["ep_context_binary_generator"]["provider_options"] = {
-                "htp_performance_mode": "burst",
-                "htp_graph_finalization_optimization_mode": "3",
-                "soc_model": "60",
-            }
+    def _enable_static_llm_pass(self) -> bool:
+        """Return true if condition to add StaticLLM pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]
 
-        # 22. ComposeOnnxModels
-        if (
+    def _get_static_llm_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for StaticLLM pass."""
+        return {"type": "StaticLLM"}
+
+    def _enable_vitis_ai_add_metadata_pass(self) -> bool:
+        """Return true if condition to add VitisAIAddMetaData pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return provider == ExecutionProvider.VitisAIExecutionProvider
+
+    def _get_vitis_ai_add_metadata_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for VitisAIAddMetaData pass."""
+        return {"type": "VitisAIAddMetaData"}
+
+    def _enable_ep_context_binary_generator_pass(self) -> bool:
+        """Return true if condition to add EPContextBinaryGenerator pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return self.args.enable_aot and provider == ExecutionProvider.QNNExecutionProvider
+
+    def _get_ep_context_binary_generator_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for EPContextBinaryGenerator pass."""
+        config = {
+            "type": "EPContextBinaryGenerator",
+            "session_options": {"intra_op_num_threads": 2, "inter_op_num_threads": 1},
+            "weight_sharing": True,
+        }
+        config["provider_options"] = {
+            "htp_performance_mode": "burst",
+            "htp_graph_finalization_optimization_mode": "3",
+            "soc_model": "60",
+        }
+        return config
+
+    def _enable_compose_onnx_models_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add ComposeOnnxModels pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return (
             is_hf_model
             and (self.args.enable_aot)
             and (self.args.num_split is not None or self.args.memory is not None)
             and provider == ExecutionProvider.QNNExecutionProvider
-        ):
-            passes_config["compose_onnx_models"] = {"type": "ComposeOnnxModels"}
+        )
 
-        # 23. OpenVINOEncapsulation
-        if is_hf_model and provider == ExecutionProvider.OpenVINOExecutionProvider:
-            passes_config["openvino_encapsulation"] = {"type": "OpenVINOEncapsulation"}
+    def _get_compose_onnx_models_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for ComposeOnnxModels pass."""
+        return {"type": "ComposeOnnxModels"}
 
-        return passes_config
+    def _enable_openvino_encapsulation_pass(self, is_hf_model: bool) -> bool:
+        """Return true if condition to add OpenVINOEncapsulation pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return is_hf_model and provider == ExecutionProvider.OpenVINOExecutionProvider
+
+    def _get_openvino_encapsulation_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OpenVINOEncapsulation pass."""
+        return {"type": "OpenVINOEncapsulation"}
 
     def _precision_to_bits(self, precision: Precision) -> int:
         """Convert precision enum to bit count."""
