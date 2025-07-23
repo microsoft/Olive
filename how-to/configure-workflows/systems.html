@@ -531,25 +531,23 @@
 </section>
 <section id="docker-system">
 <h2>Docker System<a class="headerlink" href="#docker-system" title="Link to this heading">#</a></h2>
-<p>The docker system represents the docker container where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The docker system is configured with the following attributes:</p>
+<p>The Docker system refers to the container environment where the Olive workflow is executed. It can only be set to <code class="docutils literal notranslate"><span class="pre">host</span></code>, indicating that the workflow runs inside a Docker container. Once the workflow completes, the output model folder will be mounted back to the same relative path specified in your configuration file. For example, if <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> is set to <code class="docutils literal notranslate"><span class="pre">xx/yy/zz</span></code>, the output will be saved to <code class="docutils literal notranslate"><span class="pre">xx/yy/zz</span></code> on the host machine after the workflow finishes.</p>
+<p>If a target system is specified, it can only be <code class="docutils literal notranslate"><span class="pre">Local</span></code> or <code class="docutils literal notranslate"><span class="pre">PythonEnvironment</span></code>.</p>
+<p>The docker system is configured with the following attributes:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">accelerators</span></code>: The list of accelerators that are supported by the system.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">local_docker_config</span></code>: The configuration for the local docker system, which includes the following attributes:</p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">image_name</span></code>: The name of the docker image.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">build_context_path</span></code>: The path to the build context.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dockerfile</span></code>: The path to the Dockerfile.</p></li>
-</ul>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">requirements_file</span></code>: The path to the requirements file. If provided, Olive will install the required packages from the requirements file in the docker container.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">olive_managed_env</span></code>: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">image_name</span></code>: The name (and optionally tag) of the Docker image to be built, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;my-image:latest&quot;</span></code>. The default value is <code class="docutils literal notranslate"><span class="pre">&quot;olive-docker:latest&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">build_context_path</span></code>: This directory should contain all files required for the build, including the Dockerfile.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dockerfile</span></code>: The relative path to the Dockerfile within the build context, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;Dockerfile&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;docker/Dockerfile.dev&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">build_args</span></code>: A dictionary of build-time variables to pass to the Dockerfile. Keys are argument names and values are their corresponding values.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">run_params</span></code>: A dictionary of parameters to be used when running the container. These correspond to keyword arguments accepted by <code class="docutils literal notranslate"><span class="pre">docker.containers.run()</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">work_dir</span></code>: The working directory where the workflow runs and files are mounted. The default value is <code class="docutils literal notranslate"><span class="pre">/olive-ws</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clean_image</span></code>: Whether to remove the Docker image after the workflow finishes. The default value is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <ul class="simple">
-<li><p>the <code class="docutils literal notranslate"><span class="pre">build_context_path</span></code>, <code class="docutils literal notranslate"><span class="pre">dockerfile</span></code> and <code class="docutils literal notranslate"><span class="pre">requirements_file</span></code> cannot be <code class="docutils literal notranslate"><span class="pre">None</span></code> at the same time.</p></li>
 <li><p>The docker container must have <code class="docutils literal notranslate"><span class="pre">olive-ai</span></code> installed.</p></li>
-<li><p>The <code class="docutils literal notranslate"><span class="pre">device</span></code> and <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> for docker system is mandatory. Otherwise, Olive will raise an error.</p></li>
 </ul>
 </div>
 <section id="prerequisites">
@@ -563,45 +561,15 @@
 <h3>Native Docker System<a class="headerlink" href="#native-docker-system" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Docker&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;local_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;image_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;olive&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;build_context_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;docker&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;dockerfile&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Dockerfile&quot;</span>
-<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;image_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;olive&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;build_context_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;docker&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;dockerfile&quot;</span><span class="p">:</span><span class="w"> </span><span class="nt">&quot;Dockerfile&quot;</span>
 <span class="w">    </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">        </span><span class="p">{</span>
 <span class="w">            </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
 <span class="w">            </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">]</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-<section id="managed-docker-system">
-<h3>Managed Docker System<a class="headerlink" href="#managed-docker-system" title="Link to this heading">#</a></h3>
-<p>When <code class="docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>, Olive will manage the docker environment by installing the required packages from the <code class="docutils literal notranslate"><span class="pre">requirements_file</span></code> in the docker container if provided.
-From the time being, Olive only supports the following base Dockerfiles based on input execution providers:</p>
-<ul class="simple">
-<li><p>CPUExecutionProvider: (<em>Dockerfile.cpu</em>)</p></li>
-<li><p>CUDAExecutionProvider: (<em>Dockerfile.gpu</em>)</p></li>
-<li><p>TensorrtExecutionProvider: (<em>Dockerfile.gpu</em>)</p></li>
-<li><p>OpenVINOExecutionProvider: (<em>Dockerfile.openvino</em>)</p></li>
-</ul>
-<p>A typical managed Docker system can be configured by the following example:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Docker&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="s2">&quot;OpenVINOExecutionProvider&quot;</span>
-<span class="w">            </span><span class="p">]</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;olive_managed_env&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;requirements_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mnist_requirements.txt&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -893,7 +861,6 @@ In above example, the readymade system supports only GPU. Therefore, the final a
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#docker-system">Docker System</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#native-docker-system">Native Docker System</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#managed-docker-system">Managed Docker System</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-system">AzureML System</a><ul class="nav section-nav flex-column">
