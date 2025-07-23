@@ -207,9 +207,17 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Update system configuration based on provider and device."""
         provider = ExecutionProvider(self.args.provider)
 
-        config["systems"]["local_system"]["accelerators"] = [
-            {"device": self.args.device, "execution_providers": [provider.value]}
-        ]
+        if provider == ExecutionProvider.QNNExecutionProvider:
+            config["systems"]["qnn_system"] = {
+                "type": "PythonEnvironment",
+                "python_environment_path": "/path/to/qnn/env/bin",
+                "accelerators": [{"execution_providers": [provider.value]}],
+            }
+            config["target"] = "qnn_system"
+        else:
+            config["systems"]["local_system"]["accelerators"] = [
+                {"device": self.args.device, "execution_providers": [provider.value]}
+            ]
 
     def _add_data_config(self, config: dict[str, Any]):
         config["data_configs"] = WIKITEXT2_DATA_CONFIG_TEMPLATE if self.need_wikitest_data_config else {}
@@ -466,15 +474,8 @@ class OptimizeCommand(BaseOliveCLICommand):
 # Template configuration for the optimize command
 TEMPLATE = {
     "input_model": {"type": "HfModel"},
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
-        }
-    },
     "passes": OrderedDict(),
-    "host": "local_system",
-    "target": "local_system",
+    "systems": {},
     "no_artifacts": True,
 }
 
