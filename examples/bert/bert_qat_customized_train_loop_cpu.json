@@ -39,7 +39,7 @@
         "peephole_optimizer": { "type": "OnnxPeepholeOptimizer" },
         "transformers_optimization": { "type": "OrtTransformersOptimization" },
         "session_params_tuning": { "type": "OrtSessionParamsTuning" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-uncased-mrpc" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",

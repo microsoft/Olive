@@ -44,12 +44,8 @@
             "ov_version": "2025.1",
             "reuse_cache": true
         },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "CLIP-ViT-B-32-laion2B-s34B-b79K" } }
+        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
+        "optimization": { "type": "OrtTransformersOptimization", "model_type": "clip" },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "CLIP-ViT-B-32-laion2B-s34B-b79K" }
     },
-    "search_strategy": false,
-    "host": "local_system",
-    "cache_dir": "cache",
-    "clean_cache": true,
-    "evaluate_input_model": false,
-    "output_dir": "models/CLIP-ViT-B-32-laion2B-s34B-b79K_context_ov_static"
-}
+    "evaluator": "common_evaluator",

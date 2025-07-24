@@ -68,7 +68,7 @@
                 "graph_optimization_level": "ORT_ENABLE_ALL"
             }
         },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Phi-3.5-mini-instruct" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "Phi-3.5-mini-instruct" }
     },
     "log_severity_level": 1,
     "output_dir": "models/phi3_5-vai",

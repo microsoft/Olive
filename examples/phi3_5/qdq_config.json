@@ -52,7 +52,7 @@
         },
         "sp": { "type": "SplitModel" },
         "st": { "type": "StaticLLM", "batch_size": 1, "context_length": 64 },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "Phi-3.5-mini-instruct" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "Phi-3.5-mini-instruct" }
     },
     "log_severity_level": 1,
     "output_dir": "models/phi3_5-qdq",

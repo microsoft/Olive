@@ -119,7 +119,7 @@
             "type": "GraphSurgeries",
             "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" }, { "surgeon": "MatMulAddToGemm" } ]
         },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-multilingual-cased" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-multilingual-cased" }
     },
     "host": "host_system",
     "target": "target_system",

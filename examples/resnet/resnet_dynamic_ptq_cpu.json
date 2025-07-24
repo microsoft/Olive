@@ -52,7 +52,7 @@
         "onnx_conversion": { "type": "OnnxConversion", "target_opset": 13 },
         "onnx_dynamic_quantization": { "type": "OnnxDynamicQuantization", "precision": "uint8" },
         "session_params_tuning": { "type": "OrtSessionParamsTuning", "data_config": "data_config" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "resnet-50" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "resnet-50" }
     },
     "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "evaluator": "common_evaluator",

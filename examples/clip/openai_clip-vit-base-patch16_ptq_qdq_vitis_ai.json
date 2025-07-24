@@ -104,7 +104,7 @@
             "weight_type": "uint8",
             "quant_type": "OnnxStaticQuantization"
         },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "clip-vit-base-patch16" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-base-patch16" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache/clip16",

@@ -33,7 +33,7 @@
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "transformers_optimization": { "type": "OrtTransformersOptimization", "model_type": "bert" },
         "dynamic_quantization": { "type": "IncDynamicQuantization" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-uncased-mrpc" }
     },
     "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "evaluator": "common_evaluator",

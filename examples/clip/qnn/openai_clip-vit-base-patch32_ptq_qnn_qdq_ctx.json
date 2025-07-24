@@ -153,7 +153,7 @@
             },
             "session_options": { "optimization.disable_specified_optimizers": "MatMulAddFusion" }
         },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "clip-vit-base-patch32" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-base-patch32" }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

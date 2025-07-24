@@ -41,7 +41,11 @@
             "ov_version": "2025.1",
             "reuse_cache": true
         },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "clip-vit-base-patch16" } }
+        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
+        "optimization": { "type": "OrtTransformersOptimization", "model_type": "clip" },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-base-patch16" }
+    },
+    "evaluator": "common_evaluator",
     },
     "search_strategy": false,
     "host": "local_system",

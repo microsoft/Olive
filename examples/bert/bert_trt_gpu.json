@@ -54,7 +54,7 @@
             "io_bind": true,
             "data_config": "glue_mrpc"
         },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-uncased-mrpc" }
     },
     "evaluator": "common_evaluator",
     "host": "local_system",

@@ -63,7 +63,7 @@
                 ]
             }
         },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-uncased-mrpc" }
     },
     "search_strategy": { "execution_order": "joint", "sampler": "sequential" },
     "evaluator": "common_evaluator",

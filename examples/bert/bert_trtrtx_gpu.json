@@ -50,7 +50,7 @@
         "conversion": { "type": "OnnxConversion", "target_opset": 17 },
         "onnx_float_to_float16": { "type": "OnnxFloatToFloat16" },
         "session_params_tuning": { "type": "OrtSessionParamsTuning", "io_bind": false, "data_config": "glue_mrpc" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-uncased-mrpc" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-uncased-mrpc" }
     },
     "evaluator": "common_evaluator",
     "host": "local_system",

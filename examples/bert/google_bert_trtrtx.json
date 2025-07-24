@@ -56,7 +56,7 @@
         },
         "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
         "session_params_tuning": { "type": "OrtSessionParamsTuning", "io_bind": false, "data_config": "xnli" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-multilingual-cased" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-multilingual-cased" }
     },
     "host": "local_system",
     "target": "local_system",

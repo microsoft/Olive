@@ -58,7 +58,7 @@
         "onnx_conversion": { "type": "OnnxConversion", "target_opset": 13 },
         "onnx_float_to_float16": { "type": "OnnxFloatToFloat16" },
         "session_params_tuning": { "type": "OrtSessionParamsTuning", "io_bind": false, "data_config": "data_config" },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "resnet-50" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "resnet-50" }
     },
     "host": "local_system",
     "target": "local_system",

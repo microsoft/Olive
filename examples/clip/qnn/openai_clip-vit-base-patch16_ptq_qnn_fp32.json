@@ -156,7 +156,7 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 20 },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "clip-vit-base-patch16" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-base-patch16" }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

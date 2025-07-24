@@ -74,7 +74,7 @@
             "weight_type": "uint8",
             "quant_type": "OnnxStaticQuantization"
         },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "bert-base-multilingual-cased" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-multilingual-cased" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache/google_bert",

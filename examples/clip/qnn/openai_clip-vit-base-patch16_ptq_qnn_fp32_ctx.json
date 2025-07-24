@@ -129,7 +129,7 @@
             "provider_options": { "htp_graph_finalization_optimization_mode": "3", "enable_htp_fp16_precision": "1" },
             "session_options": { "optimization.disable_specified_optimizers": "MatMulAddFusion" }
         },
-        "add_metadata": { "type": "AddOliveMetadata", "config": { "graph_name": "clip-vit-base-patch16" } }
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-base-patch16" }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,
