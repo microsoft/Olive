@@ -53,7 +53,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--device",
             type=str,
-            default="cpu",
+            default=None,
             choices=["cpu", "gpu", "npu"],
             help="Target device for optimization.",
         )
@@ -190,15 +190,11 @@ class OptimizeCommand(BaseOliveCLICommand):
         config = deepcopy(TEMPLATE)
 
         # Handle arguments
-        if self.args.exporter is None and self.args.modality == "text":
-            self.args.exporter = "model_builder"
+        self._validate_arguments()
 
         # Set input model configuration
         config["input_model"] = get_input_model_config(self.args)
         self.is_hf_model = config["input_model"]["type"].lower() == "hfmodel"
-
-        # Validate device and provider compatibility
-        self._validate_device_provider_compatibility()
 
         # Build the pass list based on conditions
         passes_config = self._build_passes_config()
@@ -221,33 +217,24 @@ class OptimizeCommand(BaseOliveCLICommand):
 
         return config
 
-    def _validate_device_provider_compatibility(self):
-        """Validate that device and provider are compatible."""
-        provider = ExecutionProvider(self.args.provider)
+    def _validate_arguments(self):
+        if self.args.exporter is None and self.args.modality == "text":
+            self.args.exporter = "model_builder"
 
-        # Auto-adjust device based on provider if needed
-        if provider == ExecutionProvider.DmlExecutionProvider and self.args.device not in ["gpu", "npu"]:
-            self.args.device = "gpu"
-        elif provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]:
-            self.args.device = "npu"
-        elif provider == ExecutionProvider.CUDAExecutionProvider:
-            self.args.device = "gpu"
+        if self.args.device is not None:
+            print(f"Warning: --device {self.args.device} option is ignored, using {self.args.provider}.")
 
     def _update_system_config(self, config: dict[str, Any]):
         """Update system configuration based on provider and device."""
         provider = ExecutionProvider(self.args.provider)
 
-        if provider == ExecutionProvider.QNNExecutionProvider:
+        if provider == ExecutionProvider.QNNExecutionProvider and self.args.enable_aot:
             config["systems"]["qnn_system"] = {
                 "type": "PythonEnvironment",
                 "python_environment_path": "/path/to/qnn/env/bin",
                 "accelerators": [{"execution_providers": [provider.value]}],
             }
             config["target"] = "qnn_system"
-        else:
-            config["systems"]["local_system"]["accelerators"] = [
-                {"device": self.args.device, "execution_providers": [provider.value]}
-            ]
 
     def _add_data_config(self, config: dict[str, Any]):
         config["data_configs"] = WIKITEXT2_DATA_CONFIG_TEMPLATE if self.need_wikitest_data_config else {}
