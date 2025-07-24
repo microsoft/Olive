@@ -277,10 +277,6 @@ class OptimizeCommand(BaseOliveCLICommand):
         if self.enable_dynamic_to_fixed_shape:
             passes_config["dynamic_to_fixed_shape"] = self._get_dynamic_to_fixed_shape_pass_config()
 
-        self.enable_vitis_ai_preprocess = self._enable_vitis_ai_preprocess_pass()
-        if self.enable_vitis_ai_preprocess:
-            passes_config["vitis_ai_preprocess"] = self._get_vitis_ai_preprocess_pass_config()
-
         self.enable_openvino_io_update = self._enable_openvino_io_update_pass()
         if self.enable_openvino_io_update:
             passes_config["openvino_io_update"] = self._get_openvino_io_update_pass_config()
@@ -313,6 +309,10 @@ class OptimizeCommand(BaseOliveCLICommand):
         if self.enable_ort_transformers_optimization:
             passes_config["ort_transformers_optimization"] = self._get_ort_transformers_optimization_pass_config()
 
+        self.enable_vitis_ai_add_metadata = self._enable_vitis_ai_add_metadata_pass()
+        if self.enable_vitis_ai_add_metadata:
+            passes_config["vitis_ai_add_metadata"] = self._get_vitis_ai_add_metadata_pass_config()
+
         self.enable_split_model = self._enable_split_model_pass()
         if self.enable_split_model:
             passes_config["split_model"] = self._get_split_model_pass_config()
@@ -320,10 +320,6 @@ class OptimizeCommand(BaseOliveCLICommand):
         self.enable_static_llm = self._enable_static_llm_pass()
         if self.enable_static_llm:
             passes_config["static_llm"] = self._get_static_llm_pass_config()
-
-        self.enable_vitis_ai_add_metadata = self._enable_vitis_ai_add_metadata_pass()
-        if self.enable_vitis_ai_add_metadata:
-            passes_config["vitis_ai_add_metadata"] = self._get_vitis_ai_add_metadata_pass_config()
 
         self.enable_ep_context_binary_generator = self._enable_ep_context_binary_generator_pass()
         if self.enable_ep_context_binary_generator:
@@ -479,15 +475,6 @@ class OptimizeCommand(BaseOliveCLICommand):
             "dim_value": self.args.dim_value,
         }
 
-    def _enable_vitis_ai_preprocess_pass(self) -> bool:
-        """Return true if condition to add VitisAI preprocessing pass is met."""
-        provider = ExecutionProvider(self.args.provider)
-        return provider == ExecutionProvider.VitisAIExecutionProvider
-
-    def _get_vitis_ai_preprocess_pass_config(self) -> dict[str, Any]:
-        """Return pass dictionary for VitisAI preprocessing pass."""
-        return {"type": "VitisAIQuantization"}
-
     def _enable_openvino_io_update_pass(self) -> bool:
         """Return true if condition to add OpenVINOIoUpdate pass is met."""
         provider = ExecutionProvider(self.args.provider)
@@ -622,12 +609,23 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _enable_static_llm_pass(self) -> bool:
         """Return true if condition to add StaticLLM pass is met."""
+        if self.args.modality != "text":
+            return False
         provider = ExecutionProvider(self.args.provider)
         return provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]
 
     def _get_static_llm_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for StaticLLM pass."""
-        return {"type": "StaticLLM"}
+        config = {"type": "StaticLLM"}
+        if self.args.provider == ExecutionProvider.VitisAIExecutionProvider:
+            config["batch_size"] = 1
+            config["context_length"] = 64
+            config["group_session_options"] = {
+                "log_id": "onnxruntime-genai",
+                "provider_options": [{"VitisAI": {}}],
+                "graph_optimization_level": "ORT_ENABLE_ALL",
+            }
+        return config
 
     def _enable_vitis_ai_add_metadata_pass(self) -> bool:
         """Return true if condition to add VitisAIAddMetaData pass is met."""
@@ -636,7 +634,23 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _get_vitis_ai_add_metadata_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for VitisAIAddMetaData pass."""
-        return {"type": "VitisAIAddMetaData"}
+        config = {
+            "type": "VitisAIAddMetaData",
+            "config_meta_data_keys": ["architectures", "model_type"],
+            "weight_type": Precision(self.args.precision).value,
+        }
+
+        act_precision = Precision(self.args.act_precision) if self.args.act_precision else None
+        if act_precision:
+            config["activation_type"] = act_precision.value
+
+        if self.enable_quarot:
+            config["quant_type"] = "quarot"
+        elif self.enable_onnx_static_quantization:
+            config["quant_type"] = "onnx_static_quantization"
+        elif self.enable_gptq:
+            config["quant_type"] = "gptq"
+        return config
 
     def _enable_ep_context_binary_generator_pass(self) -> bool:
         """Return true if condition to add EPContextBinaryGenerator pass is met."""
