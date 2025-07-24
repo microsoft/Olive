@@ -39,6 +39,7 @@ jobs:
       --gpus=all \
       -v /var/run/docker.sock:/var/run/docker.sock \
       -v $(Build.SourcesDirectory)/logs:/logs \
+      -e HUGGINGFACE_HUB_TOKEN=$(hf_token) \
       -e WORKSPACE_SUBSCRIPTION_ID=$(workspace-subscription-id) \
       -e WORKSPACE_RESOURCE_GROUP=$(workspace-resource-group) \
       -e WORKSPACE_NAME=$(workspace-name) \
@@ -51,7 +52,6 @@ jobs:
       test/${{ parameters.requirements_file }} \
       test/${{ parameters.test_type }} \
       false \
-      $(hf_token)
     displayName: Run Tests in Docker
 
   - task: CredScan@3
