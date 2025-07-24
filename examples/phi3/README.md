@@ -124,6 +124,57 @@ olive run --config phi3_nvmo_ptq.json
 - **Locate and Update Configuration File:**
    Open `phi3_nvmo_ptq.json` in a text editor. Update the `model_path` to point to the directory or repository of the model you want to quantize. Ensure that `tokenizer_dir` is set to the tokenizer directory for the new model.
 
+## **Optimization and Quantization for AMD NPU**
+
+#### **Run the Quantization Config**
+
+##### **For Quark quantization**
+
+For LLMs - Follow the below commands to generate the optimized model for VitisAI EP.
+(Currently tested on Linux + ROCm and Linux + CUDA). 
+
+For Quark details, see [Quark Documentation](https://quark.docs.amd.com/latest/) 
+
+Create a Python 3.10 conda environment and run the below commands
+
+```bash
+conda create -n olive python=3.10
+conda activate olive
+```
+
+```bash
+cd Olive
+pip install -e .
+pip install -r requirements.txt
+```
+
+The model generate wheel can be downloaded from here (to be updated in PyPI)- `/proj/xsjhdstaff4/pooja/olive_wheels/model_generate-1.0.0-py3-none-manylinux2014_x86_64.whl` (Linux, python 3.10 wheel)
+
+```bash
+pip install "model_generate-1.0.0-py3-none-manylinux2014_x86_64.whl"
+```
+
+```bash
+cd examples/phi3
+pip install -r requirements-vitis-llm.txt
+```
+Make sure to install the correct version of PyTorch before running quantization. If using AMD GPUs, update PyTorch to use ROCm
+
+```bash
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
+
+python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
+```
+
+Follow above mentioned setup instructions and run the below command to generate the optimized LLM model for VitisAI EP
+
+```bash
+olive run --config quark_config_vitis_ai_llm.json
+```
+
+✅ Optimized model saved in: `models/phi3-vai/`
+
+
 ## More Inference Examples
 - [Android chat APP with Phi-3 and ONNX Runtime Mobile](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/mobile/examples/phi-3/android)
 

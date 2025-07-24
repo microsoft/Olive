@@ -124,7 +124,7 @@ pip install "model_generate-1.0.0-py3-none-manylinux2014_x86_64.whl"
 
 ```bash
 cd examples/phi3_5
-pip install -r requirements.txt
+pip install -r requirements-vitis-llm.txt
 ```
 Make sure to install the correct version of PyTorch before running quantization. If using AMD GPUs, update PyTorch to use ROCm
 
