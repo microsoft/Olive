@@ -164,7 +164,6 @@ class OptimizeCommand(BaseOliveCLICommand):
         self.enable_capture_split_info = False
         self.enable_model_builder = False
         self.enable_onnx_conversion = False
-        self.enable_optimum_conversion = False
         self.enable_optimum_openvino_conversion = False
         self.enable_dynamic_to_fixed_shape = False
         self.enable_vitis_ai_preprocess = False
@@ -227,6 +226,9 @@ class OptimizeCommand(BaseOliveCLICommand):
         if self.args.enable_aot and self.args.provider != ExecutionProvider.QNNExecutionProvider:
             raise ValueError("Ahead-of-Time (AOT) compilation is only supported with QNNExecutionProvider.")
 
+        if self.args.use_qdq_format and self.args.provider == ExecutionProvider.OpenVINOExecutionProvider:
+            raise ValueError("QDQ format is not supported with OpenVINOExecutionProvider.")
+
     def _update_system_config(self, config: dict[str, Any]):
         """Update system configuration based on provider and device."""
         provider = ExecutionProvider(self.args.provider)
@@ -240,7 +242,7 @@ class OptimizeCommand(BaseOliveCLICommand):
             config["target"] = "qnn_system"
 
     def _add_data_config(self, config: dict[str, Any]):
-        config["data_configs"] = WIKITEXT2_DATA_CONFIG_TEMPLATE if self.need_wikitest_data_config else {}
+        config["data_configs"] = WIKITEXT2_DATA_CONFIG_TEMPLATE if self.need_wikitest_data_config else []
 
     def _build_passes_config(self) -> dict[str, Any]:
         passes_config = OrderedDict()
@@ -264,10 +266,6 @@ class OptimizeCommand(BaseOliveCLICommand):
         self.enable_onnx_conversion = self._enable_onnx_conversion_pass()
         if self.enable_onnx_conversion:
             passes_config["onnx_conversion"] = self._get_onnx_conversion_pass_config()
-
-        self.enable_optimum_conversion = self._enable_optimum_conversion_pass()
-        if self.enable_optimum_conversion:
-            passes_config["optimum_conversion"] = self._get_optimum_conversion_pass_config()
 
         self.enable_optimum_openvino_conversion = self._enable_optimum_openvino_conversion_pass()
         if self.enable_optimum_openvino_conversion:
@@ -436,19 +434,6 @@ class OptimizeCommand(BaseOliveCLICommand):
             "torch_dtype": "float32",
         }
 
-    def _enable_optimum_conversion_pass(self) -> bool:
-        """Return true if condition to add OptimumConversion pass is met."""
-        provider = ExecutionProvider(self.args.provider)
-        return (
-            self.is_hf_model
-            and provider != ExecutionProvider.OpenVINOExecutionProvider
-            and self.args.exporter == "optimum_exporter"
-        )
-
-    def _get_optimum_conversion_pass_config(self) -> dict[str, Any]:
-        """Return pass dictionary for OptimumConversion pass."""
-        return {"type": "OptimumConversion"}
-
     def _enable_optimum_openvino_conversion_pass(self) -> bool:
         """Return true if condition to add OptimumOpenvinoConversion pass is met."""
         provider = ExecutionProvider(self.args.provider)
@@ -456,7 +441,18 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _get_optimum_openvino_conversion_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OptimumOpenvinoConversion pass."""
-        return {"type": "OpenVINOConversion"}
+        config = {
+            "type": "OpenVINOOptimumConversion",
+            "extra_args": {"device": self.args.device},
+            "ov_quant_config": {
+                "task": "text-generation-with-past",
+                "weight_format": Precision(self.args.precision).value,
+                "group_size": 128,
+                "ratio": 1,
+            },
+        }
+
+        return config
 
     def _enable_dynamic_to_fixed_shape_pass(self) -> bool:
         """Return true if condition to add DynamicToFixedShape pass is met."""
@@ -482,7 +478,7 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _get_openvino_io_update_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OpenVINOIoUpdate pass."""
-        return {"type": "OpenVINOConversion"}
+        return {"type": "OpenVINOIoUpdate", "static": False, "reuse_cache": True}
 
     def _enable_onnx_peephole_optimizer_pass(self) -> bool:
         """Return true if condition to add OnnxPeepholeOptimizer pass is met."""
@@ -552,6 +548,9 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _enable_onnx_static_quantization_pass(self) -> bool:
         """Return true if condition to add OnnxStaticQuantization pass is met."""
+        if self.args.provider == ExecutionProvider.OpenVINOExecutionProvider:
+            return False
+
         precision = Precision(self.args.precision)
         act_precision_check = (
             self.args.act_precision
@@ -692,7 +691,13 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _get_openvino_encapsulation_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OpenVINOEncapsulation pass."""
-        return {"type": "OpenVINOEncapsulation"}
+        return {
+            "type": "OpenVINOEncapsulation",
+            "target_device": self.args.device,
+            "keep_ov_dynamic_shapes": True,
+            "op_version": "2025.1",
+            "reuse_cache": True,
+        }
 
     def _precision_to_bits(self, precision: Precision) -> int:
         """Convert precision enum to bit count."""
