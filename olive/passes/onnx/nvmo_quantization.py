@@ -8,7 +8,6 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Union
 
-import onnx
 import onnxruntime as ort
 import torch
 from onnx import helper
@@ -487,17 +486,16 @@ class NVModelOptQuantization(Pass):
 
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-            onnx.save(
-                converted_model_proto,
-                output_model_path,
-                save_as_external_data=True,
-                all_tensors_to_one_file=True,
-                location=os.path.basename(output_model_path) + "_data",
-                size_threshold=1024,
-            )
-            logger.debug("Quantized and opset-converted model saved to %s", output_model_path)
+            logger.debug("Quantized and opset-converted model will be saved to %s", output_model_path)
 
-            return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
+            external_data_config = {
+                "save_as_external_data": True,
+                "all_tensors_to_one_file": True,
+                "external_data_name": os.path.basename(output_model_path) + "_data",
+                "size_threshold": 1024,
+            }
+
+            return model_proto_to_olive_model(converted_model_proto, output_model_path, external_data_config)
 
         except Exception:
             logger.exception("An error occurred during quantization and opset conversion")
