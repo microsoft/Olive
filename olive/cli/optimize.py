@@ -283,6 +283,10 @@ class OptimizeCommand(BaseOliveCLICommand):
         if self.enable_onnx_peephole_optimizer:
             passes_config["onnx_peephole_optimizer"] = self._get_onnx_peephole_optimizer_pass_config()
 
+        self.enable_ort_transformers_optimization = self._enable_ort_transformers_optimization_pass()
+        if self.enable_ort_transformers_optimization:
+            passes_config["ort_transformers_optimization"] = self._get_ort_transformers_optimization_pass_config()
+
         self.enable_matmul_nbits_to_qdq = self._enable_matmul_nbits_to_qdq_pass(passes_config)
         if self.enable_matmul_nbits_to_qdq:
             passes_config["matmul_nbits_to_qdq"] = self._get_matmul_nbits_to_qdq_pass_config()
@@ -302,10 +306,6 @@ class OptimizeCommand(BaseOliveCLICommand):
         self.enable_onnx_static_quantization = self._enable_onnx_static_quantization_pass()
         if self.enable_onnx_static_quantization:
             passes_config["onnx_static_quantization"] = self._get_onnx_static_quantization_pass_config()
-
-        self.enable_ort_transformers_optimization = self._enable_ort_transformers_optimization_pass()
-        if self.enable_ort_transformers_optimization:
-            passes_config["ort_transformers_optimization"] = self._get_ort_transformers_optimization_pass_config()
 
         self.enable_vitis_ai_add_metadata = self._enable_vitis_ai_add_metadata_pass()
         if self.enable_vitis_ai_add_metadata:
@@ -333,16 +333,16 @@ class OptimizeCommand(BaseOliveCLICommand):
 
         return passes_config
 
-    def _is_quantized_precision(self, precision: Precision) -> bool:
+    def _is_pt_quantized_precision(self, precision: Precision) -> bool:
         """Helper function to check if precision is quantized."""
-        return precision in [Precision.INT4, Precision.INT8, Precision.UINT4, Precision.UINT8]
+        return precision in [Precision.INT4, Precision.UINT4]
 
     def _enable_quarot_pass(self) -> bool:
         """Return true if condition to add QuaRot pass is met."""
         provider = ExecutionProvider(self.args.provider)
         precision = Precision(self.args.precision)
         return (
-            self._is_quantized_precision(precision)
+            self._is_pt_quantized_precision(precision)
             and self.is_hf_model
             and provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]
         )
@@ -357,7 +357,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         precision = Precision(self.args.precision)
         return (
             self.is_hf_model
-            and self._is_quantized_precision(precision)
+            and self._is_pt_quantized_precision(precision)
             and provider != ExecutionProvider.OpenVINOExecutionProvider
         )
 
@@ -428,11 +428,7 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _get_onnx_conversion_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OnnxConversion pass."""
-        return {
-            "type": "OnnxConversion",
-            "use_dynamo_exporter": self.args.exporter == "dynamo_exporter",
-            "torch_dtype": "float32",
-        }
+        return {"type": "OnnxConversion", "use_dynamo_exporter": self.args.exporter == "dynamo_exporter"}
 
     def _enable_optimum_openvino_conversion_pass(self) -> bool:
         """Return true if condition to add OptimumOpenvinoConversion pass is met."""
@@ -487,6 +483,15 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _get_onnx_peephole_optimizer_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OnnxPeepholeOptimizer pass."""
         return {"type": "OnnxPeepholeOptimizer"}
+
+    def _enable_ort_transformers_optimization_pass(self) -> bool:
+        """Return true if condition to add OrtTransformersOptimization pass is met."""
+        return self.args.exporter in ["torchscript_exporter", "dynamo_exporter"]
+
+    def _get_ort_transformers_optimization_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OrtTransformersOptimization pass."""
+        precision = Precision(self.args.precision)
+        return {"type": "OrtTransformersOptimization"}
 
     def _enable_matmul_nbits_to_qdq_pass(self, passes_config: dict[str, Any]) -> bool:
         """Return true if condition to add MatMulNBitsToQDQ pass is met."""
@@ -584,19 +589,6 @@ class OptimizeCommand(BaseOliveCLICommand):
             config["data_config"] = "wikitext2_train"
 
         return config
-
-    def _enable_ort_transformers_optimization_pass(self) -> bool:
-        """Return true if condition to add OrtTransformersOptimization pass is met."""
-        return self.args.exporter in ["torchscript_exporter", "dynamo_exporter"]
-
-    def _get_ort_transformers_optimization_pass_config(self) -> dict[str, Any]:
-        """Return pass dictionary for OrtTransformersOptimization pass."""
-        precision = Precision(self.args.precision)
-        return {
-            "type": "OrtTransformersOptimization",
-            "opt_level": 0,
-            "float16": precision == Precision.FP16,
-        }
 
     def _enable_split_model_pass(self) -> bool:
         """Return true if condition to add SplitModel pass is met."""
