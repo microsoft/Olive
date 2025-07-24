@@ -42,6 +42,11 @@ if [ "$6" = "true" ]; then
     coverage run -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml -p no:warnings --disable-warnings "$5"
     coverage xml -o /logs/coverage.xml
 else
+    echo "Starting pytest at $(date)"
     echo "Running tests without coverage tracking..."
-    python -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml -p no:warnings --disable-warnings "$5"
+    timeout 1100 python -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml -p no:warnings --disable-warnings "$5" &
+    pytest_pid=$!
+    wait $pytest_pid
+    echo "pytest exited with code $? at $(date)"
+    ps aux  # log still-running processes
 fi
