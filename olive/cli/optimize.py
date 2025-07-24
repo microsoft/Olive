@@ -580,7 +580,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         )
         precision_check = (
             precision in [Precision.INT8, Precision.UINT8, Precision.INT16, Precision.UINT16]
-            and not self.is_hf_model
+            and not self.enable_gptq
         )
         return precision_check or act_precision_check
 
@@ -592,7 +592,7 @@ class OptimizeCommand(BaseOliveCLICommand):
             "precision": precision.value,
             "activation_precision": self.args.act_precision,
             "calibration_providers": [ "CUDAExecutionProvider"],
-            "quant_format": "QDQ" if self.args.use_qdq_format else "QOperator",
+            "quant_format": "QDQ" if self.args.use_qdq_format and not self.enable_gptq else "QOperator",
         }
         # Handle block_size parameter
         if self.args.block_size == -1:
