@@ -156,6 +156,32 @@ class OptimizeCommand(BaseOliveCLICommand):
     def __init__(self, parser: ArgumentParser, args: Namespace, unknown_args: Optional[list] = None):
         super().__init__(parser, args, unknown_args)
         self.need_wikitest_data_config = False
+        self.is_hf_model = False  # will be set in _get_run_config
+
+        # Pass enabled flags
+        self.enable_quarot = False
+        self.enable_gptq = False
+        self.enable_capture_split_info = False
+        self.enable_model_builder = False
+        self.enable_onnx_conversion = False
+        self.enable_optimum_conversion = False
+        self.enable_optimum_openvino_conversion = False
+        self.enable_dynamic_to_fixed_shape = False
+        self.enable_vitis_ai_preprocess = False
+        self.enable_openvino_io_update = False
+        self.enable_onnx_peephole_optimizer = False
+        self.enable_matmul_nbits_to_qdq = False
+        self.enable_graph_surgeries = False
+        self.enable_onnx_blockwise_rtn_quantization = False
+        self.enable_onnx_float_to_float16 = False
+        self.enable_onnx_static_quantization = False
+        self.enable_ort_transformers_optimization = False
+        self.enable_split_model = False
+        self.enable_static_llm = False
+        self.enable_vitis_ai_add_metadata = False
+        self.enable_ep_context_binary_generator = False
+        self.enable_compose_onnx_models = False
+        self.enable_openvino_encapsulation = False
 
     def run(self):
         return self._run_workflow()
@@ -165,13 +191,13 @@ class OptimizeCommand(BaseOliveCLICommand):
 
         # Set input model configuration
         config["input_model"] = get_input_model_config(self.args)
-        is_hf_model = config["input_model"]["type"].lower() == "hfmodel"
+        self.is_hf_model = config["input_model"]["type"].lower() == "hfmodel"
 
         # Validate device and provider compatibility
         self._validate_device_provider_compatibility()
 
         # Build the pass list based on conditions
-        passes_config = self._build_passes_config(is_hf_model)
+        passes_config = self._build_passes_config()
         config["passes"] = passes_config
 
         # Set data config
@@ -222,101 +248,99 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _add_data_config(self, config: dict[str, Any]):
         config["data_configs"] = WIKITEXT2_DATA_CONFIG_TEMPLATE if self.need_wikitest_data_config else {}
 
-    def _build_passes_config(self, is_hf_model: bool) -> dict[str, Any]:
-        """Build the passes configuration based on user selections and conditions."""
+    def _build_passes_config(self) -> dict[str, Any]:
         passes_config = OrderedDict()
 
-        # Schedule passes in the specified order
-        # 1. QuaRot
-        if self._enable_quarot_pass(is_hf_model):
+        self.enable_quarot = self._enable_quarot_pass()
+        if self.enable_quarot:
             passes_config["quarot"] = self._get_quarot_pass_config()
 
-        # 2. Gptq
-        if self._enable_gptq_pass(is_hf_model):
+        self.enable_gptq = self._enable_gptq_pass()
+        if self.enable_gptq:
             passes_config["gptq"] = self._get_gptq_pass_config()
 
-        # 3. CaptureSplitInfo
-        if self._enable_capture_split_info_pass(is_hf_model):
+        self.enable_capture_split_info = self._enable_capture_split_info_pass()
+        if self.enable_capture_split_info:
             passes_config["capture_split_info"] = self._get_capture_split_info_pass_config()
 
-        # 4. ModelBuilder
-        if self._enable_model_builder_pass(is_hf_model):
+        self.enable_model_builder = self._enable_model_builder_pass()
+        if self.enable_model_builder:
             passes_config["model_builder"] = self._get_model_builder_pass_config()
 
-        # 5. OnnxConversion
-        if self._enable_onnx_conversion_pass(is_hf_model):
+        self.enable_onnx_conversion = self._enable_onnx_conversion_pass()
+        if self.enable_onnx_conversion:
             passes_config["onnx_conversion"] = self._get_onnx_conversion_pass_config()
 
-        # 6. OptimumConversion
-        if self._enable_optimum_conversion_pass(is_hf_model):
+        self.enable_optimum_conversion = self._enable_optimum_conversion_pass()
+        if self.enable_optimum_conversion:
             passes_config["optimum_conversion"] = self._get_optimum_conversion_pass_config()
 
-        # 7. OptimumOpenvinoConversion
-        if self._enable_optimum_openvino_conversion_pass(is_hf_model):
+        self.enable_optimum_openvino_conversion = self._enable_optimum_openvino_conversion_pass()
+        if self.enable_optimum_openvino_conversion:
             passes_config["optimum_openvino_conversion"] = self._get_optimum_openvino_conversion_pass_config()
 
-        # 8. DynamicToFixedShape
-        if self._enable_dynamic_to_fixed_shape_pass():
+        self.enable_dynamic_to_fixed_shape = self._enable_dynamic_to_fixed_shape_pass()
+        if self.enable_dynamic_to_fixed_shape:
             passes_config["dynamic_to_fixed_shape"] = self._get_dynamic_to_fixed_shape_pass_config()
 
-        # 9. InputNCHWtoNHWC (For VitisAI, this would be part of VitisAIQuantization)
-        if self._enable_vitis_ai_preprocess_pass():
+        self.enable_vitis_ai_preprocess = self._enable_vitis_ai_preprocess_pass()
+        if self.enable_vitis_ai_preprocess:
             passes_config["vitis_ai_preprocess"] = self._get_vitis_ai_preprocess_pass_config()
 
-        # 10. OpenVINOIoUpdate
-        if self._enable_openvino_io_update_pass(is_hf_model):
+        self.enable_openvino_io_update = self._enable_openvino_io_update_pass()
+        if self.enable_openvino_io_update:
             passes_config["openvino_io_update"] = self._get_openvino_io_update_pass_config()
 
-        # 11. OnnxPeepholeOptimizer
-        if self._enable_onnx_peephole_optimizer_pass():
+        self.enable_onnx_peephole_optimizer = self._enable_onnx_peephole_optimizer_pass()
+        if self.enable_onnx_peephole_optimizer:
             passes_config["onnx_peephole_optimizer"] = self._get_onnx_peephole_optimizer_pass_config()
 
-        # 12. MatMulNBitsToQDQ
-        if self._enable_matmul_nbits_to_qdq_pass(is_hf_model, passes_config):
+        self.enable_matmul_nbits_to_qdq = self._enable_matmul_nbits_to_qdq_pass(passes_config)
+        if self.enable_matmul_nbits_to_qdq:
             passes_config["matmul_nbits_to_qdq"] = self._get_matmul_nbits_to_qdq_pass_config()
 
-        # 13. GraphSurgeries
-        if self._enable_graph_surgeries_pass():
+        self.enable_graph_surgeries = self._enable_graph_surgeries_pass()
+        if self.enable_graph_surgeries:
             passes_config["graph_surgeries"] = self._get_graph_surgeries_pass_config()
 
-        # 14. OnnxBlockWiseRtnQuantization
-        if self._enable_onnx_blockwise_rtn_quantization_pass(is_hf_model):
+        self.enable_onnx_blockwise_rtn_quantization = self._enable_onnx_blockwise_rtn_quantization_pass()
+        if self.enable_onnx_blockwise_rtn_quantization:
             passes_config["onnx_blockwise_rtn_quantization"] = self._get_onnx_blockwise_rtn_quantization_pass_config()
 
-        # 15. OnnxFloatToFloat16
-        if self._enable_onnx_float_to_float16_pass():
+        self.enable_onnx_float_to_float16 = self._enable_onnx_float_to_float16_pass()
+        if self.enable_onnx_float_to_float16:
             passes_config["onnx_float_to_float16"] = self._get_onnx_float_to_float16_pass_config()
 
-        # 16. OnnxStaticQuantization
-        if self._enable_onnx_static_quantization_pass(passes_config):
+        self.enable_onnx_static_quantization = self._enable_onnx_static_quantization_pass()
+        if self.enable_onnx_static_quantization:
             passes_config["onnx_static_quantization"] = self._get_onnx_static_quantization_pass_config()
 
-        # 17. OrtTransformersOptimization
-        if self._enable_ort_transformers_optimization_pass():
+        self.enable_ort_transformers_optimization = self._enable_ort_transformers_optimization_pass()
+        if self.enable_ort_transformers_optimization:
             passes_config["ort_transformers_optimization"] = self._get_ort_transformers_optimization_pass_config()
 
-        # 18. SplitModel
-        if self._enable_split_model_pass(is_hf_model):
+        self.enable_split_model = self._enable_split_model_pass()
+        if self.enable_split_model:
             passes_config["split_model"] = self._get_split_model_pass_config()
 
-        # 19. StaticLLM
-        if self._enable_static_llm_pass():
+        self.enable_static_llm = self._enable_static_llm_pass()
+        if self.enable_static_llm:
             passes_config["static_llm"] = self._get_static_llm_pass_config()
 
-        # 20. VitisAIAddMetaData
-        if self._enable_vitis_ai_add_metadata_pass():
+        self.enable_vitis_ai_add_metadata = self._enable_vitis_ai_add_metadata_pass()
+        if self.enable_vitis_ai_add_metadata:
             passes_config["vitis_ai_add_metadata"] = self._get_vitis_ai_add_metadata_pass_config()
 
-        # 21. EPContextBinaryGenerator
-        if self._enable_ep_context_binary_generator_pass():
+        self.enable_ep_context_binary_generator = self._enable_ep_context_binary_generator_pass()
+        if self.enable_ep_context_binary_generator:
             passes_config["ep_context_binary_generator"] = self._get_ep_context_binary_generator_pass_config()
 
-        # 22. ComposeOnnxModels
-        if self._enable_compose_onnx_models_pass(is_hf_model):
+        self.enable_compose_onnx_models = self._enable_compose_onnx_models_pass()
+        if self.enable_compose_onnx_models:
             passes_config["compose_onnx_models"] = self._get_compose_onnx_models_pass_config()
 
-        # 23. OpenVINOEncapsulation
-        if self._enable_openvino_encapsulation_pass(is_hf_model):
+        self.enable_openvino_encapsulation = self._enable_openvino_encapsulation_pass()
+        if self.enable_openvino_encapsulation:
             passes_config["openvino_encapsulation"] = self._get_openvino_encapsulation_pass_config()
 
         return passes_config
@@ -325,13 +349,13 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Helper function to check if precision is quantized."""
         return precision in [Precision.INT4, Precision.INT8, Precision.UINT4, Precision.UINT8]
 
-    def _enable_quarot_pass(self, is_hf_model: bool) -> bool:
+    def _enable_quarot_pass(self) -> bool:
         """Return true if condition to add QuaRot pass is met."""
         provider = ExecutionProvider(self.args.provider)
         precision = Precision(self.args.precision)
         return (
             self._is_quantized_precision(precision)
-            and is_hf_model
+            and self.is_hf_model
             and provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]
         )
 
@@ -339,12 +363,12 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Return pass dictionary for QuaRot pass."""
         return {"type": "QuaRot"}
 
-    def _enable_gptq_pass(self, is_hf_model: bool) -> bool:
+    def _enable_gptq_pass(self) -> bool:
         """Return true if condition to add Gptq pass is met."""
         provider = ExecutionProvider(self.args.provider)
         precision = Precision(self.args.precision)
         return (
-            is_hf_model
+            self.is_hf_model
             and self._is_quantized_precision(precision)
             and provider != ExecutionProvider.OpenVINOExecutionProvider
         )
@@ -362,9 +386,9 @@ class OptimizeCommand(BaseOliveCLICommand):
                 gptq_config["group_size"] = self.args.block_size
         return gptq_config
 
-    def _enable_capture_split_info_pass(self, is_hf_model: bool) -> bool:
+    def _enable_capture_split_info_pass(self) -> bool:
         """Return true if condition to add CaptureSplitInfo pass is met."""
-        return is_hf_model and (self.args.num_split is not None or self.args.memory is not None)
+        return self.is_hf_model and (self.args.num_split is not None or self.args.memory is not None)
 
     def _get_capture_split_info_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for CaptureSplitInfo pass."""
@@ -376,11 +400,11 @@ class OptimizeCommand(BaseOliveCLICommand):
             config["memory"] = self.args.memory
         return config
 
-    def _enable_model_builder_pass(self, is_hf_model: bool) -> bool:
+    def _enable_model_builder_pass(self) -> bool:
         """Return true if condition to add ModelBuilder pass is met."""
         provider = ExecutionProvider(self.args.provider)
         return (
-            is_hf_model
+            self.is_hf_model
             and provider != ExecutionProvider.OpenVINOExecutionProvider
             and self.args.exporter == "model_builder"
         )
@@ -405,11 +429,11 @@ class OptimizeCommand(BaseOliveCLICommand):
             config["int4_op_types_to_quantize"] = ["MatMul", "Gather"]
         return config
 
-    def _enable_onnx_conversion_pass(self, is_hf_model: bool) -> bool:
+    def _enable_onnx_conversion_pass(self) -> bool:
         """Return true if condition to add OnnxConversion pass is met."""
         provider = ExecutionProvider(self.args.provider)
         return (
-            is_hf_model
+            self.is_hf_model
             and provider != ExecutionProvider.OpenVINOExecutionProvider
             and self.args.exporter in ["dynamo_exporter", "torchscript_exporter"]
         )
@@ -422,11 +446,11 @@ class OptimizeCommand(BaseOliveCLICommand):
             "torch_dtype": "float32",
         }
 
-    def _enable_optimum_conversion_pass(self, is_hf_model: bool) -> bool:
+    def _enable_optimum_conversion_pass(self) -> bool:
         """Return true if condition to add OptimumConversion pass is met."""
         provider = ExecutionProvider(self.args.provider)
         return (
-            is_hf_model
+            self.is_hf_model
             and provider != ExecutionProvider.OpenVINOExecutionProvider
             and self.args.exporter == "optimum_exporter"
         )
@@ -435,10 +459,10 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Return pass dictionary for OptimumConversion pass."""
         return {"type": "OptimumConversion"}
 
-    def _enable_optimum_openvino_conversion_pass(self, is_hf_model: bool) -> bool:
+    def _enable_optimum_openvino_conversion_pass(self) -> bool:
         """Return true if condition to add OptimumOpenvinoConversion pass is met."""
         provider = ExecutionProvider(self.args.provider)
-        return is_hf_model and provider == ExecutionProvider.OpenVINOExecutionProvider
+        return self.is_hf_model and provider == ExecutionProvider.OpenVINOExecutionProvider
 
     def _get_optimum_openvino_conversion_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OptimumOpenvinoConversion pass."""
@@ -470,10 +494,10 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Return pass dictionary for VitisAI preprocessing pass."""
         return {"type": "VitisAIQuantization"}
 
-    def _enable_openvino_io_update_pass(self, is_hf_model: bool) -> bool:
+    def _enable_openvino_io_update_pass(self) -> bool:
         """Return true if condition to add OpenVINOIoUpdate pass is met."""
         provider = ExecutionProvider(self.args.provider)
-        return provider == ExecutionProvider.OpenVINOExecutionProvider and is_hf_model
+        return provider == ExecutionProvider.OpenVINOExecutionProvider and self.is_hf_model
 
     def _get_openvino_io_update_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OpenVINOIoUpdate pass."""
@@ -487,9 +511,9 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Return pass dictionary for OnnxPeepholeOptimizer pass."""
         return {"type": "OnnxPeepholeOptimizer"}
 
-    def _enable_matmul_nbits_to_qdq_pass(self, is_hf_model: bool, passes_config: dict[str, Any]) -> bool:
+    def _enable_matmul_nbits_to_qdq_pass(self, passes_config: dict[str, Any]) -> bool:
         """Return true if condition to add MatMulNBitsToQDQ pass is met."""
-        return is_hf_model and "gptq" in passes_config and self.args.use_qdq_format
+        return self.is_hf_model and "gptq" in passes_config and self.args.use_qdq_format
 
     def _get_matmul_nbits_to_qdq_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for MatMulNBitsToQDQ pass."""
@@ -517,10 +541,10 @@ class OptimizeCommand(BaseOliveCLICommand):
             "save_as_external_data": "true",
         }
 
-    def _enable_onnx_blockwise_rtn_quantization_pass(self, is_hf_model: bool) -> bool:
+    def _enable_onnx_blockwise_rtn_quantization_pass(self) -> bool:
         """Return true if condition to add OnnxBlockWiseRtnQuantization pass is met."""
         precision = Precision(self.args.precision)
-        return not is_hf_model and precision == Precision.INT4
+        return not self.is_hf_model and precision == Precision.INT4
 
     def _get_onnx_blockwise_rtn_quantization_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OnnxBlockWiseRtnQuantization pass."""
@@ -545,7 +569,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Return pass dictionary for OnnxFloatToFloat16 pass."""
         return {"type": "OnnxFloatToFloat16"}
 
-    def _enable_onnx_static_quantization_pass(self, passes_config: dict[str, Any]) -> bool:
+    def _enable_onnx_static_quantization_pass(self) -> bool:
         """Return true if condition to add OnnxStaticQuantization pass is met."""
         precision = Precision(self.args.precision)
         act_precision_check = (
@@ -556,7 +580,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         )
         precision_check = (
             precision in [Precision.INT8, Precision.UINT8, Precision.INT16, Precision.UINT16]
-            and "Gptq" not in passes_config
+            and not self.is_hf_model
         )
         return precision_check or act_precision_check
 
@@ -595,9 +619,9 @@ class OptimizeCommand(BaseOliveCLICommand):
             "float16": precision == Precision.FP16,
         }
 
-    def _enable_split_model_pass(self, is_hf_model: bool) -> bool:
+    def _enable_split_model_pass(self) -> bool:
         """Return true if condition to add SplitModel pass is met."""
-        return is_hf_model and (self.args.num_split is not None or self.args.memory is not None)
+        return self.is_hf_model and (self.args.num_split is not None or self.args.memory is not None)
 
     def _get_split_model_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for SplitModel pass."""
@@ -640,11 +664,11 @@ class OptimizeCommand(BaseOliveCLICommand):
         }
         return config
 
-    def _enable_compose_onnx_models_pass(self, is_hf_model: bool) -> bool:
+    def _enable_compose_onnx_models_pass(self) -> bool:
         """Return true if condition to add ComposeOnnxModels pass is met."""
         provider = ExecutionProvider(self.args.provider)
         return (
-            is_hf_model
+            self.is_hf_model
             and (self.args.enable_aot)
             and (self.args.num_split is not None or self.args.memory is not None)
             and provider == ExecutionProvider.QNNExecutionProvider
@@ -654,10 +678,10 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Return pass dictionary for ComposeOnnxModels pass."""
         return {"type": "ComposeOnnxModels"}
 
-    def _enable_openvino_encapsulation_pass(self, is_hf_model: bool) -> bool:
+    def _enable_openvino_encapsulation_pass(self) -> bool:
         """Return true if condition to add OpenVINOEncapsulation pass is met."""
         provider = ExecutionProvider(self.args.provider)
-        return is_hf_model and provider == ExecutionProvider.OpenVINOExecutionProvider
+        return self.is_hf_model and provider == ExecutionProvider.OpenVINOExecutionProvider
 
     def _get_openvino_encapsulation_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OpenVINOEncapsulation pass."""
