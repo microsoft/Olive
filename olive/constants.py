@@ -87,6 +87,9 @@ class OpType(StrEnumBase):
     GatherBlockQuantized = "GatherBlockQuantized"
     MatMulNBits = "MatMulNBits"
     MatMul = "MatMul"
+    QuickGelu = "QuickGelu"
+    Sigmoid = "Sigmoid"
+    Mul = "Mul"
 
 
 class AccuracyLevel(IntEnumBase):
