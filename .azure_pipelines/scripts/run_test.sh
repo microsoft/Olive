@@ -47,6 +47,11 @@ else
     timeout 1100 python -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml -p no:warnings --disable-warnings "$5" &
     pytest_pid=$!
     wait $pytest_pid
-    echo "pytest exited with code $? at $(date)"
+    exit_code=$?
+    if [[ $exit_code -eq 124 ]]; then
+        echo "Pytest hit timeout — sending SIGUSR1 to dump stack"
+        pkill -SIGUSR1 -f python
+    fi
+    echo "pytest exited with code $exit_code at $(date)"
     ps aux  # log still-running processes
 fi
