@@ -224,6 +224,9 @@ class OptimizeCommand(BaseOliveCLICommand):
         if self.args.device is not None:
             print(f"Warning: --device {self.args.device} option is ignored, using {self.args.provider}.")
 
+        if self.args.enable_aot and self.args.provider != ExecutionProvider.QNNExecutionProvider:
+            raise ValueError("Ahead-of-Time (AOT) compilation is only supported with QNNExecutionProvider.")
+
     def _update_system_config(self, config: dict[str, Any]):
         """Update system configuration based on provider and device."""
         provider = ExecutionProvider(self.args.provider)
