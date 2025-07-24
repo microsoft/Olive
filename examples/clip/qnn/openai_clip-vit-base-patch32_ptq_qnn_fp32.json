@@ -156,7 +156,6 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 20 },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
         "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-base-patch32" }
     },
     "evaluator": "common_evaluator",
