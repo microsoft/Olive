@@ -189,6 +189,10 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _get_run_config(self, tempdir: str) -> dict[str, Any]:
         config = deepcopy(TEMPLATE)
 
+        # Handle arguments
+        if self.args.exporter is None and self.args.modality == "text":
+            self.args.exporter = "model_builder"
+
         # Set input model configuration
         config["input_model"] = get_input_model_config(self.args)
         self.is_hf_model = config["input_model"]["type"].lower() == "hfmodel"
