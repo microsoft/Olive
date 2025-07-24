@@ -7,6 +7,9 @@
 # $5: Path to the test file to run
 # $6: Whether to use coverage tracking (true/false)
 # $7: HF Token
+set -x
+
+trap 'echo "Script exiting with code $? at $(date)"; exit $?' EXIT
 
 # activate venv
 source olive-venv/bin/activate

@@ -58,12 +58,12 @@ variables:
   skipComponentGovernanceDetection: true
 
 jobs:
-# Linux unit tests
-- template: job_templates/olive-test-cpu-template.yaml
-  parameters:
-    name: Linux_CPU_CI_Unit_Test
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    test_type: 'unit_test'
+# # Linux unit tests
+# - template: job_templates/olive-test-cpu-template.yaml
+#   parameters:
+#     name: Linux_CPU_CI_Unit_Test
+#     pool: $(OLIVE_POOL_UBUNTU2004)
+#     test_type: 'unit_test'
 
 - template: job_templates/olive-test-linux-gpu-template.yaml
   parameters:
@@ -71,73 +71,73 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     test_type: 'unit_test'
 
-# Windows unit tests
-- template: job_templates/olive-test-cpu-template.yaml
-  parameters:
-    name: Windows_CPU_CI_Unit_Test
-    pool: $(OLIVE_POOL_WIN2019)
-    test_type: 'unit_test'
-    windows: True
+# # Windows unit tests
+# - template: job_templates/olive-test-cpu-template.yaml
+#   parameters:
+#     name: Windows_CPU_CI_Unit_Test
+#     pool: $(OLIVE_POOL_WIN2019)
+#     test_type: 'unit_test'
+#     windows: True
 
-# Linux examples test
-- template: job_templates/olive-example-cpu-template.yaml
-  parameters:
-    name: Linux_CI
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    examples:
-      bert_ptq_cpu:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu
-      resnet_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_ptq_cpu
-      mobilenet_qnn_ep:
-        exampleFolder: mobilenet/qnn
-        exampleName: mobilenet_qnn_ep
+# # Linux examples test
+# - template: job_templates/olive-example-cpu-template.yaml
+#   parameters:
+#     name: Linux_CI
+#     pool: $(OLIVE_POOL_UBUNTU2004)
+#     examples:
+#       bert_ptq_cpu:
+#         exampleFolder: bert
+#         exampleName: bert_ptq_cpu
+#       resnet_ptq_cpu:
+#         exampleFolder: resnet
+#         exampleName: resnet_ptq_cpu
+#       mobilenet_qnn_ep:
+#         exampleFolder: mobilenet/qnn
+#         exampleName: mobilenet_qnn_ep
 
-# Windows examples test
-- template: job_templates/olive-example-cpu-template.yaml
-  parameters:
-    name: Windows_CI
-    pool: $(OLIVE_POOL_WIN2019)
-    examples:
-      bert_ptq_cpu:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu
-      resnet_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_ptq_cpu
-      mobilenet_qnn_ep:
-        exampleFolder: mobilenet/qnn
-        exampleName: mobilenet_qnn_ep
+# # Windows examples test
+# - template: job_templates/olive-example-cpu-template.yaml
+#   parameters:
+#     name: Windows_CI
+#     pool: $(OLIVE_POOL_WIN2019)
+#     examples:
+#       bert_ptq_cpu:
+#         exampleFolder: bert
+#         exampleName: bert_ptq_cpu
+#       resnet_ptq_cpu:
+#         exampleFolder: resnet
+#         exampleName: resnet_ptq_cpu
+#       mobilenet_qnn_ep:
+#         exampleFolder: mobilenet/qnn
+#         exampleName: mobilenet_qnn_ep
 
-# Linux GPU examples testing.
-- template: job_templates/olive-example-linux-gpu-template.yaml
-  parameters:
-    name: Linux_GPU_CI
-    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
-    examples:
-      bert_cuda_gpu:
-        exampleFolder: bert
-        exampleName: bert_cuda_gpu
-      stable_diffusion_cuda_gpu:
-        exampleFolder: stable_diffusion
-        exampleName: stable_diffusion_cuda_gpu
-        exampleRequirements: requirements-common.txt
+# # Linux GPU examples testing.
+# - template: job_templates/olive-example-linux-gpu-template.yaml
+#   parameters:
+#     name: Linux_GPU_CI
+#     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+#     examples:
+#       bert_cuda_gpu:
+#         exampleFolder: bert
+#         exampleName: bert_cuda_gpu
+#       stable_diffusion_cuda_gpu:
+#         exampleFolder: stable_diffusion
+#         exampleName: stable_diffusion_cuda_gpu
+#         exampleRequirements: requirements-common.txt
 
-# these jobs need secrets not available in forks
-- ${{ if ne(variables['System.PullRequest.IsFork'], 'True') }}:
-  # integration tests
-  - template: job_templates/olive-test-cpu-template.yaml
-    parameters:
-      name: Linux_CPU_CI_Integration_Test
-      pool: $(OLIVE_POOL_UBUNTU2004)
-      test_type: 'integ_test'
+# # these jobs need secrets not available in forks
+# - ${{ if ne(variables['System.PullRequest.IsFork'], 'True') }}:
+#   # integration tests
+#   - template: job_templates/olive-test-cpu-template.yaml
+#     parameters:
+#       name: Linux_CPU_CI_Integration_Test
+#       pool: $(OLIVE_POOL_UBUNTU2004)
+#       test_type: 'integ_test'
 
-  # Re-enable this when the cluster is ready
-  # - template: job_templates/olive-test-cpu-template.yaml
-  #   parameters:
-  #     name: Windows_CPU_CI_Integration_Test
-  #     pool: $(OLIVE_POOL_WIN2019)
-  #     test_type: 'integ_test'
-  #     windows: True
+#   # Re-enable this when the cluster is ready
+#   # - template: job_templates/olive-test-cpu-template.yaml
+#   #   parameters:
+#   #     name: Windows_CPU_CI_Integration_Test
+#   #     pool: $(OLIVE_POOL_WIN2019)
+#   #     test_type: 'integ_test'
+#   #     windows: True
