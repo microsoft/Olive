@@ -39,9 +39,9 @@ huggingface-cli login --token "$7"
 # Step 4: Run tests with or without coverage tracking
 if [ "$6" = "true" ]; then
     echo "Running tests with coverage tracking..."
-    coverage run -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml --log-cli-level=WARNING "$5"
+    coverage run -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml -p no:warnings --disable-warnings "$5"
     coverage xml -o /logs/coverage.xml
 else
     echo "Running tests without coverage tracking..."
-    python -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml --log-cli-level=WARNING "$5"
+    python -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml -p no:warnings --disable-warnings "$5"
 fi
