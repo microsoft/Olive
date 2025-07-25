@@ -1,0 +1,16 @@
+datasets
+evaluate
+git+https://github.com/felipemaiapolo/tinyBenchmarks
+immutabledict
+langdetect
+lm-eval>=0.4.8
+nltk>= 3.9.1
+numpy==1.26.4
+onnx
+onnxruntime
+onnxruntime_extensions
+onnxruntime_genai
+optimum
+py7zr
+rouge_score
+transformers
