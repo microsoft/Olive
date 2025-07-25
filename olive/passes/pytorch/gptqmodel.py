@@ -4,29 +4,22 @@
 # --------------------------------------------------------------------------
 import json
 import logging
-from argparse import Namespace
-from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Optional, Union
 
 import torch
-from packaging import version
-from transformers import PreTrainedModel
 
 from olive.common.config_utils import validate_config
-from olive.common.hf.wrapper import ModelWrapper
-from olive.common.utils import get_attr
 from olive.common.hf.utils import get_tokenizer
 from olive.constants import PrecisionBits
 from olive.data.config import DataConfig
 from olive.data.template import huggingface_data_config_template
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
-from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_pytorch
+from olive.passes.pytorch.common import inherit_hf_from_hf
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +70,11 @@ class GptqModel(Pass):
                 default_value=True,
                 description="Symmetric quantization. Default value is True.",
             ),
+            "mse": PassConfigParam(
+                type_=float,
+                default_value=0.0,
+                description="mean square error calculation. Default value is 0.0.",
+            ),
             "lm_head": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -84,7 +82,7 @@ class GptqModel(Pass):
             ),
             "device": PassConfigParam(
                 type_=str,
-                default_value='cpu',
+                default_value="cpu",
                 description="Whether to run quantization on cpu or gpu. Accepted values are 'cpu' and 'cuda'.",
             ),
             "dynamic": PassConfigParam(
@@ -111,9 +109,8 @@ class GptqModel(Pass):
     def _run_for_config(
         self, model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
-        from gptqmodel import QuantizeConfig, __version__
-        from gptqmodel.models.auto import BaseGPTQModel
-        from gptqmodel.models.auto import MODEL_MAP
+        from gptqmodel import QuantizeConfig
+        from gptqmodel.models.auto import MODEL_MAP, BaseGPTQModel
 
         dataset = self.get_dataset(model, config)
 
@@ -134,15 +131,11 @@ class GptqModel(Pass):
         pytorch_model = model.load_model(cache_model=False)
         model_type = pytorch_model.config.model_type if hasattr(pytorch_model, "config") else ""
 
-        # create model adapter if needed
-        model_wrapper = None
-        if isinstance(pytorch_model, PreTrainedModel) and model_type not in MODEL_MAP:
-            model_wrapper = ModelWrapper.from_model(pytorch_model)
-
         quantize_config = QuantizeConfig(
             bits=config.bits.value,
             group_size=config.group_size,
             sym=config.sym,
+            mse=config.mse,
             lm_head=config.lm_head,
             dynamic=config.dynamic,
             device=config.device,
@@ -155,10 +148,12 @@ class GptqModel(Pass):
         )
 
         model_class = MODEL_MAP.get(model_type, BaseGPTQModel)
-        quantized_model: BaseGPTQModel = model_class(pytorch_model, False, quantize_config, trust_remote_code= True, model_local_path= model.model_path)
+        quantized_model: BaseGPTQModel = model_class(
+            pytorch_model, False, quantize_config, trust_remote_code=True, model_local_path=model.model_path
+        )
 
         # quantize the model
-        quantized_model.quantize(dataset, tokenizer = get_tokenizer(model.model_path))
+        quantized_model.quantize(dataset, tokenizer=get_tokenizer(model.model_path))
 
         # save quantized model and metadata
         quantized_model.save_quantized(output_model_path)
