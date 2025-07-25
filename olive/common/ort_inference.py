@@ -29,12 +29,7 @@ class OrtSessionFallbackError(Exception):
 
 
 def ort_supports_ep_devices() -> bool:
-    from onnxruntime import __version__ as OrtVersion
-
-    # NOTE: v1.22.0 native implementation has the necessary support for Auto-EP
-    # devices but the python bindings don't exist yet in the same version.
-    # using .release so the 1.23 nightlies are also included
-    return version.parse(OrtVersion).release >= version.parse("1.23.0").release
+    return True
 
 
 def get_ort_hardware_device_type(device: Union["Device", str]):
