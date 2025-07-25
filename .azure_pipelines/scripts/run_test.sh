@@ -31,7 +31,7 @@ pip install -r "$4"
 
 # Set HF Token
 pip install huggingface-hub
-huggingface-cli login --token "$7"
+hf auth login --token "$7"
 
 # Step 4: Run tests with or without coverage tracking
 XML_PATH="/logs/TestOlive.xml"
