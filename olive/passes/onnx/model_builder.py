@@ -223,6 +223,22 @@ class ModelBuilder(Pass):
         if config.int4_is_symmetric is not None:
             extra_args["int4_is_symmetric"] = config.int4_is_symmetric
 
+        # Use 8-bit quantization for MoE layers
+        if config.use_8bits_moe is not None:
+            extra_args["use_8bits_moe"] = config.use_8bits_moe
+
+        # Use FP32 for WebGPU execution provider  
+        if config.use_webgpu_fp32 is not None:
+            extra_args["use_webgpu_fp32"] = config.use_webgpu_fp32
+
+        # Include hidden states as output
+        if config.include_hidden_states  is not None:
+            extra_args["include_hidden_states "] = config.include_hidden_states
+
+        # Nodes to exclude from INT4 quantization 
+        if config.int4_nodes_to_exclude is not None:
+            extra_args["int4_nodes_to_exclude"] = config.int4_nodes_to_exclude
+
         # args that are only checked for presence, not value
         for arg in ["exclude_embeds", "exclude_lm_head"]:
             if getattr(config, arg):
