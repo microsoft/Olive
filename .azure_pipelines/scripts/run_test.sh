@@ -43,17 +43,4 @@ else
     echo "Starting pytest at $(date)"
     echo "Running tests without coverage tracking..."
     timeout 100 python -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING "$5"
-    exit_code=$?
-
-    if [[ $exit_code -eq 124 && ! -f "$XML_PATH" ]]; then
-        echo "Timed out and no test result XML. Failure."
-        exit 1
-    fi
-
-    if [[ $exit_code -eq 124 && -f "$XML_PATH" ]]; then
-        echo "Timed out but test results XML found. Success."
-        exit 0
-    fi
-
-    exit $exit_code
 fi

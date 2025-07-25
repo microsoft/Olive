@@ -76,6 +76,7 @@ jobs:
       testResultsFiles: '**/*TestOlive*.xml'
       testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
       failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true
     displayName: Upload pipeline run test results
 
   # Code coverage requires
