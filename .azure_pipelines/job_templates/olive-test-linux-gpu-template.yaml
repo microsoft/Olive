@@ -50,7 +50,7 @@ jobs:
       ${{ parameters.onnxruntime_nightly }} \
       test/${{ parameters.requirements_file }} \
       test/${{ parameters.test_type }} \
-      true \
+      false \
       $(hf_token)
     displayName: Run Tests in Docker
 
