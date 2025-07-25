@@ -92,6 +92,26 @@ class ModelBuilder(Pass):
                 required=False,
                 description="Specify whether symmetric or asymmetric INT4 quantization needs to be used.",
             ),
+            "use_8bits_moe": PassConfigParam(
+                type_=bool,
+                required=False,
+                description="Specify whether the QMoE op will use 8-bit quantization.",
+            ),
+            "use_webgpu_fp32": PassConfigParam(
+                type_=bool,
+                required=False,
+                description="Specify whether to use this option to enable GPUs that do not support FP16 on WebGPU.",
+            ),
+            "include_hidden_states": PassConfigParam(
+                type_=bool,
+                required=False,
+                description="Specify whether to have the hidden states as an output from your ONNX model.",
+            ),
+            "int4_nodes_to_exclude": PassConfigParam(
+                type_=list[str],
+                required=False,
+                description="Specify when you want to exclude certain nodes from int4 quantization.",
+            ),
             "int4_op_types_to_quantize": PassConfigParam(
                 type_=list[str],
                 required=False,
