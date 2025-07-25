@@ -227,15 +227,15 @@ class ModelBuilder(Pass):
         if config.use_8bits_moe is not None:
             extra_args["use_8bits_moe"] = config.use_8bits_moe
 
-        # Use FP32 for WebGPU execution provider  
+        # Use FP32 for WebGPU execution provider
         if config.use_webgpu_fp32 is not None:
             extra_args["use_webgpu_fp32"] = config.use_webgpu_fp32
 
         # Include hidden states as output
-        if config.include_hidden_states  is not None:
+        if config.include_hidden_states is not None:
             extra_args["include_hidden_states "] = config.include_hidden_states
 
-        # Nodes to exclude from INT4 quantization 
+        # Nodes to exclude from INT4 quantization
         if config.int4_nodes_to_exclude is not None:
             extra_args["int4_nodes_to_exclude"] = config.int4_nodes_to_exclude
 
