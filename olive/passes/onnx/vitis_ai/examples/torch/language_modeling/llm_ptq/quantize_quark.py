@@ -10,6 +10,7 @@ import os
 import sys
 import warnings
 from pathlib import Path
+import platform
 
 import torch
 from quark.torch import ModelExporter, ModelImporter, ModelQuantizer, load_params, save_params
@@ -46,7 +47,7 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
     # TODO:
     # The current method results in high CPU memory consumption due to multiple copies of the same model.
     # We plan to address this in the future by implementing a more efficient way to dispatch the model to devices.
-    if args.use_tp:
+    if args.use_tp or platform.system() == 'Windows':
         device = "cpu"
     else:
         device = args.device

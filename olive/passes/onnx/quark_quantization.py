@@ -6,6 +6,7 @@
 # ruff: noqa: T201
 from argparse import Namespace
 from pathlib import Path
+import platform
 
 from olive.model import HfModelHandler
 from olive.passes import Pass
@@ -47,6 +48,7 @@ class QuarkQuantizationPass(Pass):
 
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
+        device="cuda" if platform.system().lower() == "linux" else "cpu"
 
         args = Namespace(
             model_dir=str(model.model_path),
@@ -58,8 +60,8 @@ class QuarkQuantizationPass(Pass):
             num_calib_data=config.num_calib_data,
             model_export=config.model_export,
             exclude_layers=config.exclude_layers,
+            device=device,
             # Other args
-            device="cuda",
             multi_gpu=False,
             model_attn_implementation="eager",
             multi_device=False,
