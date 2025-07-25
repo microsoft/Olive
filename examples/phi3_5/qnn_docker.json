@@ -1,5 +1,4 @@
 {
-    "workflow_host": "docker_system",
     "input_model": { "type": "HfModel", "model_path": "microsoft/Phi-3.5-mini-instruct" },
     "systems": {
         "qnn_system": {
@@ -9,31 +8,46 @@
         },
         "docker_system": {
             "type": "Docker",
-            "local_docker_config": {
-                "image_name": "olive",
-                "build_context_path": "docker",
-                "dockerfile": "Dockerfile",
-                "run_params": { "mem_limit": "200g", "shm_size": "32g" }
-            },
+            "image_name": "olive",
+            "build_context_path": "docker",
+            "dockerfile": "Dockerfile",
+            "run_params": { "mem_limit": "200g", "shm_size": "32g" },
             "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
         }
     },
     "data_configs": [
         {
-            "name": "wikitext2_train",
+            "name": "wikitext2_train_joined",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": { "data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train" },
+            "pre_process_data_config": {
+                "strategy": "join",
+                "add_special_tokens": false,
+                "max_seq_len": 4096,
+                "max_samples": 128
+            }
+        },
+        {
+            "name": "wikitext2_train_act",
             "type": "HuggingfaceContainer",
             "load_dataset_config": { "data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train" },
             "pre_process_data_config": {
                 "strategy": "line-by-line",
-                "add_special_tokens": false,
-                "max_samples": 32,
-                "max_seq_len": 256
+                "add_special_tokens": true,
+                "max_samples": 256,
+                "max_seq_len": 4096
             }
         }
     ],
     "passes": {
         "q": { "type": "QuaRot" },
-        "g": { "type": "GptqQuantizer", "sym": true, "group_size": -1 },
+        "g": {
+            "type": "GptqQuantizer",
+            "sym": true,
+            "group_size": -1,
+            "desc_act": true,
+            "data_config": "wikitext2_train_joined"
+        },
         "cs": { "type": "CaptureSplitInfo", "num_splits": 4, "unique_embeds_lm_head_splits": true },
         "mb": {
             "type": "ModelBuilder",
@@ -60,7 +74,7 @@
         },
         "sq": {
             "type": "OnnxStaticQuantization",
-            "data_config": "wikitext2_train",
+            "data_config": "wikitext2_train_act",
             "activation_type": "uint16",
             "precision": "uint8",
             "calibration_providers": [ "CUDAExecutionProvider" ],

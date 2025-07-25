@@ -124,7 +124,8 @@
             "precision": "uint8",
             "calibrate_method": "MinMax",
             "quant_preprocess": true
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "vit-base-patch16-224" }
     },
     "host": "qnn_system",
     "target": "qnn_system",

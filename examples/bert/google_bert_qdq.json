@@ -73,7 +73,8 @@
             "quant_preprocess": true,
             "activation_type": "uint16",
             "precision": "uint8"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-multilingual-cased" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache",
