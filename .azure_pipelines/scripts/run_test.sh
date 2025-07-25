@@ -7,9 +7,6 @@
 # $5: Path to the test file to run
 # $6: Whether to use coverage tracking (true/false)
 # $7: HF Token
-set -x
-
-trap 'echo "Script exiting with code $? at $(date)"; exit $?' EXIT
 
 # activate venv
 source olive-venv/bin/activate
@@ -37,21 +34,26 @@ pip install huggingface-hub
 huggingface-cli login --token "$7"
 
 # Step 4: Run tests with or without coverage tracking
+XML_PATH="/logs/TestOlive.xml"
 if [ "$6" = "true" ]; then
     echo "Running tests with coverage tracking..."
-    coverage run -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml -p no:warnings --disable-warnings "$5"
+    coverage run -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING "$5"
     coverage xml -o /logs/coverage.xml
 else
     echo "Starting pytest at $(date)"
     echo "Running tests without coverage tracking..."
-    timeout 100 python -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml -p no:warnings --disable-warnings "$5" &
-    pytest_pid=$!
-    wait $pytest_pid
+    timeout 100 python -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING "$5"
     exit_code=$?
-    # if [[ $exit_code -eq 124 ]]; then
-    #     echo "Pytest hit timeout — sending SIGUSR1 to dump stack"
-    #     pkill -SIGUSR1 -f python
-    # fi
-    echo "pytest exited with code $exit_code at $(date)"
-    ps aux  # log still-running processes
+
+    if [[ $exit_code -eq 124 && ! -f "$XML_PATH" ]]; then
+        echo "Timed out and no test result XML. Failure."
+        exit 1
+    fi
+
+    if [[ $exit_code -eq 124 && -f "$XML_PATH" ]]; then
+        echo "Timed out but test results XML found. Success."
+        exit 0
+    fi
+
+    exit $exit_code
 fi
