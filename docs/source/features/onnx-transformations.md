@@ -745,6 +745,87 @@ graph {
 }
 ```
 
+### `QuickGeluToSigmoid`
+
+#### Description
+
+Replaces QuickGelu operators with equivalent standard ONNX operators. This surgery converts a single QuickGelu node into a subgraph composed of Mul, Sigmoid, and Mul operations.
+
+The QuickGelu function is mathematically defined as: `QuickGelu(x) = x * sigmoid(alpha * x)`, where alpha defaults to 1.702.
+
+Reference: https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/core/graph/contrib_ops/contrib_defs.cc
+
+#### Example
+
+Initial model graph:
+
+```proto
+graph {
+  input: "input"
+  node {
+    op_type: "QuickGelu"
+    input: ["input"]
+    output: ["quickgelu_output"]
+    name: "QuickGeluNode"
+  }
+  output: "quickgelu_output"
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "QuickGeluToSigmoid"
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```proto
+graph {
+  input: "input"
+  initializer: "QuickGeluNode_alpha" (FLOAT, value: 1.702)
+  node {
+    op_type: "Mul"
+    input: ["input", "QuickGeluNode_alpha"]
+    output: ["QuickGeluNode_mul1_output"]
+    name: "QuickGeluNode_mul1"
+  }
+  node {
+    op_type: "Sigmoid"
+    input: ["QuickGeluNode_mul1_output"]
+    output: ["QuickGeluNode_sigmoid_output"]
+    name: "QuickGeluNode_sigmoid"
+  }
+  node {
+    op_type: "Mul"
+    input: ["input", "QuickGeluNode_sigmoid_output"]
+    output: ["QuickGeluNode_mul2_output"]
+    name: "QuickGeluNode_mul2"
+  }
+  output: "QuickGeluNode_mul2_output"
+}
+```
+
+Pattern transformation:
+
+```
+Original pattern:
+[Input] --> QuickGelu --> [Output]
+
+Replaced pattern:
+[Input] --> Mul --> Sigmoid --> Mul --> [Output]
+             |                    ^
+             |                    |
+             +--------------------+
+             (alpha=1.702)
+```
 
 ### `RMSNormToL2Norm`
 
@@ -1000,6 +1081,810 @@ graph {
   }
 }
 ```
+
+### `RemoveQDQ`
+
+#### Description
+
+Remove QuantizeLinear and DequantizeLinear node pairs from the graph. Finds Q->DQ patterns and removes them, directly connecting their inputs/outputs. Optionally keeps Clip nodes after graph inputs for value range constraints.
+
+#### Configurations
+
+- `keep_clip_after_inputs`: Whether to keep Clip nodes after graph inputs (default: false).
+
+#### Example
+
+Initial model graph:
+
+```
+graph {
+  input: "input1"
+  node {
+    op_type: "QuantizeLinear"
+    input: ["input1", "scale", "zero_point"]
+    output: ["quantized"]
+  }
+  node {
+    op_type: "DequantizeLinear"
+    input: ["quantized", "scale", "zero_point"]
+    output: ["dequantized"]
+  }
+  node {
+    op_type: "Conv"
+    input: ["dequantized", "weight"]
+    output: ["output"]
+  }
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RemoveQDQ",
+            "keep_clip_after_inputs": false
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```
+graph {
+  input: "input1"
+  node {
+    op_type: "Conv"
+    input: ["input1", "weight"]
+    output: ["output"]
+  }
+}
+```
+
+### `QDQToClip`
+
+#### Description
+
+Replace QuantizeLinear-DequantizeLinear pairs with Clip operations. Converts Q->DQ patterns to Clip nodes with computed min/max values based on quantization scale and zero point, maintaining the same value constraints.
+
+#### Example
+
+Initial model graph:
+
+```
+graph {
+  node {
+    op_type: "QuantizeLinear"
+    input: ["input", "scale", "zero_point"]
+    output: ["quantized"]
+  }
+  node {
+    op_type: "DequantizeLinear"
+    input: ["quantized", "scale", "zero_point"]
+    output: ["output"]
+  }
+  initializer: "scale" (value: 0.1)
+  initializer: "zero_point" (value: 128)
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "QDQToClip"
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```
+graph {
+  node {
+    op_type: "Clip"
+    input: ["input", "clip_min", "clip_max"]
+    output: ["output"]
+  }
+  initializer: "clip_min" (value: -12.8)
+  initializer: "clip_max" (value: 12.7)
+}
+```
+
+### `MatMulToTransposeConvTranspose`
+
+#### Description
+
+Replace 2D Gemm/MatMul with Transpose and 1x1 Conv. When C==1, convert it to 1x1 Conv using TRANSPOSE + CONV + TRANSPOSE sequence for better DLA compatibility.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "MatMulToTransposeConvTranspose"
+        }
+    ]
+}
+```
+
+### `RemoveIntermediarySqueezeAndUnsqueeze`
+
+#### Description
+
+Remove all Unsqueeze and Squeeze operations that aren't directly connected to model inputs. This optimization removes unnecessary dimension expansion operations in the middle of the graph.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RemoveIntermediarySqueezeAndUnsqueeze"
+        }
+    ]
+}
+```
+
+### `RemoveDeqLin`
+
+#### Description
+
+Remove DequantizeLinear nodes that operate on constant initializers. Dequantizes constant initializers at compile time and replaces DequantizeLinear nodes with the pre-computed float values, reducing runtime operations.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RemoveDeqLin"
+        }
+    ]
+}
+```
+
+### `Non4DModelInputs`
+
+#### Description
+
+Add Unsqueeze node to model inputs if input is 2D or 3D. Ensures all model inputs are 4D by adding Unsqueeze operations:
+- 2D inputs: adds dimensions at positions [0, -1]
+- 3D inputs: adds dimension at position [1]
+
+Updates existing Unsqueeze nodes if present to maintain 4D output.
+
+#### Example
+
+Initial model graph:
+
+```
+graph {
+  input: "input1" shape: [32, 64]  # 2D input
+  input: "input2" shape: [8, 16, 32]  # 3D input
+  node {
+    op_type: "Conv"
+    input: ["input1", "weight1"]
+    output: ["conv1_out"]
+  }
+  node {
+    op_type: "Add"
+    input: ["input2", "bias"]
+    output: ["add_out"]
+  }
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "Non4DModelInputs"
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```
+graph {
+  input: "input1" shape: [32, 64]  # 2D input
+  input: "input2" shape: [8, 16, 32]  # 3D input
+  node {
+    op_type: "Unsqueeze"
+    input: ["input1", "input1_unsqueeze_axes"]
+    output: ["input1_unsqueeze_input"]
+  }
+  node {
+    op_type: "Unsqueeze"
+    input: ["input2", "input2_unsqueeze_axes"]
+    output: ["input2_unsqueeze_input"]
+  }
+  node {
+    op_type: "Conv"
+    input: ["input1_unsqueeze_input", "weight1"]
+    output: ["conv1_out"]
+  }
+  node {
+    op_type: "Add"
+    input: ["input2_unsqueeze_input", "bias"]
+    output: ["add_out"]
+  }
+  initializer: "input1_unsqueeze_axes" (value: [0, -1])
+  initializer: "input2_unsqueeze_axes" (value: [1])
+}
+```
+
+### `Non4DModelOutputs`
+
+#### Description
+
+Add Squeeze to non 4D model outputs. Ensures model outputs match expected dimensions by adding Squeeze operations:
+- For 2D outputs: squeeze dimensions [0, 3] or [0, 1]
+- For 3D outputs: squeeze dimension [2]
+
+Handles special case of Squeeze->Clip->Output pattern.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "Non4DModelOutputs"
+        }
+    ]
+}
+```
+
+### `StandaloneReduceSum`
+
+#### Description
+
+Modifies standalone ReduceSum operations (not already transformed) to:
+- Set keepdims=1 to preserve dimensions
+- Change reduction axis from [1] to [2] for DLA compatibility
+- Skip if axes is already [-1] (reduce last dimension)
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "StandaloneReduceSum"
+        }
+    ]
+}
+```
+
+### `Gather`
+
+#### Description
+
+Transforms Gather operations for DLA compatibility:
+- Converts scalar indices to 1D vector format
+- Updates axis attribute from 1 to 2 when needed
+- Ensures indices are always in array format
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "Gather"
+        }
+    ]
+}
+```
+
+### `GatherElements`
+
+#### Description
+
+Transforms GatherElements operations for DLA compatibility:
+- Converts scalar indices to 1D vector format
+- Reshapes 3D indices to 4D by adding dimension at front
+- Ensures indices match expected tensor format
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "GatherElements"
+        }
+    ]
+}
+```
+
+### `Non4DInitializers`
+
+#### Description
+
+Expand non-4D initializers to 4D format for DLA compatibility:
+- 1D [K] → [1×1×1×K] for Div/Sub/Mul operations
+- 2D [C×K] → [K×C×1×1] (transpose and reshape) for most operations
+- 2D [K,C] → [1,1,K,C] for Gemm operations
+- 3D → 4D by adding dimension at front
+
+Skips MatMul inputs and only expands initializers used by specific operations.
+
+#### Example
+
+Initial model graph:
+
+```
+graph {
+  node {
+    op_type: "Mul"
+    input: ["input", "scale"]
+    output: ["scaled"]
+  }
+  node {
+    op_type: "Conv"
+    input: ["scaled", "weight"]
+    output: ["output"]
+  }
+  initializer: "scale" shape: [64]  # 1D
+  initializer: "weight" shape: [128, 64]  # 2D
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "Non4DInitializers"
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```
+graph {
+  node {
+    op_type: "Mul"
+    input: ["input", "scale"]
+    output: ["scaled"]
+  }
+  node {
+    op_type: "Conv"
+    input: ["scaled", "weight"]
+    output: ["output"]
+  }
+  initializer: "scale" shape: [1, 1, 1, 64]  # 1D -> 4D
+  initializer: "weight" shape: [64, 128, 1, 1]  # 2D -> 4D (transposed)
+}
+```
+
+### `RemoveAllTensorValueShapes`
+
+#### Description
+
+Remove all tensor shape information from value_info. Clears shape fields from all value_info entries in the graph, useful for models where shape inference is not needed or causes issues.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RemoveAllTensorValueShapes"
+        }
+    ]
+}
+```
+
+### `Non4DReshape`
+
+#### Description
+
+Convert 3D Reshape operations to 4D for DLA compatibility. Updates Reshape nodes with 3D target shapes to 4D by inserting 1 at the appropriate position (e.g., [-1, 512, 768] -> [1, -1, 512, 768]).
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "Non4DReshape"
+        }
+    ]
+}
+```
+
+### `Non4DExpand`
+
+#### Description
+
+Convert 3D Expand operations to 4D for DLA compatibility. Updates Expand nodes with 3D shapes to 4D by inserting 1 at dimension 0 (e.g., [2, 3, 4] -> [1, 2, 3, 4]).
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "Non4DExpand"
+        }
+    ]
+}
+```
+
+### `Non4DTranspose`
+
+#### Description
+
+Update Transpose permutation attributes for non-4D tensors. Adjusts perm attribute of Transpose nodes to handle 4D tensors:
+- 2D: [T0, T1] -> [0, 1, T0 + 2, T1 + 2]
+- 3D: [T0, T1, T2] -> [0, T0 + 1, T1 + 1, T2 + 1]
+
+Ensures transpose operations work correctly when tensors are expanded to 4D.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "Non4DTranspose"
+        }
+    ]
+}
+```
+
+### `Non4DSlice`
+
+#### Description
+
+Transform Slice axes of non4D tensors. Updates Slice operations to work with 4D tensors:
+- Changes axes from specific dimensions to [-1] (last dimension)
+- Only processes nodes not already transformed
+- Ensures slicing operations remain valid after tensor expansion
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "Non4DSlice"
+        }
+    ]
+}
+```
+
+### `Non4DLpNorm`
+
+#### Description
+
+Transform LpNormalization axes of non4D tensors. Updates LpNormalization operations for 4D tensor compatibility:
+- Changes axis attribute to -1 (last dimension)
+- Ensures normalization occurs along the correct dimension after tensor expansion to 4D
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "Non4DLpNorm"
+        }
+    ]
+}
+```
+
+### `Flatten`
+
+#### Description
+
+Replace Flatten operations with Reshape operations using shape [1, 1, 1, -1]. This maintains compatibility with DLA which may not support Flatten directly, while preserving the flattening behavior.
+
+#### Example
+
+Initial model graph:
+
+```
+graph {
+  node {
+    op_type: "Flatten"
+    input: ["input"]
+    output: ["flattened"]
+    axis: 1
+  }
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "Flatten"
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```
+graph {
+  node {
+    op_type: "Reshape"
+    input: ["input", "reshape_axes"]
+    output: ["flattened"]
+    name: "flatten_reshape"
+  }
+  initializer: "reshape_axes" (value: [1, 1, 1, -1])
+}
+```
+
+### `AddIntermediateTensorsToOutputs`
+
+#### Description
+
+Debug function to add intermediate tensors to outputs. Exposes intermediate tensor values as model outputs for debugging:
+- Can specify specific tensors to add via intermediate_tensor_to_add list
+- If not specified, adds all intermediate tensors from node outputs
+- Useful for inspecting values at different stages of the graph
+
+#### Configurations
+
+- `intermediate_tensor_to_add`: List of intermediate tensor names to expose as outputs.
+
+#### Example
+
+Initial model graph:
+
+```
+graph {
+  input: "input"
+  node {
+    op_type: "Conv"
+    input: ["input", "weight"]
+    output: ["conv1_output"]
+  }
+  node {
+    op_type: "Relu"
+    input: ["conv1_output"]
+    output: ["relu1_output"]
+  }
+  node {
+    op_type: "Conv"
+    input: ["relu1_output", "weight2"]
+    output: ["final_output"]
+  }
+  output: "final_output"
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "AddIntermediateTensorsToOutputs",
+            "intermediate_tensor_to_add": ["conv1_output", "relu1_output"]
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```
+graph {
+  input: "input"
+  node {
+    op_type: "Conv"
+    input: ["input", "weight"]
+    output: ["conv1_output"]
+  }
+  node {
+    op_type: "Relu"
+    input: ["conv1_output"]
+    output: ["relu1_output"]
+  }
+  node {
+    op_type: "Conv"
+    input: ["relu1_output", "weight2"]
+    output: ["final_output"]
+  }
+  output: "final_output"
+  output: "conv1_output"    # Added for debugging
+  output: "relu1_output"     # Added for debugging
+}
+```
+
+### `ReshapeReduceSum`
+
+#### Description
+
+Transform Reshape-ReduceSum pattern to parallel Slice-ReduceSum-Concat for DLA. Splits a Reshape-ReduceSum operation into parallel paths to improve DLA performance:
+- Replaces single Reshape-ReduceSum with two parallel Slice operations
+- Each slice processes part of the data with ReduceSum
+- Results are concatenated to produce the same output
+- Enables better parallelization on DLA hardware
+
+#### Example
+
+Initial pattern:
+```
+    x, shape
+        |
+    Reshape axes
+        |   /
+    ReduceSum
+        |
+    reducesum_output
+```
+
+after applying:
+
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "ReshapeReduceSum"
+        }
+    ]
+}
+```
+
+Transformed pattern:
+```
+        x
+    /        \
+    Slice      Slice
+    |           |
+    ReduceSum   ReduceSum
+        \       /
+        Concat
+        |
+    reducesum_output
+```
+
+
+### `ReshapeClipReduceSum`
+
+#### Description
+
+Transform Reshape-Clip-ReduceSum pattern to parallel paths for DLA optimization. Similar to ReshapeReduceSum but includes Clip operation:
+- Splits Reshape-Clip-ReduceSum into two parallel processing paths
+- Each path: Slice -> Clip -> ReduceSum
+- Maintains numerical equivalence while improving DLA parallelization
+- Useful for quantized models where Clip enforces value ranges
+
+#### Example
+
+Initial pattern:
+```
+        (x)
+        |
+    Reshape
+        |
+    Clip
+        |
+    ReduceSum
+        |
+    (reducesum_output)
+```
+
+after applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "ReshapeClipReduceSum"
+        }
+    ]
+}
+```
+
+Transformed pattern:
+```
+        (x)
+    /        \
+    Slice      Slice
+    |           |
+    Clip        Clip
+    |           |
+    ReduceSum   ReduceSum
+        \\       /
+        Concat
+        |
+    (reducesum_output)
+```
+
+
+### `ReduceMax`
+
+#### Description
+
+Add Reshape after ReduceMax operations for DLA compatibility. Modifies ReduceMax operations to ensure output shape compatibility:
+- Adds a Reshape node after ReduceMax with shape [1,1,1,3600]
+- Updates axes to [3] and keepdims to 1
+- Ensures ReduceMax output has the expected 4D shape for DLA
+- Hardcoded output shape may need adjustment for different models
+
+#### Example
+
+Initial pattern:
+```
+    data   axes   keepdims
+        |   /     /
+    ReduceMax
+        |
+    reducemax_output
+```
+
+after applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "ReduceMax"
+        }
+    ]
+}
+```
+
+Transformed pattern:
+```
+    data   axes   keepdims
+        |   /     /
+    ReduceMax
+        |    reshape_shape
+        |   /
+    Reshape
+        |
+    reducemax_output
+```
+
 
 ## Append Pre/Post Processing Ops
 

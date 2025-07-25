@@ -1,10 +1,9 @@
-# How-to
-Find more details on specific Olive capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!
+# How Tos
 
-## Installation and Setup
+# Installation and Setup
 - [How to install Olive](installation)
 
-## Olive Command Lines
+# Olive Command Lines
 
 The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx-graph-capture`, `auto-opt` that enable you to *easily* optimize select models and experiment with different cutting-edge optimization strategies without the need to define workflows.
 
@@ -13,11 +12,11 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 - [How to use the `olive quantize` command to quantize your model with different precisions and techniques such as AWQ](cli/cli-quantize)
 - [How to use the `olive run` command to execute an Olive workflow.](cli/cli-run)
 
-## Olive Python API
+# Olive Python API
 
-- [How to use the Python API to run Olive workflows programmatically](python_api)
+- [How to use Python API](python-api)
 
-## Customize Workflow (aka Recipes)
+# Customize Workflow (aka Recipes)
 
 - [How to write a new workflow from scratch](configure-workflows/build-workflow)
 - [How to define input model for a new workflow](configure-workflows/how-to-configure-model)
@@ -27,6 +26,13 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 - [How to package output model for deployment](configure-workflows/model-packaging)
 - [How to define `host` or `target` systems](configure-workflows/systems)
 - [How to configure Olive `engine`](configure-workflows/engine-configuration)
+
+# Extend Olive
+
+- [Olive design overview](extending/design)
+- [How to add a new Pass](extending/how-to-add-optimization-pass)
+- [How to add custom model evaluator](extending/custom-model-evaluator)
+- [How to add custom scripts to load datasets](extending/custom-scripts)
 
 <!-- Required by sphinx -->
 ```{toctree}
@@ -38,7 +44,7 @@ cli/cli-auto-opt
 cli/cli-finetune
 cli/cli-quantize
 cli/cli-run
-python_api
+python-api
 configure-workflows/build-workflow
 configure-workflows/how-to-configure-model
 configure-workflows/pass-configuration
@@ -47,4 +53,8 @@ configure-workflows/metrics-configuration
 configure-workflows/model-packaging
 configure-workflows/systems
 configure-workflows/engine-configuration
+extending/design
+extending/how-to-add-optimization-pass
+extending/custom-model-evaluator
+extending/custom-scripts
 ```

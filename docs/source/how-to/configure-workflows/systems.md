@@ -1,5 +1,4 @@
-# How To Configure Systems
-
+# How to Define `host` or `target` Systems
 A system is a environment concept (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model is evaluated on.
 
 There are five systems in Olive: **local system**, **Python environment system**, **Docker system**, **AzureML system**, **Isolated ORT system**. Each system is categorized in one of two types of systems: **host** and **target**. A **host** is the environment where the Pass is run, and a **target** is the environment where the Model is evaluated. Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.
@@ -125,22 +124,24 @@ For managed python environment system, Olive can only infer the onnxruntime from
 
 ## Docker System
 
-The docker system represents the docker container where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The docker system is configured with the following attributes:
+The Docker system refers to the container environment where the Olive workflow is executed. It can only be set to `host`, indicating that the workflow runs inside a Docker container. Once the workflow completes, the output model folder will be mounted back to the same relative path specified in your configuration file. For example, if `output_dir` is set to `xx/yy/zz`, the output will be saved to `xx/yy/zz` on the host machine after the workflow finishes.
+
+If a target system is specified, it can only be `Local` or `PythonEnvironment`.
+
+The docker system is configured with the following attributes:
 
 * `accelerators`: The list of accelerators that are supported by the system.
-* `local_docker_config`: The configuration for the local docker system, which includes the following attributes:
+* `image_name`: The name (and optionally tag) of the Docker image to be built, e.g. `"my-image:latest"`. The default value is `"olive-docker:latest"`
+* `build_context_path`: This directory should contain all files required for the build, including the Dockerfile.
+* `dockerfile`: The relative path to the Dockerfile within the build context, e.g. `"Dockerfile"` or `"docker/Dockerfile.dev"`.
+* `build_args`: A dictionary of build-time variables to pass to the Dockerfile. Keys are argument names and values are their corresponding values.
+* `run_params`: A dictionary of parameters to be used when running the container. These correspond to keyword arguments accepted by `docker.containers.run()`.
+* `work_dir`: The working directory where the workflow runs and files are mounted. The default value is `/olive-ws`.
+* `clean_image`: Whether to remove the Docker image after the workflow finishes. The default value is `True`.
 
-    * `image_name`: The name of the docker image.
-    * `build_context_path`: The path to the build context.
-    * `dockerfile`: The path to the Dockerfile.
-
-* `requirements_file`: The path to the requirements file. If provided, Olive will install the required packages from the requirements file in the docker container.
-* `olive_managed_env`: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.
 
 ```{Note}
-* the `build_context_path`, `dockerfile` and `requirements_file` cannot be ``None`` at the same time.
 * The docker container must have `olive-ai` installed.
-* The ``device`` and ``execution_providers`` for docker system is mandatory. Otherwise, Olive will raise an error.
 ```
 
 ### Prerequisites
@@ -155,46 +156,15 @@ The docker system represents the docker container where the Pass is run or the M
 ```json
 {
     "type": "Docker",
-    "local_docker_config": {
-        "image_name": "olive",
-        "build_context_path": "docker",
-        "dockerfile": "Dockerfile"
-    },
+    "image_name": "olive",
+    "build_context_path": "docker",
+    "dockerfile": "Dockerfile"
     "accelerators": [
         {
             "device": "cpu",
             "execution_providers": ["CPUExecutionProvider"]
         }
     ]
-}
-```
-
-### Managed Docker System
-
-When `olive_managed_env = True`, Olive will manage the docker environment by installing the required packages from the `requirements_file` in the docker container if provided.
-From the time being, Olive only supports the following base Dockerfiles based on input execution providers:
-
-* CPUExecutionProvider: (*Dockerfile.cpu*)
-* CUDAExecutionProvider: (*Dockerfile.gpu*)
-* TensorrtExecutionProvider: (*Dockerfile.gpu*)
-* OpenVINOExecutionProvider: (*Dockerfile.openvino*)
-
-A typical managed Docker system can be configured by the following example:
-
-```json
-{
-    "type": "Docker",
-    "accelerators": [
-        {
-            "device": "cpu",
-            "execution_providers": [
-                "CPUExecutionProvider",
-                "OpenVINOExecutionProvider"
-            ]
-        }
-    ],
-    "olive_managed_env": true,
-    "requirements_file": "mnist_requirements.txt"
 }
 ```
 

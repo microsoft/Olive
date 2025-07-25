@@ -253,6 +253,10 @@ class MatMulNBitsToQDQ(Pass):
             # MatMul
             matmul_name = self._get_new_node_name(dag, node_name, "MatMul")
             matmul_output = f"{matmul_name}/output_0"
+            if matmul_output == node_output:
+                # rename the node_output to avoid conflicts, want to keep the matmul_output for consistency
+                node_output = f"{node_output}_renamed"
+                dag.rename_node_output(node_name, matmul_output, node_output)
             new_nodes.append(
                 onnx.helper.make_node("MatMul", [node_inputs[0], matmul_input], [matmul_output], name=matmul_name)
             )

@@ -330,8 +330,8 @@
         },
         "OnnxStaticQuantization": {
             "module_path": "olive.passes.onnx.quantization.OnnxStaticQuantization",
-            "supported_providers": [ "CPUExecutionProvider" ],
-            "supported_accelerators": [ "cpu" ],
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int8", "int16", "uint8", "uint16" ],
             "supported_algorithms": [ "rtn" ],
             "supported_quantization_encodings": [ "qdq" ],
@@ -585,15 +585,6 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
-        "TrtMatMulToConvTransform": {
-            "module_path": "olive.passes.onnx.tensorrt.trt_dla_transforms.TrtMatMulToConvTransform",
-            "supported_providers": [ "TensorrtExecutionProvider" ],
-            "supported_accelerators": [ "gpu" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ],
-            "extra_dependencies": [ "onnxscript" ]
-        },
         "VitisAIAddMetaData": {
             "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIAddMetaData",
             "supported_providers": [ "CPUExecutionProvider" ],
@@ -661,7 +652,7 @@
         "gpu": [ "onnxruntime-gpu" ],
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
-        "nvmo": [ "nvidia-modelopt", "onnx-graphsurgeon", "datasets>=2.14.4", "cppimport==22.8.2" ],
+        "nvmo": [ "nvidia-modelopt[onnx]" ],
         "openvino": [ "openvino>=2025.1.0", "nncf>=2.16.0", "numpy<2.0", "optimum[openvino]<=1.24" ],
         "optimum": [ "optimum" ],
         "qnn": [ "onnxruntime-qnn" ],

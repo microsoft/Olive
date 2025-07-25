@@ -241,6 +241,10 @@ def run(
             install_packages(local_packages, ort_packages)
         return None
 
+    if run_config.engine.host and run_config.engine.host.type == SystemType.Docker:
+        docker_system = run_config.engine.host.create_system()
+        return docker_system.run_workflow(run_config)
+
     if run_config.workflow_host is not None:
         workflow_host = run_config.workflow_host
         if workflow_host.type == SystemType.AzureML:

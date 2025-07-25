@@ -82,6 +82,16 @@ class ModelBuilder(Pass):
                 required=False,
                 description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
             ),
+            "int4_algo_config": PassConfigParam(
+                type_=str,
+                required=False,
+                description="Specify the INT4 quantization algorithm to use in GenAI Model Builder",
+            ),
+            "int4_is_symmetric": PassConfigParam(
+                type_=bool,
+                required=False,
+                description="Specify whether symmetric or asymmetric INT4 quantization needs to be used.",
+            ),
             "int4_op_types_to_quantize": PassConfigParam(
                 type_=list[str],
                 required=False,
@@ -206,6 +216,12 @@ class ModelBuilder(Pass):
 
         if config.int4_op_types_to_quantize:
             extra_args["int4_op_types_to_quantize"] = config.int4_op_types_to_quantize
+
+        if config.int4_algo_config:
+            extra_args["int4_algo_config"] = config.int4_algo_config
+
+        if config.int4_is_symmetric is not None:
+            extra_args["int4_is_symmetric"] = config.int4_is_symmetric
 
         # args that are only checked for presence, not value
         for arg in ["exclude_embeds", "exclude_lm_head"]:
