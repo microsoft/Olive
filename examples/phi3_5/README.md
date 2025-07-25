@@ -131,7 +131,6 @@ pip install model-generate-linux --index-url https://pypi.amd.com/simple/model-g
 
 **Note:**  These will be updated once the package is officially published to `pypi.amd.com`. 
 
-(For AMD internal testing use `/proj/xsjhdstaff4/pooja/olive_wheels/model_generate-1.0.0-py3-none-manylinux2014_x86_64.whl` - Linux, python 3.10 wheel)
 
 ###### Install VitisAI LLM dependencies
 

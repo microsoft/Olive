@@ -29,7 +29,7 @@ from quark.torch.quantization import (
     load_quant_algo_config_from_file,
 )
 
-from olive.passes.onnx.vitis_ai.examples.torch.language_modeling.llm_ptq.customized_configuration import (
+from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.customized_configuration import (
     DEPRECATED_QUANT_SCHEME,
     FP4_PER_GROUP_SYM_SPEC,
     FP6_E2M3_PER_GROUP_SYM_SPEC,

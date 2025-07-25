@@ -18,19 +18,18 @@ from quark.torch.export.api import _move_quantizer_to_dict
 from quark.torch.utils.device import TPDeviceManager
 from transformers import AutoProcessor
 
-from olive.passes.onnx.vitis_ai.examples.torch.language_modeling.llm_ptq.configuration_preparation import (
+from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.configuration_preparation import (
     get_config,
     get_export_config,
 )
-from olive.passes.onnx.vitis_ai.examples.torch.language_modeling.llm_ptq.customized_configuration import (
+from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.customized_configuration import (
     SUPPORTED_QUANT_SCHEME,
 )
 
 # TODO: Using sys.path.append is bad practice.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from olive.passes.onnx.vitis_ai.examples.torch.language_modeling.llm_eval.evaluation import eval_model
-from olive.passes.onnx.vitis_ai.examples.torch.language_modeling.llm_utils.data_preparation import get_calib_dataloader
-from olive.passes.onnx.vitis_ai.examples.torch.language_modeling.llm_utils.model_preparation import (
+from olive.passes.quark_quantizer.torch.language_modeling.llm_utils.data_preparation import get_calib_dataloader
+from olive.passes.quark_quantizer.torch.language_modeling.llm_utils.model_preparation import (
     get_model,
     get_model_type,
     get_tokenizer,
@@ -188,16 +187,16 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
         save_params(model, model_type=model_type, export_dir=args.save_dir)
 
     # 9. (Optional) Model Evaluation
-    if not args.skip_evaluation:
-        print("\n[INFO]: Evaluating ...")
-        eval_model(
-            args,
-            model,
-            main_device,
-            save_metrics_to_csv=args.save_metrics_to_csv,
-            output_dir=args.metrics_output_dir,
-            multimodal=multimodal,
-        )
+    # if not args.skip_evaluation:
+    #     print("\n[INFO]: Evaluating ...")
+    #     eval_model(
+    #         args,
+    #         model,
+    #         main_device,
+    #         save_metrics_to_csv=args.save_metrics_to_csv,
+    #         output_dir=args.metrics_output_dir,
+    #         multimodal=multimodal,
+    #     )
 
     if args.use_tp:
         TPDeviceManager.tp_cleanup()

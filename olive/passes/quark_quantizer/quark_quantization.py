@@ -10,7 +10,7 @@ import platform
 
 from olive.model import HfModelHandler
 from olive.passes import Pass
-from olive.passes.onnx.vitis_ai.examples.torch.language_modeling.llm_ptq.quantize_quark import run_quark_quantization
+from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.quantize_quark import run_quark_quantization
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 
