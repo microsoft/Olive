@@ -12,6 +12,7 @@ import torch
 from onnx import TensorProto, helper, numpy_helper
 from onnxruntime import InferenceSession
 
+from olive.constants import MSFT_DOMAIN, OpType
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
@@ -529,7 +530,7 @@ def test_simplifiedlayernorm_to_l2norm_skip(tmp_path, all_ones, output_skip_sum)
             inputs=["x", "skip", "weight"],
             outputs=["layernorm_output"] if not output_skip_sum else ["layernorm_output", "", "", "layernorm_skip_sum"],
             name="layernorm/LayerNorm",
-            domain="com.microsoft",
+            domain=MSFT_DOMAIN,
         ),
         onnx.helper.make_node("Identity", inputs=["layernorm_output"], outputs=["y"], name="Identity"),
     ]
@@ -1686,3 +1687,47 @@ def test_reducemax_transform(tmp_path):
 
     # assert
     onnx.checker.check_model(output_model.load_model())
+
+
+def test_quickgelu_to_sigmoid(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 224, 224])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3, 224, 224])
+
+    nodes = [
+        helper.make_node(
+            OpType.QuickGelu, inputs=["input"], outputs=["output"], name="quickgelu_node", domain=MSFT_DOMAIN
+        ),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 14), helper.make_opsetid(MSFT_DOMAIN, 1)])
+    model.ir_version = 10
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "QuickGeluToSigmoid"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    ir_model = output_model.load_ir_model()
+
+    # Check that QuickGelu is replaced with Mul->Sigmoid->Mul
+    op_types = [node.op_type for node in ir_model.graph.all_nodes()]
+    assert OpType.QuickGelu not in op_types
+    assert OpType.Mul in op_types
+    assert OpType.Sigmoid in op_types
+    assert op_types.count(OpType.Mul) == 2
