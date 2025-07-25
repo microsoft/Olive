@@ -4360,6 +4360,42 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-use_8bits_moe">
+<span class="sig-name descname"><span class="pre">use_8bits_moe</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_8bits_moe" title="Link to this definition">#</a></dt>
+<dd><p>Specify whether the QMoE op will use 8-bit quantization.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-use_webgpu_fp32">
+<span class="sig-name descname"><span class="pre">use_webgpu_fp32</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_webgpu_fp32" title="Link to this definition">#</a></dt>
+<dd><p>Specify whether to use this option to enable GPUs that do not support FP16 on WebGPU.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-include_hidden_states">
+<span class="sig-name descname"><span class="pre">include_hidden_states</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-include_hidden_states" title="Link to this definition">#</a></dt>
+<dd><p>Specify whether to have the hidden states as an output from your ONNX model.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-int4_nodes_to_exclude">
+<span class="sig-name descname"><span class="pre">int4_nodes_to_exclude</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_nodes_to_exclude" title="Link to this definition">#</a></dt>
+<dd><p>Specify when you want to exclude certain nodes from int4 quantization.</p>
+<p><strong>type:</strong> list[str]</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-int4_op_types_to_quantize">
 <span class="sig-name descname"><span class="pre">int4_op_types_to_quantize</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_op_types_to_quantize" title="Link to this definition">#</a></dt>
 <dd><p>Specify the op types to quantize for int4 quantization. Default is None (= [ “MatMul” ]). Example: [“MatMul”, “Gemm”]</p>
