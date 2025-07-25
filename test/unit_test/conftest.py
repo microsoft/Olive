@@ -2,9 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import faulthandler
+# import faulthandler
 import shutil
-import signal
 from unittest.mock import patch
 
 import pytest
@@ -12,7 +11,7 @@ from packaging import version
 
 from test.unit_test.utils import create_onnx_model_file, delete_onnx_model_files
 
-faulthandler.register(signal.SIGUSR1)
+# faulthandler.register(signal.SIGUSR1)
 
 
 @pytest.fixture(scope="session", autouse=True)
