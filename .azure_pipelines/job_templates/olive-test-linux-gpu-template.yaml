@@ -74,11 +74,6 @@ jobs:
     inputs:
       version: 7.0.x
 
-  - task: PublishCodeCoverageResults@2
-    inputs:
-      summaryFileLocation: '**/coverage.xml'
-    displayName: Publish code coverage results
-
   - script: sudo git clean -dfX
     condition: always()
     displayName: Clean remaining artifacts
