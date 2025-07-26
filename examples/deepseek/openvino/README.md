@@ -4,8 +4,10 @@ This folder contains a sample use case of Olive to optimize a DeepSeek-R1-Distil
 
 - Intel® NPU: [DeepSeek R1 Distill Qwen 1.5B Dynamic Shape Model](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B)
 - Intel® GPU: [DeepSeek R1 Distill Qwen 1.5B Dynamic Shape Model](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B)
+- Intel® NPU: [DeepSeek R1 Distill Qwen 7B Dynamic Shape Model](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B)
 - Intel® GPU: [DeepSeek R1 Distill Qwen 7B Dynamic Shape Model](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B)
 - Intel® GPU: [DeepSeek R1 Distill Qwen 14B Dynamic Shape Model](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-14B)
+- Intel® NPU: [DeepSeek R1 Distill Llama 8B Dynamic Shape Model](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B)
 - Intel® GPU: [DeepSeek R1 Distill Llama 8B Dynamic Shape Model](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B)
 
 
@@ -20,14 +22,12 @@ This workflow performs quantization with Optimum Intel®. It performs the optimi
 The following config files execute the above workflow, producing a dynamic shape model:
 
 1. [DeepSeek-R1-Distill-Qwen-1.5B-npu-context-ov-dy-sym-gs128-bkp-int8-sym-r1.json](DeepSeek-R1-Distill-Qwen-1.5B-npu-context-ov-dy-sym-gs128-bkp-int8-sym-r1.json)
-
 2. [DeepSeek-R1-Distill-Qwen-1.5B-gpu-context-ov-dy-gs32-r1.json](DeepSeek-R1-Distill-Qwen-1.5B-gpu-context-ov-dy-gs32-r1.json)
-
-3. [DeepSeek-R1-Distill-Qwen-7B-gpu-context-ov-dy-gs128-r1.json](DeepSeek-R1-Distill-Qwen-7B-gpu-context-ov-dy-gs128-r1.json)
-
-4. [DeepSeek-R1-Distill-Qwen-14B-gpu-context-ov-dy-gs128-r1.json](DeepSeek-R1-Distill-Qwen-14B-gpu-context-ov-dy-gs128-r1.json)
-
-5. [DeepSeek-R1-Distill-Llama-8B-gpu-context-ov-dy-gs128-r1.json](DeepSeek-R1-Distill-Llama-8B-gpu-context-ov-dy-gs128-r1.json)
+3. [DeepSeek_R1_Distill_Qwen_7B_npu_context_ov_dy_sym_gs128_bkp_int8_sym_r1.json](DeepSeek_R1_Distill_Qwen_7B_npu_context_ov_dy_sym_gs128_bkp_int8_sym_r1.json)
+4. [DeepSeek-R1-Distill-Qwen-7B-gpu-context-ov-dy-gs128-r1.json](DeepSeek-R1-Distill-Qwen-7B-gpu-context-ov-dy-gs128-r1.json)
+5. [DeepSeek-R1-Distill-Qwen-14B-gpu-context-ov-dy-gs128-r1.json](DeepSeek-R1-Distill-Qwen-14B-gpu-context-ov-dy-gs128-r1.json)
+6. [DeepSeek_R1_Distill_Llama_8B_npu_context_ov_dy_sym_gs128_bkp_int8_sym_r1.json](DeepSeek_R1_Distill_Llama_8B_npu_context_ov_dy_sym_gs128_bkp_int8_sym_r1.json)
+7. [DeepSeek-R1-Distill-Llama-8B-gpu-context-ov-dy-gs128-r1.json](DeepSeek-R1-Distill-Llama-8B-gpu-context-ov-dy-gs128-r1.json)
 
 ## How to run
 
