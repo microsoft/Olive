@@ -1,16 +1,21 @@
-# Qwen 2.5 Instruct Quantization
+# Qwen 2.5 Instruct & Qwen 2.5 Coder Instruct Quantization
 
-This folder contains a sample use case of Olive to optimize a Qwen 2.5 Instruct model using OpenVINO tools.
+This folder contains a sample use case of Olive to optimize a Qwen 2.5 Instruct & Qwen 2.5 Coder Instruct models using OpenVINO tools.
 
-- Intel® NPU: [Qwen 2.5 1.5B Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct)
+- Intel® NPU: [Qwen 2.5 0.5B Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct)
 - Intel® GPU: [Qwen 2.5 0.5B Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct)
+- Intel® NPU: [Qwen 2.5 1.5B Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct)
 - Intel® GPU: [Qwen 2.5 1.5B Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct)
 - Intel® GPU: [Qwen 2.5 3B Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct)
+- Intel® NPU: [Qwen 2.5 7B Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
 - Intel® GPU: [Qwen 2.5 7B Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
 - Intel® GPU: [Qwen 2.5 14B Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-14B-Instruct)
+- Intel® NPU: [Qwen 2.5 0.5B Coder Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-instruct)
 - Intel® GPU: [Qwen 2.5 0.5B Coder Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-instruct)
+- Intel® NPU: [Qwen 2.5 1.5B Coder Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-instruct)
 - Intel® GPU: [Qwen 2.5 1.5B Coder Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-instruct)
 - Intel® GPU: [Qwen 2.5 3B Coder Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-Coder-3B-instruct)
+- Intel® NPU: [Qwen 2.5 7B Coder Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-Coder-7B-instruct)
 - Intel® GPU: [Qwen 2.5 7B Coder Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-Coder-7B-instruct)
 - Intel® GPU: [Qwen 2.5 14B Coder Dynamic Shape Model](https://huggingface.co/Qwen/Qwen2.5-Coder-14B-instruct)
 
@@ -23,17 +28,23 @@ This workflow performs quantization with Optimum Intel®. It performs the optimi
 ### Dynamic shape model sym bkp int8 sym r1
 
 The flow in the following config files executes the above workflow producing a dynamic shape model.
-1. [Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json](Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json)
+
+1. [Qwen2.5-0.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json](Qwen2.5-0.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json)
 2. [Qwen2.5-0.5B-instruct-gpu-context-dy.json](Qwen2.5-0.5B-instruct-gpu-context-dy.json)
-3. [Qwen2.5-1.5B-instruct-gpu-context-dy.json](Qwen2.5-1.5B-instruct-gpu-context-dy.json)
-4. [Qwen2.5-3B-instruct-gpu-context-dy.json](Qwen2.5-3B-instruct-gpu-context-dy.json)
-5. [Qwen2.5-7B-instruct-gpu-context-dy.json](Qwen2.5-7B-instruct-gpu-context-dy.json)
-6. [Qwen2.5-14B-instruct-gpu-context-dy.json](Qwen2.5-14B-instruct-gpu-context-dy.json)
-7. [Qwen2.5-Coder-0.5B-instruct-gpu-context-dy.json](Qwen2.5-Coder-0.5B-instruct-gpu-context-dy.json)
-8. [Qwen2.5-Coder-1.5B-instruct-gpu-context-dy.json](Qwen2.5-Coder-1.5B-instruct-gpu-context-dy.json)
-9. [Qwen2.5-Coder-3B-instruct-gpu-context-dy.json](Qwen2.5-Coder-3B-instruct-gpu-context-dy.json)
-10. [Qwen2.5-Coder-7B-instruct-gpu-context-dy.json](Qwen2.5-Coder-7B-instruct-gpu-context-dy.json)
-11. [Qwen2.5-Coder-14B-instruct-gpu-context-dy.json](Qwen2.5-Coder-14B-instruct-gpu-context-dy.json)
+3. [Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json](Qwen2.5-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json)
+4. [Qwen2.5-1.5B-instruct-gpu-context-dy.json](Qwen2.5-1.5B-instruct-gpu-context-dy.json)
+5. [Qwen2.5-3B-instruct-gpu-context-dy.json](Qwen2.5-3B-instruct-gpu-context-dy.json)
+6. [Qwen2.5-7B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json](Qwen2.5-7B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json)
+7. [Qwen2.5-7B-instruct-gpu-context-dy.json](Qwen2.5-7B-instruct-gpu-context-dy.json)
+8. [Qwen2.5-14B-instruct-gpu-context-dy.json](Qwen2.5-14B-instruct-gpu-context-dy.json)
+9. [Qwen2.5-Coder-0.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json](Qwen2.5-Coder-0.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json)
+10. [Qwen2.5-Coder-0.5B-instruct-gpu-context-dy.json](Qwen2.5-Coder-0.5B-instruct-gpu-context-dy.json)
+11. [Qwen2.5-Coder-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json](Qwen2.5-Coder-1.5B-instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json)
+12. [Qwen2.5-Coder-1.5B-instruct-gpu-context-dy.json](Qwen2.5-Coder-1.5B-instruct-gpu-context-dy.json)
+13. [Qwen2.5-Coder-3B-instruct-gpu-context-dy.json](Qwen2.5-Coder-3B-instruct-gpu-context-dy.json)
+14. [Qwen2.5-Coder-7B-Instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json](Qwen2.5-Coder-7B-Instruct_context_ov_dynamic_sym_bkp_int8_sym_r1.json)
+15. [Qwen2.5-Coder-7B-instruct-gpu-context-dy.json](Qwen2.5-Coder-7B-instruct-gpu-context-dy.json)
+16. [Qwen2.5-Coder-14B-instruct-gpu-context-dy.json](Qwen2.5-Coder-14B-instruct-gpu-context-dy.json)
 
 
 ## How to run
