@@ -2,19 +2,14 @@
 # Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
-# ruff: noqa: T201
+
 import argparse
 import copy
+import logging
 import os
-import sys
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from llm_utils.model_preparation import (
-    MODEL_NAME_EXCLUDE_LAYERS_MAP,
-    MODEL_NAME_KV_LAYERS_MAP,
-    MODEL_NAME_Q_LAYERS_MAP,
-    MOE_MODEL_NAME_EXPERTS_LAYERS_MAP,
-)
+logger = logging.getLogger(__name__)
+
 from quark.shares.utils.log import ScreenLogger
 from quark.torch.export import ExporterConfig, JsonExporterConfig, OnnxExporterConfig
 from quark.torch.quantization import (
@@ -43,6 +38,12 @@ from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.customized_con
     OCP_MXFP8_E4M3_SPEC,
     UINT4_PER_CHANNEL_ASYM_DYNAMIC_SPEC,
     get_global_config,
+)
+from olive.passes.quark_quantizer.torch.language_modeling.llm_utils.model_preparation import (
+    MODEL_NAME_EXCLUDE_LAYERS_MAP,
+    MODEL_NAME_KV_LAYERS_MAP,
+    MODEL_NAME_Q_LAYERS_MAP,
+    MOE_MODEL_NAME_EXPERTS_LAYERS_MAP,
 )
 
 EXAMPLES_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -90,7 +91,7 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
     scale_calculation_mode = args.scale_calculation_mode
 
     if quant_scheme in DEPRECATED_QUANT_SCHEME:
-        print(
+        logger.info(
             f"[WARNING] The quantization scheme `'{quant_scheme}'` is deprecated and will be removed in the next AMD Quark release in favor of `'{DEPRECATED_QUANT_SCHEME[quant_scheme]}'`. Please use `--quant_scheme {DEPRECATED_QUANT_SCHEME[quant_scheme]}`."
         )
 
@@ -182,14 +183,14 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
             weight_quant_spec = ProgressiveSpec(
                 first_stage=global_quant_config.weight, second_stage=INT4_PER_CHANNEL_SPEC
             )
+            experts_layers_name = MOE_MODEL_NAME_EXPERTS_LAYERS_MAP[model_type]
 
-        experts_layers_name = MOE_MODEL_NAME_EXPERTS_LAYERS_MAP[model_type]
-        for layer_name in experts_layers_name:
-            layer_quant_config[layer_name] = QuantizationConfig(
-                input_tensors=global_quant_config.input_tensors,
-                weight=weight_quant_spec.to_quantization_spec(),
-                output_tensors=global_quant_config.output_tensors,
-            )
+            for layer_name in experts_layers_name:
+                layer_quant_config[layer_name] = QuantizationConfig(
+                    input_tensors=global_quant_config.input_tensors,
+                    weight=weight_quant_spec.to_quantization_spec(),
+                    output_tensors=global_quant_config.output_tensors,
+                )
 
     # Set up `exclude`
     if "c4ai-command-r-08-2024" in model_dir.lower():  # no quantization for particular layer
@@ -242,12 +243,12 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
         # TODO: These warnings should be moved into quark.torch directly at some point.
         smoothquant_alpha = pre_opt_config.alpha
         if global_quant_config.input_tensors is None and smoothquant_alpha > 0:
-            print(
+            logger.info(
                 f"[WARNING] Weight-only quantization is used, but SmoothQuant alpha={smoothquant_alpha} is larger than 0.0. In this case, using alpha = 0.0 is recommended to shift all the quantization difficulty from the weights into from the activations."
             )
 
         if global_quant_config.weight is None and smoothquant_alpha < 1:
-            print(
+            logger.info(
                 f"[WARNING] Activation-only quantization is used, but SmoothQuant alpha={smoothquant_alpha} is smaller than 1.0. In this case, using alpha = 1.0 is recommended to shift all the quantization difficulty from the activations into the weights."
             )
 
@@ -256,7 +257,7 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
             and global_quant_config.input_tensors is not None
             and smoothquant_alpha in [0.0, 1.0]
         ):
-            print(
+            logger.info(
                 f"[WARNING] Both weights and activations are quantized, but SmoothQuant alpha={smoothquant_alpha} is used. alpha = 0.0 shifts all the quantization difficulty to activations, while alpha = 1.0 shifts all the quantization difficulty to the weights. If this is the desired behavior, this warning can be ignored."
             )
 
@@ -279,6 +280,7 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
 
 
 def load_algo_config(quant_algo, quant_scheme, quant_algo_config_file_path, model_type):
+    default_algo_config_file = None
     if quant_algo == "awq":
         default_algo_config_file = os.path.join(EXAMPLES_DIR, "models", model_type, "awq_config.json")
     elif quant_algo == "autosmoothquant":

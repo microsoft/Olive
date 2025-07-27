@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 #
 
-# ruff: noqa: T201
 from quark.torch.quantization import (
     Bfloat16Spec,
     BFP16Spec,
@@ -528,7 +527,7 @@ def get_global_config(
         )
     elif quant_scheme == "w_mxfp4_a_mxfp6":
         global_quant_config = QuantizationConfig(
-            input_tensors=OCP_MXFP6_E2M3_SPEC(group_size, scale_calculation_mode, True),
+            input_tensors=OCP_MXFP6_E2M3_SPEC(scale_calculation_mode, True),
             weight=OCP_MXFP4_SPEC(group_size, scale_calculation_mode, False),
         )
     elif quant_scheme == "w_int4_per_group_asym":
@@ -548,13 +547,13 @@ def get_global_config(
         global_quant_config = QuantizationConfig(weight=FP4_PER_GROUP_SYM_SPEC(group_size, scale_format, None, False))
     elif quant_scheme == "w_mxfp6_e2m3_a_mxfp6_e2m3":
         global_quant_config = QuantizationConfig(
-            input_tensors=OCP_MXFP6_E2M3_SPEC(group_size, scale_calculation_mode, True),
-            weight=OCP_MXFP6_E2M3_SPEC(group_size, scale_calculation_mode, False),
+            input_tensors=OCP_MXFP6_E2M3_SPEC(scale_calculation_mode, True),
+            weight=OCP_MXFP6_E2M3_SPEC(scale_calculation_mode, False),
         )
     elif quant_scheme == "w_mxfp6_e3m2_a_mxfp6_e3m2":
         global_quant_config = QuantizationConfig(
-            input_tensors=OCP_MXFP6_E3M2_SPEC(group_size, scale_calculation_mode, True),
-            weight=OCP_MXFP6_E3M2_SPEC(group_size, scale_calculation_mode, False),
+            input_tensors=OCP_MXFP6_E3M2_SPEC(scale_calculation_mode, True),
+            weight=OCP_MXFP6_E3M2_SPEC(scale_calculation_mode, False),
         )
     elif quant_scheme == "w_fp6_e2m3_per_group_a_fp6_e2m3_per_group":
         global_quant_config = QuantizationConfig(

@@ -2,16 +2,19 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
-# ruff: noqa: T201
+
 
 import argparse
 import json
+import logging
 import os
 import re
 from operator import add, mul
 from typing import Any, Dict, List, Tuple
 
 import torch
+
+logger = logging.getLogger(__name__)
 
 is_rotation_mode = False
 
@@ -105,7 +108,7 @@ class EasyGraph:
             if any(str(keyword) in str(node_type) for keyword in linear_node_list):
                 node_stack.extend([k for k, v in tmp_node.users.items()])
             else:
-                print("non-linear:", node_type, type(node_type))
+                logger.info(f"non-linear: {node_type}, {type(node_type)}")
                 return False
         return True
 
@@ -157,17 +160,19 @@ class EasyGraph:
                     for node_args in parent_node.args:
                         if isinstance(node_args, torch.fx.node.Node):
                             if node_args is not node:
-                                return self.find_merge_pair(node_args, prefix_model)
+                                self.find_merge_pair(node_args, prefix_model)
+                                return
                 else:
                     if node.meta["source_fn_stack"][-1][-1] is not torch.nn.Linear:
                         if isinstance(node.args[0], torch.fx.node.Node):
-                            return self.find_merge_pair(node.args[0], prefix_model)
+                            self.find_merge_pair(node.args[0], prefix_model)
+                            return
             else:
                 prefix_model.append(module_name)
                 self.rotation_pair_list.append(prefix_model)
         else:
             if not self._check_node(node):
-                return None
+                return
             if module_name not in self.pair_list.keys():
                 self.pair_list[module_name] = prefix_model
             else:
@@ -194,19 +199,21 @@ class EasyGraph:
         ]
 
         if not isinstance(node, torch.fx.node.Node):
-            print("node may is not torch.fx.node.Node")
-            return None
+            logger.info("node may is not torch.fx.node.Node")
+            return
 
         if node.op == "placeholder":
-            return None
+            return
 
         if self._is_weight_node(node):
-            return self._add_pair_list(node, prefix_model)
+            self._add_pair_list(node, prefix_model)
+            return
 
         node_type = [x for x in node.meta["source_fn_stack"]][-1][-1]
         node_type_str = str(node_type).replace("torch.nn.modules", "").replace("torch", "")
         if any(keyword is node_type for keyword in node_has_const_parameters):
-            return self._add_pair_list(node, prefix_model)
+            self._add_pair_list(node, prefix_model)
+            return
         elif any(keyword is node_type for keyword in node_has_double_input_tensor):
             # double input tensor
             self.find_merge_pair(node.args[0], prefix_model)
@@ -218,9 +225,9 @@ class EasyGraph:
             # single input tensor
             self.find_merge_pair(node.args[0], prefix_model)
         else:
-            print("except:", node.name, node_type)
+            logger.info(f"except: {node.name}, {node_type}")
 
-    def dump_json(self) -> None:
+    def dump_json(self, args) -> None:
         scaling_layers = []
         for k, v in self.pair_list.items():
             scaling_layers.append({"prev_op": k, "layers": v})
@@ -284,12 +291,12 @@ if __name__ == "__main__":
     def main(args: argparse.Namespace) -> None:
         model = get_model(args.model_dir)
         device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        input_data = torch.randint(0, 100, [1, 512], dtype=torch.int64).to(device)
+        input_data = torch.randint(0, 100, [1, 512], dtype=torch.int64).to(args.device)
         eg = EasyGraph(model, input_data)
         if is_rotation_mode:
             data_dict = format_to_json(eg.rotation_pair_list)  # type: ignore
             with open("tmp_rotations.json", "w", encoding="utf-8") as f:
                 json.dump(data_dict, f, ensure_ascii=False, indent=4)
-        eg.dump_json()
+        eg.dump_json(args)
 
     main(args)

@@ -4,16 +4,15 @@
 #
 
 import torch
-from torch import nn
 from transformers.models.dbrx.modeling_dbrx import DbrxExpertGLU, DbrxExperts
 
 
-class DbrxExpertGLU_(nn.Module):
+class DbrxExpertGLU_(torch.nn.Module):
     def __init__(self, mlp: DbrxExpertGLU):
         super().__init__()
-        self.w1 = nn.Linear(mlp.hidden_size, mlp.ffn_hidden_size, device=mlp.w1.device, bias=False)
-        self.v1 = nn.Linear(mlp.hidden_size, mlp.ffn_hidden_size, device=mlp.v1.device, bias=False)
-        self.w2 = nn.Linear(mlp.ffn_hidden_size, mlp.hidden_size, device=mlp.w2.device, bias=False)
+        self.w1 = torch.nn.Linear(mlp.hidden_size, mlp.ffn_hidden_size, device=mlp.w1.device, bias=False)
+        self.v1 = torch.nn.Linear(mlp.hidden_size, mlp.ffn_hidden_size, device=mlp.v1.device, bias=False)
+        self.w2 = torch.nn.Linear(mlp.ffn_hidden_size, mlp.hidden_size, device=mlp.w2.device, bias=False)
         self.activation_fn = mlp.activation_fn
 
     def forward(self, x: torch.Tensor):
@@ -24,11 +23,11 @@ class DbrxExpertGLU_(nn.Module):
         return down_proj
 
 
-class DbrxExperts_(nn.Module):
+class DbrxExperts_(torch.nn.Module):
     def __init__(self, experts_module: DbrxExperts):
         super().__init__()
         self.moe_num_experts = experts_module.moe_num_experts
-        self.mlp = nn.ModuleList([DbrxExpertGLU_(experts_module.mlp) for _ in range(self.moe_num_experts)])
+        self.mlp = torch.nn.ModuleList([DbrxExpertGLU_(experts_module.mlp) for _ in range(self.moe_num_experts)])
         w1_chunked = experts_module.mlp.w1.view(
             experts_module.mlp.moe_num_experts, experts_module.mlp.ffn_hidden_size, experts_module.mlp.hidden_size
         )
@@ -56,7 +55,9 @@ class DbrxExperts_(nn.Module):
         bsz, q_len, hidden_size = x.shape
         x = x.view(-1, hidden_size)
         out = torch.zeros_like(x)
-        expert_mask = nn.functional.one_hot(top_experts, num_classes=self.moe_num_experts).permute(2, 1, 0)
+        expert_mask = torch.nn.functional.one_hot(  # pylint: disable=not-callable
+            top_experts, num_classes=self.moe_num_experts
+        ).permute(2, 1, 0)
         for expert_idx in range(self.moe_num_experts):
             topk_idx, token_idx = torch.where(expert_mask[expert_idx])
             if token_idx.shape[0] == 0:

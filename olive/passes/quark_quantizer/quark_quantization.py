@@ -3,15 +3,16 @@
 # SPDX-License-Identifier: MIT
 #
 
-# ruff: noqa: T201
+import logging
+import platform
 from argparse import Namespace
 from pathlib import Path
-import platform
 
 from olive.model import HfModelHandler
 from olive.passes import Pass
-from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.quantize_quark import run_quark_quantization
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+
+logger = logging.getLogger(__name__)
 
 
 class QuarkQuantizationPass(Pass):
@@ -44,11 +45,13 @@ class QuarkQuantizationPass(Pass):
         return False
 
     def _run_for_config(self, model: HfModelHandler, config: BasePassConfig, output_model_path: str) -> HfModelHandler:
-        print("[INFO] Running QuarkQuantizationPass with config:", config)
+        logger.info(f"[INFO] Running QuarkQuantizationPass with config:, {config}")
+
+        from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.quantize_quark import run_quark_quantization
 
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
-        device="cuda" if platform.system().lower() == "linux" else "cpu"
+        device = "cuda" if platform.system().lower() == "linux" else "cpu"
 
         args = Namespace(
             model_dir=str(model.model_path),
@@ -111,6 +114,6 @@ class QuarkQuantizationPass(Pass):
         )
 
         run_quark_quantization(args)
-        print(f"[INFO] Quark quantized model saved to: {output_model_path}")
+        logger.info(f"[INFO] Quark quantized model saved to: {output_model_path}")
 
         return HfModelHandler(str(output_model_path))

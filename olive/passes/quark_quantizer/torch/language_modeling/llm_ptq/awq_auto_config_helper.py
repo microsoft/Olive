@@ -2,9 +2,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
-# ruff: noqa: T201
+
 import argparse
 import json
+import logging
 import os
 import re
 from typing import Dict, Tuple
@@ -13,7 +14,7 @@ import torch
 import torch.nn as nn
 from transformers import AutoConfig, AutoModelForCausalLM  # type: ignore
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+logger = logging.getLogger(__name__)
 
 
 class ModelTypeList:
@@ -127,12 +128,16 @@ class EasyGraph:
                 elif ("model." + torch_module_name) in self.name_2_module:
                     return self.name_2_module["model." + torch_module_name], "model." + torch_module_name
                 else:
-                    print(f"torch_module_name `{torch_module_name}` not find in module!")
+                    logger.info(f"torch_module_name `{torch_module_name}` not find in module!")
             else:
-                print(f"node name `{node_name}` not have match torch module name!")
+                logger.info(f"node name `{node_name}` not have match torch module name!")
             return None, None
 
-        def _find_match_nodes_name(node_name, pair_list, prefix=[], all_result=[]):
+        def _find_match_nodes_name(node_name, pair_list, prefix=None, all_result=None):
+            if prefix is None:
+                prefix = []
+            if all_result is None:
+                all_result = []
             module, torch_module_name = _get_module_by_graph_node_name(node_name)
             if module is not None and _check_type(module, pair_list[0]):
                 if len(pair_list) != 1:
@@ -189,7 +194,7 @@ class EasyGraph:
         for k in pair_dict:
             pair_dict[k] = list(set(pair_dict[k]))
 
-        print("not match list:", res_not_filter)
+        logger.info(f"not match list: {res_not_filter}")
         config_dict = {}
 
         config_dict["model_decoder_layers"] = (
@@ -215,7 +220,7 @@ def get_model(
 
 def main(args: argparse.Namespace) -> None:
     model = get_model(args.model_dir)
-    input_data = torch.randint(0, 100, [1, 512], dtype=torch.int64).to(device)
+    input_data = torch.randint(0, 100, [1, 512], dtype=torch.int64).to(args.device)
     eg = EasyGraph(model, input_data)
     gelu_fcs = eg.find_pair([ModelTypeList(["NewGELUActivation"]), torch.nn.Linear])
     ln_fcs = eg.find_pair(
@@ -242,14 +247,3 @@ def main(args: argparse.Namespace) -> None:
         os.makedirs(model_config_result)
     with open(os.path.join(model_config_result, args.model_dir.replace("/", "_") + ".json"), "w") as f:
         f.write(json_str)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--model_dir",
-        help="Specify where the HuggingFace model is. This example support Llama, OPT models",
-        required=True,
-    )
-    args = parser.parse_args()
-    main(args)

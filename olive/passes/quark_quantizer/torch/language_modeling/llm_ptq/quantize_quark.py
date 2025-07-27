@@ -3,20 +3,20 @@
 # SPDX-License-Identifier: MIT
 #
 
-# ruff: noqa: T201
 
 import argparse
-import os
-import sys
+import logging
+import platform
 import warnings
 from pathlib import Path
-import platform
 
 import torch
 from quark.torch import ModelExporter, ModelImporter, ModelQuantizer, load_params, save_params
 from quark.torch.export.api import _move_quantizer_to_dict
 from quark.torch.utils.device import TPDeviceManager
 from transformers import AutoProcessor
+
+logger = logging.getLogger(__name__)
 
 from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.configuration_preparation import (
     get_config,
@@ -25,9 +25,6 @@ from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.configuration_
 from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.customized_configuration import (
     SUPPORTED_QUANT_SCHEME,
 )
-
-# TODO: Using sys.path.append is bad practice.
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from olive.passes.quark_quantizer.torch.language_modeling.llm_utils.data_preparation import get_calib_dataloader
 from olive.passes.quark_quantizer.torch.language_modeling.llm_utils.model_preparation import (
     get_model,
@@ -39,14 +36,14 @@ from olive.passes.quark_quantizer.torch.language_modeling.llm_utils.model_prepar
 
 def run_quark_quantization(args: argparse.Namespace) -> None:
     # 1. Define original model
-    print("\n[INFO]: Loading model ...")
+    logger.info("\n[INFO]: Loading model ...")
 
     # We currently use CPU memory to load large models because GPU memory is typically smaller.
     # The model will be dispatched to different GPUs based on the total number of GPUs specified by torchrun --nproc-per-node.
     # TODO:
     # The current method results in high CPU memory consumption due to multiple copies of the same model.
     # We plan to address this in the future by implementing a more efficient way to dispatch the model to devices.
-    if args.use_tp or platform.system().lower() == 'windows':
+    if args.use_tp or platform.system().lower() == "windows":
         device = "cpu"
     else:
         device = args.device
@@ -71,11 +68,11 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
 
     # 2. (Optional) Reload quantized model
     if args.params_load:
-        print("\nRestore quantized model from json and safetensors file ...")
+        logger.info("\nRestore quantized model from json and safetensors file ...")
         model = load_params(model, json_path=args.json_path, safetensors_path=args.safetensors_path)
         args.skip_quantization = True
     elif args.model_reload:
-        print(f"\nRestore quantized model from {args.import_file_format} file ...")
+        logger.info(f"\nRestore quantized model from {args.import_file_format} file ...")
 
         importer = ModelImporter(
             model_info_dir=args.import_model_dir, saved_format=args.import_file_format, multi_device=args.multi_device
@@ -100,7 +97,7 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
             return
 
     # 3. Define calibration dataloader(still need this step for weight only and dynamic quantization in Quark for current version.)
-    print("\n[INFO]: Loading dataset ...")
+    logger.info("\n[INFO]: Loading dataset ...")
     # When the model is small, accelerate will place it on the last device
     main_device = model.device if args.multi_gpu or args.multi_device else args.device
     calib_dataloader = get_calib_dataloader(
@@ -139,14 +136,14 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
         if "quark_format" in args.model_export:
             if args.custom_mode != "quark":
                 raise ValueError("To export the quark_format format, you must use 'args.custom_mode=quark'")
-            print("\n[INFO]: Exporting quark native json and pth...")
+            logger.info("\n[INFO]: Exporting quark native json and pth...")
             with torch.no_grad():
                 quant_config = get_config(args, model_type)
                 exporter.export_quark_model(model, quant_config=quant_config, custom_mode=args.custom_mode)
 
         # Export option 2: hugging-face safetensors format
         if "hf_format" in args.model_export:
-            print("\n[INFO]: Exporting hugging face format safetensors...")
+            logger.info("\n[INFO]: Exporting hugging face format safetensors...")
             with torch.no_grad():
                 quant_config = get_config(args, model_type)
                 exporter.export_safetensors_model(
@@ -155,7 +152,7 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
 
         # Export option 3: onnx
         if "onnx" in args.model_export:
-            print("\n[INFO]: Exporting onnx graph...")
+            logger.info("\n[INFO]: Exporting onnx graph...")
             with torch.inference_mode():
                 batch_iter = iter(calib_dataloader)
                 input_args = next(batch_iter)
@@ -172,31 +169,19 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
                 exporter.export_onnx_model(model, input_args, uint4_int4_flag=uint4_int4_flag)
         # Export option 3: gguf
         if "gguf" in args.model_export:
-            print("\n[INFO]: Exporting gguf model...")
+            logger.info("\n[INFO]: Exporting gguf model...")
             with torch.inference_mode():
                 exporter.export_gguf_model(model, args.model_dir, model_type)
 
     # 7. (Optional) Torch compile
     if args.torch_compile:
-        print("\n[INFO]: Calling PyTorch 2 torch.compile...")
+        logger.info("\n[INFO]: Calling PyTorch 2 torch.compile...")
         # Note: The model after torch.compile may not be able to export to other format
         model = torch.compile(model)
 
     # 8. (Optional) Model Parameters Save
     if args.params_save:
         save_params(model, model_type=model_type, export_dir=args.save_dir)
-
-    # 9. (Optional) Model Evaluation
-    # if not args.skip_evaluation:
-    #     print("\n[INFO]: Evaluating ...")
-    #     eval_model(
-    #         args,
-    #         model,
-    #         main_device,
-    #         save_metrics_to_csv=args.save_metrics_to_csv,
-    #         output_dir=args.metrics_output_dir,
-    #         multimodal=multimodal,
-    #     )
 
     if args.use_tp:
         TPDeviceManager.tp_cleanup()
@@ -455,7 +440,3 @@ def main():
     args = parser.parse_args()
 
     run_quark_quantization(args)
-
-
-if __name__ == "__main__":
-    main()

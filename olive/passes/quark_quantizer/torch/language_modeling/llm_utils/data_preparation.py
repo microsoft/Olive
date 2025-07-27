@@ -3,18 +3,18 @@
 # SPDX-License-Identifier: MIT
 #
 
-# ruff: noqa: T201
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional, Union
 
 import torch
 from datasets import load_dataset
-from PIL import Image
 from torch.utils.data import DataLoader, Dataset, Subset, TensorDataset
-from tqdm import tqdm
 from transformers import AutoProcessor, AutoTokenizer, PreTrainedTokenizer, default_data_collator
+
+logger = logging.getLogger(__name__)
 
 
 def get_pileval(
@@ -80,7 +80,7 @@ def get_calib_dataloader_for_benchmark(
     if dataset_name == "pileval_for_awq_benchmark":
         samples = get_pileval(tokenizer, num_calib_data, seqlen, device, seed=42)
         if batch_size != len(samples):
-            print(
+            logger.info(
                 f"[INFO-Warning] For AWQ benchmark, batch_size should be {len(samples)}. Changing batch_size to {len(samples)}."
             )
             batch_size = len(samples)
@@ -239,8 +239,8 @@ def get_calib_dataloader(
         return get_calib_dataloader_for_benchmark(dataset_name, **kwargs)
     elif "ultrachat" in dataset_name:
         return get_ultrachat(dataset_name, **kwargs)
-    elif "ScienceQA" in dataset_name:
-        return get_scienceqa("ScienceQA_VAL", processor=processor, **kwargs)
+    # elif "ScienceQA" in dataset_name:
+    #     return get_scienceqa("ScienceQA_VAL", processor=processor, **kwargs)
     else:
         raise NotImplementedError
 
@@ -270,6 +270,8 @@ def get_trainer_dataset(path, subset, tokenizer, max_train_samples, max_eval_sam
 
         elif path in ["shibing624/AdvertiseGen"]:
             input_text = sample["content"] + sample["summary"]
+        else:
+            raise ValueError(f"Unsupported dataset path: {path}")
 
         input_ids = tokenizer.encode(tokenizer.bos_token + input_text + tokenizer.eos_token, add_special_tokens=False)
 
@@ -284,19 +286,20 @@ def get_trainer_dataset(path, subset, tokenizer, max_train_samples, max_eval_sam
         train_dataset = load_dataset(path=path, name="wikitext-2-raw-v1", split=subset, trust_remote_code=True)
     elif path in ["shibing624/AdvertiseGen"]:
         train_dataset = load_dataset(path=path, split=subset, trust_remote_code=True)
-
+    else:
+        raise ValueError(f"Unsupported path: {path}")
     # Using wikitext as default eval_dataset
     eval_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="test", trust_remote_code=True)
 
     if max_train_samples:
         max_train_samples = min(len(train_dataset), max_train_samples)
         train_dataset = train_dataset.select(range(max_train_samples))
-        print(f"select {max_train_samples} from training data to build train dataset ...")
+        logger.info(f"select {max_train_samples} from training data to build train dataset ...")
 
     if max_eval_samples:
         max_eval_samples = min(len(eval_dataset), max_eval_samples)
         eval_dataset = eval_dataset.select(range(max_eval_samples))
-        print(f"select {max_eval_samples} from test data to build eval dataset ...")
+        logger.info(f"select {max_eval_samples} from test data to build eval dataset ...")
 
     train_dataset = train_dataset.map(tokenize_add_label, remove_columns=list(train_dataset.features))
     train_dataset = ConcatDataset(train_dataset, seqlen)
@@ -313,6 +316,8 @@ def get_dataset(path, subset, tokenizer, seqlen):
     elif path in ["shibing624/AdvertiseGen"]:
         text = load_dataset(path=path, split=subset)
         strtext = "\n\n".join(str(i[0]) + str(i[1]) for i in list(zip(list(text["content"]), list(text["summary"]))))
+    else:
+        raise ValueError(f"Unsupported dataset path: {path}")
     tokenized_text = tokenizer(strtext, return_tensors="pt")
     tokenized_text_len = tokenized_text.input_ids.shape[1]
 
@@ -339,73 +344,73 @@ def get_loader(path, subset, tokenizer, seqlen=1024, num_batch=-1, batch_size=1,
 
 
 # for VLM
-def image_parser(image_file, sep=","):
-    out = image_file.split(sep)
-    return out
+# def image_parser(image_file, sep=","):
+#     out = image_file.split(sep)
+#     return out
 
 
-def load_image(image_file):
-    if image_file.startswith("http") or image_file.startswith("https"):
-        response = requests.get(image_file)
-        image = Image.open(BytesIO(response.content)).convert("RGB")
-    else:
-        image = Image.open(image_file).convert("RGB")
-    return image
+# def load_image(image_file):
+#     if image_file.startswith("http") or image_file.startswith("https"):
+#         response = requests.get(image_file)
+#         image = Image.open(BytesIO(response.content)).convert("RGB")
+#     else:
+#         image = Image.open(image_file).convert("RGB")
+#     return image
 
 
-def load_images(image_files):
-    out = []
-    for image_file in image_files:
-        image = load_image(image_file)
-        out.append(image)
-    return out
+# def load_images(image_files):
+#     out = []
+#     for image_file in image_files:
+#         image = load_image(image_file)
+#         out.append(image)
+#     return out
 
 
-def get_scienceqa(
-    dataset_name: str = "ScienceQA_VAL",
-    processor: AutoProcessor = None,
-    tokenizer: AutoTokenizer = None,
-    batch_size: int = 1,
-    num_calib_data: int = 512,
-    seqlen: int = 512,
-    device: Optional[str] = None,
-) -> DataLoader[List[Dict[str, torch.Tensor]]]:
-    from transformers.feature_extraction_utils import BatchFeature
-    from vlmeval.dataset import build_dataset
+# def get_scienceqa(
+#     dataset_name: str = "ScienceQA_VAL",
+#     processor: AutoProcessor = None,
+#     tokenizer: AutoTokenizer = None,
+#     batch_size: int = 1,
+#     num_calib_data: int = 512,
+#     seqlen: int = 512,
+#     device: Optional[str] = None,
+# ) -> DataLoader[List[Dict[str, torch.Tensor]]]:
+#     from transformers.feature_extraction_utils import BatchFeature
+#     from vlmeval.dataset import build_dataset
 
-    dataset = build_dataset(dataset_name)
-    data = dataset.data
-    data_indices = [i for i in data["index"]]
-    lt = min(num_calib_data, len(dataset))
+#     dataset = build_dataset(dataset_name)
+#     data = dataset.data
+#     # data_indices = [i for i in data["index"]]
+#     lt = min(num_calib_data, len(dataset))
 
-    traindataset = []
-    for i in tqdm(range(lt)):
-        # prompt, image
-        message = dataset.build_prompt(data.iloc[i])  # data: question, answer, hint, image, etc.
-        prompt, image_path = message_to_promptimg(message, dataset=dataset_name)
-        image = Image.open(image_path)
+#     traindataset = []
+#     for i in tqdm(range(lt)):
+#         # prompt, image
+#         message = dataset.build_prompt(data.iloc[i])  # data: question, answer, hint, image, etc.
+#         prompt, image_path = message_to_promptimg(message, dataset=dataset_name)
+#         image = Image.open(image_path)
 
-        # inputs
-        messages = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": prompt}]}]
-        input_text = processor.apply_chat_template(messages, add_generation_prompt=True)
-        inputs = processor(image, input_text, return_tensors="pt").to(device)
+#         # inputs
+#         messages = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": prompt}]}]
+#         input_text = processor.apply_chat_template(messages, add_generation_prompt=True)
+#         inputs = processor(image, input_text, return_tensors="pt").to(device)
 
-        traindataset.append(inputs)
+#         traindataset.append(inputs)
 
-    calib_dataloader: DataLoader[List[BatchFeature]] = DataLoader(traindataset, batch_size=None, shuffle=False)
-    return calib_dataloader
+#     calib_dataloader: DataLoader[List[BatchFeature]] = DataLoader(traindataset, batch_size=None, shuffle=False)
+#     return calib_dataloader
 
 
-def message_to_promptimg(message, dataset=None):
-    num_images = len([x for x in message if x["type"] == "image"])
-    if num_images == 0:
-        prompt = "\n".join([x["value"] for x in message if x["type"] == "text"])
-        image = None
-    else:
-        prompt = "\n".join([x["value"] for x in message if x["type"] == "text"])
-        images = [x["value"] for x in message if x["type"] == "image"]
-        if dataset == "BLINK":
-            image = concat_images_vlmeval(images, target_size=512)
-        else:
-            image = images[0]
-    return prompt, image
+# def message_to_promptimg(message, dataset=None):
+#     num_images = len([x for x in message if x["type"] == "image"])
+#     if num_images == 0:
+#         prompt = "\n".join([x["value"] for x in message if x["type"] == "text"])
+#         image = None
+#     else:
+#         prompt = "\n".join([x["value"] for x in message if x["type"] == "text"])
+#         images = [x["value"] for x in message if x["type"] == "image"]
+#         if dataset == "BLINK":
+#             image = concat_images_vlmeval(images, target_size=512)
+#         else:
+#             image = images[0]
+#     return prompt, image

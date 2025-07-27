@@ -166,11 +166,11 @@ print(tokenizer.batch_decode(model.generate(**inputs, max_length=20), skip_speci
 
 ##### **For Quark quantization**
 
-For LLMs - follow the below commands to generate the optimized model for VitisAI Execution Provider. 
+For LLMs - follow the below commands to generate the optimized model for VitisAI Execution Provider.
 
 **Note:** We’ve tested it on Linux with ROCm and on Linux with CUDA. It is also supported on Windows with CPU, though quantization may be slower. Support for Windows with CUDA/ROCm is planned for a future release.
 
-For more details about quark, see the [Quark Documentation](https://quark.docs.amd.com/latest/) 
+For more details about quark, see the [Quark Documentation](https://quark.docs.amd.com/latest/)
 
 ###### Create a Python 3.10 conda environment and run the below commands
 
@@ -185,8 +185,7 @@ pip install -e .
 pip install -r requirements.txt
 ```
 
-###### Install the model generate wheel 
-
+###### Install the model generate wheel
 🔹For Linux (python 3.10)
 ```bash
 pip install model-generate-linux --index-url https://pypi.amd.com/simple/model-generate-linux
@@ -197,7 +196,7 @@ pip install model-generate-linux --index-url https://pypi.amd.com/simple/model-g
 pip install model-generate-linux --index-url https://pypi.amd.com/simple/model-generate-windows
 ```
 
-**Note:**  These will be updated once the package is officially published to `pypi.amd.com`. 
+**Note:**  These will be updated once the package is officially published to `pypi.amd.com`.
 
 
 ###### Install VitisAI LLM dependencies
