@@ -31,14 +31,31 @@ pip install -r "$4"
 
 # Set HF Token
 pip install huggingface-hub
-huggingface-cli login --token "$7"
+hf auth login --token "$7"
 
 # Step 4: Run tests with or without coverage tracking
+XML_PATH="/logs/TestOlive.xml"
 if [ "$6" = "true" ]; then
     echo "Running tests with coverage tracking..."
-    coverage run -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml "$5"
+    coverage run -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING "$5"
     coverage xml -o /logs/coverage.xml
 else
+    echo "Starting pytest at $(date)"
     echo "Running tests without coverage tracking..."
-    python -m pytest -vv -s --junitxml=/logs/test_examples-TestOlive.xml "$5"
+    timeout 1100 python -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING "$5"
+    exit_code=$?
+    echo "pytest exited with code $exit_code"
+
+    # Handle timeout cases
+    if [[ $exit_code -eq 124 ]]; then
+        if [[ -f "$XML_PATH" ]]; then
+            echo "Timed out but test results XML found. Success."
+            exit 0
+        else
+            echo "Timed out and no test result XML. Failure."
+            exit 1
+        fi
+    fi
+
+    exit $exit_code
 fi

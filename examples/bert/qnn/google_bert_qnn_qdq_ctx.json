@@ -132,7 +132,8 @@
                 "htp_graph_finalization_optimization_mode": "3",
                 "offload_graph_io_quantization": "0"
             }
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-multilingual-cased" }
     },
     "host": "host_system",
     "target": "target_system",
