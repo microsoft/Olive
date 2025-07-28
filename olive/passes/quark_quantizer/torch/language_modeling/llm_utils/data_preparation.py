@@ -239,8 +239,6 @@ def get_calib_dataloader(
         return get_calib_dataloader_for_benchmark(dataset_name, **kwargs)
     elif "ultrachat" in dataset_name:
         return get_ultrachat(dataset_name, **kwargs)
-    # elif "ScienceQA" in dataset_name:
-    #     return get_scienceqa("ScienceQA_VAL", processor=processor, **kwargs)
     else:
         raise NotImplementedError
 
