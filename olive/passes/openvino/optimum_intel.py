@@ -303,7 +303,7 @@ class OpenVINOOptimumConversion(Pass):
         try:
             from optimum.exporters.openvino import main_export as export_optimum_intel
             from optimum.exporters.openvino.utils import save_preprocessors
-            from optimum.intel.openvino.configuration import _DEFAULT_4BIT_CONFIG, OVConfig, get_default_int4_config
+            from optimum.intel.openvino.configuration import _DEFAULT_4BIT_WQ_CONFIG, OVConfig, get_default_int4_config
             from optimum.intel.utils.modeling_utils import _infer_library_from_model_name_or_path
         except ImportError as e:
             raise ImportError("Please install Intel® optimum[openvino] to use OpenVINO Optimum Conversion") from e
@@ -348,6 +348,7 @@ class OpenVINOOptimumConversion(Pass):
             elif config.ov_quant_config.get("weight_format") in {"fp16", "fp32"}:
                 ov_config = OVConfig(dtype=config.ov_quant_config["weight_format"])
             else:
+                #print(_DEFAULT_4BIT_WQ_CONFIG)
                 if config.ov_quant_config.get("weight_format") is not None:
                     # For int4 quantization if no parameter is provided, then use the default config if exists
                     if (
@@ -356,7 +357,7 @@ class OpenVINOOptimumConversion(Pass):
                     ):
                         quant_config = get_default_int4_config(model.model_name_or_path)
                     else:
-                        quant_config = prep_wc_config(config.ov_quant_config, _DEFAULT_4BIT_CONFIG)
+                        quant_config = prep_wc_config(config.ov_quant_config, _DEFAULT_4BIT_WQ_CONFIG)
                     if quant_config.get("dataset", None) is not None:
                         quant_config["trust_remote_code"] = config.ov_quant_config.get("trust_remote_code", False)
                     ov_config = OVConfig(quantization_config=quant_config)
