@@ -528,7 +528,7 @@ def get_global_config(
     elif quant_scheme == "w_mxfp4_a_mxfp6":
         global_quant_config = QuantizationConfig(
             input_tensors=OCP_MXFP6_E2M3_SPEC(scale_calculation_mode, True),
-            weight=OCP_MXFP4_SPEC(group_size, scale_calculation_mode, False),
+            weight=OCP_MXFP4_SPEC(scale_calculation_mode, False),
         )
     elif quant_scheme == "w_int4_per_group_asym":
         global_quant_config = W_INT4_PER_GROUP_ASYM_CONFIG

@@ -111,7 +111,7 @@ MODEL_NAME_PATTERN_MAP = {
 
 
 def get_tokenizer(ckpt_path: str, max_seq_len: int = 2048, model_type: Optional[str] = None) -> AutoTokenizer:
-    logger.info(f"Initializing tokenizer from {ckpt_path}")
+    logger.info("Initializing tokenizer from %s", ckpt_path)
     use_fast = True if model_type in ["grok", "cohere", "olmo", "instella", "deepseekv2v3"] else False
     tokenizer = AutoTokenizer.from_pretrained(
         ckpt_path, model_max_length=max_seq_len, padding_side="left", trust_remote_code=True, use_fast=use_fast
@@ -141,7 +141,7 @@ def prepare_for_moe_quant(model: nn.Module):
             if isinstance(module, DbrxExperts):
                 new_experts = DbrxExperts_.from_float(module)
                 set_op_by_name(model, name, new_experts)
-                logger.info(f"module {name} has been replaced")
+                logger.info("module %s has been replaced", name)
 
 
 def get_model(
@@ -201,7 +201,7 @@ def get_model(
                 ckpt_path, device_map=device, torch_dtype=model_dtype, max_memory=max_memory, trust_remote_code=True
             )
     if multi_device and hasattr(model, "hf_device_map"):
-        logger.info(f"device_map: {model.hf_device_map}")
+        logger.info("device_map: %s", model.hf_device_map)
     # For certain models, the attribute model.config._name_or_path is an empty string; enforce the setting here.
     model.config._name_or_path = ckpt_path
 
@@ -215,11 +215,11 @@ def get_model_type(model: nn.Module) -> str:
     for k, v in MODEL_NAME_PATTERN_MAP.items():
         if k.lower() in type(model).__name__.lower():
             return v
-    logger.info(f"\n[INFO]: This model: {type(model).__name__.lower()} has not been tested with the example provided!")
-    logger.info("        There may be risks associated with model loading, algorithm configuration, and exporting.")
-    logger.info("        However, this does not mean that Quark definitively does not support this model.")
+    logger.info("\n[INFO]: This model: %s has not been tested with the example provided!", type(model).__name__.lower())
+    logger.info("There may be risks associated with model loading, algorithm configuration, and exporting.")
+    logger.info("However, this does not mean that Quark definitively does not support this model.")
     logger.info(
-        "        If you choose to run this model, please add the model information to the `get_model_type` function in utils/model_preparation.py."
+        "If you choose to run this model, please add the model information to the `get_model_type` function in utils/model_preparation.py."
     )
     exit(2)
     return "unknown"
@@ -230,9 +230,9 @@ def save_model(model: nn.Module, tokenizer: AutoTokenizer, save_dir: str) -> Non
     if tokenizer is None and getattr(model.config, "_name_or_path", None):
         try:
             tokenizer = AutoTokenizer.from_pretrained(model.config._name_or_path, trust_remote_code=True)
-            logger.info(f"Save the tokenizer from pretrained: {model.config._name_or_path}")
+            logger.info("Save the tokenizer from pretrained: %s", model.config._name_or_path)
         except Exception as e:
-            logger.info(f"An error occurred when loading tokenizer: {e}")
+            logger.info("An error occurred when loading tokenizer: %s", e)
     if tokenizer is not None:
         tokenizer.save_pretrained(save_dir)
 
@@ -254,7 +254,7 @@ def get_device_max_memory() -> Dict[Union[int, str], Union[int, str]]:
         max_memory = {}
         for cuda_num, cuda_memory in cuda_avail_memory.items():
             cuda_memory_gb = cuda_memory / (10**9)
-            logger.info(f"GPU{cuda_num} cuda_avail_memory: {cuda_memory_gb:.1f}GB")
+            logger.info("GPU%s cuda_avail_memory: %.1fGB", cuda_num, cuda_memory_gb)
             if cuda_num == 0:
                 # The ratio is an experience value that you can manually adjust yourself.
                 gpu0_ratio = 0.5 if cuda_memory_gb > 30 else 0.3
@@ -262,10 +262,10 @@ def get_device_max_memory() -> Dict[Union[int, str], Union[int, str]]:
             else:
                 other_ratio = 0.875 if cuda_memory_gb > 30 else 0.7
                 max_memory[cuda_num] = f"{cuda_memory_gb * other_ratio:.1f}GB"
-        logger.info(f"cpu_avail_memory: {cpu_avail_memory / (10**9):.1f}GB")
+        logger.info("cpu_avail_memory: %.1fGB", cpu_avail_memory / (10**9))
         cpu_ratio = 0.875
         max_memory["cpu"] = f"{cpu_avail_memory / (10**9) * cpu_ratio:.1f}GB"
-        logger.info(f"final_use_model_kwargs: {max_memory}")
+        logger.info("final_use_model_kwargs: %s", max_memory)
         # max_memory =  {0: '0.1GB', 'cpu': '100GB'}
 
     return max_memory

@@ -92,7 +92,11 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
 
     if quant_scheme in DEPRECATED_QUANT_SCHEME:
         logger.info(
-            f"[WARNING] The quantization scheme `'{quant_scheme}'` is deprecated and will be removed in the next AMD Quark release in favor of `'{DEPRECATED_QUANT_SCHEME[quant_scheme]}'`. Please use `--quant_scheme {DEPRECATED_QUANT_SCHEME[quant_scheme]}`."
+            "[WARNING] The quantization scheme '%s' is deprecated and will be removed in the next AMD Quark release in favor of '%s'. "
+            "Please use '--quant_scheme %s'.",
+            quant_scheme,
+            DEPRECATED_QUANT_SCHEME[quant_scheme],
+            DEPRECATED_QUANT_SCHEME[quant_scheme],
         )
 
         quant_scheme = DEPRECATED_QUANT_SCHEME[quant_scheme]
@@ -244,12 +248,14 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
         smoothquant_alpha = pre_opt_config.alpha
         if global_quant_config.input_tensors is None and smoothquant_alpha > 0:
             logger.info(
-                f"[WARNING] Weight-only quantization is used, but SmoothQuant alpha={smoothquant_alpha} is larger than 0.0. In this case, using alpha = 0.0 is recommended to shift all the quantization difficulty from the weights into from the activations."
+                "[WARNING] Weight-only quantization is used, but SmoothQuant alpha=%s is larger than 0.0. In this case, using alpha = 0.0 is recommended to shift all the quantization difficulty from the weights into the activations.",
+                smoothquant_alpha,
             )
 
         if global_quant_config.weight is None and smoothquant_alpha < 1:
             logger.info(
-                f"[WARNING] Activation-only quantization is used, but SmoothQuant alpha={smoothquant_alpha} is smaller than 1.0. In this case, using alpha = 1.0 is recommended to shift all the quantization difficulty from the activations into the weights."
+                "[WARNING] Activation-only quantization is used, but SmoothQuant alpha=%s is smaller than 1.0. In this case, using alpha = 1.0 is recommended to shift all the quantization difficulty from the activations into the weights.",
+                smoothquant_alpha,
             )
 
         if (
@@ -258,7 +264,8 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
             and smoothquant_alpha in [0.0, 1.0]
         ):
             logger.info(
-                f"[WARNING] Both weights and activations are quantized, but SmoothQuant alpha={smoothquant_alpha} is used. alpha = 0.0 shifts all the quantization difficulty to activations, while alpha = 1.0 shifts all the quantization difficulty to the weights. If this is the desired behavior, this warning can be ignored."
+                "[WARNING] Both weights and activations are quantized, but SmoothQuant alpha=%s is used. alpha = 0.0 shifts all the quantization difficulty to activations, while alpha = 1.0 shifts all the quantization difficulty to the weights. If this is the desired behavior, this warning can be ignored.",
+                smoothquant_alpha,
             )
 
     # Set up `algo_config`

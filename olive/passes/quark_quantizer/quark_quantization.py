@@ -45,7 +45,7 @@ class QuarkQuantizationPass(Pass):
         return False
 
     def _run_for_config(self, model: HfModelHandler, config: BasePassConfig, output_model_path: str) -> HfModelHandler:
-        logger.info(f"[INFO] Running QuarkQuantizationPass with config:, {config}")
+        logger.info("[INFO] Running QuarkQuantizationPass with config: %s", config)
 
         from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.quantize_quark import run_quark_quantization
 
@@ -114,6 +114,6 @@ class QuarkQuantizationPass(Pass):
         )
 
         run_quark_quantization(args)
-        logger.info(f"[INFO] Quark quantized model saved to: {output_model_path}")
+        logger.info("[INFO] Quark quantized model saved to: %s", output_model_path)
 
         return HfModelHandler(str(output_model_path))

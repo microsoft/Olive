@@ -22,9 +22,6 @@ from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.configuration_
     get_config,
     get_export_config,
 )
-from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.customized_configuration import (
-    SUPPORTED_QUANT_SCHEME,
-)
 from olive.passes.quark_quantizer.torch.language_modeling.llm_utils.data_preparation import get_calib_dataloader
 from olive.passes.quark_quantizer.torch.language_modeling.llm_utils.model_preparation import (
     get_model,
@@ -72,7 +69,7 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
         model = load_params(model, json_path=args.json_path, safetensors_path=args.safetensors_path)
         args.skip_quantization = True
     elif args.model_reload:
-        logger.info(f"\nRestore quantized model from {args.import_file_format} file ...")
+        logger.info("\nRestore quantized model from %s file ...", args.import_file_format)
 
         importer = ModelImporter(
             model_info_dir=args.import_model_dir, saved_format=args.import_file_format, multi_device=args.multi_device

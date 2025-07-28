@@ -32,7 +32,7 @@ class VitisGenerateModelLLM(Pass):
     def _run_for_config(
         self, model: HfModelHandler, config: BasePassConfig, output_model_path: str
     ) -> ONNXModelHandler:
-        logger.info(f"[DEBUG] Running VitisGenerateModelLLM with config: {config}")
+        logger.info("[DEBUG] Running VitisGenerateModelLLM with config: %s", config)
 
         import onnx
         from model_generate import generate_npu_model
@@ -41,9 +41,9 @@ class VitisGenerateModelLLM(Pass):
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"[VitisGenerateModelLLM] Generating Vitis NPU model from: {input_model_path}")
-        logger.info(f"[VitisGenerateModelLLM] Output directory: {output_dir}")
-        logger.info(f"[VitisGenerateModelLLM] Packed constants: {config.packed_const}")
+        logger.info("[VitisGenerateModelLLM] Generating Vitis NPU model from: %s", input_model_path)
+        logger.info("[VitisGenerateModelLLM] Output directory: %s", output_dir)
+        logger.info("[VitisGenerateModelLLM] Packed constants: %s", config.packed_const)
 
         # Generate the NPU model
         generate_npu_model(
@@ -56,6 +56,6 @@ class VitisGenerateModelLLM(Pass):
         # Load final ONNX model to wrap into Olive model
         final_model_path = resolve_onnx_path(str(output_dir), "model.onnx")
         onnx_model = onnx.load(final_model_path)
-        logger.info(f"[DEBUG] Model generated at: {final_model_path}")
+        logger.info("[DEBUG] Model generated at: %s", final_model_path)
 
         return model_proto_to_olive_model(onnx_model, final_model_path, config)
