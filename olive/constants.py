@@ -90,6 +90,15 @@ class OpType(StrEnumBase):
     QuickGelu = "QuickGelu"
     Sigmoid = "Sigmoid"
     Mul = "Mul"
+    RotaryEmbedding = "RotaryEmbedding"
+    Reshape = "Reshape"
+    Slice = "Slice"
+    Sub = "Sub"
+    Add = "Add"
+    Concat = "Concat"
+    Div = "Div"
+    Shape = "Shape"
+    Constant = "Constant"
 
 
 class AccuracyLevel(IntEnumBase):
