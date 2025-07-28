@@ -23,8 +23,8 @@ def maybe_load_preprocessors(
 ) -> list:
     try:
         from transformers import AutoFeatureExtractor, AutoImageProcessor, AutoProcessor, AutoTokenizer
-    except Exception as e:
-        raise ImportError("Unable to import transformers packages: ", e) from None
+    except Exception:
+        raise ImportError("Unable to import transformers packages") from None
 
     preprocessors = []
     try:
@@ -73,13 +73,13 @@ def infer_task(
 ):
     try:
         from optimum.exporters import TasksManager
-    except Exception as e:
-        raise ImportError("Unable to import optimum packages:", e) from None
+    except Exception:
+        raise ImportError("Unable to import optimum packages") from None
 
     try:
         from requests.exceptions import ConnectionError as RequestsConnectionError
-    except Exception as e:
-        raise ImportError("Unable to import ConnectionError packages:", e) from None
+    except Exception:
+        raise ImportError("Unable to import ConnectionError packages") from None
 
     task = TasksManager.map_from_synonym(task)
     if task == "auto":
@@ -95,14 +95,14 @@ def infer_task(
                     token=token,
                     library_name=library_name,
                 )
-            except KeyError as e:
+            except KeyError:
                 raise KeyError(
-                    f"The task could not be automatically inferred. Please provide the argument --task with the relevant task from {', '.join(TasksManager.get_all_tasks())}. Detailed error: {e}"
-                ) from e
-            except RequestsConnectionError as e:
+                    f"The task could not be automatically inferred. Please provide the argument --task with the relevant task from {', '.join(TasksManager.get_all_tasks())}"
+                ) from None
+            except RequestsConnectionError:
                 raise RequestsConnectionError(
-                    f"The task could not be automatically inferred as this is available only for models hosted on the Hugging Face Hub. Please provide the argument --task with the relevant task from {', '.join(TasksManager.get_all_tasks())}. Detailed error: {e}"
-                ) from e
+                    f"The task could not be automatically inferred as this is available only for models hosted on the Hugging Face Hub. Please provide the argument --task with the relevant task from {', '.join(TasksManager.get_all_tasks())}"
+                ) from None
     return task
 
 
@@ -111,13 +111,13 @@ def maybe_convert_tokenizers(library_name: str, output: Path, model=None, prepro
 
     try:
         from transformers import PreTrainedTokenizerBase, ProcessorMixin
-    except Exception as e:
-        raise ImportError("Unable to import transformers packages:", e) from None
+    except Exception:
+        raise ImportError("Unable to import transformers packages") from None
 
     try:
         from optimum.intel.utils.import_utils import is_openvino_tokenizers_available
-    except Exception as e:
-        raise ImportError("Unable to import transformers packages:", e) from None
+    except Exception:
+        raise ImportError("Unable to import transformers packages:") from None
 
     if is_openvino_tokenizers_available():
         if library_name != "diffusers" and preprocessors:
@@ -130,10 +130,9 @@ def maybe_convert_tokenizers(library_name: str, output: Path, model=None, prepro
             if tokenizer:
                 try:
                     export_tokenizer(tokenizer, output, task=task, processor_chat_template=processor_chat_template)
-                except Exception as exception:
+                except Exception:
                     logger.warning(
-                        "Could not load tokenizer using specified model ID or path. OpenVINO tokenizer/detokenizer models won't be generated. Exception: %s",
-                        exception,
+                        "Could not load tokenizer using specified model ID or path. OpenVINO tokenizer/detokenizer models won't be generated."
                     )
         elif model:
             for tokenizer_name in ("tokenizer", "tokenizer_2", "tokenizer_3"):
@@ -305,8 +304,8 @@ class OpenVINOOptimumConversion(Pass):
             from optimum.exporters.openvino.utils import save_preprocessors
             from optimum.intel.openvino.configuration import _DEFAULT_4BIT_CONFIG, OVConfig, get_default_int4_config
             from optimum.intel.utils.modeling_utils import _infer_library_from_model_name_or_path
-        except ImportError as e:
-            raise ImportError("Please install Intel® optimum[openvino] to use OpenVINO Optimum Conversion") from e
+        except ImportError:
+            raise ImportError("Please install Intel® optimum[openvino] to use OpenVINO Optimum Conversion") from None
 
         extra_args = deepcopy(config.extra_args) if config.extra_args else {}
         extra_args.update(
