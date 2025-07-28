@@ -58,6 +58,15 @@ class Gptq(Pass):
                 default_value=0.01,
                 description="Damping factor for quantization. Default value is 0.01.",
             ),
+            "desc_act": PassConfigParam(
+                type_=bool,
+                default_value=None,
+                description=(
+                    "Whether to use act-order (also called desc-act) scheme. True is only supported when group_size is"
+                    " -1. Default is None, which is equivalent to True for group_size -1 and False for other group"
+                    " sizes."
+                ),
+            ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, dict],
                 default_value=None,
@@ -67,6 +76,25 @@ class Gptq(Pass):
                 ),
             ),
         }
+
+    @classmethod
+    def validate_config(
+        cls,
+        config: type[BasePassConfig],
+        accelerator_spec: AcceleratorSpec,
+    ) -> bool:
+        if not super().validate_config(config, accelerator_spec):
+            return False
+
+        if config.group_size <= 0 and config.group_size != -1:
+            logger.info("group_size must be -1 or greater than 0")
+            return False
+
+        if config.desc_act is True and config.group_size != -1:
+            logger.info("desc_act can only be True when group_size is -1.")
+            return False
+
+        return True
 
     @torch.no_grad()
     def _run_for_config(
@@ -109,7 +137,7 @@ class Gptq(Pass):
 
             # process each quantizable module
             for module in quantizable_modules:
-                self.process_module(module, percdamp=config.damp_percent)
+                self.process_module(module, percdamp=config.damp_percent, actorder=config.desc_act)
 
             # run the layer again to get the quantized outputs
             hidden_states = self.run_layer(
@@ -290,17 +318,28 @@ class Gptq(Pass):
         module.quant_info.data["H"] += inp.matmul(inp.t())
 
     @staticmethod
-    def process_module(module: torch.nn.Module, percdamp: float = 0.01, blocksize: int = 128) -> None:
+    def process_module(
+        module: torch.nn.Module, blocksize: int = 128, percdamp: float = 0.01, actorder: bool | None = False
+    ) -> None:
         """Process a module for GPTQ quantization using the accumulated Hessian.
 
         Args:
             module: The linear module to quantize.
-            percdamp: Damping factor for numerical stability.
             blocksize: Block size for processing weights.
+            percdamp: Damping factor for numerical stability.
+            actorder: Whether to use act-order quantization scheme.
 
         """
         if module.quant_info.data is None:
             raise ValueError(f"Module {module} does not have quant_info.data initialized!")
+
+        if actorder is None:
+            actorder = module.quant_info.quantizer.group_size == -1
+        elif actorder is True:
+            assert module.quant_info.quantizer.group_size == -1, (
+                "actorder can only be True when group_size is -1, but got group_size="
+                f"{module.quant_info.quantizer.group_size}"
+            )
 
         H = module.quant_info.data["H"]
         W = module.weight.data.clone().float().to(H.device)
@@ -309,6 +348,12 @@ class Gptq(Pass):
         dead = torch.diag(H) == 0
         H[dead, dead] = 1
         W[:, dead] = 0
+
+        if actorder:
+            perm = torch.argsort(torch.diag(H), descending=True)
+            W = W[:, perm]
+            H = H[perm][:, perm]
+            invperm = torch.argsort(perm)
 
         Losses = torch.zeros_like(W)
         Q = torch.zeros_like(W)
@@ -329,6 +374,7 @@ class Gptq(Pass):
             bits=module.quant_info.quantizer.bits, symmetric=module.quant_info.quantizer.symmetric, group_size=-1
         )
         if module.quant_info.quantizer.group_size == -1:
+            # this can be before or after actorder permutation since there's only one group
             active_scale, active_zp = quantizer.find_qparams(W)
         else:
             active_scale, active_zp = None, None
@@ -371,9 +417,13 @@ class Gptq(Pass):
 
             W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
 
+        if actorder:
+            Q = Q[:, invperm]
+
         if not all_scales:
             all_scales.append(active_scale)
             all_zp.append(active_zp)
+
         module.weight.data = Q.to(module.weight.data.device).to(module.weight.data.dtype)
         module.quant_info.scales = torch.cat(all_scales, dim=1).to("cpu")
         module.quant_info.zero_points = torch.cat(all_zp, dim=1).to("cpu")
