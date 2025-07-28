@@ -90,6 +90,7 @@ class OpType(StrEnumBase):
     QuickGelu = "QuickGelu"
     Sigmoid = "Sigmoid"
     Mul = "Mul"
+    RotaryEmbedding = "RotaryEmbedding"
 
 
 class AccuracyLevel(IntEnumBase):

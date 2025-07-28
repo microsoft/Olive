@@ -496,6 +496,167 @@ class QuickGeluToSigmoid(Surgeon):
         return modified_model
 
 
+class DecomposeRotaryEmbedding(Surgeon):
+    """Lower RotaryEmbedding operator to standard ONNX operators (RoPE).
+
+    RotaryEmbedding pattern:
+    [Input] --> RotaryEmbedding --> [Output]
+                     ^    ^
+                     |    |
+          [position_ids] [cos_cache, sin_cache]
+
+    Replaced with:
+                                    [position_ids]
+                                         |
+                                      Reshape
+                                         |
+                          +--------------+--------------+
+                          |                             |
+                          v                             v
+                    [cos_cache] --> Gather       [sin_cache] --> Gather
+                                      |                             |
+                                      v                             v
+                                   Reshape                       Reshape
+                                      |                             |
+    [Input] --> (Scale) --> Split ----+-----------------------------+
+                              |       |                             |
+                              v       v                             v
+                            real    imag                         cos, sin
+                              |       |                             |
+                              +-------+-----------------------------+
+                              |       |       |          |          |
+                              v       v       v          v          v
+                            Mul     Mul     Mul        Mul      (RoPE)
+                              |       |       |          |
+                              v       v       v          v
+                            Sub <-----+     Add <--------+
+                              |               |
+                              v               v
+                            real'           imag'
+                              |               |
+                              +-------+-------+
+                                      |
+                                   Concat
+                                      |
+                                      v
+                                  [Output]
+
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._rule = pattern.RewriteRule(
+            self._target_pattern,
+            self._replacement_pattern,
+        )
+
+    def _target_pattern(self, op, input, position_ids, cos_cache, sin_cache):
+        return op.RotaryEmbedding(
+            input, position_ids, cos_cache, sin_cache, _domain=MSFT_DOMAIN, _outputs=["rotaryembedding_out"]
+        )
+
+    def _replacement_pattern(self, op, input, position_ids, cos_cache, sin_cache, rotaryembedding_out: ir.Value):
+        node = rotaryembedding_out.producer()
+        # attrs with defaults
+        interleaved = (
+            node.attributes.get("interleaved").as_int() if node.attributes.get("interleaved") is not None else 0
+        )
+        num_heads = node.attributes.get("num_heads").as_int() if node.attributes.get("num_heads") is not None else 0
+        rot_dim_attr = node.attributes.get("rotary_embedding_dim")
+        rotary_embedding_dim = rot_dim_attr.as_int() if rot_dim_attr is not None else 0
+        scale_attr = node.attributes.get("scale")
+        scale = scale_attr.as_float() if scale_attr is not None else 1.0
+
+        # constants (all 1D)
+        minus_one_1d = op.Constant(value=ir.tensor([-1], dtype=ir.DataType.INT64))  # shape [1]
+        zero_1d = op.Constant(value=ir.tensor([0], dtype=ir.DataType.INT64))
+        one_1d = op.Constant(value=ir.tensor([1], dtype=ir.DataType.INT64))
+        two_1d = op.Constant(value=ir.tensor([2], dtype=ir.DataType.INT64))
+
+        # 1) gather cos/sin by position_ids
+        pos_flat = op.Reshape(position_ids, minus_one_1d)
+        cos_g = op.Gather(cos_cache, pos_flat, axis=0)
+        sin_g = op.Gather(sin_cache, pos_flat, axis=0)
+
+        # 2) apply scale if needed
+        scaled = input
+        if scale != 1.0:
+            scale_t = op.Constant(value=ir.tensor(scale, dtype=ir.DataType.FLOAT))
+            scaled = op.Mul(input, scale_t)
+
+        # 3) compute reshape dims for cos/sin
+        shape = op.Shape(scaled)  # [batch, seq, ...]
+        batch_dim = op.Gather(shape, zero_1d, axis=0)
+        if num_heads > 0:
+            num_heads_dim = op.Gather(shape, one_1d, axis=0)
+            seq_dim = op.Gather(shape, op.Constant(value=ir.tensor([2], dtype=ir.DataType.INT64)), axis=0)
+        else:
+            seq_dim = op.Gather(shape, one_1d, axis=0)
+
+        # compute coverage dim
+        if rotary_embedding_dim > 0:
+            if interleaved:
+                cov_dim = op.Constant(value=ir.tensor([rotary_embedding_dim], dtype=ir.DataType.INT64))
+            else:
+                cov_dim = op.Constant(value=ir.tensor([rotary_embedding_dim // 2], dtype=ir.DataType.INT64))
+        else:
+            last = op.Gather(shape, minus_one_1d, axis=0)
+            cov_dim = op.Div(last, two_1d)  # still 1D
+
+        # build reshape shape (1D of length 4 or 3)
+        if num_heads > 0:
+            reshape_dims = op.Concat(batch_dim, num_heads_dim, seq_dim, cov_dim, axis=0)
+        else:
+            reshape_dims = op.Concat(batch_dim, seq_dim, cov_dim, axis=0)
+
+        cos_r = op.Reshape(cos_g, reshape_dims)
+        sin_r = op.Reshape(sin_g, reshape_dims)
+
+        # 4) split real/imag
+        last_size = op.Gather(op.Shape(scaled), minus_one_1d, axis=0)  # [hidden_size]
+        half_size = op.Div(last_size, two_1d)  # [hidden_size/2]
+        axes_1d = minus_one_1d  # [-1] slice on last axis
+
+        if interleaved:
+            # produce scalars for Range
+            zero_s = op.Squeeze(zero_1d, zero_1d)
+            two_s = op.Squeeze(two_1d, zero_1d)
+            last_s = op.Squeeze(last_size, zero_1d)
+            idx_r = op.Range(zero_s, last_s, two_s)
+            one_s = op.Squeeze(one_1d, zero_1d)
+            idx_i = op.Range(one_s, last_s, two_s)
+            in_r = op.Gather(scaled, idx_r, axis=-1)
+            in_i = op.Gather(scaled, idx_i, axis=-1)
+        else:
+            # both starts/ends/axes are 1D
+            in_r = op.Slice(scaled, zero_1d, half_size, axes_1d)
+            in_i = op.Slice(scaled, half_size, last_size, axes_1d)
+
+        # 5) apply RoPE
+        real_cos = op.Mul(in_r, cos_r)
+        imag_sin = op.Mul(in_i, sin_r)
+        out_r = op.Sub(real_cos, imag_sin)
+        real_sin = op.Mul(in_r, sin_r)
+        imag_cos = op.Mul(in_i, cos_r)
+        out_i = op.Add(real_sin, imag_cos)
+
+        # 6) stitch back
+        if interleaved:
+            stacked_r = op.Unsqueeze(out_r, minus_one_1d)
+            stacked_i = op.Unsqueeze(out_i, minus_one_1d)
+            concat_ri = op.Concat(stacked_r, stacked_i, axis=-1)
+            final = op.Reshape(concat_ri, op.Shape(input))
+        else:
+            final = op.Concat(out_r, out_i, axis=-1)
+
+        return final
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        mod = rewriter.rewrite(model, pattern_rewrite_rules=[self._rule])
+        logger.debug("Applied RotaryEmbedding lowering rewrite rule")
+        return mod
+
+
 class RMSNormToL2Norm(ProtoSurgeon):
     """Replace RMSNorm subgraph with L2Norm subgraph.
 
