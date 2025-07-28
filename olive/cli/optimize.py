@@ -45,7 +45,13 @@ class OptimizeCommand(BaseOliveCLICommand):
             "--provider",
             type=str,
             default=ExecutionProvider.CPUExecutionProvider,
-            choices=[ep.value for ep in ExecutionProvider],
+            choices=[
+                "CPUExecutionProvider",
+                "CUDAExecutionProvider",
+                "QNNExecutionProvider",
+                "VitisAIExecutionProvider",
+                "OpenVINOExecutionProvider",
+            ],
             help="Execution provider (EP) to use for optimization.",
         )
 
@@ -217,6 +223,25 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _validate_arguments(self):
         if self.args.exporter is None and self.args.modality == "text":
             self.args.exporter = "model_builder"
+
+        if self.args.modality not in ["text"]:
+            raise ValueError(f"Unsupported modality: {self.args.modality}. Only 'text' is supported for optimization.")
+
+        if self.args.provider == ExecutionProvider.CPUExecutionProvider and (
+            self.args.device == "gpu" or self.args.device == "npu"
+        ):
+            raise ValueError(
+                f"Invalid combination of provider {self.args.provider} and device {self.args.device}. "
+                "Please use a compatible provider for the specified device."
+            )
+
+        if self.args.provider == ExecutionProvider.CUDAExecutionProvider and (
+            self.args.device == "cpu" or self.args.device == "npu"
+        ):
+            raise ValueError(
+                f"Invalid combination of provider {self.args.provider} and device {self.args.device}. "
+                "Please use a compatible provider for the specified device."
+            )
 
         if self.args.enable_aot and self.args.provider != ExecutionProvider.QNNExecutionProvider:
             raise ValueError("Ahead-of-Time (AOT) compilation is only supported with QNNExecutionProvider.")
