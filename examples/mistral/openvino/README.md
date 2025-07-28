@@ -2,9 +2,9 @@
 
 This folder contains a sample use case of Olive to optimize a Mistral-7B-Instruct models using OpenVINO tools.
 
-- Intel® NPU: [Mistral 7B Instruct Dynamic Shape Model](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2)
-- Intel® GPU: [Mistral 7B Instruct Dynamic Shape Model](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2)
-- Intel® GPU: [Mistral 7B Instruct Dynamic Shape Model](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3)
+- Intel® NPU: [Mistral 7B Instruct v0.2 Dynamic Shape Model](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2)
+- Intel® GPU: [Mistral 7B Instruct v0.2 Dynamic Shape Model](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2)
+- Intel® GPU: [Mistral 7B Instruct v0.3 Dynamic Shape Model](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3)
 
 ## Quantization Workflows
 
