@@ -65,7 +65,7 @@ def test_openvino_quantization_onnx_input(tmp_path):
     data_dir.mkdir(exist_ok=True)
 
     def transform_to_np(data_item):
-        image, label = data_item
+        image, _ = data_item
         return {"input": image.numpy()}
 
     config = {
@@ -142,7 +142,7 @@ def test_openvino_quantization_with_accuracy_onnx_input(tmp_path):
     data_dir.mkdir(exist_ok=True)
 
     def transform_to_np(data_item):
-        image, label = data_item
+        image, _ = data_item
         return {"input": image.numpy()}
 
     config = {

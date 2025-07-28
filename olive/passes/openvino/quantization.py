@@ -35,13 +35,13 @@ def _default_validate_func(model, validation_loader) -> float:
     if isinstance(model, CompiledModel):
         model_outputs = model.outputs
     elif isinstance(model, ModelProto):
-        model_outputs = [opnode.name for opnode in model.graph.output]
-
         # instantiate ort session
         try:
             import onnxruntime as ort
         except ImportError:
-            raise ImportError("Please install onnxruntime to use NNCF quantization with accuracy for ONNX models") from None
+            raise ImportError(
+                "Please install onnxruntime to use NNCF quantization with accuracy for ONNX models"
+            ) from None
         ort_session = ort.InferenceSession(model.SerializeToString())
         model_inputs = ort_session.get_inputs()
         assert len(model_inputs) == 1, (
@@ -69,6 +69,7 @@ def _default_validate_func(model, validation_loader) -> float:
             input_name = model_inputs[0].name
             input_dict = {input_name: data_item.numpy() if isinstance(data_item, torch.Tensor) else data_item}
             pred = ort_session.run([output.name], input_dict)
+        cur_pred = None
         if isinstance(pred, list) and len(pred) == 1:
             cur_pred = np.argmax(pred[0], axis=1)
         elif isinstance(pred, np.ndarray):
