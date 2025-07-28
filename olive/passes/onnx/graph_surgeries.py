@@ -550,12 +550,12 @@ class DecomposeRotaryEmbedding(Surgeon):
             self._replacement_pattern,
         )
 
-    def _target_pattern(self, op, input, position_ids, cos_cache, sin_cache):
+    def _target_pattern(self, op, x, position_ids, cos_cache, sin_cache):
         return op.RotaryEmbedding(
-            input, position_ids, cos_cache, sin_cache, _domain=MSFT_DOMAIN, _outputs=["rotaryembedding_out"]
+            x, position_ids, cos_cache, sin_cache, _domain=MSFT_DOMAIN, _outputs=["rotaryembedding_out"]
         )
 
-    def _replacement_pattern(self, op, input, position_ids, cos_cache, sin_cache, rotaryembedding_out: ir.Value):
+    def _replacement_pattern(self, op, x, position_ids, cos_cache, sin_cache, rotaryembedding_out: ir.Value):
         node = rotaryembedding_out.producer()
         # attrs with defaults
         interleaved = (
@@ -579,10 +579,10 @@ class DecomposeRotaryEmbedding(Surgeon):
         sin_g = op.Gather(sin_cache, pos_flat, axis=0)
 
         # 2) apply scale if needed
-        scaled = input
+        scaled = x
         if scale != 1.0:
             scale_t = op.Constant(value=ir.tensor(scale, dtype=ir.DataType.FLOAT))
-            scaled = op.Mul(input, scale_t)
+            scaled = op.Mul(x, scale_t)
 
         # 3) compute reshape dims for cos/sin
         shape = op.Shape(scaled)  # [batch, seq, ...]
@@ -645,7 +645,7 @@ class DecomposeRotaryEmbedding(Surgeon):
             stacked_r = op.Unsqueeze(out_r, minus_one_1d)
             stacked_i = op.Unsqueeze(out_i, minus_one_1d)
             concat_ri = op.Concat(stacked_r, stacked_i, axis=-1)
-            final = op.Reshape(concat_ri, op.Shape(input))
+            final = op.Reshape(concat_ri, op.Shape(x))
         else:
             final = op.Concat(out_r, out_i, axis=-1)
 
