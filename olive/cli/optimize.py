@@ -100,14 +100,12 @@ class OptimizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--dim_param",
             type=str,
-            nargs="*",
             help="Dynamic parameter names for dynamic to fixed shape conversion (optional).",
         )
 
         sub_parser.add_argument(
             "--dim_value",
-            type=int,
-            nargs="*",
+            type=str,
             help="Fixed dimension values for dynamic to fixed shape conversion (optional).",
         )
 
@@ -219,9 +217,6 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _validate_arguments(self):
         if self.args.exporter is None and self.args.modality == "text":
             self.args.exporter = "model_builder"
-
-        if self.args.device is not None:
-            print(f"Warning: --device {self.args.device} option is ignored, using {self.args.provider}.")
 
         if self.args.enable_aot and self.args.provider != ExecutionProvider.QNNExecutionProvider:
             raise ValueError("Ahead-of-Time (AOT) compilation is only supported with QNNExecutionProvider.")
@@ -454,7 +449,10 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Return true if condition to add DynamicToFixedShape pass is met."""
         provider = ExecutionProvider(self.args.provider)
         return (
-            provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]
+            (
+                provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]
+                or self.args.device == "npu"
+            )
             and self.args.dim_param is not None
             and self.args.dim_value is not None
         )
@@ -463,8 +461,8 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Return pass dictionary for DynamicToFixedShape pass."""
         return {
             "type": "DynamicToFixedShape",
-            "dim_param": self.args.dim_param,
-            "dim_value": self.args.dim_value,
+            "dim_param": [item.strip() for item in self.args.dim_param.split(",")],
+            "dim_value": [int(item.strip()) for item in self.args.dim_value.split(",")],
         }
 
     def _enable_openvino_io_update_pass(self) -> bool:
@@ -574,7 +572,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         config = {
             "type": "OnnxStaticQuantization",
             "precision": precision.value,
-            "activation_precision": self.args.act_precision,
+            "activation_precision": self.args.act_precision if self.args.act_precision else Precision.INT8,
             "calibration_providers": ["CUDAExecutionProvider"],
             "quant_format": "QDQ" if self.args.use_qdq_format and not self.enable_gptq else "QOperator",
         }
