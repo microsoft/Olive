@@ -452,7 +452,7 @@ class ExposeQuantizedOutput(ProtoSurgeon):
         return self._add_zero_point(model, zero_point_value, zero_point_onnx_dtype, zero_point_np_dtype)
 
 
-class QuickGeluToSigmoid(Surgeon):
+class DecomposeQuickGelu(Surgeon):
     """Lower QuickGelu operator to standard ONNX operators.
 
     QuickGelu pattern:

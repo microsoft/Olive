@@ -1716,7 +1716,7 @@ def test_quickgelu_to_sigmoid(tmp_path):
     output_folder = str(tmp_path / "onnx")
     p = create_pass_from_dict(
         GraphSurgeries,
-        {"surgeries": [{"surgeon": "QuickGeluToSigmoid"}]},
+        {"surgeries": [{"surgeon": "DecomposeQuickGelu"}]},
         disable_search=True,
     )
 
