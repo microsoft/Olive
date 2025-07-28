@@ -496,7 +496,6 @@ def test_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
 
         command_args += [item.strip() for item in t[1].split()]
 
-        print(f"command_args: {command_args}")
         # execute
         cli_main(command_args)
 
