@@ -25,6 +25,7 @@ pip install olive-ai[openvino]
 ```bash
 pip install openvino==2025.1.0
 pip install nncf==2.16.0
+pip install onnxruntime-openvino
 ```
 
 ### Install Optimum Intel® for Generative AI Workloads
@@ -42,7 +43,7 @@ More detailed instructions are available at [Optimum Intel® Installation Instru
 
 Please refer to [OpenVINOConversion](https://microsoft.github.io/Olive/reference/pass.html#openvinoconversion) for more details about the pass and its config parameters.
 
-### Example Configuration
+### Example Conversion Configuration
 
 
 ```json
@@ -53,6 +54,7 @@ Please refer to [OpenVINOConversion](https://microsoft.github.io/Olive/reference
 ```
 
 ## Model IoUpdate
+
 `OpenVINOIoUpdate` pass is a required pass used only for OpenVino IR Model. It converts `OpenVINOModelHandler` into a static shaped model and
 to update input and output tensors.
 
@@ -60,7 +62,7 @@ to update input and output tensors.
 Please refer to [OpenVINOIoUpdate](https://microsoft.github.io/Olive/reference/pass.html#openvinoioupdate) for more details about the pass and its config parameters.
 The `"static"` parameter defaults to `true` and does not need to be explicitly overridden.
 
-### Example Configuration
+### Example IO Update Configuration
 
 ```json
 {
@@ -72,15 +74,17 @@ The `"static"` parameter defaults to `true` and does not need to be explicitly o
 
 ## Post Training Quantization (PTQ)
 
-`OpenVINOQuantization` pass will run [Post-training quantization](https://docs.openvino.ai/2025/openvino-workflow/model-optimization-guide/quantizing-models-post-training.html) for OpenVINO model which supports the uniform integer quantization method.
+`OpenVINOQuantization` pass and `OpenVINOQuantizationWithAccuracy` passes will run [Post-training quantization](https://docs.openvino.ai/2025/openvino-workflow/model-optimization-guide/quantizing-models-post-training.html) for OpenVINO models, as well as ONNX models, and support the uniform integer quantization method.
 This method allows moving from floating-point precision to integer precision (for example, 8-bit) for weights and activations during the
 inference time. It helps to reduce the model size, memory footprint and latency, as well as improve the computational efficiency, using
 integer arithmetic. During the quantization process the model undergoes the transformation process when additional operations, that contain
 quantization information, are inserted into the model. The actual transition to integer arithmetic happens at model inference.
 
-Please refer to [OpenVINOQuantization](https://microsoft.github.io/Olive/reference/pass.html#openvinoquantization) for more details about the pass and its config parameters.
+Please refer to [OpenVINOQuantization](https://microsoft.github.io/Olive/reference/pass.html#openvinoquantization) for more details about the `OpenVINOQuantization` pass and its config parameters.
 
-### Example Configuration
+Please refer to [OpenVINOQuantizationWithAccuracy](https://microsoft.github.io/Olive/reference/pass.html#openvinoquantizationwithaccuracy) for more details about the `OpenVINOQuantizationWithAccuracy` pass and its config parameters.
+
+### Example PTQ Configuration
 
 ```json
 {
@@ -93,11 +97,13 @@ Please refer to [OpenVINOQuantization](https://microsoft.github.io/Olive/referen
 ```
 
 ## Model Encapsulation
+
 `OpenVINOEncapsulation` pass is used to generate an onnx model that encapsulates a OpenVINO IR model. It supports `OpenVINOModelHandler` for now.
 
 Please refer to [OpenVINOEncapsulation](https://microsoft.github.io/Olive/reference/pass.html#openvinoencapsulation) for more details about the pass and its config parameters.
 
-### Example Configuration
+### Example Encapsulation Configuration
+
 ```json
 {
     "type": "OpenVINOEncapsulation",
@@ -112,7 +118,7 @@ Please refer to [OpenVINOEncapsulation](https://microsoft.github.io/Olive/refere
 
 Please refer to [OpenVINOOptimumConversion](https://microsoft.github.io/Olive/reference/pass.html#openvinooptimumconversion) and also to [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) for more details about the pass and its config parameters.
 
-### Example Configuration
+### Example Optimum Conversion Configuration
 
 ```json
 {

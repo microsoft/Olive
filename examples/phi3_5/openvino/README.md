@@ -14,6 +14,7 @@ This workflow performs quantization with Optimum Intel®. It performs the optimi
 ### Phi 3.5 Mini Instruct Dynamic Shape Model
 
 The flow in the following config files executes the above workflow producing a dynamic shape model.
+
 1. [Phi-3.5-mini-instruct-npu-context-ov-dynamic-sym-gs128-bkp-int8-sym.json](Phi-3.5-mini-instruct-npu-context-ov-dynamic-sym-gs128-bkp-int8-sym.json)
 2. [Phi-3.5-mini-instruct-gpu-context-ov-dynamic.json](Phi-3.5-mini-instruct-gpu-context-ov-dynamic.json)
 

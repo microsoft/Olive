@@ -5,35 +5,76 @@
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Union
+from typing import Callable, Union
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import StrEnumBase, hardlink_copy_dir, hardlink_copy_file
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import OliveModelHandler
-from olive.model.handler import OpenVINOModelHandler
+from olive.model.handler import ONNXModelHandler, OpenVINOModelHandler
 from olive.passes import Pass
+from olive.passes.onnx.common import model_proto_to_file
 from olive.passes.pass_config import BasePassConfig, ParamCategory, PassConfigParam, get_user_script_data_config
-
-if TYPE_CHECKING:
-    from openvino import CompiledModel
 
 logger = logging.getLogger(__name__)
 
 
-def _default_validate_func(model: "CompiledModel", validation_loader) -> float:
-    import numpy as np
-    from sklearn.metrics import accuracy_score
+def _default_validate_func(model, validation_loader) -> float:
+    try:
+        import numpy as np
+        from onnx import ModelProto
+        from openvino import CompiledModel
+        from sklearn.metrics import accuracy_score
+    except ImportError:
+        raise ImportError("Please install olive-ai[openvino] and onnx to use NNCF quantization") from None
 
     predictions = []
     references = []
-    output = model.outputs[0]
+
+    if isinstance(model, CompiledModel):
+        model_outputs = model.outputs
+    elif isinstance(model, ModelProto):
+        model_outputs = [opnode.name for opnode in model.graph.output]
+
+        # instantiate ort session
+        try:
+            import onnxruntime as ort
+        except ImportError:
+            raise ImportError("Please install onnxruntime to use NNCF quantization with accuracy for ONNX models") from None
+        ort_session = ort.InferenceSession(model.SerializeToString())
+        model_inputs = ort_session.get_inputs()
+        assert len(model_inputs) == 1, (
+            "Model should have exactly one input for default validation function. Define your own validation function if it has more than one input."
+        )
+        model_outputs = ort_session.get_outputs()
+        assert len(model_outputs) == 1, (
+            "The model has multiple outputs, which is not supported by the default validation function. "
+            "Please define a custom validation function to handle models with multiple outputs. "
+        )
+    else:
+        raise TypeError("Model should be either CompiledModel or ModelProto.")
+
+    output = model_outputs[0]
+
+    try:
+        import torch
+    except ImportError:
+        raise ImportError("Please install torch to use NNCF quantization with accuracy") from None
 
     for data_item, target in validation_loader:
-        pred = model(data_item)[output]
-        predictions.append(np.argmax(pred, axis=1))
-        references.append(target)
+        if isinstance(model, CompiledModel):
+            pred = model(data_item)[output]
+        else:
+            input_name = model_inputs[0].name
+            input_dict = {input_name: data_item.numpy() if isinstance(data_item, torch.Tensor) else data_item}
+            pred = ort_session.run([output.name], input_dict)
+        if isinstance(pred, list) and len(pred) == 1:
+            cur_pred = np.argmax(pred[0], axis=1)
+        elif isinstance(pred, np.ndarray):
+            cur_pred = np.argmax(pred, axis=1)
+        predictions.append(cur_pred)
+        references.append(target.numpy() if isinstance(target, torch.Tensor) else target)
 
     predictions = np.concatenate(predictions, axis=0)
     references = np.concatenate(references, axis=0)
@@ -123,6 +164,36 @@ class OpenVINOQuantizationBase(Pass):
                 required=False,
                 description="Transform function for the input data.",
             ),
+            "validation_func": PassConfigParam(
+                type_=Union[Callable, str],
+                required=False,
+                category=ParamCategory.OBJECT,
+                description=(
+                    "Used to compute accuracy metric. "
+                    "Validation function receives openvino.runtime.CompiledModel object "
+                    " or onnxruntime.OnnxModel object "
+                    "and validation dataloader and returns accuracy metric value."
+                ),
+            ),
+            "max_drop": PassConfigParam(
+                type_=float,
+                default_value=0.01,
+                description=(
+                    "Defines the accuracy drop threshold. The quantization process stops "
+                    "when the degradation of accuracy metric on the validation dataset is less than the max_drop. "
+                    "NNCF will stop the quantization and report an error if the max_drop value can't be reached. "
+                    "The default value is 0.01."
+                ),
+            ),
+            "drop_type": PassConfigParam(
+                type_=DropTypeEnum,
+                required=False,
+                default_value=DropTypeEnum.ABSOLUTE,
+                description=(
+                    "Defines the type of the max_drop. Supported values: 'ABSOLUTE', 'RELATIVE'. "
+                    "The default value is 'ABSOLUTE'."
+                ),
+            ),
             "extra_configs": PassConfigParam(
                 type_=list[dict],
                 required=False,
@@ -202,25 +273,48 @@ class OpenVINOQuantizationBase(Pass):
 
 class OpenVINOQuantization(OpenVINOQuantizationBase):
     def _run_for_config(
-        self, model: OpenVINOModelHandler, config: type[BasePassConfig], output_model_path: str
-    ) -> OpenVINOModelHandler:
+        self, model: Union[OpenVINOModelHandler, ONNXModelHandler], config: type[BasePassConfig], output_model_path: str
+    ) -> Union[OpenVINOModelHandler, ONNXModelHandler]:
+        if not isinstance(model, (OpenVINOModelHandler, ONNXModelHandler)):
+            raise TypeError("OpenVINOQuantization pass can only be applied to OpenVINO or ONNX models.")
         if config.reuse_cache:
-            output_model_path = model.model_path
-            model_name = model.model_config["model_name"]
-            model_name_path = Path(model.model_path) / (f"{model_name}.xml")
-            weight_name_path = Path(model.model_path) / (f"{model_name}.bin")
+            if isinstance(model, OpenVINOModelHandler):
+                model_name = model.model_config["model_name"]
+                model_name_path = Path(model.model_path) / (f"{model_name}.xml")
+                output_model_path = model.model_path
+                weight_name_path = Path(model.model_path) / (f"{model_name}.bin")
+            else:
+                model_name_path = Path(model.model_path)
+                output_model_path = "".join(model.model_path.split(".onnx")[:-1]) + "_quant.onnx"
+                weight_name_path = None
 
         self._run_pass(model, config, output_model_path)
 
         if config.reuse_cache:
             if os.path.exists(model_name_path):
                 os.remove(model_name_path)
-            if os.path.exists(weight_name_path):
+            if weight_name_path is not None and os.path.exists(weight_name_path):
                 os.remove(weight_name_path)
 
-        return OpenVINOModelHandler(model_path=output_model_path)
+        # If the model is OpenVINO, return OpenVINOModelHandler, otherwise return ONNXModelHandler
+        if isinstance(model, OpenVINOModelHandler):
+            output_model = OpenVINOModelHandler(model_path=output_model_path)
+        else:
+            if Path(output_model_path).is_file():
+                assert Path(output_model_path).suffix == ".onnx", (
+                    f"Output model path {output_model_path} should have ONNX suffix."
+                )
+            if Path(output_model_path).is_dir():
+                output_model_path = Path(output_model_path) / Path(model.model_path).name.replace(
+                    ".onnx", "_quant.onnx"
+                )
+            output_model = ONNXModelHandler(model_path=output_model_path)
 
-    def _run_pass(self, model: OpenVINOModelHandler, config: type[BasePassConfig], output_model_path: str):
+        return output_model
+
+    def _run_pass(
+        self, model: Union[OpenVINOModelHandler, ONNXModelHandler], config: type[BasePassConfig], output_model_path: str
+    ):
         try:
             import nncf
             import openvino as ov
@@ -245,93 +339,92 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
         )
 
         if not config.reuse_cache:
-            # copy JSON and text files for genai models
-            all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
-            for genai_file in all_genai_files:
-                src_pth = Path(model.model_path) / genai_file
-                dest_path = Path(output_model_path)
-                hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
+            if isinstance(model, OpenVINOModelHandler):
+                # copy JSON and text files for genai models
+                all_genai_files = [
+                    name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]
+                ]
+                for genai_file in all_genai_files:
+                    src_pth = Path(model.model_path) / genai_file
+                    dest_path = Path(output_model_path)
+                    hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
 
-            # copy tokenizer folder if it exists
-            src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
-            if src_tokenizer.exists() and src_tokenizer.is_dir():
-                dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
-                hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
+                # copy tokenizer folder if it exists
+                src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
+                if src_tokenizer.exists() and src_tokenizer.is_dir():
+                    dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
+                    hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
 
-            # copy detokenizer folder if it exists
-            src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
-            if src_detokenizer.exists() and src_detokenizer.is_dir():
-                dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
-                hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
+                # copy detokenizer folder if it exists
+                src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
+                if src_detokenizer.exists() and src_detokenizer.is_dir():
+                    dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
+                    hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
+            else:
+                # For ONNX models, all files are in the same folder as the ONNX model file.
+                # extract directory from file path
+                if Path(model.model_path).is_file():
+                    model_dir = Path(model.model_path).parent
+                else:
+                    model_dir = Path(model.model_path)
+                if Path(output_model_path).is_file():
+                    dest_dir = Path(output_model_path).parent
+                else:
+                    dest_dir = Path(output_model_path)
+                hardlink_copy_dir(model_dir, dest_dir, symlinks=True)
 
-        model_name = model.model_config["model_name"]
-        output_model_name = f"{model_name}_quant.xml"
-        output_model_path = Path(output_model_path) / output_model_name
-        ov.save_model(quantized_model, output_model=output_model_path)
-        del quantized_model
-        del loaded_model
+        if isinstance(model, OpenVINOModelHandler):
+            model_name = model.model_config["model_name"]
+            output_model_name = f"{model_name}_quant.xml"
+            output_model_path = Path(output_model_path) / output_model_name
+            ov.save_model(quantized_model, output_model=output_model_path)
+        else:
+            if Path(output_model_path).is_dir():
+                output_model_path = Path(output_model_path) / Path(model.model_path).name.replace(
+                    ".onnx", "_quant.onnx"
+                )
+            model_proto_to_file(quantized_model, output_model_path)
 
 
 class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
-    @classmethod
-    def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        config = {
-            "validation_func": PassConfigParam(
-                type_=Union[Callable, str],
-                required=False,
-                category=ParamCategory.OBJECT,
-                description=(
-                    "Used to compute accuracy metric. "
-                    "Validation function receives openvino.runtime.CompiledModel object "
-                    "and validation dataloader and returns accuracy metric value."
-                ),
-            ),
-            "max_drop": PassConfigParam(
-                type_=float,
-                default_value=0.01,
-                description=(
-                    "Defines the accuracy drop threshold. The quantization process stops "
-                    "when the degradation of accuracy metric on the validation dataset is less than the max_drop. "
-                    "NNCF will stop the quantization and report an error if the max_drop value can't be reached. "
-                    "The default value is 0.01."
-                ),
-            ),
-            "drop_type": PassConfigParam(
-                type_=DropTypeEnum,
-                required=False,
-                default_value=DropTypeEnum.ABSOLUTE,
-                description=(
-                    "Defines the type of the max_drop. Supported values: 'ABSOLUTE', 'RELATIVE'. "
-                    "The default value is 'ABSOLUTE'."
-                ),
-            ),
-            "reuse_cache": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                required=False,
-                description=("Reuse cache of previous passes to reduce storage footprint."),
-            ),
-        }
-        config.update(super()._default_config(accelerator_spec))
-        return config
-
     def _run_for_config(
         self, model: OliveModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> OliveModelHandler:
+        if not isinstance(model, (OpenVINOModelHandler, ONNXModelHandler)):
+            raise TypeError("OpenVINOQuantizationWithAccuracy pass can only be applied to OpenVINO or ONNX models.")
         if config.reuse_cache:
-            output_model_path = model.model_path
-            model_name = model.model_config["model_name"]
-            model_name_path = Path(model.model_path) / (f"{model_name}.xml")
-            weight_name_path = Path(model.model_path) / (f"{model_name}.bin")
+            if isinstance(model, OpenVINOModelHandler):
+                output_model_path = model.model_path
+                model_name = model.model_config["model_name"]
+                model_name_path = Path(model.model_path) / (f"{model_name}.xml")
+                weight_name_path = Path(model.model_path) / (f"{model_name}.bin")
+            else:
+                model_name_path = Path(model.model_path)
+                output_model_path = "".join(model.model_path.split(".onnx")[:-1]) + "_quant.onnx"
+                weight_name_path = None
 
         self._run_pass(model, config, output_model_path)
 
         if config.reuse_cache:
             if os.path.exists(model_name_path):
                 os.remove(model_name_path)
-            if os.path.exists(weight_name_path):
+            if weight_name_path is not None and os.path.exists(weight_name_path):
                 os.remove(weight_name_path)
-        return OpenVINOModelHandler(model_path=output_model_path)
+
+        # If the model is OpenVINO, return OpenVINOModelHandler, otherwise return ONNXModelHandler
+        if isinstance(model, OpenVINOModelHandler):
+            output_model = OpenVINOModelHandler(model_path=output_model_path)
+        else:
+            if Path(output_model_path).is_file():
+                assert Path(output_model_path).suffix == ".onnx", (
+                    f"Output model path {output_model_path} should have ONNX suffix."
+                )
+            if Path(output_model_path).is_dir():
+                output_model_path = Path(output_model_path) / Path(model.model_path).name.replace(
+                    ".onnx", "_quant.onnx"
+                )
+            output_model = ONNXModelHandler(model_path=output_model_path)
+        return output_model
 
     def _run_pass(self, model: OliveModelHandler, config: type[BasePassConfig], output_model_path: str):
         try:
@@ -365,28 +458,48 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
         )
 
         if not config.reuse_cache:
-            # copy JSON and text files for genai models
-            all_genai_files = [name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]]
-            for genai_file in all_genai_files:
-                src_pth = Path(model.model_path) / genai_file
-                dest_path = Path(output_model_path)
-                hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
+            if isinstance(model, OpenVINOModelHandler):
+                # copy JSON and text files for genai models
+                all_genai_files = [
+                    name for name in Path(model.model_path).iterdir() if name.suffix in [".json", ".txt"]
+                ]
+                for genai_file in all_genai_files:
+                    src_pth = Path(model.model_path) / genai_file
+                    dest_path = Path(output_model_path)
+                    hardlink_copy_file(src_pth, dest_path, follow_symlinks=True)
 
-            # copy tokenizer folder if it exists
-            src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
-            if src_tokenizer.exists() and src_tokenizer.is_dir():
-                dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
-                hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
+                # copy tokenizer folder if it exists
+                src_tokenizer = Path(model.model_path) / "openvino_tokenizer"
+                if src_tokenizer.exists() and src_tokenizer.is_dir():
+                    dest_tokenizer = Path(output_model_path) / "openvino_tokenizer"
+                    hardlink_copy_dir(src_tokenizer, dest_tokenizer, symlinks=True)
 
-            # copy detokenizer folder if it exists
-            src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
-            if src_detokenizer.exists() and src_detokenizer.is_dir():
-                dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
-                hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
+                # copy detokenizer folder if it exists
+                src_detokenizer = Path(model.model_path) / "openvino_detokenizer"
+                if src_detokenizer.exists() and src_detokenizer.is_dir():
+                    dest_detokenizer = Path(output_model_path) / "openvino_detokenizer"
+                    hardlink_copy_dir(src_detokenizer, dest_detokenizer, symlinks=True)
+            else:
+                # For ONNX models, all files are in the same folder as the ONNX model file.
+                # extract directory from file path
+                if Path(model.model_path).is_file():
+                    model_dir = Path(model.model_path).parent
+                else:
+                    model_dir = Path(model.model_path)
+                if Path(output_model_path).is_file():
+                    dest_dir = Path(output_model_path).parent
+                else:
+                    dest_dir = Path(output_model_path)
+                hardlink_copy_dir(model_dir, dest_dir, symlinks=True)
 
-        model_name = model.model_config["model_name"]
-        output_model_name = f"{model_name}_quant.xml"
-        output_model_path = Path(output_model_path) / output_model_name
-        ov.save_model(quantized_model, output_model=output_model_path)
-        del quantized_model
-        del loaded_model
+        if isinstance(model, OpenVINOModelHandler):
+            model_name = model.model_config["model_name"]
+            output_model_name = f"{model_name}_quant.xml"
+            output_model_path = Path(output_model_path) / output_model_name
+            ov.save_model(quantized_model, output_model=output_model_path)
+        else:
+            if Path(output_model_path).is_dir():
+                output_model_path = Path(output_model_path) / Path(model.model_path).name.replace(
+                    ".onnx", "_quant.onnx"
+                )
+            model_proto_to_file(quantized_model, output_model_path)

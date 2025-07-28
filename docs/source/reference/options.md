@@ -409,7 +409,8 @@ Please also find the detailed options from following table for each pass:
 | [QuantizationAwareTraining](pass.rst#onnxquantizationawaretraining) | Run quantization aware training on PyTorch model. |
 | [OpenVINOConversion](pass.rst#openvinoconversion) | Converts PyTorch, ONNX or TensorFlow Model to OpenVINO Model. |
 | [OpenVINOIoUpdate](pass.rst#openvinoioupdate) | Converts dynamic OpenVINO Model to static OpenVINO Model and updates IO names. |
-| [OpenVINOQuantization](pass.rst#openvinoquantization) | Post-training quantization for OpenVINO model. |
+| [OpenVINOQuantization](pass.rst#openvinoquantization) | Post-training quantization for OpenVINO models and ONNX models |
+| [OpenVINOQuantizationWithAccuracy](pass.rst#openvinoquantizationwithaccuracy) | Post-training quantization with accuracy for OpenVINO models and ONNX models |
 | [OpenVINOEncapsulation](pass.rst#openvinoencapsulation) | Generates an ONNX model that encapsulates an OpenVINO IR model. |
 | [OpenVINOOptimumConversion](pass.rst#openvinooptimumconversion) | Run [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) command using Optimum Intel® to convert Huggingface Model to OpenVINO Model and optionally perform weight compression or quantization. |
 | [SNPEConversion](pass.rst#snpeconversion) | Convert ONNX or TensorFlow model to SNPE DLC. Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK. |

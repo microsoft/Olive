@@ -25,6 +25,7 @@ onnx-graphsurgeon
 onnxconverter_common
 onnxmltools
 onnxoptimizer
+onnxruntime
 onnxruntime_extensions
 onnxscript>=0.2.4
 onnxsim
