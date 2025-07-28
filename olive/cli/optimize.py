@@ -513,7 +513,6 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _get_ort_transformers_optimization_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OrtTransformersOptimization pass."""
-        precision = Precision(self.args.precision)
         return {"type": "OrtTransformersOptimization"}
 
     def _enable_matmul_nbits_to_qdq_pass(self, passes_config: dict[str, Any]) -> bool:
