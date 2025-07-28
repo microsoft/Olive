@@ -37,5 +37,5 @@
     "cache_dir": "cache",
     "clean_cache": true,
     "evaluate_input_model": false,
-    "output_dir": "models/DeepSeek_R1_Distill_Qwen_1.5B_context_ov_dynamic_sym_gs128_bkp_int8_sym_r1"
+    "output_dir": "models/DeepSeek_R1_Distill_Qwen_7B_npu_context_ov_dy_sym_gs128_bkp_int8_sym_r1"
 }
