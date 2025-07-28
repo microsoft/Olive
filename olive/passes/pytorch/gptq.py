@@ -20,7 +20,6 @@ from olive.common.utils import tensor_data_to_device
 from olive.constants import PrecisionBits
 from olive.data.config import DataConfig
 from olive.data.template import huggingface_data_config_template
-from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
