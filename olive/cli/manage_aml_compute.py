@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from olive.cli.base import BaseOliveCLICommand
+from olive.common.utils import get_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ class ManageAMLComputeCommand(BaseOliveCLICommand):
                 raise ValueError(f"aml_config_path {aml_config_path} does not exist")
             if not Path(aml_config_path).is_file():
                 raise ValueError(f"aml_config_path {aml_config_path} is not a file")
-            return MLClient.from_config(credential=cls.get_credentials(), path=aml_config_path)
+            return MLClient.from_config(credential=get_credentials(), path=aml_config_path)
         else:
             if subscription_id is None:
                 raise ValueError("subscription_id must be provided if aml_config_path is not provided")
@@ -114,35 +115,8 @@ class ManageAMLComputeCommand(BaseOliveCLICommand):
             if workspace_name is None:
                 raise ValueError("workspace_name must be provided if aml_config_path is not provided")
             return MLClient(
-                credential=cls.get_credentials(),
+                credential=get_credentials(),
                 subscription_id=subscription_id,
                 resource_group_name=resource_group,
                 workspace_name=workspace_name,
             )
-
-    @staticmethod
-    def get_credentials():
-        try:
-            from azure.identity import AzureCliCredential, DefaultAzureCredential, InteractiveBrowserCredential
-        except ImportError:
-            raise ImportError(
-                "azure-identity is not installed. Please install azure-identity packages to use this command."
-            ) from None
-
-        print("Getting credentials for MLClient")
-        try:
-            credential = AzureCliCredential()
-            credential.get_token("https://management.azure.com/.default")
-            print("Using AzureCliCredential")
-        except Exception:
-            try:
-                credential = DefaultAzureCredential()
-                # Check if given credential can get token successfully.
-                credential.get_token("https://management.azure.com/.default")
-                print("Using DefaultAzureCredential")
-            except Exception:
-                # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
-                credential = InteractiveBrowserCredential()
-                print("Using InteractiveBrowserCredential")
-
-        return credential
