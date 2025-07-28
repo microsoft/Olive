@@ -2,10 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 import logging
 import math
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import torch
 
@@ -19,13 +21,17 @@ from olive.constants import PrecisionBits
 from olive.data.config import DataConfig
 from olive.data.template import huggingface_data_config_template
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
 from olive.passes.pytorch.train_utils import (
     load_hf_base_model,
 )
+
+if TYPE_CHECKING:
+    from olive.hardware.accelerator import AcceleratorSpec
+    from olive.model import HfModelHandler
+
 
 logger = logging.getLogger(__name__)
 
@@ -263,7 +269,7 @@ class Gptq(Pass):
         layer_args: list[tuple],
         layer_kwargs: list[dict],
         return_output: bool = False,
-    ) -> Optional[list[torch.Tensor]]:
+    ) -> list[torch.Tensor] | None:
         """Run a layer with the given inputs.
 
         Args:
@@ -502,7 +508,7 @@ class Gptq(Pass):
         return dataset
 
     @staticmethod
-    def get_calibration_data_config(model_name_or_path: str, trust_remote_code: Optional[bool] = None) -> DataConfig:
+    def get_calibration_data_config(model_name_or_path: str, trust_remote_code: bool | None = None) -> DataConfig:
         """Get default calibration data configuration for GPTQ quantization.
 
         Args:
@@ -550,6 +556,6 @@ class QuantInfo:
     """
 
     quantizer: WeightQuantizer
-    scales: Optional[torch.Tensor] = None
-    zero_points: Optional[torch.Tensor] = None
-    data: Optional[dict] = None
+    scales: torch.Tensor | None = None
+    zero_points: torch.Tensor | None = None
+    data: dict | None = None
