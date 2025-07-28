@@ -1733,8 +1733,7 @@ def test_quickgelu_to_sigmoid(tmp_path):
     assert op_types.count(OpType.Mul) == 2
 
 
-def test_lower_rotary_embedding_numerical(tmp_path):
-    """Test LowerRotaryEmbedding with numerical validation."""
+def test_decompose_rotary_embedding(tmp_path):
     # setup
     batch_size, seq_len, hidden_size = 2, 8, 64
     max_seq_len = 128
@@ -1779,8 +1778,8 @@ def test_lower_rotary_embedding_numerical(tmp_path):
         outputs=[output_tensor],
         initializer=[cos_initializer, sin_initializer],
     )
-    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 14), helper.make_opsetid(MSFT_DOMAIN, 1)])
-    model.ir_version = 8
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 21), helper.make_opsetid(MSFT_DOMAIN, 1)])
+    model.ir_version = 10
 
     model_path = tmp_path / "model.onnx"
     onnx.save(model, model_path)
@@ -1794,6 +1793,28 @@ def test_lower_rotary_embedding_numerical(tmp_path):
     )
 
     output_model = p.run(input_model, output_folder)
+
+    # Check that the RotaryEmbedding node was replaced with expected nodes
+    transformed_model = onnx.load(output_model.model_path)
+    node_types = {node.op_type for node in transformed_model.graph.node}
+
+    assert OpType.RotaryEmbedding not in node_types
+
+    expected_nodes = {
+        OpType.Reshape,
+        OpType.Gather,
+        OpType.Shape,
+        OpType.Constant,
+        OpType.Slice,
+        OpType.Mul,
+        OpType.Sub,
+        OpType.Add,
+        OpType.Concat,
+        OpType.Div,
+    }
+
+    for node_type in expected_nodes:
+        assert node_type in node_types, f"Expected node type {node_type} not found in transformed model"
 
     # Prepare test inputs
     np.random.seed(42)

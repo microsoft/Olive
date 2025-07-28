@@ -558,14 +558,10 @@ class DecomposeRotaryEmbedding(Surgeon):
     def _replacement_pattern(self, op, x, position_ids, cos_cache, sin_cache, rotaryembedding_out: ir.Value):
         node = rotaryembedding_out.producer()
         # attrs with defaults
-        interleaved = (
-            node.attributes.get("interleaved").as_int() if node.attributes.get("interleaved") is not None else 0
-        )
-        num_heads = node.attributes.get("num_heads").as_int() if node.attributes.get("num_heads") is not None else 0
-        rot_dim_attr = node.attributes.get("rotary_embedding_dim")
-        rotary_embedding_dim = rot_dim_attr.as_int() if rot_dim_attr is not None else 0
-        scale_attr = node.attributes.get("scale")
-        scale = scale_attr.as_float() if scale_attr is not None else 1.0
+        interleaved = node.attributes.get_int("interleaved", 0)
+        num_heads = node.attributes.get_int("num_heads", 0)
+        rotary_embedding_dim = node.attributes.get_int("rotary_embedding_dim", 0)
+        scale = node.attributes.get_float("scale", 1.0)
 
         # constants (all 1D)
         minus_one_1d = op.Constant(value=ir.tensor([-1], dtype=ir.DataType.INT64))  # shape [1]
