@@ -48,12 +48,20 @@ class MatMulNBitsToQDQ(Pass):
                     " EPs such as DirectML."
                 ),
             ),
+            "use_int4": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to use int4 data type for the quantized weight. Default is False and uses uint4 data type."
+                    " To be deprecated in future versions in favor of use_signed_int."
+                ),
+            ),
             "use_signed_int": PassConfigParam(
                 type_=bool,
                 default_value=False,
                 description=(
                     "Whether to use signed int data type for the quantized weight. Default is False and uses unsigned"
-                    " int data type."
+                    " int data type. Supersedes use_int4 when set to True."
                 ),
             ),
             "add_zero_point": PassConfigParam(
@@ -130,6 +138,7 @@ class MatMulNBitsToQDQ(Pass):
                     continue
 
             unsigned_midpoint = 1 << (bits - 1)
+            use_signed_int = config.use_signed_int or (bits == 4 and config.use_int4)
 
             # name for the DQ node
             dq_name = self._get_new_node_name(dag, node_name, "DequantizeLinear")
@@ -164,7 +173,7 @@ class MatMulNBitsToQDQ(Pass):
                 # skip if is a no-op zero point, DQ zero point is all 0s == unsigned_midpoint in mnb and signed int
                 if (
                     not config.add_zero_point
-                    and config.use_signed_int
+                    and use_signed_int
                     and new_qi_name.endswith(".qzeros")
                     and np.all(qi == unsigned_midpoint)
                 ):
@@ -175,7 +184,7 @@ class MatMulNBitsToQDQ(Pass):
                     qi = qi.T
 
                 if qi.dtype == np.uint8:
-                    if config.use_signed_int:
+                    if use_signed_int:
                         # no worries about making signed since the values only use 4/8 bits
                         qi = qi.astype(np.int16)
                         # subtract unsigned_midpoint to make it signed
@@ -185,9 +194,9 @@ class MatMulNBitsToQDQ(Pass):
                     # pack in the format expected by onnx and create the tensor
                     tensor = onnx.helper.make_tensor(
                         new_qi_name,
-                        self.INT_ELEM_TYPE_MAP[(bits, config.use_signed_int)],
+                        self.INT_ELEM_TYPE_MAP[(bits, use_signed_int)],
                         qi.shape,
-                        self._maybe_pack_on_flat(qi, bits, config.use_signed_int).tobytes(),
+                        self._maybe_pack_on_flat(qi, bits, use_signed_int).tobytes(),
                         raw=True,
                     )
                 else:
@@ -199,19 +208,18 @@ class MatMulNBitsToQDQ(Pass):
                 dq_inputs.append(new_qi_name)
             # DQ default zp is 0 but MatMulNBits is 8/128, so we need to add a zero tensor with all 8/128s
             # no need to add for int4/int8 if add_zero_point is False
-            if len(dq_inputs) == 2 and (config.add_zero_point or not config.use_signed_int):
+            if len(dq_inputs) == 2 and (config.add_zero_point or not use_signed_int):
                 zp_name = f"{dq_name}.qzeros"
                 zp_shape = [N] if is_per_axis else ([N, num_k_blocks] if config.use_transpose_op else [num_k_blocks, N])
                 zp_tensor = onnx.helper.make_tensor(
                     zp_name,
-                    self.INT_ELEM_TYPE_MAP[(bits, config.use_signed_int)],
+                    self.INT_ELEM_TYPE_MAP[(bits, use_signed_int)],
                     zp_shape,
                     # no zp in matmulnbits is equivalent to 8/128 uint4/uint8 and 0 int4/int8 in DQ
                     self._maybe_pack_on_flat(
-                        np.zeros(N * num_k_blocks, dtype=np.int16)
-                        + (0 if config.use_signed_int else unsigned_midpoint),
+                        np.zeros(N * num_k_blocks, dtype=np.int16) + (0 if use_signed_int else unsigned_midpoint),
                         bits,
-                        config.use_signed_int,
+                        use_signed_int,
                     ).tobytes(),
                     raw=True,
                 )

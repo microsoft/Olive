@@ -75,7 +75,7 @@ def create_mnb_model_fixture(request, tmp_path):
             block_size=block_size,
             is_symmetric=symmetric,
             bits=bits,
-            # 8 bit kernel only supports acc level 4 currently
+            # 8 bit only supports acc level 4 currently
             accuracy_level=4 if bits == 8 else 0,
         ),
     )
