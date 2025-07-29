@@ -67,8 +67,8 @@ OCP_MX_QUANT_SCHEME = [
 ]
 
 
-SUPPORTED_QUANT_SCHEME = (
-    [
+SUPPORTED_QUANT_SCHEME = [
+    *[
         "w_bfp16",
         "w_bfp16_a_bfp16",
         "w_bfp16_per_group_sym",
@@ -109,10 +109,10 @@ SUPPORTED_QUANT_SCHEME = (
         "w_uint8_per_group_asym",
         "w_uint8_per_tensor_mse",
         "w_uint8_per_tensor_percentile",
-    ]
-    + OCP_MX_QUANT_SCHEME
-    + list(DEPRECATED_QUANT_SCHEME.keys())
-)
+    ],
+    *OCP_MX_QUANT_SCHEME,
+    *list(DEPRECATED_QUANT_SCHEME),
+]
 
 FLOAT16_SPEC = Float16Spec().to_quantization_spec()
 
@@ -243,44 +243,44 @@ FP4_PER_GROUP_FP8_PER_TENSOR_SCALE_SPEC_DYNAMIC = ScaleQuantSpec(
 ).to_quantization_spec()
 
 
-def OCP_MXFP6_E2M3_SPEC(scale_calculation_mode="even", is_dynamic=True):
+def ocp_mxfp6_e2m3_spec(scale_calculation_mode="even", is_dynamic=True):
     return OCP_MXFP6E2M3Spec(
         ch_axis=-1, scale_calculation_mode=scale_calculation_mode, is_dynamic=is_dynamic
     ).to_quantization_spec()
 
 
-def OCP_MXFP6_E3M2_SPEC(scale_calculation_mode="even", is_dynamic=True):
+def ocp_mxfp6_e3m2_spec(scale_calculation_mode="even", is_dynamic=True):
     return OCP_MXFP6E3M2Spec(
         ch_axis=-1, scale_calculation_mode=scale_calculation_mode, is_dynamic=is_dynamic
     ).to_quantization_spec()
 
 
-def OCP_MXFP4_SPEC(scale_calculation_mode="even", is_dynamic=True):
+def ocp_mxfp4_spec(scale_calculation_mode="even", is_dynamic=True):
     return OCP_MXFP4Spec(
         ch_axis=-1, is_dynamic=is_dynamic, scale_calculation_mode=scale_calculation_mode
     ).to_quantization_spec()
 
 
-def OCP_MXFP8_E4M3_SPEC(scale_calculation_mode="even", is_dynamic=True):
+def ocp_mxfp8_e4m3_spec(scale_calculation_mode="even", is_dynamic=True):
     return OCP_MXFP8E4M3Spec(
         scale_calculation_mode=scale_calculation_mode, ch_axis=-1, is_dynamic=is_dynamic
     ).to_quantization_spec()
 
 
-def OCP_MXFP8_E5M2_SPEC(scale_calculation_mode="even", is_dynamic=True):
+def ocp_mxfp8_e5m2_spec(scale_calculation_mode="even", is_dynamic=True):
     return OCP_MXFP8E5M2Spec(
         scale_calculation_mode=scale_calculation_mode, ch_axis=-1, is_dynamic=is_dynamic
     ).to_quantization_spec()
 
 
-def OCP_MXINT8_SPEC(scale_calculation_mode="even", is_dynamic=True):
+def ocp_mxint8_spec(scale_calculation_mode="even", is_dynamic=True):
     return OCP_MXINT8Spec(
         scale_calculation_mode=scale_calculation_mode, ch_axis=-1, is_dynamic=is_dynamic
     ).to_quantization_spec()
 
 
 # FP per-group config
-def FP8_E4M3_PER_GROUP_SYM_SPEC(group_size, scale_format="e8m0", scale_calculation_mode="even", is_dynamic=True):
+def fp8_e4m3_per_group_sym_spec(group_size, scale_format="e8m0", scale_calculation_mode="even", is_dynamic=True):
     return FP8E4M3PerGroupSpec(
         ch_axis=-1,
         group_size=group_size,
@@ -290,7 +290,7 @@ def FP8_E4M3_PER_GROUP_SYM_SPEC(group_size, scale_format="e8m0", scale_calculati
     ).to_quantization_spec()
 
 
-def FP8_E5M2_PER_GROUP_SYM_SPEC(group_size, scale_format="e8m0", scale_calculation_mode="even", is_dynamic=True):
+def fp8_e5m2_per_group_sym_spec(group_size, scale_format="e8m0", scale_calculation_mode="even", is_dynamic=True):
     return FP8E5M2PerGroupSpec(
         ch_axis=-1,
         group_size=group_size,
@@ -300,7 +300,7 @@ def FP8_E5M2_PER_GROUP_SYM_SPEC(group_size, scale_format="e8m0", scale_calculati
     ).to_quantization_spec()
 
 
-def FP4_PER_GROUP_SYM_SPEC(group_size, scale_format="e8m0", scale_calculation_mode="even", is_dynamic=True):
+def fp4_per_group_sym_spec(group_size, scale_format="e8m0", scale_calculation_mode="even", is_dynamic=True):
     return FP4PerGroupSpec(
         ch_axis=-1,
         group_size=group_size,
@@ -310,7 +310,7 @@ def FP4_PER_GROUP_SYM_SPEC(group_size, scale_format="e8m0", scale_calculation_mo
     ).to_quantization_spec()
 
 
-def FP6_E2M3_PER_GROUP_SYM_SPEC(group_size, scale_format="e8m0", scale_calculation_mode="even", is_dynamic=True):
+def fp6_e2m3_per_group_sym_spec(group_size, scale_format="e8m0", scale_calculation_mode="even", is_dynamic=True):
     return FP6E2M3PerGroupSpec(
         ch_axis=-1,
         group_size=group_size,
@@ -320,7 +320,7 @@ def FP6_E2M3_PER_GROUP_SYM_SPEC(group_size, scale_format="e8m0", scale_calculati
     ).to_quantization_spec()
 
 
-def FP6_E3M2_PER_GROUP_SYM_SPEC(group_size, scale_format="e8m0", scale_calculation_mode="even", is_dynamic=True):
+def fp6_e3m2_per_group_sym_spec(group_size, scale_format="e8m0", scale_calculation_mode="even", is_dynamic=True):
     return FP6E3M2PerGroupSpec(
         ch_axis=-1,
         group_size=group_size,
@@ -420,7 +420,7 @@ W_UINT4_PER_CHANNEL_ASYM_CONFIG = QuantizationConfig(weight=UINT4_PER_CHANNEL_AS
 W_UINT4_PER_GROUP_SYM_CONFIG = QuantizationConfig(weight=UINT4_PER_GROUP_SYM_SPEC)
 W_INT4_PER_CHANNEL_ASYM_CONFIG = QuantizationConfig(weight=INT4_PER_CHANNEL_ASYM_SPEC)
 W_INT4_PER_GROUP_ASYM_CONFIG = QuantizationConfig(weight=INT4_PER_GROUP_ASYM_SPEC)
-W_MXINT8_CONFIG = QuantizationConfig(weight=OCP_MXINT8_SPEC(is_dynamic=False))
+W_MXINT8_CONFIG = QuantizationConfig(weight=ocp_mxint8_spec(is_dynamic=False))
 W_BFP16_PER_GROUP_SYM_CONFIG = QuantizationConfig(weight=BFP16_PER_GROUP_SYM_SPEC)
 W_MXFP4_DIFFS_SYM_CONFIG = QuantizationConfig(weight=OCP_MX_SEPERATED_FP4_PER_GROUP_DIFFS_SPEC)
 
@@ -495,31 +495,28 @@ def get_global_config(
             f"The quant_scheme {quant_scheme} is not supported, only {SUPPORTED_QUANT_SCHEME} are supported."
         )
 
-    if quant_scheme in OCP_MX_QUANT_SCHEME:
-        if group_size != 32:
-            raise ValueError(
-                f"The quant_scheme {quant_scheme} requires group_size=32, got group_size={group_size}. Please use the option `--group-size 32`."
-            )
+    if quant_scheme in OCP_MX_QUANT_SCHEME and group_size != 32:
+        raise ValueError(
+            f"The quant_scheme {quant_scheme} requires group_size=32, got group_size={group_size}. Please use the option `--group-size 32`."
+        )
 
     if quant_scheme in QUANT_SCHEME_TO_CONFIG:
-        # TODO: it is weird that some per-group quantization schemes do not set
-        # group_size?
         global_quant_config = QUANT_SCHEME_TO_CONFIG[quant_scheme]
     elif quant_scheme == "w_uint4_a_bfloat16_per_group_asym":
         global_quant_config = W_UINT4_A_BFLOAT16_PER_GROUP_CONFIG
         global_quant_config.weight.set_group_size(group_size)
     elif quant_scheme == "w_mxfp6_e3m2":
-        global_quant_config = QuantizationConfig(weight=OCP_MXFP6_E3M2_SPEC(scale_calculation_mode, False))
+        global_quant_config = QuantizationConfig(weight=ocp_mxfp6_e3m2_spec(scale_calculation_mode, False))
     elif quant_scheme == "w_mxfp6_e2m3":
-        global_quant_config = QuantizationConfig(weight=OCP_MXFP6_E2M3_SPEC(scale_calculation_mode, False))
+        global_quant_config = QuantizationConfig(weight=ocp_mxfp6_e2m3_spec(scale_calculation_mode, False))
     elif quant_scheme == "w_mxfp4_a_fp8_per_group":
         global_quant_config = QuantizationConfig(
-            input_tensors=FP8_PER_TENSOR_SPEC, weight=OCP_MXFP4_SPEC(scale_calculation_mode, False)
+            input_tensors=FP8_PER_TENSOR_SPEC, weight=ocp_mxfp4_spec(scale_calculation_mode, False)
         )
     elif quant_scheme == "w_mxfp4_a_mxfp4":
         global_quant_config = QuantizationConfig(
-            input_tensors=FP4_PER_GROUP_SYM_SPEC(group_size, "e8m0", scale_calculation_mode, True),
-            weight=FP4_PER_GROUP_SYM_SPEC(group_size, "e8m0", scale_calculation_mode, False),
+            input_tensors=fp4_per_group_sym_spec(group_size, "e8m0", scale_calculation_mode, True),
+            weight=fp4_per_group_sym_spec(group_size, "e8m0", scale_calculation_mode, False),
         )
     elif quant_scheme == "w_fp4_a_fp4_dynamic_per_group_sym_gs16_scale_e8m0":
         global_quant_config = QuantizationConfig(
@@ -527,8 +524,8 @@ def get_global_config(
         )
     elif quant_scheme == "w_mxfp4_a_mxfp6":
         global_quant_config = QuantizationConfig(
-            input_tensors=OCP_MXFP6_E2M3_SPEC(scale_calculation_mode, True),
-            weight=OCP_MXFP4_SPEC(scale_calculation_mode, False),
+            input_tensors=ocp_mxfp6_e2m3_spec(scale_calculation_mode, True),
+            weight=ocp_mxfp4_spec(scale_calculation_mode, False),
         )
     elif quant_scheme == "w_int4_per_group_asym":
         global_quant_config = W_INT4_PER_GROUP_ASYM_CONFIG
@@ -538,32 +535,32 @@ def get_global_config(
         global_quant_config.weight.set_group_size(group_size)
     elif quant_scheme == "w_mxfp4_a_mxfp8":
         global_quant_config = QuantizationConfig(
-            input_tensors=OCP_MXFP4_SPEC(scale_calculation_mode, True),
-            weight=OCP_MXFP4_SPEC(scale_calculation_mode, False),
+            input_tensors=ocp_mxfp4_spec(scale_calculation_mode, True),
+            weight=ocp_mxfp4_spec(scale_calculation_mode, False),
         )
     elif quant_scheme == "w_mxfp4":
-        global_quant_config = QuantizationConfig(weight=OCP_MXFP4_SPEC(scale_calculation_mode, False))
+        global_quant_config = QuantizationConfig(weight=ocp_mxfp4_spec(scale_calculation_mode, False))
     elif quant_scheme == "w_fp4_per_group":
-        global_quant_config = QuantizationConfig(weight=FP4_PER_GROUP_SYM_SPEC(group_size, scale_format, None, False))
+        global_quant_config = QuantizationConfig(weight=fp4_per_group_sym_spec(group_size, scale_format, None, False))
     elif quant_scheme == "w_mxfp6_e2m3_a_mxfp6_e2m3":
         global_quant_config = QuantizationConfig(
-            input_tensors=OCP_MXFP6_E2M3_SPEC(scale_calculation_mode, True),
-            weight=OCP_MXFP6_E2M3_SPEC(scale_calculation_mode, False),
+            input_tensors=ocp_mxfp6_e2m3_spec(scale_calculation_mode, True),
+            weight=ocp_mxfp6_e2m3_spec(scale_calculation_mode, False),
         )
     elif quant_scheme == "w_mxfp6_e3m2_a_mxfp6_e3m2":
         global_quant_config = QuantizationConfig(
-            input_tensors=OCP_MXFP6_E3M2_SPEC(scale_calculation_mode, True),
-            weight=OCP_MXFP6_E3M2_SPEC(scale_calculation_mode, False),
+            input_tensors=ocp_mxfp6_e3m2_spec(scale_calculation_mode, True),
+            weight=ocp_mxfp6_e3m2_spec(scale_calculation_mode, False),
         )
     elif quant_scheme == "w_fp6_e2m3_per_group_a_fp6_e2m3_per_group":
         global_quant_config = QuantizationConfig(
-            input_tensors=FP6_E2M3_PER_GROUP_SYM_SPEC(group_size, scale_format, None, True),
-            weight=FP6_E2M3_PER_GROUP_SYM_SPEC(group_size, scale_format, None, False),
+            input_tensors=fp6_e2m3_per_group_sym_spec(group_size, scale_format, None, True),
+            weight=fp6_e2m3_per_group_sym_spec(group_size, scale_format, None, False),
         )
     elif quant_scheme == "w_fp6_e3m2_per_group_a_fp6_e3m2_per_group":
         global_quant_config = QuantizationConfig(
-            input_tensors=FP6_E3M2_PER_GROUP_SYM_SPEC(group_size, scale_format, None, True),
-            weight=FP6_E3M2_PER_GROUP_SYM_SPEC(group_size, scale_format, None, False),
+            input_tensors=fp6_e3m2_per_group_sym_spec(group_size, scale_format, None, True),
+            weight=fp6_e3m2_per_group_sym_spec(group_size, scale_format, None, False),
         )
     elif quant_scheme == "w_int4_per_group_sym":
         global_quant_config = W_INT4_PER_GROUP_SYM_CONFIG

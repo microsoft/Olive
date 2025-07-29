@@ -5,10 +5,7 @@
 
 import argparse
 import copy
-import logging
 import os
-
-logger = logging.getLogger(__name__)
 
 from quark.shares.utils.log import ScreenLogger
 from quark.torch.export import ExporterConfig, JsonExporterConfig, OnnxExporterConfig
@@ -26,18 +23,18 @@ from quark.torch.quantization import (
 
 from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.customized_configuration import (
     DEPRECATED_QUANT_SCHEME,
-    FP4_PER_GROUP_SYM_SPEC,
-    FP6_E2M3_PER_GROUP_SYM_SPEC,
-    FP6_E3M2_PER_GROUP_SYM_SPEC,
     INT8_PER_TENSOR_DYNAMIC_SPEC,
     INT8_PER_TENSOR_SPEC,
     INT8_PER_TOKEN_DYNAMIC_SPEC,
-    OCP_MXFP4_SPEC,
-    OCP_MXFP6_E2M3_SPEC,
-    OCP_MXFP6_E3M2_SPEC,
-    OCP_MXFP8_E4M3_SPEC,
     UINT4_PER_CHANNEL_ASYM_DYNAMIC_SPEC,
+    fp4_per_group_sym_spec,
+    fp6_e2m3_per_group_sym_spec,
+    fp6_e3m2_per_group_sym_spec,
     get_global_config,
+    ocp_mxfp4_spec,
+    ocp_mxfp6_e2m3_spec,
+    ocp_mxfp6_e3m2_spec,
+    ocp_mxfp8_e4m3_spec,
 )
 from olive.passes.quark_quantizer.torch.language_modeling.llm_utils.model_preparation import (
     MODEL_NAME_EXCLUDE_LAYERS_MAP,
@@ -70,7 +67,7 @@ FP8_PER_TENSOR_SPEC_DYNAMIC = FP8E4M3PerTensorSpec(observer_method="min_max", is
 INT4_PER_CHANNEL_SPEC = Int4PerChannelSpec(
     symmetric=True, scale_type="float", round_method="half_even", ch_axis=0, is_dynamic=False
 ).to_quantization_spec()
-MXFP8_PER_GROUP_SPEC = OCP_MXFP8_E4M3_SPEC(is_dynamic=True)
+MXFP8_PER_GROUP_SPEC = ocp_mxfp8_e4m3_spec(is_dynamic=True)
 
 
 # Step 3: Set up the overall `Config` for the model.
@@ -109,12 +106,12 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
         "int8_per_token": INT8_PER_TOKEN_DYNAMIC_SPEC,
         "uint4": UINT4_PER_CHANNEL_ASYM_DYNAMIC_SPEC,
         "mxfp8": MXFP8_PER_GROUP_SPEC,
-        "fp4_per_group": FP4_PER_GROUP_SYM_SPEC(group_size, scale_format, None, True),
-        "mxfp4": OCP_MXFP4_SPEC(scale_calculation_mode, True),
-        "fp6e2m3_per_group": FP6_E2M3_PER_GROUP_SYM_SPEC(group_size, scale_format, None, True),
-        "mxfp6_e2m3": OCP_MXFP6_E2M3_SPEC(scale_calculation_mode, True),
-        "fp6e3m2_per_group": FP6_E3M2_PER_GROUP_SYM_SPEC(group_size, scale_format, None, True),
-        "mxfp6_e3m2": OCP_MXFP6_E3M2_SPEC(scale_calculation_mode, True),
+        "fp4_per_group": fp4_per_group_sym_spec(group_size, scale_format, None, True),
+        "mxfp4": ocp_mxfp4_spec(scale_calculation_mode, True),
+        "fp6e2m3_per_group": fp6_e2m3_per_group_sym_spec(group_size, scale_format, None, True),
+        "mxfp6_e2m3": ocp_mxfp6_e2m3_spec(scale_calculation_mode, True),
+        "fp6e3m2_per_group": fp6_e3m2_per_group_sym_spec(group_size, scale_format, None, True),
+        "mxfp6_e3m2": ocp_mxfp6_e3m2_spec(scale_calculation_mode, True),
     }
 
     if kv_cache_dtype is not None and kv_cache_dtype not in supported_kv_cache_type:
@@ -128,7 +125,7 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
     if kv_cache_dtype is not None:
         kv_cache_spec = supported_kv_cache_type[kv_cache_dtype]
 
-        if model_type not in MODEL_NAME_KV_LAYERS_MAP.keys():
+        if model_type not in MODEL_NAME_KV_LAYERS_MAP:
             raise ValueError(
                 f"KV cache configuration of {model_type} could not be supported automaticly,"
                 "please add the KV layers in MODEL_NAME_KV_LAYERS_MAP"
@@ -144,11 +141,13 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
         layer_quant_config = kv_cache_quant_config.copy()
 
     group_size_per_layer = group_size_per_layer or []
-    for layer, group_size in group_size_per_layer:
+    for layer, raw_group_size in group_size_per_layer:
         try:
-            group_size = int(group_size)
-        except ValueError:
-            raise ValueError(f"Invalid group size '{group_size}' for layer '{layer}'. Group size must be an integer.")
+            group_size = int(raw_group_size)
+        except ValueError as err:
+            raise ValueError(
+                f"Invalid group size '{raw_group_size}' for layer '{layer}'. Group size must be an integer."
+            ) from err
         layer_config = layer_quant_config.get(layer, copy.deepcopy(global_quant_config))
         layer_config.weight.group_size = group_size
         layer_quant_config[layer] = layer_config
@@ -156,7 +155,7 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
     if fp8_attention_quant:
         attn_qspec = FP8_PER_TENSOR_SPEC
 
-        if model_type not in MODEL_NAME_Q_LAYERS_MAP.keys():
+        if model_type not in MODEL_NAME_Q_LAYERS_MAP:
             raise ValueError(
                 f"Q_proj configuration of {model_type} could not be supported automaticly,"
                 "please add the q_proj layers in MODEL_NAME_Q_LAYERS_MAP"
@@ -178,7 +177,7 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
             "please add the MoE experts second step quantization configuration in quantize_quark.py"
         )
 
-        assert model_type in MOE_MODEL_NAME_EXPERTS_LAYERS_MAP.keys(), (
+        assert model_type in MOE_MODEL_NAME_EXPERTS_LAYERS_MAP, (
             f"Currently, {model_type} is not supported for MoE experts second step quantization, "
             f"please add {model_type} model in MOE_MODEL_NAME_EXPERTS_LAYERS_MAP"
         )
@@ -202,9 +201,9 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
 
     if exclude_layers is None:
         if model_type in MODEL_NAME_EXCLUDE_LAYERS_MAP:
-            EXCLUDE_LAYERS = MODEL_NAME_EXCLUDE_LAYERS_MAP[model_type]
+            exclude_layers_final = MODEL_NAME_EXCLUDE_LAYERS_MAP[model_type]
         else:
-            EXCLUDE_LAYERS = ["lm_head"]
+            exclude_layers_final = ["lm_head"]
             import warnings
 
             warnings.warn(
@@ -213,7 +212,7 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
                 UserWarning,
             )
     else:
-        EXCLUDE_LAYERS = exclude_layers
+        exclude_layers_final = exclude_layers
 
     # Set up `pre_opt_config`
     pre_optimization_configs = []
@@ -244,7 +243,6 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
         pre_opt_config = load_pre_optimization_config_from_file(pre_optimization_config_file_path)
         pre_optimization_configs.append(pre_opt_config)
 
-        # TODO: These warnings should be moved into quark.torch directly at some point.
         smoothquant_alpha = pre_opt_config.alpha
         if global_quant_config.input_tensors is None and smoothquant_alpha > 0:
             logger.info(
@@ -273,17 +271,15 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
         load_algo_config(quant_algo, quant_scheme, quant_algo_config_file_path, model_type) if quant_algo else None
     )
 
-    quant_config = Config(
+    return Config(
         global_quant_config=global_quant_config,
         layer_quant_config=layer_quant_config,
         kv_cache_quant_config=kv_cache_quant_config,
         softmax_quant_spec=attn_qspec,
-        exclude=EXCLUDE_LAYERS,
+        exclude=exclude_layers_final,
         pre_quant_opt_config=pre_optimization_configs,
         algo_config=algo_config,
     )
-
-    return quant_config
 
 
 def load_algo_config(quant_algo, quant_scheme, quant_algo_config_file_path, model_type):
@@ -295,7 +291,8 @@ def load_algo_config(quant_algo, quant_scheme, quant_algo_config_file_path, mode
     elif quant_algo == "gptq":
         if quant_scheme not in ["w_uint4_per_group_asym", "w_uint4_per_channel_asym", "w_mxfp4_a_mxfp4"]:
             logger.warning(
-                f"GPTQ is only tested with uint4_per_group, w_uint4_per_channel_asym, and w_mxfp4_a_mxfp4 quantization in Quark, be careful to apply GPTQ on {quant_scheme}."
+                "GPTQ is only tested with uint4_per_group, w_uint4_per_channel_asym, and w_mxfp4_a_mxfp4 quantization in Quark, be careful to apply GPTQ on %s.",
+                quant_scheme,
             )
         default_algo_config_file = os.path.join(EXAMPLES_DIR, "models", model_type, "gptq_config.json")
     quant_algo_config_file_path = (
@@ -332,7 +329,7 @@ def get_export_config(args: argparse.Namespace, model_type: str) -> ExporterConf
         )
 
     if args.kv_cache_dtype is not None:
-        if model_type not in MODEL_NAME_KV_LAYERS_MAP.keys():
+        if model_type not in MODEL_NAME_KV_LAYERS_MAP:
             raise ValueError(
                 f"KV cache configuration of {model_type} could not be supported automaticly,"
                 "please add the KV layers in MODEL_NAME_KV_LAYERS_MAP"

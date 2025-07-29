@@ -7,7 +7,7 @@ import torch
 from transformers.models.dbrx.modeling_dbrx import DbrxExpertGLU, DbrxExperts
 
 
-class DbrxExpertGLU_(torch.nn.Module):
+class DbrxExpertGlu(torch.nn.Module):
     def __init__(self, mlp: DbrxExpertGLU):
         super().__init__()
         self.w1 = torch.nn.Linear(mlp.hidden_size, mlp.ffn_hidden_size, device=mlp.w1.device, bias=False)
@@ -19,15 +19,14 @@ class DbrxExpertGLU_(torch.nn.Module):
         gate_proj = self.activation_fn(self.w1(x))
         up_proj = self.v1(x)
         intermediate_states = gate_proj * up_proj
-        down_proj = self.w2(intermediate_states)
-        return down_proj
+        return self.w2(intermediate_states)
 
 
-class DbrxExperts_(torch.nn.Module):
+class DbrxExpertsQuark(torch.nn.Module):
     def __init__(self, experts_module: DbrxExperts):
         super().__init__()
         self.moe_num_experts = experts_module.moe_num_experts
-        self.mlp = torch.nn.ModuleList([DbrxExpertGLU_(experts_module.mlp) for _ in range(self.moe_num_experts)])
+        self.mlp = torch.nn.ModuleList([DbrxExpertGlu(experts_module.mlp) for _ in range(self.moe_num_experts)])
         w1_chunked = experts_module.mlp.w1.view(
             experts_module.mlp.moe_num_experts, experts_module.mlp.ffn_hidden_size, experts_module.mlp.hidden_size
         )
@@ -67,5 +66,4 @@ class DbrxExperts_(torch.nn.Module):
             expert_tokens = x[None, token_list].reshape(-1, hidden_size)
             expert_out = self.mlp[expert_idx](expert_tokens) * top_weights[token_list, topk_list, None]
             out.index_add_(0, token_idx, expert_out)
-        out = out.reshape(bsz, q_len, hidden_size)
-        return out
+        return out.reshape(bsz, q_len, hidden_size)

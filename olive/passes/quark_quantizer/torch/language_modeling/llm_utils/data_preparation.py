@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import torch
 from datasets import load_dataset
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_pileval(
-    tokenizer: PreTrainedTokenizer, nsamples: int, seqlen: int, device: Optional[str], seed: int = 0
+    tokenizer: PreTrainedTokenizer, nsamples: int, seqlen: int, device: str | None, seed: int = 0
 ) -> DataLoader[torch.Tensor]:
     dataset = load_dataset("mit-han-lab/pile-val-backup", split="validation").shuffle(seed=seed)
 
@@ -41,13 +41,11 @@ def get_pileval(
     train_dataset = [cat_samples[:, i * seqlen : (i + 1) * seqlen] for i in range(n_split)]
 
     # Create batched samples
-    batch_inps = torch.cat(train_dataset, dim=0)
-
-    return batch_inps
+    return torch.cat(train_dataset, dim=0)
 
 
 def get_wikitext2(
-    tokenizer: PreTrainedTokenizer, nsamples: int, seqlen: int, device: Optional[str], seed: int = 0
+    tokenizer: PreTrainedTokenizer, nsamples: int, seqlen: int, device: str | None, seed: int = 0
 ) -> DataLoader[torch.Tensor]:
     traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
     trainenc = tokenizer("\n\n".join(traindata["text"]), return_tensors="pt")
@@ -65,13 +63,12 @@ def get_wikitext2(
         inp = trainenc.input_ids[:, i:j]
         attention_mask = torch.ones_like(inp)
         traindataset.append({"input_ids": inp, "attention_mask": attention_mask})
-    batch_inps = torch.cat([sample["input_ids"] for sample in traindataset], dim=0)
-    return batch_inps
+    return torch.cat([sample["input_ids"] for sample in traindataset], dim=0)
 
 
 def get_calib_dataloader_for_benchmark(
     dataset_name: str = "pileval_for_awq_benchmark",
-    tokenizer: AutoTokenizer = None,
+    tokenizer: AutoTokenizer | None = None,
     batch_size: int = 1,
     num_calib_data: int = 128,
     seqlen: int = 2048,
@@ -81,7 +78,9 @@ def get_calib_dataloader_for_benchmark(
         samples = get_pileval(tokenizer, num_calib_data, seqlen, device, seed=42)
         if batch_size != len(samples):
             logger.info(
-                f"[INFO-Warning] For AWQ benchmark, batch_size should be {len(samples)}. Changing batch_size to {len(samples)}."
+                "[INFO-Warning] For AWQ benchmark, batch_size should be %d. Changing batch_size to %d.",
+                len(samples),
+                len(samples),
             )
             batch_size = len(samples)
     elif dataset_name == "wikitext_for_gptq_benchmark":
@@ -89,21 +88,21 @@ def get_calib_dataloader_for_benchmark(
     else:
         raise NotImplementedError
 
-    calib_dataloader: DataLoader[List[Dict[str, torch.Tensor]]] = DataLoader(
+    calib_dataloader: DataLoader[list[dict[str, torch.Tensor]]] = DataLoader(
         samples, batch_size=batch_size, shuffle=False, drop_last=True
-    )  # type: ignore
+    )
 
     return calib_dataloader
 
 
 def get_calib_dataloader_to_tensor(
     dataset_name: str = "cnn_dailymail",
-    tokenizer: AutoTokenizer = None,
+    tokenizer: AutoTokenizer | None = None,
     batch_size: int = 1,
     num_calib_data: int = 512,
     seqlen: int = 512,
     shuffle: bool = False,
-    device: Optional[str] = None,
+    device: str | None = None,
 ) -> DataLoader[torch.Tensor]:
     if dataset_name == "pileval":
         dataset = load_dataset("mit-han-lab/pile-val-backup", split="validation")
@@ -122,31 +121,29 @@ def get_calib_dataloader_to_tensor(
         batch_encoded = batch_encoded.to(device)
     batch_encoded = batch_encoded["input_ids"]
 
-    calib_dataloader = DataLoader(batch_encoded, batch_size=batch_size, shuffle=shuffle, drop_last=True)
-
-    return calib_dataloader
+    return DataLoader(batch_encoded, batch_size=batch_size, shuffle=shuffle, drop_last=True)
 
 
 def get_calib_dataloader_to_dict(
     dataset_name: str = "cnn_dailymail",
-    tokenizer: AutoTokenizer = None,
+    tokenizer: AutoTokenizer | None = None,
     batch_size: int = 1,
     num_calib_data: int = 512,
     seqlen: int = 512,
-    device: Optional[str] = None,
-) -> DataLoader[Dict[str, torch.Tensor]]:
+    device: str | None = None,
+) -> DataLoader[dict[str, torch.Tensor]]:
     def make_data_block(
-        examples: Dict[str, List[str]],
-        tokenizer: AutoTokenizer = None,
+        examples: dict[str, list[str]],
+        tokenizer: AutoTokenizer | None = None,
         prompt_col_name: str = "",
         max_length: int = 512,
-    ) -> dict[str, List[List[torch.Tensor]]]:
-        res: dict[str, List[List[torch.Tensor]]] = tokenizer(
+    ) -> dict[str, list[list[torch.Tensor]]]:
+        res: dict[str, list[list[torch.Tensor]]] = tokenizer(
             examples[prompt_col_name], padding=True, truncation=True, max_length=max_length
         )
         return res
 
-    def my_collate_fn(blocks: List[Dict[str, List[List[str]]]]) -> Dict[str, torch.Tensor]:
+    def my_collate_fn(blocks: list[dict[str, list[list[str]]]]) -> dict[str, torch.Tensor]:
         data_batch = {}
         data_batch["input_ids"] = torch.Tensor([block["input_ids"] for block in blocks])
         if device:
@@ -166,7 +163,7 @@ def get_calib_dataloader_to_dict(
         raise NotImplementedError
 
     dataset = dataset.select(
-        indices=[i for i in range(min(len(dataset), num_calib_data))],
+        indices=list(range(min(len(dataset), num_calib_data))),
         keep_in_memory=True,
     )
     tokenized_datasets = dataset.map(
@@ -179,20 +176,18 @@ def get_calib_dataloader_to_dict(
         fn_kwargs={"tokenizer": tokenizer, "prompt_col_name": prompt_col_name, "max_length": seqlen},
     )
 
-    calib_dataloader = DataLoader(tokenized_datasets, batch_size=batch_size, collate_fn=my_collate_fn)
-
-    return calib_dataloader
+    return DataLoader(tokenized_datasets, batch_size=batch_size, collate_fn=my_collate_fn)
 
 
 def get_ultrachat(
     dataset_name: str = "HuggingFaceH4/ultrachat_200k",
-    tokenizer: AutoTokenizer = None,
+    tokenizer: AutoTokenizer | None = None,
     batch_size: int = 1,
     num_calib_data: int = 512,
     seqlen: int = 512,
-    device: Optional[str] = None,
-) -> DataLoader[List[Dict[str, torch.Tensor]]]:
-    MAX_SEQUENCE_LENGTH = seqlen
+    device: str | None = None,
+) -> DataLoader[list[dict[str, torch.Tensor]]]:
+    max_sequence_length = seqlen
 
     ds = load_dataset(dataset_name, split="train_sft")
     ds = ds.shuffle(seed=42).select(range(num_calib_data))
@@ -211,7 +206,7 @@ def get_ultrachat(
         return tokenizer(
             sample["text"],
             padding=False,
-            max_length=MAX_SEQUENCE_LENGTH,
+            max_length=max_sequence_length,
             truncation=True,
             add_special_tokens=False,
         )
@@ -224,15 +219,15 @@ def get_ultrachat(
         attention_mask = torch.tensor([ds["attention_mask"][i]], device=device)
         traindataset.append({"input_ids": inp, "attention_mask": attention_mask})
 
-    calib_dataloader: DataLoader[List[Dict[str, torch.Tensor]]] = DataLoader(
+    calib_dataloader: DataLoader[list[dict[str, torch.Tensor]]] = DataLoader(
         traindataset, batch_size=None, shuffle=False
-    )  # type: ignore
+    )
     return calib_dataloader
 
 
 def get_calib_dataloader(
-    dataset_name: str, processor: AutoProcessor = None, **kwargs: Any
-) -> Union[DataLoader[torch.Tensor], DataLoader[List[Dict[str, torch.Tensor]]], DataLoader[Dict[str, torch.Tensor]]]:
+    dataset_name: str, processor: AutoProcessor | None = None, **kwargs: Any
+) -> DataLoader[torch.Tensor] | DataLoader[list[dict[str, torch.Tensor]]] | DataLoader[dict[str, torch.Tensor]]:
     if dataset_name in ["pileval", "cnn_dailymail", "wikitext"]:
         return get_calib_dataloader_to_tensor(dataset_name, **kwargs)
     elif dataset_name in ["pileval_for_awq_benchmark", "wikitext_for_gptq_benchmark"]:
@@ -273,12 +268,11 @@ def get_trainer_dataset(path, subset, tokenizer, max_train_samples, max_eval_sam
 
         input_ids = tokenizer.encode(tokenizer.bos_token + input_text + tokenizer.eos_token, add_special_tokens=False)
 
-        sample = {
+        return {
             "input_ids": input_ids,
             "attention_mask": [1] * len(input_ids),
             "labels": input_ids,
         }
-        return sample
 
     if path in ["wikitext"]:
         train_dataset = load_dataset(path=path, name="wikitext-2-raw-v1", split=subset, trust_remote_code=True)
@@ -304,7 +298,11 @@ def get_trainer_dataset(path, subset, tokenizer, max_train_samples, max_eval_sam
 
     eval_dataset = eval_dataset.map(tokenize_add_label, remove_columns=list(eval_dataset.features))
     eval_dataset = ConcatDataset(eval_dataset, seqlen)
-    return dict(train_dataset=train_dataset, data_collator=default_data_collator, eval_dataset=eval_dataset)
+    return {
+        "train_dataset": train_dataset,
+        "data_collator": default_data_collator,
+        "eval_dataset": eval_dataset,
+    }
 
 
 def get_dataset(path, subset, tokenizer, seqlen):
@@ -319,13 +317,10 @@ def get_dataset(path, subset, tokenizer, seqlen):
     tokenized_text = tokenizer(strtext, return_tensors="pt")
     tokenized_text_len = tokenized_text.input_ids.shape[1]
 
-    sample = []
-    for i in range(0, tokenized_text_len - seqlen - 1, seqlen):
-        sample.append(tokenized_text.input_ids[:, i : i + seqlen])
+    sample = [tokenized_text.input_ids[:, i : i + seqlen] for i in range(0, tokenized_text_len - seqlen - 1, seqlen)]
     sample = torch.dstack(sample).squeeze(0).permute(1, 0)
 
-    dataset = TensorDataset(sample)
-    return dataset
+    return TensorDataset(sample)
 
 
 def get_loader(path, subset, tokenizer, seqlen=1024, num_batch=-1, batch_size=1, shuffle=False):
@@ -336,6 +331,4 @@ def get_loader(path, subset, tokenizer, seqlen=1024, num_batch=-1, batch_size=1,
         sample_size = min(data_size, num_batch * batch_size)
         subset_indices = torch.randperm(data_size)[:sample_size]
         dataset = Subset(dataset, subset_indices)
-
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-    return data_loader
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)

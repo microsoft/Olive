@@ -16,8 +16,6 @@ from quark.torch.export.api import _move_quantizer_to_dict
 from quark.torch.utils.device import TPDeviceManager
 from transformers import AutoProcessor
 
-logger = logging.getLogger(__name__)
-
 from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.configuration_preparation import (
     get_config,
     get_export_config,
@@ -30,6 +28,8 @@ from olive.passes.quark_quantizer.torch.language_modeling.llm_utils.model_prepar
     prepare_for_moe_quant,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def run_quark_quantization(args: argparse.Namespace) -> None:
     # 1. Define original model
@@ -37,7 +37,6 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
 
     # We currently use CPU memory to load large models because GPU memory is typically smaller.
     # The model will be dispatched to different GPUs based on the total number of GPUs specified by torchrun --nproc-per-node.
-    # TODO:
     # The current method results in high CPU memory consumption due to multiple copies of the same model.
     # We plan to address this in the future by implementing a more efficient way to dispatch the model to devices.
     if args.use_tp or platform.system().lower() == "windows":
@@ -45,14 +44,14 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
     else:
         device = args.device
 
-    model, model_dtype = get_model(
+    model, _ = get_model(
         args.model_dir, args.data_type, device, args.multi_gpu, args.multi_device, args.model_attn_implementation
     )
     prepare_for_moe_quant(model)
 
     model_type = get_model_type(model)
     tokenizer = get_tokenizer(args.model_dir, max_seq_len=args.seq_len, model_type=model_type)
-    multimodal = True if model_type in ["mllama"] else False
+    multimodal = model_type in ["mllama"]
     if multimodal:
         processor = AutoProcessor.from_pretrained(args.model_dir)
         if args.model_export is not None:
@@ -79,11 +78,11 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
         args.skip_quantization = True
 
     if args.use_tp:
-        if TPDeviceManager._tp_mesh is not None:
+        if TPDeviceManager._tp_mesh is not None:  # pylint: disable=protected-access
             _move_quantizer_to_dict(model.model)
 
-            device = TPDeviceManager._device
-            tp_mesh = TPDeviceManager._tp_mesh
+            device = TPDeviceManager._device  # pylint: disable=protected-access
+            tp_mesh = TPDeviceManager._tp_mesh  # pylint: disable=protected-access
 
             model.tensor_parallel(tp_mesh)
             model.to(device)
@@ -153,16 +152,12 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
             with torch.inference_mode():
                 batch_iter = iter(calib_dataloader)
                 input_args = next(batch_iter)
-                if args.quant_scheme in [
+                uint4_int4_flag = args.quant_scheme in [
                     "w_int4_per_channel_sym",
                     "w_uint4_per_group_asym",
                     "w_int4_per_group_sym",
                     "w_uint4_a_bfloat16_per_group_asym",
-                ]:
-                    uint4_int4_flag = True
-                else:
-                    uint4_int4_flag = False
-
+                ]
                 exporter.export_onnx_model(model, input_args, uint4_int4_flag=uint4_int4_flag)
         # Export option 3: gguf
         if "gguf" in args.model_export:

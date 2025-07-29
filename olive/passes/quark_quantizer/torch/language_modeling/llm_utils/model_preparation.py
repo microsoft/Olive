@@ -6,7 +6,6 @@
 import logging
 import os
 import random
-from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import psutil
@@ -110,9 +109,9 @@ MODEL_NAME_PATTERN_MAP = {
 }
 
 
-def get_tokenizer(ckpt_path: str, max_seq_len: int = 2048, model_type: Optional[str] = None) -> AutoTokenizer:
+def get_tokenizer(ckpt_path: str, max_seq_len: int = 2048, model_type: str | None = None) -> AutoTokenizer:
     logger.info("Initializing tokenizer from %s", ckpt_path)
-    use_fast = True if model_type in ["grok", "cohere", "olmo", "instella", "deepseekv2v3"] else False
+    use_fast = model_type in ["grok", "cohere", "olmo", "instella", "deepseekv2v3"]
     tokenizer = AutoTokenizer.from_pretrained(
         ckpt_path, model_max_length=max_seq_len, padding_side="left", trust_remote_code=True, use_fast=use_fast
     )
@@ -134,12 +133,12 @@ def prepare_for_moe_quant(model: nn.Module):
     from quark.torch.quantization.utils import set_op_by_name
     from transformers.models.dbrx.modeling_dbrx import DbrxExperts, DbrxForCausalLM
 
-    from olive.passes.quark_quantizer.torch.language_modeling.module_replacement.dbrx_expert import DbrxExperts_
+    from olive.passes.quark_quantizer.torch.language_modeling.module_replacement.dbrx_expert import DbrxExpertsQuark
 
     if isinstance(model, DbrxForCausalLM):
         for name, module in model.named_modules(remove_duplicate=False):
             if isinstance(module, DbrxExperts):
-                new_experts = DbrxExperts_.from_float(module)
+                new_experts = DbrxExpertsQuark.from_float(module)
                 set_op_by_name(model, name, new_experts)
                 logger.info("module %s has been replaced", name)
 
@@ -151,7 +150,7 @@ def get_model(
     multi_gpu: bool = False,
     multi_device=False,
     attn_implementation: str = "eager",
-) -> Tuple[nn.Module, torch.dtype]:
+) -> tuple[nn.Module, torch.dtype]:
     if data_type == "float16":
         model_dtype = torch.float16
     elif data_type == "bfloat16":
@@ -203,7 +202,7 @@ def get_model(
     if multi_device and hasattr(model, "hf_device_map"):
         logger.info("device_map: %s", model.hf_device_map)
     # For certain models, the attribute model.config._name_or_path is an empty string; enforce the setting here.
-    model.config._name_or_path = ckpt_path
+    model.config._name_or_path = ckpt_path  # pylint: disable=protected-access
 
     model.eval()
     model_dtype = next(model.parameters()).dtype
@@ -221,23 +220,25 @@ def get_model_type(model: nn.Module) -> str:
     logger.info(
         "If you choose to run this model, please add the model information to the `get_model_type` function in utils/model_preparation.py."
     )
-    exit(2)
     return "unknown"
 
 
 def save_model(model: nn.Module, tokenizer: AutoTokenizer, save_dir: str) -> None:
     model.save_pretrained(save_dir, safe_serialization=True)
-    if tokenizer is None and getattr(model.config, "_name_or_path", None):
+
+    model_name_or_path = getattr(model.config, "name_or_path", None)
+    if tokenizer is None and model_name_or_path:
         try:
-            tokenizer = AutoTokenizer.from_pretrained(model.config._name_or_path, trust_remote_code=True)
-            logger.info("Save the tokenizer from pretrained: %s", model.config._name_or_path)
+            tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
+            logger.info("Saved the tokenizer from pretrained: %s", model_name_or_path)
         except Exception as e:
             logger.info("An error occurred when loading tokenizer: %s", e)
+
     if tokenizer is not None:
         tokenizer.save_pretrained(save_dir)
 
 
-def set_seed(seed):
+def set_seed(seed: int) -> None:
     random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
@@ -246,7 +247,7 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 
-def get_device_max_memory() -> Dict[Union[int, str], Union[int, str]]:
+def get_device_max_memory() -> dict[int | str, int | str]:
     for i in range(torch.cuda.device_count()):
         _ = torch.tensor([0], device=i)
         cuda_avail_memory = {i: torch.cuda.mem_get_info(i)[0] for i in range(torch.cuda.device_count())}
