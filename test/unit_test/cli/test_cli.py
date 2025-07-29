@@ -473,8 +473,8 @@ def test_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         ],
         [
             "optimize",
-            '-t text-classification --precision int8 --exporter torchscript_exporter --device npu --dim_param "batch_size,sequence_length" --dim_value 1,128',
-            "OnnxConversion, DynamicToFixedShape, OnnxPeepholeOptimizer, OrtTransformersOptimization, OnnxStaticQuantization",
+            '-t text-classification --precision int8 --exporter torchscript_exporter --provider QNNExecutionProvider --device npu --dim_param "batch_size,sequence_length" --dim_value 1,128',
+            "OnnxConversion, DynamicToFixedShape, OnnxPeepholeOptimizer, OrtTransformersOptimization, OnnxStaticQuantization, StaticLLM",
         ],
         [
             "optimize",
@@ -504,6 +504,6 @@ def test_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
             data = json.load(file)
 
         passes = data.get("passes", {})
-        pass_list = list(k[1]["type"] for k in passes.items())
+        pass_list = [k[1]["type"] for k in passes.items()]
 
         assert pass_list == [item.strip() for item in t[2].split(",")]

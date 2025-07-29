@@ -227,17 +227,13 @@ class OptimizeCommand(BaseOliveCLICommand):
         if self.args.modality not in ["text"]:
             raise ValueError(f"Unsupported modality: {self.args.modality}. Only 'text' is supported for optimization.")
 
-        if self.args.provider == ExecutionProvider.CPUExecutionProvider and (
-            self.args.device == "gpu" or self.args.device == "npu"
-        ):
+        if self.args.provider == ExecutionProvider.CPUExecutionProvider and self.args.device in ["gpu", "npu"]:
             raise ValueError(
                 f"Invalid combination of provider {self.args.provider} and device {self.args.device}. "
                 "Please use a compatible provider for the specified device."
             )
 
-        if self.args.provider == ExecutionProvider.CUDAExecutionProvider and (
-            self.args.device == "cpu" or self.args.device == "npu"
-        ):
+        if self.args.provider == ExecutionProvider.CUDAExecutionProvider and self.args.device in ["cpu", "npu"]:
             raise ValueError(
                 f"Invalid combination of provider {self.args.provider} and device {self.args.device}. "
                 "Please use a compatible provider for the specified device."
@@ -354,7 +350,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         return passes_config
 
     def _is_pt_quantized_precision(self, precision: Precision) -> bool:
-        """Helper function to check if precision is quantized."""
+        # Helper function to check if precision is quantized.
         return precision in [Precision.INT4, Precision.UINT4]
 
     def _enable_quarot_pass(self) -> bool:
@@ -457,7 +453,7 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _get_optimum_openvino_conversion_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OptimumOpenvinoConversion pass."""
-        config = {
+        return {
             "type": "OpenVINOOptimumConversion",
             "extra_args": {"device": self.args.device},
             "ov_quant_config": {
@@ -467,8 +463,6 @@ class OptimizeCommand(BaseOliveCLICommand):
                 "ratio": 1,
             },
         }
-
-        return config
 
     def _enable_dynamic_to_fixed_shape_pass(self) -> bool:
         """Return true if condition to add DynamicToFixedShape pass is met."""
