@@ -745,7 +745,7 @@ graph {
 }
 ```
 
-### `QuickGeluToSigmoid`
+### `DecomposeQuickGelu`
 
 #### Description
 
@@ -779,7 +779,7 @@ After applying:
     "type": "GraphSurgeries",
     "surgeries": [
         {
-            "surgeon": "QuickGeluToSigmoid"
+            "surgeon": "DecomposeQuickGelu"
         }
     ]
 }
