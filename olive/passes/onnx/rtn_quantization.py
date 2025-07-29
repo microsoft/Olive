@@ -45,6 +45,11 @@ class OnnxBlockWiseRtnQuantization(Pass):
                 default_value=0,
                 description="Axis to quantize. Default value is 0.",
             ),
+            "is_symmetric": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Whether to use symmetric quantization. Default value is True.",
+            ),
             "accuracy_level": PassConfigParam(
                 type_=AccuracyLevel,
                 default_value=AccuracyLevel.unset,
@@ -80,6 +85,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
             config.bits,
             config.block_size,
             config.axis,
+            config.is_symmetric,
             config.accuracy_level,
         )
         return ir_model_to_olive_model(ir_model, output_model_path, config)
@@ -92,6 +98,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
         bits: int = 4,
         block_size: int = 128,
         axis: int = 0,
+        is_symmetric: bool = True,
         accuracy_level: AccuracyLevel = AccuracyLevel.unset,
     ):
         nodes_to_exclude = nodes_to_exclude or []
@@ -118,7 +125,9 @@ class OnnxBlockWiseRtnQuantization(Pass):
                     logger.warning("Gather only supports 4-bit quantization.")
                     continue
 
-                quantized_node, initializer_graph = self._quantize(node, bits, block_size, axis, accuracy_level)
+                quantized_node, initializer_graph = self._quantize(
+                    node, bits, block_size, axis, accuracy_level, is_symmetric
+                )
 
                 if quantized_node.op_type in (OpType.MatMulNBits, OpType.GatherBlockQuantized):
                     registered = {}
@@ -141,7 +150,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
                 logger.debug("skip to quantize %s ...", node_name)
 
     def _quantize(
-        self, node: ir.Node, bits: int, block_size: int, axis: int, accuracy_level: AccuracyLevel
+        self, node: ir.Node, bits: int, block_size: int, axis: int, accuracy_level: AccuracyLevel, is_symmetric: bool
     ) -> tuple[ir.Node, ir.Graph]:
         """Quantize the weight of the target node and return the new nodes.
 
@@ -155,15 +164,15 @@ class OnnxBlockWiseRtnQuantization(Pass):
         logger.debug("Start quantizing %s ...", node.name)
 
         if node.op_type == OpType.MatMul:
-            return self._quantize_matmul(node, bits, block_size, accuracy_level)
+            return self._quantize_matmul(node, bits, block_size, accuracy_level, is_symmetric)
         elif node.op_type == OpType.Gather:
-            return self._quantize_gather(node, bits, block_size, axis)
+            return self._quantize_gather(node, bits, block_size, axis, is_symmetric)
         else:
             logger.error("Unsupported op %s for weight-only quantization.", node.op_type)
             return node, node.graph
 
     def _quantize_matmul(
-        self, node: ir.Node, bits: int, block_size: int, accuracy_level: AccuracyLevel
+        self, node: ir.Node, bits: int, block_size: int, accuracy_level: AccuracyLevel, is_symmetric: bool
     ) -> tuple[ir.Node, ir.Graph]:
         """Quantize weight B of MatMul node to int4 or int8.
 
@@ -176,12 +185,15 @@ class OnnxBlockWiseRtnQuantization(Pass):
             logger.debug("MatMul weight is not 2D. Skip to quantize")
             return node, node.graph  # can only process 2-D matrix
 
-        packed, scales = self._qbits_block_quant(b_ndarray, bits, block_size)
+        packed, scales, zero_point = self._qbits_block_quant(b_ndarray, bits, block_size, is_symmetric)
 
         b_quant = ir.Value(name=node_initializer.name + f"_Q{bits}", const_value=ir.tensor(packed))
         scales_tensor = ir.Value(name=node_initializer.name + "_scales", const_value=ir.tensor(scales))
-
-        node_inputs = [node.inputs[0], b_quant, scales_tensor]
+        if not is_symmetric:
+            zero_point_tensor = ir.Value(name=node_initializer.name + "_zero_point", const_value=ir.tensor(zero_point))
+            node_inputs = [node.inputs[0], b_quant, scales_tensor, zero_point_tensor]
+        else:
+            node_inputs = [node.inputs[0], b_quant, scales_tensor]
 
         kwargs = {}
         rows, cols = b_ndarray.shape
@@ -202,7 +214,9 @@ class OnnxBlockWiseRtnQuantization(Pass):
             attributes=kwargs,
         ), node_initializer.graph
 
-    def _quantize_gather(self, node: ir.Node, bits: int, block_size: int, axis: int) -> tuple[ir.Node, ir.Graph]:
+    def _quantize_gather(
+        self, node: ir.Node, bits: int, block_size: int, axis: int, is_symmetric: bool
+    ) -> tuple[ir.Node, ir.Graph]:
         """Quantize weight data of Gather node to int4."""
         node_initializer = node.inputs[0]
         data_ndarray = node_initializer.const_value.numpy()
@@ -214,13 +228,21 @@ class OnnxBlockWiseRtnQuantization(Pass):
         assert (block_size & (block_size - 1)) == 0, "Block size must be a power of 2."
 
         quantize_axis = (quantize_axis + data_rank) % data_rank
-        quantized_data, scales = self._quantize_ndarray(data_ndarray, quantize_axis, block_size)
+        quantized_data, scales, zero_point = self._quantize_ndarray(
+            data_ndarray, quantize_axis, block_size, is_symmetric
+        )
 
         quantized_data_tensorproto = ir.Value(
             name=node_initializer.name + f"_Q{bits}", const_value=ir.tensor(quantized_data)
         )
         scales_tensorproto = ir.Value(name=node_initializer.name + "_scales", const_value=ir.tensor(scales))
-        node_inputs = [quantized_data_tensorproto, node.inputs[1], scales_tensorproto]
+        if not is_symmetric:
+            zero_point_tensorproto = ir.Value(
+                name=node_initializer.name + "_zero_point", const_value=ir.tensor(zero_point)
+            )
+            node_inputs = [quantized_data_tensorproto, node.inputs[1], scales_tensorproto, zero_point_tensorproto]
+        else:
+            node_inputs = [quantized_data_tensorproto, node.inputs[1], scales_tensorproto]
 
         gather_axis = node.attributes.get_int("axis", 0)
 
@@ -241,12 +263,11 @@ class OnnxBlockWiseRtnQuantization(Pass):
         ), node_initializer.graph
 
     def _qbits_block_quant(
-        self, fp32weight: npt.ArrayLike, bits: int, block_size: int
-    ) -> tuple[np.ndarray, np.ndarray]:
+        self, fp32weight: npt.ArrayLike, bits: int, block_size: int, is_symmetric: bool
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """4b/8b quantize 2D fp32 weight to int4 using C++ kernels."""
         qbits = bits
         kpack = 8 // qbits
-        is_symmetric = True
         rows, cols = fp32weight.shape
 
         k_blocks = (rows + block_size - 1) // block_size
@@ -282,7 +303,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
 
             quantize_matmul_4bits(packed, fp32weight, scales, zero_point, block_size, cols, rows, is_symmetric)
 
-        return (packed, scales)
+        return (packed, scales, zero_point)
 
     @staticmethod
     def _quant_slice_symmetric(data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -294,6 +315,17 @@ class OnnxBlockWiseRtnQuantization(Pass):
         quantized_slice = np.where(scale == 0, 0, data / scale).round().clip(-8, 7).astype(np.int8)
 
         return quantized_slice, scale
+
+    @staticmethod
+    def _quant_slice_asymmetric(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        min_val = np.minimum(data.min(axis=1, keepdims=True), 0)
+        max_val = np.maximum(data.max(axis=1, keepdims=True), 0)
+
+        scale = (max_val - min_val) / 15.0
+        zero_point = np.where(scale == 0, 8, -min_val / scale).round().clip(0, 15).astype(np.uint8)
+        quantized_slice = np.where(scale == 0, 8, data / scale + zero_point).round().clip(0, 15).astype(np.uint8)
+
+        return quantized_slice, scale, zero_point
 
     @staticmethod
     def _pack_int8_to_int4(data: np.ndarray) -> np.ndarray:
@@ -310,7 +342,8 @@ class OnnxBlockWiseRtnQuantization(Pass):
         data: np.ndarray,
         quantize_axis: int,
         block_size: int,
-    ) -> Optional[tuple[np.ndarray, np.ndarray]]:
+        is_symmetric: bool,
+    ) -> Optional[tuple[np.ndarray, np.ndarray, np.ndarray]]:
         """Quantize ndarray data to int4 using numpy, return (quantized data, scales)."""
         # Get the shape of the matrix
         m = 1  # dimension of the matrix before the quantize axis
@@ -328,19 +361,33 @@ class OnnxBlockWiseRtnQuantization(Pass):
 
         data_reshape = data.reshape((m, k, n))
         scales = np.zeros((m, k_blocks, n), dtype=data.dtype)
-        quant_data_int8 = np.zeros((m, k, n), dtype="int8")
+        zero_point_int8 = None
+        if is_symmetric:
+            quant_data_int8 = np.zeros((m, k, n), dtype="int8")
+        else:
+            quant_data_int8 = np.zeros((m, k, n), dtype="uint8")
+            zero_point_int8 = np.zeros((m, k_blocks, n), dtype="uint8")
 
         # slice and quantize
         for i in range(0, k, block_size):
             end_idx = min(i + block_size, k)
             block_slice = data_reshape[:, i:end_idx, :]
-            quantized_slice_int8, scale_slice = self._quant_slice_symmetric(block_slice)
+            zero_point_slice = None
+            if is_symmetric:
+                quantized_slice_int8, scale_slice = self._quant_slice_symmetric(block_slice)
+            else:
+                quantized_slice_int8, scale_slice, zero_point_slice = self._quant_slice_asymmetric(block_slice)
 
             quant_data_int8[:, i:end_idx, :] = quantized_slice_int8
             j = i // block_size
             scales[:, j : (j + 1), :] = scale_slice
+            if not is_symmetric:
+                zero_point_int8[:, j : (j + 1), :] = zero_point_slice
 
         # pack int8 to int4
         quant_data_int4 = self._pack_int8_to_int4(quant_data_int8)
+        zero_point_int4 = None
+        if not is_symmetric:
+            zero_point_int4 = self._pack_int8_to_int4(zero_point_int8)
         scales = scales.reshape(scales_shape)
-        return quant_data_int4, scales
+        return quant_data_int4, scales, zero_point_int4

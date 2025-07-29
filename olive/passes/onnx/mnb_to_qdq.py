@@ -253,6 +253,10 @@ class MatMulNBitsToQDQ(Pass):
             # MatMul
             matmul_name = self._get_new_node_name(dag, node_name, "MatMul")
             matmul_output = f"{matmul_name}/output_0"
+            if matmul_output == node_output:
+                # rename the node_output to avoid conflicts, want to keep the matmul_output for consistency
+                node_output = f"{node_output}_renamed"
+                dag.rename_node_output(node_name, matmul_output, node_output)
             new_nodes.append(
                 onnx.helper.make_node("MatMul", [node_inputs[0], matmul_input], [matmul_output], name=matmul_name)
             )
@@ -265,15 +269,15 @@ class MatMulNBitsToQDQ(Pass):
             final_name = matmul_name
             final_output = matmul_output
 
-            if len(node_inputs) >= 5 and node_inputs[4]:
+            if len(node_inputs) >= 6 and node_inputs[5]:
                 # Bias Add
                 # it has bias
-                bias_i_name = node_inputs[4]
+                bias_i_name = node_inputs[5]
                 new_bias_i_name = bias_i_name.replace("MatMulNBits", "MatMul")
-                bias_initiaizer = onnx.numpy_helper.from_array(
+                bias_initializer = onnx.numpy_helper.from_array(
                     dag.get_initializer_np_array(bias_i_name), name=new_bias_i_name
                 )
-                dag.add_initializer(bias_initiaizer, graph_idx)
+                dag.add_initializer(bias_initializer, graph_idx)
 
                 bias_name = self._get_new_node_name(dag, node_name, "Add")
                 bias_output = f"{bias_name}/output_0"

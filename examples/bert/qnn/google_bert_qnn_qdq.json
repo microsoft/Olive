@@ -141,7 +141,8 @@
             "calibrate_method": "MinMax",
             "activation_type": "uint16",
             "precision": "uint8"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-multilingual-cased" }
     },
     "host": "host_system",
     "target": "target_system",

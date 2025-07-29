@@ -95,6 +95,16 @@
             "dataset": "dataset_optional",
             "module_dependencies": [ "auto-gptq", "optimum" ]
         },
+        "GptqModel": {
+            "module_path": "olive.passes.pytorch.gptqmodel.GptqModel",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "int16", "uint4", "uint8", "uint16" ],
+            "supported_algorithms": [ "gptq", "quarot", "spinquant" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional",
+            "module_dependencies": [ "gptqmodel", "optimum" ]
+        },
         "GraphSurgeries": {
             "module_path": "olive.passes.onnx.graph_surgeries.GraphSurgeries",
             "supported_providers": [ "*" ],
@@ -330,8 +340,8 @@
         },
         "OnnxStaticQuantization": {
             "module_path": "olive.passes.onnx.quantization.OnnxStaticQuantization",
-            "supported_providers": [ "CPUExecutionProvider" ],
-            "supported_accelerators": [ "cpu" ],
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int8", "int16", "uint8", "uint16" ],
             "supported_algorithms": [ "rtn" ],
             "supported_quantization_encodings": [ "qdq" ],
@@ -633,7 +643,7 @@
         "gpu": [ "onnxruntime-gpu" ],
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
-        "nvmo": [ "nvidia-modelopt", "onnx-graphsurgeon", "datasets>=2.14.4", "cppimport==22.8.2" ],
+        "nvmo": [ "nvidia-modelopt[onnx]" ],
         "openvino": [ "openvino>=2025.1.0", "nncf>=2.16.0", "numpy<2.0", "optimum[openvino]<=1.24" ],
         "optimum": [ "optimum" ],
         "qnn": [ "onnxruntime-qnn" ],

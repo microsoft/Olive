@@ -3,10 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Union
 
-import onnx
+import onnxruntime as ort
 import torch
 from onnx import helper
 from onnx.onnx_pb import ModelProto
@@ -15,6 +17,7 @@ from transformers import AutoConfig, AutoTokenizer
 
 from olive.common.utils import StrEnumBase
 from olive.constants import Precision, QuantAlgorithm
+from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OliveModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -29,9 +32,22 @@ logger = logging.getLogger(__name__)
 class NVModelOptQuantization(Pass):
     """Quantize ONNX model with Nvidia-ModelOpt."""
 
-    class Calibration(StrEnumBase):
+    DEFAULT_SETTINGS = MappingProxyType(
+        {
+            "dataset": "cnn",
+            "calib_size": 32,
+            "batch_size": 1,
+            "use_fp16_calib_data": True,
+            "add_position_ids": True,
+            "int4_block_size": 128,
+        }
+    )
+
+    class CalibrationMethod(StrEnumBase):
         AWQ_LITE = "awq_lite"
         AWQ_CLIP = "awq_clip"
+        RTN = "rtn"
+        RTN_DQ = "rtn_dq"
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -45,24 +61,57 @@ class NVModelOptQuantization(Pass):
             "algorithm": PassConfigParam(
                 type_=QuantAlgorithm,
                 default_value=QuantAlgorithm.AWQ,
-                search_defaults=Categorical([QuantAlgorithm.AWQ]),
+                search_defaults=Categorical([QuantAlgorithm.AWQ, QuantAlgorithm.RTN]),
                 description="Algorithm of weight only quantization. Supports 'AWQ'.",
             ),
-            "calibration": PassConfigParam(
-                type_=NVModelOptQuantization.Calibration,
-                default_value=NVModelOptQuantization.Calibration.AWQ_CLIP,
-                search_defaults=Categorical(list(NVModelOptQuantization.Calibration)),
-                description="Calibration method for weight only quantization. Supports 'awq_lite' and 'awq_clip'.",
+            "calibration_method": PassConfigParam(
+                type_=NVModelOptQuantization.CalibrationMethod,
+                default_value=NVModelOptQuantization.CalibrationMethod.AWQ_LITE,
+                search_defaults=Categorical(list(NVModelOptQuantization.CalibrationMethod)),
+                description="""
+                Calibration method to be used for quantization.
+                Choose from 'awq_lite', 'awq_clip', 'rtn', 'rtn_dq'
+                """,
+            ),
+            "calibration_providers": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description="""
+                List of execution providers to run the session during calibration.
+                Choose from 'NvTensorRtRtx', 'cuda', 'dml' and 'cpu'.
+                Default is None which uses from available providers.
+                """,
             ),
             "tokenizer_dir": PassConfigParam(
                 type_=str,
                 default_value="",
                 description="Tokenizer directory for calibration method.",
             ),
-            "random_calib_data": PassConfigParam(
+            "use_random_calibration_data": PassConfigParam(
                 type_=bool,
                 default_value=False,
                 description="Whether to use random calibration data instead of actual calibration data.",
+            ),
+            "calibration_params": PassConfigParam(
+                type_=Union[DataConfig, dict],
+                default_value={},
+                description="""
+                Details about settings to be used for calibration e.g. calibration dataset,
+                 samples size etc.
+                """,
+            ),
+            "int4_block_size": PassConfigParam(
+                type_=int,
+                default_value=cls.DEFAULT_SETTINGS["int4_block_size"],
+                description="Block size to use for INT4 weight-only quantization",
+            ),
+            "nodes_to_exclude": PassConfigParam(
+                type_=list,
+                default_value=["/lm_head"],
+                description="""
+                List of nodes to exclude from quantization. By default, lm-head is excluded
+                in quantization.
+                """,
             ),
         }
 
@@ -81,23 +130,23 @@ class NVModelOptQuantization(Pass):
             return False
 
         # Validate Algorithm
-        if config.algorithm not in [QuantAlgorithm.AWQ]:
-            logger.error("Only 'AWQ' algorithm is supported.")
+        if config.algorithm not in [QuantAlgorithm.AWQ, QuantAlgorithm.RTN]:
+            logger.error("Only 'AWQ' and 'RTN' algorithms are supported.")
             return False
 
         # Validate Calibration
-        if config.calibration not in list(NVModelOptQuantization.Calibration):
-            logger.error("Calibration method must be either 'awq_lite' or 'awq_clip'.")
+        if config.calibration_method not in list(NVModelOptQuantization.CalibrationMethod):
+            logger.error("Calibration method must be from ['awq_lite', 'awq_clip', 'rtn', 'rtn_dq'].")
             return False
 
-        random_calib = config.random_calib_data or False
-        if not isinstance(random_calib, bool):
-            logger.error("'random_calib_data' must be a boolean value.")
+        use_random_calibration_data = config.use_random_calibration_data
+        if not isinstance(use_random_calibration_data, bool):
+            logger.error("'use_random_calibration_data' must be a boolean value.")
             return False
 
         tokenizer_dir = config.tokenizer_dir or ""
-        if not random_calib and not tokenizer_dir:
-            logger.error("'tokenizer_dir' must be specified when 'random_calib_data' is False.")
+        if not use_random_calibration_data and not tokenizer_dir:
+            logger.error("'tokenizer_dir' must be specified when 'use_random_calibration_data' is False.")
             return False
 
         # Optional: Validate 'tokenizer_dir' if necessary
@@ -106,37 +155,80 @@ class NVModelOptQuantization(Pass):
 
         return True
 
+    @staticmethod
+    def get_execution_providers():
+        available_eps = ort.get_available_providers()
+        ep_list = None
+        if "NvTensorRTRTXExecutionProvider" in available_eps:
+            ep_list = ["NvTensorRtRtx", "cpu"]
+        elif "CUDAExecutionProvider" in available_eps:
+            ep_list = ["cuda", "cpu"]
+        elif "DmlExecutionProvider" in available_eps:
+            ep_list = ["dml", "cpu"]
+        else:
+            logger.warning("No execution provider is detected for NVIDIA GPU acceleration.")
+            logger.warning("Available EPs = %s, falling back to CPU EP.", available_eps)
+            ep_list = ["cpu"]
+        return ep_list
+
+    def get_calibration_param(self, calibration_params_config, param_name):
+        if not calibration_params_config or (param_name not in calibration_params_config):
+            return self.DEFAULT_SETTINGS[param_name]
+        else:
+            return calibration_params_config[param_name]
+
     def initialize_quant_config(self, config: type[BasePassConfig]) -> dict[str, Any]:
-        # Check if 'tokenizer_dir' is provided and not empty
-        random_calib = config.random_calib_data or False
-        if not random_calib:
-            # Prepare calibration inputs only if tokenizer_dir is specified
+        random_calib = config.use_random_calibration_data
+        if not random_calib and (config.algorithm != QuantAlgorithm.RTN):
             calib_inputs = self.get_calib_inputs(
-                dataset_name="cnn",
+                dataset_name=self.get_calibration_param(config.calibration_params, "dataset"),
                 model_name=config.tokenizer_dir,
                 cache_dir="./cache",
-                calib_size=32,
-                batch_size=1,
+                calib_size=self.get_calibration_param(config.calibration_params, "calib_size"),
+                batch_size=self.get_calibration_param(config.calibration_params, "batch_size"),
                 block_size=512,
                 device="cpu",
-                use_fp16=True,
+                use_fp16=self.get_calibration_param(config.calibration_params, "use_fp16_calib_data"),
                 use_buffer_share=False,
                 add_past_kv_inputs=True,
                 max_calib_rows_to_load=128,
-                add_position_ids=True,
+                add_position_ids=self.get_calibration_param(config.calibration_params, "add_position_ids"),
             )
         else:
-            # If tokenizer_dir is empty, do not prepare calibration inputs
             calib_inputs = None
-            logger.debug("No tokenizer directory specified. Skipping calibration input preparation.")
+            logger.warning("Not providing calibration data for quantization.")
+
+        logger.debug("===== Quantization Settings =====")
+        logger.debug(
+            "algo=%s, precision=%s, calib-method=%s",
+            config.algorithm,
+            config.precision,
+            config.calibration_method,
+        )
+        logger.debug("tokenizer-dir=%s, int4-block-size=%d", config.tokenizer_dir, config.int4_block_size)
+        logger.debug("dataset=%s", self.get_calibration_param(config.calibration_params, "dataset"))
+        logger.debug("calib-size=%d", self.get_calibration_param(config.calibration_params, "calib_size"))
+        logger.debug("batch-size=%d", self.get_calibration_param(config.calibration_params, "batch_size"))
+        logger.debug(
+            "use_fp16_calib_data=%s", self.get_calibration_param(config.calibration_params, "use_fp16_calib_data")
+        )
+        logger.debug("add_position_ids=%s", self.get_calibration_param(config.calibration_params, "add_position_ids"))
+        logger.debug(
+            "calibration_eps=%s", config.calibration_providers or NVModelOptQuantization.get_execution_providers()
+        )
+        logger.debug("nodes-to-exclude=%s", config.nodes_to_exclude)
+        logger.debug("=============================")
 
         # Return a dictionary containing necessary configuration for quantization
         return {
-            "algorithm": config.algorithm or QuantAlgorithm.AWQ.value,
-            "precision": config.precision or Precision.INT4.value,
-            "calibration_method": config.calibration or NVModelOptQuantization.Calibration.AWQ_CLIP.value,
+            "algorithm": config.algorithm,
+            "precision": config.precision,
+            "calibration_method": config.calibration_method,
             "tokenizer_dir": config.tokenizer_dir or "",
             "calibration_data_reader": calib_inputs,
+            "calibration_eps": config.calibration_providers or NVModelOptQuantization.get_execution_providers(),
+            "int4_block_size": config.int4_block_size,
+            "nodes_to_exclude": config.nodes_to_exclude,
         }
 
     def make_model_input(
@@ -175,6 +267,10 @@ class NVModelOptQuantization(Pass):
                 config.num_key_value_heads,
                 config.hidden_size // config.num_attention_heads,
             )
+
+            if hasattr(config, "head_dim") and config.head_dim is not None:
+                head_size = config.head_dim
+
             for i in range(config.num_hidden_layers):
                 past_key = torch.zeros(
                     batch_size,
@@ -328,6 +424,9 @@ class NVModelOptQuantization(Pass):
             model,
             calibration_method=quant_config["calibration_method"],
             calibration_data_reader=calib_inputs,
+            calibration_eps=quant_config["calibration_eps"],
+            block_size=quant_config["int4_block_size"],
+            nodes_to_exclude=quant_config["nodes_to_exclude"],
         )
 
         logger.debug("Completed nvidia_awq quantization.")
@@ -387,10 +486,16 @@ class NVModelOptQuantization(Pass):
 
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-            onnx.save(converted_model_proto, output_model_path)
-            logger.debug("Quantized and opset-converted model saved to %s", output_model_path)
+            logger.debug("Quantized and opset-converted model will be saved to %s", output_model_path)
 
-            return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
+            external_data_config = {
+                "save_as_external_data": True,
+                "all_tensors_to_one_file": True,
+                "external_data_name": os.path.basename(output_model_path) + "_data",
+                "size_threshold": 1024,
+            }
+
+            return model_proto_to_olive_model(converted_model_proto, output_model_path, external_data_config)
 
         except Exception:
             logger.exception("An error occurred during quantization and opset conversion")

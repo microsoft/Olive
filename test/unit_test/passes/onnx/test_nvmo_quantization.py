@@ -24,8 +24,8 @@ def test_nvmo_quantization(tmp_path):
 
     # Configuration with default values and random_calib_data set to True
     config = {
-        "calibration": "awq_lite",
-        "random_calib_data": True,
+        "calibration_method": "awq_lite",
+        "use_random_calibration_data": True,
     }
 
     output_folder = str(tmp_path / "quantized")

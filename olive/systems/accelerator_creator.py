@@ -56,12 +56,11 @@ class AcceleratorNormalizer:
                 else:
                     self._fill_device()
             else:
-                # for AzureML and Docker System
+                # for AzureML
                 for accelerator in self.system_config.config.accelerators:
                     if not accelerator.device or (not accelerator.execution_providers and self.is_ep_required):
                         raise ValueError(
-                            "AzureML and Docker system requires device and execution providers to be specified "
-                            "explicitly."
+                            "AzureML system requires device and execution providers to be specified explicitly."
                         )
 
             if self.is_ep_required:

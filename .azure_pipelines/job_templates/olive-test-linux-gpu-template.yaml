@@ -66,18 +66,8 @@ jobs:
       testResultsFiles: '**/*TestOlive*.xml'
       testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
       failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true
     displayName: Upload pipeline run test results
-
-  # Code coverage requires
-  - task: UseDotNet@2
-    displayName: 'Use .NET Core sdk 7.0.x'
-    inputs:
-      version: 7.0.x
-
-  - task: PublishCodeCoverageResults@2
-    inputs:
-      summaryFileLocation: '**/coverage.xml'
-    displayName: Publish code coverage results
 
   - script: sudo git clean -dfX
     condition: always()

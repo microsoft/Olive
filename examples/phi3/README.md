@@ -98,6 +98,11 @@ olive run --config phi3_run_mobile_int4.json
 Get access to the following resources on Hugging Face Hub:
 - [nampdn-ai/tiny-codes](https://huggingface.co/nampdn-ai/tiny-codes)
 
+## More Inference Examples
+- [Android chat APP with Phi-3 and ONNX Runtime Mobile](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/mobile/examples/phi-3/android)
+
+- [Web chat APP with Phi-3 and ONNX Runtime Web](https://github.com/microsoft/onnxruntime-inference-examples/tree/gs/chat/js/chat)
+
 # Quantize Models with NVIDIA TensorRT Model Optimizer
 The **TensorRT Model Optimizer** is designed to bring advanced model compression techniques, including quantization, to Windows RTX PC systems. Engineered for Windows, it delivers rapid and efficient quantization through features such as local GPU calibration, reduced memory usage, and fast processing.
 The primary goal of TensorRT Model Optimizer is to produce optimized, ONNX-format models compatible with DirectML backends.
@@ -106,17 +111,22 @@ Run the following commands to install necessary packages:
 ```bash
 pip install olive-ai[nvmo]
 pip install onnxruntime-genai-directml>=0.4.0
-pip install onnxruntime-directml==1.20.0
 pip install -r requirements-nvmo-awq.txt
 ```
-Install the CUDA version compatible with CuPy as specified in `requirements-nvmo-awq.txt`.
+
+Above steps install onnxruntime, onnxruntime-genai packages for DirectML execution-provider. To try out any any other execution-provider, refer section [Steps to Use Different Execution-Providers](#steps-to-use-different-execution-providers)
+
+In case of any version compatibility issue with onnxrutime, onnxruntime-genai (or any other issues), try checking with other versions of these packages.
+
+Refer TensorRT Model Optimizer documentation for its detailed [installation instructions](https://nvidia.github.io/TensorRT-Model-Optimizer/getting_started/windows/_installation_with_olive.html).
+
 ## Validate Installation
 After setup, confirm the correct installation of the `modelopt` package by running:
 ```bash
 python -c "from modelopt.onnx.quantization.int4 import quantize as quantize_int4"
 ```
 ## Quantization
-To perform quantization, use the configuration file `phi3_nvmo_ptq.json`. This config executes two passes: one for model building and one for quantization. Note that ModelOpt currently only supports quantizing models created with the `modelbuild` tool.
+To perform quantization, use the configuration file `phi3_nvmo_ptq.json`. This config executes two passes: one for model building and one for quantization. Note that ModelOpt currently only supports quantizing LLM models created with the `modelbuilder` tool.
 ```bash
 olive run --config phi3_nvmo_ptq.json
 ```
@@ -124,7 +134,27 @@ olive run --config phi3_nvmo_ptq.json
 - **Locate and Update Configuration File:**
    Open `phi3_nvmo_ptq.json` in a text editor. Update the `model_path` to point to the directory or repository of the model you want to quantize. Ensure that `tokenizer_dir` is set to the tokenizer directory for the new model.
 
-## More Inference Examples
-- [Android chat APP with Phi-3 and ONNX Runtime Mobile](https://github.com/microsoft/onnxruntime-inference-examples/tree/main/mobile/examples/phi-3/android)
+## Steps to Use Different Execution-Providers
 
-- [Web chat APP with Phi-3 and ONNX Runtime Web](https://github.com/microsoft/onnxruntime-inference-examples/tree/gs/chat/js/chat)
+The example `phi3_nvmo_ptq.json` demonstrates model building and quantization with DirectML execution-provider (EP). In order to use any other EP for the passes:
+- Use corresponding onnxruntime-genai and onnxruntime packages, along with suitable setup of their dependencies/requirements as needed. Refer documentation for [execution-providers](https://onnxruntime.ai/docs/execution-providers/).
+- Update olive config (json) as needed for that EP. For instance, model built with DirectML EP has position_ids input but model built with CUDA EP or NvTensorRtRtx EP doesn't have position_ids input. So, while preparing calibration-data, this difference needs to be taken care of, and therefore, it requires update in the olive config for position_ids input. For example, see use of `add_position_ids` field in the config below.
+
+```
+    "passes": {
+        "builder": { "type": "ModelBuilder", "precision": "fp16" },
+        "quantization": {
+            "type": "NVModelOptQuantization",
+            "algorithm": "awq",
+            "tokenizer_dir": "microsoft/Phi-3-mini-4k-instruct",
+            "calibration_method": "awq_lite",
+            "calibration_params": {
+                 "add_position_ids": false
+            }
+        }
+    }
+```
+- Make sure that at the end, there is only one onnxruntime package installed. Use command like following for validating the onnxruntime package installation.
+```bash
+python -c "import onnxruntime as ort; print(ort.get_available_providers())"
+```

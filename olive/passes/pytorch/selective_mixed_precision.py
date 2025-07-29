@@ -65,17 +65,13 @@ class SelectiveMixedPrecision(Pass):
                 ):
                     continue
 
-                # Add v_proj if exists
-                attn_input_names = layer_wrapper.get_attention_inputs(return_name=True)[1]
-                if len(attn_input_names) == 3:
-                    overrides[f"{layer_prefix}.{layer_idx}.{attn_input_names[2]}"] = override_config
-                # TODO(jambayk): how to handle models like phi-3/4 which have qkv merged?
-                # what if downstream passes merge qkv for non-phi models?
+                # Add qkv
+                for attn_input_name in layer_wrapper.get_attention_inputs(return_name=True)[1]:
+                    overrides[f"{layer_prefix}.{layer_idx}.{attn_input_name}"] = override_config
 
                 # Add down_proj
-                mlp_output_names = layer_wrapper.get_mlp_outputs(return_name=True)[1]
-                if len(mlp_output_names) == 1:
-                    overrides[f"{layer_prefix}.{layer_idx}.{mlp_output_names[0]}"] = override_config
+                for attn_output_name in layer_wrapper.get_mlp_outputs(return_name=True)[1]:
+                    overrides[f"{layer_prefix}.{layer_idx}.{attn_output_name}"] = override_config
 
         # Create output model with mixed precision info as model attribute
         output_model = deepcopy(model)

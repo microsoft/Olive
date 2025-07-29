@@ -2,10 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 import logging
 import math
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import torch
 
@@ -18,14 +20,17 @@ from olive.common.utils import tensor_data_to_device
 from olive.constants import PrecisionBits
 from olive.data.config import DataConfig
 from olive.data.template import huggingface_data_config_template
-from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
 from olive.passes.pytorch.train_utils import (
     load_hf_base_model,
 )
+
+if TYPE_CHECKING:
+    from olive.hardware.accelerator import AcceleratorSpec
+    from olive.model import HfModelHandler
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +63,15 @@ class Gptq(Pass):
                 default_value=0.01,
                 description="Damping factor for quantization. Default value is 0.01.",
             ),
+            "desc_act": PassConfigParam(
+                type_=bool,
+                default_value=None,
+                description=(
+                    "Whether to use act-order (also called desc-act) scheme. True is only supported when group_size is"
+                    " -1. Default is None, which is equivalent to True for group_size -1 and False for other group"
+                    " sizes."
+                ),
+            ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, dict],
                 default_value=None,
@@ -67,6 +81,25 @@ class Gptq(Pass):
                 ),
             ),
         }
+
+    @classmethod
+    def validate_config(
+        cls,
+        config: type[BasePassConfig],
+        accelerator_spec: AcceleratorSpec,
+    ) -> bool:
+        if not super().validate_config(config, accelerator_spec):
+            return False
+
+        if config.group_size <= 0 and config.group_size != -1:
+            logger.info("group_size must be -1 or greater than 0")
+            return False
+
+        if config.desc_act is True and config.group_size != -1:
+            logger.info("desc_act can only be True when group_size is -1.")
+            return False
+
+        return True
 
     @torch.no_grad()
     def _run_for_config(
@@ -109,7 +142,7 @@ class Gptq(Pass):
 
             # process each quantizable module
             for module in quantizable_modules:
-                self.process_module(module, percdamp=config.damp_percent)
+                self.process_module(module, percdamp=config.damp_percent, actorder=config.desc_act)
 
             # run the layer again to get the quantized outputs
             hidden_states = self.run_layer(
@@ -235,7 +268,7 @@ class Gptq(Pass):
         layer_args: list[tuple],
         layer_kwargs: list[dict],
         return_output: bool = False,
-    ) -> Optional[list[torch.Tensor]]:
+    ) -> list[torch.Tensor] | None:
         """Run a layer with the given inputs.
 
         Args:
@@ -290,34 +323,53 @@ class Gptq(Pass):
         module.quant_info.data["H"] += inp.matmul(inp.t())
 
     @staticmethod
-    def process_module(module: torch.nn.Module, percdamp: float = 0.01, blocksize: int = 128) -> None:
+    def process_module(
+        module: torch.nn.Module, blocksize: int = 128, percdamp: float = 0.01, actorder: bool | None = False
+    ) -> None:
         """Process a module for GPTQ quantization using the accumulated Hessian.
 
         Args:
             module: The linear module to quantize.
-            percdamp: Damping factor for numerical stability.
             blocksize: Block size for processing weights.
+            percdamp: Damping factor for numerical stability.
+            actorder: Whether to use act-order quantization scheme.
 
         """
         if module.quant_info.data is None:
             raise ValueError(f"Module {module} does not have quant_info.data initialized!")
 
+        if actorder is None:
+            actorder = module.quant_info.quantizer.group_size == -1
+        elif actorder is True:
+            assert module.quant_info.quantizer.group_size == -1, (
+                "actorder can only be True when group_size is -1, but got group_size="
+                f"{module.quant_info.quantizer.group_size}"
+            )
+
         H = module.quant_info.data["H"]
         W = module.weight.data.clone().float().to(H.device)
+        num_cols = H.shape[0]
+
         dead = torch.diag(H) == 0
         H[dead, dead] = 1
         W[:, dead] = 0
+
+        if actorder:
+            perm = torch.argsort(torch.diag(H), descending=True)
+            W = W[:, perm]
+            H = H[perm][:, perm]
+            invperm = torch.argsort(perm)
 
         Losses = torch.zeros_like(W)
         Q = torch.zeros_like(W)
 
         damp = percdamp * torch.mean(torch.diag(H))
-        diag = torch.arange(H.shape[0], device=H.device)
+        diag = torch.arange(num_cols, device=H.device)
         H[diag, diag] += damp
-        H = torch.linalg.cholesky(H)  # pylint: disable=not-callable
-        H = torch.cholesky_inverse(H)
-        H = torch.linalg.cholesky(H, upper=True)  # pylint: disable=not-callable
-        Hinv = H
+        Hinv = torch.linalg.cholesky(H)  # pylint: disable=not-callable
+        del H
+        Hinv = torch.cholesky_inverse(Hinv)
+        Hinv = torch.linalg.cholesky(Hinv, upper=True)  # pylint: disable=not-callable
 
         all_scales = []
         all_zp = []
@@ -327,12 +379,13 @@ class Gptq(Pass):
             bits=module.quant_info.quantizer.bits, symmetric=module.quant_info.quantizer.symmetric, group_size=-1
         )
         if module.quant_info.quantizer.group_size == -1:
+            # this can be before or after actorder permutation since there's only one group
             active_scale, active_zp = quantizer.find_qparams(W)
         else:
             active_scale, active_zp = None, None
 
-        for i1 in range(0, H.shape[0], blocksize):
-            i2 = min(i1 + blocksize, H.shape[0])
+        for i1 in range(0, num_cols, blocksize):
+            i2 = min(i1 + blocksize, num_cols)
             count = i2 - i1
 
             W1 = W[:, i1:i2].clone()
@@ -369,9 +422,13 @@ class Gptq(Pass):
 
             W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
 
+        if actorder:
+            Q = Q[:, invperm]
+
         if not all_scales:
             all_scales.append(active_scale)
             all_zp.append(active_zp)
+
         module.weight.data = Q.to(module.weight.data.device).to(module.weight.data.dtype)
         module.quant_info.scales = torch.cat(all_scales, dim=1).to("cpu")
         module.quant_info.zero_points = torch.cat(all_zp, dim=1).to("cpu")
@@ -450,7 +507,7 @@ class Gptq(Pass):
         return dataset
 
     @staticmethod
-    def get_calibration_data_config(model_name_or_path: str, trust_remote_code: Optional[bool] = None) -> DataConfig:
+    def get_calibration_data_config(model_name_or_path: str, trust_remote_code: bool | None = None) -> DataConfig:
         """Get default calibration data configuration for GPTQ quantization.
 
         Args:
@@ -498,6 +555,6 @@ class QuantInfo:
     """
 
     quantizer: WeightQuantizer
-    scales: Optional[torch.Tensor] = None
-    zero_points: Optional[torch.Tensor] = None
-    data: Optional[dict] = None
+    scales: torch.Tensor | None = None
+    zero_points: torch.Tensor | None = None
+    data: dict | None = None

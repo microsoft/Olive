@@ -14,7 +14,6 @@ import pytest
 from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 from azure.ai.ml.entities import UserIdentityConfiguration
-from azure.core.exceptions import ResourceNotFoundError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.constants import HF_LOGIN, KEYVAULT_NAME
@@ -605,54 +604,3 @@ def test__get_enironment_from_config(mock_retry_func):
 
     # assert
     assert expected_env == system.environment
-
-
-@patch.object(AzureMLClientConfig, "create_client")
-def test_create_managed_env(create_client_mock):
-    from olive.systems.system_config import AzureMLTargetUserConfig, SystemConfig
-    from olive.systems.utils import create_managed_system
-
-    ml_client = MagicMock()
-    ml_client.environments.get.side_effect = ResourceNotFoundError()
-    ml_client.environments.get.__name__ = "get"
-    create_client_mock.return_value = ml_client
-
-    docker_config = AzureMLDockerConfig(
-        base_image="base_image",
-        conda_file_path="conda_file_path",
-    )
-    system_config = SystemConfig(
-        type="AzureML",
-        config=AzureMLTargetUserConfig(
-            azureml_client_config=AzureMLClientConfig(),
-            aml_compute="aml_compute",
-            aml_docker_config=docker_config,
-            olive_managed_env=True,
-        ),
-    )
-    system = create_managed_system(system_config, DEFAULT_CPU_ACCELERATOR)
-    assert system.config.olive_managed_env
-
-    host_system = create_managed_system(system_config, None)
-    assert host_system.config.olive_managed_env
-
-    ml_client = MagicMock()
-    ml_client.environments.get.return_value = MagicMock()
-    ml_client.environments.get.__name__ = "get"
-    create_client_mock.return_value = ml_client
-
-    system_config = SystemConfig(
-        type="AzureML",
-        config=AzureMLTargetUserConfig(
-            azureml_client_config=AzureMLClientConfig(),
-            aml_compute="aml_compute",
-            aml_environment_config=AzureMLEnvironmentConfig(
-                name="name",
-                version="version",
-                label="label",
-            ),
-            olive_managed_env=False,
-        ),
-    )
-    system = system_config.create_system()
-    assert not system.config.olive_managed_env

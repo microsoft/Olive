@@ -2,5 +2,5 @@ parameters:
   hf_token: 'huggingface_token'
 
 steps:
-- script: huggingface-cli login --token ${{ parameters.hf_token }}
+- script: hf auth login --token ${{ parameters.hf_token }}
   displayName: 'Hugging Face Login'

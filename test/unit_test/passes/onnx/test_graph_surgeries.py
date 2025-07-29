@@ -12,6 +12,7 @@ import torch
 from onnx import TensorProto, helper, numpy_helper
 from onnxruntime import InferenceSession
 
+from olive.constants import MSFT_DOMAIN, OpType
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
@@ -529,7 +530,7 @@ def test_simplifiedlayernorm_to_l2norm_skip(tmp_path, all_ones, output_skip_sum)
             inputs=["x", "skip", "weight"],
             outputs=["layernorm_output"] if not output_skip_sum else ["layernorm_output", "", "", "layernorm_skip_sum"],
             name="layernorm/LayerNorm",
-            domain="com.microsoft",
+            domain=MSFT_DOMAIN,
         ),
         onnx.helper.make_node("Identity", inputs=["layernorm_output"], outputs=["y"], name="Identity"),
     ]
@@ -1686,3 +1687,156 @@ def test_reducemax_transform(tmp_path):
 
     # assert
     onnx.checker.check_model(output_model.load_model())
+
+
+def test_quickgelu_to_sigmoid(tmp_path):
+    # setup
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 224, 224])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3, 224, 224])
+
+    nodes = [
+        helper.make_node(
+            OpType.QuickGelu, inputs=["input"], outputs=["output"], name="quickgelu_node", domain=MSFT_DOMAIN
+        ),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 14), helper.make_opsetid(MSFT_DOMAIN, 1)])
+    model.ir_version = 10
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "QuickGeluToSigmoid"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    ir_model = output_model.load_ir_model()
+
+    # Check that QuickGelu is replaced with Mul->Sigmoid->Mul
+    op_types = [node.op_type for node in ir_model.graph.all_nodes()]
+    assert OpType.QuickGelu not in op_types
+    assert OpType.Mul in op_types
+    assert OpType.Sigmoid in op_types
+    assert op_types.count(OpType.Mul) == 2
+
+
+def test_decompose_rotary_embedding(tmp_path):
+    # setup
+    batch_size, seq_len, hidden_size = 2, 8, 64
+    max_seq_len = 128
+    rotary_dim = hidden_size // 2
+
+    # Generate position embeddings for cos/sin caches
+    position = np.arange(max_seq_len)[:, np.newaxis]
+    div_term = np.exp(np.arange(0, rotary_dim, 2) * -(np.log(10000.0) / rotary_dim))
+
+    cos_cache = np.zeros((max_seq_len, rotary_dim), dtype=np.float32)
+    sin_cache = np.zeros((max_seq_len, rotary_dim), dtype=np.float32)
+    cos_cache[:, 0::2] = np.cos(position * div_term)
+    cos_cache[:, 1::2] = np.cos(position * div_term)
+    sin_cache[:, 0::2] = np.sin(position * div_term)
+    sin_cache[:, 1::2] = np.sin(position * div_term)
+
+    cos_initializer = numpy_helper.from_array(cos_cache, name="cos_cache")
+    sin_initializer = numpy_helper.from_array(sin_cache, name="sin_cache")
+
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [batch_size, seq_len, hidden_size])
+    position_ids_tensor = helper.make_tensor_value_info("position_ids", TensorProto.INT64, [batch_size, seq_len])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [batch_size, seq_len, hidden_size])
+
+    nodes = [
+        helper.make_node(
+            OpType.RotaryEmbedding,
+            inputs=["input", "position_ids", "cos_cache", "sin_cache"],
+            outputs=["output"],
+            name="rotary_embedding_node",
+            domain=MSFT_DOMAIN,
+            interleaved=0,
+            num_heads=0,
+            rotary_embedding_dim=hidden_size,
+            scale=1.0,
+        ),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[input_tensor, position_ids_tensor],
+        outputs=[output_tensor],
+        initializer=[cos_initializer, sin_initializer],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 21), helper.make_opsetid(MSFT_DOMAIN, 1)])
+    model.ir_version = 10
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    output_folder = str(tmp_path / "onnx")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "DecomposeRotaryEmbedding"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+
+    # Check that the RotaryEmbedding node was replaced with expected nodes
+    transformed_model = onnx.load(output_model.model_path)
+    node_types = {node.op_type for node in transformed_model.graph.node}
+
+    assert OpType.RotaryEmbedding not in node_types
+
+    expected_nodes = {
+        OpType.Reshape,
+        OpType.Gather,
+        OpType.Shape,
+        OpType.Constant,
+        OpType.Slice,
+        OpType.Mul,
+        OpType.Sub,
+        OpType.Add,
+        OpType.Concat,
+        OpType.Div,
+    }
+
+    for node_type in expected_nodes:
+        assert node_type in node_types, f"Expected node type {node_type} not found in transformed model"
+
+    # Prepare test inputs
+    np.random.seed(42)
+    input_data = np.random.randn(batch_size, seq_len, hidden_size).astype(np.float32)
+    position_ids = np.arange(seq_len)[np.newaxis, :].repeat(batch_size, axis=0).astype(np.int64)
+
+    # Compute expected output (reference implementation)
+    position_ids_flat = position_ids.flatten()
+    cos_gathered = cos_cache[position_ids_flat].reshape(batch_size, seq_len, rotary_dim)
+    sin_gathered = sin_cache[position_ids_flat].reshape(batch_size, seq_len, rotary_dim)
+
+    x_real = input_data[:, :, :rotary_dim]
+    x_imag = input_data[:, :, rotary_dim:]
+
+    output_real = x_real * cos_gathered - x_imag * sin_gathered
+    output_imag = x_real * sin_gathered + x_imag * cos_gathered
+    expected_output = np.concatenate([output_real, output_imag], axis=-1)
+
+    # Run inference on lowered model
+    sess = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
+    outputs = sess.run(None, {"input": input_data, "position_ids": position_ids})
+    actual_output = outputs[0]
+
+    # Verify outputs match
+    np.testing.assert_allclose(actual_output, expected_output, rtol=1e-5, atol=1e-6)

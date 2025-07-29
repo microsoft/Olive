@@ -82,6 +82,36 @@ class ModelBuilder(Pass):
                 required=False,
                 description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
             ),
+            "int4_algo_config": PassConfigParam(
+                type_=str,
+                required=False,
+                description="Specify the INT4 quantization algorithm to use in GenAI Model Builder",
+            ),
+            "int4_is_symmetric": PassConfigParam(
+                type_=bool,
+                required=False,
+                description="Specify whether symmetric or asymmetric INT4 quantization needs to be used.",
+            ),
+            "use_8bits_moe": PassConfigParam(
+                type_=bool,
+                required=False,
+                description="Specify whether the QMoE op will use 8-bit quantization.",
+            ),
+            "use_webgpu_fp32": PassConfigParam(
+                type_=bool,
+                required=False,
+                description="Specify whether to use this option to enable GPUs that do not support FP16 on WebGPU.",
+            ),
+            "include_hidden_states": PassConfigParam(
+                type_=bool,
+                required=False,
+                description="Specify whether to have the hidden states as an output from your ONNX model.",
+            ),
+            "int4_nodes_to_exclude": PassConfigParam(
+                type_=list[str],
+                required=False,
+                description="Specify when you want to exclude certain nodes from int4 quantization.",
+            ),
             "int4_op_types_to_quantize": PassConfigParam(
                 type_=list[str],
                 required=False,
@@ -206,6 +236,28 @@ class ModelBuilder(Pass):
 
         if config.int4_op_types_to_quantize:
             extra_args["int4_op_types_to_quantize"] = config.int4_op_types_to_quantize
+
+        if config.int4_algo_config:
+            extra_args["int4_algo_config"] = config.int4_algo_config
+
+        if config.int4_is_symmetric is not None:
+            extra_args["int4_is_symmetric"] = config.int4_is_symmetric
+
+        # Use 8-bit quantization for MoE layers
+        if config.use_8bits_moe is not None:
+            extra_args["use_8bits_moe"] = config.use_8bits_moe
+
+        # Use FP32 for WebGPU execution provider
+        if config.use_webgpu_fp32 is not None:
+            extra_args["use_webgpu_fp32"] = config.use_webgpu_fp32
+
+        # Include hidden states as output
+        if config.include_hidden_states is not None:
+            extra_args["include_hidden_states "] = config.include_hidden_states
+
+        # Nodes to exclude from INT4 quantization
+        if config.int4_nodes_to_exclude is not None:
+            extra_args["int4_nodes_to_exclude"] = config.int4_nodes_to_exclude
 
         # args that are only checked for presence, not value
         for arg in ["exclude_embeds", "exclude_lm_head"]:

@@ -107,7 +107,7 @@ class QuantLinear(nn.Module):
             symmetric: Whether to use symmetric quantization
             group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
             scales: Optional precomputed scales for quantization
-            zero_points: Optional precomputed zero points for quantization
+            zero_points: Optional precomputed zero points for quantization. Must be unsigned and in the range [1, 2^bits - 1].
 
         Returns:
             A QuantLinear instance with quantized weights and scales
@@ -129,8 +129,8 @@ class QuantLinear(nn.Module):
         if scales is None:
             scales, zero_points = qlinear.quantizer.find_qparams(linear.weight)
         else:
-            scales = scales.to(qlinear.device)
-            zero_points = zero_points.to(qlinear.device)
+            scales = scales.to(qlinear.device).to(linear.weight.dtype)
+            zero_points = zero_points.to(qlinear.device).to(torch.int32)
 
         # quantize weights
         qweight = qlinear.quantizer.quantize(linear.weight, scales, zero_points)
@@ -159,19 +159,31 @@ class QuantLinear(nn.Module):
         x_dtype = x.dtype
 
         # unpack weights and zero points
-        iweight = self._unpack_from_int32(self.qweight, (self.in_features, self.out_features), axis=0)
-        izeros = self._unpack_from_int32(self.qzeros, self.scales.shape, axis=1) + 1
+        qweight, scales, qzeros = self.get_unpacked_params()
         if self.quantizer.group_size > 0:
-            scales = self.scales.repeat_interleave(self.quantizer.group_size, dim=0)
-            izeros = izeros.repeat_interleave(self.quantizer.group_size, dim=0)
-        else:
-            scales = self.scales
-        iweight = (iweight - izeros) * scales
+            scales = scales.repeat_interleave(self.quantizer.group_size, dim=0)
+            qzeros = qzeros.repeat_interleave(self.quantizer.group_size, dim=0)
 
-        out = torch.matmul(x, iweight)
+        qweight = (qweight - qzeros) * scales
+        out = torch.matmul(x, qweight)
+
         if self.bias is not None:
             out += self.bias
+
         return out.to(x_dtype)
+
+    @torch.no_grad()
+    def get_unpacked_params(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Get unpacked quantization parameters.
+
+        Returns:
+            Tuple of (unpacked weights, scales, zero points)
+
+        """
+        qweight = self._unpack_from_int32(self.qweight, (self.in_features, self.out_features), axis=0)
+        qzeros = self._unpack_from_int32(self.qzeros, self.scales.shape, axis=1) + 1
+        scales = self.scales
+        return qweight, scales, qzeros
 
     @torch.no_grad()
     def _pack_to_int32(self, tensor: torch.Tensor, axis: int = 0) -> torch.Tensor:

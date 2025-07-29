@@ -99,14 +99,15 @@ class TestRTNQuantization:
         onnx.save(model_def, str(model_path))
         return model_path
 
-    def test_rtn_quantization_pass_matmul(self, matmul_model_path, tmp_path):
+    @pytest.mark.parametrize("is_symmetric", [True, False])
+    def test_rtn_quantization_pass_matmul(self, matmul_model_path, tmp_path, is_symmetric):
         # Setup
         olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
         accelerator_spec = AcceleratorSpec(
             accelerator_type="CPU",
             execution_provider="CPUExecutionProvider",
         )
-        pass_config = {"bits": 4, "block_size": 128, "axis": 0}
+        pass_config = {"bits": 4, "block_size": 128, "axis": 0, "is_symmetric": is_symmetric}
         p = create_pass_from_dict(
             OnnxBlockWiseRtnQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
         )
@@ -129,14 +130,15 @@ class TestRTNQuantization:
 
         assert found_matmul_nbits, "No MatMulNBits node found in quantized model"
 
-    def test_rtn_quantization_pass_gather(self, gather_model_path, tmp_path):
+    @pytest.mark.parametrize("is_symmetric", [True, False])
+    def test_rtn_quantization_pass_gather(self, gather_model_path, tmp_path, is_symmetric):
         # Setup
         olive_model = ONNXModelHandler(model_path=str(gather_model_path))
         accelerator_spec = AcceleratorSpec(
             accelerator_type="CPU",
             execution_provider="CPUExecutionProvider",
         )
-        pass_config = {"bits": 4, "block_size": 128, "axis": 0}
+        pass_config = {"bits": 4, "block_size": 128, "axis": 0, "is_symmetric": is_symmetric}
         p = create_pass_from_dict(
             OnnxBlockWiseRtnQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
         )

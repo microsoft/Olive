@@ -150,24 +150,6 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
             [("cpu", ExecutionProvider.CPUExecutionProvider)],
             None,
         ),
-        # Docker system
-        (
-            {
-                "type": "Docker",
-                "config": {
-                    "local_docker_config": {
-                        "image_name": "olive-image",
-                        "build_context_path": "docker",
-                        "dockerfile": "Dockerfile",
-                    },
-                    "accelerators": [
-                        {"device": "cpu", "execution_providers": [ExecutionProvider.CPUExecutionProvider]}
-                    ],
-                },
-            },
-            [("cpu", ExecutionProvider.CPUExecutionProvider)],
-            [ExecutionProvider.CPUExecutionProvider],
-        ),
         # LocalSystem with memory
         (
             {

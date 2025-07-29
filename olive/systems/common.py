@@ -71,15 +71,3 @@ class AzureMLEnvironmentConfig(ConfigBase):
     name: str
     version: Optional[str] = None
     label: Optional[str] = None
-
-
-class LocalDockerConfig(ConfigBase):
-    image_name: str
-    dockerfile: Optional[str] = None
-    build_context_path: Optional[Union[Path, str]] = None
-    build_args: Optional[dict] = None
-    run_params: Optional[dict] = None
-
-    @validator("build_context_path")
-    def _get_abspath(cls, v):
-        return str(Path(v).resolve()) if v else None

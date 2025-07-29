@@ -173,7 +173,8 @@
             "activation_type": "uint16",
             "precision": "uint8",
             "calibrate_method": "MinMax"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "CLIP-ViT-B-32-laion2B-s34B-b79K" }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,
