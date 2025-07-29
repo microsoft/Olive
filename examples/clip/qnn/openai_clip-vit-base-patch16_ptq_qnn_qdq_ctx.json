@@ -27,7 +27,7 @@
                 "model_name": "openai/clip-vit-base-patch16",
                 "dataset_name": "nlphuji/flickr30k",
                 "start": 0,
-                "end": 10
+                "end": 100
             },
             "dataloader_config": { "type": "no_auto_batch_dataloader" }
         },
@@ -38,8 +38,8 @@
                 "type": "clip_dataset",
                 "model_name": "openai/clip-vit-base-patch16",
                 "dataset_name": "nlphuji/flickr30k",
-                "start": 10,
-                "end": 20
+                "start": 100,
+                "end": 200
             },
             "dataloader_config": { "type": "no_auto_batch_dataloader" },
             "post_process_data_config": { "type": "clip_post_process" }
@@ -57,11 +57,6 @@
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
-                                },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
                                     {
@@ -87,11 +82,6 @@
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
-                                },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
                                     {
@@ -113,11 +103,6 @@
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
-                                },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
                                     {
@@ -136,7 +121,13 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 20 },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "ReplaceAttentionMaskValue" } ] },
+        "surgery": {
+            "type": "GraphSurgeries",
+            "surgeries": [
+                { "surgeon": "MatMulAddToGemm" },
+                { "surgeon": "ReplaceAttentionMaskValue", "replacement": -50.0 }
+            ]
+        },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "quant_preprocess": true,
@@ -150,8 +141,7 @@
             "provider_options": {
                 "htp_graph_finalization_optimization_mode": "3",
                 "offload_graph_io_quantization": "0"
-            },
-            "session_options": { "optimization.disable_specified_optimizers": "MatMulAddFusion" }
+            }
         },
         "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-base-patch16" }
     },
