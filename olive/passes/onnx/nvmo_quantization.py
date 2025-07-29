@@ -3,11 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Union
 
-import onnx
 import onnxruntime as ort
 import torch
 from onnx import helper
@@ -104,6 +104,14 @@ class NVModelOptQuantization(Pass):
                 type_=int,
                 default_value=cls.DEFAULT_SETTINGS["int4_block_size"],
                 description="Block size to use for INT4 weight-only quantization",
+            ),
+            "nodes_to_exclude": PassConfigParam(
+                type_=list,
+                default_value=["/lm_head"],
+                description="""
+                List of nodes to exclude from quantization. By default, lm-head is excluded
+                in quantization.
+                """,
             ),
         }
 
@@ -208,6 +216,7 @@ class NVModelOptQuantization(Pass):
         logger.debug(
             "calibration_eps=%s", config.calibration_providers or NVModelOptQuantization.get_execution_providers()
         )
+        logger.debug("nodes-to-exclude=%s", config.nodes_to_exclude)
         logger.debug("=============================")
 
         # Return a dictionary containing necessary configuration for quantization
@@ -219,6 +228,7 @@ class NVModelOptQuantization(Pass):
             "calibration_data_reader": calib_inputs,
             "calibration_eps": config.calibration_providers or NVModelOptQuantization.get_execution_providers(),
             "int4_block_size": config.int4_block_size,
+            "nodes_to_exclude": config.nodes_to_exclude,
         }
 
     def make_model_input(
@@ -416,6 +426,7 @@ class NVModelOptQuantization(Pass):
             calibration_data_reader=calib_inputs,
             calibration_eps=quant_config["calibration_eps"],
             block_size=quant_config["int4_block_size"],
+            nodes_to_exclude=quant_config["nodes_to_exclude"],
         )
 
         logger.debug("Completed nvidia_awq quantization.")
@@ -475,10 +486,16 @@ class NVModelOptQuantization(Pass):
 
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-            onnx.save(converted_model_proto, output_model_path)
-            logger.debug("Quantized and opset-converted model saved to %s", output_model_path)
+            logger.debug("Quantized and opset-converted model will be saved to %s", output_model_path)
 
-            return model_proto_to_olive_model(converted_model_proto, output_model_path, config)
+            external_data_config = {
+                "save_as_external_data": True,
+                "all_tensors_to_one_file": True,
+                "external_data_name": os.path.basename(output_model_path) + "_data",
+                "size_threshold": 1024,
+            }
+
+            return model_proto_to_olive_model(converted_model_proto, output_model_path, external_data_config)
 
         except Exception:
             logger.exception("An error occurred during quantization and opset conversion")

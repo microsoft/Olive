@@ -78,6 +78,15 @@ class RunEngineConfig(EngineConfig):
         ),
     )
 
+    @validator("output_dir", pre=True, always=True)
+    def validate_output_dir(cls, v):
+        if v is None:
+            v = Path.cwd().resolve()
+        else:
+            v = Path(v).resolve()
+        v.mkdir(parents=True, exist_ok=True)
+        return v
+
     def create_engine(self, olive_config, azureml_client_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
         if self.cache_config:
@@ -171,6 +180,18 @@ class RunConfig(NestedConfig):
     def insert_azureml_client(cls, values):
         values = convert_configs_to_dicts(values)
         _insert_azureml_client(values, values.get("azureml_client"))
+        return values
+
+    @root_validator()
+    def validate_python_environment_paths(cls, values):
+        # Check if we need to validate python environment path
+        engine = values.get("engine")
+        if engine:
+            engine_host = engine.host
+            if not engine_host or engine_host.type != SystemType.Docker:
+                systems = values.get("systems")
+                if systems:
+                    _validate_python_environment_path(systems)
         return values
 
     @validator("data_configs", pre=True)
@@ -268,6 +289,7 @@ class RunConfig(NestedConfig):
                 "Can't search without a valid evaluator config. "
                 "Either provider a valid evaluator config or disable search."
             )
+
         return _resolve_evaluator(v, values)
 
     @validator("passes", pre=True, each_item=True)
@@ -302,13 +324,8 @@ class RunConfig(NestedConfig):
                     )
         return v
 
-    @validator("workflow_host", pre=True, always=True)
+    @validator("workflow_host", pre=True)
     def validate_workflow_host(cls, v, values):
-        if v is None:
-            systems = values.get("systems")
-            if systems:
-                _validate_python_environment_path(systems)
-            return v
         return _resolve_config(values, v)
 
 

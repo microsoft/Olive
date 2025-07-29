@@ -154,7 +154,10 @@
             ]
         }
     },
-    "passes": { "conversion": { "type": "OnnxConversion", "target_opset": 20 } },
+    "passes": {
+        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-base-patch16" }
+    },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,
     "host": "qnn_system",

@@ -745,6 +745,264 @@ graph {
 }
 ```
 
+### `QuickGeluToSigmoid`
+
+#### Description
+
+Replaces QuickGelu operators with equivalent standard ONNX operators. This surgery converts a single QuickGelu node into a subgraph composed of Mul, Sigmoid, and Mul operations.
+
+The QuickGelu function is mathematically defined as: `QuickGelu(x) = x * sigmoid(alpha * x)`, where alpha defaults to 1.702.
+
+Reference: https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/core/graph/contrib_ops/contrib_defs.cc
+
+#### Example
+
+Initial model graph:
+
+```proto
+graph {
+  input: "input"
+  node {
+    op_type: "QuickGelu"
+    input: ["input"]
+    output: ["quickgelu_output"]
+    name: "QuickGeluNode"
+  }
+  output: "quickgelu_output"
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "QuickGeluToSigmoid"
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```proto
+graph {
+  input: "input"
+  initializer: "QuickGeluNode_alpha" (FLOAT, value: 1.702)
+  node {
+    op_type: "Mul"
+    input: ["input", "QuickGeluNode_alpha"]
+    output: ["QuickGeluNode_mul1_output"]
+    name: "QuickGeluNode_mul1"
+  }
+  node {
+    op_type: "Sigmoid"
+    input: ["QuickGeluNode_mul1_output"]
+    output: ["QuickGeluNode_sigmoid_output"]
+    name: "QuickGeluNode_sigmoid"
+  }
+  node {
+    op_type: "Mul"
+    input: ["input", "QuickGeluNode_sigmoid_output"]
+    output: ["QuickGeluNode_mul2_output"]
+    name: "QuickGeluNode_mul2"
+  }
+  output: "QuickGeluNode_mul2_output"
+}
+```
+
+Pattern transformation:
+
+```
+Original pattern:
+[Input] --> QuickGelu --> [Output]
+
+Replaced pattern:
+[Input] --> Mul --> Sigmoid --> Mul --> [Output]
+             |                    ^
+             |                    |
+             +--------------------+
+             (alpha=1.702)
+```
+
+### `DecomposeRotaryEmbedding`
+
+#### Description
+
+Decomposes RotaryEmbedding operator to standard ONNX operators (RoPE). This surgery converts a single RotaryEmbedding node into a subgraph composed of multiple standard ONNX operators.
+
+The RotaryEmbedding function applies rotary position encoding transformations to the real and imaginary parts of input vectors.
+
+Reference: https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/core/graph/contrib_ops/contrib_defs.cc
+
+#### Example
+
+Initial model graph:
+
+```proto
+graph {
+  input: "input"
+  input: "position_ids"
+  input: "cos_cache"
+  input: "sin_cache"
+  node {
+    op_type: "RotaryEmbedding"
+    input: ["input", "position_ids", "cos_cache", "sin_cache"]
+    output: ["rotaryembedding_output"]
+    name: "RotaryEmbeddingNode"
+  }
+  output: "rotaryembedding_output"
+}
+```
+
+After applying:
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "DecomposeRotaryEmbedding"
+        }
+    ]
+}
+```
+
+Transformed model graph:
+
+```proto
+graph {
+  input: "input"
+  input: "position_ids"
+  input: "cos_cache"
+  input: "sin_cache"
+  node {
+    op_type: "Reshape"
+    input: ["position_ids", "RotaryEmbeddingNode_pos_flat_shape"]
+    output: ["RotaryEmbeddingNode_pos_flat_output"]
+    name: "RotaryEmbeddingNode_pos_flat"
+  }
+  node {
+    op_type: "Gather"
+    input: ["cos_cache", "RotaryEmbeddingNode_pos_flat_output"]
+    output: ["RotaryEmbeddingNode_cos_g_output"]
+    name: "RotaryEmbeddingNode_cos_g"
+    axis: 0
+  }
+  node {
+    op_type: "Gather"
+    input: ["sin_cache", "RotaryEmbeddingNode_pos_flat_output"]
+    output: ["RotaryEmbeddingNode_sin_g_output"]
+    name: "RotaryEmbeddingNode_sin_g"
+    axis: 0
+  }
+  node {
+    op_type: "Slice"
+    input: ["input", "RotaryEmbeddingNode_slice_start", "RotaryEmbeddingNode_slice_half", "RotaryEmbeddingNode_slice_axes"]
+    output: ["RotaryEmbeddingNode_real_output"]
+    name: "RotaryEmbeddingNode_real"
+  }
+  node {
+    op_type: "Slice"
+    input: ["input", "RotaryEmbeddingNode_slice_half", "RotaryEmbeddingNode_slice_end", "RotaryEmbeddingNode_slice_axes"]
+    output: ["RotaryEmbeddingNode_imag_output"]
+    name: "RotaryEmbeddingNode_imag"
+  }
+  node {
+    op_type: "Mul"
+    input: ["RotaryEmbeddingNode_real_output", "RotaryEmbeddingNode_cos_r_output"]
+    output: ["RotaryEmbeddingNode_real_cos_output"]
+    name: "RotaryEmbeddingNode_real_cos"
+  }
+  node {
+    op_type: "Mul"
+    input: ["RotaryEmbeddingNode_imag_output", "RotaryEmbeddingNode_sin_r_output"]
+    output: ["RotaryEmbeddingNode_imag_sin_output"]
+    name: "RotaryEmbeddingNode_imag_sin"
+  }
+  node {
+    op_type: "Sub"
+    input: ["RotaryEmbeddingNode_real_cos_output", "RotaryEmbeddingNode_imag_sin_output"]
+    output: ["RotaryEmbeddingNode_out_r_output"]
+    name: "RotaryEmbeddingNode_out_r"
+  }
+  node {
+    op_type: "Mul"
+    input: ["RotaryEmbeddingNode_real_output", "RotaryEmbeddingNode_sin_r_output"]
+    output: ["RotaryEmbeddingNode_real_sin_output"]
+    name: "RotaryEmbeddingNode_real_sin"
+  }
+  node {
+    op_type: "Mul"
+    input: ["RotaryEmbeddingNode_imag_output", "RotaryEmbeddingNode_cos_r_output"]
+    output: ["RotaryEmbeddingNode_imag_cos_output"]
+    name: "RotaryEmbeddingNode_imag_cos"
+  }
+  node {
+    op_type: "Add"
+    input: ["RotaryEmbeddingNode_real_sin_output", "RotaryEmbeddingNode_imag_cos_output"]
+    output: ["RotaryEmbeddingNode_out_i_output"]
+    name: "RotaryEmbeddingNode_out_i"
+  }
+  node {
+    op_type: "Concat"
+    input: ["RotaryEmbeddingNode_out_r_output", "RotaryEmbeddingNode_out_i_output"]
+    output: ["rotaryembedding_output"]
+    name: "RotaryEmbeddingNode_concat"
+    axis: -1
+  }
+  output: "rotaryembedding_output"
+}
+```
+
+Pattern transformation:
+
+```
+Original pattern:
+[Input] --> RotaryEmbedding --> [Output]
+              ^      ^
+              |      |
+    [position_ids] [cos_cache, sin_cache]
+
+Replaced pattern:
+                                [position_ids]
+                                     |
+                                  Reshape
+                                     |
+                      +--------------+--------------+
+                      |                             |
+                      v                             v
+                [cos_cache] --> Gather       [sin_cache] --> Gather
+                                  |                             |
+                                  v                             v
+                               Reshape                       Reshape
+                                  |                             |
+[Input] --> Split ----------------+-----------------------------+
+              |       |                             |
+              v       v                             v
+            real    imag                         cos, sin
+              |       |                             |
+              +-------+-----------------------------+
+              |       |       |          |          |
+              v       v       v          v          v
+            Mul     Mul     Mul        Mul      (RoPE)
+              |       |       |          |
+              v       v       v          v
+            Sub <-----+     Add <--------+
+              |               |
+              v               v
+            real'           imag'
+              |               |
+              +-------+-------+
+                      |
+                   Concat
+                      |
+                      v
+                  [Output]
+```
+
 
 ### `RMSNormToL2Norm`
 

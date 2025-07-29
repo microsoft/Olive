@@ -35,34 +35,18 @@ jobs:
     parameters:
       hf_token: $(hf_token)
 
-  - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
-    - script: |
-          call python -m pip install pytest
-          call curl --output openvino_toolkit.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0.1/windows/w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64.zip
-          call 7z x openvino_toolkit.zip
-          call w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64\\setupvars.bat
-          call python -m pip install numpy psutil coverage
-          call coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType) --basetemp $(PYTEST_BASETEMP)
-          call coverage xml
-      displayName: Test Olive
-      env:
-        WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
-        WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
-        WORKSPACE_NAME: $(workspace-name)
-        MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
-  - ${{ else }}:
-    - script: |
-          python -m pip install pytest
-          python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
+  - script: |
+        python -m pip install pytest
+        python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
 
-          coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType) --basetemp $(PYTEST_BASETEMP)
-          coverage xml
-      displayName: Test Olive
-      env:
-        WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
-        WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
-        WORKSPACE_NAME: $(workspace-name)
-        MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
+        coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType) --basetemp $(PYTEST_BASETEMP)
+        coverage xml
+    displayName: Test Olive
+    env:
+      WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
+      WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
+      WORKSPACE_NAME: $(workspace-name)
+      MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
 
   - task: CredScan@3
     displayName: 'Run CredScan'
@@ -76,6 +60,7 @@ jobs:
       testResultsFiles: '**/*TestOlive*.xml'
       testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
       failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true
     displayName: Upload pipeline run test results
 
   # Code coverage requires

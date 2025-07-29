@@ -114,7 +114,10 @@
             ]
         }
     },
-    "passes": { "conversion": { "device": "cpu", "type": "OnnxConversion", "target_opset": 20 } },
+    "passes": {
+        "conversion": { "device": "cpu", "type": "OnnxConversion", "target_opset": 20 },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "resnet-50" }
+    },
     "host": "qnn_system",
     "target": "qnn_system",
     "evaluator": "common_evaluator",
