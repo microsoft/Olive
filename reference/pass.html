@@ -2623,7 +2623,16 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-use_int4">
 <span class="sig-name descname"><span class="pre">use_int4</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_int4" title="Link to this definition">#</a></dt>
-<dd><p>Whether to use int4 data type for the quantized weight. Default is False and uses uint4 data type.</p>
+<dd><p>Whether to use int4 data type for the quantized weight. Default is False and uses uint4 data type. To be deprecated in future versions in favor of use_signed_int.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-use_signed_int">
+<span class="sig-name descname"><span class="pre">use_signed_int</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_signed_int" title="Link to this definition">#</a></dt>
+<dd><p>Whether to use signed int data type for the quantized weight. Default is False and uses unsigned int data type. Supersedes use_int4 when set to True.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
 <p><strong>search_defaults:</strong> None</p>
