@@ -18,7 +18,7 @@ from olive.cli.base import (
     get_input_model_config,
 )
 from olive.common.utils import set_nested_dict_value
-from olive.constants import Precision
+from olive.constants import Precision, precision_bits_from_precision
 from olive.hardware.constants import ExecutionProvider
 
 
@@ -142,8 +142,8 @@ class OptimizeCommand(BaseOliveCLICommand):
             "--modality",
             type=str,
             default="text",
-            choices=["text", "vision"],
-            help="Model modality for optimization. Default is 'text'.",
+            choices=["text"],
+            help="Model modality for optimization. Only 'text' is currently supported.",
         )
 
         # QDQ format option
@@ -151,6 +151,13 @@ class OptimizeCommand(BaseOliveCLICommand):
             "--enable_aot",
             action="store_true",
             help="Enable Ahead-of-Time (AOT) compilation.",
+        )
+
+        # QNN environment path option
+        sub_parser.add_argument(
+            "--qnn_env_path",
+            type=str,
+            help="Path to QNN environment directory (required when using AOT with QNN).",
         )
 
         add_logging_options(sub_parser)
@@ -242,6 +249,9 @@ class OptimizeCommand(BaseOliveCLICommand):
         if self.args.enable_aot and self.args.provider != ExecutionProvider.QNNExecutionProvider:
             raise ValueError("Ahead-of-Time (AOT) compilation is only supported with QNNExecutionProvider.")
 
+        if self.args.enable_aot and self.args.qnn_env_path is None:
+            raise ValueError("QNN environment path (--qnn_env_path) is required when using AOT compilation.")
+
         if self.args.use_qdq_format and self.args.provider == ExecutionProvider.OpenVINOExecutionProvider:
             raise ValueError("QDQ format is not supported with OpenVINOExecutionProvider.")
 
@@ -252,7 +262,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         if provider == ExecutionProvider.QNNExecutionProvider and self.args.enable_aot:
             config["systems"]["qnn_system"] = {
                 "type": "PythonEnvironment",
-                "python_environment_path": "/path/to/qnn/env/bin",
+                "python_environment_path": self.args.qnn_env_path,
                 "accelerators": [{"execution_providers": [provider.value]}],
             }
             config["target"] = "qnn_system"
@@ -380,7 +390,9 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _get_gptq_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for Gptq pass."""
         precision = Precision(self.args.precision)
-        gptq_config = {"type": "Gptq", "bits": self._precision_to_bits(precision)}
+        precision_bits = precision_bits_from_precision(precision)
+        bits = precision_bits.value if precision_bits else 32
+        gptq_config = {"type": "Gptq", "bits": bits}
         if self.args.block_size is not None:
             if self.args.block_size == -1:
                 # For per-channel quantization in GPTQ, use a special value or handle differently
@@ -706,20 +718,6 @@ class OptimizeCommand(BaseOliveCLICommand):
             "op_version": "2025.1",
             "reuse_cache": True,
         }
-
-    def _precision_to_bits(self, precision: Precision) -> int:
-        """Convert precision enum to bit count."""
-        precision_bits_map = {
-            Precision.INT4: 4,
-            Precision.UINT4: 4,
-            Precision.INT8: 8,
-            Precision.UINT8: 8,
-            Precision.INT16: 16,
-            Precision.UINT16: 16,
-            Precision.INT32: 32,
-            Precision.UINT32: 32,
-        }
-        return precision_bits_map.get(precision, 32)
 
 
 # Template configuration for the optimize command
