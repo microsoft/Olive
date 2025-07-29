@@ -97,10 +97,6 @@ def _has_quantization_nodes(model: onnx.ModelProto):
 class AimetQuantization(Pass):
     """Quantize ONNX model using aimet-onnx."""
 
-    @staticmethod
-    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
-        return False
-
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = deepcopy(_aimet_quantization_config)
