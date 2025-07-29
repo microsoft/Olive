@@ -58,7 +58,7 @@
         },
         "mq": {
             "type": "MatMulNBitsToQDQ",
-            "use_int4": true,
+            "use_signed_int": true,
             "add_zero_point": true,
             "nodes_to_exclude": [ "/lm_head/MatMul_Q4" ],
             "save_as_external_data": true
