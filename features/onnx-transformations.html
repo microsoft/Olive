@@ -1214,8 +1214,8 @@ for more details on the optimizations done by this tool.</p>
 </div>
 </section>
 </section>
-<section id="quickgelutosigmoid">
-<h3><code class="docutils literal notranslate"><span class="pre">QuickGeluToSigmoid</span></code><a class="headerlink" href="#quickgelutosigmoid" title="Link to this heading">#</a></h3>
+<section id="decomposequickgelu">
+<h3><code class="docutils literal notranslate"><span class="pre">DecomposeQuickGelu</span></code><a class="headerlink" href="#decomposequickgelu" title="Link to this heading">#</a></h3>
 <section id="id29">
 <h4>Description<a class="headerlink" href="#id29" title="Link to this heading">#</a></h4>
 <p>Replaces QuickGelu operators with equivalent standard ONNX operators. This surgery converts a single QuickGelu node into a subgraph composed of Mul, Sigmoid, and Mul operations.</p>
@@ -1242,7 +1242,7 @@ for more details on the optimizations done by this tool.</p>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuickGeluToSigmoid&quot;</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DecomposeQuickGelu&quot;</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">]</span>
 <span class="p">}</span>
@@ -2773,7 +2773,7 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id28">Example</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#quickgelutosigmoid"><code class="docutils literal notranslate"><span class="pre">QuickGeluToSigmoid</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#decomposequickgelu"><code class="docutils literal notranslate"><span class="pre">DecomposeQuickGelu</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id29">Description</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id30">Example</a></li>
 </ul>
