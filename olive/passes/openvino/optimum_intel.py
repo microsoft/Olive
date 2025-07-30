@@ -348,7 +348,6 @@ class OpenVINOOptimumConversion(Pass):
             elif config.ov_quant_config.get("weight_format") in {"fp16", "fp32"}:
                 ov_config = OVConfig(dtype=config.ov_quant_config["weight_format"])
             else:
-                #print(_DEFAULT_4BIT_WQ_CONFIG)
                 if config.ov_quant_config.get("weight_format") is not None:
                     # For int4 quantization if no parameter is provided, then use the default config if exists
                     if (
