@@ -44,6 +44,8 @@ def get_preprocessors(model_name: str, **kwargs) -> Optional[dict]:
 def get_export_config(model_name: str, task: str, **kwargs) -> Optional["OnnxConfig"]:
     """Get the export config for the model_name and task."""
     try:
+        # need this in optimum 1.27.0+ to trigger the registration of ONNX export configs
+        from optimum.exporters.onnx import model_configs as _  # noqa: F401 # pylint: disable=unused-import
         from optimum.exporters.tasks import TasksManager
     except ImportError:
         logger.debug("optimum is not installed. Cannot get export config")
