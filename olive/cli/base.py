@@ -36,8 +36,11 @@ class BaseOliveCLICommand(ABC):
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
-            if self.args.save_config_file:
+            if self.args.save_config_file or self.args.dry_run:
                 self._save_config_file(run_config)
+            if self.args.dry_run:
+                print("Dry run mode enabled. Configuration file is generated but no optimization is performed.")
+                return None
             workflow_output = olive_run(run_config)
             if not workflow_output.has_output_model():
                 print("No output model produced. Please check the log for details.")
@@ -282,6 +285,13 @@ def add_save_config_file_options(sub_parser: ArgumentParser):
         action="store_true",
         help="Generate and save the config file for the command.",
     )
+
+    sub_parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help="Enable dry run mode. This will not perform any actual optimization but will validate the configuration.",
+    )
+
     return sub_parser
 
 

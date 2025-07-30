@@ -13,6 +13,7 @@ from olive.cli.extract_adapters import ExtractAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
+from olive.cli.optimize import OptimizeCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
 from olive.engine.output import WorkflowOutput
@@ -169,6 +170,22 @@ def finetune(model_name_or_path: str, **kwargs) -> WorkflowOutput:
     """
     kwargs["model_name_or_path"] = model_name_or_path
     return _run_unified_command(FineTuneCommand, **kwargs)
+
+
+def optimize(model_name_or_path: str, **kwargs) -> WorkflowOutput:
+    """Optimize the input model with comprehensive pass scheduling.
+
+    Args:
+        model_name_or_path: Path to model (file path or HuggingFace model name)
+        **kwargs: All other CLI arguments supported by optimize command.
+                  Includes `output_path` (defaults to "optimized-model").
+
+    Returns:
+        WorkflowOutput: Contains optimized models and metrics
+
+    """
+    kwargs["model_name_or_path"] = model_name_or_path
+    return _run_unified_command(OptimizeCommand, **kwargs)
 
 
 def quantize(model_name_or_path: str, **kwargs) -> WorkflowOutput:
