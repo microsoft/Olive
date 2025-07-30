@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class AzureContainerClientFactory:
-    def __init__(self, account_name, container_name, **credential_kwargs):
+    def __init__(self, account_name, container_name):
         try:
             from azure.storage.blob import ContainerClient
         except ImportError as exc:
@@ -18,7 +18,7 @@ class AzureContainerClientFactory:
         self.client = ContainerClient(
             account_url=ACCOUNT_URL_TEMPLATE.format(account_name=account_name),
             container_name=container_name,
-            credential=get_credentials(credential_kwargs),
+            credential=get_credentials(),
         )
 
     def delete_blob(self, blob_name):

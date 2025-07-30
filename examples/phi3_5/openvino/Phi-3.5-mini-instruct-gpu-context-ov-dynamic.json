@@ -9,13 +9,8 @@
     "passes": {
         "optimum_convert": {
             "type": "OpenVINOOptimumConversion",
-            "extra_args": { "device": "gpu" },
-            "ov_quant_config": {
-                "task": "text-generation-with-past",
-                "weight_format": "int4",
-                "group_size": 128,
-                "ratio": 1
-            }
+            "extra_args": { "device": "gpu", "task": "text-generation-with-past" },
+            "ov_quant_config": { "weight_format": "int4", "group_size": 128, "ratio": 1 }
         },
         "io_update": { "type": "OpenVINOIoUpdate", "static": false, "reuse_cache": true },
         "encapsulation": {

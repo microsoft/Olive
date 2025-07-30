@@ -5,7 +5,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from olive.common.config_utils import ConfigBase
 from olive.common.pydantic_v1 import Field, validator
@@ -42,18 +42,6 @@ class AzureMLClientConfig(ConfigBase):
         description=(
             "Initial interval in seconds between retries for AzureML operations like resource creation or download. The"
             " interval doubles after each retry."
-        ),
-    )
-    # as the DefaultAzureCredential is used by default, we need to provide the default auth config for it.
-    # but DefaultAzureCredential accept kwargs as parameters, it is hard to validate the config.
-    # so we just provide a dict here and let the user to provide the correct config following the doc.
-    default_auth_params: Optional[dict[str, Any]] = Field(
-        None,
-        description=(
-            "Default auth config for AzureML client. Please refer to"
-            " https://learn.microsoft.com/en-us/python/api/azure-identity/"
-            "azure.identity.defaultazurecredential?view=azure-python#parameters"
-            " for more details."
         ),
     )
     keyvault_name: Optional[str] = Field(
@@ -98,7 +86,7 @@ class AzureMLClientConfig(ConfigBase):
             if self.workspace_name is None:
                 raise ValueError("workspace_name must be provided if aml_config_path is not provided")
             return MLClient(
-                credential=get_credentials(self.default_auth_params),
+                credential=get_credentials(),
                 subscription_id=self.subscription_id,
                 resource_group_name=self.resource_group,
                 workspace_name=self.workspace_name,
@@ -106,7 +94,7 @@ class AzureMLClientConfig(ConfigBase):
             )
         else:
             return MLClient.from_config(
-                credential=get_credentials(self.default_auth_params),
+                credential=get_credentials(),
                 path=self.aml_config_path,
                 read_timeout=self.read_timeout,
             )
@@ -117,7 +105,7 @@ class AzureMLClientConfig(ConfigBase):
 
         set_azure_logging_if_noset()
 
-        return MLClient(credential=get_credentials(self.default_auth_params), registry_name=registry_name)
+        return MLClient(credential=get_credentials(), registry_name=registry_name)
 
 
 def set_azure_logging_if_noset():

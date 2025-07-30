@@ -24,6 +24,7 @@ from olive.cli.launcher import main as cli_main
         "convert-adapters",
         "tune-session-params",
         "auto-opt",
+        "optimize",
     ],
 )
 def test_valid_command(console_script, command):
@@ -441,3 +442,86 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
 
 # TODO(anyone): Add tests for ManageAMLComputeCommand
 # Test for ConvertAdaptersCommand is added as part of test/unit_test/passes/onnx/test_extract_adapters.py
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
+    # setup
+    output_dir = "output_dir"
+
+    test_list = [
+        [
+            "optimize",
+            (
+                "--precision int4 --act_precision int8 --provider QNNExecutionProvider --num_split 4 --use_qdq_format "
+                '--block_size -1 --surgeries "RemoveRopeMultiCache,AttentionMaskToSequenceLengths"'
+            ),
+            (
+                "QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, "
+                "OnnxStaticQuantization, SplitModel, StaticLLM"
+            ),
+        ],
+        [
+            "optimize",
+            (
+                " --precision int4 --act_precision int16 --provider VitisAIExecutionProvider  --num_split 4 "
+                '--use_qdq_format --surgeries "RemoveRopeMultiCache,AttentionMaskToSequenceLengths"  --block_size -1'
+            ),
+            (
+                "QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, "
+                "OnnxStaticQuantization, VitisAIAddMetaData, SplitModel, StaticLLM"
+            ),
+        ],
+        [
+            "optimize",
+            "--precision int4 --act_precision int16 --provider OpenVINOExecutionProvider  --device gpu",
+            "OpenVINOOptimumConversion, OpenVINOIoUpdate, OpenVINOEncapsulation",
+        ],
+        [
+            "optimize",
+            "-t text-classification --precision int8 --exporter torchscript_exporter",
+            "OnnxConversion, OnnxPeepholeOptimizer, OrtTransformersOptimization, OnnxStaticQuantization",
+        ],
+        [
+            "optimize",
+            (
+                "-t text-classification --precision int8 --exporter torchscript_exporter --provider QNNExecutionProvider "
+                '--device npu --dim_param "batch_size,sequence_length" --dim_value 1,128'
+            ),
+            (
+                "OnnxConversion, DynamicToFixedShape, OnnxPeepholeOptimizer, OrtTransformersOptimization, "
+                "OnnxStaticQuantization, StaticLLM"
+            ),
+        ],
+        [
+            "optimize",
+            "-t text-classification --precision fp16 --exporter torchscript_exporter --provider CUDAExecutionProvider",
+            "OnnxConversion, OnnxPeepholeOptimizer, OrtTransformersOptimization, OnnxFloatToFloat16",
+        ],
+    ]
+
+    for t in test_list:
+        # setup
+        command_args = [
+            t[0],
+            "-m",
+            "dummy_model",
+            "--dry_run",
+            "-o",
+            str(output_dir),
+        ]
+
+        command_args += [item.strip() for item in t[1].split()]
+
+        # execute
+        cli_main(command_args)
+
+        json_file_path = "output_dir/config.json"
+        with open(json_file_path) as file:
+            data = json.load(file)
+
+        passes = data.get("passes", {})
+        pass_list = [k[1]["type"] for k in passes.items()]
+
+        assert pass_list == [item.strip() for item in t[2].split(",")]

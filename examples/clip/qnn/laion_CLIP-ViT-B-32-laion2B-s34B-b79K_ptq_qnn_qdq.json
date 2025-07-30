@@ -27,7 +27,7 @@
                 "model_name": "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
                 "dataset_name": "nlphuji/flickr30k",
                 "start": 0,
-                "end": 10
+                "end": 100
             },
             "dataloader_config": { "type": "no_auto_batch_dataloader" }
         },
@@ -38,8 +38,8 @@
                 "type": "clip_dataset",
                 "model_name": "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
                 "dataset_name": "nlphuji/flickr30k",
-                "start": 10,
-                "end": 20
+                "start": 100,
+                "end": 200
             },
             "dataloader_config": { "type": "no_auto_batch_dataloader" },
             "post_process_data_config": { "type": "clip_post_process" }
@@ -164,7 +164,10 @@
         "conversion": { "type": "OnnxConversion", "target_opset": 20 },
         "surgery": {
             "type": "GraphSurgeries",
-            "surgeries": [ { "surgeon": "MatMulAddToGemm" }, { "surgeon": "ReplaceAttentionMaskValue" } ]
+            "surgeries": [
+                { "surgeon": "MatMulAddToGemm" },
+                { "surgeon": "ReplaceAttentionMaskValue", "replacement": -50.0 }
+            ]
         },
         "quantization": {
             "type": "OnnxStaticQuantization",

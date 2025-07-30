@@ -26,8 +26,8 @@
                 "type": "clip_dataset",
                 "model_name": "openai/clip-vit-base-patch32",
                 "dataset_name": "nlphuji/flickr30k",
-                "start": 10,
-                "end": 20
+                "start": 100,
+                "end": 200
             },
             "dataloader_config": { "type": "no_auto_batch_dataloader" },
             "post_process_data_config": { "type": "clip_post_process" }
@@ -45,11 +45,6 @@
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
-                                },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
                                     {
@@ -75,11 +70,6 @@
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
-                                },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
                                     {
@@ -101,11 +91,6 @@
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
-                                },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
                                     {
@@ -124,10 +109,10 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 20 },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
         "cb": {
             "type": "EPContextBinaryGenerator",
-            "provider_options": { "htp_graph_finalization_optimization_mode": "3", "enable_htp_fp16_precision": "1" },
-            "session_options": { "optimization.disable_specified_optimizers": "MatMulAddFusion" }
+            "provider_options": { "htp_graph_finalization_optimization_mode": "3", "enable_htp_fp16_precision": "1" }
         },
         "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-base-patch32" }
     },

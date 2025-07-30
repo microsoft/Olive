@@ -191,7 +191,7 @@ class OliveEvaluator(ABC):
 class _OliveEvaluator(OliveEvaluator):
     @staticmethod
     def device_string_to_torch_device(device: Device):
-        return torch.device("cuda") if device == Device.GPU else torch.device(device)
+        return torch.device("cuda") if device == Device.GPU and torch.cuda.is_available() else torch.device("cpu")
 
     @classmethod
     def io_bind_enabled(cls, metric: Metric, inference_settings: dict) -> bool:
@@ -713,8 +713,7 @@ class PyTorchEvaluator(_OliveEvaluator):
         logits = []
         device = _OliveEvaluator.device_string_to_torch_device(device)
         run_kwargs = metric.get_run_kwargs()
-        if device:
-            session.to(device)
+        session.to(device)
         for input_data_i, labels in dataloader:
             input_data = tensor_data_to_device(input_data_i, device)
             result = model.run_session(session, input_data, **run_kwargs)
@@ -776,17 +775,15 @@ class PyTorchEvaluator(_OliveEvaluator):
         torch_device = _OliveEvaluator.device_string_to_torch_device(device)
         run_kwargs = metric.get_run_kwargs()
 
-        is_cuda = device == Device.GPU
-        if is_cuda:
-            session.to(torch_device)
-            input_data = tensor_data_to_device(input_data, torch_device)
+        session.to(torch_device)
+        input_data = tensor_data_to_device(input_data, torch_device)
 
         # warm up
         for _ in range(warmup_num):
             model.run_session(session, input_data, **run_kwargs)
 
         latencies = []
-        if is_cuda:
+        if torch_device == torch.device("cuda"):
             # synchronize before starting the test
             torch.cuda.synchronize()
             # cuda events for measuring latency
