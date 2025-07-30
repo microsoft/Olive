@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "mistralai/Mistral-7B-Instruct-v0.3" },
+    "input_model": { "type": "HfModel", "model_path": "microsoft/Phi-4-mini-instruct" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
@@ -9,15 +9,25 @@
     "passes": {
         "optimum_convert": {
             "type": "OpenVINOOptimumConversion",
-            "extra_args": { "device": "gpu", "task": "text-generation-with-past" },
-            "ov_quant_config": { "weight_format": "int4", "group_size": 128, "ratio": 0.8 }
+            "extra_args": { "device": "npu" },
+            "ov_quant_config": {
+                "weight_format": "int4",
+                "group_size": 128,
+                "dataset": "wikitext2",
+                "ratio": 1,
+                "awq": true,
+                "scale_estimation": true,
+                "sym": true,
+                "trust_remote_code": true,
+                "backup_precision": "int8_sym"
+            }
         },
         "io_update": { "type": "OpenVINOIoUpdate", "static": false, "reuse_cache": true },
         "encapsulation": {
             "type": "OpenVINOEncapsulation",
-            "target_device": "gpu",
+            "target_device": "npu",
             "keep_ov_dynamic_dims": true,
-            "ov_version": "2025.1",
+            "ov_version": "2025.2",
             "reuse_cache": true
         }
     },
@@ -26,5 +36,5 @@
     "cache_dir": "cache",
     "clean_cache": true,
     "evaluate_input_model": false,
-    "output_dir": "models/mistralai/Mistral-7B-Instruct-v0.3-gpu-context-ov-dy"
+    "output_dir": "models/Phi_4_mini_instruct_context_ov_dynamic_sym_gs128_bkp_int8_sym"
 }

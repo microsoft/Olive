@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "mistralai/Mistral-7B-Instruct-v0.3" },
+    "input_model": { "type": "HfModel", "model_path": "microsoft/Phi-4" },
     "systems": {
         "local_system": {
             "type": "LocalSystem",
@@ -17,7 +17,7 @@
             "type": "OpenVINOEncapsulation",
             "target_device": "gpu",
             "keep_ov_dynamic_dims": true,
-            "ov_version": "2025.1",
+            "ov_version": "2025.2",
             "reuse_cache": true
         }
     },
@@ -26,5 +26,5 @@
     "cache_dir": "cache",
     "clean_cache": true,
     "evaluate_input_model": false,
-    "output_dir": "models/mistralai/Mistral-7B-Instruct-v0.3-gpu-context-ov-dy"
+    "output_dir": "models/Phi_4_gpu_context_dy"
 }
