@@ -98,11 +98,11 @@ def infer_task(
             except KeyError as e:
                 raise KeyError(
                     f"The task could not be automatically inferred. Please provide the argument --task with the relevant task from {', '.join(TasksManager.get_all_tasks())}. Detailed error: {e}"
-                ) from e
+                ) from None
             except RequestsConnectionError as e:
                 raise RequestsConnectionError(
                     f"The task could not be automatically inferred as this is available only for models hosted on the Hugging Face Hub. Please provide the argument --task with the relevant task from {', '.join(TasksManager.get_all_tasks())}. Detailed error: {e}"
-                ) from e
+                ) from None
     return task
 
 
@@ -117,7 +117,7 @@ def maybe_convert_tokenizers(library_name: str, output: Path, model=None, prepro
     try:
         from optimum.intel.utils.import_utils import is_openvino_tokenizers_available
     except Exception as e:
-        raise ImportError("Unable to import transformers packages:", e) from None
+        raise ImportError("openvino tokenizers unavailable :", e) from None
 
     if is_openvino_tokenizers_available():
         if library_name != "diffusers" and preprocessors:
