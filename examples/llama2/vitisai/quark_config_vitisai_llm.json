@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HFModel", "model_path": "meta-llama/Llama-2-7b-chat-hf" },
+    "input_model": { "type": "HFModel", "model_path": "meta-llama/Llama-2-7b-hf" },
     "passes": {
         "qq": {
             "type": "QuarkQuantizationPass",
@@ -14,7 +14,7 @@
         "mg": { "type": "VitisGenerateModelLLM", "packed_const": false, "cpu_only": false }
     },
     "log_severity_level": 1,
-    "output_dir": "models/Llama-2-7b-hf-vai",
+    "output_dir": "models/llama2-vai",
     "cache_dir": "cache",
     "no_artifacts": true
 }

@@ -98,58 +98,7 @@ olive run --config qdq_config.json
 
 ##### **For Quark quantization**
 
-For LLMs - follow the below commands to generate the optimized model for VitisAI Execution Provider.
-
-**Note:** We’ve tested it on Linux with ROCm and on Linux with CUDA. It is also supported on Windows with CPU, though quantization may be slower. Support for Windows with CUDA/ROCm is planned for a future release.
-
-For more details about quark, see the [Quark Documentation](https://quark.docs.amd.com/latest/)
-
-###### Create a Python 3.10 conda environment and run the below commands
-```bash
-conda create -n olive python=3.10
-conda activate olive
-```
-
-```bash
-cd Olive
-pip install -e .
-pip install -r requirements.txt
-```
-
-###### Install the model generate wheel
-
-🔹For Linux (python 3.10)
-```bash
-pip install model-generate-linux --index-url https://pypi.amd.com/simple/model-generate-linux
-```
-🔹For Windows (python 3.10)
-```bash
-pip install model-generate-linux --index-url https://pypi.amd.com/simple/model-generate-windows
-```
-
-**Note:**  These will be updated once the package is officially published to `pypi.amd.com`.
-
-###### Install VitisAI LLM dependencies
-
-```bash
-cd examples/phi3_5
-pip install -r requirements-vitis-llm.txt
-```
-Make sure to install the correct version of PyTorch before running quantization. If using AMD GPUs, update PyTorch to use ROCm-compatible PyTorch build. For example see the below commands
-
-```bash
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
-
-python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
-```
-###### Generate optimized LLM model for VitisAI NPU
-Follow the above setup instructions, then run the below command to generate the optimized LLM model for VitisAI EP
-
-```bash
-olive run --config quark_config_vitis_ai_llm.json
-```
-
-✅ Optimized model saved in: `models/phi3_5-vai/`
+- [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.
 
 ##### **For QDQ quantization**
 Follow above mentioned setup instruction and run the below command to generate the optimized model for VitisAI EP.

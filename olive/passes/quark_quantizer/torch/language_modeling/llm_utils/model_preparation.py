@@ -6,6 +6,7 @@
 import logging
 import os
 import random
+from typing import Optional, Union
 
 import numpy as np
 import psutil
@@ -109,7 +110,7 @@ MODEL_NAME_PATTERN_MAP = {
 }
 
 
-def get_tokenizer(ckpt_path: str, max_seq_len: int = 2048, model_type: str | None = None) -> AutoTokenizer:
+def get_tokenizer(ckpt_path: str, max_seq_len: int = 2048, model_type: Optional[str] = None) -> AutoTokenizer:
     logger.info("Initializing tokenizer from %s", ckpt_path)
     use_fast = model_type in ["grok", "cohere", "olmo", "instella", "deepseekv2v3"]
     tokenizer = AutoTokenizer.from_pretrained(
@@ -247,7 +248,7 @@ def set_seed(seed: int) -> None:
     torch.backends.cudnn.deterministic = True
 
 
-def get_device_max_memory() -> dict[int | str, int | str]:
+def get_device_max_memory() -> dict[Union[int, str], Union[int, str]]:
     for i in range(torch.cuda.device_count()):
         _ = torch.tensor([0], device=i)
         cuda_avail_memory = {i: torch.cuda.mem_get_info(i)[0] for i in range(torch.cuda.device_count())}

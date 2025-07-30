@@ -58,4 +58,4 @@ class VitisGenerateModelLLM(Pass):
         onnx_model = onnx.load(final_model_path)
         logger.info("[DEBUG] Model generated at: %s", final_model_path)
 
-        return model_proto_to_olive_model(onnx_model, final_model_path, config)
+        return model_proto_to_olive_model(onnx_model, final_model_path, config, force_model_dir=True)

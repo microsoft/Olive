@@ -1,0 +1,24 @@
+accelerate
+datasets
+evaluate
+nltk
+numpy
+onnxruntime==1.21.1
+onnxruntime-genai==0.7.1
+optimum
+sentencepiece
+tabulate
+transformers==4.50.0
+
+# Quark
+amd-quark==0.9
+
+# AMD model generation
+# Model generation on a Windows system Linux system
+--extra-index-url=https://xcoartifactory.xilinx.com/artifactory/api/pypi/ryzen-ai-llm-pip-dev-local/simple
+model-generate==1.5.0
+
+# Uncomment the below line if running model generation on a Windows system
+# --index-url https://pypi.amd.com/simple/model-generate-windows
+# model-generate-1.5.1
+

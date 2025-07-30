@@ -1,0 +1,20 @@
+{
+    "input_model": { "type": "HFModel", "model_path": "Qwen/Qwen2.5-Coder-0.5B" },
+    "passes": {
+        "qq": {
+            "type": "QuarkQuantizationPass",
+            "quant_scheme": "w_uint4_per_group_asym",
+            "quant_algo": "awq",
+            "dataset": "pileval_for_awq_benchmark",
+            "data_type": "float32",
+            "num_calib_data": 128,
+            "model_export": [ "hf_format" ],
+            "exclude_layers": [  ]
+        },
+        "mg": { "type": "VitisGenerateModelLLM", "packed_const": false, "cpu_only": false }
+    },
+    "log_severity_level": 1,
+    "output_dir": "models/qwen2_5-vai",
+    "cache_dir": "cache",
+    "no_artifacts": true
+}
