@@ -81,6 +81,9 @@ export BUILD_CUDA_EXT=0
 
 # Install AutoGPTQ from source
 pip install --no-build-isolation git+https://github.com/PanQiWei/AutoGPTQ.git
+
+# Install GptqModel from source
+pip install --no-build-isolation git+https://github.com/ModelCloud/GPTQModel.git@5d2911a4b2a709afb0941d53c3882d0cd80b9649
 ```
 
 #### **Run the Quantization Config**
