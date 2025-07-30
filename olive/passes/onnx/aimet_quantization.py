@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 import tempfile
-from copy import deepcopy
 from pathlib import Path
 from typing import Optional, Union
 
@@ -29,48 +28,6 @@ from olive.search.search_parameter import Categorical
 logger = logging.getLogger(__name__)
 
 # pylint: disable=consider-using-with
-
-_aimet_quantization_config = {
-    "precision": PassConfigParam(
-        type_=Precision,
-        default_value=Precision.INT8,
-        search_defaults=Categorical([Precision.INT4, Precision.INT8, Precision.INT16]),
-        description="Quantization precision for quantizing weights.",
-    ),
-    "activation_type": PassConfigParam(
-        type_=Precision,
-        default_value=Precision.UINT8,
-        search_defaults=Categorical([Precision.UINT8, Precision.UINT16, Precision.FP16]),
-        description="Quantization precision for quantizing activations.",
-    ),
-    "data_config": PassConfigParam(
-        type_=Union[DataConfig, dict],
-        required=True,
-        description="Data config for calibration.",
-    ),
-    "quant_scheme": PassConfigParam(
-        type_=str,
-        default_value="min_max",
-        search_defaults=Categorical(["min_max", "tf_enhanced"]),
-        description="Quantization scheme to use for calibration. Current methods supported are min_max and tfe.",
-    ),
-    "config_file": PassConfigParam(
-        type_=Optional[str],
-        default_value=None,
-        required=False,
-        category=ParamCategory.PATH,
-        description="Path to AIMET config file defining target hardware quantization support.",
-    ),
-    "calibration_providers": PassConfigParam(
-        type_=list,
-        default_value=None,
-        description="""
-            Execution providers to run the session during calibration.
-            Supported providers are {"CUDAExecutionProvider", "CPUExecutionProvider"}
-            Default is None which uses [ "CPUExecutionProvider" ].
-        """,
-    ),
-}
 
 
 def precision_to_qtype(p: Precision):
@@ -99,7 +56,47 @@ class AimetQuantization(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        config = deepcopy(_aimet_quantization_config)
+        config = {
+            "precision": PassConfigParam(
+                type_=Precision,
+                default_value=Precision.INT8,
+                search_defaults=Categorical([Precision.INT4, Precision.INT8, Precision.INT16]),
+                description="Quantization precision for quantizing weights.",
+            ),
+            "activation_type": PassConfigParam(
+                type_=Precision,
+                default_value=Precision.UINT8,
+                search_defaults=Categorical([Precision.UINT8, Precision.UINT16, Precision.FP16]),
+                description="Quantization precision for quantizing activations.",
+            ),
+            "data_config": PassConfigParam(
+                type_=Union[DataConfig, dict],
+                required=True,
+                description="Data config for calibration.",
+            ),
+            "quant_scheme": PassConfigParam(
+                type_=str,
+                default_value="min_max",
+                search_defaults=Categorical(["min_max", "tf_enhanced"]),
+                description="Quantization scheme to use for calibration. Current methods supported are min_max and tfe.",
+            ),
+            "config_file": PassConfigParam(
+                type_=Optional[str],
+                default_value=None,
+                required=False,
+                category=ParamCategory.PATH,
+                description="Path to AIMET config file defining target hardware quantization support.",
+            ),
+            "calibration_providers": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description="""
+                    Execution providers to run the session during calibration.
+                    Supported providers are {"CUDAExecutionProvider", "CPUExecutionProvider"}
+                    Default is None which uses [ "CPUExecutionProvider" ].
+                """,
+            ),
+        }
         config.update(get_external_data_config())
         return config
 
