@@ -484,7 +484,7 @@
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -544,6 +544,10 @@
 <dd><p>Generate and save the config file for the command.</p>
 <p>Default: False</p>
 </dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
+<p>Default: False</p>
+</dd>
 </dl>
 </section>
 </section>
@@ -566,7 +570,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -654,6 +658,10 @@
 <dd><p>Generate and save the config file for the command.</p>
 <p>Default: False</p>
 </dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
+<p>Default: False</p>
+</dd>
 </dl>
 </section>
 <section id="lora-options">
@@ -700,7 +708,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">enable_search</span> <span class="p">[{</span><span class="n">random</span><span class="p">,</span><span class="n">sequential</span><span class="p">,</span><span class="n">tpe</span><span class="p">}]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -816,6 +824,10 @@
 <dd><p>Generate and save the config file for the command.</p>
 <p>Default: False</p>
 </dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
+<p>Default: False</p>
+</dd>
 </dl>
 </section>
 </section>
@@ -839,7 +851,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="named-arguments">
@@ -946,6 +958,10 @@
 <dd><p>Generate and save the config file for the command.</p>
 <p>Default: False</p>
 </dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
+<p>Default: False</p>
+</dd>
 </dl>
 </section>
 </section>
@@ -970,7 +986,7 @@
                                 <span class="p">[</span><span class="o">--</span><span class="n">exclude_lm_head</span> <span class="n">EXCLUDE_LM_HEAD</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">enable_cuda_graph</span> <span class="n">ENABLE_CUDA_GRAPH</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
@@ -1016,6 +1032,10 @@
 </dd>
 <dt><kbd>--save_config_file</kbd></dt>
 <dd><p>Generate and save the config file for the command.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
 <p>Default: False</p>
 </dd>
 <dt><kbd>--account_name</kbd></dt>
@@ -1089,7 +1109,7 @@
                               <span class="p">[</span><span class="o">--</span><span class="n">adapter_type</span> <span class="p">{</span><span class="n">lora</span><span class="p">,</span><span class="n">dora</span><span class="p">,</span><span class="n">loha</span><span class="p">}]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">adapter_format</span> <span class="p">{</span><span class="n">pt</span><span class="p">,</span><span class="n">numpy</span><span class="p">,</span><span class="n">safetensors</span><span class="p">,</span><span class="n">onnx_adapter</span><span class="p">}]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
-                              <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                              <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
 </div>
@@ -1119,6 +1139,10 @@
 </dd>
 <dt><kbd>--save_config_file</kbd></dt>
 <dd><p>Generate and save the config file for the command.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
 <p>Default: False</p>
 </dd>
 <dt><kbd>--account_name</kbd></dt>
@@ -1200,7 +1224,7 @@
                                  <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">providers_list</span> <span class="p">[{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">}</span> <span class="o">...</span><span class="p">]]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
@@ -1275,6 +1299,10 @@
 </dd>
 <dt><kbd>--save_config_file</kbd></dt>
 <dd><p>Generate and save the config file for the command.</p>
+<p>Default: False</p>
+</dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
 <p>Default: False</p>
 </dd>
 <dt><kbd>--account_name</kbd></dt>

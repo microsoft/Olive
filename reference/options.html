@@ -451,7 +451,7 @@ to apply from user in the form of a json dictionary. In this document, we docume
 <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk">this</a>  for
 more details.</p>
 <p><code class="docutils literal notranslate"><span class="pre">azureml_client:</span> <span class="pre">[Dict]</span></code></p>
-<ul>
+<ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">subscription_id:</span> <span class="pre">[str]</span></code> Azure account subscription id.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">resource_group:</span> <span class="pre">[str]</span></code> Azure account resource group name.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">workspace_name:</span> <span class="pre">[str]</span></code> Azure ML workspace name.</p></li>
@@ -460,16 +460,6 @@ more details.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_operation_retries:</span> <span class="pre">[int]</span></code> The maximum number of retries for Azure ML operations like resource creation and download.
 The default value is 3. User can increase if there are network issues and the operations fail.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">operation_retry_interval:</span> <span class="pre">[int]</span></code> The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">default_auth_params:</span> <span class="pre">Dict[str,</span> <span class="pre">Any]</span></code> Default auth parameters for AzureML client. Please refer to <a class="reference external" href="https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters">azure DefaultAzureCredential</a> for more details. For example, if you want to exclude managed identity credential, you can set the following:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="c1">// ...</span>
-<span class="w">    </span><span class="nt">&quot;default_auth_params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;exclude_managed_identity_credential&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</li>
 <li><p><code class="docutils literal notranslate"><span class="pre">keyvault_name:</span> <span class="pre">[str]</span></code> The keyvault name to retrieve secrets.</p></li>
 </ul>
 <section id="example">

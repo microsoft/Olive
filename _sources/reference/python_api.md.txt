@@ -65,6 +65,44 @@ from olive import auto_opt
 workflow_output = auto_opt(model_name_or_path="path/to/model")
 ```
 
+## `optimize(...)`
+
+Optimize the input model with comprehensive pass scheduling.
+
+**Arguments:**
+- `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
+- `task` (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.
+- `trust_remote_code` (bool): Trust remote code when loading a huggingface model. Defaults to `False`.
+- `adapter_path` (str, optional): Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.
+- `model_script` (str, optional): The script file containing the model definition. Required for the local PyTorch model.
+- `script_dir` (str, optional): The directory containing the local PyTorch model script file.
+- `output_path` (str): Output directory path. Defaults to `"optimized-model"`.
+- `provider` (str): Execution provider ("CPUExecutionProvider", "CUDAExecutionProvider", "QNNExecutionProvider", "VitisAIExecutionProvider", "OpenVINOExecutionProvider"). Defaults to `"CPUExecutionProvider"`.
+- `device` (str, optional): Target device ("cpu", "gpu", "npu").
+- `precision` (str): Target precision ("int4", "int8", "int16", "int32", "uint4", "uint8", "uint16", "uint32", "fp4", "fp8", "fp16", "fp32", "nf4"). Defaults to `"fp32"`.
+- `act_precision` (str, optional): Activation precision for quantization.
+- `num_split` (int, optional): Number of splits for model splitting.
+- `memory` (int, optional): Available device memory in MB.
+- `exporter` (str, optional): Exporter to use ("model_builder", "dynamo_exporter", "torchscript_exporter", "optimum_exporter").
+- `dim_param` (str, optional): Dynamic parameter names for dynamic to fixed shape conversion.
+- `dim_value` (str, optional): Fixed dimension values for dynamic to fixed shape conversion.
+- `use_qdq_format` (bool): Use QDQ format for quantization. Defaults to `False`.
+- `surgeries` (list[str], optional): List of graph surgeries to apply.
+- `block_size` (int, optional): Block size for quantization. Use -1 for per-channel quantization.
+- `modality` (str): Model modality ("text"). Defaults to `"text"`.
+- `enable_aot` (bool): Enable Ahead-of-Time (AOT) compilation. Defaults to `False`.
+- `qnn_env_path` (str, optional): Path to QNN environment directory (required when using AOT with QNN).
+- `account_name` (str, optional): Azure storage account name for shared cache.
+- `container_name` (str, optional): Azure storage container name for shared cache.
+- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
+- `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
+
+```python
+from olive import optimize
+
+workflow_output = optimize(model_name_or_path="path/to/model")
+```
+
 ## `quantize(...)`
 
 Quantize a PyTorch or ONNX model.

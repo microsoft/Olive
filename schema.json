@@ -137,11 +137,6 @@
           "default": 5,
           "type": "integer"
         },
-        "default_auth_params": {
-          "title": "Default Auth Params",
-          "description": "Default auth config for AzureML client. Please refer to https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters for more details.",
-          "type": "object"
-        },
         "keyvault_name": {
           "title": "Keyvault Name",
           "description": "Name of the keyvault to use. If provided, the keyvault will be used to retrieve secrets.",

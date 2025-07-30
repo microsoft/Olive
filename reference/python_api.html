@@ -470,6 +470,44 @@
 </pre></div>
 </div>
 </section>
+<section id="optimize">
+<h2><code class="docutils literal notranslate"><span class="pre">optimize(...)</span></code><a class="headerlink" href="#optimize" title="Link to this heading">#</a></h2>
+<p>Optimize the input model with comprehensive pass scheduling.</p>
+<p><strong>Arguments:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">model_name_or_path</span></code> (str): Path to the input model (file path or HuggingFace model name).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">task</span></code> (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trust_remote_code</span></code> (bool): Trust remote code when loading a huggingface model. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adapter_path</span></code> (str, optional): Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_script</span></code> (str, optional): The script file containing the model definition. Required for the local PyTorch model.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">script_dir</span></code> (str, optional): The directory containing the local PyTorch model script file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_path</span></code> (str): Output directory path. Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;optimized-model&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">provider</span></code> (str): Execution provider (“CPUExecutionProvider”, “CUDAExecutionProvider”, “QNNExecutionProvider”, “VitisAIExecutionProvider”, “OpenVINOExecutionProvider”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;CPUExecutionProvider&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">device</span></code> (str, optional): Target device (“cpu”, “gpu”, “npu”).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">precision</span></code> (str): Target precision (“int4”, “int8”, “int16”, “int32”, “uint4”, “uint8”, “uint16”, “uint32”, “fp4”, “fp8”, “fp16”, “fp32”, “nf4”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;fp32&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">act_precision</span></code> (str, optional): Activation precision for quantization.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_split</span></code> (int, optional): Number of splits for model splitting.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">memory</span></code> (int, optional): Available device memory in MB.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">exporter</span></code> (str, optional): Exporter to use (“model_builder”, “dynamo_exporter”, “torchscript_exporter”, “optimum_exporter”).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dim_param</span></code> (str, optional): Dynamic parameter names for dynamic to fixed shape conversion.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dim_value</span></code> (str, optional): Fixed dimension values for dynamic to fixed shape conversion.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_qdq_format</span></code> (bool): Use QDQ format for quantization. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">surgeries</span></code> (list[str], optional): List of graph surgeries to apply.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">block_size</span></code> (int, optional): Block size for quantization. Use -1 for per-channel quantization.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">modality</span></code> (str): Model modality (“text”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;text&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enable_aot</span></code> (bool): Enable Ahead-of-Time (AOT) compilation. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qnn_env_path</span></code> (str, optional): Path to QNN environment directory (required when using AOT with QNN).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">account_name</span></code> (str, optional): Azure storage account name for shared cache.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">container_name</span></code> (str, optional): Azure storage container name for shared cache.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code> (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">save_config_file</span></code> (bool): Generate and save the config file for the command. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">optimize</span>
+
+<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">optimize</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">&quot;path/to/model&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
 <section id="quantize">
 <h2><code class="docutils literal notranslate"><span class="pre">quantize(...)</span></code><a class="headerlink" href="#quantize" title="Link to this heading">#</a></h2>
 <p>Quantize a PyTorch or ONNX model.</p>
@@ -832,6 +870,7 @@
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run"><code class="docutils literal notranslate"><span class="pre">run(...)</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-opt"><code class="docutils literal notranslate"><span class="pre">auto_opt(...)</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimize"><code class="docutils literal notranslate"><span class="pre">optimize(...)</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize"><code class="docutils literal notranslate"><span class="pre">quantize(...)</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#capture-onnx-graph"><code class="docutils literal notranslate"><span class="pre">capture_onnx_graph(...)</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#finetune"><code class="docutils literal notranslate"><span class="pre">finetune(...)</span></code></a></li>

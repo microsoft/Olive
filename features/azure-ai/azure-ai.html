@@ -440,7 +440,6 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">max_operation_retries:</span> <span class="pre">[int]</span></code> The maximum number of retries for Azure ML operations like resource creation and download.
 The default value is 3. User can increase if there are network issues and the operations fail.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">operation_retry_interval:</span> <span class="pre">[int]</span></code> The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">default_auth_params:</span> <span class="pre">Dict[str,</span> <span class="pre">Any]</span></code> Default auth parameters for AzureML client. Please refer to <a class="reference external" href="https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters">azure DefaultAzureCredential</a> for more details. For example, if you want to exclude managed identity credential, you can set the following:</p></li>
 </ul>
 <section id="using-azureml-registered-model">
 <h3>Using AzureML registered model<a class="headerlink" href="#using-azureml-registered-model" title="Link to this heading">#</a></h3>
