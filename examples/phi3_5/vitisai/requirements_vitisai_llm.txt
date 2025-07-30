@@ -15,7 +15,7 @@ amd-quark==0.9
 
 # AMD model generation
 # Model generation on a Windows system Linux system (to be updated)
-# --index-url https://pypi.amd.com/simple/model-generate-windows
+# --index-url https://pypi.amd.com/simple/model-generate-linux
 # model-generate==1.5.0
 
 # Uncomment the below line if running model generation on a Windows system (to be updated)
