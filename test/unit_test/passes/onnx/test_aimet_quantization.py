@@ -7,9 +7,8 @@ import json
 import numpy as np
 import onnx
 import pytest
-from onnxruntime import __version__ as OrtVersion
+import torch
 from onnxruntime.quantization.calibrate import CalibrationDataReader
-from packaging import version
 
 from olive.constants import Precision
 from olive.data.config import DataComponentConfig, DataConfig
@@ -91,10 +90,7 @@ def dummy_quantized_onnx_model(model_path):
     return ONNXModelHandler(model_path)
 
 
-@pytest.mark.skipif(
-    version.parse(OrtVersion) < version.parse("1.19.0"),
-    reason="AIMET quantization is only supported with onnxruntime>=1.19.0",
-)
+@pytest.mark.skipif(torch.cuda.is_available(), reason="Only run on cpu tests")
 @pytest.mark.parametrize(
     "precisions",
     [
@@ -144,10 +140,7 @@ def test_aimet_quantization_uses_provided_precisions(tmp_path, precisions):
         assert offset.dtype == np.dtype(act_type)
 
 
-@pytest.mark.skipif(
-    version.parse(OrtVersion) < version.parse("1.19.0"),
-    reason="AIMET quantization is only supported with onnxruntime>=1.19.0",
-)
+@pytest.mark.skipif(torch.cuda.is_available(), reason="Only run on cpu tests")
 def test_aimet_quantization_adheres_to_custom_config(tmp_path):
     input_model = dummy_onnx_model(tmp_path / "dummy_model.onnx")
     quantsim_config = {
@@ -192,6 +185,7 @@ def test_aimet_quantization_adheres_to_custom_config(tmp_path):
     assert "matmul_out" not in tensor_to_quantizer
 
 
+@pytest.mark.skipif(torch.cuda.is_available(), reason="Only run on cpu tests")
 def test_aimet_quantization_raises_error_with_prequantized_model(tmp_path):
     input_model = dummy_quantized_onnx_model(tmp_path / "dummy_model.onnx")
     config = {
@@ -209,6 +203,7 @@ def test_aimet_quantization_raises_error_with_prequantized_model(tmp_path):
         p.run(input_model, tmp_path)
 
 
+@pytest.mark.skipif(torch.cuda.is_available(), reason="Only run on cpu tests")
 @pytest.mark.parametrize(
     "pass_config",
     [
