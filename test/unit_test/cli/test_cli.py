@@ -334,7 +334,7 @@ def test_shared_cache_delete_all_with_confirmation(mock_AzureContainerClientFact
 @patch("huggingface_hub.repo_exists")
 def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
     # setup
-    output_dir = "output_dir"
+    output_dir = tmp_path / "output_dir"
 
     # setup
     command_args = [
@@ -446,20 +446,24 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists")
-def test_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
+def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
     # setup
     output_dir = "output_dir"
 
     test_list = [
         [
             "optimize",
-            '--precision int4 --act_precision int8 --provider QNNExecutionProvider --num_split 4 --use_qdq_format --block_size -1 --surgeries "RemoveRopeMultiCache,AttentionMaskToSequenceLengths"',
-            "QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, OnnxStaticQuantization, SplitModel, StaticLLM",
+            ('--precision int4 --act_precision int8 --provider QNNExecutionProvider --num_split 4 --use_qdq_format '
+             '--block_size -1 --surgeries "RemoveRopeMultiCache,AttentionMaskToSequenceLengths"'),
+            ("QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, "
+             "OnnxStaticQuantization, SplitModel, StaticLLM"),
         ],
         [
             "optimize",
-            ' --precision int4 --act_precision int16 --provider VitisAIExecutionProvider  --num_split 4 --use_qdq_format --surgeries "RemoveRopeMultiCache,AttentionMaskToSequenceLengths"  --block_size -1',
-            "QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, OnnxStaticQuantization, VitisAIAddMetaData, SplitModel, StaticLLM",
+            (' --precision int4 --act_precision int16 --provider VitisAIExecutionProvider  --num_split 4 '
+             '--use_qdq_format --surgeries "RemoveRopeMultiCache,AttentionMaskToSequenceLengths"  --block_size -1'),
+            ("QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, "
+             "OnnxStaticQuantization, VitisAIAddMetaData, SplitModel, StaticLLM"),
         ],
         [
             "optimize",
@@ -473,8 +477,10 @@ def test_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         ],
         [
             "optimize",
-            '-t text-classification --precision int8 --exporter torchscript_exporter --provider QNNExecutionProvider --device npu --dim_param "batch_size,sequence_length" --dim_value 1,128',
-            "OnnxConversion, DynamicToFixedShape, OnnxPeepholeOptimizer, OrtTransformersOptimization, OnnxStaticQuantization, StaticLLM",
+            ('-t text-classification --precision int8 --exporter torchscript_exporter --provider QNNExecutionProvider '
+             '--device npu --dim_param "batch_size,sequence_length" --dim_value 1,128'),
+            ("OnnxConversion, DynamicToFixedShape, OnnxPeepholeOptimizer, OrtTransformersOptimization, "
+             "OnnxStaticQuantization, StaticLLM"),
         ],
         [
             "optimize",
