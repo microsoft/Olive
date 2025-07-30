@@ -453,17 +453,25 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
     test_list = [
         [
             "optimize",
-            ('--precision int4 --act_precision int8 --provider QNNExecutionProvider --num_split 4 --use_qdq_format '
-             '--block_size -1 --surgeries "RemoveRopeMultiCache,AttentionMaskToSequenceLengths"'),
-            ("QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, "
-             "OnnxStaticQuantization, SplitModel, StaticLLM"),
+            (
+                "--precision int4 --act_precision int8 --provider QNNExecutionProvider --num_split 4 --use_qdq_format "
+                '--block_size -1 --surgeries "RemoveRopeMultiCache,AttentionMaskToSequenceLengths"'
+            ),
+            (
+                "QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, "
+                "OnnxStaticQuantization, SplitModel, StaticLLM"
+            ),
         ],
         [
             "optimize",
-            (' --precision int4 --act_precision int16 --provider VitisAIExecutionProvider  --num_split 4 '
-             '--use_qdq_format --surgeries "RemoveRopeMultiCache,AttentionMaskToSequenceLengths"  --block_size -1'),
-            ("QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, "
-             "OnnxStaticQuantization, VitisAIAddMetaData, SplitModel, StaticLLM"),
+            (
+                " --precision int4 --act_precision int16 --provider VitisAIExecutionProvider  --num_split 4 "
+                '--use_qdq_format --surgeries "RemoveRopeMultiCache,AttentionMaskToSequenceLengths"  --block_size -1'
+            ),
+            (
+                "QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, "
+                "OnnxStaticQuantization, VitisAIAddMetaData, SplitModel, StaticLLM"
+            ),
         ],
         [
             "optimize",
@@ -477,10 +485,14 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         ],
         [
             "optimize",
-            ('-t text-classification --precision int8 --exporter torchscript_exporter --provider QNNExecutionProvider '
-             '--device npu --dim_param "batch_size,sequence_length" --dim_value 1,128'),
-            ("OnnxConversion, DynamicToFixedShape, OnnxPeepholeOptimizer, OrtTransformersOptimization, "
-             "OnnxStaticQuantization, StaticLLM"),
+            (
+                "-t text-classification --precision int8 --exporter torchscript_exporter --provider QNNExecutionProvider "
+                '--device npu --dim_param "batch_size,sequence_length" --dim_value 1,128'
+            ),
+            (
+                "OnnxConversion, DynamicToFixedShape, OnnxPeepholeOptimizer, OrtTransformersOptimization, "
+                "OnnxStaticQuantization, StaticLLM"
+            ),
         ],
         [
             "optimize",
