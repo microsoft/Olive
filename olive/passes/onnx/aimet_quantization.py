@@ -11,6 +11,7 @@ import onnx
 from packaging import version
 
 from olive.common.config_utils import ParamCategory, validate_config
+from olive.common.utils import StrEnumBase
 from olive.constants import Precision
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
@@ -46,6 +47,11 @@ def precision_to_qtype(p: Precision):
     return precision_mapping.get(p)
 
 
+class QuantScheme(StrEnumBase):
+    MIN_MAX = "min_max"
+    TF_ENHANCED = "tf_enhanced"
+
+
 def _has_quantization_nodes(model: onnx.ModelProto):
     quantize_op_types = {"QuantizeLinear", "DequantizeLinear", "DynamicQuantizeLinear", "MatMulNBits"}
     return any(node.op_type in quantize_op_types for node in model.graph.node)
@@ -75,7 +81,7 @@ class AimetQuantization(Pass):
                 description="Data config for calibration.",
             ),
             "quant_scheme": PassConfigParam(
-                type_=str,
+                type_=QuantScheme,
                 default_value="min_max",
                 search_defaults=Categorical(["min_max", "tf_enhanced"]),
                 description="Quantization scheme to use for calibration. Current methods supported are min_max and tfe.",

@@ -114,6 +114,7 @@ def test_aimet_quantization_uses_provided_precisions(tmp_path, precisions):
         ),
         "precision": precision,
         "activation_type": act_type,
+        "quant_scheme": "min_max",
     }
     p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
 
@@ -214,7 +215,6 @@ def test_aimet_quantization_raises_error_with_prequantized_model(tmp_path):
         {"precision": Precision.UINT8, "activation_type": Precision.UINT8},
         {"precision": Precision.INT8, "activation_type": Precision.INT8},
         {"precision": Precision.INT8, "activation_type": Precision.INT4},
-        {"quant_scheme": "unsupported"},
     ],
 )
 def test_validate_config_returns_false_for_unsupported_configurations(pass_config):
