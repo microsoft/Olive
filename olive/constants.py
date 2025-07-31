@@ -51,6 +51,7 @@ class Precision(StrEnumBase):
     FP16 = "fp16"
     FP32 = "fp32"
     NF4 = "nf4"
+    BF16 = "bf16"
 
 
 class PrecisionBits(IntEnumBase):

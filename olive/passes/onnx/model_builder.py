@@ -8,7 +8,7 @@ import copy
 import json
 import logging
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, ClassVar, Union
 
 import onnx
 import transformers
@@ -45,6 +45,14 @@ class ModelBuilder(Pass):
         bf16 = 3
         int8 = 4
 
+    EP_MAP: ClassVar[dict[ExecutionProvider, str]] = {
+        ExecutionProvider.CPUExecutionProvider: "cpu",
+        ExecutionProvider.CUDAExecutionProvider: "cuda",
+        ExecutionProvider.DmlExecutionProvider: "dml",
+        ExecutionProvider.JsExecutionProvider: "web",
+        ExecutionProvider.NvTensorRTRTXExecutionProvider: "NvTensorRtRtx",
+    }
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
@@ -63,34 +71,46 @@ class ModelBuilder(Pass):
             "search": PassConfigParam(
                 type_=dict[str, Any], required=False, description="Search options to use for generate loop."
             ),
-            "use_qdq": PassConfigParam(
-                type_=bool,
-                default_value=False,
+            "int4_accuracy_level": PassConfigParam(
+                type_=ModelBuilder.AccuracyLevel,
                 required=False,
-                description=(
-                    "Use this option when you want to use quantize-dequantize ops. "
-                    "For example, you will have a quantized MatMul op instead of the MatMulNBits op."
-                ),
+                description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
             ),
             "int4_block_size": PassConfigParam(
                 type_=ModelBuilder.BlockSize,
                 required=False,
                 description="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
             ),
-            "int4_accuracy_level": PassConfigParam(
-                type_=ModelBuilder.AccuracyLevel,
+            "int4_is_symmetric": PassConfigParam(
+                type_=bool,
                 required=False,
-                description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
+                description="Specify whether symmetric or asymmetric INT4 quantization needs to be used.",
+            ),
+            "int4_op_types_to_quantize": PassConfigParam(
+                type_=list[str],
+                required=False,
+                description=(
+                    'Specify the op types to quantize for int4 quantization. Default is None (= [ "MatMul" ]). Example:'
+                    ' ["MatMul", "Gemm"]'
+                ),
+            ),
+            "int4_nodes_to_exclude": PassConfigParam(
+                type_=list[str],
+                required=False,
+                description="Specify when you want to exclude certain nodes from int4 quantization.",
             ),
             "int4_algo_config": PassConfigParam(
                 type_=str,
                 required=False,
                 description="Specify the INT4 quantization algorithm to use in GenAI Model Builder",
             ),
-            "int4_is_symmetric": PassConfigParam(
+            "use_qdq": PassConfigParam(
                 type_=bool,
                 required=False,
-                description="Specify whether symmetric or asymmetric INT4 quantization needs to be used.",
+                description=(
+                    "Use this option when you want to use quantize-dequantize ops. "
+                    "For example, you will have a quantized MatMul op instead of the MatMulNBits op."
+                ),
             ),
             "use_8bits_moe": PassConfigParam(
                 type_=bool,
@@ -102,39 +122,28 @@ class ModelBuilder(Pass):
                 required=False,
                 description="Specify whether to use this option to enable GPUs that do not support FP16 on WebGPU.",
             ),
+            "use_cuda_bf16": PassConfigParam(
+                type_=bool,
+                required=False,
+                description="Specify whether to use BF16 I/O for quantized models on CUDA EP.",
+            ),
             "include_hidden_states": PassConfigParam(
                 type_=bool,
                 required=False,
                 description="Specify whether to have the hidden states as an output from your ONNX model.",
             ),
-            "int4_nodes_to_exclude": PassConfigParam(
-                type_=list[str],
-                required=False,
-                description="Specify when you want to exclude certain nodes from int4 quantization.",
-            ),
-            "int4_op_types_to_quantize": PassConfigParam(
-                type_=list[str],
-                required=False,
-                description=(
-                    'Specify the op types to quantize for int4 quantization. Default is None (= [ "MatMul" ]). Example:'
-                    ' ["MatMul", "Gemm"]'
-                ),
-            ),
             "exclude_embeds": PassConfigParam(
                 type_=bool,
-                default_value=False,
                 required=False,
                 description="Remove embedding layer from your ONNX model.",
             ),
             "exclude_lm_head": PassConfigParam(
                 type_=bool,
-                default_value=False,
                 required=False,
                 description="Remove language modeling head from your ONNX model.",
             ),
             "enable_cuda_graph": PassConfigParam(
                 type_=bool,
-                default_value=None,  # Explicitly setting to None to differentiate between user intent and default.
                 required=False,
                 description=(
                     "The model can use CUDA graph capture for CUDA execution provider. "
@@ -158,14 +167,18 @@ class ModelBuilder(Pass):
             accelerator_spec.accelerator_type == Device.GPU
             and accelerator_spec.execution_provider != ExecutionProvider.CPUExecutionProvider
         ):
-            logger.info(
-                "FP16 is not supported on CPU. Valid precision + execution"
-                "provider combinations are: FP32 CPU, FP32 CUDA, FP16 CUDA, INT4 CPU, INT4 CUDA"
-            )
+            logger.info("FP16 is not supported on CPU.")
+            return False
+
+        if (
+            config.precision == Precision.BF16
+            and accelerator_spec.execution_provider != ExecutionProvider.CUDAExecutionProvider
+        ):
+            logger.info("BF16 is only supported on CUDA execution provider.")
             return False
 
         # Support for limited precision types
-        return config.precision in {Precision.FP32, Precision.FP16, Precision.INT8, Precision.INT4}
+        return config.precision in {Precision.FP32, Precision.FP16, Precision.BF16, Precision.INT8, Precision.INT4}
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
@@ -202,16 +215,7 @@ class ModelBuilder(Pass):
             else Path(resolve_onnx_path(output_model_path, model.onnx_file_name))
         )
 
-        if self.accelerator_spec.execution_provider == ExecutionProvider.DmlExecutionProvider:
-            target_execution_provider = "dml"
-        elif self.accelerator_spec.execution_provider == ExecutionProvider.CUDAExecutionProvider:
-            target_execution_provider = "cuda"
-        elif self.accelerator_spec.execution_provider == ExecutionProvider.JsExecutionProvider:
-            target_execution_provider = "web"
-        elif self.accelerator_spec.execution_provider == ExecutionProvider.NvTensorRTRTXExecutionProvider:
-            target_execution_provider = "NvTensorRtRtx"
-        else:
-            target_execution_provider = "cpu"
+        target_execution_provider = self.EP_MAP.get(self.accelerator_spec.execution_provider, "cpu")
 
         extra_args = {"filename": str(output_model_filepath.name)}
         if metadata_only:
@@ -225,49 +229,13 @@ class ModelBuilder(Pass):
             if model.adapter_path:
                 extra_args["adapter_path"] = model.adapter_path
 
-        if config.int4_block_size:
-            extra_args["int4_block_size"] = config.int4_block_size.value
-
-        if config.use_qdq:
-            extra_args["use_qdq"] = config.use_qdq
-
-        if config.int4_accuracy_level:
-            extra_args["int4_accuracy_level"] = config.int4_accuracy_level.value
-
-        if config.int4_op_types_to_quantize:
-            extra_args["int4_op_types_to_quantize"] = config.int4_op_types_to_quantize
-
-        if config.int4_algo_config:
-            extra_args["int4_algo_config"] = config.int4_algo_config
-
-        if config.int4_is_symmetric is not None:
-            extra_args["int4_is_symmetric"] = config.int4_is_symmetric
-
-        # Use 8-bit quantization for MoE layers
-        if config.use_8bits_moe is not None:
-            extra_args["use_8bits_moe"] = config.use_8bits_moe
-
-        # Use FP32 for WebGPU execution provider
-        if config.use_webgpu_fp32 is not None:
-            extra_args["use_webgpu_fp32"] = config.use_webgpu_fp32
-
-        # Include hidden states as output
-        if config.include_hidden_states is not None:
-            extra_args["include_hidden_states "] = config.include_hidden_states
-
-        # Nodes to exclude from INT4 quantization
-        if config.int4_nodes_to_exclude is not None:
-            extra_args["int4_nodes_to_exclude"] = config.int4_nodes_to_exclude
-
-        # args that are only checked for presence, not value
-        for arg in ["exclude_embeds", "exclude_lm_head"]:
-            if getattr(config, arg):
-                extra_args[arg] = True
-
-        # args that are checked for presence and value (if present)
-        for arg in ["enable_cuda_graph"]:
-            if getattr(config, arg) is not None:
-                extra_args[arg] = "1" if getattr(config, arg) else "0"
+        extra_args.update(
+            {
+                key: value.value if isinstance(value, IntEnumBase) else value
+                for key, value in config.dict().items()
+                if value is not None and key not in {"precision", "metadata_only", "search"}
+            }
+        )
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
 
