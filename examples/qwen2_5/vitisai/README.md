@@ -30,7 +30,7 @@ pip install --force-reinstall -r requirements_vitisai_llm.txt
 
 # Note: If you're running model generation on a Windows system, please uncomment the following line in requirements_vitisai_llm.txt:
 # --extra-index-url=https://pypi.amd.com/simple
-# model-generate-1.5.1
+# model-generate==1.5.1
 ```
 Make sure to install the correct version of PyTorch before running quantization. If using AMD GPUs, update PyTorch to use ROCm-compatible PyTorch build. For example see the below commands
 
