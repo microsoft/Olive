@@ -4,7 +4,7 @@ The `olive optimize` command optimizes a PyTorch/Hugging Face model so that it r
 
 ## {octicon}`zap` Quickstart
 
-The Olive optimization command (`optimize`) can pull models from Hugging Face, Local disk, or the Azure AI Model Catalog. Following `optimize` command that will download the model, quantize models weights to use int4, convert the model to ONNX and optimize the ONNX graph. 
+The Olive optimization command (`optimize`) can pull models from Hugging Face, Local disk, or the Azure AI Model Catalog. Following `optimize` command that will download the model, quantize models weights to use int4, convert the model to ONNX and optimize the ONNX graph.
 
 ```bash
 olive optimize \
