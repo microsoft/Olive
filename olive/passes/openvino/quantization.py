@@ -379,6 +379,8 @@ class OpenVINOQuantization(OpenVINOQuantizationBase):
             output_model_name = f"{model_name}_quant.xml"
             output_model_path = Path(output_model_path) / output_model_name
             ov.save_model(quantized_model, output_model=output_model_path)
+            del quantized_model
+            del loaded_model
         else:
             if Path(output_model_path).is_dir():
                 output_model_path = Path(output_model_path) / Path(model.model_path).name.replace(
@@ -498,6 +500,8 @@ class OpenVINOQuantizationWithAccuracy(OpenVINOQuantizationBase):
             output_model_name = f"{model_name}_quant.xml"
             output_model_path = Path(output_model_path) / output_model_name
             ov.save_model(quantized_model, output_model=output_model_path)
+            del quantized_model
+            del loaded_model
         else:
             if Path(output_model_path).is_dir():
                 output_model_path = Path(output_model_path) / Path(model.model_path).name.replace(

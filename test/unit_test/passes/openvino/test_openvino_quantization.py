@@ -19,10 +19,21 @@ from olive.passes.openvino.quantization import OpenVINOQuantization, OpenVINOQua
 
 @Registry.register_dataset()
 def cifar10_dataset(data_dir, **kwargs):
+    import random
+
+    from torch.utils.data import Subset
     from torchvision.datasets import CIFAR10
     from torchvision.transforms import ToTensor
 
-    return CIFAR10(root=data_dir, train=False, transform=ToTensor(), download=True)
+    random.seed(1234)
+
+    # define the full CIFAR10 test set
+    full_test_set = CIFAR10(root=data_dir, train=False, transform=ToTensor(), download=True)
+
+    # randomply sample n_test_samples from the full test set
+    n_test_samples = 500
+    random_indices = random.sample(range(len(full_test_set)), n_test_samples)
+    return Subset(full_test_set, random_indices)
 
 
 def test_openvino_quantization(tmp_path):
