@@ -249,7 +249,7 @@ class NVModelOptQuantization(Pass):
         ep_list = config.calibration_providers or NVModelOptQuantization.get_execution_providers()
 
         input_shapes_profile = None
-        if "NvTensorRtRtx" in ep_list:
+        if "NvTensorRtRtx" in ep_list and (config.algorithm != QuantAlgorithm.RTN):
             # NvTensorRtRtx EP uses (min, max, opt) profile for dynamic shapes in the model's inputs.
             input_shapes_profile = self.make_input_shapes_profile_for_ep_list(ep_list, config)
 
