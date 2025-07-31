@@ -303,10 +303,17 @@ class OpenVINOOptimumConversion(Pass):
         try:
             from optimum.exporters.openvino import main_export as export_optimum_intel
             from optimum.exporters.openvino.utils import save_preprocessors
-            from optimum.intel.openvino.configuration import _DEFAULT_4BIT_WQ_CONFIG, OVConfig, get_default_int4_config
+            from optimum.intel.openvino.configuration import OVConfig, get_default_int4_config
             from optimum.intel.utils.modeling_utils import _infer_library_from_model_name_or_path
         except ImportError as e:
             raise ImportError("Please install Intel® optimum[openvino] to use OpenVINO Optimum Conversion") from e
+
+        # import the right quantization config depending on optimum-intel version
+        try:
+            from optimum.intel.openvino.configuration import _DEFAULT_4BIT_WQ_CONFIG as config_4b
+        except ImportError as e:
+            # fallback to older version
+            from optimum.intel.openvino.configuration import _DEFAULT_4BIT_CONFIG as config_4b
 
         extra_args = deepcopy(config.extra_args) if config.extra_args else {}
         extra_args.update(
@@ -356,7 +363,7 @@ class OpenVINOOptimumConversion(Pass):
                     ):
                         quant_config = get_default_int4_config(model.model_name_or_path)
                     else:
-                        quant_config = prep_wc_config(config.ov_quant_config, _DEFAULT_4BIT_WQ_CONFIG)
+                        quant_config = prep_wc_config(config.ov_quant_config, config_4b)
                     if quant_config.get("dataset", None) is not None:
                         quant_config["trust_remote_code"] = config.ov_quant_config.get("trust_remote_code", False)
                     ov_config = OVConfig(quantization_config=quant_config)
@@ -375,7 +382,7 @@ class OpenVINOOptimumConversion(Pass):
                     ]:
                         if lib_name == "diffusers":
                             raise NotImplementedError("Mixed precision quantization isn't supported for diffusers.")
-                        wc_config = prep_wc_config(config.ov_quant_config, _DEFAULT_4BIT_CONFIG)
+                        wc_config = prep_wc_config(config.ov_quant_config, config_4b)
                         wc_dtype, q_dtype = config.ov_quant_config["quant_mode"].split("_")
                         wc_config["dtype"] = wc_dtype
 
