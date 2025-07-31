@@ -171,6 +171,54 @@ class NVModelOptQuantization(Pass):
             ep_list = ["cpu"]
         return ep_list
 
+    def prepare_input_shapes_string(self, batch_size, seq_len, past_seq_len, num_layers, num_kv_heads, head_dim):
+        shapes = ""
+
+        shapes += f"input_ids:{batch_size}x{seq_len}"
+        shapes += f",attention_mask:{batch_size}x{seq_len}"
+
+        for i in range(num_layers):
+            key_name = f"past_key_values.{i}.key"
+            value_name = f"past_key_values.{i}.value"
+            shapes += f",{key_name}:{batch_size}x{num_kv_heads}x{past_seq_len}x{head_dim}"
+            shapes += f",{value_name}:{batch_size}x{num_kv_heads}x{past_seq_len}x{head_dim}"
+
+        return shapes
+
+    def get_input_shapes_profile(self, model_name_or_path):
+        config = AutoConfig.from_pretrained(model_name_or_path)
+
+        head_dim = config.hidden_size // config.num_attention_heads
+        if hasattr(config, "head_dim") and config.head_dim is not None:
+            head_dim = config.head_dim
+        num_kv_heads = config.num_key_value_heads
+        num_layers = config.num_hidden_layers
+
+        min_shapes = self.prepare_input_shapes_string(1, 1, 0, num_layers, num_kv_heads, head_dim)
+        max_shapes = self.prepare_input_shapes_string(1, 1024, 1024, num_layers, num_kv_heads, head_dim)
+        opt_shapes = self.prepare_input_shapes_string(1, 512, 512, num_layers, num_kv_heads, head_dim)
+
+        return min_shapes, max_shapes, opt_shapes
+
+    def make_input_shapes_profile_for_ep_list(self, ep_list, config):
+        # Input-shapes-profile will be used in provider-options for ORT session creation.
+        # Provider options (even if {}) are needed for all EPs when we provide for any one of them.
+        # Using empty shapes_profile for non-NvTensorRtRtx EPs.
+        input_shapes_profile_sequence = []
+        for ep in ep_list:
+            if ep == "NvTensorRtRtx":
+                min_shapes, max_shapes, opt_shapes = self.get_input_shapes_profile(config.tokenizer_dir)
+                input_shapes_profile = {
+                    "nv_profile_min_shapes": min_shapes,
+                    "nv_profile_max_shapes": max_shapes,
+                    "nv_profile_opt_shapes": opt_shapes,
+                }
+                input_shapes_profile_sequence.append(input_shapes_profile)
+            else:
+                input_shapes_profile_sequence.append({})
+
+        return input_shapes_profile_sequence
+
     def get_calibration_param(self, calibration_params_config, param_name):
         if not calibration_params_config or (param_name not in calibration_params_config):
             return self.DEFAULT_SETTINGS[param_name]
@@ -198,6 +246,13 @@ class NVModelOptQuantization(Pass):
             calib_inputs = None
             logger.warning("Not providing calibration data for quantization.")
 
+        ep_list = config.calibration_providers or NVModelOptQuantization.get_execution_providers()
+
+        input_shapes_profile = None
+        if "NvTensorRtRtx" in ep_list and (config.algorithm != QuantAlgorithm.RTN):
+            # NvTensorRtRtx EP uses (min, max, opt) profile for dynamic shapes in the model's inputs.
+            input_shapes_profile = self.make_input_shapes_profile_for_ep_list(ep_list, config)
+
         logger.debug("===== Quantization Settings =====")
         logger.debug(
             "algo=%s, precision=%s, calib-method=%s",
@@ -213,10 +268,9 @@ class NVModelOptQuantization(Pass):
             "use_fp16_calib_data=%s", self.get_calibration_param(config.calibration_params, "use_fp16_calib_data")
         )
         logger.debug("add_position_ids=%s", self.get_calibration_param(config.calibration_params, "add_position_ids"))
-        logger.debug(
-            "calibration_eps=%s", config.calibration_providers or NVModelOptQuantization.get_execution_providers()
-        )
+        logger.debug("calibration_eps=%s", ep_list)
         logger.debug("nodes-to-exclude=%s", config.nodes_to_exclude)
+        logger.debug("input_shapes_profile is None? = %s", input_shapes_profile is None)
         logger.debug("=============================")
 
         # Return a dictionary containing necessary configuration for quantization
@@ -226,9 +280,10 @@ class NVModelOptQuantization(Pass):
             "calibration_method": config.calibration_method,
             "tokenizer_dir": config.tokenizer_dir or "",
             "calibration_data_reader": calib_inputs,
-            "calibration_eps": config.calibration_providers or NVModelOptQuantization.get_execution_providers(),
+            "calibration_eps": ep_list,
             "int4_block_size": config.int4_block_size,
             "nodes_to_exclude": config.nodes_to_exclude,
+            "input_shapes_profile": input_shapes_profile,
         }
 
     def make_model_input(
@@ -427,6 +482,7 @@ class NVModelOptQuantization(Pass):
             calibration_eps=quant_config["calibration_eps"],
             block_size=quant_config["int4_block_size"],
             nodes_to_exclude=quant_config["nodes_to_exclude"],
+            input_shapes_profile=quant_config["input_shapes_profile"],
         )
 
         logger.debug("Completed nvidia_awq quantization.")
