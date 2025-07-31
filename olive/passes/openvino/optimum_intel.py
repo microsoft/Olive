@@ -311,10 +311,9 @@ class OpenVINOOptimumConversion(Pass):
         # import the right quantization config depending on optimum-intel version
         try:
             from optimum.intel.openvino.configuration import _DEFAULT_4BIT_WQ_CONFIG as WRAPPER_4_BIT
-        except ImportError as e:
+        except ImportError as _:
             # fallback to older version
-            msg = "falling back to older version of optimum-intel import API."
-            logger.warning(msg)
+            logger.warning("falling back to older version of optimum-intel import API.")
             from optimum.intel.openvino.configuration import _DEFAULT_4BIT_CONFIG as WRAPPER_4_BIT
 
         extra_args = deepcopy(config.extra_args) if config.extra_args else {}
