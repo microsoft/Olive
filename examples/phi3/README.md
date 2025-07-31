@@ -114,7 +114,14 @@ pip install onnxruntime-genai-directml>=0.4.0
 pip install -r requirements-nvmo-awq.txt
 ```
 
-Above steps install onnxruntime, onnxruntime-genai packages for DirectML execution-provider. To try out any any other execution-provider, refer section [Steps to Use Different Execution-Providers](#steps-to-use-different-execution-providers)
+Above steps install onnxruntime, onnxruntime-genai packages for DirectML execution-provider. To try out any any other execution-provider, refer section [Steps to Use Different Execution-Providers](#steps-to-use-different-execution-providers).
+
+If TensorRT Model Optimizer needs to be installed from a local wheel, then install Olive and ModelOpt separately using below steps.
+
+```bash
+pip install olive-ai
+pip install <modelopt-wheel>[onnx]
+```
 
 In case of any version compatibility issue with onnxrutime, onnxruntime-genai (or any other issues), try checking with other versions of these packages.
 
@@ -158,3 +165,8 @@ The example `phi3_nvmo_ptq.json` demonstrates model building and quantization wi
 ```bash
 python -c "import onnxruntime as ort; print(ort.get_available_providers())"
 ```
+- Note that while using NvTensorRTRTXExecutionProvider for INT4 AWQ quantization, profile (min/max/opt ranges) of inputs of the model is created internally using the details from the model's config (e.g. config.json in HuggingFace model card). This input-shapes-profile is used during onnxruntime session creation. Make sure that config.json is available in the model-directory if `tokenizer_dir` is a model path (instead of model-name).
+
+## Troubleshoot
+
+In case of any issue related to quantization using TensorRT Model Optimizer toolkit, refer its [FAQs](https://nvidia.github.io/TensorRT-Model-Optimizer/support/2_faqs.html) for potential help or suggestions.
