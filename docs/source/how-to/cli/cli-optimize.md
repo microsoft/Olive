@@ -30,7 +30,7 @@ This command will quantize weights into int4 precision before converting the mod
 
 ## Customizing model optimization process
 
-`olive optimize` primarily rquests desired model precision and intended ExecutionProvider that will be used to run the optimized model. Based on these information, `olive optimize` command will generate model optimiation recipe as per user request and execute the recipe to produce to output model. Advanced users can use `--dry_run` option to save the `config.json` file on the disk. See comprehensive list of [options](../reference/options.html) you can use to customize the model optimization process further by modifying the `config.json` file produced by the `olive optimize --dry_run ...` command.
+`olive optimize` primarily requests desired model precision and intended ExecutionProvider that will be used to run the optimized model. Based on these information, `olive optimize` command will generate model optimiation recipe as per user request and execute the recipe to produce to output model. Advanced users can use `--dry_run` option to save the `config.json` file on the disk. See comprehensive list of [options](../reference/options.html) you can use to customize the model optimization process further by modifying the `config.json` file produced by the `olive optimize --dry_run ...` command.
 
 ## Additional details
 
