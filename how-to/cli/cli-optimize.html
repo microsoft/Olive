@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>How To Use auto-opt Command &#8212; Olive latest documentation</title>
+    <title>How To Use optimize Command &#8212; Olive latest documentation</title>
   
   
   
@@ -50,7 +50,7 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/cli/cli-auto-opt';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/cli/cli-optimize';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
@@ -60,8 +60,8 @@
         </script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="How To use finetune Command" href="cli-finetune.html" />
-    <link rel="prev" title="How To Use optimize Command" href="cli-optimize.html" />
+    <link rel="next" title="How To Use auto-opt Command" href="cli-auto-opt.html" />
+    <link rel="prev" title="How To Install Olive" href="../installation.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="latest" />
@@ -389,7 +389,7 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">How Tos</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How To Use <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> Command</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How To Use <code class="docutils literal notranslate"><span class="pre">optimize</span></code> Command</span></li>
   </ul>
 </nav>
 </div>
@@ -406,43 +406,39 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="how-to-use-auto-opt-command">
-<h1>How To Use <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> Command<a class="headerlink" href="#how-to-use-auto-opt-command" title="Link to this heading">#</a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">auto-opt</span></code> command automatically optimizes a PyTorch/Hugging Face model into the ONNX format so that it runs with quality and efficiency on the ONNX Runtime.</p>
+  <section id="how-to-use-optimize-command">
+<h1>How To Use <code class="docutils literal notranslate"><span class="pre">optimize</span></code> Command<a class="headerlink" href="#how-to-use-optimize-command" title="Link to this heading">#</a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">optimize</span></code> command optimizes a PyTorch/Hugging Face model so that it runs with quality and efficiency on the ONNX Runtime.</p>
 <section id="quickstart">
 <h2><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-zap" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"></path></svg> Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading">#</a></h2>
-<p>The Olive automatic optimization command (<code class="docutils literal notranslate"><span class="pre">auto-opt</span></code>) can pull models from Hugging Face, Local disk, or the Azure AI Model Catalog. In this quickstart, you’ll be optimizing <a class="reference external" href="https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/tree/main">Llama-3.2-1B-Instruct from Hugging Face</a>. Llama 3.2 is a gated model and therefore you’ll need to be signed into Hugging-Face to get access.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>huggingface-cli<span class="w"> </span>login<span class="w"> </span>--token<span class="w"> </span><span class="o">{</span>TOKEN<span class="o">}</span>
-</pre></div>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Follow the <a class="reference external" href="https://huggingface.co/docs/hub/security-tokens">Hugging Face documentation for setting up User Access Tokens</a></p>
-</div>
-<p>Next, you’ll run the <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (<code class="docutils literal notranslate"><span class="pre">int4</span></code>), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>auto-opt<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--model_name_or_path<span class="w"> </span>meta-llama/Llama-3.2-1B-Instruct<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--trust_remote_code<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--output_path<span class="w"> </span>models/llama/ao<span class="w"> </span><span class="se">\</span>
+<p>The Olive optimization command (<code class="docutils literal notranslate"><span class="pre">optimize</span></code>) can pull models from Hugging Face, Local disk, or the Azure AI Model Catalog. Following <code class="docutils literal notranslate"><span class="pre">optimize</span></code> command that will download the model, quantize models weights to use int4, convert the model to ONNX and optimize the ONNX graph.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>optimize<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--model_name_or_path<span class="w"> </span>microsoft/Phi-3.5-mini-instruct<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--provider<span class="w"> </span>CPUExecutionProvider<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--use_ort_genai<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--precision<span class="w"> </span>int4<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--log_level<span class="w"> </span><span class="m">1</span>
 </pre></div>
 </div>
-<section id="more-details-on-arguments">
-<h3>More details on arguments<a class="headerlink" href="#more-details-on-arguments" title="Link to this heading">#</a></h3>
-<ul class="simple">
-<li><p>The <code class="docutils literal notranslate"><span class="pre">model_name_or_path</span></code> can be either (a) the Hugging Face Repo ID for the model <code class="docutils literal notranslate"><span class="pre">{username}/{repo-name}</span></code> or (b) a path on local disk to the model or (c) an Azure AI Model registry ID.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">output_path</span></code> is the path on local disk to store the optimized model.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">device</span></code> is the device the model will execute on - CPU/NPU/GPU.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">provider</span></code> is the hardware provider of the device to inference the model on. For example, Nvidia CUDA (<code class="docutils literal notranslate"><span class="pre">CUDAExecutionProvider</span></code>), DirectML (<code class="docutils literal notranslate"><span class="pre">DmlExecutionProvider</span></code>), AMD (<code class="docutils literal notranslate"><span class="pre">MIGraphXExecutionProvider</span></code>, <code class="docutils literal notranslate"><span class="pre">ROCMExecutionProvider</span></code>), OpenVINO (<code class="docutils literal notranslate"><span class="pre">OpenVINOExecutionProvider</span></code>), Qualcomm (<code class="docutils literal notranslate"><span class="pre">QNNExecutionProvider</span></code>), TensorRT (<code class="docutils literal notranslate"><span class="pre">TensorrtExecutionProvider</span></code>).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">precision</span></code> is the precision for the optimized model (<code class="docutils literal notranslate"><span class="pre">fp16</span></code>, <code class="docutils literal notranslate"><span class="pre">fp32</span></code>, <code class="docutils literal notranslate"><span class="pre">int4</span></code>, <code class="docutils literal notranslate"><span class="pre">int8</span></code>). Precisions lower than <code class="docutils literal notranslate"><span class="pre">fp32</span></code> will mean the model will be quantized using RTN method.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_ort_genai</span></code> will create the configuration files so that you can consume the model using the Generate API for ONNX Runtime.</p></li>
-</ul>
-<p>With the <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> command, you can change the input model to one that is available on Hugging Face - for example, to <a class="reference external" href="https://huggingface.co/HuggingFaceTB/SmolLM-360M-Instruct">HuggingFaceTB/SmolLM-360M-Instruct</a> - or a model that resides on local disk. Olive, will go through the same process of <em>automatically</em> converting (to ONNX), optimizing the graph and quantizing the weights. The model can be optimized for different providers and devices - for example, you can choose DirectML (for Windows) as the provider and target either the NPU, GPU, or CPU device.</p>
 </section>
+<section id="optimize-npu-models">
+<h2>Optimize NPU models<a class="headerlink" href="#optimize-npu-models" title="Link to this heading">#</a></h2>
+<p>You can use <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">optimize</span></code> command to optimize a model for NPUs.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>optimize<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--model_name_or_path<span class="w"> </span>microsoft/Phi-3.5-mini-instruct<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--precision<span class="w"> </span>int4<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--act_precision<span class="w"> </span>int8<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--provider<span class="w"> </span>QNNExecutionProvider<span class="w"> </span><span class="se">\</span>
+</pre></div>
+</div>
+<p>This command will quantize weights into int4 precision before converting the model into ONNX format. The model will be further processed to use int8 precision for activation and use static shapes.</p>
+</section>
+<section id="customizing-model-optimization-process">
+<h2>Customizing model optimization process<a class="headerlink" href="#customizing-model-optimization-process" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">optimize</span></code> primarily requests desired model precision and intended ExecutionProvider that will be used to run the optimized model. Based on these information, <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">optimize</span></code> command will generate model optimiation recipe as per user request and execute the recipe to produce to output model. Advanced users can use <code class="docutils literal notranslate"><span class="pre">--dry_run</span></code> option to save the <code class="docutils literal notranslate"><span class="pre">config.json</span></code> file on the disk. See comprehensive list of <a class="reference internal" href="#../reference/options.html"><span class="xref myst">options</span></a> you can use to customize the model optimization process further by modifying the <code class="docutils literal notranslate"><span class="pre">config.json</span></code> file produced by the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">optimize</span> <span class="pre">--dry_run</span> <span class="pre">...</span></code> command.</p>
+</section>
+<section id="additional-details">
+<h2>Additional details<a class="headerlink" href="#additional-details" title="Link to this heading">#</a></h2>
+<p>See <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">optimize</span></code> <a class="reference internal" href="#../reference/python_api.md#optimize"><span class="xref myst">reference</span></a> for the complete list of supported options.</p>
 </section>
 </section>
 
@@ -457,20 +453,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="cli-optimize.html"
+       href="../installation.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">How To Use <code class="docutils literal notranslate"><span class="pre">optimize</span></code> Command</p>
+        <p class="prev-next-title">How To Install Olive</p>
       </div>
     </a>
     <a class="right-next"
-       href="cli-finetune.html"
+       href="cli-auto-opt.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">How To use <code class="docutils literal notranslate"><span class="pre">finetune</span></code> Command</p>
+        <p class="prev-next-title">How To Use <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> Command</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -493,10 +489,10 @@
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quickstart"><svg aria-hidden="true" class="sd-octicon sd-octicon-zap" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"></path></svg> Quickstart</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#more-details-on-arguments">More details on arguments</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quickstart"><svg aria-hidden="true" class="sd-octicon sd-octicon-zap" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"></path></svg> Quickstart</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimize-npu-models">Optimize NPU models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#customizing-model-optimization-process">Customizing model optimization process</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#additional-details">Additional details</a></li>
 </ul>
   </nav></div>
 
