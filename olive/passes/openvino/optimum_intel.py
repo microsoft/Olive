@@ -310,10 +310,12 @@ class OpenVINOOptimumConversion(Pass):
 
         # import the right quantization config depending on optimum-intel version
         try:
-            from optimum.intel.openvino.configuration import _DEFAULT_4BIT_WQ_CONFIG as config_4b
+            from optimum.intel.openvino.configuration import _DEFAULT_4BIT_WQ_CONFIG as WRAPPER_4_BIT
         except ImportError as e:
             # fallback to older version
-            from optimum.intel.openvino.configuration import _DEFAULT_4BIT_CONFIG as config_4b
+            msg = "falling back to older version of optimum-intel import. Detailed error: "
+            logger.warning(msg, e)
+            from optimum.intel.openvino.configuration import _DEFAULT_4BIT_CONFIG as WRAPPER_4_BIT
 
         extra_args = deepcopy(config.extra_args) if config.extra_args else {}
         extra_args.update(
@@ -363,7 +365,7 @@ class OpenVINOOptimumConversion(Pass):
                     ):
                         quant_config = get_default_int4_config(model.model_name_or_path)
                     else:
-                        quant_config = prep_wc_config(config.ov_quant_config, config_4b)
+                        quant_config = prep_wc_config(config.ov_quant_config, WRAPPER_4_BIT)
                     if quant_config.get("dataset", None) is not None:
                         quant_config["trust_remote_code"] = config.ov_quant_config.get("trust_remote_code", False)
                     ov_config = OVConfig(quantization_config=quant_config)
@@ -382,7 +384,7 @@ class OpenVINOOptimumConversion(Pass):
                     ]:
                         if lib_name == "diffusers":
                             raise NotImplementedError("Mixed precision quantization isn't supported for diffusers.")
-                        wc_config = prep_wc_config(config.ov_quant_config, config_4b)
+                        wc_config = prep_wc_config(config.ov_quant_config, WRAPPER_4_BIT)
                         wc_dtype, q_dtype = config.ov_quant_config["quant_mode"].split("_")
                         wc_config["dtype"] = wc_dtype
 
