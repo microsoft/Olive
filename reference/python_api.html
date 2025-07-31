@@ -497,8 +497,6 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">modality</span></code> (str): Model modality (“text”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;text&quot;</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">enable_aot</span></code> (bool): Enable Ahead-of-Time (AOT) compilation. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">qnn_env_path</span></code> (str, optional): Path to QNN environment directory (required when using AOT with QNN).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">account_name</span></code> (str, optional): Azure storage account name for shared cache.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">container_name</span></code> (str, optional): Azure storage container name for shared cache.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code> (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">save_config_file</span></code> (bool): Generate and save the config file for the command. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
 </ul>
@@ -734,7 +732,16 @@
     <span class="c1"># Get the best model overall</span>
     <span class="n">best_model</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_best_candidate</span><span class="p">()</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model path: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">model_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model type: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">model_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Device: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">from_device</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Execution provider: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">from_execution_provider</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metrics: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">metrics_value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Get the best model for CPU</span>
+    <span class="n">best_cpu_model</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_best_candidate_by_device</span><span class="p">(</span><span class="s2">&quot;CPU&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Get all models for GPU</span>
+    <span class="n">gpu_models</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_output_models_by_device</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>

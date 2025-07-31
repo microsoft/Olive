@@ -4324,11 +4324,11 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-use_qdq">
-<span class="sig-name descname"><span class="pre">use_qdq</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_qdq" title="Link to this definition">#</a></dt>
-<dd><p>Use this option when you want to use quantize-dequantize ops. For example, you will have a quantized MatMul op instead of the MatMulNBits op.</p>
-<p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
+<dt class="sig sig-object std" id="cmdoption-arg-int4_accuracy_level">
+<span class="sig-name descname"><span class="pre">int4_accuracy_level</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_accuracy_level" title="Link to this definition">#</a></dt>
+<dd><p>Specify the minimum accuracy level for activation of MatMul in int4 quantization.</p>
+<p><strong>type:</strong> olive.passes.onnx.model_builder.ModelBuilder.AccuracyLevel</p>
+<p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
@@ -4342,10 +4342,28 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-int4_accuracy_level">
-<span class="sig-name descname"><span class="pre">int4_accuracy_level</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_accuracy_level" title="Link to this definition">#</a></dt>
-<dd><p>Specify the minimum accuracy level for activation of MatMul in int4 quantization.</p>
-<p><strong>type:</strong> olive.passes.onnx.model_builder.ModelBuilder.AccuracyLevel</p>
+<dt class="sig sig-object std" id="cmdoption-arg-int4_is_symmetric">
+<span class="sig-name descname"><span class="pre">int4_is_symmetric</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_is_symmetric" title="Link to this definition">#</a></dt>
+<dd><p>Specify whether symmetric or asymmetric INT4 quantization needs to be used.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-int4_op_types_to_quantize">
+<span class="sig-name descname"><span class="pre">int4_op_types_to_quantize</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_op_types_to_quantize" title="Link to this definition">#</a></dt>
+<dd><p>Specify the op types to quantize for int4 quantization. Default is None (= [ “MatMul” ]). Example: [“MatMul”, “Gemm”]</p>
+<p><strong>type:</strong> list[str]</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-int4_nodes_to_exclude">
+<span class="sig-name descname"><span class="pre">int4_nodes_to_exclude</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_nodes_to_exclude" title="Link to this definition">#</a></dt>
+<dd><p>Specify when you want to exclude certain nodes from int4 quantization.</p>
+<p><strong>type:</strong> list[str]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
@@ -4360,9 +4378,9 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-int4_is_symmetric">
-<span class="sig-name descname"><span class="pre">int4_is_symmetric</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_is_symmetric" title="Link to this definition">#</a></dt>
-<dd><p>Specify whether symmetric or asymmetric INT4 quantization needs to be used.</p>
+<dt class="sig sig-object std" id="cmdoption-arg-use_qdq">
+<span class="sig-name descname"><span class="pre">use_qdq</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_qdq" title="Link to this definition">#</a></dt>
+<dd><p>Use this option when you want to use quantize-dequantize ops. For example, you will have a quantized MatMul op instead of the MatMulNBits op.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
@@ -4387,6 +4405,15 @@
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-use_cuda_bf16">
+<span class="sig-name descname"><span class="pre">use_cuda_bf16</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_cuda_bf16" title="Link to this definition">#</a></dt>
+<dd><p>Specify whether to use BF16 I/O for quantized models on CUDA EP.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-include_hidden_states">
 <span class="sig-name descname"><span class="pre">include_hidden_states</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-include_hidden_states" title="Link to this definition">#</a></dt>
 <dd><p>Specify whether to have the hidden states as an output from your ONNX model.</p>
@@ -4396,29 +4423,11 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-int4_nodes_to_exclude">
-<span class="sig-name descname"><span class="pre">int4_nodes_to_exclude</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_nodes_to_exclude" title="Link to this definition">#</a></dt>
-<dd><p>Specify when you want to exclude certain nodes from int4 quantization.</p>
-<p><strong>type:</strong> list[str]</p>
-<p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-int4_op_types_to_quantize">
-<span class="sig-name descname"><span class="pre">int4_op_types_to_quantize</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-int4_op_types_to_quantize" title="Link to this definition">#</a></dt>
-<dd><p>Specify the op types to quantize for int4 quantization. Default is None (= [ “MatMul” ]). Example: [“MatMul”, “Gemm”]</p>
-<p><strong>type:</strong> list[str]</p>
-<p><strong>default_value:</strong> None</p>
-<p><strong>search_defaults:</strong> None</p>
-</dd></dl>
-
-<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-exclude_embeds">
 <span class="sig-name descname"><span class="pre">exclude_embeds</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-exclude_embeds" title="Link to this definition">#</a></dt>
 <dd><p>Remove embedding layer from your ONNX model.</p>
 <p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
+<p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
@@ -4427,7 +4436,7 @@
 <span class="sig-name descname"><span class="pre">exclude_lm_head</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-exclude_lm_head" title="Link to this definition">#</a></dt>
 <dd><p>Remove language modeling head from your ONNX model.</p>
 <p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
+<p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
