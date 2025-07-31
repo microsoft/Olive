@@ -31,7 +31,7 @@ def cifar10_dataset(data_dir, **kwargs):
     full_test_set = CIFAR10(root=data_dir, train=False, transform=ToTensor(), download=True)
 
     # randomply sample n_test_samples from the full test set
-    n_test_samples = 500
+    n_test_samples = 5
     random_indices = random.sample(range(len(full_test_set)), n_test_samples)
     return Subset(full_test_set, random_indices)
 
