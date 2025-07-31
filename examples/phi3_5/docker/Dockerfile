@@ -1,3 +1,4 @@
+# DisableDockerDetector "Prevent warnings on 1ES builds"
 FROM mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
 RUN apt-get update && \

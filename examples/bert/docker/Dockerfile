@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+# DisableDockerDetector "Prevent warnings on 1ES builds"
 # mcr image https://github.com/microsoft/mcr
 # tag list https://mcr.microsoft.com/v2/azureml/openmpi4.1.0-ubuntu20.04/tags/list
 FROM mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04
