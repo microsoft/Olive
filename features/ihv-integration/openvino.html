@@ -430,6 +430,7 @@ platforms.</p>
 <h3>Option 2: Install OpenVINO Runtime and OpenVINO Development Tools from Pypi<a class="headerlink" href="#option-2-install-openvino-runtime-and-openvino-development-tools-from-pypi" title="Link to this heading">#</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">openvino</span><span class="o">==</span><span class="m">2025</span>.1.0
 pip<span class="w"> </span>install<span class="w"> </span><span class="nv">nncf</span><span class="o">==</span><span class="m">2</span>.16.0
+pip<span class="w"> </span>install<span class="w"> </span>onnxruntime-openvino
 </pre></div>
 </div>
 </section>
@@ -446,8 +447,8 @@ pip<span class="w"> </span>install<span class="w"> </span><span class="nv">nncf<
 <p><code class="docutils literal notranslate"><span class="pre">OpenVINOConversion</span></code> pass will convert the model from original framework to OpenVINO IR Model. <code class="docutils literal notranslate"><span class="pre">PyTorchModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">ONNXModelHandler</span></code> and
 <code class="docutils literal notranslate"><span class="pre">TensorFlowModelHandler</span></code> are supported for now.</p>
 <p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinoconversion">OpenVINOConversion</a> for more details about the pass and its config parameters.</p>
-<section id="example-configuration">
-<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
+<section id="example-conversion-configuration">
+<h3>Example Conversion Configuration<a class="headerlink" href="#example-conversion-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOConversion&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">]]</span>
@@ -462,8 +463,8 @@ pip<span class="w"> </span>install<span class="w"> </span><span class="nv">nncf<
 to update input and output tensors.</p>
 <p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinoioupdate">OpenVINOIoUpdate</a> for more details about the pass and its config parameters.
 The <code class="docutils literal notranslate"><span class="pre">&quot;static&quot;</span></code> parameter defaults to <code class="docutils literal notranslate"><span class="pre">true</span></code> and does not need to be explicitly overridden.</p>
-<section id="id1">
-<h3>Example Configuration<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<section id="example-io-update-configuration">
+<h3>Example IO Update Configuration<a class="headerlink" href="#example-io-update-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOIoUpdate&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">]],</span>
@@ -475,14 +476,15 @@ The <code class="docutils literal notranslate"><span class="pre">&quot;static&qu
 </section>
 <section id="post-training-quantization-ptq">
 <h2>Post Training Quantization (PTQ)<a class="headerlink" href="#post-training-quantization-ptq" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">OpenVINOQuantization</span></code> pass will run <a class="reference external" href="https://docs.openvino.ai/2025/openvino-workflow/model-optimization-guide/quantizing-models-post-training.html">Post-training quantization</a> for OpenVINO model which supports the uniform integer quantization method.
+<p><code class="docutils literal notranslate"><span class="pre">OpenVINOQuantization</span></code> pass and <code class="docutils literal notranslate"><span class="pre">OpenVINOQuantizationWithAccuracy</span></code> passes will run <a class="reference external" href="https://docs.openvino.ai/2025/openvino-workflow/model-optimization-guide/quantizing-models-post-training.html">Post-training quantization</a> for OpenVINO models, as well as ONNX models, and support the uniform integer quantization method.
 This method allows moving from floating-point precision to integer precision (for example, 8-bit) for weights and activations during the
 inference time. It helps to reduce the model size, memory footprint and latency, as well as improve the computational efficiency, using
 integer arithmetic. During the quantization process the model undergoes the transformation process when additional operations, that contain
 quantization information, are inserted into the model. The actual transition to integer arithmetic happens at model inference.</p>
-<p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinoquantization">OpenVINOQuantization</a> for more details about the pass and its config parameters.</p>
-<section id="id2">
-<h3>Example Configuration<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinoquantization">OpenVINOQuantization</a> for more details about the <code class="docutils literal notranslate"><span class="pre">OpenVINOQuantization</span></code> pass and its config parameters.</p>
+<p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinoquantizationwithaccuracy">OpenVINOQuantizationWithAccuracy</a> for more details about the <code class="docutils literal notranslate"><span class="pre">OpenVINOQuantizationWithAccuracy</span></code> pass and its config parameters.</p>
+<section id="example-ptq-configuration">
+<h3>Example PTQ Configuration<a class="headerlink" href="#example-ptq-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOQuantizationWithAccuracy&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
@@ -498,8 +500,8 @@ quantization information, are inserted into the model. The actual transition to 
 <h2>Model Encapsulation<a class="headerlink" href="#model-encapsulation" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">OpenVINOEncapsulation</span></code> pass is used to generate an onnx model that encapsulates a OpenVINO IR model. It supports <code class="docutils literal notranslate"><span class="pre">OpenVINOModelHandler</span></code> for now.</p>
 <p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinoencapsulation">OpenVINOEncapsulation</a> for more details about the pass and its config parameters.</p>
-<section id="id3">
-<h3>Example Configuration<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
+<section id="example-encapsulation-configuration">
+<h3>Example Encapsulation Configuration<a class="headerlink" href="#example-encapsulation-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOEncapsulation&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;target_device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;npu&quot;</span><span class="p">,</span>
@@ -513,8 +515,8 @@ quantization information, are inserted into the model. The actual transition to 
 <h2>Optimum CLI Command for Generative AI workloads<a class="headerlink" href="#optimum-cli-command-for-generative-ai-workloads" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">OpenVINOOptimumConversion</span></code> pass will run <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/openvino/export">optimum-cli export openvino</a> command on the input Huggingface models to convert those to OpenVINO models and perform weight compression and quantization if necessary to produce an output OpenVINO model.</p>
 <p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinooptimumconversion">OpenVINOOptimumConversion</a> and also to <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/openvino/export">optimum-cli export openvino</a> for more details about the pass and its config parameters.</p>
-<section id="id4">
-<h3>Example Configuration<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
+<section id="example-optimum-conversion-configuration">
+<h3>Example Optimum Conversion Configuration<a class="headerlink" href="#example-optimum-conversion-configuration" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOOptimumConversion&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;extra_args&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;npu&quot;</span><span class="w"> </span><span class="p">},</span>
@@ -584,23 +586,23 @@ quantization information, are inserted into the model. The actual transition to 
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-conversion">Model Conversion</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-configuration">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-conversion-configuration">Example Conversion Configuration</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-ioupdate">Model IoUpdate</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-io-update-configuration">Example IO Update Configuration</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-training-quantization-ptq">Post Training Quantization (PTQ)</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-ptq-configuration">Example PTQ Configuration</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-encapsulation">Model Encapsulation</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-encapsulation-configuration">Example Encapsulation Configuration</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimum-cli-command-for-generative-ai-workloads">Optimum CLI Command for Generative AI workloads</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-optimum-conversion-configuration">Example Optimum Conversion Configuration</a></li>
 </ul>
 </li>
 </ul>
