@@ -272,17 +272,18 @@ class OrtTransformersOptimization(Pass):
         if run_config["use_gpu"]:
             import onnxruntime as ort
             from packaging import version
+            from olive.common.ort_inference import get_available_providers_ext
 
             if (
                 version.parse(ort.__version__) >= version.parse("1.17.0")
-                and self.accelerator_spec.execution_provider in ort.get_available_providers()
+                and self.accelerator_spec.execution_provider in get_available_providers_ext()
             ):
                 # TODO(myguo): please consider move EP check with available providers to transformer.optimize_model
                 # from the time being, if ORT doesn't have TensorRT EP, the create inference session would fail
                 # with AttributeError, which complains:
                 # module 'onnxruntime.capi._pybind_state' has no attribute 'register_tensorrt_plugins_as_custom_ops'
                 # Therefore, when user_gpu is True and op_level > 0, we need ensure the EP is available in ORT
-                # by checking the accleerator_spec.execution_provider is in ort.get_available_providers()
+                # by checking the accleerator_spec.execution_provider is in get_available_providers_ext()
                 # if we want to apply transformers graph optimization.
                 # In theory, the EP check against available providers should be done in transformer.optimize_model
                 # Please consider move the check to transformer.optimize_model in the future.

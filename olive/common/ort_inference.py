@@ -37,6 +37,19 @@ def ort_supports_ep_devices() -> bool:
     return version.parse(OrtVersion).release >= version.parse("1.23.0").release
 
 
+def get_available_providers_ext() -> Sequence[str]:
+    import onnxruntime as ort
+    available_providers = ort.get_available_providers()
+    if ort_supports_ep_devices():
+        all_providers = ort.get_all_providers()
+        available_providers_set = set(available_providers)
+        available_providers_set.update(
+            [ep_device.ep_name for ep_device in ort.get_ep_devices()]
+        )
+        return [provider for provider in all_providers if provider in available_providers_set]
+    else:
+        return available_providers
+
 def get_ort_hardware_device_type(device: Union["Device", str]):
     if ort_supports_ep_devices():
         from onnxruntime import OrtHardwareDeviceType
@@ -177,7 +190,7 @@ def get_ort_inference_session(
     providers, provider_options = check_and_normalize_provider_args(
         inference_settings.get("execution_provider"),
         inference_settings.get("provider_options"),
-        ort.get_available_providers(),
+        get_available_providers_ext(),
     )
     for idx, provider in enumerate(providers):
         if provider in ["CUDAExecutionProvider", "DmlExecutionProvider"] and device_id is not None:

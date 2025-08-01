@@ -83,10 +83,10 @@ class AcceleratorLookup:
 
     @staticmethod
     def get_execution_providers_for_device(device: Device):
-        import onnxruntime
+        from olive.common.ort_inference import get_available_providers_ext
 
         return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
-            device, onnxruntime.get_available_providers()
+            device, get_available_providers_ext()
         )
 
     @staticmethod

@@ -157,7 +157,9 @@ class NVModelOptQuantization(Pass):
 
     @staticmethod
     def get_execution_providers():
-        available_eps = ort.get_available_providers()
+        from olive.common.ort_inference import get_available_providers_ext
+
+        available_eps = get_available_providers_ext()
         ep_list = None
         if "NvTensorRTRTXExecutionProvider" in available_eps:
             ep_list = ["NvTensorRtRtx", "cpu"]

@@ -352,9 +352,11 @@ class OrtSessionParamsTuning(Pass):
             assert "provider_options" in test_params, "provider_options should be in test_params"
             inference_settings = test_params
         else:
+            from olive.common.ort_inference import get_available_providers_ext
+
             inference_settings = copy.deepcopy(model.inference_settings) if model.inference_settings else {}
             # put the execution_provider and provider_options in inference_settings for baseline evaluation
-            available_eps = ort.get_available_providers()
+            available_eps = get_available_providers_ext()
             execution_providers, provider_options = check_and_normalize_provider_args(
                 [config.execution_provider], None, available_eps
             )
