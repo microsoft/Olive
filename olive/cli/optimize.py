@@ -606,7 +606,7 @@ class OptimizeCommand(BaseOliveCLICommand):
             "calibration_providers": ["CUDAExecutionProvider"],
             "quant_format": "QDQ" if self.args.use_qdq_format else "QOperator",
         }
-        if self._enable_model_builder_pass():
+        if self.is_hf_model and self.args.modality == "text":
             # these are contrib ops, no need for qdq around them
             config["op_types_to_exclude"] = ["GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits"]
         # Handle block_size parameter
