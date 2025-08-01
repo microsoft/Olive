@@ -427,49 +427,6 @@
 </div>
 <p>The rest of the functions are specialized workflows for common tasks.</p>
 </section>
-<section id="auto-opt">
-<h2><code class="docutils literal notranslate"><span class="pre">auto_opt(...)</span></code><a class="headerlink" href="#auto-opt" title="Link to this heading">#</a></h2>
-<p>Automatically optimize a model for performance.</p>
-<p><strong>Arguments:</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">model_name_or_path</span></code> (str): Path to the input model (file path or HuggingFace model name).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">task</span></code> (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">trust_remote_code</span></code> (bool): Trust remote code when loading a huggingface model. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adapter_path</span></code> (str, optional): Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">model_script</span></code> (str, optional): The script file containing the model definition. Required for the local PyTorch model.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">script_dir</span></code> (str, optional): The directory containing the local PyTorch model script file.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">output_path</span></code> (str): Output directory path. Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;auto-opt-output&quot;</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">device</span></code> (str): Target device (“cpu”, “gpu”, “npu”). Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">provider</span></code> (str): Execution provider for ONNX model. Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;CPUExecutionProvider&quot;</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">memory</span></code> (int, optional): Memory limit for the accelerator in bytes.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_name</span></code> (str, optional): Dataset name for evaluation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">split</span></code> (str, optional): Dataset split to use for evaluation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">subset</span></code> (str, optional): Dataset subset to use for evaluation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">input_cols</span></code> (list[str], optional): Input column names for evaluation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">batch_size</span></code> (int): Batch size for evaluation. Defaults to <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">precision</span></code> (str): Output precision (int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp4, fp8, fp16, fp32, nf4). Defaults to fp32 for cpu and fp16 for gpu.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_dynamo_exporter</span></code> (bool): Use dynamo export API to export ONNX model. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_model_builder</span></code> (bool): Use model builder pass for optimization. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_qdq_encoding</span></code> (bool): Use QDQ encoding for quantized operators. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dynamic_to_fixed_shape_dim_param</span></code> (list[str], optional): Symbolic parameter names for dynamic to fixed shape pass.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dynamic_to_fixed_shape_dim_value</span></code> (list[int], optional): Symbolic parameter values for dynamic to fixed shape pass.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">num_splits</span></code> (int, optional): Number of splits for model splitting. Mutually exclusive with cost_model.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cost_model</span></code> (str, optional): Path to cost model csv file for model splitting. Mutually exclusive with num_splits.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">mixed_precision_overrides_config</span></code> (list[str], optional): Dictionary of name to precision as key-value pairs.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">use_ort_genai</span></code> (bool): Use OnnxRuntime generate() API. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">enable_search</span></code> (str, optional): Enable search optimization (“random”, “sequential”, “tpe”).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">seed</span></code> (int, optional): Random seed for search sampler.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">account_name</span></code> (str, optional): Azure storage account name for shared cache.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">container_name</span></code> (str, optional): Azure storage container name for shared cache.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code> (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">save_config_file</span></code> (bool): Generate and save the config file for the command. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-</ul>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">auto_opt</span>
-
-<span class="n">workflow_output</span> <span class="o">=</span> <span class="n">auto_opt</span><span class="p">(</span><span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">&quot;path/to/model&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
 <section id="optimize">
 <h2><code class="docutils literal notranslate"><span class="pre">optimize(...)</span></code><a class="headerlink" href="#optimize" title="Link to this heading">#</a></h2>
 <p>Optimize the input model with comprehensive pass scheduling.</p>
@@ -876,7 +833,6 @@
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run"><code class="docutils literal notranslate"><span class="pre">run(...)</span></code></a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-opt"><code class="docutils literal notranslate"><span class="pre">auto_opt(...)</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimize"><code class="docutils literal notranslate"><span class="pre">optimize(...)</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize"><code class="docutils literal notranslate"><span class="pre">quantize(...)</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#capture-onnx-graph"><code class="docutils literal notranslate"><span class="pre">capture_onnx_graph(...)</span></code></a></li>
