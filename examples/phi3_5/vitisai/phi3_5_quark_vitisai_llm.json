@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HFModel", "model_path": "Qwen/Qwen2.5-0.5B-Instruct" },
+    "input_model": { "type": "HFModel", "model_path": "microsoft/Phi-3.5-mini-instruct" },
     "passes": {
         "qq": {
             "type": "QuarkQuantizationPass",
@@ -10,23 +10,23 @@
             "num_calib_data": 128,
             "model_export": [ "hf_format" ],
             "exclude_layers": [  ],
-            "awq_config": {
+            "quant_config": {
                 "name": "awq",
                 "scaling_layers": [
                     {
                         "prev_op": "input_layernorm",
-                        "layers": [ "self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj" ],
-                        "inp": "self_attn.q_proj",
+                        "layers": [ "self_attn.qkv_proj" ],
+                        "inp": "self_attn.qkv_proj",
                         "module2inspect": "self_attn"
                     },
-                    { "prev_op": "self_attn.v_proj", "layers": [ "self_attn.o_proj" ], "inp": "self_attn.o_proj" },
+                    { "prev_op": "self_attn.qkv_proj", "layers": [ "self_attn.o_proj" ], "inp": "self_attn.o_proj" },
                     {
                         "prev_op": "post_attention_layernorm",
-                        "layers": [ "mlp.gate_proj", "mlp.up_proj" ],
-                        "inp": "mlp.gate_proj",
+                        "layers": [ "mlp.gate_up_proj" ],
+                        "inp": "mlp.gate_up_proj",
                         "module2inspect": "mlp"
                     },
-                    { "prev_op": "mlp.up_proj", "layers": [ "mlp.down_proj" ], "inp": "mlp.down_proj" }
+                    { "prev_op": "mlp.gate_up_proj", "layers": [ "mlp.down_proj" ], "inp": "mlp.down_proj" }
                 ],
                 "model_decoder_layers": "model.layers"
             }
@@ -34,7 +34,7 @@
         "mg": { "type": "VitisGenerateModelLLM", "packed_const": false, "cpu_only": false }
     },
     "log_severity_level": 1,
-    "output_dir": "models/qwen2_5-vai",
+    "output_dir": "models/phi3_5-vai",
     "cache_dir": "cache",
     "no_artifacts": true
 }

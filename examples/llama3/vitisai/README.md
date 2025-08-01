@@ -5,12 +5,10 @@ This folder contains sample Olive configuration to optimize LLaMA 3 models for A
 ## ✅ Supported Models and Configs
 | Model Name (Hugging Face)                         | Config File Name                  |
 |:--------------------------------------------------|:----------------------------------|
-| `meta-llama/Llama-3.2-1B-Instruct`                | `quark_config_vitisai_llm.json`  |
-| `meta-llama/Llama-3.2-3B-Instruct`                | `quark_config_vitisai_llm.json`  |
-| `meta-llama/Meta-Llama-3-8B`                      | `quark_config_vitisai_llm.json`  |
-| `meta-llama/Meta-Llama-3.1-8B`                    | `quark_config_vitisai_llm.json`  |
-
-> **Note:** Before running, update the `model_path` in the config file to match the Hugging Face model name listed above.
+| `meta-llama/Llama-3.2-1B-Instruct`                | `llama_3_2_1B_inst_quark_vitisai_llm.json`  |
+| `meta-llama/Llama-3.2-3B-Instruct`                | `llama_3_2_3B_inst_quark_vitisai_llm.json`  |
+| `meta-llama/Meta-Llama-3-8B`                      | `llama_3_8B_quark_vitisai_llm.json`  |
+| `meta-llama/Meta-Llama-3.1-8B`                    | `llama_3_1_8B_quark_vitisai_llm.json`  |
 
 ## **Run the Quantization Config**
 
@@ -55,7 +53,19 @@ python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
 Follow the above setup instructions, then run the below command to generate the optimized LLM model for VitisAI EP
 
 ```bash
-olive run --config quark_config_vitisai_llm.json
+# Llama-3.2-1B-Instruct
+olive run --config llama_3_2_1B_inst_quark_vitisai_llm.json
+
+# Llama-3.2-3B-Instruct
+olive run --config llama_3_2_3B_inst_quark_vitisai_llm.json
+
+# Meta-Llama-3-8B
+olive run --config llama_3_8B_quark_vitisai_llm.json
+
+# Meta-Llama-3.1-8B
+olive run --config llama_3_1_8B_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/llama3-vai/`
+✅ Optimized model saved in: `models/llama3_1_8b-vai/`
+
+> **Note:** Output model is saved in `output_dir` mentioned in the json files.

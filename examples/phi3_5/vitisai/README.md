@@ -6,7 +6,7 @@ This folder contains sample Olive configuration to optimize Phi-3.5 models for A
 
 | Model Name (Hugging Face)         | Config File Name                |
 | :-------------------------------- | :------------------------------ |
-| `microsoft/Phi-3.5-mini-instruct` | `quark_config_vitisai_llm.json` |
+| `microsoft/Phi-3.5-mini-instruct` | `phi3_5_quark_vitisai_llm.json` |
 
 ## **Run the Quantization Config**
 
@@ -51,7 +51,8 @@ python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
 Follow the above setup instructions, then run the below command to generate the optimized LLM model for VitisAI EP
 
 ```bash
-olive run --config quark_config_vitisai_llm.json
+# Phi-3.5-mini-instruct
+olive run --config phi3_5_quark_vitisai_llm.json
 ```
 
 ✅ Optimized model saved in: `models/phi3_5-vai/`

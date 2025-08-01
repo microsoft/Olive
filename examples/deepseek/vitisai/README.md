@@ -6,11 +6,9 @@ This folder contains sample Olive configurations to optimize DeepSeek models for
 
 | Model Name                                               | Config File Name                                      |
 |:---------------------------------------------------------|:------------------------------------------------------|
-| `deepseek-ai/DeepSeek-R1-Distill-Llama-8B`               | `DeepSeek-R1-Distill-Llama-8B-quark_config_vitisai_llm.json`    |
-| `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B`              | `DeepSeek-R1-Distill-Qwen-1.5B-quark_config_vitisai_llm.json`   |
-| `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`                | `DeepSeek-R1-Distill-Qwen-7B-quark_config_vitisai_llm.json`     |
-
-> **Note:** Before running, update the `model_path` in the config file to match the Hugging Face model name listed above.
+| `deepseek-ai/DeepSeek-R1-Distill-Llama-8B`               | `DeepSeek-R1-Distill-Llama-8B-quark_vitisai_llm.json`    |
+| `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B`              | `DeepSeek-R1-Distill-Qwen-1.5B-quark_vitisai_llm.json`   |
+| `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`                | `DeepSeek-R1-Distill-Qwen-7B-quark_vitisai_llm.json`     |
 
 ## **Run the Quantization Config**
 
@@ -55,7 +53,16 @@ python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
 Follow the above setup instructions, then run the below command to generate the optimized LLM model for VitisAI EP
 
 ```bash
-olive run --config quark_config_vitisai_llm.json
+# DeepSeek-R1-Distill-Llama-8B
+olive run --config DeepSeek-R1-Distill-Llama-8B-quark_vitisai_llm.json
+
+# DeepSeek-R1-Distill-Qwen-1.5B
+olive run --config DeepSeek-R1-Distill-Qwen-1.5B-quark_vitisai_llm.json
+
+# DeepSeek-R1-Distill-Qwen-7B
+olive run --config DeepSeek-R1-Distill-Qwen-7B-quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/deepseek-vai/`
+✅ Optimized model saved in: `models/deepseek_llama_8b-vai/`
+> **Note:** Output model is saved in `output_dir` mentioned in the json files.
+

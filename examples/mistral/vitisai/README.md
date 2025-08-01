@@ -5,10 +5,8 @@ This folder contains sample Olive configuration to optimize Mistral models for A
 
 | Model Name (Hugging Face)                         | Config File Name                  |
 |:--------------------------------------------------|:----------------------------------|
-| `mistralai/Mistral-7B-Instruct-v0.2`              | `quark_config_vitisai_llm.json`  |
-| `mistralai/Mistral-7B-Instruct-v0.3`              | `quark_config_vitisai_llm.json`  |
-
-> **Note:** Before running, update the `model_path` in the config file to match the Hugging Face model name listed above.
+| `mistralai/Mistral-7B-Instruct-v0.2`              | `mistral_7B_inst_v0_2_quark_vitisai_llm.json`  |
+| `mistralai/Mistral-7B-Instruct-v0.3`              | `mistral_7B_inst_v0_3_quark_vitisai_llm.json`  |
 
 ## **Run the Quantization Config**
 
@@ -53,7 +51,12 @@ python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
 Follow the above setup instructions, then run the below command to generate the optimized LLM model for VitisAI EP
 
 ```bash
-olive run --config quark_config_vitisai_llm.json
+# Mistral-7B-Instruct-v0.2
+olive run --config mistral_7B_inst_v0_2_quark_vitisai_llm.json
+
+# Mistral-7B-Instruct-v0.3
+olive run --config mistral_7B_inst_v0_3_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/llama2-vai/`
+✅ Optimized model saved in: `models/mistral_0_2-vai/`
+> **Note:** Output model is saved in `output_dir` mentioned in the json files.

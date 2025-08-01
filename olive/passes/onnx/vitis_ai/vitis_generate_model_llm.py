@@ -52,6 +52,12 @@ class VitisGenerateModelLLM(Pass):
             packed_const=config.packed_const,
             cpu_only=config.cpu_only,
         )
+        
+        # Delete model.onnx.data if it exists
+        model_data_path = output_dir / "model.onnx.data"
+        if model_data_path.exists():
+            logger.info("[VitisGenerateModelLLM] Removing unused file: %s", model_data_path)
+            model_data_path.unlink()
 
         # Load final ONNX model to wrap into Olive model
         final_model_path = resolve_onnx_path(str(output_dir), "model.onnx")

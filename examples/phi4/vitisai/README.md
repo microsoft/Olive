@@ -6,10 +6,8 @@ This folder contains sample Olive configuration to optimize Phi-4 models for AMD
 
 | Model Name (Hugging Face)                          | Config File Name                  |
 |:---------------------------------------------------|:----------------------------------|
-| `microsoft/Phi-4-mini-instruct`                    | `quark_config_vitisai_llm.json`  |
-| `microsoft/Phi-4-mini-reasoning`                   | `quark_config_vitisai_llm.json`  |
-
-> **Note:** Before running, update the `model_path` in the config file to match the Hugging Face model name listed above.
+| `microsoft/Phi-4-mini-instruct`                    | `phi4_instruct_quark_vitisai_llm.json`  |
+| `microsoft/Phi-4-mini-reasoning`                   | `phi4_reason_quark_vitisai_llm.json`  |
 
 ## **Run the Quantization Config**
 
@@ -43,7 +41,6 @@ pip install --force-reinstall -r requirements_vitisai_llm.txt
 # --extra-index-url=https://pypi.amd.com/simple
 # model-generate==1.5.1
 ```
-> **Note** : Phi-4 models require `amd-quark==0.8`, as specified in the `requirements_vitisai_llm.txt` file in this folder.
 
 Make sure to install the correct version of PyTorch before running quantization. If using AMD GPUs, update PyTorch to use ROCm-compatible PyTorch build. For example see the below commands
 
@@ -56,7 +53,12 @@ python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
 Follow the above setup instructions, then run the below command to generate the optimized LLM model for VitisAI EP
 
 ```bash
-olive run --config quark_config_vitisai_llm.json
+# Phi-4-mini-instruct
+olive run --config phi4_instruct_quark_vitisai_llm.json
+
+# Phi-4-mini-reasoning
+olive run --config phi4_reason_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/phi4-vai/`
+✅ Optimized model saved in: `models/phi4_instruct-vai/`
+> **Note:** Output model is saved in `output_dir` mentioned in the json files.

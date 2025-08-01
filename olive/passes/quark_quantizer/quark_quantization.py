@@ -41,8 +41,8 @@ class QuarkQuantizationPass(Pass):
                 default_value=None,
                 description="List of layers to exclude. Set to [] to exclude nothing explicitly.",
             ),
-            "awq_config": PassConfigParam(
-                type_=dict, required=False, default_value=None, description="Embedded AWQ configuration dictionary"
+            "quant_config": PassConfigParam(
+                type_=dict, default_value=None, description="Embedded quant configuration dictionary"
             ),
         }
 
@@ -59,11 +59,11 @@ class QuarkQuantizationPass(Pass):
         output_dir.mkdir(parents=True, exist_ok=True)
         device = "cuda" if platform.system().lower() == "linux" else "cpu"
         quant_algo_config_file_path = None
-        if config.awq_config:
+        if config.quant_config:
             with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as tmp_file:
-                json.dump(config.awq_config, tmp_file)
+                json.dump(config.quant_config, tmp_file)
                 quant_algo_config_file_path = tmp_file.name
-                logger.info("[INFO] Written awq_config to temporary file: %s", quant_algo_config_file_path)
+                logger.info("[INFO] Written quant_config to temporary file: %s", quant_algo_config_file_path)
 
         args = Namespace(
             model_dir=str(model.model_path),

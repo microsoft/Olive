@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HFModel", "model_path": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B" },
+    "input_model": { "type": "HFModel", "model_path": "meta-llama/Llama-3.2-1B-Instruct" },
     "passes": {
         "qq": {
             "type": "QuarkQuantizationPass",
@@ -10,7 +10,7 @@
             "num_calib_data": 128,
             "model_export": [ "hf_format" ],
             "exclude_layers": [  ],
-            "awq_config": {
+            "quant_config": {
                 "name": "awq",
                 "scaling_layers":[
                     {
@@ -42,7 +42,7 @@
         "mg": { "type": "VitisGenerateModelLLM", "packed_const": false, "cpu_only": false }
     },
     "log_severity_level": 1,
-    "output_dir": "models/deepseek_qwen-vai",
+    "output_dir": "models/llama3_2_1b-vai",
     "cache_dir": "cache",
     "no_artifacts": true
 }

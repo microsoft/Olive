@@ -162,10 +162,6 @@ print(tokenizer.batch_decode(model.generate(**inputs, max_length=20), skip_speci
 
 ## **Optimization and Quantization for AMD NPU**
 
-### **Run the Quantization Config**
-
-#### **For Quark quantization**
-
 - [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.
 
 ## Workflows

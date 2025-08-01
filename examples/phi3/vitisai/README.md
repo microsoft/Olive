@@ -6,10 +6,8 @@ This folder contains sample Olive configuration to optimize Phi-3 models for AMD
 
 | Model Name (Hugging Face)                          | Config File Name                  |
 |:---------------------------------------------------|:----------------------------------|
-| `microsoft/Phi-3-mini-4k-instruct`                 | `quark_config_vitisai_llm.json`  |
-| `microsoft/Phi-3-mini-128k-instruct`               | `quark_config_vitisai_llm.json`  |
-
-> **Note:** Before running, update the `model_path` in the config file to match the Hugging Face model name listed above.
+| `microsoft/Phi-3-mini-4k-instruct`                 | `phi3_4k_quark_vitisai_llm.json`  |
+| `microsoft/Phi-3-mini-128k-instruct`               | `phi3_128k_quark_vitisai_llm.json`  |
 
 ## **Run the Quantization Config**
 
@@ -54,7 +52,12 @@ python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
 Follow the above setup instructions, then run the below command to generate the optimized LLM model for VitisAI EP
 
 ```bash
-olive run --config quark_config_vitisai_llm.json
+# Phi-3-mini-4k-instruct
+olive run --config phi3_4k_quark_vitisai_llm.json
+
+# Phi-3-mini-128k-instruct
+olive run --config phi3_128k_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/phi3-vai/`
+✅ Optimized model saved in: `models/phi3_4k-vai/`
+> **Note:** Output model is saved in `output_dir` mentioned in the json files.

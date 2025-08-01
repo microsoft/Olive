@@ -66,3 +66,7 @@ The following table show the latency comparison between original model and int4 
 | Original | 944.14496 |
 | int4 quantized with accuracy level 0 | 1663.0327 |
 | int4 quantized with accuracy level 4 | 1743.15224 |
+
+## **Optimization and Quantization for AMD NPU**
+
+- [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.
