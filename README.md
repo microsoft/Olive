@@ -105,11 +105,6 @@ The ONNX Runtime (ORT) is a fast and light-weight cross-platform inference engin
 
 The sample chat app to run is found as [model-chat.py](https://github.com/microsoft/onnxruntime-genai/blob/main/examples/python/model-chat.py) in the [onnxruntime-genai](https://github.com/microsoft/onnxruntime-genai/) Github repository.
 
-The sample command to run would be as follows:
-```
-python model-chat.py -e follow_config -v -g -m models/qwen/model/
-```
-
 ## 🎓 Learn more
 
 - [Documentation](https://microsoft.github.io/Olive)
