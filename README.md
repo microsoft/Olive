@@ -64,13 +64,9 @@ pip install transformers onnxruntime-genai
 
 #### 2. Automatic Optimizer
 
-In this quickstart you'll be optimizing [HuggingFaceTB/SmolLM2-135M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct), which has many model files in the Hugging Face repo for different precisions that are not required by Olive. To minimize the download, cache the original Hugging Face model files (safetensors and configuration) in the main folder of the Hugging Face repo using:
+In this quickstart you'll be optimizing [Qwen/Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct), which has many model files in the Hugging Face repo for different precisions that are not required by Olive.
 
-```bash
-huggingface-cli download HuggingFaceTB/SmolLM2-135M-Instruct *.json *.safetensors *.txt
-```
-
-Next, run the automatic optimization:
+Run the automatic optimization:
 
 ```bash
 olive optimize \
@@ -95,7 +91,7 @@ olive optimize \
 
 The automatic optimizer will:
 
-1. Acquire the model from the local cache (note: if you skipped the model download step then the entire contents of the Hugging Face model repo will be downloaded).
+1. Acquire the model from the the Hugging Face model repo.
 1. Quantize the model to `int4` using GPTQ.
 1. Capture the ONNX Graph and store the weights in an ONNX data file.
 1. Optimize the ONNX Graph.
