@@ -605,9 +605,10 @@ class OptimizeCommand(BaseOliveCLICommand):
             "activation_precision": self.args.act_precision if self.args.act_precision else Precision.INT8,
             "calibration_providers": ["CUDAExecutionProvider"],
             "quant_format": "QDQ" if self.args.use_qdq_format else "QOperator",
-            # these are contrib ops, no need for qdq around them
-            "op_types_to_exclude": ["GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits"],
         }
+        if self._enable_model_builder_pass():
+            # these are contrib ops, no need for qdq around them
+            config["op_types_to_exclude"] = ["GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits"]
         # Handle block_size parameter
         if self.args.block_size == -1:
             # Use per-channel quantization when block_size is -1
