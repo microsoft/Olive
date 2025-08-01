@@ -92,8 +92,6 @@ Optimize the input model with comprehensive pass scheduling.
 - `modality` (str): Model modality ("text"). Defaults to `"text"`.
 - `enable_aot` (bool): Enable Ahead-of-Time (AOT) compilation. Defaults to `False`.
 - `qnn_env_path` (str, optional): Path to QNN environment directory (required when using AOT with QNN).
-- `account_name` (str, optional): Azure storage account name for shared cache.
-- `container_name` (str, optional): Azure storage container name for shared cache.
 - `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
 - `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
 
@@ -328,7 +326,16 @@ if workflow_output.has_output_model():
     # Get the best model overall
     best_model = workflow_output.get_best_candidate()
     print(f"Model path: {best_model.model_path}")
+    print(f"Model type: {best_model.model_type}")
+    print(f"Device: {best_model.from_device()}")
+    print(f"Execution provider: {best_model.from_execution_provider()}")
     print(f"Metrics: {best_model.metrics_value}")
+
+    # Get the best model for CPU
+    best_cpu_model = workflow_output.get_best_candidate_by_device("CPU")
+
+    # Get all models for GPU
+    gpu_models = workflow_output.get_output_models_by_device("GPU")
 ```
 
 ## Output Class Hierarchy

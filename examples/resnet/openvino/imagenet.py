@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import numpy as np
+import torch
 import torchvision.transforms as transforms
 import transformers
 from torch import from_numpy
@@ -50,6 +51,16 @@ val_transform = transforms.Compose(
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ]
 )
+
+
+def onnx_input_transform_to_np(data_item):
+    input_dict, _ = data_item
+    for key, value in input_dict.items():
+        if isinstance(value, torch.Tensor):
+            input_dict[key] = value.numpy()
+        elif isinstance(value, np.ndarray):
+            input_dict[key] = value
+    return input_dict
 
 
 @Registry.register_pre_process()

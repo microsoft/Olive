@@ -345,6 +345,12 @@ OpenVINOQuantization
 --------------------
 .. autoconfigclass:: olive.passes.OpenVINOQuantization
 
+.. _openvino_quantization_with_accuracy:
+
+OpenVINOQuantizationWithAccuracy
+--------------------------------
+.. autoconfigclass:: olive.passes.OpenVINOQuantizationWithAccuracy
+
 .. _openvino_encapsulation:
 
 OpenVINOEncapsulation

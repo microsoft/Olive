@@ -402,6 +402,15 @@
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "openvino" ]
         },
+        "OpenVINOQuantizationWithAccuracy": {
+            "module_path": "olive.passes.openvino.quantization.OpenVINOQuantizationWithAccuracy",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
         "OptimumConversion": {
             "module_path": "olive.passes.onnx.optimum_conversion.OptimumConversion",
             "supported_providers": [ "*" ],
@@ -674,7 +683,13 @@
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "nvmo": [ "nvidia-modelopt[onnx]" ],
-        "openvino": [ "openvino>=2025.1.0", "nncf>=2.16.0", "numpy<2.0", "optimum[openvino]<=1.24" ],
+        "openvino": [
+            "openvino>=2025.1.0",
+            "nncf>=2.16.0",
+            "numpy<2.0",
+            "optimum[openvino]<=1.24",
+            "onnxruntime-openvino"
+        ],
         "optimum": [ "optimum" ],
         "qnn": [ "onnxruntime-qnn" ],
         "tf": [ "tensorflow==1.15.0" ],
