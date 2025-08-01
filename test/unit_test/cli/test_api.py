@@ -16,7 +16,6 @@ class TestOlivePythonAPI:
     def test_api_module_structure(self):
         """Test that API module has expected functions."""
         from olive import (
-            auto_opt,
             capture_onnx_graph,
             convert_adapters,
             extract_adapters,
@@ -29,7 +28,6 @@ class TestOlivePythonAPI:
 
         # Test that all functions are callable
         api_functions = [
-            auto_opt,
             capture_onnx_graph,
             convert_adapters,
             extract_adapters,
@@ -42,25 +40,6 @@ class TestOlivePythonAPI:
 
         for func in api_functions:
             assert callable(func), f"{func.__name__} should be callable"
-
-    @patch("olive.cli.api.AutoOptCommand")
-    def test_auto_opt_function_basic(self, mock_command_class):
-        """Test basic functionality of auto_opt function with mocked dependencies."""
-        from olive import auto_opt
-
-        # Mock command and output
-        mock_command = MagicMock()
-        mock_output = MagicMock()
-        mock_command.run.return_value = mock_output
-        mock_command_class.return_value = mock_command
-
-        # Test with minimal args
-        result = auto_opt("test_model")
-
-        # Verify command was created and run
-        mock_command_class.assert_called_once()
-        mock_command.run.assert_called_once()
-        assert result is mock_output
 
     @patch("olive.cli.api.FineTuneCommand")
     def test_finetune_function_basic(self, mock_command_class):
