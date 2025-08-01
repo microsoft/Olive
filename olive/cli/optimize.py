@@ -392,7 +392,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         precision = Precision(self.args.precision)
         precision_bits = precision_bits_from_precision(precision)
         bits = precision_bits.value if precision_bits else 32
-        gptq_config = {"type": "Gptq", "bits": bits}
+        gptq_config = {"type": "Gptq", "bits": bits, "sym": precision == Precision.INT4}
         if self.args.block_size is not None:
             if self.args.block_size == -1:
                 # For per-channel quantization in GPTQ, use a special value or handle differently
@@ -604,8 +604,11 @@ class OptimizeCommand(BaseOliveCLICommand):
             "precision": precision.value,
             "activation_precision": self.args.act_precision if self.args.act_precision else Precision.INT8,
             "calibration_providers": ["CUDAExecutionProvider"],
-            "quant_format": "QDQ" if self.args.use_qdq_format and not self.enable_gptq else "QOperator",
+            "quant_format": "QDQ" if self.args.use_qdq_format else "QOperator",
         }
+        if self.is_hf_model and self.args.modality == "text":
+            # these are contrib ops, no need for qdq around them
+            config["op_types_to_exclude"] = ["GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits"]
         # Handle block_size parameter
         if self.args.block_size == -1:
             # Use per-channel quantization when block_size is -1
