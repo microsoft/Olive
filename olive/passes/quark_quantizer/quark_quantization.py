@@ -3,8 +3,11 @@
 # SPDX-License-Identifier: MIT
 #
 
+import json
 import logging
+import os
 import platform
+import tempfile
 from argparse import Namespace
 from pathlib import Path
 
@@ -38,6 +41,9 @@ class QuarkQuantizationPass(Pass):
                 default_value=None,
                 description="List of layers to exclude. Set to [] to exclude nothing explicitly.",
             ),
+            "awq_config": PassConfigParam(
+                type_=dict, required=False, default_value=None, description="Embedded AWQ configuration dictionary"
+            ),
         }
 
     @staticmethod
@@ -52,6 +58,12 @@ class QuarkQuantizationPass(Pass):
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
         device = "cuda" if platform.system().lower() == "linux" else "cpu"
+        quant_algo_config_file_path = None
+        if config.awq_config:
+            with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as tmp_file:
+                json.dump(config.awq_config, tmp_file)
+                quant_algo_config_file_path = tmp_file.name
+                logger.info("[INFO] Written awq_config to temporary file: %s", quant_algo_config_file_path)
 
         args = Namespace(
             model_dir=str(model.model_path),
@@ -64,6 +76,7 @@ class QuarkQuantizationPass(Pass):
             model_export=config.model_export,
             exclude_layers=config.exclude_layers,
             device=device,
+            quant_algo_config_file_path=quant_algo_config_file_path,
             # Other args
             multi_gpu=False,
             model_attn_implementation="eager",
@@ -75,7 +88,6 @@ class QuarkQuantizationPass(Pass):
             min_kv_scale=0.0,
             pre_quantization_optimization=[],
             pre_optimization_config_file_path=None,
-            quant_algo_config_file_path=None,
             scale_format="e4m3",
             scale_calculation_mode="even",
             fp8_attention_quant=False,
@@ -115,5 +127,9 @@ class QuarkQuantizationPass(Pass):
 
         run_quark_quantization(args)
         logger.info("[INFO] Quark quantized model saved to: %s", output_model_path)
+        # Cleanup
+        if quant_algo_config_file_path and os.path.exists(quant_algo_config_file_path):
+            os.remove(quant_algo_config_file_path)
+            logger.info("[INFO] Deleted temporary AWQ config file: %s", quant_algo_config_file_path)
 
         return HfModelHandler(str(output_model_path))

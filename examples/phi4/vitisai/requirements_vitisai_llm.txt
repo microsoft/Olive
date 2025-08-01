@@ -1,14 +1,6 @@
-
-# AMD model generation
-# Model generation on a Linux system
---extra-index-url=https://pypi.amd.com/simple
 accelerate
-
-# Quark
-amd-quark==0.9
 datasets
 evaluate
-model-generate==1.5.0
 nltk
 numpy
 onnxruntime==1.21.1
@@ -18,7 +10,14 @@ sentencepiece
 tabulate
 transformers==4.50.0
 
+# Quark
+amd-quark==0.8
+
+# AMD model generation
+# Model generation on a Linux system
+--extra-index-url=https://pypi.amd.com/simple
+model-generate==1.5.0
+
 # Uncomment the below line if running model generation on a Windows system
 # --extra-index-url=https://pypi.amd.com/simple
 # model-generate==1.5.1
-

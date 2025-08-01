@@ -1,18 +1,14 @@
 # Model Optimization and Quantization for AMD NPU
-This folder contains sample Olive configuration to optimize Qwen models for AMD NPU.
+
+This folder contains sample Olive configuration to optimize LLaMA 3 models for AMD NPU.
 
 ## ✅ Supported Models and Configs
-
-| Model Name (Hugging Face)          | Config File Name                |
-| :--------------------------------- | :------------------------------ |
-| `Qwen/Qwen1.5-7B-Chat`             | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-0.5B-Instruct`       | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-1.5B`                | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-7B-Instruct`         | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-0.5B-Instruct` | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-1.5B-Instruct` | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-7B-Instruct`   | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2-7B-Instruct`           | `quark_config_vitisai_llm.json` |
+| Model Name (Hugging Face)                         | Config File Name                  |
+|:--------------------------------------------------|:----------------------------------|
+| `meta-llama/Llama-3.2-1B-Instruct`                | `quark_config_vitisai_llm.json`  |
+| `meta-llama/Llama-3.2-3B-Instruct`                | `quark_config_vitisai_llm.json`  |
+| `meta-llama/Meta-Llama-3-8B`                      | `quark_config_vitisai_llm.json`  |
+| `meta-llama/Meta-Llama-3.1-8B`                    | `quark_config_vitisai_llm.json`  |
 
 > **Note:** Before running, update the `model_path` in the config file to match the Hugging Face model name listed above.
 
@@ -41,7 +37,7 @@ pip install -r requirements.txt
 #### Install VitisAI LLM dependencies
 
 ```bash
-cd examples/qwen2_5/vitisai
+cd examples/llama3/vitisai
 pip install --force-reinstall -r requirements_vitisai_llm.txt
 
 # Note: If you're running model generation on a Windows system, please uncomment the following line in requirements_vitisai_llm.txt:
@@ -62,4 +58,4 @@ Follow the above setup instructions, then run the below command to generate the 
 olive run --config quark_config_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/qwen-vai/`
+✅ Optimized model saved in: `models/llama3-vai/`

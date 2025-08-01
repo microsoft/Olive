@@ -1,18 +1,13 @@
 # Model Optimization and Quantization for AMD NPU
-This folder contains sample Olive configuration to optimize Qwen models for AMD NPU.
+
+This folder contains sample Olive configuration to optimize Phi-4 models for AMD NPU.
 
 ## ✅ Supported Models and Configs
 
-| Model Name (Hugging Face)          | Config File Name                |
-| :--------------------------------- | :------------------------------ |
-| `Qwen/Qwen1.5-7B-Chat`             | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-0.5B-Instruct`       | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-1.5B`                | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-7B-Instruct`         | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-0.5B-Instruct` | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-1.5B-Instruct` | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-7B-Instruct`   | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2-7B-Instruct`           | `quark_config_vitisai_llm.json` |
+| Model Name (Hugging Face)                          | Config File Name                  |
+|:---------------------------------------------------|:----------------------------------|
+| `microsoft/Phi-4-mini-instruct`                    | `quark_config_vitisai_llm.json`  |
+| `microsoft/Phi-4-mini-reasoning`                   | `quark_config_vitisai_llm.json`  |
 
 > **Note:** Before running, update the `model_path` in the config file to match the Hugging Face model name listed above.
 
@@ -41,13 +36,15 @@ pip install -r requirements.txt
 #### Install VitisAI LLM dependencies
 
 ```bash
-cd examples/qwen2_5/vitisai
+cd examples/phi4/vitisai
 pip install --force-reinstall -r requirements_vitisai_llm.txt
 
 # Note: If you're running model generation on a Windows system, please uncomment the following line in requirements_vitisai_llm.txt:
 # --extra-index-url=https://pypi.amd.com/simple
 # model-generate==1.5.1
 ```
+> **Note** : Phi-4 models require `amd-quark==0.8`, as specified in the `requirements_vitisai_llm.txt` file in this folder.
+
 Make sure to install the correct version of PyTorch before running quantization. If using AMD GPUs, update PyTorch to use ROCm-compatible PyTorch build. For example see the below commands
 
 ```bash
@@ -62,4 +59,4 @@ Follow the above setup instructions, then run the below command to generate the 
 olive run --config quark_config_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/qwen-vai/`
+✅ Optimized model saved in: `models/phi4-vai/`

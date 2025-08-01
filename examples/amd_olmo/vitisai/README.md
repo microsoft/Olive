@@ -1,20 +1,12 @@
 # Model Optimization and Quantization for AMD NPU
-This folder contains sample Olive configuration to optimize Qwen models for AMD NPU.
+
+This folder contains sample Olive configuration to optimize AMD-OLMo model for AMD NPU.
 
 ## ✅ Supported Models and Configs
 
-| Model Name (Hugging Face)          | Config File Name                |
-| :--------------------------------- | :------------------------------ |
-| `Qwen/Qwen1.5-7B-Chat`             | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-0.5B-Instruct`       | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-1.5B`                | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-7B-Instruct`         | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-0.5B-Instruct` | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-1.5B-Instruct` | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-7B-Instruct`   | `quark_config_vitisai_llm.json` |
-| `Qwen/Qwen2-7B-Instruct`           | `quark_config_vitisai_llm.json` |
-
-> **Note:** Before running, update the `model_path` in the config file to match the Hugging Face model name listed above.
+| Model Name                         | Config File Name                  |
+|:----------------------------------|:----------------------------------|
+| `amd/AMD-OLMo-1B-SFT-DPO`         | `quark_config_vitisai_llm.json`  |
 
 ## **Run the Quantization Config**
 
@@ -41,7 +33,7 @@ pip install -r requirements.txt
 #### Install VitisAI LLM dependencies
 
 ```bash
-cd examples/qwen2_5/vitisai
+cd examples/amd_olmo/vitisai
 pip install --force-reinstall -r requirements_vitisai_llm.txt
 
 # Note: If you're running model generation on a Windows system, please uncomment the following line in requirements_vitisai_llm.txt:
@@ -62,4 +54,4 @@ Follow the above setup instructions, then run the below command to generate the 
 olive run --config quark_config_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/qwen-vai/`
+✅ Optimized model saved in: `models/amd_olmo-vai/`

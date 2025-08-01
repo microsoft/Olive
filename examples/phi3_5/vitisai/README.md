@@ -1,5 +1,13 @@
 # Model Optimization and Quantization for AMD NPU
 
+This folder contains sample Olive configuration to optimize Phi-3.5 models for AMD NPU.
+
+## ✅ Supported Models and Configs
+
+| Model Name (Hugging Face)         | Config File Name                |
+| :-------------------------------- | :------------------------------ |
+| `microsoft/Phi-3.5-mini-instruct` | `quark_config_vitisai_llm.json` |
+
 ## **Run the Quantization Config**
 
 ### **Quark quantization**
