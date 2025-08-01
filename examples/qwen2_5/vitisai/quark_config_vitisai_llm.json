@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HFModel", "model_path": "Qwen/Qwen2.5-Coder-0.5B" },
+    "input_model": { "type": "HFModel", "model_path": "Qwen/Qwen2.5-0.5B-Instruct" },
     "passes": {
         "qq": {
             "type": "QuarkQuantizationPass",
