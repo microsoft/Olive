@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HFModel", "model_path": "mistralai/Mistral-7B-Instruct-v0.2" },
+    "input_model": { "type": "HFModel", "model_path": "microsoft/Phi-3.5-mini-instruct" },
     "passes": {
         "qq": {
             "type": "QuarkQuantizationPass",
@@ -11,30 +11,22 @@
             "model_export": [ "hf_format" ],
             "exclude_layers": [  ],
             "quant_config": {
-                "name":"awq",
-                "scaling_layers":[
+                "name": "awq",
+                "scaling_layers": [
                     {
                         "prev_op": "input_layernorm",
-                        "layers": ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj"],
-                        "inp": "self_attn.q_proj",
+                        "layers": [ "self_attn.qkv_proj" ],
+                        "inp": "self_attn.qkv_proj",
                         "module2inspect": "self_attn"
                     },
-                    {
-                        "prev_op": "self_attn.v_proj",
-                        "layers": ["self_attn.o_proj"],
-                        "inp": "self_attn.o_proj"
-                    },
+                    { "prev_op": "self_attn.qkv_proj", "layers": [ "self_attn.o_proj" ], "inp": "self_attn.o_proj" },
                     {
                         "prev_op": "post_attention_layernorm",
-                        "layers": ["mlp.gate_proj", "mlp.up_proj"],
-                        "inp": "mlp.gate_proj",
+                        "layers": [ "mlp.gate_up_proj" ],
+                        "inp": "mlp.gate_up_proj",
                         "module2inspect": "mlp"
                     },
-                    {
-                        "prev_op": "mlp.up_proj",
-                        "layers": ["mlp.down_proj"],
-                        "inp": "mlp.down_proj"
-                    }
+                    { "prev_op": "mlp.gate_up_proj", "layers": [ "mlp.down_proj" ], "inp": "mlp.down_proj" }
                 ],
                 "model_decoder_layers": "model.layers"
             }
@@ -42,7 +34,7 @@
         "mg": { "type": "VitisGenerateModelLLM", "packed_const": false, "cpu_only": false }
     },
     "log_severity_level": 1,
-    "output_dir": "models/mistral_0_2-vai",
+    "output_dir": "models/Phi-3.5-mini-instruct-vai",
     "cache_dir": "cache",
     "no_artifacts": true
 }

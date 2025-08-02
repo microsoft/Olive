@@ -5,11 +5,12 @@
 
 import json
 import logging
-import os
 import platform
 import tempfile
 from argparse import Namespace
 from pathlib import Path
+
+import torch
 
 from olive.model import HfModelHandler
 from olive.passes import Pass
@@ -46,10 +47,6 @@ class QuarkQuantizationPass(Pass):
             ),
         }
 
-    @staticmethod
-    def is_accelerator_agnostic(accelerator_spec) -> bool:
-        return False
-
     def _run_for_config(self, model: HfModelHandler, config: BasePassConfig, output_model_path: str) -> HfModelHandler:
         logger.info("[INFO] Running QuarkQuantizationPass with config: %s", config)
 
@@ -57,7 +54,10 @@ class QuarkQuantizationPass(Pass):
 
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
-        device = "cuda" if platform.system().lower() == "linux" else "cpu"
+        if platform.system().lower() == "linux" and torch.cuda.is_available():
+            device = "cuda"
+        else:
+            device = "cpu"
         quant_algo_config_file_path = None
         if config.quant_config:
             with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json") as tmp_file:
@@ -128,8 +128,10 @@ class QuarkQuantizationPass(Pass):
         run_quark_quantization(args)
         logger.info("[INFO] Quark quantized model saved to: %s", output_model_path)
         # Cleanup
-        if quant_algo_config_file_path and os.path.exists(quant_algo_config_file_path):
-            os.remove(quant_algo_config_file_path)
-            logger.info("[INFO] Deleted temporary AWQ config file: %s", quant_algo_config_file_path)
+        if quant_algo_config_file_path:
+            tmp_path = Path(quant_algo_config_file_path)
+            if tmp_path.exists():
+                tmp_path.unlink()
+            logger.info("[INFO] Deleted temporary quant config file: %s", quant_algo_config_file_path)
 
         return HfModelHandler(str(output_model_path))

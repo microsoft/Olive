@@ -5,8 +5,8 @@ This folder contains sample Olive configuration to optimize LLaMA 2 models for A
 
 | Model Name (Hugging Face)                             | Config File Name                  |
 |:----------------------------------------|:----------------------------------|
-| `meta-llama/Llama-2-7b-hf`              | `llama2_7b_hf_quark_vitisai_llm.json`  |
-| `meta-llama/Llama-2-7b-chat-hf`         | `llama2_7b_chat_hf_quark_vitisai_llm.json`  |
+| `meta-llama/Llama-2-7b-hf`              | `Llama-2-7b-hf_quark_vitisai_llm.json`  |
+| `meta-llama/Llama-2-7b-chat-hf`         | `Llama-2-7b-chat-hf_quark_vitisai_llm.json`  |
 
 ## **Run the Quantization Config**
 
@@ -52,11 +52,11 @@ Follow the above setup instructions, then run the below command to generate the 
 
 ```bash
 # Llama-2-7b-hf
-olive run --config llama2_7b_hf_quark_vitisai_llm.json
+olive run --config Llama-2-7b-hf_quark_vitisai_llm.json
 
 # Llama-2-7b-chat-hf
-olive run --config llama2_7b_chat_hf_quark_vitisai_llm.json
+olive run --config Llama-2-7b-chat-hf_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/llama2-vai/`
+✅ Optimized model saved in: `models/Llama-2-7b-hf-vai/`
 > **Note:** Output model is saved in `output_dir` mentioned in the json files.

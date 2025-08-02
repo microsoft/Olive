@@ -5,10 +5,10 @@ This folder contains sample Olive configuration to optimize LLaMA 3 models for A
 ## ✅ Supported Models and Configs
 | Model Name (Hugging Face)                         | Config File Name                  |
 |:--------------------------------------------------|:----------------------------------|
-| `meta-llama/Llama-3.2-1B-Instruct`                | `llama_3_2_1B_inst_quark_vitisai_llm.json`  |
-| `meta-llama/Llama-3.2-3B-Instruct`                | `llama_3_2_3B_inst_quark_vitisai_llm.json`  |
-| `meta-llama/Meta-Llama-3-8B`                      | `llama_3_8B_quark_vitisai_llm.json`  |
-| `meta-llama/Meta-Llama-3.1-8B`                    | `llama_3_1_8B_quark_vitisai_llm.json`  |
+| `meta-llama/Llama-3.2-1B-Instruct`                | `Llama-3.2-1B-Instruct_quark_vitisai_llm.json`  |
+| `meta-llama/Llama-3.2-3B-Instruct`                | `Llama-3.2-3B-Instruct_quark_vitisai_llm.json`  |
+| `meta-llama/Meta-Llama-3-8B`                      | `Meta-Llama-3-8B_quark_vitisai_llm.json`  |
+| `meta-llama/Meta-Llama-3.1-8B`                    | `Meta-Llama-3.1-8B_quark_vitisai_llm.json`  |
 
 ## **Run the Quantization Config**
 
@@ -54,18 +54,18 @@ Follow the above setup instructions, then run the below command to generate the 
 
 ```bash
 # Llama-3.2-1B-Instruct
-olive run --config llama_3_2_1B_inst_quark_vitisai_llm.json
+olive run --config Llama-3.2-1B-Instruct_quark_vitisai_llm.json
 
 # Llama-3.2-3B-Instruct
-olive run --config llama_3_2_3B_inst_quark_vitisai_llm.json
+olive run --config Llama-3.2-3B-Instruct_quark_vitisai_llm.json
 
 # Meta-Llama-3-8B
-olive run --config llama_3_8B_quark_vitisai_llm.json
+olive run --config Meta-Llama-3-8B_quark_vitisai_llm.json
 
 # Meta-Llama-3.1-8B
-olive run --config llama_3_1_8B_quark_vitisai_llm.json
+olive run --config Meta-Llama-3.1-8B_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/llama3_1_8b-vai/`
+✅ Optimized model saved in: `models/Meta-Llama-3-8B-vai/`
 
 > **Note:** Output model is saved in `output_dir` mentioned in the json files.

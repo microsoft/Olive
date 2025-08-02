@@ -6,7 +6,7 @@ This folder contains sample Olive configuration to optimize Phi-3.5 models for A
 
 | Model Name (Hugging Face)         | Config File Name                |
 | :-------------------------------- | :------------------------------ |
-| `microsoft/Phi-3.5-mini-instruct` | `phi3_5_quark_vitisai_llm.json` |
+| `microsoft/Phi-3.5-mini-instruct` | `Phi-3.5-mini-instruct_quark_vitisai_llm.json` |
 
 ## **Run the Quantization Config**
 
@@ -52,7 +52,7 @@ Follow the above setup instructions, then run the below command to generate the 
 
 ```bash
 # Phi-3.5-mini-instruct
-olive run --config phi3_5_quark_vitisai_llm.json
+olive run --config Phi-3.5-mini-instruct_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/phi3_5-vai/`
+✅ Optimized model saved in: `models/Phi-3.5-mini-instruct-vai/`

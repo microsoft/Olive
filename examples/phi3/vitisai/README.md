@@ -6,8 +6,8 @@ This folder contains sample Olive configuration to optimize Phi-3 models for AMD
 
 | Model Name (Hugging Face)                          | Config File Name                  |
 |:---------------------------------------------------|:----------------------------------|
-| `microsoft/Phi-3-mini-4k-instruct`                 | `phi3_4k_quark_vitisai_llm.json`  |
-| `microsoft/Phi-3-mini-128k-instruct`               | `phi3_128k_quark_vitisai_llm.json`  |
+| `microsoft/Phi-3-mini-4k-instruct`                 | `Phi-3-mini-4k-instruct_quark_vitisai_llm.json`  |
+| `microsoft/Phi-3-mini-128k-instruct`               | `Phi-3-mini-128k-instruct_quark_vitisai_llm.json`  |
 
 ## **Run the Quantization Config**
 
@@ -53,11 +53,11 @@ Follow the above setup instructions, then run the below command to generate the 
 
 ```bash
 # Phi-3-mini-4k-instruct
-olive run --config phi3_4k_quark_vitisai_llm.json
+olive run --config Phi-3-mini-4k-instruct_quark_vitisai_llm.json
 
 # Phi-3-mini-128k-instruct
-olive run --config phi3_128k_quark_vitisai_llm.json
+olive run --config Phi-3-mini-128k-instruct_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/phi3_4k-vai/`
+✅ Optimized model saved in: `models/Phi-3-mini-4k-instruct-vai/`
 > **Note:** Output model is saved in `output_dir` mentioned in the json files.

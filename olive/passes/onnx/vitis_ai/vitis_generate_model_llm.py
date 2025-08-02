@@ -7,9 +7,7 @@ import logging
 from pathlib import Path
 
 from olive.model import HfModelHandler, ONNXModelHandler
-from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import model_proto_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -25,7 +23,7 @@ class VitisGenerateModelLLM(Pass):
             "cpu_only": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Run only model builder -OGA CPU only model, skip NPU-related steps.",
+                description="Run only model builder OGA CPU only model, skip NPU-related steps.",
             ),
         }
 
@@ -33,8 +31,6 @@ class VitisGenerateModelLLM(Pass):
         self, model: HfModelHandler, config: BasePassConfig, output_model_path: str
     ) -> ONNXModelHandler:
         logger.info("[DEBUG] Running VitisGenerateModelLLM with config: %s", config)
-
-        import onnx
         from model_generate import generate_npu_model
 
         input_model_path = model.model_path
@@ -52,16 +48,7 @@ class VitisGenerateModelLLM(Pass):
             packed_const=config.packed_const,
             cpu_only=config.cpu_only,
         )
-        
-        # Delete model.onnx.data if it exists
-        model_data_path = output_dir / "model.onnx.data"
-        if model_data_path.exists():
-            logger.info("[VitisGenerateModelLLM] Removing unused file: %s", model_data_path)
-            model_data_path.unlink()
-
-        # Load final ONNX model to wrap into Olive model
-        final_model_path = resolve_onnx_path(str(output_dir), "model.onnx")
-        onnx_model = onnx.load(final_model_path)
-        logger.info("[DEBUG] Model generated at: %s", final_model_path)
-
-        return model_proto_to_olive_model(onnx_model, final_model_path, config, force_model_dir=True)
+        return ONNXModelHandler(
+            model_path=output_dir,
+            onnx_file_name="model.onnx",
+        )

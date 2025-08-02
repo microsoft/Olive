@@ -34,7 +34,7 @@
         "mg": { "type": "VitisGenerateModelLLM", "packed_const": false, "cpu_only": false }
     },
     "log_severity_level": 1,
-    "output_dir": "models/qwen2_5_coder_0_5B_inst-vai",
+    "output_dir": "models/Qwen2.5-Coder-0.5B-Instruct-vai",
     "cache_dir": "cache",
     "no_artifacts": true
 }

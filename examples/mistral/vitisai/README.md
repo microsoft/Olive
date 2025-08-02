@@ -5,8 +5,8 @@ This folder contains sample Olive configuration to optimize Mistral models for A
 
 | Model Name (Hugging Face)                         | Config File Name                  |
 |:--------------------------------------------------|:----------------------------------|
-| `mistralai/Mistral-7B-Instruct-v0.2`              | `mistral_7B_inst_v0_2_quark_vitisai_llm.json`  |
-| `mistralai/Mistral-7B-Instruct-v0.3`              | `mistral_7B_inst_v0_3_quark_vitisai_llm.json`  |
+| `mistralai/Mistral-7B-Instruct-v0.2`              | `Mistral-7B-Instruct-v0.2_quark_vitisai_llm.json`  |
+| `mistralai/Mistral-7B-Instruct-v0.3`              | `Mistral-7B-Instruct-v0.3_quark_vitisai_llm.json`  |
 
 ## **Run the Quantization Config**
 
@@ -33,7 +33,7 @@ pip install -r requirements.txt
 #### Install VitisAI LLM dependencies
 
 ```bash
-cd examples/llama2/vitisai
+cd examples/mistral/vitisai
 pip install --force-reinstall -r requirements_vitisai_llm.txt
 
 # Note: If you're running model generation on a Windows system, please uncomment the following line in requirements_vitisai_llm.txt:
@@ -52,11 +52,11 @@ Follow the above setup instructions, then run the below command to generate the 
 
 ```bash
 # Mistral-7B-Instruct-v0.2
-olive run --config mistral_7B_inst_v0_2_quark_vitisai_llm.json
+olive run --config Mistral-7B-Instruct-v0.2_quark_vitisai_llm.json
 
 # Mistral-7B-Instruct-v0.3
-olive run --config mistral_7B_inst_v0_3_quark_vitisai_llm.json
+olive run --config Mistral-7B-Instruct-v0.3_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/mistral_0_2-vai/`
+✅ Optimized model saved in: `models/Mistral-7B-Instruct-v0.2-vai/`
 > **Note:** Output model is saved in `output_dir` mentioned in the json files.

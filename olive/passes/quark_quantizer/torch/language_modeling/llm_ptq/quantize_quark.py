@@ -39,7 +39,7 @@ def run_quark_quantization(args: argparse.Namespace) -> None:
     # The model will be dispatched to different GPUs based on the total number of GPUs specified by torchrun --nproc-per-node.
     # The current method results in high CPU memory consumption due to multiple copies of the same model.
     # We plan to address this in the future by implementing a more efficient way to dispatch the model to devices.
-    if args.use_tp or platform.system().lower() == "windows":
+    if args.use_tp or platform.system().lower() == "windows" or not torch.cuda.is_available():
         device = "cpu"
     else:
         device = args.device

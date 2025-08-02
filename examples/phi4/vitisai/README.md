@@ -6,8 +6,8 @@ This folder contains sample Olive configuration to optimize Phi-4 models for AMD
 
 | Model Name (Hugging Face)                          | Config File Name                  |
 |:---------------------------------------------------|:----------------------------------|
-| `microsoft/Phi-4-mini-instruct`                    | `phi4_instruct_quark_vitisai_llm.json`  |
-| `microsoft/Phi-4-mini-reasoning`                   | `phi4_reason_quark_vitisai_llm.json`  |
+| `microsoft/Phi-4-mini-instruct`                    | `Phi-4-mini-instruct_quark_vitisai_llm.json`  |
+| `microsoft/Phi-4-mini-reasoning`                   | `Phi-4-mini-reasoning_quark_vitisai_llm.json`  |
 
 ## **Run the Quantization Config**
 
@@ -54,11 +54,11 @@ Follow the above setup instructions, then run the below command to generate the 
 
 ```bash
 # Phi-4-mini-instruct
-olive run --config phi4_instruct_quark_vitisai_llm.json
+olive run --config Phi-4-mini-instruct_quark_vitisai_llm.json
 
 # Phi-4-mini-reasoning
-olive run --config phi4_reason_quark_vitisai_llm.json
+olive run --config Phi-4-mini-reasoning_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/phi4_instruct-vai/`
+✅ Optimized model saved in: `models/Phi-4-mini-instruct-vai/`
 > **Note:** Output model is saved in `output_dir` mentioned in the json files.

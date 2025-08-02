@@ -5,16 +5,14 @@ This folder contains sample Olive configuration to optimize Qwen models for AMD 
 
 | Model Name (Hugging Face)          | Config File Name                |
 | :--------------------------------- | :------------------------------ |
-| `Qwen/Qwen1.5-7B-Chat`             | `qwen1_5-7B_chat_quark_vitisai_llm.json` |
-| `Qwen/Qwen2.5-0.5B-Instruct`       | `qwen2_5_0_5B_inst_quark_vitisai_llm.json` |
-| `Qwen/Qwen2.5-1.5B`                | `qwen2_5_1_5B_quark_vitisai_llm.json` |
-| `Qwen/Qwen2.5-7B-Instruct`         | `qwen2_5_7B_inst_quark_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-0.5B-Instruct` | `qwen2_5_coder_0_5B_inst_quark_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-1.5B-Instruct` | `qwen2_5_coder_1_5B_inst_quark_vitisai_llm.json` |
-| `Qwen/Qwen2.5-Coder-7B-Instruct`   | `qwen2_5_coder_7B_inst_quark_vitisai_llm.json` |
-| `Qwen/Qwen2-7B-Instruct`           | `qwen2_7B_inst_quark_vitisai_llm.json` |
-
-> **Note:** Before running, update the `model_path` in the config file to match the Hugging Face model name listed above.
+| `Qwen/Qwen1.5-7B-Chat`             | `Qwen1.5-7B-Chat_quark_vitisai_llm.json` |
+| `Qwen/Qwen2.5-0.5B-Instruct`       | `Qwen2.5-0.5B-Instruct_quark_vitisai_llm.json` |
+| `Qwen/Qwen2.5-1.5B-Instruct`       | `Qwen2.5-1.5B-Instruct_quark_vitisai_llm.json` |
+| `Qwen/Qwen2.5-7B-Instruct`         | `Qwen2.5-7B-Instruct_quark_vitisai_llm.json` |
+| `Qwen/Qwen2.5-Coder-0.5B-Instruct` | `Qwen2.5-Coder-0.5B-Instruct_quark_vitisai_llm.json` |
+| `Qwen/Qwen2.5-Coder-1.5B-Instruct` | `Qwen2.5-Coder-1.5B-Instruct_quark_vitisai_llm.json` |
+| `Qwen/Qwen2.5-Coder-7B-Instruct`   | `Qwen2.5-Coder-7B-Instruct_quark_vitisai_llm.json` |
+| `Qwen/Qwen2-7B-Instruct`           | `Qwen2-7B-Instruct_quark_vitisai_llm.json` |
 
 ## **Run the Quantization Config**
 
@@ -60,30 +58,30 @@ Follow the above setup instructions, then run the below command to generate the 
 
 ```bash
 # Qwen1.5-7B-Chat
-olive run --config qwen1_5-7B_chat_quark_vitisai_llm.json
+olive run --config Qwen1.5-7B-Chat_quark_vitisai_llm.json
 
 # Qwen2.5-0.5B-Instruct
-olive run --config qwen2_5_0_5B_inst_quark_vitisai_llm.json
+olive run --config Qwen2.5-0.5B-Instruct_quark_vitisai_llm.json
 
-# Qwen2.5-1.5B
-olive run --config qwen2_5_1_5B_quark_vitisai_llm.json
+# Qwen/Qwen2.5-1.5B-Instruct
+olive run --config Qwen2.5-1.5B-Instruct_quark_vitisai_llm.json
 
 # Qwen2.5-7B-Instruct
-olive run --config qwen2_5_7B_inst_quark_vitisai_llm.json
+olive run --config Qwen2.5-7B-Instruct_quark_vitisai_llm.json
 
 # Qwen2.5-Coder-0.5B-Instruct
-olive run --config qwen2_5_coder_0_5B_inst_quark_vitisai_llm.json
+olive run --config Qwen2.5-Coder-0.5B-Instruct_quark_vitisai_llm.json
 
 # Qwen2.5-Coder-1.5B-Instruct
-olive run --config qwen2_5_coder_1_5B_inst_quark_vitisai_llm.json
+olive run --config Qwen2.5-Coder-1.5B-Instruct_quark_vitisai_llm.json
 
 # Qwen2.5-Coder-7B-Instruct
-olive run --config qwen2_5_coder_7B_inst_quark_vitisai_llm.json
+olive run --config Qwen2.5-Coder-7B-Instruct_quark_vitisai_llm.json
 
 # Qwen2-7B-Instruct
-olive run --config qwen2_7B_inst_quark_vitisai_llm.json
+olive run --config Qwen2-7B-Instruct_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/qwen2_5_0_5b_inst-vai/`
+✅ Optimized model saved in: `models/Qwen2.5-0.5B-Instruct-vai/`
 
 > **Note:** Output model is saved in `output_dir` mentioned in the json files.

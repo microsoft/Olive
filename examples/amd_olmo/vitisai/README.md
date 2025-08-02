@@ -6,7 +6,7 @@ This folder contains sample Olive configuration to optimize AMD-OLMo model for A
 
 | Model Name                         | Config File Name                  |
 |:----------------------------------|:----------------------------------|
-| `amd/AMD-OLMo-1B-SFT-DPO`         | `quark_config_vitisai_llm.json`  |
+| `amd/AMD-OLMo-1B-SFT-DPO`         | `AMD-OLMo-1B-SFT-DPO_quark_vitisai_llm.json`  |
 
 ## **Run the Quantization Config**
 
@@ -51,7 +51,8 @@ python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
 Follow the above setup instructions, then run the below command to generate the optimized LLM model for VitisAI EP
 
 ```bash
-olive run --config quark_config_vitisai_llm.json
+# AMD-OLMo-1B-SFT-DPO
+olive run --config AMD-OLMo-1B-SFT-DPO_quark_vitisai_llm.json
 ```
 
-✅ Optimized model saved in: `models/amd_olmo-vai/`
+✅ Optimized model saved in: `models/AMD-OLMo-1B-SFT-DPO-vai/`
