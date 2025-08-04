@@ -90,7 +90,7 @@ class AcceleratorNormalizer:
                 # User does not specify the device but providing the execution providers
                 assert accelerator.execution_providers, "The execution providers are not specified."
                 inferred_device = AcceleratorLookup.infer_single_device_from_execution_providers(
-                    accelerator.execution_providers
+                    accelerator.get_ep_strs()
                 )
                 logger.info("the accelerator device is not specified. Inferred device: %s.", inferred_device)
                 accelerator.device = inferred_device
@@ -147,12 +147,12 @@ class AcceleratorNormalizer:
                 # AzureML and Docker system: These are required to be specified by the user.
                 # Local, PythonEnvironment, IsolatedORT: skip_supported_eps_check is True
                 # the target is not used so no need to check the compatibility between the system supported eps and
-                # the accelerators (available_eps == accelerator.execution_providers, the check will always pass)
+                # the accelerators (available_eps == accelerator.get_ep_strs(), the check will always pass)
                 # Example scenario: to run optimization workflow for qnn-ep on x86 machine, the pass (onnxquantization)
                 # needs to know qnn-ep is the target ep, but ort-qnn is not available on x86 machine.
                 # we can still run the workflow using cpu ORT package as the target is not used for evaluation or
                 # pass runs (= no inference sesion is created). The ort tools don't need the ep to be available.
-                eps = AcceleratorLookup.filter_execution_providers(accelerator.execution_providers, eps_per_device)
+                eps = AcceleratorLookup.filter_execution_providers(accelerator.get_ep_strs(), eps_per_device)
                 available_eps = eps or ["CPUExecutionProvider"]
 
             supported_eps = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
@@ -161,7 +161,7 @@ class AcceleratorNormalizer:
             logger.debug("Supported execution providers for device %s: %s", device, supported_eps)
 
             eps = []
-            for ep in accelerator.execution_providers:
+            for ep in accelerator.get_ep_strs():
                 if ep not in supported_eps:
                     ep_not_supported.append(ep)
                 else:
@@ -170,7 +170,7 @@ class AcceleratorNormalizer:
             # remove the unsupported execution providers
             if not self.skip_supported_eps_check and not eps:
                 raise ValueError(
-                    f"None of the execution providers {accelerator.execution_providers} cannot be found in the target"
+                    f"None of the execution providers {accelerator.get_ep_strs()} cannot be found in the target"
                     " system but at least one is required to run the workflow."
                 )
             accelerator.execution_providers = eps or ["CPUExecutionProvider"]
@@ -201,7 +201,7 @@ def create_accelerators(
     for accelerator in system_config.config.accelerators:
         device = Device(accelerator.device.lower())
         if accelerator.execution_providers:
-            for ep in accelerator.execution_providers:
+            for ep in accelerator.get_ep_strs():
                 if ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
                     logger.warning(
                         "Ignore the CPUExecutionProvider for non-cpu device since cpu accelerator is also present."

@@ -9,6 +9,7 @@ import collections
 import logging
 import time
 from collections.abc import Sequence
+from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -35,6 +36,43 @@ def ort_supports_ep_devices() -> bool:
     # devices but the python bindings don't exist yet in the same version.
     # using .release so the 1.23 nightlies are also included
     return version.parse(OrtVersion).release >= version.parse("1.23.0").release
+
+
+def maybe_add_winml_ep_paths(ep_paths: dict[str, str]) -> dict[str, str]:
+    """Get the Windows ML EP paths."""
+    try:
+        from onnxruntime import winml as _  # noqa: F401 # pylint: disable=unused-import
+    except ImportError:
+        # not using Windows ML
+        return ep_paths
+
+    import winui3.microsoft.windows.ai.machinelearning as winml
+    from winui3.microsoft.windows.applicationmodel.dynamicdependency.bootstrap import InitializeOptions, initialize
+
+    updated_ep_paths = deepcopy(ep_paths)
+    with initialize(options=InitializeOptions.ON_NO_MATCH_SHOW_UI):
+        catalog = winml.ExecutionProviderCatalog.get_default()
+        providers = catalog.find_all_providers()
+        for provider in providers:
+            if provider.name in updated_ep_paths and updated_ep_paths[provider.name] is None:
+                provider.ensure_ready_async().get()
+                updated_ep_paths[provider.name] = provider.library_path
+
+    return updated_ep_paths
+
+
+def maybe_register_ep_libraries(ep_paths: dict[str, str]):
+    """Register execution provider libraries if onnxruntime supports it."""
+    if not ort_supports_ep_devices():
+        return
+
+    import onnxruntime as ort
+
+    ep_paths = maybe_add_winml_ep_paths(ep_paths)
+    for ep_name, ep_path in ep_paths.items():
+        if ep_name and ep_path:
+            logger.debug("Registering EP %s with path %s", ep_name, ep_path)
+            ort.register_execution_provider_library(ep_name, ep_path)
 
 
 def get_ort_hardware_device_type(device: Union["Device", str]):

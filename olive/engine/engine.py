@@ -874,7 +874,7 @@ class Engine:
             if host_accelerators and host_accelerators[0].execution_providers:
                 host_accelerator_spec = AcceleratorSpec(
                     host_accelerators[0].device,
-                    host_accelerators[0].execution_providers[0],
+                    host_accelerators[0].get_ep_strs()[0],
                     memory=host_accelerators[0].memory,
                 )
             else:

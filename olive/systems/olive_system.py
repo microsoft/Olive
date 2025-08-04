@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Union
 
 from olive.common.config_utils import validate_config
+from olive.common.ort_inference import maybe_register_ep_libraries
 from olive.systems.common import AcceleratorConfig, SystemType
 
 if TYPE_CHECKING:
@@ -28,14 +29,11 @@ class OliveSystem(ABC):
         accelerators: Union[list[AcceleratorConfig], list[dict[str, Any]]] = None,
         hf_token: bool = None,
     ):
-        # TODO(anyone): Is it possible to expose the arguments to
-        # let user set the system environment in Olive config?
-        # For example, in some qualcomm cases, the user may need to set
-        # SDK root path outside of Olive.
         if accelerators:
-            assert all(
-                isinstance(validate_config(accelerator, AcceleratorConfig), AcceleratorConfig)
-                for accelerator in accelerators
+            accelerators = [validate_config(accelerator, AcceleratorConfig) for accelerator in accelerators]
+
+            maybe_register_ep_libraries(
+                {name: path for accelerator in accelerators for name, path in accelerator.get_ep_path_map().items()}
             )
 
         self.hf_token = hf_token
