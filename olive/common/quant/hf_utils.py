@@ -68,6 +68,8 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         group_size: int,
         modules_to_not_convert: list | None = None,
         overrides: dict | None = None,
+        # just for testing
+        only_lm_head: bool = False,
         **kwargs,
     ):
         # pylint: disable=W0231
@@ -81,6 +83,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
             module_name: OliveHfQuantizationOverrideConfig(**override)
             for module_name, override in (overrides or {}).items()
         }
+        self.only_lm_head = only_lm_head
         self.post_init()
 
     def post_init(self):
@@ -145,6 +148,9 @@ class OliveHfQuantizer(HfQuantizer):
 
         def should_quantize(module: nn.Module, name: str) -> bool:
             """Check if a module should be quantized."""
+            if self.quantization_config.only_lm_head:
+                # only quantize the lm head
+                return module == model.get_output_embeddings()
             return isinstance(module, nn.Linear) and not any(key in name for key in self.modules_to_not_convert)
 
         def create_quantized_module(module: nn.Linear, name: str) -> QuantLinear:
