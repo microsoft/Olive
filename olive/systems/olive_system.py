@@ -7,7 +7,6 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Union
 
 from olive.common.config_utils import validate_config
-from olive.common.ort_inference import maybe_register_ep_libraries
 from olive.systems.common import AcceleratorConfig, SystemType
 
 if TYPE_CHECKING:
@@ -30,10 +29,9 @@ class OliveSystem(ABC):
         hf_token: bool = None,
     ):
         if accelerators:
-            accelerators = [validate_config(accelerator, AcceleratorConfig) for accelerator in accelerators]
-
-            maybe_register_ep_libraries(
-                {name: path for accelerator in accelerators for name, path in accelerator.get_ep_path_map().items()}
+            assert all(
+                isinstance(validate_config(accelerator, AcceleratorConfig), AcceleratorConfig)
+                for accelerator in accelerators
             )
 
         self.hf_token = hf_token

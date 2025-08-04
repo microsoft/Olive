@@ -24,7 +24,7 @@ class AcceleratorConfig(ConfigBase):
         None,
         description=(
             "Execution providers for the accelerator. Each must end with ExecutionProvider. If a tuple, the second"
-            " element is the path to the EP library."
+            " element is the path to the EP library. Tuple is only supported for Local System."
         ),
     )
     memory: Union[int, str] = Field(
