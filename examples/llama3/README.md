@@ -21,3 +21,7 @@ huggingface-cli login
 ```
 
 - The quality of the quantized model is not guaranteed to be the same as the original model, especially for such a small model. Work is ongoing to improve the quality of the quantized model.
+
+## **Optimization and Quantization for AMD NPU**
+
+- [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.

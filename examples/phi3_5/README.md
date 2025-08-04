@@ -99,10 +99,15 @@ olive run --config qdq_config.json
 
 #### **Run the Quantization Config**
 
+##### **For Quark quantization**
+
+- [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.
+
+##### **For QDQ quantization**
 Follow above mentioned setup instruction and run the below command to generate the optimized model for VitisAI EP.
 
 ```bash
-olive run --config qdq_config_vitis_ai.json.json
+olive run --config qdq_config_vitis_ai.json
 ```
 
 ✅ Optimized model saved in: `models/phi3_5-vai/`

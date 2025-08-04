@@ -104,6 +104,15 @@ Get access to the following resources on Hugging Face Hub:
 
 - [Web chat APP with Phi-3 and ONNX Runtime Web](https://github.com/microsoft/onnxruntime-inference-examples/tree/gs/chat/js/chat)
 
+
+# **Optimization and Quantization for AMD NPU**
+
+## **Run the Quantization Config**
+
+### **For Quark quantization**
+
+[**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.
+
 # Quantize Models with NVIDIA TensorRT Model Optimizer
 The **TensorRT Model Optimizer** is designed to bring advanced model compression techniques, including quantization, to Windows RTX PC systems. Engineered for Windows, it delivers rapid and efficient quantization through features such as local GPU calibration, reduced memory usage, and fast processing.
 The primary goal of TensorRT Model Optimizer is to produce optimized, ONNX-format models compatible with DirectML backends.

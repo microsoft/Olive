@@ -10,3 +10,7 @@ Sample use cases of Olive to optimize a [Qwen/Qwen 2.5 1.5B Instruct](https://hu
   - Run the workflow with `olive run --config qnn_config.json -m Qwen/Qwen2.5-1.5B-Instruct -o models/qwen2_5-qnn`.
   - Run the inference with `python app.py -m models/qwen2_5-qnn -c "<|im_start|>user\n{input}<|im_end|>\n<|im_start|>assistant\n"`.
 - [PTQ + AWQ ONNX OVIR Encapsulated 4-bit weight compression using Intel® Optimum OpenVINO](./openvino/)
+
+## **Optimization and Quantization for AMD NPU**
+
+- [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.

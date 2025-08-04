@@ -13,3 +13,7 @@ This repository demonstrates the optimization of the following models using **po
 ## **PTQ Weight Compression for Intel® NPUs/GPUs using Optimum Intel®**
 
 - [**Intel® NPU/GPU**](./openvino/): Optimization with Optimum Intel® on Intel® NPU/GPU to generate an ONNX OpenVINO IR Encapsulated Model instructions are in the [openvino](./openvino/) folder.
+
+## **Optimization and Quantization for AMD NPU**
+
+- [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.
