@@ -2,7 +2,7 @@
     "input_model": { "type": "HFModel", "model_path": "microsoft/Phi-4-mini-reasoning" },
     "passes": {
         "qq": {
-            "type": "QuarkQuantizationPass",
+            "type": "QuarkQuantization",
             "quant_scheme": "w_uint4_per_group_asym",
             "quant_algo": "gptq",
             "dataset": "pileval_for_awq_benchmark",

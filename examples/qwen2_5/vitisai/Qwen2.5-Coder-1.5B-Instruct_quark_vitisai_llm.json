@@ -2,7 +2,7 @@
     "input_model": { "type": "HFModel", "model_path": "Qwen/Qwen2.5-Coder-1.5B-Instruct" },
     "passes": {
         "qq": {
-            "type": "QuarkQuantizationPass",
+            "type": "QuarkQuantization",
             "quant_scheme": "w_uint4_per_group_asym",
             "quant_algo": "awq",
             "dataset": "pileval_for_awq_benchmark",

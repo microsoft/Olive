@@ -523,8 +523,8 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
-        "QuarkQuantizationPass": {
-            "module_path": "olive.passes.quark_quantizer.quark_quantization.QuarkQuantizationPass",
+        "QuarkQuantization": {
+            "module_path": "olive.passes.quark_quantizer.quark_quantization.QuarkQuantization",
             "supported_providers": [ "CPUExecutionProvider", "ROCMExecutionProvider", "CUDAExecutionProvider" ],
             "supported_accelerators": [ "cpu", "gpu" ],
             "supported_precisions": [ "fp16", "fp32" ],
