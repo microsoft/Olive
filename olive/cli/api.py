@@ -6,7 +6,6 @@ import inspect
 from argparse import ArgumentParser, Namespace
 from typing import Any
 
-from olive.cli.auto_opt import AutoOptCommand
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand
 from olive.cli.convert_adapters import ConvertAdaptersCommand
 from olive.cli.extract_adapters import ExtractAdaptersCommand
@@ -138,22 +137,6 @@ def _run_unified_command(command_class, **kwargs) -> Any:
         command = command_class(None, args)
 
     return command.run()
-
-
-def auto_opt(model_name_or_path: str, **kwargs) -> WorkflowOutput:
-    """Automatically optimize a model for performance.
-
-    Args:
-        model_name_or_path: Path to model (file path or HuggingFace model name)
-        **kwargs: All other CLI arguments supported by auto-opt command.
-                  Includes `output_path` (defaults to "auto-opt-output").
-
-    Returns:
-        WorkflowOutput: Contains optimized models and metrics
-
-    """
-    kwargs["model_name_or_path"] = model_name_or_path
-    return _run_unified_command(AutoOptCommand, **kwargs)
 
 
 def finetune(model_name_or_path: str, **kwargs) -> WorkflowOutput:

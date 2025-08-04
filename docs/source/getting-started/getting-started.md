@@ -52,13 +52,12 @@ For more details on installing Olive from source and other installation options 
 
 ## {octicon}`dependabot;1em` Automatic model optimization with Olive
 
-Once you have installed Olive, next you'll run the `auto-opt` command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (`int4`), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).
+Once you have installed Olive, next you'll run the `optimize` command that will automatically download and optimize Llama-3.2-1B-Instruct. After the model is downloaded, Olive will convert it into ONNX format, quantize (`int4`), and optimizing the graph. It takes around 60secs plus model download time (which will depend on your network bandwidth).
 ```bash
-olive auto-opt \
-    --model_name_or_path HuggingFaceTB/SmolLM-360M-Instruct \
+olive optimize \
+    --model_name_or_path Qwen/Qwen2.5-0.5B-Instruct \
     --precision int4 \
-    --output_path models/llama/ao \
-    --log_level 1
+    --output_path models/qwen
 ```
 
 ### More details on arguments
@@ -67,7 +66,7 @@ olive auto-opt \
 - `output_path` is the path on local disk to store the optimized model.
 - `precision` is the precision for the optimized model (`fp16`, `fp32`, `int4`, `int8`).
 
-With the `auto-opt` command, you can change the input model to one that is available on Hugging Face or a model that resides on local disk. Olive, will go through the same process of *automatically* converting (to ONNX), optimizing the graph and quantizing the weights. The model can be optimized for different providers and devices using `provider` and `device` options respectively.
+With the `optimize` command, you can change the input model to one that is available on Hugging Face or a model that resides on local disk. Olive, will go through the same process of *automatically* converting (to ONNX), optimizing the graph and quantizing the weights. The model can be optimized for different providers and devices using `provider` and `device` options respectively.
 
 - `device` is the device the model will execute on - CPU/NPU/GPU.
 - `provider` is the hardware provider of the device to inference the model on. For example, Nvidia CUDA (`CUDAExecutionProvider`), AMD (`MIGraphXExecutionProvider`, `ROCMExecutionProvider`), OpenVINO (`OpenVINOExecutionProvider`), Qualcomm (`QNNExecutionProvider`), Nvidia TensorRT (`TensorrtExecutionProvider`, `NvTensorRTRTXExecutionProvider`).

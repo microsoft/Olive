@@ -22,49 +22,6 @@ workflow_output = run("config.json")
 
 The rest of the functions are specialized workflows for common tasks.
 
-## `auto_opt(...)`
-
-Automatically optimize a model for performance.
-
-**Arguments:**
-- `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
-- `task` (str, optional): Task for which the huggingface model is used. Default task is text-generation-with-past.
-- `trust_remote_code` (bool): Trust remote code when loading a huggingface model. Defaults to `False`.
-- `adapter_path` (str, optional): Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.
-- `model_script` (str, optional): The script file containing the model definition. Required for the local PyTorch model.
-- `script_dir` (str, optional): The directory containing the local PyTorch model script file.
-- `output_path` (str): Output directory path. Defaults to `"auto-opt-output"`.
-- `device` (str): Target device ("cpu", "gpu", "npu"). Defaults to `"cpu"`.
-- `provider` (str): Execution provider for ONNX model. Defaults to `"CPUExecutionProvider"`.
-- `memory` (int, optional): Memory limit for the accelerator in bytes.
-- `data_name` (str, optional): Dataset name for evaluation.
-- `split` (str, optional): Dataset split to use for evaluation.
-- `subset` (str, optional): Dataset subset to use for evaluation.
-- `input_cols` (list[str], optional): Input column names for evaluation.
-- `batch_size` (int): Batch size for evaluation. Defaults to `1`.
-- `precision` (str): Output precision (int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp4, fp8, fp16, fp32, nf4). Defaults to fp32 for cpu and fp16 for gpu.
-- `use_dynamo_exporter` (bool): Use dynamo export API to export ONNX model. Defaults to `False`.
-- `use_model_builder` (bool): Use model builder pass for optimization. Defaults to `False`.
-- `use_qdq_encoding` (bool): Use QDQ encoding for quantized operators. Defaults to `False`.
-- `dynamic_to_fixed_shape_dim_param` (list[str], optional): Symbolic parameter names for dynamic to fixed shape pass.
-- `dynamic_to_fixed_shape_dim_value` (list[int], optional): Symbolic parameter values for dynamic to fixed shape pass.
-- `num_splits` (int, optional): Number of splits for model splitting. Mutually exclusive with cost_model.
-- `cost_model` (str, optional): Path to cost model csv file for model splitting. Mutually exclusive with num_splits.
-- `mixed_precision_overrides_config` (list[str], optional): Dictionary of name to precision as key-value pairs.
-- `use_ort_genai` (bool): Use OnnxRuntime generate() API. Defaults to `False`.
-- `enable_search` (str, optional): Enable search optimization ("random", "sequential", "tpe").
-- `seed` (int, optional): Random seed for search sampler.
-- `account_name` (str, optional): Azure storage account name for shared cache.
-- `container_name` (str, optional): Azure storage container name for shared cache.
-- `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
-- `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
-
-```python
-from olive import auto_opt
-
-workflow_output = auto_opt(model_name_or_path="path/to/model")
-```
-
 ## `optimize(...)`
 
 Optimize the input model with comprehensive pass scheduling.
