@@ -82,14 +82,6 @@ class AcceleratorLookup:
         return [*DEVICE_TO_EXECUTION_PROVIDERS.get(device), ExecutionProvider.CPUExecutionProvider]
 
     @staticmethod
-    def get_execution_providers_for_device(device: Device):
-        import onnxruntime
-
-        return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
-            device, onnxruntime.get_available_providers()
-        )
-
-    @staticmethod
     def get_execution_providers_for_device_by_available_providers(device: Device, available_providers):
         eps_per_device = AcceleratorLookup.get_managed_supported_execution_providers(device)
         return AcceleratorLookup.get_execution_providers(eps_per_device, available_providers)

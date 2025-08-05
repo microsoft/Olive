@@ -57,6 +57,22 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
         # TODO(anyone): support Windows ML through automatic download and discovery of the DLL
 
 
+def get_ort_available_devices():
+    """Get the available devices for ONNXRuntime."""
+    import onnxruntime as ort
+
+    if not ort_supports_ep_devices():
+        # what ORT was built with. Session will be created directly with InferenceSession(model_path, providers=["ProviderName"])
+        return ort.get_available_providers()
+
+    # only return registered EPs since session with be created with SessionOptions.add_provider_for_devices()
+    providers = []
+    for ep_device in ort.get_ep_devices():
+        if ep_device.ep_name not in providers:
+            providers.append(ep_device.ep_name)
+    return providers
+
+
 def get_ort_hardware_device_type(device: Union["Device", str]):
     from onnxruntime import OrtHardwareDeviceType
 
@@ -190,7 +206,7 @@ def get_ort_inference_session(
     providers, provider_options = check_and_normalize_provider_args(
         inference_settings.get("execution_provider"),
         inference_settings.get("provider_options"),
-        ort.get_available_providers(),
+        get_ort_available_devices(),
     )
     for idx, provider in enumerate(providers):
         if provider in ["CUDAExecutionProvider", "DmlExecutionProvider"] and device_id is not None:

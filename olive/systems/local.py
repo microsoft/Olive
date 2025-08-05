@@ -63,9 +63,9 @@ class LocalSystem(OliveSystem):
 
     def get_supported_execution_providers(self) -> list[str]:
         """Get the available execution providers."""
-        import onnxruntime as ort
+        from olive.common.ort_inference import get_ort_available_providers
 
-        return ort.get_available_providers()
+        return get_ort_available_providers()
 
     def remove(self):
         raise NotImplementedError("Local system does not support system removal")

@@ -14,7 +14,7 @@ from olive.common.ort_inference import OrtSessionFallbackError, get_ort_inferenc
 from olive.common.utils import load_weights
 from olive.constants import Framework, ModelFileFormat
 from olive.exception import OliveEvaluationError
-from olive.hardware.accelerator import AcceleratorLookup, Device
+from olive.hardware.accelerator import Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import OnnxEpValidateMixin
@@ -114,12 +114,8 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         execution_providers: Optional[Union[str, list[str]]] = None,
         rank: Optional[int] = None,
     ):
-        # user provided inference_settings > model's inference_settings > default settings
+        # user provided inference_settings > model's inference_settings
         inference_settings = self.merge_inference_settings(inference_settings, execution_providers)
-        if not inference_settings["execution_provider"]:
-            # if no execution_providers are provided, use the default ones
-            inference_settings["execution_provider"] = self._get_default_execution_providers(device)
-            inference_settings["provider_options"] = None
         # device id for ranked model
         device_id = rank if device == Device.GPU else None
         # load external initializers if available
@@ -180,15 +176,6 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         # save io_config
         self._io_config = get_io_config(onnx.load(self.model_path, load_external_data=False))
         return self._io_config
-
-    def _get_default_execution_providers(self, device: Device):
-        # return available ep as ort default ep
-        available_providers = AcceleratorLookup.get_execution_providers_for_device(device)
-        eps = [ep for ep in available_providers if self.is_valid_ep(self.model_path, ep)]
-
-        if not eps:
-            eps.append("CPUExecutionProvider")
-        return eps
 
 
 @model_handler_registry("DistributedOnnxModel")

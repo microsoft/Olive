@@ -12,7 +12,7 @@ from typing import Any, Union
 import onnxruntime as ort
 
 from olive.common.config_utils import validate_config
-from olive.common.ort_inference import check_and_normalize_provider_args
+from olive.common.ort_inference import check_and_normalize_provider_args, get_ort_available_providers
 from olive.common.pydantic_v1 import Extra
 from olive.data.config import DataConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
@@ -354,7 +354,7 @@ class OrtSessionParamsTuning(Pass):
         else:
             inference_settings = copy.deepcopy(model.inference_settings) if model.inference_settings else {}
             # put the execution_provider and provider_options in inference_settings for baseline evaluation
-            available_eps = ort.get_available_providers()
+            available_eps = get_ort_available_providers()
             execution_providers, provider_options = check_and_normalize_provider_args(
                 [config.execution_provider], None, available_eps
             )
