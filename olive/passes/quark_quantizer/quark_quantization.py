@@ -19,7 +19,7 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-class QuarkQuantizationPass(Pass):
+class QuarkQuantization(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec=None):
         return {
@@ -48,7 +48,7 @@ class QuarkQuantizationPass(Pass):
         }
 
     def _run_for_config(self, model: HfModelHandler, config: BasePassConfig, output_model_path: str) -> HfModelHandler:
-        logger.info("[INFO] Running QuarkQuantizationPass with config: %s", config)
+        logger.info("[INFO] Running QuarkQuantization with config: %s", config)
 
         from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.quantize_quark import run_quark_quantization
 
