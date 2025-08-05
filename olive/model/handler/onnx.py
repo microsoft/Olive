@@ -114,7 +114,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         execution_providers: Optional[Union[str, list[str]]] = None,
         rank: Optional[int] = None,
     ):
-        # user provided inference_settings > model's inference_settings
+        # user provided inference_settings > model's inference_settings > default settings
         inference_settings = self.merge_inference_settings(inference_settings, execution_providers)
         if not inference_settings["execution_provider"]:
             # if no execution_providers are provided, use the default ones
