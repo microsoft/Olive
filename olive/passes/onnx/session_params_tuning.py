@@ -115,7 +115,11 @@ class OrtSessionParamsTuning(Pass):
             "providers_list": PassConfigParam(
                 type_=str,
                 default_value=execution_provider,
-                search_defaults=Categorical(AcceleratorLookup.get_execution_providers_for_device(device)),
+                search_defaults=Categorical(
+                    AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
+                        device, get_ort_available_providers()
+                    )
+                ),
                 description="Execution providers framework list to execute the ONNX models.",
             ),
             "provider_options_list": PassConfigParam(
