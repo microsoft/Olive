@@ -7,9 +7,9 @@
 # Import in TYPE_CHECKING block for type hinting is fine.
 import collections
 import logging
+import platform
 import time
 from collections.abc import Sequence
-from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -32,33 +32,8 @@ class OrtSessionFallbackError(Exception):
 def ort_supports_ep_devices() -> bool:
     from onnxruntime import __version__ as OrtVersion
 
-    # NOTE: v1.22.0 native implementation has the necessary support for Auto-EP
-    # devices but the python bindings don't exist yet in the same version.
-    # using .release so the 1.23 nightlies are also included
-    return version.parse(OrtVersion).release >= version.parse("1.23.0").release
-
-
-def maybe_add_winml_ep_paths(ep_paths: dict[str, str]) -> dict[str, str]:
-    """Get the Windows ML EP paths."""
-    try:
-        from onnxruntime import winml as _  # noqa: F401 # pylint: disable=unused-import
-    except ImportError:
-        # not using Windows ML
-        return ep_paths
-
-    import winui3.microsoft.windows.ai.machinelearning as winml
-    from winui3.microsoft.windows.applicationmodel.dynamicdependency.bootstrap import InitializeOptions, initialize
-
-    updated_ep_paths = deepcopy(ep_paths)
-    with initialize(options=InitializeOptions.ON_NO_MATCH_SHOW_UI):
-        catalog = winml.ExecutionProviderCatalog.get_default()
-        providers = catalog.find_all_providers()
-        for provider in providers:
-            if provider.name in updated_ep_paths and updated_ep_paths[provider.name] is None:
-                provider.ensure_ready_async().get()
-                updated_ep_paths[provider.name] = provider.library_path
-
-    return updated_ep_paths
+    # ep registration and device discovery are not well defined on Linux
+    return platform.system() == "Windows" and version.parse(OrtVersion).release >= version.parse("1.23.0").release
 
 
 def maybe_register_ep_libraries(ep_paths: dict[str, str]):
@@ -68,49 +43,49 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
 
     import onnxruntime as ort
 
-    ep_paths = maybe_add_winml_ep_paths(ep_paths)
+    # providers that ort was built with such as CUDA, QNN, VitisAI but need registration
+    additional_providers = set(ort.get_available_providers()) - {"CPUExecutionProvider", "DmlExecutionProvider"}
     for ep_name, ep_path in ep_paths.items():
-        if ep_name and ep_path:
+        if ep_path is not None:
             logger.debug("Registering EP %s with path %s", ep_name, ep_path)
             ort.register_execution_provider_library(ep_name, ep_path)
+        elif ep_name in additional_providers:
+            logger.debug("Registering EP %s with default path", ep_name)
+            ort.register_execution_provider_library(
+                ep_name, f"onnxruntime_providers_{ep_name.replace('ExecutionProvider', '').lower()}.dll"
+            )
+        # TODO(anyone): support Windows ML through automatic download and discovery of the DLL
 
 
 def get_ort_hardware_device_type(device: Union["Device", str]):
-    if ort_supports_ep_devices():
-        from onnxruntime import OrtHardwareDeviceType
+    from onnxruntime import OrtHardwareDeviceType
 
-        mapping = {
-            "cpu": OrtHardwareDeviceType.CPU,
-            "gpu": OrtHardwareDeviceType.GPU,
-            "npu": OrtHardwareDeviceType.NPU,
-        }
-        return mapping.get(device.lower())
-    return None
+    mapping = {
+        "cpu": OrtHardwareDeviceType.CPU,
+        "gpu": OrtHardwareDeviceType.GPU,
+        "npu": OrtHardwareDeviceType.NPU,
+    }
+    return mapping.get(device.lower())
 
 
 def get_ort_execution_provider_device_policy(policy: str):
-    if ort_supports_ep_devices():
-        from onnxruntime import OrtExecutionProviderDevicePolicy
+    from onnxruntime import OrtExecutionProviderDevicePolicy
 
-        mapping = {
-            "default": OrtExecutionProviderDevicePolicy.DEFAULT,
-            "prefer_cpu": OrtExecutionProviderDevicePolicy.PREFER_CPU,
-            "prefer_npu": OrtExecutionProviderDevicePolicy.PREFER_NPU,
-            "prefer_gpu": OrtExecutionProviderDevicePolicy.PREFER_GPU,
-            "max_performance": OrtExecutionProviderDevicePolicy.MAX_PERFORMANCE,
-            "max_efficiency": OrtExecutionProviderDevicePolicy.MAX_EFFICIENCY,
-            "overall_power": OrtExecutionProviderDevicePolicy.MIN_OVERALL_POWER,
-        }
-        return mapping.get(policy.lower())
-    return None
+    mapping = {
+        "default": OrtExecutionProviderDevicePolicy.DEFAULT,
+        "prefer_cpu": OrtExecutionProviderDevicePolicy.PREFER_CPU,
+        "prefer_npu": OrtExecutionProviderDevicePolicy.PREFER_NPU,
+        "prefer_gpu": OrtExecutionProviderDevicePolicy.PREFER_GPU,
+        "max_performance": OrtExecutionProviderDevicePolicy.MAX_PERFORMANCE,
+        "max_efficiency": OrtExecutionProviderDevicePolicy.MAX_EFFICIENCY,
+        "overall_power": OrtExecutionProviderDevicePolicy.MIN_OVERALL_POWER,
+    }
+    return mapping.get(policy.lower())
 
 
 def initialize_inference_session_options(
     sess_options, device, providers, provider_options, provider_selection_policy=None
 ):
-    if not ort_supports_ep_devices():
-        return
-
     import onnxruntime as ort
 
     providers = providers or []
