@@ -62,8 +62,8 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
                 raise
 
 
-def get_ort_available_devices():
-    """Get the available devices for ONNXRuntime."""
+def get_ort_available_providers():
+    """Get the available providers for ONNXRuntime."""
     import onnxruntime as ort
 
     if not ort_supports_ep_devices():
@@ -211,7 +211,7 @@ def get_ort_inference_session(
     providers, provider_options = check_and_normalize_provider_args(
         inference_settings.get("execution_provider"),
         inference_settings.get("provider_options"),
-        get_ort_available_devices(),
+        get_ort_available_providers(),
     )
     for idx, provider in enumerate(providers):
         if provider in ["CUDAExecutionProvider", "DmlExecutionProvider"] and device_id is not None:
