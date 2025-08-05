@@ -46,15 +46,20 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
     # providers that ort was built with such as CUDA, QNN, VitisAI but need registration
     additional_providers = set(ort.get_available_providers()) - {"CPUExecutionProvider", "DmlExecutionProvider"}
     for ep_name, ep_path in ep_paths.items():
-        if ep_path is not None:
-            logger.debug("Registering EP %s with path %s", ep_name, ep_path)
-            ort.register_execution_provider_library(ep_name, ep_path)
-        elif ep_name in additional_providers:
-            logger.debug("Registering EP %s with default path", ep_name)
-            ort.register_execution_provider_library(
-                ep_name, f"onnxruntime_providers_{ep_name.replace('ExecutionProvider', '').lower()}.dll"
-            )
-        # TODO(anyone): support Windows ML through automatic download and discovery of the DLL
+        path_to_register = ep_path
+        if path_to_register is None and ep_name in additional_providers:
+            path_to_register = f"onnxruntime_providers_{ep_name.replace('ExecutionProvider', '').lower()}.dll"
+        elif path_to_register is None:
+            continue
+
+        try:
+            logger.debug("Registering EP %s with path %s", ep_name, path_to_register)
+            ort.register_execution_provider_library(ep_name, path_to_register)
+        except Exception as e:
+            if "already registered" in str(e):
+                logger.debug("Execution provider %s is already registered, skipping registration.", ep_name)
+            else:
+                raise
 
 
 def get_ort_available_devices():
