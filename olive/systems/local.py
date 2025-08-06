@@ -5,7 +5,7 @@
 from typing import TYPE_CHECKING, Any, Union
 
 from olive.common.config_utils import validate_config
-from olive.common.ort_inference import maybe_register_ep_libraries, get_ort_available_providers
+from olive.common.ort_inference import get_ort_available_providers, maybe_register_ep_libraries
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ModelConfig
 from olive.systems.common import AcceleratorConfig, SystemType

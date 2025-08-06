@@ -2,9 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive.common.ort_inference import maybe_register_ep_libraries, ort_supports_ep_devices
-import pytest
 from unittest.mock import patch
+
+import pytest
+
+from olive.common.ort_inference import maybe_register_ep_libraries, ort_supports_ep_devices
 
 
 @pytest.mark.skipif(not ort_supports_ep_devices(), reason="ORT does not support EP devices")
