@@ -71,11 +71,10 @@ def get_ort_available_providers():
         return ort.get_available_providers()
 
     # only return registered EPs since session with be created with SessionOptions.add_provider_for_devices()
-    providers = []
-    for ep_device in ort.get_ep_devices():
-        if ep_device.ep_name not in providers:
-            providers.append(ep_device.ep_name)
-    return providers
+    # this is ordered by priority
+    all_providers = ort.get_all_providers()
+    available_provider_set = {ep_device.ep_name for ep_device in ort.get_ep_devices()}
+    return [ep_name for ep_name in all_providers if ep_name in available_provider_set]
 
 
 def get_ort_hardware_device_type(device: Union["Device", str]):
