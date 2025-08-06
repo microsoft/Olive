@@ -7,6 +7,7 @@
 # Import in TYPE_CHECKING block for type hinting is fine.
 import collections
 import logging
+import platform
 import time
 from collections.abc import Sequence
 from pathlib import Path
@@ -31,48 +32,80 @@ class OrtSessionFallbackError(Exception):
 def ort_supports_ep_devices() -> bool:
     from onnxruntime import __version__ as OrtVersion
 
-    # NOTE: v1.22.0 native implementation has the necessary support for Auto-EP
-    # devices but the python bindings don't exist yet in the same version.
-    # using .release so the 1.23 nightlies are also included
-    return version.parse(OrtVersion).release >= version.parse("1.23.0").release
+    # ep registration and device discovery are not well defined on Linux
+    return platform.system() == "Windows" and version.parse(OrtVersion).release >= version.parse("1.23.0").release
+
+
+def maybe_register_ep_libraries(ep_paths: dict[str, str]):
+    """Register execution provider libraries if onnxruntime supports it."""
+    if not ort_supports_ep_devices():
+        return
+
+    import onnxruntime as ort
+
+    # providers that ort was built with such as CUDA, QNN, VitisAI but need registration
+    additional_providers = set(ort.get_available_providers()) - {"CPUExecutionProvider", "DmlExecutionProvider"}
+    for ep_name, ep_path in ep_paths.items():
+        path_to_register = ep_path
+        if path_to_register is None and ep_name in additional_providers:
+            path_to_register = f"onnxruntime_providers_{ep_name.replace('ExecutionProvider', '').lower()}.dll"
+        elif path_to_register is None:
+            continue
+
+        try:
+            logger.debug("Registering EP %s with path %s", ep_name, path_to_register)
+            ort.register_execution_provider_library(ep_name, path_to_register)
+        except Exception as e:
+            if "already registered" in str(e):
+                logger.debug("Execution provider %s is already registered, skipping registration.", ep_name)
+            else:
+                raise
+
+
+def get_ort_available_providers():
+    """Get the available providers for ONNXRuntime."""
+    import onnxruntime as ort
+
+    if not ort_supports_ep_devices():
+        # what ORT was built with. Session will be created directly with InferenceSession(model_path, providers=["ProviderName"])
+        return ort.get_available_providers()
+
+    # only return registered EPs since session with be created with SessionOptions.add_provider_for_devices()
+    # this is ordered by priority
+    all_providers = ort.get_all_providers()
+    available_provider_set = {ep_device.ep_name for ep_device in ort.get_ep_devices()}
+    return [ep_name for ep_name in all_providers if ep_name in available_provider_set]
 
 
 def get_ort_hardware_device_type(device: Union["Device", str]):
-    if ort_supports_ep_devices():
-        from onnxruntime import OrtHardwareDeviceType
+    from onnxruntime import OrtHardwareDeviceType
 
-        mapping = {
-            "cpu": OrtHardwareDeviceType.CPU,
-            "gpu": OrtHardwareDeviceType.GPU,
-            "npu": OrtHardwareDeviceType.NPU,
-        }
-        return mapping.get(device.lower())
-    return None
+    mapping = {
+        "cpu": OrtHardwareDeviceType.CPU,
+        "gpu": OrtHardwareDeviceType.GPU,
+        "npu": OrtHardwareDeviceType.NPU,
+    }
+    return mapping.get(device.lower())
 
 
 def get_ort_execution_provider_device_policy(policy: str):
-    if ort_supports_ep_devices():
-        from onnxruntime import OrtExecutionProviderDevicePolicy
+    from onnxruntime import OrtExecutionProviderDevicePolicy
 
-        mapping = {
-            "default": OrtExecutionProviderDevicePolicy.DEFAULT,
-            "prefer_cpu": OrtExecutionProviderDevicePolicy.PREFER_CPU,
-            "prefer_npu": OrtExecutionProviderDevicePolicy.PREFER_NPU,
-            "prefer_gpu": OrtExecutionProviderDevicePolicy.PREFER_GPU,
-            "max_performance": OrtExecutionProviderDevicePolicy.MAX_PERFORMANCE,
-            "max_efficiency": OrtExecutionProviderDevicePolicy.MAX_EFFICIENCY,
-            "overall_power": OrtExecutionProviderDevicePolicy.MIN_OVERALL_POWER,
-        }
-        return mapping.get(policy.lower())
-    return None
+    mapping = {
+        "default": OrtExecutionProviderDevicePolicy.DEFAULT,
+        "prefer_cpu": OrtExecutionProviderDevicePolicy.PREFER_CPU,
+        "prefer_npu": OrtExecutionProviderDevicePolicy.PREFER_NPU,
+        "prefer_gpu": OrtExecutionProviderDevicePolicy.PREFER_GPU,
+        "max_performance": OrtExecutionProviderDevicePolicy.MAX_PERFORMANCE,
+        "max_efficiency": OrtExecutionProviderDevicePolicy.MAX_EFFICIENCY,
+        "overall_power": OrtExecutionProviderDevicePolicy.MIN_OVERALL_POWER,
+    }
+    return mapping.get(policy.lower())
 
 
 def initialize_inference_session_options(
     sess_options, device, providers, provider_options, provider_selection_policy=None
 ):
-    if not ort_supports_ep_devices():
-        return
-
     import onnxruntime as ort
 
     providers = providers or []
@@ -177,7 +210,7 @@ def get_ort_inference_session(
     providers, provider_options = check_and_normalize_provider_args(
         inference_settings.get("execution_provider"),
         inference_settings.get("provider_options"),
-        ort.get_available_providers(),
+        get_ort_available_providers(),
     )
     for idx, provider in enumerate(providers):
         if provider in ["CUDAExecutionProvider", "DmlExecutionProvider"] and device_id is not None:

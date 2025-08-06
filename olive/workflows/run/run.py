@@ -85,8 +85,8 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
         if run_config.engine.host.config.accelerators:
             for acc in run_config.engine.host.config.accelerators:
                 accelerators.append(acc.device)
-                if acc.execution_providers:
-                    execution_providers.extend(acc.execution_providers)
+                if acc.get_ep_strs():
+                    execution_providers.extend(acc.get_ep_strs())
 
     system_extra_name = get_system_extras(host_type, accelerators, execution_providers)
     if system_extra_name:

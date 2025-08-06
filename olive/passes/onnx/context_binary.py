@@ -71,6 +71,9 @@ class EPContextBinaryGenerator(Pass):
         output_model_path: str,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         from onnxruntime import __version__ as OrtVersion
+
+        # session created using providers argument so will use the ort.get_available_providers()
+        # TODO(jambayk): consider switching to the new EP API for Windows
         from onnxruntime import get_available_providers
 
         # TODO(jambayk): validate and support other NPU EPs
