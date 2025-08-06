@@ -185,6 +185,8 @@ class QuantLinearTorchFunction(torch.autograd.Function):
                     shape=[*x.shape[:-1], out_features],
                     version=1,
                 )
+            elif dynamo:
+                raise NotImplementedError("torch dynamo export for quantized linear requires torch 2.8 or higher.")
             else:
                 return torch.zeros(x.shape[:-1] + (out_features,), dtype=x.dtype, device=x.device)
 
