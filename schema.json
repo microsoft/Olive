@@ -209,10 +209,27 @@
         },
         "execution_providers": {
           "title": "Execution Providers",
-          "description": "Execution providers for the accelerator. Each must end with ExecutionProvider",
+          "description": "Execution providers for the accelerator. Each must end with ExecutionProvider. If a tuple, the second element is the path to the EP library. Tuple is only supported for Local System.",
           "type": "array",
           "items": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            ]
           }
         },
         "memory": {
