@@ -1,2 +1,2 @@
 optimum-intel==1.22.0
-transformers==4.48.3
+transformers==4.53.0
