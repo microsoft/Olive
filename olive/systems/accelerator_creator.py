@@ -161,9 +161,10 @@ class AcceleratorNormalizer:
             logger.debug("Supported execution providers for device %s: %s", device, supported_eps)
 
             eps = []
-            for ep in accelerator.get_ep_strs():
-                if ep not in supported_eps:
-                    ep_not_supported.append(ep)
+            for ep in accelerator.execution_providers:
+                ep_name = ep[0] if isinstance(ep, (tuple, list)) else ep
+                if ep_name not in supported_eps:
+                    ep_not_supported.append(ep_name)
                 else:
                     eps.append(ep)
 
