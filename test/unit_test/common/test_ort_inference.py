@@ -13,12 +13,21 @@ from olive.common.ort_inference import maybe_register_ep_libraries, ort_supports
 @pytest.mark.parametrize(
     ("ep_path_map", "expected_call_list"),
     [
-        ({"CPUExecutionProvider": None}, []),
-        ({"CUDAExecutionProvider": None}, []),
-        ({"CUDAExecutionProvider": "path/to/cuda/lib.dll"}, [("CUDAExecutionProvider", "path/to/cuda/lib.dll")]),
+        ({"CPUExecutionProvider": None}, [("QNNExecutionProvider", "onnxruntime_providers_qnn.dll")]),
+        ({"CUDAExecutionProvider": None}, [("QNNExecutionProvider", "onnxruntime_providers_qnn.dll")]),
+        (
+            {"CUDAExecutionProvider": "path/to/cuda/lib.dll"},
+            [
+                ("CUDAExecutionProvider", "path/to/cuda/lib.dll"),
+                ("QNNExecutionProvider", "onnxruntime_providers_qnn.dll"),
+            ],
+        ),
         (
             {"CPUExecutionProvider": None, "CUDAExecutionProvider": "path/to/cuda/lib.dll"},
-            [("CUDAExecutionProvider", "path/to/cuda/lib.dll")],
+            [
+                ("CUDAExecutionProvider", "path/to/cuda/lib.dll"),
+                ("QNNExecutionProvider", "onnxruntime_providers_qnn.dll"),
+            ],
         ),
         ({"QNNExecutionProvider": None}, [("QNNExecutionProvider", "onnxruntime_providers_qnn.dll")]),
         ({"QNNExecutionProvider": "path/to/qnn/lib.dll"}, [("QNNExecutionProvider", "path/to/qnn/lib.dll")]),
@@ -36,6 +45,7 @@ from olive.common.ort_inference import maybe_register_ep_libraries, ort_supports
     ],
 )
 @patch("onnxruntime.get_available_providers")
+@patch("pathlib.Path.exists", new=lambda value: str(value).endswith("onnxruntime_providers_qnn.dll"))
 def test_maybe_register_ep_libraries(get_available_providers_mock, ep_path_map, expected_call_list):
     get_available_providers_mock.return_value = ["CPUExecutionProvider", "QNNExecutionProvider"]
     with patch("onnxruntime.register_execution_provider_library") as mock_register:

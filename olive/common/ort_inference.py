@@ -44,17 +44,19 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
     import onnxruntime as ort
 
     # providers that ort was built with such as CUDA, QNN, VitisAI but need registration
-    additional_providers = set(ort.get_available_providers()) - {"CPUExecutionProvider", "DmlExecutionProvider"}
+    for provider in set(ort.get_available_providers()):
+        if ep_paths.get(provider) is None:
+            builtin_library_name = f"onnxruntime_providers_{provider.replace('ExecutionProvider', '').lower()}.dll"
+            if (Path(ort.__file__).parent / "capi" / builtin_library_name).exists():
+                ep_paths[provider] = builtin_library_name
+
     for ep_name, ep_path in ep_paths.items():
-        path_to_register = ep_path
-        if path_to_register is None and ep_name in additional_providers:
-            path_to_register = f"onnxruntime_providers_{ep_name.replace('ExecutionProvider', '').lower()}.dll"
-        elif path_to_register is None:
+        if ep_path is None:
             continue
 
         try:
-            logger.debug("Registering EP %s with path %s", ep_name, path_to_register)
-            ort.register_execution_provider_library(ep_name, path_to_register)
+            logger.debug("Registering EP %s with path %s", ep_name, ep_path)
+            ort.register_execution_provider_library(ep_name, ep_path)
         except Exception as e:
             if "already registered" in str(e):
                 logger.debug("Execution provider %s is already registered, skipping registration.", ep_name)
