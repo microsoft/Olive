@@ -42,15 +42,6 @@ class TestRunConfig:
         with open(self.user_script_config_file, "w") as f:
             f.write(user_script_json)
 
-    def test_config_without_azureml_config(self):
-        with self.user_script_config_file.open() as f:
-            user_script_config = json.load(f)
-
-        user_script_config.pop("azureml_client")
-        with pytest.raises(ValueError) as e:  # noqa: PT011
-            RunConfig.parse_obj(user_script_config)
-        assert "azureml_client is required for AzureML System but not provided." in str(e.value)
-
     @pytest.fixture
     def mock_aml_credentials(self):
         # we need to mock all the credentials because the default credential will get tokens from all of them
@@ -80,15 +71,6 @@ class TestRunConfig:
         config = RunConfig.parse_obj(user_script_config)
         config.azureml_client.create_client()
         assert mocked_interactive_login.call_count == 1
-
-    def test_readymade_system(self):
-        readymade_config_file = Path(__file__).parent / "mock_data" / "readymade_system.json"
-        with readymade_config_file.open() as f:
-            user_script_config = json.load(f)
-
-        cfg = RunConfig.parse_obj(user_script_config)
-        assert cfg.engine.target.config.accelerators[0].device.lower() == "gpu"
-        assert cfg.engine.target.config.accelerators[0].execution_providers == ["CUDAExecutionProvider"]
 
     def test_default_engine(self):
         default_engine_config_file = Path(__file__).parent / "mock_data" / "default_engine.json"

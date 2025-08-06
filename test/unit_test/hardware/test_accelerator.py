@@ -22,7 +22,6 @@ from olive.systems.system_config import SystemConfig
     "execution_providers_test",
     [
         ([ExecutionProvider.CPUExecutionProvider], None),
-        (["AzureMLExecutionProvider"], None),
         ([ExecutionProvider.OpenVINOExecutionProvider], None),
         ([ExecutionProvider.CUDAExecutionProvider], ["gpu"]),
         ([ExecutionProvider.CPUExecutionProvider, ExecutionProvider.CUDAExecutionProvider], ["gpu"]),
@@ -112,43 +111,6 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
                 ExecutionProvider.CUDAExecutionProvider,
                 ExecutionProvider.CPUExecutionProvider,
             ],
-        ),
-        # AzureML system
-        (
-            {
-                "type": "AzureML",
-                "config": {
-                    "aml_compute": "aml_compute",
-                    "olive_managed_env": True,
-                    "accelerators": [
-                        {"device": "gpu", "execution_providers": [ExecutionProvider.CUDAExecutionProvider]}
-                    ],
-                },
-            },
-            [("gpu", ExecutionProvider.CUDAExecutionProvider)],
-            None,
-        ),
-        (
-            {
-                "type": "AzureML",
-                "config": {
-                    "aml_compute": "aml_compute",
-                    "olive_managed_env": False,
-                    "accelerators": [
-                        {"device": "cpu", "execution_providers": [ExecutionProvider.CPUExecutionProvider]}
-                    ],
-                },
-            },
-            [("cpu", ExecutionProvider.CPUExecutionProvider)],
-            None,
-        ),
-        (
-            {
-                "type": "AzureML",
-                "config": {"aml_compute": "aml_compute", "olive_managed_env": False},
-            },
-            [("cpu", ExecutionProvider.CPUExecutionProvider)],
-            None,
         ),
         # LocalSystem with memory
         (
@@ -471,19 +433,6 @@ def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
         ),
         (
             {
-                "type": "AzureML",
-                "config": {
-                    "aml_compute": "aml_compute",
-                    "olive_managed_env": True,
-                    "accelerators": [{"device": "cpu"}],
-                },
-            },
-            None,
-            ValueError,
-            "Managed environment requires execution providers to be specified for cpu",
-        ),
-        (
-            {
                 "type": "LocalSystem",
                 "config": {
                     "accelerators": [
@@ -574,17 +523,6 @@ def test_create_accelerator_with_error(
                 "config": {"accelerators": [{"execution_providers": [ExecutionProvider.CPUExecutionProvider]}]},
             },
             [("cpu", None)],
-        ),
-        (
-            {
-                "type": "AzureML",
-                "config": {
-                    "aml_compute": "aml_compute",
-                    "olive_managed_env": False,
-                    "accelerators": [{"device": "gpu"}],
-                },
-            },
-            [("gpu", None)],
         ),
         # LocalSystem with memory
         (

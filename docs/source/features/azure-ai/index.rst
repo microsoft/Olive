@@ -20,11 +20,6 @@ Azure AI
       :octicon:`arrow-right;1em;sd-text-info` `Azure scripts <azure-script.html>`_
 
    .. grid-item-card::
-      **Run Olive workflow on Azure**
-
-      :octicon:`arrow-right;1em;sd-text-info` `Remote workflow <remote-workflow.html>`_
-
-   .. grid-item-card::
       **Share models cache on Azure**
 
       :octicon:`arrow-right;1em;sd-text-info` `Shared cache <shared-model-cache.html>`_
@@ -37,5 +32,4 @@ Azure AI
    azure-ai
    azure-arc
    azure-script
-   remote-workflow
    shared-model-cache

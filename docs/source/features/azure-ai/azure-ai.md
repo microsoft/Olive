@@ -5,7 +5,6 @@ This documents outlines the integrations between Olive and Azure Machine Learnin
 ## Azure Machine Learning client
 If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:
 
-* You have AzureML system for targets or hosts.
 * You have Azure ML model as input model.
 
 You can set your client in your Olive configuration using:
@@ -85,34 +84,5 @@ You can use data files or folders that are stored in your Azure ML datastore as:
     },
     "datastore_name": "my_datastore",
     "relative_path": "data_dir" // Relative path to the resource from the datastore root
-}
-```
-
-### Using Azure ML compute as host or target
-
-> ⚠️ **DEPRECATION WARNING**: This feature will be deprecated in the next release.
-
-You can specify your Azure ML Compute as an Olive System and use it as a host to run Pass, or a target to evaluate the model.
-
-```json
-"systems": {
-    "aml_system": {
-        "type": "AzureML",
-        "aml_compute": "cpu-cluster",
-        "aml_docker_config": {
-            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04",
-            "conda_file_path": "conda.yaml"
-        }
-    }
-}
-```
-
-Olive supports all the compute types of Azure ML, including compute via Azure Arc.
-
-Then you can specify where to use it in the Engine config:
-```json
-{
-    "host": "aml_system",
-    "target": "aml_system",
 }
 ```

@@ -66,12 +66,6 @@ def get_args(raw_args):
         help="Whether to only dump the config file without running the optimization.",
     )
     parser.add_argument(
-        "--remote_config",
-        type=str,
-        required=False,
-        help="Path to the azureml config file. If provided, the config file will be used to create the client.",
-    )
-    parser.add_argument(
         "--qlora",
         action="store_true",
         required=False,
@@ -119,27 +113,6 @@ def main(raw_args=None):
         template_json, config_name = get_qlora_config()
     else:
         template_json, config_name = get_general_config(args)
-
-    if args.remote_config:
-        with open(args.remote_config) as f:
-            remote_config = json.load(f)
-        template_json["azureml_client"] = {
-            "subscription_id": get_valid_config(remote_config, "subscription_id"),
-            "resource_group": get_valid_config(remote_config, "resource_group"),
-            "workspace_name": get_valid_config(remote_config, "workspace_name"),
-            "keyvault_name": get_valid_config(remote_config, "keyvault_name"),
-        }
-        template_json["systems"]["aml_system"] = {
-            "type": "AzureML",
-            "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
-            "aml_compute": get_valid_config(remote_config, "compute"),
-            "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
-                "conda_file_path": "conda_gpu.yaml",
-            },
-            "hf_token": True,
-        }
-        template_json["workflow_host"] = "aml_system"
 
     if args.account_name and args.container_name:
         template_json["cache_config"] = {
