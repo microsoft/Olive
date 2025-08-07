@@ -211,7 +211,7 @@ def run(
         local_packages, ort_packages = get_required_packages(package_config, run_config)
 
         if packages:
-            generate_files_from_packages(local_packages, "requirements.txt")
+            generate_files_from_packages(local_packages, "olive_requirements.txt")
         if setup:
             install_packages(local_packages, ort_packages)
         return None
