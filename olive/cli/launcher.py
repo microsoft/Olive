@@ -14,7 +14,6 @@ from olive.cli.extract_adapters import ExtractAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
-from olive.cli.manage_aml_compute import ManageAMLComputeCommand
 from olive.cli.optimize import OptimizeCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand
@@ -47,7 +46,6 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     SessionParamsTuningCommand.register_subcommand(commands_parser)
     GenerateCostModelCommand.register_subcommand(commands_parser)
     ConfigureQualcommSDKCommand.register_subcommand(commands_parser)
-    ManageAMLComputeCommand.register_subcommand(commands_parser)
     SharedCacheCommand.register_subcommand(commands_parser)
     ExtractAdaptersCommand.register_subcommand(commands_parser)
 
