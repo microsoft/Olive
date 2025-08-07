@@ -73,6 +73,7 @@ def test_onnx_conversion_pass_quant_model(quantizer_pass, tmp_path):
 
 
 @pytest.mark.skipif(not hasattr(torch.onnx, "ops"), reason="requires torch>=2.8")
+@pytest.mark.skipif(platform.system() == "Windows", reason="torch ops fails on Windows")
 @pytest.mark.parametrize("quantizer_pass", [Gptq, GptqQuantizer])
 def test_onnx_conversion_pass_quant_model_with_torch_ops(quantizer_pass, tmp_path):
     if quantizer_pass == GptqQuantizer and not torch.cuda.is_available():
