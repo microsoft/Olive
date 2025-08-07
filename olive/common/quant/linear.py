@@ -150,9 +150,9 @@ class QuantLinear(nn.Module):
         """Create a QuantLinear layer from quantized tensors.
 
         Args:
-            qweight: Quantized weights packed as int32 (unsigned, in range [0, 2^bits - 1]). Shape should be (out_features, in_features).
+            qweight: Unpacked quantized weight tensor (unsigned, in range [0, 2^bits - 1]). Shape should be (out_features, in_features).
             scales: Scales tensor
-            zero_points: Zero points tensor (unsigned, in range [0, 2^bits - 1]).
+            zero_points: Unpacked zero points tensor (unsigned, in range [0, 2^bits - 1]).
             bits: Number of bits for quantization (4 or 8)
             symmetric: Whether to use symmetric quantization
             group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
@@ -173,9 +173,9 @@ class QuantLinear(nn.Module):
             device=qweight.device,
             dtype=scales.dtype,
         )
-        qlinear.qweight = qlinear._pack_to_int32(qweight.t(), axis=0).contiguous()
+        qlinear.qweight = qlinear._pack_to_int32(qweight.to(torch.int32).t(), axis=0).contiguous()
         qlinear.scales = scales.t().contiguous()
-        qlinear.qzeros = qlinear._pack_to_int32(zero_points.t() - 1, axis=1).contiguous()
+        qlinear.qzeros = qlinear._pack_to_int32(zero_points.to(torch.int32).t() - 1, axis=1).contiguous()
         if bias is not None:
             qlinear.bias = bias.contiguous()
         return qlinear
