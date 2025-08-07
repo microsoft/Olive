@@ -78,11 +78,12 @@ def get_olive_qlinear_cls(quantization_config):
 
 @torch.no_grad()
 def _replace_qlinear_modules(
-    model: torch.nn.Module, mapping: dict[str, tuple[Callable, Callable]], desc: str
+    model: torch.nn.Module, dynamo: bool, mapping: dict[str, tuple[Callable, Callable]], desc: str
 ) -> tuple[torch.nn.Module, bool]:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions.
 
     :param model: the model to make export compatible. Only modified if model is quantized using a supported method.
+    :param dynamo: whether it is being exported with torch dynamo
     :param mapping: the mapping from quantization method to
         - function to get qlinear class from quantization config
         - function to get new class to replace qlinear modules with
@@ -106,7 +107,7 @@ def _replace_qlinear_modules(
     num_modified = 0
     for name, module in model.named_modules():
         if isinstance(module, qlinear_class):
-            new_module = mapping[quantization_method][1](module)
+            new_module = mapping[quantization_method][1](module, dynamo)
             set_attr(model, name, new_module)
             # quantized lora layers have another reference to the qlinear module
             parent = get_attr(model, ".".join(name.split(".")[:-1]))
@@ -123,7 +124,7 @@ class QuantLinearTorchFunction(torch.autograd.Function):
 
     # pylint: disable=W0223,W0221
     @staticmethod
-    def symbolic(g, x, qweight, scales, qzeros, g_idx, bits, group_size, in_features, out_features):
+    def symbolic(g, x, qweight, scales, qzeros, g_idx, bits, group_size, in_features, out_features, dynamo):
         tensor_args = [x, qweight, scales, qzeros]
         if g_idx is not None:
             tensor_args.append(g_idx)
@@ -161,9 +162,10 @@ class QuantLinearTorchFunction(torch.autograd.Function):
         group_size: int,
         in_features: int,
         out_features: int,
+        dynamo: bool = False,
     ):
         if torch.onnx.is_in_onnx_export():
-            if hasattr(torch.onnx, "ops"):
+            if dynamo and hasattr(torch.onnx, "ops"):
                 # torch.onnx.ops was introduced in 2.8
                 tensor_args = [x, qweight, scales, qzeros]
                 if g_idx is not None:
@@ -183,6 +185,8 @@ class QuantLinearTorchFunction(torch.autograd.Function):
                     shape=[*x.shape[:-1], out_features],
                     version=1,
                 )
+            elif dynamo:
+                raise NotImplementedError("torch dynamo export for quantized linear requires torch 2.8 or higher.")
             else:
                 return torch.zeros(x.shape[:-1] + (out_features,), dtype=x.dtype, device=x.device)
 
@@ -204,6 +208,7 @@ class QuantLinearNbit(torch.nn.Module):
         bias: bool = False,
         bits: int = 4,
         dtype: torch.dtype = torch.float32,
+        dynamo: bool = False,
     ):
         super().__init__()
         self.in_features = in_features
@@ -237,6 +242,7 @@ class QuantLinearNbit(torch.nn.Module):
             self.register_buffer("bias", torch.zeros((out_features), dtype=dtype))
         else:
             self.bias = None
+        self.dynamo = dynamo
 
     def forward(self, x):
         out = QuantLinearTorchFunction.apply(
@@ -249,6 +255,7 @@ class QuantLinearNbit(torch.nn.Module):
             self.group_size,
             self.in_features,
             self.out_features,
+            self.dynamo,
         )
         return out + self.bias if self.bias is not None else out
 
@@ -298,6 +305,7 @@ class QuantLinearNbit(torch.nn.Module):
         bits: int = 4,
         g_idx: torch.Tensor | None = None,
         bias: torch.Tensor | None = None,
+        dynamo: bool = False,
     ) -> QuantLinearNbit:
         """Create a QuantLinearNbit instance from the given tensors.
 
@@ -311,6 +319,7 @@ class QuantLinearNbit(torch.nn.Module):
             bias=bias is not None,
             bits=bits,
             dtype=scales.dtype,
+            dynamo=dynamo,
         )
         new_qlinear.pack(iweight.to(torch.uint8).t(), izeros.to(torch.uint8).t(), scales.t(), g_idx)
         if bias is not None:
@@ -318,7 +327,7 @@ class QuantLinearNbit(torch.nn.Module):
         return new_qlinear
 
 
-def make_auto_awq_qlinearnbit(qlinear):
+def make_auto_awq_qlinearnbit(qlinear, dynamo):
     if qlinear.w_bit not in [4, 8]:
         return qlinear
 
@@ -329,11 +338,17 @@ def make_auto_awq_qlinearnbit(qlinear):
     iweight, izeros = reverse_awq_order(iweight, izeros, qlinear.w_bit)
 
     return QuantLinearNbit.from_tensors(
-        iweight, qlinear.scales, izeros, group_size=qlinear.group_size, bits=qlinear.w_bit, bias=qlinear.bias
+        iweight,
+        qlinear.scales,
+        izeros,
+        group_size=qlinear.group_size,
+        bits=qlinear.w_bit,
+        bias=qlinear.bias,
+        dynamo=dynamo,
     )
 
 
-def make_auto_gptq_qlinearnbit(qlinear):
+def make_auto_gptq_qlinearnbit(qlinear, dynamo):
     if qlinear.bits != 4:
         return qlinear
 
@@ -353,15 +368,17 @@ def make_auto_gptq_qlinearnbit(qlinear):
         bits=qlinear.bits,
         g_idx=g_idx,
         bias=qlinear.bias,
+        dynamo=dynamo,
     )
 
 
-def make_olive_qlinearnbit(qlinear):
+def make_olive_qlinearnbit(qlinear, dynamo):
     return QuantLinearNbit.from_tensors(
         *qlinear.get_unpacked_params(),
         group_size=qlinear.quantizer.group_size,
         bits=qlinear.quantizer.bits,
         bias=qlinear.bias,
+        dynamo=dynamo,
     )
 
 
@@ -373,10 +390,10 @@ EXPORT_QLINEAR_MAPPING = {
 }
 
 
-def make_export_compatible_quant(model: torch.nn.Module) -> torch.nn.Module:
+def make_export_compatible_quant(model: torch.nn.Module, dynamo: bool) -> torch.nn.Module:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions."""
     model, modified = _replace_qlinear_modules(
-        model, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model"
+        model, dynamo, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model"
     )
     if modified:
         # set quantization method to None, gptq doesn't allow dtype casting

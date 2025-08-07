@@ -128,6 +128,7 @@ def test_openvino_optimum_conversion_pass_convert_multiple_components_without_ma
             "ratio": 1.0,
             "awq": True,
             "scale_estimation": True,
+            "num_samples": 1,
         },
         "extra_args": {"task": "image-text-to-text"},
     }
