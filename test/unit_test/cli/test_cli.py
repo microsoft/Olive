@@ -20,7 +20,6 @@ from olive.cli.launcher import main as cli_main
         "run",
         "run-pass",
         "configure-qualcomm-sdk",
-        "manage-aml-compute",
         "convert-adapters",
         "tune-session-params",
         "auto-opt",
