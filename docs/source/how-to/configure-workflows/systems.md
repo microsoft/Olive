@@ -124,7 +124,7 @@ For managed python environment system, Olive can only infer the onnxruntime from
 ```
 
 ```{Note}
-Please refer to [this example](https://github.com/microsoft/Olive/blob/main/examples/resnet/resnet_multiple_ep.json)
+Please refer to [this example](https://github.com/microsoft/Olive/blob/rel-0.9.1/examples/resnet/resnet_multiple_ep.json)
 for how to use managed python environment system to optimize the model against different execution providers.
 ```
 
