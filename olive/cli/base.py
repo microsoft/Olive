@@ -172,12 +172,11 @@ def get_input_model_config(args: Namespace, required: bool = True) -> Optional[d
     Check model_name_or_path formats in order:
     1. Local PyTorch model with model loader but no model path
     2. Output of a previous command
-    3. azureml:<model_name>:<version> (only for PyTorch model)
-    4. Load PyTorch model with model_script
-    5. azureml://registries/<registry_name>/models/<model_name>/versions/<version> (only for HF model)
-    6. https://huggingface.co/<model_name> (only for HF model)
-    7. HF model name string
-    8. local file path
+    3. Load PyTorch model with model_script
+    4. azureml://registries/<registry_name>/models/<model_name>/versions/<version> (only for HF model)
+    5. https://huggingface.co/<model_name> (only for HF model)
+    6. HF model name string
+    7. local file path
       a. local onnx model file path (either a user-provided model or a model produced by the Olive CLI)
       b. local HF model file path (either a user-provided model or a model produced by the Olive CLI)
     """
@@ -210,19 +209,6 @@ def get_input_model_config(args: Namespace, required: bool = True) -> Optional[d
 
         print(f"Loaded previous command output of type {model_config['type']} from {model_name_or_path}")
         return model_config
-
-    # Check AzureML model
-    pattern = r"^azureml:(?P<model_name>[^:]+):(?P<version>[^:]+)$"
-    match = re.match(pattern, model_name_or_path)
-    if match:
-        return _get_pt_input_model(
-            args,
-            {
-                "type": "azureml_model",
-                "name": match.group("model_name"),
-                "version": match.group("version"),
-            },
-        )
 
     if getattr(args, "model_script", None):
         return _get_pt_input_model(args, model_name_or_path)

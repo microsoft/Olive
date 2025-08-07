@@ -200,25 +200,7 @@ You can also specify the resource type explicitly.
 ```
 
 ### Remote Model Path
-Olive supports remote model resources. Currently, it supports AzureML model, AzureML registry model and AzureML datastore.
-
-#### AzureML Model
-Models registered in an Azure Machine Learning workspace.
-
-```json
-{
-    "model_path": {
-        "type": "azureml_model",
-        "azureml_client": {
-            "subscription_id": "my_subscription_id",
-            "resource_group": "my_resource_group",
-            "workspace_name": "my_workspace"
-        },
-        "name": "my_model",
-        "version": 1
-    }
-}
-```
+Olive supports AzureML registry model.
 
 #### AzureML Registry Model
 Models curated in an Azure Machine Learning or models in your own registry. Azure ML curated model doesn't require an ``azureml_client`` config section, but you can still add this section for additional ``mlclient`` configuration.
@@ -230,45 +212,6 @@ Models curated in an Azure Machine Learning or models in your own registry. Azur
         "name": "model_name",
         "registry_name": "registry_name",
         "version": 1
-    }
-}
-```
-
-#### AzureML Datastore
-Model files or folders stored in an Azure Machine Learning datastore.
-
-```json
-{
-    "model_path": {
-        "type": "azureml_datastore",
-        "azureml_client": {
-            "subscription_id": "my_subscription_id",
-            "resource_group": "my_resource_group",
-            "workspace_name": "my_workspace"
-        },
-        "datastore_name": "my_datastore",
-        "relative_path": "model_dir/my_model.pt" // Relative path to the resource from the datastore root
-    }
-}
-```
-
-**Note**: If the workflow config file has ``azureml_client`` at the top level, ``azureml_client`` in the model path config can be omitted. The
-workflow will automatically use the top level ``azureml_client`` if it is not specified in the model path config.
-
-```json
-{
-    "azureml_client": {
-        "subscription_id": "my_subscription_id",
-        "resource_group": "my_resource_group",
-        "workspace_name": "my_workspace"
-    },
-    "input_model": {
-        "type": "PytorchModel",
-        "model_path": {
-            "type": "azureml_model",
-            "name": "my_model",
-            "version": 1
-        }
     }
 }
 ```
