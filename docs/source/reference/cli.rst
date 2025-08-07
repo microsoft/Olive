@@ -126,17 +126,6 @@ Configure Qualcomm SDK.
     :prog: olive
     :path: configure-qualcomm-sdk
 
-AzureML
-=======
-
-Manage the AzureML Compute resources.
-
-.. argparse::
-    :module: olive.cli.launcher
-    :func: get_cli_parser
-    :prog: olive
-    :path: manage-aml-compute
-
 Shared Cache
 =============
 
