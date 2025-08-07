@@ -2,8 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 import math
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -30,7 +31,7 @@ class QuantLinear(nn.Module):
         symmetric: bool = True,
         group_size: int = -1,
         bias: bool = True,
-        device: Optional[torch.device] = None,
+        device: torch.device | None = None,
         dtype: torch.dtype = torch.float32,
     ):
         """Initialize QuantLinear layer.
@@ -96,9 +97,9 @@ class QuantLinear(nn.Module):
         bits: int = 4,
         symmetric: bool = True,
         group_size: int = -1,
-        scales: Optional[torch.Tensor] = None,
-        zero_points: Optional[torch.Tensor] = None,
-    ) -> "QuantLinear":
+        scales: torch.device | None = None,
+        zero_points: torch.device | None = None,
+    ) -> QuantLinear:
         """Create a QuantLinear layer from an existing nn.Linear layer.
 
         Args:
@@ -107,42 +108,76 @@ class QuantLinear(nn.Module):
             symmetric: Whether to use symmetric quantization
             group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
             scales: Optional precomputed scales for quantization
-            zero_points: Optional precomputed zero points for quantization. Must be unsigned and in the range [1, 2^bits - 1].
+            zero_points: Optional precomputed zero points for quantization (unsigned, in range [0, 2^bits - 1]).
 
         Returns:
             A QuantLinear instance with quantized weights and scales
 
         """
-        # pylint: disable=W0201
-        qlinear = cls(
-            in_features=linear.in_features,
-            out_features=linear.out_features,
-            bits=bits,
-            symmetric=symmetric,
-            group_size=group_size,
-            bias=linear.bias is not None,
-            device=linear.weight.device,
-            dtype=linear.weight.dtype,
-        )
+        quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
 
         # compute quantization parameters if not provided
         if scales is None:
-            scales, zero_points = qlinear.quantizer.find_qparams(linear.weight)
+            scales, zero_points = quantizer.find_qparams(linear.weight)
         else:
-            scales = scales.to(qlinear.device).to(linear.weight.dtype)
-            zero_points = zero_points.to(qlinear.device).to(torch.int32)
+            scales = scales.to(linear.weight.device).to(linear.weight.dtype)
+            zero_points = zero_points.to(linear.weight.device).to(torch.int32)
 
         # quantize weights
-        qweight = qlinear.quantizer.quantize(linear.weight, scales, zero_points)
+        qweight = quantizer.quantize(linear.weight, scales, zero_points)
 
-        # pack and assign parameters
+        return cls.from_tensors(
+            qweight,
+            scales,
+            zero_points,
+            bits=bits,
+            symmetric=symmetric,
+            group_size=group_size,
+            bias=linear.bias.clone() if linear.bias is not None else None,
+        )
+
+    @classmethod
+    def from_tensors(
+        cls,
+        qweight: torch.Tensor,
+        scales: torch.Tensor,
+        zero_points: torch.Tensor,
+        bits: int = 4,
+        symmetric: bool = True,
+        group_size: int = -1,
+        bias: torch.device | None = None,
+    ):
+        """Create a QuantLinear layer from quantized tensors.
+
+        Args:
+            qweight: Quantized weights packed as int32 (unsigned, in range [0, 2^bits - 1]). Shape should be (out_features, in_features).
+            scales: Scales tensor
+            zero_points: Zero points tensor (unsigned, in range [0, 2^bits - 1]).
+            bits: Number of bits for quantization (4 or 8)
+            symmetric: Whether to use symmetric quantization
+            group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
+            bias: Optional bias tensor
+
+        Returns:
+            A QuantLinear instance with the provided parameters
+
+        """
+        # pylint: disable=W0201
+        qlinear = cls(
+            in_features=qweight.shape[1],
+            out_features=qweight.shape[0],
+            bits=bits,
+            symmetric=symmetric,
+            group_size=group_size,
+            bias=bias is not None,
+            device=qweight.device,
+            dtype=scales.dtype,
+        )
         qlinear.qweight = qlinear._pack_to_int32(qweight.t(), axis=0).contiguous()
-        qlinear.scales = scales.clone().t().contiguous()
-        zero_points -= 1
-        qlinear.qzeros = qlinear._pack_to_int32(zero_points.t(), axis=1).contiguous()
-        if linear.bias is not None:
-            qlinear.bias = linear.bias.clone()
-
+        qlinear.scales = scales.t().contiguous()
+        qlinear.qzeros = qlinear._pack_to_int32(zero_points.t() - 1, axis=1).contiguous()
+        if bias is not None:
+            qlinear.bias = bias.contiguous()
         return qlinear
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
