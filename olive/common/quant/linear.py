@@ -163,9 +163,10 @@ class QuantLinear(nn.Module):
 
         """
         # pylint: disable=W0201
+        out_features, in_features = qweight.shape
         qlinear = cls(
-            in_features=qweight.shape[1],
-            out_features=qweight.shape[0],
+            in_features=in_features,
+            out_features=out_features,
             bits=bits,
             symmetric=symmetric,
             group_size=group_size,
@@ -174,8 +175,11 @@ class QuantLinear(nn.Module):
             dtype=scales.dtype,
         )
         qlinear.qweight = qlinear._pack_to_int32(qweight.to(torch.int32).t(), axis=0).contiguous()
-        qlinear.scales = scales.t().contiguous()
-        qlinear.qzeros = qlinear._pack_to_int32(zero_points.to(torch.int32).t() - 1, axis=1).contiguous()
+        scale_shape = qlinear.quantizer.get_qparam_shape((out_features, in_features))
+        qlinear.scales = scales.reshape(scale_shape).t().contiguous()
+        qlinear.qzeros = qlinear._pack_to_int32(
+            zero_points.to(torch.int32).reshape(scale_shape).t() - 1, axis=1
+        ).contiguous()
         if bias is not None:
             qlinear.bias = bias.contiguous()
         return qlinear
