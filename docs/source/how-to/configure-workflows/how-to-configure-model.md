@@ -200,10 +200,10 @@ You can also specify the resource type explicitly.
 ```
 
 ### Remote Model Path
-Olive supports AzureML registry model.
+Olive supports AzureML curated model.
 
-#### AzureML Registry Model
-Models curated in an Azure Machine Learning or models in your own registry. Azure ML curated model doesn't require an ``azureml_client`` config section, but you can still add this section for additional ``mlclient`` configuration.
+#### AzureML Curated Model
+You can specify `registry_name`, `model_name`, and `version` in the `model_path` as follows:
 
 ```json
 {
