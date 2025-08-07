@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
-from packaging import version
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -30,10 +29,11 @@ class OrtSessionFallbackError(Exception):
 
 
 def ort_supports_ep_devices() -> bool:
-    from onnxruntime import __version__ as OrtVersion
+    import onnxruntime as ort
 
     # ep registration and device discovery are not well defined on Linux
-    return platform.system() == "Windows" and version.parse(OrtVersion).release >= version.parse("1.23.0").release
+    # checking for api availability instead of ort version since Windows ML has this API in 1.22 and ORT in 1.23
+    return platform.system() == "Windows" and hasattr(ort, "get_ep_devices")
 
 
 def maybe_register_ep_libraries(ep_paths: dict[str, str]):
