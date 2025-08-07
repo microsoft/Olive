@@ -1368,68 +1368,6 @@
 </dl>
 </section>
 </section>
-<section id="azureml">
-<h1>AzureML<a class="headerlink" href="#azureml" title="Link to this heading">#</a></h1>
-<p>Manage the AzureML Compute resources.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">manage</span><span class="o">-</span><span class="n">aml</span><span class="o">-</span><span class="n">compute</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">(</span><span class="o">--</span><span class="n">create</span> <span class="o">|</span> <span class="o">--</span><span class="n">delete</span><span class="p">)</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">subscription_id</span> <span class="n">SUBSCRIPTION_ID</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">resource_group</span> <span class="n">RESOURCE_GROUP</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">workspace_name</span> <span class="n">WORKSPACE_NAME</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">aml_config_path</span> <span class="n">AML_CONFIG_PATH</span><span class="p">]</span>
-                                <span class="o">--</span><span class="n">compute_name</span> <span class="n">COMPUTE_NAME</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">vm_size</span> <span class="n">VM_SIZE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">location</span> <span class="n">LOCATION</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">min_nodes</span> <span class="n">MIN_NODES</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">max_nodes</span> <span class="n">MAX_NODES</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">idle_time_before_scale_down</span> <span class="n">IDLE_TIME_BEFORE_SCALE_DOWN</span><span class="p">]</span>
-</pre></div>
-</div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
-<dl class="option-list">
-<dt><kbd>--create, -c</kbd></dt>
-<dd><p>Create new compute</p>
-<p>Default: False</p>
-</dd>
-<dt><kbd>--delete, -d</kbd></dt>
-<dd><p>Delete existing compute</p>
-<p>Default: False</p>
-</dd>
-<dt><kbd>--subscription_id</kbd></dt>
-<dd><p>Azure subscription ID</p>
-</dd>
-<dt><kbd>--resource_group</kbd></dt>
-<dd><p>Name of the Azure resource group</p>
-</dd>
-<dt><kbd>--workspace_name</kbd></dt>
-<dd><p>Name of the AzureML workspace</p>
-</dd>
-<dt><kbd>--aml_config_path</kbd></dt>
-<dd><p>Path to AzureML config file. If provided, subscription_id, resource_group and workspace_name are ignored</p>
-</dd>
-<dt><kbd>--compute_name</kbd></dt>
-<dd><p>Name of the new compute</p>
-</dd>
-<dt><kbd>--vm_size</kbd></dt>
-<dd><p>VM size of the new compute. This is required if you are creating a compute instance</p>
-</dd>
-<dt><kbd>--location</kbd></dt>
-<dd><p>Location of the new compute. This is required if you are creating a compute instance</p>
-</dd>
-<dt><kbd>--min_nodes</kbd></dt>
-<dd><p>Minimum number of nodes</p>
-<p>Default: 0</p>
-</dd>
-<dt><kbd>--max_nodes</kbd></dt>
-<dd><p>Maximum number of nodes</p>
-<p>Default: 2</p>
-</dd>
-<dt><kbd>--idle_time_before_scale_down</kbd></dt>
-<dd><p>Idle seconds before scaledown</p>
-<p>Default: 120</p>
-</dd>
-</dl>
-</section>
-</section>
 <section id="shared-cache">
 <h1>Shared Cache<a class="headerlink" href="#shared-cache" title="Link to this heading">#</a></h1>
 <p>Delete Olive model cache stored in the cloud.</p>
@@ -1608,10 +1546,6 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#qualcomm-sdk">Qualcomm SDK</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
-</ul>
-</li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml">AzureML</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
 </ul>
 </li>
