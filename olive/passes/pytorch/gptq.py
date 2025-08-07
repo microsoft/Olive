@@ -313,7 +313,8 @@ class Gptq(Pass):
             # TODO(jambayk): support non true-sequential if needed
             layer_output = layer(
                 hs,
-                *(layer_args[i] or []) ** (layer_kwargs[i] or {}),
+                *(layer_args[i] if layer_args else ()),
+                **(layer_kwargs[i] if layer_kwargs else {}),
             )[0]
             if return_output:
                 outputs.append(layer_output)
