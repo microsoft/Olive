@@ -73,7 +73,8 @@
             "activation_type": "uint16",
             "weight_type": "uint8",
             "quant_type": "OnnxStaticQuantization"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "bert-base-multilingual-cased" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache/google_bert",

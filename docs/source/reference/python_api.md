@@ -22,9 +22,9 @@ workflow_output = run("config.json")
 
 The rest of the functions are specialized workflows for common tasks.
 
-## `auto_opt(...)`
+## `optimize(...)`
 
-Automatically optimize a model for performance.
+Optimize the input model with comprehensive pass scheduling.
 
 **Arguments:**
 - `model_name_or_path` (str): Path to the input model (file path or HuggingFace model name).
@@ -33,36 +33,29 @@ Automatically optimize a model for performance.
 - `adapter_path` (str, optional): Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.
 - `model_script` (str, optional): The script file containing the model definition. Required for the local PyTorch model.
 - `script_dir` (str, optional): The directory containing the local PyTorch model script file.
-- `output_path` (str): Output directory path. Defaults to `"auto-opt-output"`.
-- `device` (str): Target device ("cpu", "gpu", "npu"). Defaults to `"cpu"`.
-- `provider` (str): Execution provider for ONNX model. Defaults to `"CPUExecutionProvider"`.
-- `memory` (int, optional): Memory limit for the accelerator in bytes.
-- `data_name` (str, optional): Dataset name for evaluation.
-- `split` (str, optional): Dataset split to use for evaluation.
-- `subset` (str, optional): Dataset subset to use for evaluation.
-- `input_cols` (list[str], optional): Input column names for evaluation.
-- `batch_size` (int): Batch size for evaluation. Defaults to `1`.
-- `precision` (str): Output precision (int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp4, fp8, fp16, fp32, nf4). Defaults to fp32 for cpu and fp16 for gpu.
-- `use_dynamo_exporter` (bool): Use dynamo export API to export ONNX model. Defaults to `False`.
-- `use_model_builder` (bool): Use model builder pass for optimization. Defaults to `False`.
-- `use_qdq_encoding` (bool): Use QDQ encoding for quantized operators. Defaults to `False`.
-- `dynamic_to_fixed_shape_dim_param` (list[str], optional): Symbolic parameter names for dynamic to fixed shape pass.
-- `dynamic_to_fixed_shape_dim_value` (list[int], optional): Symbolic parameter values for dynamic to fixed shape pass.
-- `num_splits` (int, optional): Number of splits for model splitting. Mutually exclusive with cost_model.
-- `cost_model` (str, optional): Path to cost model csv file for model splitting. Mutually exclusive with num_splits.
-- `mixed_precision_overrides_config` (list[str], optional): Dictionary of name to precision as key-value pairs.
-- `use_ort_genai` (bool): Use OnnxRuntime generate() API. Defaults to `False`.
-- `enable_search` (str, optional): Enable search optimization ("random", "sequential", "tpe").
-- `seed` (int, optional): Random seed for search sampler.
-- `account_name` (str, optional): Azure storage account name for shared cache.
-- `container_name` (str, optional): Azure storage container name for shared cache.
+- `output_path` (str): Output directory path. Defaults to `"optimized-model"`.
+- `provider` (str): Execution provider ("CPUExecutionProvider", "CUDAExecutionProvider", "QNNExecutionProvider", "VitisAIExecutionProvider", "OpenVINOExecutionProvider"). Defaults to `"CPUExecutionProvider"`.
+- `device` (str, optional): Target device ("cpu", "gpu", "npu").
+- `precision` (str): Target precision ("int4", "int8", "int16", "int32", "uint4", "uint8", "uint16", "uint32", "fp4", "fp8", "fp16", "fp32", "nf4"). Defaults to `"fp32"`.
+- `act_precision` (str, optional): Activation precision for quantization.
+- `num_split` (int, optional): Number of splits for model splitting.
+- `memory` (int, optional): Available device memory in MB.
+- `exporter` (str, optional): Exporter to use ("model_builder", "dynamo_exporter", "torchscript_exporter", "optimum_exporter").
+- `dim_param` (str, optional): Dynamic parameter names for dynamic to fixed shape conversion.
+- `dim_value` (str, optional): Fixed dimension values for dynamic to fixed shape conversion.
+- `use_qdq_format` (bool): Use QDQ format for quantization. Defaults to `False`.
+- `surgeries` (list[str], optional): List of graph surgeries to apply.
+- `block_size` (int, optional): Block size for quantization. Use -1 for per-channel quantization.
+- `modality` (str): Model modality ("text"). Defaults to `"text"`.
+- `enable_aot` (bool): Enable Ahead-of-Time (AOT) compilation. Defaults to `False`.
+- `qnn_env_path` (str, optional): Path to QNN environment directory (required when using AOT with QNN).
 - `log_level` (int): Logging level (0-4: DEBUG, INFO, WARNING, ERROR, CRITICAL). Defaults to `3`.
 - `save_config_file` (bool): Generate and save the config file for the command. Defaults to `False`.
 
 ```python
-from olive import auto_opt
+from olive import optimize
 
-workflow_output = auto_opt(model_name_or_path="path/to/model")
+workflow_output = optimize(model_name_or_path="path/to/model")
 ```
 
 ## `quantize(...)`
@@ -290,7 +283,16 @@ if workflow_output.has_output_model():
     # Get the best model overall
     best_model = workflow_output.get_best_candidate()
     print(f"Model path: {best_model.model_path}")
+    print(f"Model type: {best_model.model_type}")
+    print(f"Device: {best_model.from_device()}")
+    print(f"Execution provider: {best_model.from_execution_provider()}")
     print(f"Metrics: {best_model.metrics_value}")
+
+    # Get the best model for CPU
+    best_cpu_model = workflow_output.get_best_candidate_by_device("CPU")
+
+    # Get all models for GPU
+    gpu_models = workflow_output.get_output_models_by_device("GPU")
 ```
 
 ## Output Class Hierarchy

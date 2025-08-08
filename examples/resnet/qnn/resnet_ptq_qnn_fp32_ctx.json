@@ -87,7 +87,8 @@
         "cb": {
             "type": "EPContextBinaryGenerator",
             "provider_options": { "htp_graph_finalization_optimization_mode": "3", "enable_htp_fp16_precision": "1" }
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "resnet-50" }
     },
     "host": "qnn_system",
     "target": "qnn_system",

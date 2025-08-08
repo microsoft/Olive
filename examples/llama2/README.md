@@ -160,6 +160,10 @@ inputs = tokenizer("Hello, World", return_tensors="pt").to("cuda:0")
 print(tokenizer.batch_decode(model.generate(**inputs, max_length=20), skip_special_tokens=True))
 ```
 
+## **Optimization and Quantization for AMD NPU**
+
+- [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.
+
 ## Workflows
 
 ### Running Workflows on the Cloud

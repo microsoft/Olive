@@ -5,7 +5,7 @@
 import importlib
 import shutil
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import olive.systems.system_alias as system_alias
 from olive.azureml.azureml_client import AzureMLClientConfig
@@ -15,7 +15,6 @@ from olive.systems.common import (
     AcceleratorConfig,
     AzureMLDockerConfig,
     AzureMLEnvironmentConfig,
-    LocalDockerConfig,
     SystemType,
 )
 
@@ -33,11 +32,23 @@ class LocalTargetUserConfig(TargetUserConfig):
 
 
 class DockerTargetUserConfig(TargetUserConfig):
-    # the local_docker_config is optional for managed environments and required for normal docker system
-    local_docker_config: LocalDockerConfig = None
-    is_dev: bool = False
-    olive_managed_env: bool = False
-    requirements_file: Union[Path, str] = None
+    dockerfile: str
+    build_context_path: Union[Path, str]
+    image_name: str = "olive-docker:latest"
+    work_dir: str = "/olive-ws"
+    build_args: Optional[dict] = None
+    run_params: Optional[dict] = None
+    clean_image: bool = True
+
+    @validator("build_context_path")
+    def _get_abspath(cls, v):
+        return str(Path(v).resolve()) if v else None
+
+    @validator("work_dir")
+    def _validate_work_dir(cls, v):
+        if not v.startswith("/"):
+            raise ValueError(f"work_dir must be an absolute path, got: {v}")
+        return v
 
 
 class AzureMLTargetUserConfig(TargetUserConfig):

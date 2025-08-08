@@ -6,13 +6,13 @@ import inspect
 from argparse import ArgumentParser, Namespace
 from typing import Any
 
-from olive.cli.auto_opt import AutoOptCommand
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand
 from olive.cli.convert_adapters import ConvertAdaptersCommand
 from olive.cli.extract_adapters import ExtractAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
+from olive.cli.optimize import OptimizeCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
 from olive.engine.output import WorkflowOutput
@@ -139,22 +139,6 @@ def _run_unified_command(command_class, **kwargs) -> Any:
     return command.run()
 
 
-def auto_opt(model_name_or_path: str, **kwargs) -> WorkflowOutput:
-    """Automatically optimize a model for performance.
-
-    Args:
-        model_name_or_path: Path to model (file path or HuggingFace model name)
-        **kwargs: All other CLI arguments supported by auto-opt command.
-                  Includes `output_path` (defaults to "auto-opt-output").
-
-    Returns:
-        WorkflowOutput: Contains optimized models and metrics
-
-    """
-    kwargs["model_name_or_path"] = model_name_or_path
-    return _run_unified_command(AutoOptCommand, **kwargs)
-
-
 def finetune(model_name_or_path: str, **kwargs) -> WorkflowOutput:
     """Fine-tune a model using LoRA or QLoRA.
 
@@ -169,6 +153,22 @@ def finetune(model_name_or_path: str, **kwargs) -> WorkflowOutput:
     """
     kwargs["model_name_or_path"] = model_name_or_path
     return _run_unified_command(FineTuneCommand, **kwargs)
+
+
+def optimize(model_name_or_path: str, **kwargs) -> WorkflowOutput:
+    """Optimize the input model with comprehensive pass scheduling.
+
+    Args:
+        model_name_or_path: Path to model (file path or HuggingFace model name)
+        **kwargs: All other CLI arguments supported by optimize command.
+                  Includes `output_path` (defaults to "optimized-model").
+
+    Returns:
+        WorkflowOutput: Contains optimized models and metrics
+
+    """
+    kwargs["model_name_or_path"] = model_name_or_path
+    return _run_unified_command(OptimizeCommand, **kwargs)
 
 
 def quantize(model_name_or_path: str, **kwargs) -> WorkflowOutput:

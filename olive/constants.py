@@ -51,6 +51,7 @@ class Precision(StrEnumBase):
     FP16 = "fp16"
     FP32 = "fp32"
     NF4 = "nf4"
+    BF16 = "bf16"
 
 
 class PrecisionBits(IntEnumBase):
@@ -87,6 +88,18 @@ class OpType(StrEnumBase):
     GatherBlockQuantized = "GatherBlockQuantized"
     MatMulNBits = "MatMulNBits"
     MatMul = "MatMul"
+    QuickGelu = "QuickGelu"
+    Sigmoid = "Sigmoid"
+    Mul = "Mul"
+    RotaryEmbedding = "RotaryEmbedding"
+    Reshape = "Reshape"
+    Slice = "Slice"
+    Sub = "Sub"
+    Add = "Add"
+    Concat = "Concat"
+    Div = "Div"
+    Shape = "Shape"
+    Constant = "Constant"
 
 
 class AccuracyLevel(IntEnumBase):

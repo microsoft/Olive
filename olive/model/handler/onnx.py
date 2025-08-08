@@ -10,7 +10,7 @@ import onnx
 from onnx import ModelProto
 from onnxscript import ir
 
-from olive.common.ort_inference import OrtSessionFallbackError, get_ort_inference_session
+from olive.common.ort_inference import OrtSessionFallbackError, get_ort_available_providers, get_ort_inference_session
 from olive.common.utils import load_weights
 from olive.constants import Framework, ModelFileFormat
 from olive.exception import OliveEvaluationError
@@ -183,7 +183,9 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin):
 
     def _get_default_execution_providers(self, device: Device):
         # return available ep as ort default ep
-        available_providers = AcceleratorLookup.get_execution_providers_for_device(device)
+        available_providers = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
+            device, get_ort_available_providers()
+        )
         eps = [ep for ep in available_providers if self.is_valid_ep(self.model_path, ep)]
 
         if not eps:

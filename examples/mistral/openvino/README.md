@@ -1,8 +1,10 @@
 # Mistral Quantization
 
-This folder contains a sample use case of Olive to optimize a Mistral-7B-Instruct-v0.3 model using OpenVINO tools.
+This folder contains a sample use case of Olive to optimize a Mistral-7B-Instruct models using OpenVINO tools.
 
-- Intel® GPU: [Mistral 7B Instruct Dynamic Shape Model](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3)
+- Intel® NPU: [Mistral 7B Instruct v0.2 Dynamic Shape Model](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2)
+- Intel® GPU: [Mistral 7B Instruct v0.2 Dynamic Shape Model](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2)
+- Intel® GPU: [Mistral 7B Instruct v0.3 Dynamic Shape Model](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3)
 
 ## Quantization Workflows
 
@@ -14,7 +16,10 @@ This workflow performs quantization with Optimum Intel®. It performs the optimi
 
 The following config files executes the above workflow producing as dynamic shaped model:
 
-1. [Mistral-7B-Instruct-v0.3-gpu-context-ov-dy.json](Mistral-7B-Instruct-v0.3-gpu-context-ov-dy.json)
+1. [Mistral-7B-Instruct-v0.2-npu-context-ov-dy-sym-gs128-bkp-int8-sym.json](Mistral-7B-Instruct-v0.2-npu-context-ov-dy-sym-gs128-bkp-int8-sym.json)
+2. [Mistral_7B_Instruct_v0.2_gpu_context_ov_dy.json](Mistral_7B_Instruct_v0.2_gpu_context_ov_dy.json)
+3. [Mistral-7B-Instruct-v0.3-gpu-context-ov-dy.json](Mistral-7B-Instruct-v0.3-gpu-context-ov-dy.json)
+
 
 ## How to run
 

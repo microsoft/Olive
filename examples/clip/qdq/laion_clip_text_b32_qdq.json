@@ -45,7 +45,8 @@
             "quant_preprocess": true,
             "activation_type": "uint16",
             "precision": "uint8"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-b-32-laion2b-s34b-b79k" }
     },
     "data_configs": [
         {

@@ -85,8 +85,8 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
         if run_config.engine.host.config.accelerators:
             for acc in run_config.engine.host.config.accelerators:
                 accelerators.append(acc.device)
-                if acc.execution_providers:
-                    execution_providers.extend(acc.execution_providers)
+                if acc.get_ep_strs():
+                    execution_providers.extend(acc.get_ep_strs())
 
     system_extra_name = get_system_extras(host_type, accelerators, execution_providers)
     if system_extra_name:
@@ -241,9 +241,13 @@ def run(
             install_packages(local_packages, ort_packages)
         return None
 
+    if run_config.engine.host and run_config.engine.host.type == SystemType.Docker:
+        docker_system = run_config.engine.host.create_system()
+        return docker_system.run_workflow(run_config)
+
     if run_config.workflow_host is not None:
         workflow_host = run_config.workflow_host
-        if workflow_host.type in (SystemType.AzureML, SystemType.Docker):
+        if workflow_host.type == SystemType.AzureML:
             logger.warning("⚠️  DEPRECATION WARNING: Azure ML system will be deprecated in the next release!")
             workflow_host = workflow_host.create_system()
             return workflow_host.submit_workflow(run_config)

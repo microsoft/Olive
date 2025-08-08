@@ -80,9 +80,10 @@ jobs:
   - task: PublishTestResults@2
     condition: succeededOrFailed()
     inputs:
-      testResultsFiles: '**/logs/test_examples-TestOlive.xml'
+      testResultsFiles: '**/*TestOlive*.xml'
       testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
       failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true
     displayName: Publish Test Results
 
   - script: sudo git clean -dfX

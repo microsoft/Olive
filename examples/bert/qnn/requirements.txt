@@ -1,6 +1,9 @@
-datasets
+datasets==3.6.0
 evaluate
 nltk
 optimum
 pandas
+pillow
+scikit-learn
 tabulate
+

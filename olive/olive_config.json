@@ -8,6 +8,16 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "AimetQuantization": {
+            "module_path": "olive.passes.onnx.aimet_quantization.AimetQuantization",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "int16" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "aimet-onnx" ],
+            "dataset": "dataset_required"
+        },
         "AppendPrePostProcessingOps": {
             "module_path": "olive.passes.onnx.append_pre_post_processing_ops.AppendPrePostProcessingOps",
             "supported_providers": [ "*" ],
@@ -94,6 +104,16 @@
             "supported_quantization_encodings": [  ],
             "dataset": "dataset_optional",
             "module_dependencies": [ "auto-gptq", "optimum" ]
+        },
+        "GptqModel": {
+            "module_path": "olive.passes.pytorch.gptqmodel.GptqModel",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "int16", "uint4", "uint8", "uint16" ],
+            "supported_algorithms": [ "gptq", "quarot", "spinquant" ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional",
+            "module_dependencies": [ "gptqmodel", "optimum" ]
         },
         "GraphSurgeries": {
             "module_path": "olive.passes.onnx.graph_surgeries.GraphSurgeries",
@@ -382,6 +402,15 @@
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "openvino" ]
         },
+        "OpenVINOQuantizationWithAccuracy": {
+            "module_path": "olive.passes.openvino.quantization.OpenVINOQuantizationWithAccuracy",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
         "OptimumConversion": {
             "module_path": "olive.passes.onnx.optimum_conversion.OptimumConversion",
             "supported_providers": [ "*" ],
@@ -502,6 +531,16 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "QuarkQuantization": {
+            "module_path": "olive.passes.quark_quantizer.quark_quantization.QuarkQuantization",
+            "supported_providers": [ "CPUExecutionProvider", "ROCMExecutionProvider", "CUDAExecutionProvider" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "fp16", "fp32" ],
+            "supported_algorithms": [ "awq" ],
+            "supported_quantization_encodings": [  ],
+            "run_on_target": true,
+            "extra_dependencies": [ "amd-quark" ]
+        },
         "QuaRot": {
             "module_path": "olive.passes.pytorch.rotate.QuaRot",
             "supported_providers": [ "*" ],
@@ -601,6 +640,15 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "VitisGenerateModelLLM": {
+            "module_path": "olive.passes.onnx.vitis_ai.vitis_generate_model_llm.VitisGenerateModelLLM",
+            "supported_providers": [ "CPUExecutionProvider" ],
+            "supported_accelerators": [ "cpu" ],
+            "supported_precisions": [ "int8" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "run_on_target": true
+        },
         "VitisAIQuantization": {
             "module_path": "olive.passes.onnx.vitis_ai_quantization.VitisAIQuantization",
             "supported_providers": [ "VitisAIExecutionProvider" ],
@@ -628,6 +676,7 @@
         }
     },
     "extra_dependencies": {
+        "aimet-onnx": [ "aimet-onnx>=2.10.0" ],
         "auto-opt": [ "optimum" ],
         "azureml": [ "azure-ai-ml>=1.11.1", "azure-keyvault-secrets", "azure-identity", "azureml-fsspec" ],
         "bnb": [ "bitsandbytes", "triton" ],
@@ -642,7 +691,13 @@
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "nvmo": [ "nvidia-modelopt[onnx]" ],
-        "openvino": [ "openvino>=2025.1.0", "nncf>=2.16.0", "numpy<2.0", "optimum[openvino]<=1.24" ],
+        "openvino": [
+            "openvino>=2025.1.0",
+            "nncf>=2.16.0",
+            "numpy<2.0",
+            "optimum[openvino]<=1.24",
+            "onnxruntime-openvino"
+        ],
         "optimum": [ "optimum" ],
         "qnn": [ "onnxruntime-qnn" ],
         "tf": [ "tensorflow==1.15.0" ],

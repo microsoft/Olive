@@ -2,9 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 import logging
 import math
-from typing import Callable, Optional
+from typing import Callable
 
 import torch
 import transformers
@@ -67,22 +69,21 @@ def get_auto_gptq_qlinear_cls(quantization_config):
     return None
 
 
-def get_bnb_qlinear_cls(quantization_config):
-    """Get the right BNBQuantLinear class based on the quantization config."""
-    if transformers.utils.import_utils.is_bitsandbytes_available() and quantization_config.load_in_4bit:
-        from bitsandbytes.nn import Linear4bit
+def get_olive_qlinear_cls(quantization_config):
+    """Get the right OliveQuantLinear class based on the quantization config."""
+    from olive.common.quant.linear import QuantLinear
 
-        return Linear4bit
-    return None
+    return QuantLinear
 
 
 @torch.no_grad()
 def _replace_qlinear_modules(
-    model: torch.nn.Module, mapping: dict[str, tuple[Callable, Callable]], desc: str
+    model: torch.nn.Module, dynamo: bool, mapping: dict[str, tuple[Callable, Callable]], desc: str
 ) -> tuple[torch.nn.Module, bool]:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions.
 
     :param model: the model to make export compatible. Only modified if model is quantized using a supported method.
+    :param dynamo: whether it is being exported with torch dynamo
     :param mapping: the mapping from quantization method to
         - function to get qlinear class from quantization config
         - function to get new class to replace qlinear modules with
@@ -106,7 +107,7 @@ def _replace_qlinear_modules(
     num_modified = 0
     for name, module in model.named_modules():
         if isinstance(module, qlinear_class):
-            new_module = mapping[quantization_method][1](module)
+            new_module = mapping[quantization_method][1](module, dynamo)
             set_attr(model, name, new_module)
             # quantized lora layers have another reference to the qlinear module
             parent = get_attr(model, ".".join(name.split(".")[:-1]))
@@ -118,13 +119,12 @@ def _replace_qlinear_modules(
     return model, num_modified > 0
 
 
-# Should we also support QDQ export? Need different packing and symbolic for that
 class QuantLinearTorchFunction(torch.autograd.Function):
     """Used to export the quantized linear layer to onnx using the contrib operator MatMulNBits."""
 
     # pylint: disable=W0223,W0221
     @staticmethod
-    def symbolic(g, x, qweight, scales, qzeros, g_idx, bits, group_size, in_features, out_features):
+    def symbolic(g, x, qweight, scales, qzeros, g_idx, bits, group_size, in_features, out_features, dynamo):
         tensor_args = [x, qweight, scales, qzeros]
         if g_idx is not None:
             tensor_args.append(g_idx)
@@ -133,6 +133,7 @@ class QuantLinearTorchFunction(torch.autograd.Function):
             "N_i": out_features,
             "bits_i": bits,
             "block_size_i": group_size,
+            "accuracy_level_i": 4,
         }
 
         output = g.op(
@@ -156,14 +157,15 @@ class QuantLinearTorchFunction(torch.autograd.Function):
         qweight: torch.Tensor,
         scales: torch.Tensor,
         qzeros: torch.Tensor,
-        g_idx: Optional[torch.Tensor],
+        g_idx: torch.Tensor | None,
         bits: int,
         group_size: int,
         in_features: int,
         out_features: int,
+        dynamo: bool = False,
     ):
         if torch.onnx.is_in_onnx_export():
-            if hasattr(torch.onnx, "ops"):
+            if dynamo and hasattr(torch.onnx, "ops"):
                 # torch.onnx.ops was introduced in 2.8
                 tensor_args = [x, qweight, scales, qzeros]
                 if g_idx is not None:
@@ -173,6 +175,7 @@ class QuantLinearTorchFunction(torch.autograd.Function):
                     "N": out_features,
                     "bits": bits,
                     "block_size": group_size,
+                    "accuracy_level": 4,
                 }
                 return torch.onnx.ops.symbolic(
                     "com.microsoft::MatMulNBits",
@@ -182,14 +185,16 @@ class QuantLinearTorchFunction(torch.autograd.Function):
                     shape=[*x.shape[:-1], out_features],
                     version=1,
                 )
+            elif dynamo:
+                raise NotImplementedError("torch dynamo export for quantized linear requires torch 2.8 or higher.")
             else:
                 return torch.zeros(x.shape[:-1] + (out_features,), dtype=x.dtype, device=x.device)
 
         raise NotImplementedError("QuantLinearTorchFunction forward is only implemented for onnx export")
 
 
-class QuantLinear4bit(torch.nn.Module):
-    """Quantized linear layer with 4 bits per element.
+class QuantLinearNbit(torch.nn.Module):
+    """Quantized linear layer with 4/8 bits per element.
 
     Packing is done in the same way as MatMulNBits operator in onnxruntime.
     """
@@ -201,28 +206,30 @@ class QuantLinear4bit(torch.nn.Module):
         out_features: int,
         g_idx: bool = False,
         bias: bool = False,
+        bits: int = 4,
         dtype: torch.dtype = torch.float32,
+        dynamo: bool = False,
     ):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
 
-        self.group_size = group_size
+        self.group_size = group_size if group_size > 0 else in_features
 
-        # only support 4 bits for now
-        bits = 4
+        assert bits in [4, 8], "Only 4 and 8 bits are supported for QuantLinearNbit"
+        self.bits = bits
         n_blocks_per_col = math.ceil(in_features / self.group_size)
 
         self.register_buffer(
             "qweight",
             torch.zeros(
-                (out_features, n_blocks_per_col, math.ceil(self.group_size * bits / 8)),
+                (out_features, n_blocks_per_col, math.ceil(self.group_size * self.bits / 8)),
                 dtype=torch.uint8,
             ),
         )
         self.register_buffer(
             "qzeros",
-            torch.zeros(out_features * math.ceil(n_blocks_per_col * bits / 8), dtype=torch.uint8),
+            torch.zeros(out_features * math.ceil(n_blocks_per_col * self.bits / 8), dtype=torch.uint8),
         )
         self.register_buffer("scales", torch.zeros((out_features * n_blocks_per_col), dtype=dtype))
         if g_idx:
@@ -235,6 +242,7 @@ class QuantLinear4bit(torch.nn.Module):
             self.register_buffer("bias", torch.zeros((out_features), dtype=dtype))
         else:
             self.bias = None
+        self.dynamo = dynamo
 
     def forward(self, x):
         out = QuantLinearTorchFunction.apply(
@@ -243,10 +251,11 @@ class QuantLinear4bit(torch.nn.Module):
             self.scales,
             self.qzeros,
             self.g_idx,
-            4,
+            self.bits,
             self.group_size,
             self.in_features,
             self.out_features,
+            self.dynamo,
         )
         return out + self.bias if self.bias is not None else out
 
@@ -254,37 +263,72 @@ class QuantLinear4bit(torch.nn.Module):
         """Pack int8 weight and zeros to int4 and int8 respectively.
 
         iweight, izeros and scales must have out_features as the first dimension
-        iweight, izeros must be uint8 tensors with each holding 4bit values
+        iweight, izeros must be uint8 tensors with each holding 4/8 bit values
         """
         # pylint: disable=W0201
         # shapes for packing
+        bits = self.bits
         n, k = iweight.shape
+        k_pack = 8 // bits
         block_size = self.group_size
-        blob_size = block_size // 2
+        blob_size = (block_size + k_pack - 1) // k_pack
         k_blocks = (k + block_size - 1) // block_size
 
+        # pad qweight to make the k dimension divisible by block_size
         padded_k = k_blocks * block_size
         pad_len = padded_k - k
         if pad_len > 0:
             iweight = torch.nn.functional.pad(iweight, (0, pad_len), value=0)
-
         # pack the weight
-        packed_weight = (iweight[:, 0::2] & 0xF) | ((iweight[:, 1::2] & 0xF) << 4)
-        self.qweight = packed_weight.reshape(n, k_blocks, blob_size).contiguous()
+        if bits == 4:
+            iweight = (iweight[:, 0::2] & 0xF) | ((iweight[:, 1::2] & 0xF) << 4)
+        self.qweight = iweight.reshape(n, k_blocks, blob_size).contiguous()
 
         # pad to make the K dimension even
         izeros = torch.nn.functional.pad(izeros, (0, izeros.shape[-1] & 1), value=0)
         # pack the zeros
-        packed_zeros = (izeros[:, 0::2] & 0xF) | ((izeros[:, 1::2] & 0xF) << 4)
-        self.qzeros = packed_zeros.flatten().contiguous()
+        if bits == 4:
+            izeros = (izeros[:, 0::2] & 0xF) | ((izeros[:, 1::2] & 0xF) << 4)
+        self.qzeros = izeros.flatten().contiguous()
 
         self.scales = scales.flatten().contiguous()
 
         self.g_idx = g_idx
 
+    @classmethod
+    def from_tensors(
+        cls,
+        iweight: torch.Tensor,
+        scales: torch.Tensor,
+        izeros: torch.Tensor,
+        group_size: int,
+        bits: int = 4,
+        g_idx: torch.Tensor | None = None,
+        bias: torch.Tensor | None = None,
+        dynamo: bool = False,
+    ) -> QuantLinearNbit:
+        """Create a QuantLinearNbit instance from the given tensors.
 
-def make_auto_awq_qlinear4bit(qlinear):
-    if qlinear.w_bit != 4:
+        Weight is expected to be in in_features x out_features layout and unsigned.
+        """
+        new_qlinear = cls(
+            group_size,
+            iweight.shape[0],
+            iweight.shape[1],
+            g_idx=g_idx is not None,
+            bias=bias is not None,
+            bits=bits,
+            dtype=scales.dtype,
+            dynamo=dynamo,
+        )
+        new_qlinear.pack(iweight.to(torch.uint8).t(), izeros.to(torch.uint8).t(), scales.t(), g_idx)
+        if bias is not None:
+            new_qlinear.bias = bias.clone()
+        return new_qlinear
+
+
+def make_auto_awq_qlinearnbit(qlinear, dynamo):
+    if qlinear.w_bit not in [4, 8]:
         return qlinear
 
     from awq.utils.packing_utils import reverse_awq_order, unpack_awq
@@ -292,26 +336,19 @@ def make_auto_awq_qlinear4bit(qlinear):
     # shapes are KxN, dtypes is int8
     iweight, izeros = unpack_awq(qlinear.qweight, qlinear.qzeros, qlinear.w_bit)
     iweight, izeros = reverse_awq_order(iweight, izeros, qlinear.w_bit)
-    # expected shape and dtype for QuanLinear
-    iweight = iweight.to(torch.uint8).t()
-    izeros = izeros.to(torch.uint8).t()
-    scales = qlinear.scales.t()
 
-    new_qlinear = QuantLinear4bit(
-        qlinear.group_size,
-        iweight.shape[1],
-        iweight.shape[0],
-        bias=qlinear.bias is not None,
-        dtype=qlinear.scales.dtype,
+    return QuantLinearNbit.from_tensors(
+        iweight,
+        qlinear.scales,
+        izeros,
+        group_size=qlinear.group_size,
+        bits=qlinear.w_bit,
+        bias=qlinear.bias,
+        dynamo=dynamo,
     )
-    new_qlinear.pack(iweight, izeros, scales)
-    if qlinear.bias is not None:
-        new_qlinear.bias = qlinear.bias.clone()
-
-    return new_qlinear
 
 
-def make_auto_gptq_qlinear4bit(qlinear):
+def make_auto_gptq_qlinearnbit(qlinear, dynamo):
     if qlinear.bits != 4:
         return qlinear
 
@@ -319,40 +356,44 @@ def make_auto_gptq_qlinear4bit(qlinear):
 
     # shapes are KxN, dtypes is int8
     iweight, izeros = unpack_4bit_to_32bit_signed(qlinear.qweight, qlinear.qzeros)
-    # expected shape and dtype for QuanLinear
-    iweight = iweight.to(torch.uint8).t()
-    izeros = izeros.to(torch.uint8).t()
-    scales = qlinear.scales.t()
     # no need to use g_idx if descriptive activation is not used
-    g_idx_trivial = torch.arange(iweight.shape[1], device=qlinear.g_idx.device, dtype=torch.int32) // qlinear.group_size
+    g_idx_trivial = torch.arange(iweight.shape[0], device=qlinear.g_idx.device, dtype=torch.int32) // qlinear.group_size
     g_idx = qlinear.g_idx if not torch.equal(qlinear.g_idx, g_idx_trivial) else None
 
-    new_qlinear = QuantLinear4bit(
-        qlinear.group_size,
-        iweight.shape[1],
-        iweight.shape[0],
-        g_idx=g_idx is not None,
-        bias=qlinear.bias is not None,
-        dtype=qlinear.scales.dtype,
+    return QuantLinearNbit.from_tensors(
+        iweight,
+        qlinear.scales,
+        izeros,
+        group_size=qlinear.group_size,
+        bits=qlinear.bits,
+        g_idx=g_idx,
+        bias=qlinear.bias,
+        dynamo=dynamo,
     )
-    new_qlinear.pack(iweight, izeros, scales, g_idx)
-    if qlinear.bias is not None:
-        new_qlinear.bias = qlinear.bias.clone()
 
-    return new_qlinear
+
+def make_olive_qlinearnbit(qlinear, dynamo):
+    return QuantLinearNbit.from_tensors(
+        *qlinear.get_unpacked_params(),
+        group_size=qlinear.quantizer.group_size,
+        bits=qlinear.quantizer.bits,
+        bias=qlinear.bias,
+        dynamo=dynamo,
+    )
 
 
 # TODO(jambayk): maybe support bitsandbytes too. Need to consider dtype compatibility
 EXPORT_QLINEAR_MAPPING = {
-    "awq": (get_auto_awq_qlinear_cls, make_auto_awq_qlinear4bit),
-    "gptq": (get_auto_gptq_qlinear_cls, make_auto_gptq_qlinear4bit),
+    "awq": (get_auto_awq_qlinear_cls, make_auto_awq_qlinearnbit),
+    "gptq": (get_auto_gptq_qlinear_cls, make_auto_gptq_qlinearnbit),
+    "olive": (get_olive_qlinear_cls, make_olive_qlinearnbit),
 }
 
 
-def make_export_compatible_quant(model: torch.nn.Module) -> torch.nn.Module:
+def make_export_compatible_quant(model: torch.nn.Module, dynamo: bool) -> torch.nn.Module:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions."""
     model, modified = _replace_qlinear_modules(
-        model, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model"
+        model, dynamo, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model"
     )
     if modified:
         # set quantization method to None, gptq doesn't allow dtype casting

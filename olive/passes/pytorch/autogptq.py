@@ -26,6 +26,7 @@ from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_pytorch
+from olive.passes.pytorch.train_utils import load_hf_base_model
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,7 @@ class GptqQuantizer(Pass):
             model = deepcopy(model)
             model.set_resource("adapter_path", None)
 
-        pytorch_model = model.load_model(cache_model=False)
+        pytorch_model = load_hf_base_model(model, torch_dtype="auto")
         model_type = pytorch_model.config.model_type if hasattr(pytorch_model, "config") else ""
 
         # create model adapter if needed

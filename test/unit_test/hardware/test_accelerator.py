@@ -150,24 +150,6 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
             [("cpu", ExecutionProvider.CPUExecutionProvider)],
             None,
         ),
-        # Docker system
-        (
-            {
-                "type": "Docker",
-                "config": {
-                    "local_docker_config": {
-                        "image_name": "olive-image",
-                        "build_context_path": "docker",
-                        "dockerfile": "Dockerfile",
-                    },
-                    "accelerators": [
-                        {"device": "cpu", "execution_providers": [ExecutionProvider.CPUExecutionProvider]}
-                    ],
-                },
-            },
-            [("cpu", ExecutionProvider.CPUExecutionProvider)],
-            [ExecutionProvider.CPUExecutionProvider],
-        ),
         # LocalSystem with memory
         (
             {
@@ -303,6 +285,31 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             [ExecutionProvider.CUDAExecutionProvider, ExecutionProvider.CPUExecutionProvider],
         ),
         (
+            # deduce device for GPU
+            {
+                "type": "LocalSystem",
+                "config": {
+                    "accelerators": [
+                        {
+                            "execution_providers": [
+                                (ExecutionProvider.CUDAExecutionProvider, "onnxruntime_providers_cuda.dll"),
+                            ]
+                        }
+                    ]
+                },
+            },
+            [
+                {
+                    "device": "gpu",
+                    "execution_providers": [
+                        (ExecutionProvider.CUDAExecutionProvider, "onnxruntime_providers_cuda.dll")
+                    ],
+                }
+            ],
+            [],
+            [ExecutionProvider.CUDAExecutionProvider, ExecutionProvider.CPUExecutionProvider],
+        ),
+        (
             # doesn't fill both device and ep.
             {
                 "type": "LocalSystem",
@@ -313,6 +320,32 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                 },
             },
             [{"device": "cpu", "execution_providers": [ExecutionProvider.OpenVINOExecutionProvider]}],
+            ["The accelerator device and execution providers are specified, skipping deduce"],
+            [ExecutionProvider.OpenVINOExecutionProvider, ExecutionProvider.CPUExecutionProvider],
+        ),
+        (
+            # doesn't fill both device and ep.
+            {
+                "type": "LocalSystem",
+                "config": {
+                    "accelerators": [
+                        {
+                            "device": "cpu",
+                            "execution_providers": [
+                                (ExecutionProvider.OpenVINOExecutionProvider, "onnxruntime_providers_openvino.dll")
+                            ],
+                        }
+                    ]
+                },
+            },
+            [
+                {
+                    "device": "cpu",
+                    "execution_providers": [
+                        (ExecutionProvider.OpenVINOExecutionProvider, "onnxruntime_providers_openvino.dll")
+                    ],
+                }
+            ],
             ["The accelerator device and execution providers are specified, skipping deduce"],
             [ExecutionProvider.OpenVINOExecutionProvider, ExecutionProvider.CPUExecutionProvider],
         ),
@@ -397,8 +430,10 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
         ),
     ],
 )
-@patch("onnxruntime.get_available_providers")
+@patch("olive.systems.local.get_ort_available_providers")
+@patch("olive.systems.local.maybe_register_ep_libraries")
 def test_normalize_accelerators(
+    maybe_register_ep_libraries_mock,
     get_available_providers_mock,
     caplog,
     system_config,
@@ -413,6 +448,7 @@ def test_normalize_accelerators(
 
     system_config = validate_config(system_config, SystemConfig)
     python_mock = None
+    has_accelerators = system_config.config.accelerators is not None
     if system_config.type == SystemType.Local:
         get_available_providers_mock.return_value = available_providers
     elif system_config.type == SystemType.PythonEnvironment:
@@ -428,6 +464,8 @@ def test_normalize_accelerators(
         assert normalized_accs.config.accelerators[i].execution_providers == acc["execution_providers"]
         if "memory" in acc:
             assert normalized_accs.config.accelerators[i].memory == acc["memory"]
+    if system_config.type == SystemType.Local and has_accelerators:
+        assert maybe_register_ep_libraries_mock.call_count == 1
 
     if expected_logs:
         for log in expected_logs:
@@ -637,11 +675,26 @@ def test_create_accelerator_without_ep(system_config, expected_acc_specs):
 
 
 def test_accelerator_config():
+    # only device
     acc_cfg1 = AcceleratorConfig.parse_obj({"device": "cpu"})
     assert acc_cfg1.execution_providers is None
+    # only ep
     acc_cfg2 = AcceleratorConfig.parse_obj({"execution_providers": [ExecutionProvider.CPUExecutionProvider]})
     assert acc_cfg2.device is None
+    # neither device nor ep
     with pytest.raises(ValueError, match="Either device or execution_providers must be provided"):
         _ = AcceleratorConfig.parse_obj({})
+    # device and memory
     acc_cfg3 = AcceleratorConfig.parse_obj({"device": "cpu", "memory": "1MB"})
     assert acc_cfg3.memory == 1e6
+    # with ep library path
+    acc_cfg4 = AcceleratorConfig.parse_obj(
+        {
+            "device": "gpu",
+            "execution_providers": [(ExecutionProvider.CUDAExecutionProvider, "onnxruntime_providers_cuda.dll")],
+        }
+    )
+    assert acc_cfg4.device == "gpu"
+    assert acc_cfg4.execution_providers == [(ExecutionProvider.CUDAExecutionProvider, "onnxruntime_providers_cuda.dll")]
+    assert acc_cfg4.get_ep_strs() == [ExecutionProvider.CUDAExecutionProvider]
+    assert acc_cfg4.get_ep_path_map() == {ExecutionProvider.CUDAExecutionProvider: "onnxruntime_providers_cuda.dll"}

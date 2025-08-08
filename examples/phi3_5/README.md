@@ -69,7 +69,9 @@ Quantization is resource-intensive and requires GPU acceleration. In an [x64 Pyt
 pip install -r requirements.txt
 
 # Install ONNX Runtime GPU packages
-# ort-genai 0.8.x has some issues, use 0.7.1 for now. Also not compatible with ort 1.22+
+# ort-genai 0.8.x has some issues
+# 0.9.0 adds a conflicting sliding_window option only handled correct in Olive main (after 0.9.2)
+# 0.7.1 not compatible with ort>=1.22
 pip install "onnxruntime-gpu==1.21.1" "onnxruntime-genai-cuda==0.7.1"
 
 # AutoGPTQ: Install from source (stable package may be slow for weight packing)
@@ -81,6 +83,9 @@ export BUILD_CUDA_EXT=0
 
 # Install AutoGPTQ from source
 pip install --no-build-isolation git+https://github.com/PanQiWei/AutoGPTQ.git
+
+# Install GptqModel from source
+pip install --no-build-isolation git+https://github.com/ModelCloud/GPTQModel.git@5d2911a4b2a709afb0941d53c3882d0cd80b9649
 ```
 
 #### **Run the Quantization Config**
@@ -96,10 +101,15 @@ olive run --config qdq_config.json
 
 #### **Run the Quantization Config**
 
+##### **For Quark quantization**
+
+- [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.
+
+##### **For QDQ quantization**
 Follow above mentioned setup instruction and run the below command to generate the optimized model for VitisAI EP.
 
 ```bash
-olive run --config qdq_config_vitis_ai.json.json
+olive run --config qdq_config_vitis_ai.json
 ```
 
 ✅ Optimized model saved in: `models/phi3_5-vai/`
@@ -196,7 +206,9 @@ Open ARM64 Native Tools Command Prompt for VS2022 and run the following commands
 ```bash
 pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
 pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple onnxruntime-qnn --no-deps
-pip install "onnxruntime-genai>=0.7.0"
+# ort-genai 0.9.0 fixes bug with incorrect first token generation
+# backwards compatible with model generated with older ort-genai version
+pip install "onnxruntime-genai>=0.9.0"
 ```
 
 #### **Run Console-Based Chat Interface**

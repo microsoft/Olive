@@ -26,8 +26,8 @@
                 "type": "clip_dataset",
                 "model_name": "openai/clip-vit-base-patch16",
                 "dataset_name": "nlphuji/flickr30k",
-                "start": 10,
-                "end": 20
+                "start": 100,
+                "end": 200
             },
             "dataloader_config": { "type": "no_auto_batch_dataloader" },
             "post_process_data_config": { "type": "clip_post_process" }
@@ -45,11 +45,6 @@
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
-                                },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
                                     {
@@ -85,11 +80,6 @@
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
-                                },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
                                     {
@@ -124,11 +114,6 @@
                     "user_config": {
                         "inference_settings": {
                             "onnx": {
-                                "session_options": {
-                                    "extra_session_config": {
-                                        "optimization.disable_specified_optimizers": "MatMulAddFusion"
-                                    }
-                                },
                                 "execution_provider": "QNNExecutionProvider",
                                 "provider_options": [
                                     {
@@ -154,7 +139,11 @@
             ]
         }
     },
-    "passes": { "conversion": { "type": "OnnxConversion", "target_opset": 20 } },
+    "passes": {
+        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-base-patch16" }
+    },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,
     "host": "qnn_system",

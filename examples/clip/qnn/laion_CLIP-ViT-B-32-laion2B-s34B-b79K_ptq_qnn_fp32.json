@@ -20,26 +20,14 @@
     },
     "data_configs": [
         {
-            "name": "quant_data_config",
-            "user_script": "user_script.py",
-            "load_dataset_config": {
-                "type": "clip_dataset",
-                "model_name": "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
-                "dataset_name": "nlphuji/flickr30k",
-                "start": 0,
-                "end": 10
-            },
-            "dataloader_config": { "type": "no_auto_batch_dataloader" }
-        },
-        {
             "name": "metric_data_config",
             "user_script": "user_script.py",
             "load_dataset_config": {
                 "type": "clip_dataset",
                 "model_name": "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
                 "dataset_name": "nlphuji/flickr30k",
-                "start": 10,
-                "end": 20
+                "start": 100,
+                "end": 200
             },
             "dataloader_config": { "type": "no_auto_batch_dataloader" },
             "post_process_data_config": { "type": "clip_post_process" }
@@ -162,7 +150,8 @@
     },
     "passes": {
         "conversion": { "type": "OnnxConversion", "target_opset": 20 },
-        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] }
+        "surgery": { "type": "GraphSurgeries", "surgeries": [ { "surgeon": "MatMulAddToGemm" } ] },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "CLIP-ViT-B-32-laion2B-s34B-b79K" }
     },
     "evaluator": "common_evaluator",
     "evaluate_input_model": false,

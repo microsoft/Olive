@@ -206,7 +206,7 @@ class OnnxConversion(Pass):
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
         pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config.merge_adapter_weights)
-        pytorch_model = make_export_compatible_quant(pytorch_model)
+        pytorch_model = make_export_compatible_quant(pytorch_model, config.use_dynamo_exporter)
         # cast to dtype, want all modules including lora layers and quant linears in the same dtype
         if torch_dtype:
             pytorch_model = pytorch_model.to(torch_dtype)
