@@ -21,7 +21,7 @@ from olive.evaluator.olive_evaluator import (
 )
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
-from test.unit_test.utils import (
+from test.utils import (
     get_accuracy_metric,
     get_custom_metric,
     get_custom_metric_no_eval,

@@ -6,7 +6,7 @@ import pytest
 from olive.common.constants import OS
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.qnn.conversion import QNNConversion
-from test.unit_test.utils import get_onnx_model
+from test.utils import get_onnx_model
 
 
 @patch("olive.passes.qnn.conversion.QNNSDKRunner")

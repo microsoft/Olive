@@ -10,7 +10,7 @@ import pytest
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.optimum_conversion import OptimumConversion
-from test.unit_test.utils import get_hf_model
+from test.utils import get_hf_model
 
 
 @pytest.mark.parametrize("extra_args", [{"atol": 0.1}, {"atol": None}])

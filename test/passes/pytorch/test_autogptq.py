@@ -12,7 +12,7 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.autogptq import GptqQuantizer
-from test.unit_test.utils import make_local_tiny_llama
+from test.utils import make_local_tiny_llama
 
 test_gptq_dc_config = DataConfig(
     name="test_gptq_dc_config",

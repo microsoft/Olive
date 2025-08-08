@@ -8,7 +8,7 @@ from pathlib import Path
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.io_update import OpenVINOIoUpdate
-from test.unit_test.utils import get_pytorch_model, get_pytorch_model_dummy_input
+from test.utils import get_pytorch_model, get_pytorch_model_dummy_input
 
 
 def convert_pt_to_ov_model(tmp_path, output_folder=None):

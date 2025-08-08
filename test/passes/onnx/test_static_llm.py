@@ -7,7 +7,7 @@ import json
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.static_llm import StaticLLM
-from test.unit_test.utils import make_local_tiny_llama
+from test.utils import make_local_tiny_llama
 
 
 def test_static_llm(tmp_path):

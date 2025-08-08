@@ -5,7 +5,7 @@
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.sparsegpt import SparseGPT
-from test.unit_test.utils import get_wikitext_data_config
+from test.utils import get_wikitext_data_config
 
 
 def test_sparsegpt(tmp_path):

@@ -12,7 +12,7 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import model_proto_to_olive_model
 from olive.passes.onnx.peephole_optimizer import OnnxPeepholeOptimizer
-from test.unit_test.utils import get_onnx_model
+from test.utils import get_onnx_model
 
 
 @pytest.fixture(name="external_data_config")

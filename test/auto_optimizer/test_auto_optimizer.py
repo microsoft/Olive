@@ -13,7 +13,7 @@ from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, DEFAULT_GPU_TRT_ACCELERATOR
 from olive.model import ModelConfig
-from test.unit_test.utils import get_accuracy_metric, get_glue_huggingface_data_config
+from test.utils import get_accuracy_metric, get_glue_huggingface_data_config
 
 # pylint: disable=attribute-defined-outside-init
 

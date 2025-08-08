@@ -213,4 +213,4 @@ def test_rename_has_no_impact(create_dir, tmp_path):
 
 
 if __name__ == "__main__":
-    sys.exit(pytest.main(["-s", "test/unit_test/common/test_hardlink_copy.py"]))
+    sys.exit(pytest.main(["-s", "test/common/test_hardlink_copy.py"]))

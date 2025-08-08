@@ -8,7 +8,7 @@ import pytest
 from olive.constants import Precision
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.vitis_ai.meta_data import VitisAIAddMetaData
-from test.unit_test.utils import get_onnx_model
+from test.utils import get_onnx_model
 
 
 @pytest.mark.parametrize(

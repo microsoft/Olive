@@ -1,4 +1,4 @@
-from test.unit_test.utils import get_pytorch_model
+from test.utils import get_pytorch_model
 
 
 def load_decoder_model(model_path):

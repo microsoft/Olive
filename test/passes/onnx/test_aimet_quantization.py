@@ -19,7 +19,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.aimet_quantization import AimetQuantization
-from test.unit_test.utils import get_pytorch_model_dummy_input
+from test.utils import get_pytorch_model_dummy_input
 
 IS_LINUX = platform.system() == OS.LINUX
 CUDA_AVAILABLE = torch.cuda.is_available()

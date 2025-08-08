@@ -20,7 +20,7 @@ from olive.passes.onnx.quantization import (
     OnnxQuantizationPreprocess,
     OnnxStaticQuantization,
 )
-from test.unit_test.utils import get_onnx_model, get_pytorch_model_dummy_input
+from test.utils import get_onnx_model, get_pytorch_model_dummy_input
 
 
 class DummyCalibrationDataReader(CalibrationDataReader):

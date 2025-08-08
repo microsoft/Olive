@@ -9,7 +9,7 @@ import pytest
 
 import olive.data.template as data_config_template
 from olive.data.config import DataComponentConfig
-from test.unit_test.utils import create_raw_data
+from test.utils import create_raw_data
 
 
 class TestDataConfigTemplate:

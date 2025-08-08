@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 from packaging import version
 
-from test.unit_test.utils import create_onnx_model_file, delete_onnx_model_files
+from test.utils import create_onnx_model_file, delete_onnx_model_files
 
 
 @pytest.fixture(scope="session", autouse=True)

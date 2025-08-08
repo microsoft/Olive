@@ -6,7 +6,7 @@ import pytest
 
 from olive.data.registry import Registry
 from olive.workflows import run as olive_run
-from test.unit_test.utils import (
+from test.utils import (
     get_pytorch_model,
     get_pytorch_model_config,
     get_pytorch_model_io_config,

@@ -14,7 +14,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware.accelerator import DEFAULT_GPU_CUDA_ACCELERATOR
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.session_params_tuning import OrtSessionParamsTuning
-from test.unit_test.utils import get_onnx_model
+from test.utils import get_onnx_model
 
 
 def _get_tuning_data_config(input_shapes, input_names=None):

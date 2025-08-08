@@ -8,7 +8,7 @@ import pytest
 
 from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig
-from test.unit_test.utils import ONNX_MODEL_PATH
+from test.utils import ONNX_MODEL_PATH
 
 # pylint: disable=attribute-defined-outside-init,protected-access
 

@@ -30,7 +30,7 @@ from olive.systems.azureml.aml_evaluation_runner import main as aml_evaluation_r
 from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
 from olive.systems.common import AzureMLDockerConfig, AzureMLEnvironmentConfig
-from test.unit_test.utils import (
+from test.utils import (
     ONNX_MODEL_PATH,
     get_accuracy_metric,
     get_custom_metric,

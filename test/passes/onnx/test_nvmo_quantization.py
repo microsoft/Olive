@@ -10,7 +10,7 @@ from packaging import version
 
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.nvmo_quantization import NVModelOptQuantization
-from test.unit_test.utils import get_onnx_model
+from test.utils import get_onnx_model
 
 
 @pytest.mark.skipif(

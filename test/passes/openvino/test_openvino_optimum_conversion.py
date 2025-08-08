@@ -6,7 +6,7 @@ from pathlib import Path
 
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.optimum_intel import OpenVINOOptimumConversion
-from test.unit_test.utils import get_hf_model
+from test.utils import get_hf_model
 
 
 def test_openvino_optimum_conversion_pass_convert_with_tokenizers(tmp_path):

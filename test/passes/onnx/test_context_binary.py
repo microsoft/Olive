@@ -12,7 +12,7 @@ from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import resave_model
 from olive.passes.onnx.context_binary import EPContextBinaryGenerator
-from test.unit_test.utils import get_onnx_model
+from test.utils import get_onnx_model
 
 
 @pytest.mark.skipif(

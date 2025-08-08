@@ -12,7 +12,7 @@ from olive.common.constants import OS
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.lora import DoRA, LoftQ, LoHa, LoKr, LoRA, QLoRA
-from test.unit_test.utils import get_wikitext_data_config
+from test.utils import get_wikitext_data_config
 
 # pylint: disable=redefined-outer-name
 

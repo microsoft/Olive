@@ -13,7 +13,7 @@ from olive.evaluator.metric_result import SubMetricResult
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
-from test.unit_test.utils import get_accuracy_metric, get_onnx_model_config, get_pytorch_model_config
+from test.utils import get_accuracy_metric, get_onnx_model_config, get_pytorch_model_config
 
 # pylint: disable=attribute-defined-outside-init, redefined-outer-name
 

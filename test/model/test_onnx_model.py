@@ -8,7 +8,7 @@ from olive.common.ort_inference import ort_supports_ep_devices
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
 from olive.model import ONNXModelHandler
-from test.unit_test.utils import get_onnx_model
+from test.utils import get_onnx_model
 
 
 @patch("onnxruntime.InferenceSession")

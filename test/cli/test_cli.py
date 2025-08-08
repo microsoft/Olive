@@ -194,7 +194,7 @@ def test_finetune_command(_, mock_run, tmp_path):
 
 
 def test_session_params_tuning_command(tmp_path):
-    from test.unit_test.utils import ONNX_MODEL_PATH
+    from test.utils import ONNX_MODEL_PATH
 
     # some directories
     output_dir = tmp_path / "output_dir"
@@ -439,7 +439,7 @@ def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     assert (output_dir / "speech.onnx_adapter").exists()
 
 
-# Test for ConvertAdaptersCommand is added as part of test/unit_test/passes/onnx/test_extract_adapters.py
+# Test for ConvertAdaptersCommand is added as part of test/passes/onnx/test_extract_adapters.py
 
 
 @patch("olive.workflows.run")

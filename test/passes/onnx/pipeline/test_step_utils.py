@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from olive.passes.onnx.pipeline.step_utils import parse_steps
-from test.unit_test.passes.onnx.test_pre_post_processing_op import (
+from test.passes.onnx.test_pre_post_processing_op import (
     convert_superresolution_model,
     get_superresolution_model,
 )

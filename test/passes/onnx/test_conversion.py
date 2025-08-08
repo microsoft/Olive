@@ -19,7 +19,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 from olive.passes.pytorch.autogptq import GptqQuantizer
 from olive.passes.pytorch.gptq import Gptq
-from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
+from test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
 
 
 @pytest.mark.parametrize(

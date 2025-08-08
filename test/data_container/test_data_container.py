@@ -8,7 +8,7 @@ import pytest
 
 from olive.data.config import DataConfig
 from olive.data.container.data_container import DataContainer
-from test.unit_test.utils import (
+from test.utils import (
     create_raw_data,
     get_data_config,
     get_glue_huggingface_data_config,

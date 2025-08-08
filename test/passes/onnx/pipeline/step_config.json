@@ -54,7 +54,7 @@
     {
         "Dummy2": {
             "dummy2_param": {
-                "type": "test.unit_test.passes.onnx.pipeline.test_step_utils.CustomizedParam",
+                "type": "test.passes.onnx.pipeline.test_step_utils.CustomizedParam",
                 "params": { "params": { "a": 1, "b": 2, "c": 3 } }
             }
         }

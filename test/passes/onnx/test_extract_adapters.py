@@ -22,7 +22,7 @@ from olive.passes.onnx.common import AdapterType, model_has_adapters
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
 from olive.passes.onnx.rtn_quantization import OnnxBlockWiseRtnQuantization
-from test.unit_test.utils import get_onnx_model
+from test.utils import get_onnx_model
 
 
 class LlamaCalibrationDataLoader(CalibrationDataReader):

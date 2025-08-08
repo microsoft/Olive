@@ -14,7 +14,7 @@ from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.sparsegpt_utils import get_layer_submodules
 from olive.passes.pytorch.torch_trt_conversion import TorchTRTConversion
-from test.unit_test.utils import get_wikitext_data_config
+from test.utils import get_wikitext_data_config
 
 # pylint: disable=abstract-method
 

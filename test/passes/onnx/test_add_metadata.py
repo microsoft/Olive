@@ -10,7 +10,7 @@ import pytest
 
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.add_metadata import AddOliveMetadata
-from test.unit_test.utils import get_onnx_model
+from test.utils import get_onnx_model
 
 
 class TestAddOliveMetadata:
@@ -212,7 +212,7 @@ class TestAddOliveMetadata:
     def test_add_metadata_invalid_model_type(self, tmp_path):
         """Test that non-ONNX model types raise ValueError."""
         # Setup
-        from test.unit_test.utils import get_pytorch_model
+        from test.utils import get_pytorch_model
 
         input_model = get_pytorch_model()
         config = {"graph_name": "test_graph"}

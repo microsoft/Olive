@@ -32,7 +32,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes.onnx.conversion import OnnxConversion
-from test.unit_test.utils import get_accuracy_metric, get_pytorch_model_config
+from test.utils import get_accuracy_metric, get_pytorch_model_config
 
 
 # TODO(team): no engine API envolved, use generate_output_artifacts API directly

@@ -9,7 +9,7 @@ from olive.data.registry import Registry
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes.olive_pass import FullPassConfig, create_pass_from_dict
 from olive.passes.pytorch.quantization_aware_training import QuantizationAwareTraining
-from test.unit_test.utils import get_pytorch_model
+from test.utils import get_pytorch_model
 
 
 @Registry.register_dataloader()

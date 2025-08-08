@@ -18,7 +18,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
 from olive.passes.onnx.model_builder import ModelBuilder
 from olive.passes.onnx.onnx_dag import OnnxDAG
-from test.unit_test.utils import make_local_tiny_llama
+from test.utils import make_local_tiny_llama
 
 
 def get_onnx_model(model_path):

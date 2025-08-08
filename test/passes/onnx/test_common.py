@@ -9,7 +9,7 @@ import pytest
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import model_proto_to_olive_model, resave_model
 from olive.passes.onnx.conversion import OnnxConversion
-from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model
+from test.utils import ONNX_MODEL_PATH, get_hf_model
 
 
 @pytest.mark.parametrize(

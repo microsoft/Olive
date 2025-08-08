@@ -1,4 +1,4 @@
-from test.unit_test.utils import get_pytorch_model, get_pytorch_model_dummy_input
+from test.utils import get_pytorch_model, get_pytorch_model_dummy_input
 
 
 def get_dummy_input():

@@ -15,7 +15,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import PyTorchModelHandler
 from olive.systems.local import LocalSystem
-from test.unit_test.utils import get_accuracy_metric, get_custom_metric, get_latency_metric
+from test.utils import get_accuracy_metric, get_custom_metric, get_latency_metric
 
 # pylint: disable=attribute-defined-outside-init
 
