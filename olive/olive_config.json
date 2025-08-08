@@ -477,6 +477,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "QairtMHA2SHA": {
+            "module_path": "olive.passes.onnx.qairt.mha2sha.QairtMHA2SHA",
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "QNNPreprocess": {
             "module_path": "olive.passes.onnx.qnn.qnn_preprocess.QNNPreprocess",
             "supported_providers": [ "QNNExecutionProvider" ],
