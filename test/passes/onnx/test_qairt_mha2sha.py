@@ -10,11 +10,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from olive.model import CompositeModelHandler, ONNXModelHandler
+from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.qairt.mha2sha import QairtMHA2SHA
 from olive.passes.pass_config import PassConfigParam
-from test.unit_test.utils import get_onnx_model
+from test.utils import get_onnx_model
 
 
 # Mock OnnxModel for external QAIRT SDK
@@ -135,43 +135,6 @@ def test_mha2sha_for_onnx_model_handler(qairt_pass_instance, tmp_output_dir, moc
     loaded_qairt_instance.mock_mha2sha_v2.assert_called_once_with()  # No kwargs passed by default
     loaded_qairt_instance.mock_mha2sha.assert_not_called()  # Ensure V1 is not called
     loaded_qairt_instance.mock_export.assert_called_once_with(tmp_output_dir, prefix=input_model.onnx_file_name)
-
-
-def test_mha2sha_for_composite_model_handler(qairt_pass_instance, tmp_output_dir, mock_qairt_sdk_classes):
-    """Test run with a CompositeModelHandler."""
-    model_component_1 = get_onnx_model()
-    model_component_2 = get_onnx_model()
-    mock_composite_model = CompositeModelHandler(
-        model_components=[model_component_1, model_component_2], model_component_names=["comp1", "comp2"]
-    )
-
-    transformed_model = qairt_pass_instance.run(mock_composite_model, output_model_path=tmp_output_dir)
-
-    # Assertions
-    assert isinstance(transformed_model, CompositeModelHandler)
-    assert len(list(transformed_model.model_components)) == 2
-    assert set(transformed_model.model_component_names) == {"comp1", "comp2"}
-    assert transformed_model.model_path == tmp_output_dir
-
-    # Verify QAIRT SDK calls for each component
-    assert mock_qairt_sdk_classes.load.call_count == 2
-    mock_qairt_sdk_classes.load.assert_any_call(model_path=model_component_1.model_path)
-    mock_qairt_sdk_classes.load.assert_any_call(model_path=model_component_2.model_path)
-
-    # The side_effect returns a new MockOnnxModelInstance for each call, so we need to inspect them.
-    # Let's verify the calls made by the instances, not just the instance itself.
-    call_args_list = mock_qairt_sdk_classes.load.call_args_list
-    assert len(call_args_list) == 2
-
-    # Get the two mock instances that were returned
-    instance1 = call_args_list[0].return_value
-    instance2 = call_args_list[1].return_value
-
-    # Verify the methods were called on each instance
-    instance1.mock_mha2sha_v2.assert_called_once_with()
-    instance2.mock_mha2sha_v2.assert_called_once_with()
-    instance1.mock_export.assert_called_once_with(tmp_output_dir, prefix="component1")
-    instance2.mock_export.assert_called_once_with(tmp_output_dir, prefix="component2")
 
 
 def test_mha2sha_v1_fallback(qairt_pass_instance, tmp_output_dir, mock_qairt_sdk_classes):
