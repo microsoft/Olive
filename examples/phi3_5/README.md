@@ -69,7 +69,9 @@ Quantization is resource-intensive and requires GPU acceleration. In an [x64 Pyt
 pip install -r requirements.txt
 
 # Install ONNX Runtime GPU packages
-# ort-genai 0.8.x has some issues, use 0.7.1 for now. Also not compatible with ort 1.22+
+# ort-genai 0.8.x has some issues
+# 0.9.0 adds a conflicting sliding_window option only handled correct in Olive main (after 0.9.2)
+# 0.7.1 not compatible with ort>=1.22
 pip install "onnxruntime-gpu==1.21.1" "onnxruntime-genai-cuda==0.7.1"
 
 # AutoGPTQ: Install from source (stable package may be slow for weight packing)
@@ -204,7 +206,9 @@ Open ARM64 Native Tools Command Prompt for VS2022 and run the following commands
 ```bash
 pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
 pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple onnxruntime-qnn --no-deps
-pip install "onnxruntime-genai>=0.7.0"
+# ort-genai 0.9.0 fixes bug with incorrect first token generation
+# backwards compatible with model generated with older ort-genai version
+pip install "onnxruntime-genai>=0.9.0"
 ```
 
 #### **Run Console-Based Chat Interface**

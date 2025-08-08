@@ -20,7 +20,6 @@ jobs:
     name: Linux_CI_Unit_Test_Olive
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
-    test_type: 'unit_test'
     onnxruntime_nightly: true
 
 # Linux GPU unit test
@@ -29,7 +28,6 @@ jobs:
     name: Linux_GPU_CI_Unit_Test_Olive
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     windows: False
-    test_type: 'unit_test'
     onnxruntime_nightly: true
 
 # Windows unit test
@@ -38,7 +36,6 @@ jobs:
     name: Windows_CI_Unit_Test_Olive
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
-    test_type: 'unit_test'
     onnxruntime_nightly: true
 
 # Linux examples test
