@@ -20,7 +20,7 @@ class DependencySetupEnvBuilder(venv.EnvBuilder):
     def post_setup(self, context) -> None:
         super().post_setup(context)
         # Install Olive only
-        olive_root = str(Path(__file__).parents[3].resolve())
+        olive_root = str(Path(__file__).parents[2].resolve())
         run_subprocess([context.env_exe, "-Im", "pip", "install", olive_root], check=True)
 
 
