@@ -271,18 +271,8 @@ information of the evaluator contains following items:
         - `metric_func_kwargs: Dict[str, Any]` Keyword arguments for `metric_func` provided by the user. The functions must be able to take the keyword arguments either through the function signature
         as keyword/positional parameters after the required positional parameters or through `**kwargs`.
 
-    Note that for above `data_dir` config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.
+    Note that for above `data_dir` config which is related to resource path, Olive supports local file and local folder.
 
-    ```json
-    "data_dir": {
-        "type": "azureml_datastore",
-        "azureml_client": "azureml_client",
-        "datastore_name": "test",
-        "relative_path": "cifar-10-batches-py"
-    }
-    // provide azureml datastore url
-    "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py"
-    ```
 
 ### Example
 

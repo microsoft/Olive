@@ -440,18 +440,6 @@
 The default value is 3. User can increase if there are network issues and the operations fail.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">operation_retry_interval:</span> <span class="pre">[int]</span></code> The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.</p></li>
 </ul>
-<section id="using-azureml-registered-model">
-<h3>Using AzureML registered model<a class="headerlink" href="#using-azureml-registered-model" title="Link to this heading">#</a></h3>
-<p>You can run Olive workflow with your AML workspace registered model. In the input model section, define the model config as:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_model&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;model_name&gt;&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;model_version&gt;&quot;</span>
-<span class="w"> </span><span class="p">}</span>
-</pre></div>
-</div>
-<p>Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.</p>
-</section>
 <section id="using-azureml-curated-model">
 <h3>Using AzureML curated model<a class="headerlink" href="#using-azureml-curated-model" title="Link to this heading">#</a></h3>
 <p>You can run Olive workflow with AML registered model. In the input model section, define the model config as:</p>
@@ -464,39 +452,6 @@ The default value is 3. User can increase if there are network issues and the op
 </pre></div>
 </div>
 <p>Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.</p>
-<p>Note: you don’t need the <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> section for AzureML curated model.</p>
-</section>
-<section id="using-model-stored-in-azureml-datastore">
-<h3>Using model stored in AzureML datastore<a class="headerlink" href="#using-model-stored-in-azureml-datastore" title="Link to this heading">#</a></h3>
-<p>You can specify your model path from an AzureML datastore as:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;datastore_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_datastore&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;relative_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir/my_model.pt&quot;</span><span class="w"> </span><span class="c1">// Relative path to the resource from the datastore root</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-<section id="using-data-stored-in-azureml-datastore">
-<h3>Using data stored in AzureML datastore<a class="headerlink" href="#using-data-stored-in-azureml-datastore" title="Link to this heading">#</a></h3>
-<p>You can use data files or folders that are stored in your Azure ML datastore as:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;datastore_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_datastore&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;relative_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data_dir&quot;</span><span class="w"> </span><span class="c1">// Relative path to the resource from the datastore root</span>
-<span class="p">}</span>
-</pre></div>
-</div>
 </section>
 </section>
 </section>
@@ -549,10 +504,7 @@ The default value is 3. User can increase if there are network issues and the op
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#azure-machine-learning-client">Azure Machine Learning client</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-azureml-registered-model">Using AzureML registered model</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-azureml-curated-model">Using AzureML curated model</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-model-stored-in-azureml-datastore">Using model stored in AzureML datastore</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-data-stored-in-azureml-datastore">Using data stored in AzureML datastore</a></li>
 </ul>
 </li>
 </ul>

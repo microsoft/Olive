@@ -31,17 +31,6 @@ Where:
 The default value is 3. User can increase if there are network issues and the operations fail.
 - `operation_retry_interval: [int]` The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.
 
-### Using AzureML registered model
-You can run Olive workflow with your AML workspace registered model. In the input model section, define the model config as:
-```json
-"model_path": {
-    "type": "azureml_model",
-    "name": "<model_name>",
-    "version": "<model_version>"
- }
-```
-Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.
-
 
 ### Using AzureML curated model
 You can run Olive workflow with AML registered model. In the input model section, define the model config as:
@@ -54,35 +43,3 @@ You can run Olive workflow with AML registered model. In the input model section
 }
 ```
 Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.
-
-Note: you don't need the `azureml_client` section for AzureML curated model.
-
-### Using model stored in AzureML datastore
-You can specify your model path from an AzureML datastore as:
-```json
-"model_path": {
-    "type": "azureml_datastore",
-    "azureml_client": {
-        "subscription_id": "my_subscription_id",
-        "resource_group": "my_resource_group",
-        "workspace_name": "my_workspace"
-    },
-    "datastore_name": "my_datastore",
-    "relative_path": "model_dir/my_model.pt" // Relative path to the resource from the datastore root
-}
-```
-
-### Using data stored in AzureML datastore
-You can use data files or folders that are stored in your Azure ML datastore as:
-```json
-"data_dir": {
-    "type": "azureml_datastore",
-    "azureml_client": {
-        "subscription_id": "my_subscription_id",
-        "resource_group": "my_resource_group",
-        "workspace_name": "my_workspace"
-    },
-    "datastore_name": "my_datastore",
-    "relative_path": "data_dir" // Relative path to the resource from the datastore root
-}
-```

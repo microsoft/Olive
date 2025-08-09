@@ -633,71 +633,16 @@ infer if it is a string name, local file or local directory.</p>
 </section>
 <section id="remote-model-path">
 <h3>Remote Model Path<a class="headerlink" href="#remote-model-path" title="Link to this heading">#</a></h3>
-<p>Olive supports remote model resources. Currently, it supports AzureML model, AzureML registry model and AzureML datastore.</p>
-<section id="azureml-model">
-<h4>AzureML Model<a class="headerlink" href="#azureml-model" title="Link to this heading">#</a></h4>
-<p>Models registered in an Azure Machine Learning workspace.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_model&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span>
-<span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_model&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-<section id="azureml-registry-model">
-<h4>AzureML Registry Model<a class="headerlink" href="#azureml-registry-model" title="Link to this heading">#</a></h4>
-<p>Models curated in an Azure Machine Learning or models in your own registry. Azure ML curated model doesn’t require an <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> config section, but you can still add this section for additional <code class="docutils literal notranslate"><span class="pre">mlclient</span></code> configuration.</p>
+<p>Olive supports AzureML curated model.</p>
+<section id="azureml-curated-model">
+<h4>AzureML Curated Model<a class="headerlink" href="#azureml-curated-model" title="Link to this heading">#</a></h4>
+<p>You can specify <code class="docutils literal notranslate"><span class="pre">registry_name</span></code>, <code class="docutils literal notranslate"><span class="pre">model_name</span></code>, and <code class="docutils literal notranslate"><span class="pre">version</span></code> in the <code class="docutils literal notranslate"><span class="pre">model_path</span></code> as follows:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_registry_model&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_name&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;registry_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;registry_name&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-<section id="azureml-datastore">
-<h4>AzureML Datastore<a class="headerlink" href="#azureml-datastore" title="Link to this heading">#</a></h4>
-<p>Model files or folders stored in an Azure Machine Learning datastore.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span>
-<span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;datastore_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_datastore&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;relative_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_dir/my_model.pt&quot;</span><span class="w"> </span><span class="c1">// Relative path to the resource from the datastore root</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p><strong>Note</strong>: If the workflow config file has <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> at the top level, <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> in the model path config can be omitted. The
-workflow will automatically use the top level <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> if it is not specified in the model path config.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PytorchModel&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_model&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_model&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -782,9 +727,7 @@ workflow will automatically use the top level <code class="docutils literal notr
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#remote-model-path">Remote Model Path</a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-model">AzureML Model</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-registry-model">AzureML Registry Model</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-datastore">AzureML Datastore</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-curated-model">AzureML Curated Model</a></li>
 </ul>
 </li>
 </ul>

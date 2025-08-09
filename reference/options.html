@@ -707,17 +707,7 @@ as keyword/positional parameters after the required positional parameters or thr
 </ul>
 </li>
 </ul>
-<p>Note that for above <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from <code class="docutils literal notranslate"><span class="pre">config</span> <span class="pre">dict</span></code>, or <code class="docutils literal notranslate"><span class="pre">url</span></code>. Please refer to our <a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu">Resnet</a> example for more details.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_client&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;datastore_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;test&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;relative_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cifar-10-batches-py&quot;</span>
-<span class="p">}</span>
-<span class="c1">// provide azureml datastore url</span>
-<span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py&quot;</span>
-</pre></div>
-</div>
+<p>Note that for above <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> config which is related to resource path, Olive supports local file and local folder.</p>
 </li>
 </ul>
 <section id="id3">
