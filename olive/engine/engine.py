@@ -249,7 +249,6 @@ class Engine:
                     packaging_config,
                     workflow_output,
                     output_dir,
-                    self.azureml_client_config,
                 )
             else:
                 logger.debug("No packaging config provided, skip packaging artifacts")

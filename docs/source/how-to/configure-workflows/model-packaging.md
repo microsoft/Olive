@@ -2,7 +2,7 @@
 
 ## What is Olive Packaging
 
-Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user requires. Olive packaging can be used in different scenarios. There are 4 packaging types: `Zipfile`, `AzureMLModels`, `AzureMLData`, `AzureMLDeployment` and `Dockerfile`.
+Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user requires. Olive packaging can be used in different scenarios. There are 4 packaging types: `Zipfile` and `Dockerfile`.
 
 ### Zipfile
 
@@ -103,10 +103,6 @@ and for CPU, the best execution provider is CPUExecutionProvider, so the first r
 
 Olive will also upload model configuration file, inference config file, metrics file and model info file to the Azure ML.
 
-### AzureMLDeployment
-
-AzureMLDeployment packaging will [package](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-package-models?view=azureml-api-2&tabs=sdk) ranked No. 1 model across all output models to Azure ML workspace, and create an endpoint for it if the endpoint doesn't exist, then deploy the output model to this endpoint.
-
 ### Dockerfile
 
 Dockerfile packaging will generate a Dockerfile. You can simple run `docker build` for this Dockerfile to build a docker image which includes first ranked output model.
@@ -122,68 +118,11 @@ If not specified, Olive will not package artifacts.
     Olive packaging type. Olive will package different artifacts based on `type`.
   * `name [str]`:
     For `PackagingType.Zipfile` type, Olive will generate a ZIP file with `name` prefix: `<name>.zip`.
-    For `PackagingType.AzureMLModels` and `PackagingType.AzureMLData`, Olive will use this `name` for Azure ML resource.
-    The default value is `OutputModels`.
-    For `PackagingType.AzureMLDeployment` and `PackagingType.Dockerfile` type, Olive will ignore this attribute.
   * `config [dict]`:
     The packaging config.
     * `Zipfile`
       * `export_in_mlflow_format [bool]`:
         Export model in mlflow format. This is `false` by default.
-    * `AzureMLModels`
-      * `export_in_mlflow_format [bool]`:
-        Export model in mlflow format. This is `false` by default.
-      * `version [int | str]`：
-        The version for this model registration. This is `1` by default.
-      * `description [str]`
-        The description for this model registration. This is `None` by default.
-    * `AzureMLData`
-      * `export_in_mlflow_format [bool]`:
-        Export model in mlflow format. This is `false` by default.
-      * `version [int | str]`：
-        The version for this data asset. This is `1` by default.
-      * `description [str]`
-        The description for this data asset. This is `None` by default.
-    * `AzureMLDeployment`
-      * `model_name [str]`:
-        The model name when registering your output model to your Azure ML workspace. `olive-deployment-model` by default
-      * `model_version [int | str]`:
-        The model version when registering your output model to your Azure ML workspace. Please note if there is already a model with the same name and the same version in your workspace, this will override your existing registered model. `1` by default.
-      * `description [str]`
-        The description for this model registration. This is `None` by default.
-      * `model_package [ModelPackageConfig]`:
-        The configurations for model packaging.
-        * `target_environment [str]`:
-          The environment name for the environment created by Olive. `olive-target-environment` by default.
-        * `target_environment_version [str]`
-          The environment version for the environment created by Olive. Please note if there is already an environment with the same name and the same version in your workspace, your existing environment version will plus 1. This `target_environment_version` will not be applied for your environment. `None` by default.
-        * `inferencing_server [InferenceServerConfig]`
-          * `type [str]`
-            The targeted inferencing server type. `AzureMLOnline` or `AzureMLBatch`.
-          * `code_folder [str]`
-            The folder path to your scoring script.
-          * `scoring_script [str]`
-            The scoring script name.
-        * `base_environment_id [str]`
-          The base environment id that will be used for Azure ML packaging. The format is `azureml:<base-environment-name>:<base-environment-version>`.
-        * `environment_variables [dict]`
-          Env vars that are required for the package to run, but not necessarily known at Environment creation time. `None` by default.
-      * `deployment_config [DeploymentConfig]`
-        The deployment configuration.
-        * `endpoint_name [str]`
-          The endpoint name for the deployment. If the endpoint doesn't exist, Olive will create one endpoint with this name. `olive-default-endpoint` by default.
-        * `deployment_name [str]`
-          The name of the deployment. `olive-default-deployment` by default.
-        * `instance_type [str]`
-          Azure compute sku. ManagedOnlineDeployment only. `None` by default.
-        * `compute [str]`
-          Compute target for batch inference operation. BatchDeployment only. `None` by default.
-        * `instance_count [str]`
-          Number of instances the interfering will run on. `1` by default.
-        * `mini_batch_size [str]`
-          Size of the mini-batch passed to each batch invocation. `10` by default.
-        * `extra_config [dict]`
-          Extra configurations for deployment. `None` by default.
     * `Dockerfile`
       * `requirements_file [str]`:
         `requirements.txt` file path. The packages will be installed to docker image.
@@ -205,25 +144,6 @@ You can add different types `PackagingConfig` as a list to Engine configurations
         {
             "type": "Zipfile",
             "name": "OutputModels"
-        },
-        {
-            "type": "AzureMLModels",
-            "name": "OutputModels"
-        },
-        {
-            "type": "AzureMLData",
-            "name": "OutputModels"
-        },
-        {
-            "type": "AzureMLDeployment",
-            "model_package": {
-                "inferencing_server": {
-                    "type": "AzureMLOnline",
-                    "code_folder": "code",
-                    "scoring_script": "score.py"
-                },
-                "base_environment_id": "azureml:olive-aml-packaging:1"
-            }
         }
     ]
     "cache_dir": "cache"
