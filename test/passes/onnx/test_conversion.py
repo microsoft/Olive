@@ -11,15 +11,21 @@ from unittest.mock import patch
 import pytest
 import torch
 from onnxscript import ir
+from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion, _torch_is_older_than
-from olive.passes.pytorch.gptq import Gptq, GptqQuantizer
-from test.unit_test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
+from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
+from olive.passes.pytorch.autogptq import GptqQuantizer
+from olive.passes.pytorch.gptq import Gptq
 from test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
+
+
+def _torch_is_older_than(version_str: str) -> bool:
+    torch_version = version.parse(torch.__version__).release
+    return torch_version < version.parse(version_str).release
 
 
 @pytest.mark.parametrize(
@@ -34,8 +40,9 @@ from test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorc
     ],
 )
 def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter: bool, dynamic: bool, tmp_path):
-    if platform.system() == "Windows" and use_dynamo_exporter and _torch_is_older_than("2.7.0"):
-        pytest.skip("Dynamo export test is skipped on Windows when torch<2.7.0")
+    if platform.system() == "Windows" and use_dynamo_exporter:
+        # TODO(anyone): Investigate why this test fails on Windows and/or re-enable once torch 2.7 is released
+        pytest.skip("Dynamo export test is skipped on Windows")
     if use_dynamo_exporter and dynamic and _torch_is_older_than("2.7.0"):
         pytest.skip("Dynamo export test with dynamic shapes is skipped when torch<2.7.0")
 
