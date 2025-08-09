@@ -184,7 +184,7 @@ This is a dictionary that contains the information of systems that are reference
 dictionary is the name of the system. The value of the dictionary is another dictionary that contains the information of the system. The
 information of the system contains following items:
 
-- `type: [str]` The type of the system. The supported types are `LocalSystem`, `PythonEnvironment`, `IsolatedORT` and `Docker`.
+- `type: [str]` The type of the system. The supported types are `LocalSystem`, `PythonEnvironment`, and `Docker`.
 
 - `config: [Dict]` The system config dictionary that contains the system specific information. The fields can be provided directly under the parent dictionary.
  - `accelerators: [List[str]]` The accelerators that will be used for this workflow.

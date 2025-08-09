@@ -48,10 +48,7 @@ def create_managed_system(system_config: "SystemConfig", accelerator: "Accelerat
         accelerator = DEFAULT_CPU_ACCELERATOR
 
     # create a new system with the same type as the origin system
-    if system_config.type in [SystemType.Local, SystemType.IsolatedORT]:
-        raise NotImplementedError(f"olive_managed_env is not supported for {system_config.type} System")
-
-    elif system_config.type == SystemType.PythonEnvironment:
+    if system_config.type == SystemType.PythonEnvironment:
         import platform
         import venv
 

@@ -1,7 +1,7 @@
 # How to Define `host` or `target` Systems
 A system is a environment concept (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model is evaluated on.
 
-There are four systems in Olive: **local system**, **Python environment system**, **Docker system**, **Isolated ORT system**. Each system is categorized in one of two types of systems: **host** and **target**. A **host** is the environment where the Pass is run, and a **target** is the environment where the Model is evaluated. Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.
+There are three systems in Olive: **local system**, **Python environment system**, **Docker system**. Each system is categorized in one of two types of systems: **host** and **target**. A **host** is the environment where the Pass is run, and a **target** is the environment where the Model is evaluated. Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.
 
 ## Accelerator Configuration
 
@@ -166,27 +166,4 @@ The docker system is configured with the following attributes:
         }
     ]
 }
-```
-
-## Isolated ORT System
-
-The isolated ORT system represents the isolated ONNX Runtime environment in which the `olive-ai` is not installed. It can only be configured as a target system. The isolated ORT system is configured with the following attributes:
-
-* `accelerators`: The list of accelerators that are supported by the system.
-* `python_environment_path`: The path to the python virtual environment.
-* `environment_variables`: The environment variables that are required to run the python environment. This is optional.
-* `prepend_to_path`: The path that will be prepended to the PATH environment variable. This is optional.
-
-```json
-{
-    "type": "IsolatedORT",
-    "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
-    "accelerators": [{"device": "cpu"}]
-}
-```
-
-```{Note}
-* Isolated ORT System does not support `olive_managed_env` and can only be used to evaluate ONNX models.
-* The accelerators for Isolated ORT system is optional. If not provided, Olive will get the available execution providers installed in current virtual environment and infer its device.
-* For each accelerator, either `device` or `execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the ``device`` or `execution_providers` if possible.
 ```

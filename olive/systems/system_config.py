@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import importlib
-import shutil
 from pathlib import Path
 from typing import Optional, Union
 
@@ -60,41 +59,16 @@ class PythonEnvironmentTargetUserConfig(CommonPythonEnvTargetUserConfig):
     requirements_file: Union[Path, str] = None  # path to the requirements.txt file
 
 
-class IsolatedORTTargetUserConfig(CommonPythonEnvTargetUserConfig):
-    # Please refer to https://github.com/pydantic/pydantic/issues/1223
-    # In Pydantic v1, missing a optional field will skip the validation. But if the field is specified as None
-    # The validation will be triggered. As the result, we cannot use the following line to make the field as required
-    # since the validation will still be triggered if user pass it as None.
-    # A better approach is to use always=True to check it is required.
-    # python_environment_path: Union[Path, str]
-    @validator("python_environment_path", always=True)
-    def _validate_python_environment_path(cls, v):
-        if v is None:
-            raise ValueError("python_environment_path is required for IsolatedORTSystem")
-
-        # check if the path exists
-        if not Path(v).exists():
-            raise ValueError(f"Python path {v} does not exist")
-
-        # check if python exists in the path
-        python_path = shutil.which("python", path=v)
-        if not python_path:
-            raise ValueError(f"Python executable not found in the path {v}")
-        return v
-
-
 _type_to_config = {
     SystemType.Local: LocalTargetUserConfig,
     SystemType.Docker: DockerTargetUserConfig,
     SystemType.PythonEnvironment: PythonEnvironmentTargetUserConfig,
-    SystemType.IsolatedORT: IsolatedORTTargetUserConfig,
 }
 
 _type_to_system_path = {
     SystemType.Local: "olive.systems.local.LocalSystem",
     SystemType.Docker: "olive.systems.docker.DockerSystem",
     SystemType.PythonEnvironment: "olive.systems.python_environment.PythonEnvironmentSystem",
-    SystemType.IsolatedORT: "olive.systems.isolated_ort.IsolatedORTSystem",
 }
 
 

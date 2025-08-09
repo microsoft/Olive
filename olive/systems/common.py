@@ -15,7 +15,6 @@ class SystemType(CaseInsensitiveEnum):
     Local = "LocalSystem"
     AzureML = "AzureML"
     PythonEnvironment = "PythonEnvironment"
-    IsolatedORT = "IsolatedORT"
 
 
 class AcceleratorConfig(ConfigBase):
