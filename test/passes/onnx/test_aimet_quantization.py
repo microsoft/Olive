@@ -194,6 +194,48 @@ def test_aimet_quantization_adheres_to_custom_config(tmp_path):
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
 @pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+@pytest.mark.parametrize(
+    ("op_types", "disabled_quantizers"),
+    [
+        (["Softmax"], ["output"]),
+        (["MatMul"], ["weight", "input"]),
+        (["MatMul", "Softmax"], ["weight", "input", "matmul_out", "output"]),
+    ],
+)
+def test_aimet_quantization_excludes_op_types(tmp_path, op_types, disabled_quantizers):
+    input_model = dummy_onnx_model(tmp_path / "dummy_model.onnx")
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
+        ),
+        "precision": "int8",
+        "activation_type": "uint8",
+        "quant_scheme": "min_max",
+        "op_types_to_exclude": op_types,
+    }
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+
+    out = p.run(input_model, tmp_path)
+
+    assert out is not None
+
+    model = onnx.load(out.model_path)
+
+    tensor_to_quantizer = {
+        tensor: node
+        for node in model.graph.node
+        for tensor in (node.input[0], node.output[0])
+        if node.op_type in ("QuantizeLinear", "DequantizeLinear")
+    }
+
+    for tensor_name in ("weight", "input", "matmul_out", "output"):
+        assert (tensor_name in disabled_quantizers) == (tensor_name not in tensor_to_quantizer)
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_raises_error_with_prequantized_model(tmp_path):
     input_model = dummy_quantized_onnx_model(tmp_path / "dummy_model.onnx")
     config = {

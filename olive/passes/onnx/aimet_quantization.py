@@ -57,6 +57,30 @@ def _has_quantization_nodes(model: onnx.ModelProto):
     return any(node.op_type in quantize_op_types for node in model.graph.node)
 
 
+def _disable_quantizer(sim, tensor_name: str):
+    quantizer = sim.qc_quantize_op_dict.get(tensor_name)
+    if quantizer and not quantizer.is_encoding_frozen():
+        quantizer.enabled = False
+
+
+def _exclude_op_types(sim, op_types_to_exclude: list[str]):
+    """Excludes tensors from quantization if they are inputs/outputs only to nodes with op_type in op_types_to_exclude.
+
+    Quantizers will be disabled only for tensors which are:
+     - Intermediate tensors produced by and consumed only by nodes with excluded op types
+     - Model inputs that feed only to excluded op types
+     - Model outputs produced by excluded op types
+    """
+    for product in sim.connected_graph.get_all_products().values():
+        if product.producer and product.producer.type not in op_types_to_exclude:
+            continue
+
+        if any(consumer.type not in op_types_to_exclude for consumer in product.consumers):
+            continue
+
+        _disable_quantizer(sim, product.name)
+
+
 class AimetQuantization(Pass):
     """Quantize ONNX model using aimet-onnx."""
 
@@ -101,6 +125,11 @@ class AimetQuantization(Pass):
                     Supported providers are {"CUDAExecutionProvider", "CPUExecutionProvider"}
                     Default is None which uses [ "CPUExecutionProvider" ].
                 """,
+            ),
+            "op_types_to_exclude": PassConfigParam(
+                type_=list[str],
+                default_value=None,
+                description="List of operator types to exclude from quantization.",
             ),
         }
         config.update(get_external_data_config())
@@ -174,6 +203,11 @@ class AimetQuantization(Pass):
                 providers=run_config.get("calibration_providers"),
                 path=tmp_dir,
             )
+
+            op_types_to_exclude = run_config["op_types_to_exclude"]
+            if op_types_to_exclude:
+                _exclude_op_types(sim, op_types_to_exclude)
+
             sim.compute_encodings(calib_dataloader)
             qdq_model = sim.to_onnx_qdq()
 
