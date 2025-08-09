@@ -729,12 +729,7 @@ class Engine:
 
         try:
             if p.run_on_target:
-                if self.target.system_type == SystemType.IsolatedORT:
-                    logger.warning(
-                        "Cannot run pass %s on IsolatedORT target, will use the host to run the pass.", pass_name
-                    )
-                else:
-                    host = self.target
+                host = self.target
 
             output_model_config = host.run_pass(p, input_model_config, output_model_path)
         except OlivePassError:
