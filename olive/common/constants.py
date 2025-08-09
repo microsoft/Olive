@@ -15,7 +15,6 @@ class OS(StrEnumBase):
 WORKFLOW_CONFIG = "workflow_config"
 WORKFLOW_ARTIFACTS = "workflow_artifacts"
 HF_LOGIN = "HF_LOGIN"
-KEYVAULT_NAME = "KEYVAULT_NAME"
 
 
 ############# Engine #############

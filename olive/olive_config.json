@@ -670,7 +670,7 @@
     "extra_dependencies": {
         "aimet-onnx": [ "aimet-onnx>=2.10.0" ],
         "auto-opt": [ "optimum" ],
-        "azureml": [ "azure-ai-ml>=1.11.1", "azure-keyvault-secrets", "azure-identity", "azureml-fsspec" ],
+        "azureml": [ "azure-ai-ml>=1.11.1", "azure-identity" ],
         "bnb": [ "bitsandbytes", "triton" ],
         "capture-onnx-graph": [ "optimum" ],
         "cpu": [ "onnxruntime" ],

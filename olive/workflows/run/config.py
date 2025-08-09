@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Union
 
 from olive.auto_optimizer import AutoOptimizerConfig
-from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.cache import CacheConfig
 from olive.common.config_utils import NestedConfig, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_HF_TASK, DEFAULT_WORKFLOW_ID
@@ -85,7 +84,7 @@ class RunEngineConfig(EngineConfig):
         v.mkdir(parents=True, exist_ok=True)
         return v
 
-    def create_engine(self, olive_config, azureml_client_config, workflow_id):
+    def create_engine(self, olive_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
         if self.cache_config:
             cache_config = validate_config(self.cache_config, CacheConfig)
@@ -100,7 +99,6 @@ class RunEngineConfig(EngineConfig):
             **config,
             olive_config=olive_config,
             cache_config=cache_config,
-            azureml_client_config=azureml_client_config,
             workflow_id=workflow_id,
         )
 
@@ -116,13 +114,6 @@ class RunConfig(NestedConfig):
 
     workflow_id: str = Field(
         DEFAULT_WORKFLOW_ID, description="Workflow ID. If not provided, use the default ID 'default_workflow'."
-    )
-    azureml_client: AzureMLClientConfig = Field(
-        None,
-        description=(
-            "AzureML client configuration. This client configuration will be used for all AzureML related resources in"
-            " the workflow."
-        ),
     )
     input_model: ModelConfig = Field(description="Input model configuration.")
     systems: dict[str, SystemConfig] = Field(

@@ -10,7 +10,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Optional, Union
 
-from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.auto_config import AutoConfigClass
 from olive.common.config_utils import (
     CaseInsensitiveEnum,
@@ -21,7 +20,7 @@ from olive.common.config_utils import (
     validate_config,
 )
 from olive.common.pydantic_v1 import Field, validator
-from olive.common.utils import copy_dir, retry_func
+from olive.common.utils import copy_dir, get_credentials, retry_func
 
 logger = logging.getLogger(__name__)
 
@@ -315,9 +314,6 @@ class AzureMLRegistryModel(ResourcePath):
     @classmethod
     def _default_config(cls) -> dict[str, Any]:
         return {
-            "azureml_client": ConfigParam(
-                type_=AzureMLClientConfig, required=False, description="AzureML client config."
-            ),
             "registry_name": ConfigParam(
                 type_=str,
                 required=True,
@@ -327,6 +323,19 @@ class AzureMLRegistryModel(ResourcePath):
             ),
             "name": ConfigParam(type_=str, required=True, description="Name of the model."),
             "version": ConfigParam(type_=Union[int, str], required=True, description="Version of the model."),
+            "max_operation_retries": ConfigParam(
+                type_=int,
+                default_value=3,
+                description="Max number of retries for AzureML operations like resource creation or download.",
+            ),
+            "operation_retry_interval": ConfigParam(
+                type_=int,
+                default_value=5,
+                description=(
+                    "Initial interval in seconds between retries for AzureML operations like resource creation or"
+                    " download. The interval doubles after each retry."
+                ),
+            ),
         }
 
     def get_path(self) -> str:
@@ -335,10 +344,11 @@ class AzureMLRegistryModel(ResourcePath):
         )
 
     def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
-        # azureml client
-        azureml_client_config = self.config.azureml_client or AzureMLClientConfig()
+        from azure.ai.ml import MLClient
 
-        ml_client = azureml_client_config.create_registry_client(self.config.registry_name)
+        self.set_azure_logging_if_noset()
+
+        ml_client = MLClient(credential=get_credentials(), registry_name=self.config.registry_name)
 
         # directory to save the resource to
         dir_path = Path(dir_path).resolve()
@@ -366,10 +376,21 @@ class AzureMLRegistryModel(ResourcePath):
                 ml_client.models.download,
                 [self.config.name],
                 {"version": self.config.version, "download_path": temp_dir},
-                max_tries=azureml_client_config.max_operation_retries,
-                delay=azureml_client_config.operation_retry_interval,
+                max_tries=self.config.max_operation_retries,
+                delay=self.config.operation_retry_interval,
                 exceptions=ServiceResponseError,
             )
             new_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(temp_dir / self.config.name / model_path.name, new_path)
         return str(new_path)
+
+    def set_azure_logging_if_noset(self):
+        # set logger level to error to avoid too many logs from azure sdk
+        azure_ml_logger = logging.getLogger("azure.ai.ml")
+        # only set the level if it is not set, to avoid changing the level set by the user
+        if not azure_ml_logger.level:
+            azure_ml_logger.setLevel(logging.ERROR)
+        azure_identity_logger = logging.getLogger("azure.identity")
+        # only set the level if it is not set, to avoid changing the level set by the user
+        if not azure_identity_logger.level:
+            azure_identity_logger.setLevel(logging.ERROR)
