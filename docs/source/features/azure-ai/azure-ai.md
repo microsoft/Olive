@@ -5,7 +5,6 @@ This documents outlines the integrations between Olive and Azure Machine Learnin
 ## Azure Machine Learning client
 If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:
 
-* You have AzureML system for targets or hosts.
 * You have Azure ML model as input model.
 
 You can set your client in your Olive configuration using:
@@ -44,5 +43,3 @@ You can run Olive workflow with AML registered model. In the input model section
 }
 ```
 Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.
-
-Note: you don't need the `azureml_client` section for AzureML curated model.

@@ -17,7 +17,6 @@ to apply from user in the form of a json dictionary. In this document, we docume
 The options are organized into following sections:
 
 - [Workflow id](#workflow-id) `workflow_id`
-- [Workflow Host](#workflow-host) `workflow_host`
 - [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
 - [Systems Information](#systems-information) `systems`
@@ -185,8 +184,7 @@ This is a dictionary that contains the information of systems that are reference
 dictionary is the name of the system. The value of the dictionary is another dictionary that contains the information of the system. The
 information of the system contains following items:
 
-- `type: [str]` The type of the system. The supported types are `LocalSystem`, `AzureML` and `Docker`.
-  There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [System alias list](../how-to/configure-workflows/systems.md#azureml-readymade-systems) for the complete list of system alias.
+- `type: [str]` The type of the system. The supported types are `LocalSystem`, `PythonEnvironment`, `IsolatedORT` and `Docker`.
 
 - `config: [Dict]` The system config dictionary that contains the system specific information. The fields can be provided directly under the parent dictionary.
  - `accelerators: [List[str]]` The accelerators that will be used for this workflow.

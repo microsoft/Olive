@@ -155,9 +155,6 @@ class RunConfig(NestedConfig):
         default_factory=AutoOptimizerConfig,
         description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
     )
-    workflow_host: SystemConfig = Field(
-        None, description="Workflow host. None by default. If provided, the workflow will be run on the specified host."
-    )
 
     @root_validator(pre=True)
     def patch_evaluators(cls, values):
@@ -315,10 +312,6 @@ class RunConfig(NestedConfig):
                         " Please remove SEARCHABLE_VALUES or enable search (needs search strategy configs)."
                     )
         return v
-
-    @validator("workflow_host", pre=True)
-    def validate_workflow_host(cls, v, values):
-        return _resolve_config(values, v)
 
 
 def _validate_python_environment_path(systems):
