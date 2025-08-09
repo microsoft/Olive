@@ -58,8 +58,6 @@ class Engine:
         cache_config: Optional[Union[dict[str, Any], CacheConfig]] = None,
         plot_pareto_frontier: bool = False,
         no_artifacts: bool = False,
-        *,
-        azureml_client_config=None,
     ):
         self.olive_config = olive_config or OlivePackageConfig.load_default_config()
         self.workflow_id = workflow_id
@@ -83,7 +81,6 @@ class Engine:
 
         self.plot_pareto_frontier = plot_pareto_frontier
         self.skip_saving_artifacts = no_artifacts
-        self.azureml_client_config = azureml_client_config
 
         self.input_passes_configs: dict[str, list[RunPassConfig]] = OrderedDict()
         self.computed_passes_configs: dict[str, RunPassConfig] = OrderedDict()

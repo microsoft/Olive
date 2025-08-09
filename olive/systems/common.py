@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from pathlib import Path
 from typing import Optional, Union
 
 from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase
@@ -13,7 +12,6 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 class SystemType(CaseInsensitiveEnum):
     Docker = "Docker"
     Local = "LocalSystem"
-    AzureML = "AzureML"
     PythonEnvironment = "PythonEnvironment"
 
 
@@ -69,31 +67,3 @@ class AcceleratorConfig(ConfigBase):
                 # CPU EP is built-in and does not have a path
                 ep_path_map[ep] = None
         return ep_path_map
-
-
-class AzureMLDockerConfig(ConfigBase):
-    base_image: Optional[str] = None
-    dockerfile: Optional[str] = None
-    build_context_path: Optional[Union[Path, str]] = None
-    conda_file_path: Optional[Union[Path, str]] = None
-    name: Optional[str] = None
-    version: Optional[str] = None
-
-    @validator("dockerfile", "build_context_path", always=True)
-    def _validate_one_of_dockerfile_or_base_image(cls, v, values):
-        if v is None and values.get("base_image") is None:
-            raise ValueError("One of build_context_path/dockerfile or base_image must be provided")
-        return v
-
-    @validator("conda_file_path")
-    def _get_abspath(cls, v):
-        if v:
-            return str(Path(v).resolve())
-        else:
-            return None
-
-
-class AzureMLEnvironmentConfig(ConfigBase):
-    name: str
-    version: Optional[str] = None
-    label: Optional[str] = None

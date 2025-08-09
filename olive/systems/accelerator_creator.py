@@ -42,26 +42,19 @@ class AcceleratorNormalizer:
                 {"device": "cpu", **({"execution_providers": ["CPUExecutionProvider"]} if self.is_ep_required else {})}
             ]
         else:
-            if self.system_config.type in (SystemType.Local, SystemType.PythonEnvironment):
-                if self.is_ep_required:
-                    target = self.system_config.create_system()
-                    self.system_supported_eps = target.get_supported_execution_providers()
-                    # Remove the AzureMLExecutionProvider
-                    if "AzureExecutionProvider" in self.system_supported_eps:
-                        self.system_supported_eps.remove("AzureExecutionProvider")
+            # docker should never reach here since it only supports workflow run
+            if self.is_ep_required:
+                target = self.system_config.create_system()
+                self.system_supported_eps = target.get_supported_execution_providers()
+                # Remove the AzureMLExecutionProvider
+                if "AzureExecutionProvider" in self.system_supported_eps:
+                    self.system_supported_eps.remove("AzureExecutionProvider")
 
-                    assert self.system_supported_eps, "No supported execution providers found for the target system."
+                assert self.system_supported_eps, "No supported execution providers found for the target system."
 
-                    self._fill_accelerators()
-                else:
-                    self._fill_device()
+                self._fill_accelerators()
             else:
-                # for AzureML
-                for accelerator in self.system_config.config.accelerators:
-                    if not accelerator.device or (not accelerator.execution_providers and self.is_ep_required):
-                        raise ValueError(
-                            "AzureML system requires device and execution providers to be specified explicitly."
-                        )
+                self._fill_device()
 
             if self.is_ep_required:
                 self._check_execution_providers()

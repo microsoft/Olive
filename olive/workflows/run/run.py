@@ -143,9 +143,8 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     except Exception:
         logger.warning("ORT log severity level configuration ignored since the module isn't installed.")
 
-    # Azure ML Client
     olive_config = run_config.to_json()
-    engine = run_config.engine.create_engine(package_config, run_config.azureml_client, workflow_id)
+    engine = run_config.engine.create_engine(package_config, workflow_id)
     engine.cache.cache_olive_config(olive_config)
 
     auto_optimizer_enabled = (
