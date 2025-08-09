@@ -5,8 +5,6 @@
 import os
 
 import pytest
-from onnxruntime import __version__ as OrtVersion
-from packaging import version
 
 from olive.common.utils import retry_func, run_subprocess
 
@@ -25,25 +23,14 @@ def setup():
 
 @pytest.mark.parametrize("sampler", ["random"])
 @pytest.mark.parametrize("execution_order", ["pass-by-pass"])
-@pytest.mark.parametrize("system", ["local_system"])
 @pytest.mark.parametrize(
     "olive_json",
-    [
-        "resnet_ptq_cpu.json",
-        # TODO(trajep): remove skip once the bug of azureml-fsspec is fixed
-        pytest.param(
-            "resnet_ptq_cpu_aml_dataset.json", marks=pytest.mark.skip(reason="credential bug in azureml-fsspec")
-        ),
-    ],
+    ["resnet_ptq_cpu.json"],
 )
-@pytest.mark.skipif(
-    version.parse(OrtVersion) == version.parse("1.16.0"),
-    reason="resnet is not supported in ORT 1.16.0 caused by https://github.com/microsoft/onnxruntime/issues/17627",
-)
-def test_resnet(sampler, execution_order, system, olive_json):
+def test_resnet(sampler, execution_order, olive_json):
     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json, sampler, execution_order, system)
+    olive_config = patch_config(olive_json, sampler, execution_order)
 
     workflow_output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     check_output(workflow_output)

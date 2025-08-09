@@ -16,12 +16,11 @@ def setup():
 
 
 @pytest.mark.skip(reason="Disable failing tests")
-@pytest.mark.parametrize("system", ["local_system"])
 @pytest.mark.parametrize("olive_json", ["resnet_vitis_ai_ptq_cpu.json"])
-def test_resnet(system, olive_json):
+def test_resnet(olive_json):
     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json, None, None, system)
+    olive_config = patch_config(olive_json, None, None)
 
     workflow_output = olive_run(olive_config, tempdir=os.environ.get("OLIVE_TEMPDIR", None))
     check_output(workflow_output)
