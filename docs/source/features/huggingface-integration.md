@@ -147,37 +147,3 @@ For certain gated models or datasets, you need to log in to your Huggingface acc
 ### Local system, docker system and Python environment system
 
 For local system, docker system and Python environment system, please run command `huggingface-cli login` in your terminal to login your Huggingface account. Find more details about login [here](https://huggingface.co/docs/huggingface_hub/quick-start#login).
-
-### AzureML system
-
-Follow these steps to enable Huggingface login for AzureML system:
-
-1. Get your Huggingface token string from Settings -> [Access Tokens](https://huggingface.co/settings/tokens).
-
-1. Create or use an existing [Azure Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/general/overview). Assume the key vault is named `my_keyvault_name`. Add a new secret named `hf-token`, and set the value as the token from the first step. It is important to note that Olive reserves `hf-token` secret name specifically for Huggingface login. Do not use this name in this keyvault for other purpose.
-
-1. Make sure you have `azureml_client` section in your configuration file, and add a new attribute `keyvault_name` to it. For example:
-
-    ```json
-    "azureml_client": {
-        "subscription_id": "<subscription_id>",
-        "resource_group": "<resource_group>",
-        "workspace_name": "<workspace_name>",
-        "keyvault_name" : "my_keyvault_name"
-    }
-    ```
-
-1. Configure the Managed Service Identity (MSI) for the host compute or target compute. Detailed instruction can be found [here](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?view=azureml-api-2&tabs=sdk#configure-a-managed-identity). Then grant the host compute or target compute access to the key vault resource following this [guide](https://learn.microsoft.com/en-us/azure/key-vault/general/assign-access-policy?tabs=azure-portal)
-
-1. Add `hf_token: True` to AzureML system configuration:
-
-    ```json
-    "aml_system": {
-        "type": "AzureML",
-        "config": {
-            "hf_token": true
-        }
-    }
-    ```
-
-With the above steps, Olive can automatically retrieve your Huggingface token from the `hf-token` secret in the `my_keyvault_name` key vault, and log in your Huggingface account in the AML job.

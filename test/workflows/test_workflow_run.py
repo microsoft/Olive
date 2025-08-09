@@ -125,7 +125,7 @@ def test_run_packages():
 
     # execute
     olive_run(config, packages=True)
-    requirements_file_path = Path("local_requirements.txt")
+    requirements_file_path = Path("olive_requirements.txt")
 
     # assert
     assert (requirements_file_path).exists()
