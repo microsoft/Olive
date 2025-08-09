@@ -163,8 +163,7 @@
         "Docker",
         "LocalSystem",
         "AzureML",
-        "PythonEnvironment",
-        "IsolatedORT"
+        "PythonEnvironment"
       ],
       "type": "string"
     },
@@ -595,9 +594,6 @@
       "description": "Output Artifacts type.",
       "enum": [
         "Zipfile",
-        "AzureMLModels",
-        "AzureMLData",
-        "AzureMLDeployment",
         "Dockerfile"
       ],
       "type": "string"

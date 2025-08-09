@@ -441,13 +441,12 @@ evaluated on. It can thus be the <strong>host</strong> of a Pass or the <strong>
 <p>The Pass <strong>host</strong> provides an environment with the required OS platform and packages to execute the optimization
 technique.</p>
 <p>The Evaluator <strong>target</strong> will ideally have the same specs as the desired deployment environment.</p>
-<p>Olive supports five main types of Systems:</p>
+<p>Olive supports three main types of Systems:</p>
 <ul class="simple">
 <li><p><strong>LocalSystem:</strong> The local machine and environment. The Pass or model evaluation is run in the active python environment on
 the host machine.</p></li>
 <li><p><strong>DockerSystem:</strong> A docker container running on the host machine.</p></li>
 <li><p><strong>PythonEnvironmentSystem:</strong> A python environment on the host machine.</p></li>
-<li><p><strong>IsolatedORTSystem:</strong> A light-weight python environment on the host machine with ONNX Runtime installed. Only supports evaluation of ONNX models.</p></li>
 </ul>
 </section>
 <section id="evaluator">

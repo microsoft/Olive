@@ -409,7 +409,7 @@
   <section id="how-to-define-host-or-target-systems">
 <h1>How to Define <code class="docutils literal notranslate"><span class="pre">host</span></code> or <code class="docutils literal notranslate"><span class="pre">target</span></code> Systems<a class="headerlink" href="#how-to-define-host-or-target-systems" title="Link to this heading">#</a></h1>
 <p>A system is a environment concept (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model is evaluated on.</p>
-<p>There are four systems in Olive: <strong>local system</strong>, <strong>Python environment system</strong>, <strong>Docker system</strong>, <strong>Isolated ORT system</strong>. Each system is categorized in one of two types of systems: <strong>host</strong> and <strong>target</strong>. A <strong>host</strong> is the environment where the Pass is run, and a <strong>target</strong> is the environment where the Model is evaluated. Most of time, the <strong>host</strong> and <strong>target</strong> are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.</p>
+<p>There are three systems in Olive: <strong>local system</strong>, <strong>Python environment system</strong>, <strong>Docker system</strong>. Each system is categorized in one of two types of systems: <strong>host</strong> and <strong>target</strong>. A <strong>host</strong> is the environment where the Pass is run, and a <strong>target</strong> is the environment where the Model is evaluated. Most of time, the <strong>host</strong> and <strong>target</strong> are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.</p>
 <section id="accelerator-configuration">
 <h2>Accelerator Configuration<a class="headerlink" href="#accelerator-configuration" title="Link to this heading">#</a></h2>
 <p>For each <strong>host</strong> or <strong>target</strong>, it will represent list of accelerators that are supported by the system. Each accelerator is represented by a dictionary with the following attributes:</p>
@@ -575,31 +575,6 @@
 </div>
 </section>
 </section>
-<section id="isolated-ort-system">
-<h2>Isolated ORT System<a class="headerlink" href="#isolated-ort-system" title="Link to this heading">#</a></h2>
-<p>The isolated ORT system represents the isolated ONNX Runtime environment in which the <code class="docutils literal notranslate"><span class="pre">olive-ai</span></code> is not installed. It can only be configured as a target system. The isolated ORT system is configured with the following attributes:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">accelerators</span></code>: The list of accelerators that are supported by the system.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">python_environment_path</span></code>: The path to the python virtual environment.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">environment_variables</span></code>: The environment variables that are required to run the python environment. This is optional.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">prepend_to_path</span></code>: The path that will be prepended to the PATH environment variable. This is optional.</p></li>
-</ul>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;IsolatedORT&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;python_environment_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/home/user/.virtualenvs/myenv/bin&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">}]</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<ul class="simple">
-<li><p>Isolated ORT System does not support <code class="docutils literal notranslate"><span class="pre">olive_managed_env</span></code> and can only be used to evaluate ONNX models.</p></li>
-<li><p>The accelerators for Isolated ORT system is optional. If not provided, Olive will get the available execution providers installed in current virtual environment and infer its device.</p></li>
-<li><p>For each accelerator, either <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> is optional but not both if the accelerators are specified. If <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> is not provided, Olive will infer the <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> if possible.</p></li>
-</ul>
-</div>
-</section>
 </section>
 
 
@@ -661,7 +636,6 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#native-docker-system">Native Docker System</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#isolated-ort-system">Isolated ORT System</a></li>
 </ul>
   </nav></div>
 
