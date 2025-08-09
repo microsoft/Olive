@@ -416,7 +416,6 @@
 <h2>Azure Machine Learning client<a class="headerlink" href="#azure-machine-learning-client" title="Link to this heading">#</a></h2>
 <p>If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:</p>
 <ul class="simple">
-<li><p>You have AzureML system for targets or hosts.</p></li>
 <li><p>You have Azure ML model as input model.</p></li>
 </ul>
 <p>You can set your client in your Olive configuration using:</p>
@@ -499,33 +498,6 @@ The default value is 3. User can increase if there are network issues and the op
 </pre></div>
 </div>
 </section>
-<section id="using-azure-ml-compute-as-host-or-target">
-<h3>Using Azure ML compute as host or target<a class="headerlink" href="#using-azure-ml-compute-as-host-or-target" title="Link to this heading">#</a></h3>
-<blockquote>
-<div><p>⚠️ <strong>DEPRECATION WARNING</strong>: This feature will be deprecated in the next release.</p>
-</div></blockquote>
-<p>You can specify your Azure ML Compute as an Olive System and use it as a host to run Pass, or a target to evaluate the model.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;aml_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;base_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;conda_file_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conda.yaml&quot;</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p>Olive supports all the compute types of Azure ML, including compute via Azure Arc.</p>
-<p>Then you can specify where to use it in the Engine config:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;host&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aml_system&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aml_system&quot;</span><span class="p">,</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
 </section>
 </section>
 
@@ -581,7 +553,6 @@ The default value is 3. User can increase if there are network issues and the op
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-azureml-curated-model">Using AzureML curated model</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-model-stored-in-azureml-datastore">Using model stored in AzureML datastore</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-data-stored-in-azureml-datastore">Using data stored in AzureML datastore</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-azure-ml-compute-as-host-or-target">Using Azure ML compute as host or target</a></li>
 </ul>
 </li>
 </ul>

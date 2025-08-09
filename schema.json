@@ -79,15 +79,6 @@
           "$ref": "#/definitions/AutoOptimizerConfig"
         }
       ]
-    },
-    "workflow_host": {
-      "title": "Workflow Host",
-      "description": "Workflow host. None by default. If provided, the workflow will be run on the specified host.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/SystemConfig"
-        }
-      ]
     }
   },
   "required": [

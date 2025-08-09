@@ -42,7 +42,6 @@ The Evaluator **target** will ideally have the same specs as the desired deploym
 Olive supports five main types of Systems:
 - **LocalSystem:** The local machine and environment. The Pass or model evaluation is run in the active python environment on
   the host machine.
-- **AzureMLSystem:** An AzureML workspace compute and environment.
 - **DockerSystem:** A docker container running on the host machine.
 - **PythonEnvironmentSystem:** A python environment on the host machine.
 - **IsolatedORTSystem:** A light-weight python environment on the host machine with ONNX Runtime installed. Only supports evaluation of ONNX models.

@@ -539,36 +539,6 @@
 <h3>Local system, docker system and Python environment system<a class="headerlink" href="#local-system-docker-system-and-python-environment-system" title="Link to this heading">#</a></h3>
 <p>For local system, docker system and Python environment system, please run command <code class="docutils literal notranslate"><span class="pre">huggingface-cli</span> <span class="pre">login</span></code> in your terminal to login your Huggingface account. Find more details about login <a class="reference external" href="https://huggingface.co/docs/huggingface_hub/quick-start#login">here</a>.</p>
 </section>
-<section id="azureml-system">
-<h3>AzureML system<a class="headerlink" href="#azureml-system" title="Link to this heading">#</a></h3>
-<p>Follow these steps to enable Huggingface login for AzureML system:</p>
-<ol class="arabic">
-<li><p>Get your Huggingface token string from Settings -&gt; <a class="reference external" href="https://huggingface.co/settings/tokens">Access Tokens</a>.</p></li>
-<li><p>Create or use an existing <a class="reference external" href="https://learn.microsoft.com/en-us/azure/key-vault/general/overview">Azure Key Vault</a>. Assume the key vault is named <code class="docutils literal notranslate"><span class="pre">my_keyvault_name</span></code>. Add a new secret named <code class="docutils literal notranslate"><span class="pre">hf-token</span></code>, and set the value as the token from the first step. It is important to note that Olive reserves <code class="docutils literal notranslate"><span class="pre">hf-token</span></code> secret name specifically for Huggingface login. Do not use this name in this keyvault for other purpose.</p></li>
-<li><p>Make sure you have <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> section in your configuration file, and add a new attribute <code class="docutils literal notranslate"><span class="pre">keyvault_name</span></code> to it. For example:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;workspace_name&gt;&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;keyvault_name&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_keyvault_name&quot;</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</li>
-<li><p>Configure the Managed Service Identity (MSI) for the host compute or target compute. Detailed instruction can be found <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?view=azureml-api-2&amp;amp;tabs=sdk#configure-a-managed-identity">here</a>. Then grant the host compute or target compute access to the key vault resource following this <a class="reference external" href="https://learn.microsoft.com/en-us/azure/key-vault/general/assign-access-policy?tabs=azure-portal">guide</a></p></li>
-<li><p>Add <code class="docutils literal notranslate"><span class="pre">hf_token:</span> <span class="pre">True</span></code> to AzureML system configuration:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;hf_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</li>
-</ol>
-<p>With the above steps, Olive can automatically retrieve your Huggingface token from the <code class="docutils literal notranslate"><span class="pre">hf-token</span></code> secret in the <code class="docutils literal notranslate"><span class="pre">my_keyvault_name</span></code> key vault, and log in your Huggingface account in the AML job.</p>
-</section>
 </section>
 </section>
 
@@ -631,7 +601,6 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#huggingface-metrics">Huggingface metrics</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#huggingface-login">Huggingface login</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local-system-docker-system-and-python-environment-system">Local system, docker system and Python environment system</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#azureml-system">AzureML system</a></li>
 </ul>
 </li>
 </ul>
