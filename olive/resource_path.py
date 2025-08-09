@@ -306,6 +306,7 @@ class StringName(ResourcePath):
         logger.debug("Resource is a string name. No need to save to directory.")
         return self.config.name
 
+
 class AzureMLRegistryModel(ResourcePath):
     """AzureML Model resource path."""
 
