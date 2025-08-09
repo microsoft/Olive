@@ -638,6 +638,8 @@ def update_llm_pipeline_genai_config(
     # update decoder config
     decoder_config = genai_config["model"]["decoder"]
     decoder_config.pop("filename", None)
+    # this option is used for a different type of sliding window in ort-genai 0.9.0+
+    decoder_config.get("sliding_window", {}).pop("slide_inputs", None)
     for key, value in (decoder_config_extra or {}).items():
         exisiting_value = decoder_config.get(key)
         if isinstance(exisiting_value, dict):
