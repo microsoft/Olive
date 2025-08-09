@@ -69,40 +69,6 @@ A file that contains a JSON list for ranked model info across all accelerators, 
 ]
 ```
 
-### AzureMLModels
-
-AzureMLModels packaging will register the output models to your Azure Machine Learning workspace. The asset name will be set as `<packaging_config_name>_<accelerator_spec>_<model_rank>`. The order is ranked by metrics priorities, starting from 1. For instance, if the output model is ONNX model and the packaging config is:
-
-```json
-{
-    "type": "AzureMLModels",
-    "name": "olive_output_model",
-    "version": "1",
-    "description": "description"
-}
-```
-
-and for CPU, the best execution provider is CPUExecutionProvider, so the first ranked model name registered on AML will be `olive_output_model_cpu-cpu_1`.
-
-Olive will also upload model configuration file, inference config file, metrics file and model info file to the Azure ML.
-
-### AzureMLData
-
-AzureMLData packaging will upload the output models to your Azure Machine Learning workspace as Data assets. The asset name will be set as `<packaging_config_name>_<accelerator_spec>_<model_rank>`. The order is ranked by metrics priorities, starting from 1. For instance, if the output model is ONNX model and the packaging config is:
-
-```json
-{
-    "type": "AzureMLData",
-    "name": "olive_output_model",
-    "version": "1",
-    "description": "description"
-}
-```
-
-and for CPU, the best execution provider is CPUExecutionProvider, so the first ranked model Data name on AML will be `olive_output_model_cpu-cpu_1`.
-
-Olive will also upload model configuration file, inference config file, metrics file and model info file to the Azure ML.
-
 ### Dockerfile
 
 Dockerfile packaging will generate a Dockerfile. You can simple run `docker build` for this Dockerfile to build a docker image which includes first ranked output model.
