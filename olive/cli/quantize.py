@@ -15,16 +15,27 @@ from olive.cli.base import (
     add_dataset_options,
     add_input_model_options,
     add_logging_options,
-    add_remote_options,
     add_save_config_file_options,
     add_shared_cache_options,
     update_dataset_options,
     update_input_model_options,
     update_shared_cache_options,
 )
-from olive.common.utils import set_nested_dict_value
-from olive.constants import Precision, PrecisionBits, QuantAlgorithm
+from olive.common.utils import StrEnumBase, set_nested_dict_value
+from olive.constants import Precision, QuantAlgorithm, precision_bits_from_precision
 from olive.package_config import OlivePackageConfig
+
+
+class ImplName(StrEnumBase):
+    BNB = "bnb"
+    ORT = "ort"
+    NVMO = "nvmo"
+    INC = "inc"
+    OLIVE = "olive"
+    SPINQUANT = "spinquant"
+    QUAROT = "quarot"
+    AWQ = "awq"
+    AUTOGPTQ = "autogptq"
 
 
 class QuantizeCommand(BaseOliveCLICommand):
@@ -48,27 +59,28 @@ class QuantizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--algorithm",
             type=str,
-            default="rtn",
+            default=QuantAlgorithm.RTN,
             choices=[a.value for a in QuantAlgorithm],
             help="List of quantization algorithms to run.",
         )
         sub_parser.add_argument(
             "--precision",
             type=str,
-            default="int8",
-            choices=list(Precision) + list(PrecisionBits),
+            default=Precision.INT8,
+            choices=[p.value for p in Precision],
             help="The precision of the quantized model.",
         )
         sub_parser.add_argument(
             "--act_precision",
             type=str,
-            default="int8",
-            choices=list(Precision),
+            default=Precision.INT8,
+            choices=[p.value for p in Precision],
             help="The precision of the activation quantization for static quantization.",
         )
         sub_parser.add_argument(
             "--implementation",
             type=str,
+            default=ImplName.OLIVE,
             help="The specific implementation of quantization algorithms to use.",
         )
         sub_parser.add_argument(
@@ -78,7 +90,6 @@ class QuantizeCommand(BaseOliveCLICommand):
         )
 
         add_dataset_options(sub_parser, required=False, include_train=False, include_eval=False)
-        add_remote_options(sub_parser)
         add_shared_cache_options(sub_parser)
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
@@ -101,12 +112,16 @@ class QuantizeCommand(BaseOliveCLICommand):
             available_passes_list = ONNX_QUANT_IMPLEMENTATION_MAPPING
         for r in available_passes_list:
             pinfo = olive_config.get_pass_module_config(r["pass_type"])
-            if (
-                (impl is None or r["impl_name"] == impl)  # pylint: disable=R0916
-                and (algo is None or algo in pinfo.supported_algorithms)
-                and (precision is None or precision in pinfo.supported_precisions)
-                and (not self.args.use_qdq_encoding or "qdq" in pinfo.supported_quantization_encodings)
-            ):
+
+            impl_match = r["impl_name"] == impl
+            algo_match = algo is None or algo in pinfo.supported_algorithms
+            precision_match = precision is None or precision in pinfo.supported_precisions
+            qdq_match = (
+                not self.args.use_qdq_encoding
+                or "qdq" in pinfo.supported_quantization_encodings
+                or r["impl_name"] == ImplName.OLIVE
+            )
+            if impl_match and algo_match and precision_match and qdq_match:
                 if not self._check_data_name_arg(pinfo):
                     print(
                         f"Warning: Quantization for {algo} {precision} {impl} implementation with QDQ"
@@ -121,6 +136,10 @@ class QuantizeCommand(BaseOliveCLICommand):
                 f"Quantiation for precision {precision}, algorithm {algo} and implementation {impl} "
                 f"with QDQ {self.args.use_qdq_encoding} is not supported"
             )
+
+        if impl == ImplName.OLIVE and self.args.use_qdq_encoding:
+            pass_list.append("MatMulNBitsToQDQ")
+
         print(f"pass list: {pass_list}")
         return pass_list
 
@@ -129,8 +148,8 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         # config options to add for a given option
         to_add = {
-            "AutoAWQQuantizer": {"bits": self.args.precision},
-            "GptqQuantizer": {"bits": self.args.precision},
+            "AutoAWQQuantizer": {"bits": precision_bits_from_precision(self.args.precision)},
+            "GptqQuantizer": {"bits": precision_bits_from_precision(self.args.precision)},
             "OnnxBnB4Quantization": {"precision": self.args.precision},
             "NVModelOptQuantization": {"precision": self.args.precision, "algorithm": self.args.algorithm},
             "OnnxDynamicQuantization": {"precision": self.args.precision, "quant_format": quant_format},
@@ -140,8 +159,12 @@ class QuantizeCommand(BaseOliveCLICommand):
                 "quant_format": quant_format,
                 "data_config": "default_data_config",
             },
-            "OnnxMatMul4Quantizer": {"quant_format": quant_format},
-            "IncDynamicQuantization": {"algorithm": self.args.algorithm, "bits": self.args.precision},
+            "OnnxBlockWiseRtnQuantization": {},
+            "IncDynamicQuantization": {
+                "algorithm": self.args.algorithm,
+                "bits": precision_bits_from_precision(self.args.precision),
+            },
+            "MatMulNBitsToQDQ": {},
         }
 
         passes_dict = {}
@@ -181,7 +204,7 @@ class QuantizeCommand(BaseOliveCLICommand):
         return config
 
     def run(self):
-        self._run_workflow()
+        return self._run_workflow()
 
 
 TEMPLATE = {
@@ -210,22 +233,21 @@ TEMPLATE = {
 
 # Pass order in this mapping is important. More than one passes could be selected from this mapping.
 PT_QUANT_IMPLEMENTATION_MAPPING = [
-    {"impl_name": "quarot", "pass_type": "QuaRot"},
+    {"impl_name": ImplName.QUAROT, "pass_type": "QuaRot"},
     # TODO(jambayk): consider exposing the activation bits through the act_precision argument
-    {"impl_name": "spinquant", "pass_type": "SpinQuant"},
-    {"impl_name": "awq", "pass_type": "AutoAWQQuantizer"},
-    {"impl_name": "autogptq", "pass_type": "GptqQuantizer"},
+    {"impl_name": ImplName.SPINQUANT, "pass_type": "SpinQuant"},
+    {"impl_name": ImplName.AWQ, "pass_type": "AutoAWQQuantizer"},
+    {"impl_name": ImplName.AUTOGPTQ, "pass_type": "GptqQuantizer"},
 ]
 
 # Pass order in this mapping is important. More than one passes could be selected from this mapping.
 ONNX_QUANT_IMPLEMENTATION_MAPPING = [
-    {"impl_name": "bnb", "pass_type": "OnnxBnB4Quantization"},
-    {"impl_name": "ort", "pass_type": "OnnxMatMul4Quantizer"},
-    {"impl_name": "ort", "pass_type": "OnnxDynamicQuantization"},
-    {"impl_name": "ort", "pass_type": "OnnxStaticQuantization"},
-    {"impl_name": "nvmo", "pass_type": "NVModelOptQuantization"},
-    {"impl_name": "inc", "pass_type": "IncDynamicQuantization"},
-    {"impl_name": "olive", "pass_type": "OnnxHqqQuantization"},
-    {"impl_name": "olive", "pass_type": "OnnxBlockWiseRtnQuantization"},
-    # "impl_name": "inc", "pass_type": "IncStaticQuantization"},
+    {"impl_name": ImplName.BNB, "pass_type": "OnnxBnB4Quantization"},
+    {"impl_name": ImplName.ORT, "pass_type": "OnnxDynamicQuantization"},
+    {"impl_name": ImplName.ORT, "pass_type": "OnnxStaticQuantization"},
+    {"impl_name": ImplName.NVMO, "pass_type": "NVModelOptQuantization"},
+    {"impl_name": ImplName.INC, "pass_type": "IncDynamicQuantization"},
+    {"impl_name": ImplName.OLIVE, "pass_type": "OnnxHqqQuantization"},
+    {"impl_name": ImplName.OLIVE, "pass_type": "OnnxBlockWiseRtnQuantization"},
+    {"impl_name": ImplName.INC, "pass_type": "IncStaticQuantization"},
 ]

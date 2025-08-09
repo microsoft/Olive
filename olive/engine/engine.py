@@ -100,24 +100,21 @@ class Engine:
         # might be used by other parts of olive to cache data
         self.cache.set_cache_env()
 
-        # prepare non-local resources if host/target is not AzureML
+        # prepare non-local resources
         # TODO(anyone): Should the shared cache care about this? If so, the shared cache helper can
         # check for cached non-local resource paths and replace them with the original config
         # during hash calculation.
-        if self.target_config.type != SystemType.AzureML:
-            if self.evaluator_config:
-                self.evaluator_config = self.cache.prepare_resources_for_local(self.evaluator_config)
-
-            for passes_configs in self.input_passes_configs.values():
-                for pass_config in passes_configs:
-                    if pass_config.evaluator:
-                        pass_config.evaluator = self.cache.prepare_resources_for_local(pass_config.evaluator)
+        if self.evaluator_config:
+            self.evaluator_config = self.cache.prepare_resources_for_local(self.evaluator_config)
 
         for passes_configs in self.input_passes_configs.values():
             for pass_config in passes_configs:
-                host_type = pass_config.host.system_type if pass_config.host else self.host_config.type
-                if host_type != SystemType.AzureML:
-                    pass_config.config = self.cache.prepare_resources_for_local(pass_config.config)
+                if pass_config.evaluator:
+                    pass_config.evaluator = self.cache.prepare_resources_for_local(pass_config.evaluator)
+
+        for passes_configs in self.input_passes_configs.values():
+            for pass_config in passes_configs:
+                pass_config.config = self.cache.prepare_resources_for_local(pass_config.config)
 
         self._initialized = True
 
@@ -728,8 +725,7 @@ class Engine:
             input_model_config = self.cache.download_shared_cache_model(input_model_config, input_model_id)
 
         host = self.host_for_pass(pass_name)
-        if host.system_type != SystemType.AzureML:
-            input_model_config = self.cache.prepare_resources_for_local(input_model_config)
+        input_model_config = self.cache.prepare_resources_for_local(input_model_config)
 
         try:
             if p.run_on_target:
@@ -833,8 +829,7 @@ class Engine:
             return signal
 
         # evaluate model
-        if self.target.system_type != SystemType.AzureML:
-            model_config = self.cache.prepare_resources_for_local(model_config)
+        model_config = self.cache.prepare_resources_for_local(model_config)
         signal = self.target.evaluate_model(model_config, evaluator_config, accelerator_spec)
 
         # cache evaluation
@@ -874,7 +869,7 @@ class Engine:
             if host_accelerators and host_accelerators[0].execution_providers:
                 host_accelerator_spec = AcceleratorSpec(
                     host_accelerators[0].device,
-                    host_accelerators[0].execution_providers[0],
+                    host_accelerators[0].get_ep_strs()[0],
                     memory=host_accelerators[0].memory,
                 )
             else:

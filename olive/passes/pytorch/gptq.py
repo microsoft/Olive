@@ -2,36 +2,43 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import json
+from __future__ import annotations
+
 import logging
-from argparse import Namespace
-from contextlib import contextmanager
-from copy import deepcopy
-from pathlib import Path
-from typing import Any, Optional, Union
+import math
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Union
 
 import torch
-from packaging import version
-from transformers import PreTrainedModel
 
 from olive.common.config_utils import validate_config
 from olive.common.hf.wrapper import ModelWrapper
-from olive.common.utils import get_attr
+from olive.common.quant.hf_utils import OliveHfQuantizationConfig, replace_matching_submodules
+from olive.common.quant.linear import QuantLinear
+from olive.common.quant.utils import WeightQuantizer
+from olive.common.utils import tensor_data_to_device
 from olive.constants import PrecisionBits
 from olive.data.config import DataConfig
 from olive.data.template import huggingface_data_config_template
-from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler, PyTorchModelHandler
-from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_pytorch
+from olive.passes.pytorch.common import inherit_hf_from_hf
+from olive.passes.pytorch.train_utils import (
+    load_hf_base_model,
+)
+
+if TYPE_CHECKING:
+    from olive.hardware.accelerator import AcceleratorSpec
+    from olive.model import HfModelHandler
+
 
 logger = logging.getLogger(__name__)
 
+# ruff: noqa: N806
 
-class GptqQuantizer(Pass):
-    """GPTQ quantization using Hugging Face Optimum and export model with onnxruntime optimized kernel."""
+
+class Gptq(Pass):
+    """GPTQ quantization."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -41,57 +48,29 @@ class GptqQuantizer(Pass):
                 default_value=PrecisionBits.BITS4,
                 description="quantization bits. Default value is 4",
             ),
-            "layers_block_name": PassConfigParam(
-                type_=str,
-                default_value=None,
-                description=(
-                    "Block name to quantize. "
-                    "For models can't be auto filled, you can refer this link to fill these parameters.\n"
-                    "https://github.com/AutoGPTQ/AutoGPTQ/blob/896d8204bc89a7cfbda42bf3314e13cf4ce20b02/auto_gptq/modeling/llama.py#L19-L26"
-                ),
-            ),
-            "outside_layer_modules": PassConfigParam(
-                type_=list[str],
-                default_value=None,
-                description=(
-                    "Names of other nn modules that in the same level as the transformer layer block. "
-                    "Default value is None."
-                ),
-            ),
-            "inside_layer_modules": PassConfigParam(
-                type_=list[list[str]],
-                default_value=None,
-                description="Names of linear layers in transformer layer module. Default value is None.",
-            ),
             "group_size": PassConfigParam(
                 type_=int,
                 default_value=128,
                 description="Block size for quantization. Default value is 128.",
+            ),
+            "sym": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Symmetric quantization. Default value is False.",
             ),
             "damp_percent": PassConfigParam(
                 type_=float,
                 default_value=0.01,
                 description="Damping factor for quantization. Default value is 0.01.",
             ),
-            "static_groups": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="Use static groups for quantization. Default value is False.",
-            ),
-            "true_sequential": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="Use true sequential for quantization. Default value is False.",
-            ),
             "desc_act": PassConfigParam(
                 type_=bool,
-                default_value=False,
-                description="Use descriptive activation for quantization. Default value is False.",
-            ),
-            "sym": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="Symmetric quantization. Default value is False.",
+                default_value=None,
+                description=(
+                    "Whether to use act-order (also called desc-act) scheme. True is only supported when group_size is"
+                    " -1. Default is None, which is equivalent to True for group_size -1 and False for other group"
+                    " sizes."
+                ),
             ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, dict],
@@ -103,146 +82,412 @@ class GptqQuantizer(Pass):
             ),
         }
 
+    @classmethod
+    def validate_config(
+        cls,
+        config: type[BasePassConfig],
+        accelerator_spec: AcceleratorSpec,
+    ) -> bool:
+        if not super().validate_config(config, accelerator_spec):
+            return False
+
+        if config.group_size <= 0 and config.group_size != -1:
+            logger.info("group_size must be -1 or greater than 0")
+            return False
+
+        if config.desc_act is True and config.group_size != -1:
+            logger.info("desc_act can only be True when group_size is -1.")
+            return False
+
+        return True
+
     @torch.no_grad()
     def _run_for_config(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig], output_model_path: str
-    ) -> PyTorchModelHandler:
-        from auto_gptq import BaseQuantizeConfig, __version__
-        from auto_gptq.modeling import BaseGPTQForCausalLM
-        from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
+        """Run GPTQ quantization on the model.
 
-        if not torch.cuda.is_available():
-            # Autogpq quantize_model currently only support cuda device. It accepts model on cpu but
-            # will move each block(layer) to cuda before quantization and move back to cpu when finished.
-            raise ValueError("Please use GPU to run gptq quantization.")
+        Args:
+            model: The HuggingFace model to quantize.
+            config: Configuration object containing quantization parameters.
+            output_model_path: Path where the quantized model will be saved.
 
-        dataset = self.get_dataset(model, config)
+        Returns:
+            HfModelHandler for the quantized model.
 
-        adapter_path = None
-        if isinstance(model, HfModelHandler) and model.adapter_path:
-            logger.info(
-                "Model has adapters but GPTQ does not support adapters. Quantizing without adapters. The original"
-                " adapters will be used as is with the quantized base model."
-            )
-            # TODO(jambayk): should we copy the adapter? what about non-local adapters?
-            adapter_path = model.adapter_path
+        """
+        from tqdm.auto import tqdm
 
-            # create a new input model with the adapter path removed
-            model.model = None
-            model = deepcopy(model)
-            model.set_resource("adapter_path", None)
+        wrapper = ModelWrapper.from_model(load_hf_base_model(model, torch_dtype="auto"))
+        wrapper.model.eval()
+        original_use_cache = wrapper.model.config.use_cache
+        wrapper.model.config.use_cache = False
 
-        pytorch_model = model.load_model(cache_model=False)
-        model_type = pytorch_model.config.model_type if hasattr(pytorch_model, "config") else ""
+        quant_config = self.get_quant_config(model, config)
 
-        # create model adapter if needed
-        model_wrapper = None
-        if isinstance(pytorch_model, PreTrainedModel) and model_type not in GPTQ_CAUSAL_LM_MODEL_MAP:
-            model_wrapper = ModelWrapper.from_model(pytorch_model)
+        self.prepare_model(wrapper, quant_config)
 
-        quantize_config = BaseQuantizeConfig(
-            bits=config.bits.value,
-            group_size=config.group_size,
-            damp_percent=config.damp_percent,
-            static_groups=config.static_groups,
-            true_sequential=config.true_sequential,
-            desc_act=config.desc_act,
-            sym=config.sym,
-            # this is so that the weight gets saved as "model.safetensors"
-            model_file_base_name="model",
-        )
+        # get the inputs for the first layer
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        hidden_states, layer_args, layer_kwargs = self.get_init_layer_inputs(model, wrapper, config, device)
 
-        model_class = GPTQ_CAUSAL_LM_MODEL_MAP.get(model_type, BaseGPTQForCausalLM)
-        quantized_model: BaseGPTQForCausalLM = model_class(pytorch_model, False, quantize_config)
+        for layer in tqdm(wrapper.get_layers(return_name=False), desc="Quantizing layers"):
+            quantizable_modules = [module for module in layer.modules() if hasattr(module, "quant_info")]
 
-        for key in ["outside_layer_modules", "inside_layer_modules", "layers_block_name"]:
-            v = getattr(config, key, None)
-            if v:
-                # user provided value
-                setattr(quantized_model, key, v)
-            elif model_type in GPTQ_CAUSAL_LM_MODEL_MAP:
-                # gptq supports the model type
-                pass
-            elif model_wrapper:
-                # try to get the value from the model adapter
-                setattr(quantized_model, key, self.get_gptq_info(model_wrapper, key))
-            else:
-                raise ValueError(f"Can't get {key} to quantize automatically, please provide it in config.")
+            # collect calibration data
+            handles = [module.register_forward_hook(self.accumulate_hessian) for module in quantizable_modules]
+            self.run_layer(layer, hidden_states, layer_args, layer_kwargs)
+            for handle in handles:
+                handle.remove()
 
-        # quantize the model
-        with self._maybe_patch_gptq_model(quantized_model) as quantized_model:
-            quantized_model.quantize(dataset)
+            # process each quantizable module
+            for module in quantizable_modules:
+                self.process_module(module, percdamp=config.damp_percent, actorder=config.desc_act)
 
-        # until https://github.com/AutoGPTQ/AutoGPTQ/pull/602, bias was always present
-        # in the quantized model, so we need to remove it
-        if version.parse(__version__) < version.parse("0.8.0"):
-            from auto_gptq.utils.import_utils import dynamically_import_QuantLinear
-
-            qlinear_class = dynamically_import_QuantLinear(
-                use_triton=False,
-                desc_act=config.desc_act,
-                group_size=config.group_size,
-                bits=config.bits.value,
-                disable_exllama=False,
-                disable_exllamav2=True,
+            # run the layer again to get the quantized outputs
+            hidden_states = self.run_layer(
+                layer,
+                hidden_states,
+                layer_args,
+                layer_kwargs,
+                return_output=True,
             )
 
-            for module in quantized_model.modules():
-                if not isinstance(module, qlinear_class) or module.bias is None:
-                    continue
+        # finalize the quantization
+        self.finalize(wrapper, quant_config, device)
+        wrapper.model.config.use_cache = original_use_cache
 
-                if all(module.bias == 0):
-                    module.bias = None
-
-        # TODO(anyone): Is pytorch model support needed? auto-awq only works with transformers like models
-        if isinstance(model, PyTorchModelHandler):
-            pytorch_model = quantized_model.model
-            # add quantization related attributes to the model for downstream usage
-            pytorch_model.quantization_method = "gptq"
-            if hasattr(pytorch_model, "config"):
-                pytorch_model.config.quantization_config = Namespace(quantized_model.quantize_config.to_dict())
-            else:
-                pytorch_model.config = Namespace(
-                    quantization_config=Namespace(quantized_model.quantize_config.to_dict())
-                )
-
-            output_model_path = normalize_path_suffix(output_model_path, "model.pt")
-            torch.save(quantized_model, output_model_path)
-
-            return inherit_pytorch_from_pytorch(model, output_model_path)
-
-        # save quantized model and metadata
-        quantized_model.save_quantized(output_model_path)
+        # save the quantized model
+        wrapper.model.save_pretrained(output_model_path)
         model.save_metadata(output_model_path)
 
-        # need to disable exllama to be able to load on cpu
-        # should we do this using load kwargs? It works but transformers prints a warning
-        config_json_path = Path(output_model_path) / "config.json"
-        with open(config_json_path, encoding="utf-8") as f:
-            model_config = json.load(f)
+        return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
 
-        model_config["quantization_config"]["use_exllama"] = False
-        with open(config_json_path, "w", encoding="utf-8") as f:
-            json.dump(model_config, f, indent=2)
+    def get_quant_config(self, model: HfModelHandler, config: type[BasePassConfig]) -> OliveHfQuantizationConfig:
+        """Get quantization configuration with mixed precision support.
 
-        # return HfModelHandler with updated model path
-        new_load_kwargs = deepcopy(model.load_kwargs.dict()) if model.load_kwargs else {}
-        # model is saved in safetensors format so need to enable safetensors load
-        if new_load_kwargs.get("extra_args") and new_load_kwargs["extra_args"].get("use_safetensors") is False:
-            new_load_kwargs["extra_args"]["use_safetensors"] = True
-        return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path, load_kwargs=new_load_kwargs)
+        Args:
+            model: The HuggingFace model to get configuration for.
+            config: Configuration object containing quantization parameters.
 
-    def get_dataset(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: dict[str, Any]
-    ) -> list[dict[str, Any]]:
-        """Get the dataset for quantization."""
-        data_config = config.data_config
-        if not data_config and isinstance(model, HfModelHandler):
-            data_config = self.get_calibration_data_config(
-                model.model_name_or_path, trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None)
+        Returns:
+            OliveHfQuantizationConfig object with quantization settings.
+
+        """
+        quant_config = {
+            "bits": config.bits,
+            "symmetric": config.sym,
+            "group_size": config.group_size,
+        }
+        if mp_info := (model.model_attributes or {}).get("mixed_precision_info"):
+            for k, v in quant_config.items():
+                if mp_info["default"].get(k) is not None and v != mp_info["default"][k]:
+                    logger.debug("Overriding %s with mixed precision info: %s", k, mp_info["default"][k])
+                    quant_config[k] = mp_info["default"][k]
+            quant_config["overrides"] = mp_info.get("overrides")
+        return OliveHfQuantizationConfig(**quant_config)
+
+    def prepare_model(self, wrapper: ModelWrapper, quant_config: OliveHfQuantizationConfig) -> None:
+        """Prepare the model for quantization by adding quant_info to linear layers.
+
+        Args:
+            wrapper: ModelWrapper containing the model to prepare.
+            quant_config: Quantization configuration to use.
+
+        """
+        # TODO(jambayk): make lm head quantization configurable
+        lm_head_name = wrapper.get_lm_head()[1]
+
+        def should_quantize(module: torch.nn.Module, name: str) -> bool:
+            return isinstance(module, torch.nn.Linear) and name != lm_head_name
+
+        def add_quant_info(module: torch.nn.Module, name: str) -> torch.nn.Module:
+            # TODO(jambayk): validate that the module and config are compatible
+            module.quant_info = QuantInfo(quantizer=WeightQuantizer(**quant_config.get_qlinear_init_args(name)))
+            return module
+
+        replace_matching_submodules(
+            wrapper.model,
+            should_quantize,
+            add_quant_info,
+            description="Preparing model for quantization",
+        )
+
+    @torch.no_grad()
+    def get_init_layer_inputs(
+        self, model: HfModelHandler, wrapper: ModelWrapper, config: type[BasePassConfig], device: str
+    ) -> tuple[list[torch.Tensor], list[tuple], list[dict]]:
+        """Get initial layer inputs for quantization calibration.
+
+        Args:
+            model: The HuggingFace model.
+            wrapper: ModelWrapper containing the model.
+            config: Configuration object containing data settings.
+            device: Device to run calibration on.
+
+        Returns:
+            Tuple containing hidden states, layer args, and layer kwargs.
+
+        """
+        hidden_states, layer_args, layer_kwargs = [], [], []
+
+        pre_layer_modules = list(wrapper.get_embeds(return_name=False))
+        if rotary_embed := wrapper.get_rotary_embed(return_name=False):
+            pre_layer_modules.append(rotary_embed)
+        for module in pre_layer_modules:
+            module.to(device)
+
+        def store_input_hook(_, args: tuple, kwargs: dict) -> None:
+            # assume first argument is the hidden state
+            hidden_states.append(args[0])
+            layer_args.append(args[1:])
+            layer_kwargs.append(kwargs)
+            raise ValueError
+
+        first_layer = wrapper.get_layers(return_name=False)[0]
+        hook = first_layer.register_forward_pre_hook(store_input_hook, with_kwargs=True)
+
+        for data in self.get_dataset(model, config):
+            try:
+                wrapper.model(**tensor_data_to_device(data, device))
+            except ValueError:
+                # we raised ValueError to stop the forward pass
+                pass
+
+        hook.remove()
+        for module in pre_layer_modules:
+            module.to("cpu")
+
+        return hidden_states, layer_args, layer_kwargs
+
+    @torch.no_grad()
+    def run_layer(
+        self,
+        layer: torch.nn.Module,
+        hidden_states: list[torch.Tensor],
+        layer_args: list[tuple],
+        layer_kwargs: list[dict],
+        return_output: bool = False,
+    ) -> list[torch.Tensor] | None:
+        """Run a layer with the given inputs.
+
+        Args:
+            layer: The model layer to run.
+            hidden_states: List of hidden state tensors.
+            layer_args: List of additional positional arguments for each input.
+            layer_kwargs: List of keyword arguments for each input.
+            return_output: Whether to return the layer outputs.
+
+        Returns:
+            List of output tensors if return_output is True, otherwise None.
+
+        """
+        outputs = []
+        layer.to(hidden_states[0].device)
+
+        for i, hs in enumerate(hidden_states):
+            # TODO(jambayk): support non true-sequential if needed
+            layer_output = layer(
+                hs,
+                *layer_args[i],
+                **layer_kwargs[i],
+            )[0]
+            if return_output:
+                outputs.append(layer_output)
+
+        layer.to("cpu")
+        return outputs or None
+
+    @staticmethod
+    def accumulate_hessian(module: torch.nn.Module, inp: tuple, _: Any) -> None:
+        """Accumulate Hessian matrix for GPTQ quantization.
+
+        Args:
+            module: The linear module to accumulate Hessian for.
+            inp: Input tensors to the module.
+            _: Unused output parameter.
+
+        """
+        if module.quant_info.data is None:
+            module.quant_info.data = {
+                "H": torch.zeros((module.in_features, module.in_features), device=inp[0].device),
+                "N": 0,
+            }
+
+        batch_size = inp[0].shape[0]
+        inp = inp[0].reshape(-1, module.in_features).t()
+
+        module.quant_info.data["H"] *= module.quant_info.data["N"] / (module.quant_info.data["N"] + batch_size)
+        module.quant_info.data["N"] += batch_size
+        inp = math.sqrt(2 / module.quant_info.data["N"]) * inp.float()
+        module.quant_info.data["H"] += inp.matmul(inp.t())
+
+    @staticmethod
+    def process_module(
+        module: torch.nn.Module, blocksize: int = 128, percdamp: float = 0.01, actorder: bool | None = False
+    ) -> None:
+        """Process a module for GPTQ quantization using the accumulated Hessian.
+
+        Args:
+            module: The linear module to quantize.
+            blocksize: Block size for processing weights.
+            percdamp: Damping factor for numerical stability.
+            actorder: Whether to use act-order quantization scheme.
+
+        """
+        if module.quant_info.data is None:
+            raise ValueError(f"Module {module} does not have quant_info.data initialized!")
+
+        if actorder is None:
+            actorder = module.quant_info.quantizer.group_size == -1
+        elif actorder is True:
+            assert module.quant_info.quantizer.group_size == -1, (
+                "actorder can only be True when group_size is -1, but got group_size="
+                f"{module.quant_info.quantizer.group_size}"
             )
-        elif not data_config:
-            raise ValueError("Data config is required for PyTorch model.")
+
+        H = module.quant_info.data["H"]
+        W = module.weight.data.clone().float().to(H.device)
+        num_cols = H.shape[0]
+
+        dead = torch.diag(H) == 0
+        H[dead, dead] = 1
+        W[:, dead] = 0
+
+        if actorder:
+            perm = torch.argsort(torch.diag(H), descending=True)
+            W = W[:, perm]
+            H = H[perm][:, perm]
+            invperm = torch.argsort(perm)
+
+        Losses = torch.zeros_like(W)
+        Q = torch.zeros_like(W)
+
+        damp = percdamp * torch.mean(torch.diag(H))
+        diag = torch.arange(num_cols, device=H.device)
+        H[diag, diag] += damp
+        Hinv = torch.linalg.cholesky(H)  # pylint: disable=not-callable
+        del H
+        Hinv = torch.cholesky_inverse(Hinv)
+        Hinv = torch.linalg.cholesky(Hinv, upper=True)  # pylint: disable=not-callable
+
+        all_scales = []
+        all_zp = []
+        now_idx = 1
+        # create a per-channel quantizer
+        quantizer = WeightQuantizer(
+            bits=module.quant_info.quantizer.bits, symmetric=module.quant_info.quantizer.symmetric, group_size=-1
+        )
+        if module.quant_info.quantizer.group_size == -1:
+            # this can be before or after actorder permutation since there's only one group
+            active_scale, active_zp = quantizer.find_qparams(W)
+        else:
+            active_scale, active_zp = None, None
+
+        for i1 in range(0, num_cols, blocksize):
+            i2 = min(i1 + blocksize, num_cols)
+            count = i2 - i1
+
+            W1 = W[:, i1:i2].clone()
+            Q1 = torch.zeros_like(W1)
+            Err1 = torch.zeros_like(W1)
+            Losses1 = torch.zeros_like(W1)
+            Hinv1 = Hinv[i1:i2, i1:i2]
+
+            for i in range(count):
+                w = W1[:, i]
+                d = Hinv1[i, i]
+
+                if module.quant_info.quantizer.group_size != -1:
+                    if (i1 + i) % module.quant_info.quantizer.group_size == 0:
+                        active_scale, active_zp = quantizer.find_qparams(
+                            W[:, (i1 + i) : (i1 + i + module.quant_info.quantizer.group_size)]
+                        )
+
+                    if ((i1 + i) // module.quant_info.quantizer.group_size) - now_idx == -1:
+                        all_scales.append(active_scale)
+                        all_zp.append(active_zp)
+                        now_idx += 1
+
+                q = quantizer.fake_quantize(w.unsqueeze(1), active_scale, active_zp).flatten()
+                Q1[:, i] = q
+                Losses1[:, i] = (w - q) ** 2 / d**2
+
+                err1 = (w - q) / d
+                W1[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[i, i:].unsqueeze(0))
+                Err1[:, i] = err1
+
+            Q[:, i1:i2] = Q1
+            Losses[:, i1:i2] = Losses1 / 2
+
+            W[:, i2:] -= Err1.matmul(Hinv[i1:i2, i2:])
+
+        if actorder:
+            Q = Q[:, invperm]
+
+        if not all_scales:
+            all_scales.append(active_scale)
+            all_zp.append(active_zp)
+
+        module.weight.data = Q.to(module.weight.data.device).to(module.weight.data.dtype)
+        module.quant_info.scales = torch.cat(all_scales, dim=1).to("cpu")
+        module.quant_info.zero_points = torch.cat(all_zp, dim=1).to("cpu")
+
+        module.quant_info.data = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    def finalize(self, wrapper: ModelWrapper, quant_config: OliveHfQuantizationConfig, device: str) -> None:
+        """Finalize quantization by replacing linear layers with quantized versions.
+
+        Args:
+            wrapper: ModelWrapper containing the model to finalize.
+            quant_config: Quantization configuration to use.
+            device: Device to perform quantization on.
+
+        """
+
+        def should_quantize(module: torch.nn.Module, _: str) -> bool:
+            return hasattr(module, "quant_info")
+
+        def quantize_and_pack(module: torch.nn.Module, _: str) -> QuantLinear:
+            module.to(device)
+            return QuantLinear.from_linear(
+                module.to(device),
+                bits=module.quant_info.quantizer.bits,
+                symmetric=module.quant_info.quantizer.symmetric,
+                group_size=module.quant_info.quantizer.group_size,
+                scales=module.quant_info.scales,
+                zero_points=module.quant_info.zero_points,
+            ).to("cpu")  # move the original module to CPU
+
+        replace_matching_submodules(
+            wrapper.model,
+            should_quantize,
+            quantize_and_pack,
+            description="Quantizing and packing linear layers",
+        )
+
+        wrapper.model.quantization_method = quant_config.quant_method
+        wrapper.model.config.quantization_config = quant_config
+
+    def get_dataset(self, model: HfModelHandler, config: type[BasePassConfig]) -> list[dict[str, Any]]:
+        """Get the dataset for quantization calibration.
+
+        Args:
+            model: The HuggingFace model to get dataset for.
+            config: Configuration object containing data settings.
+
+        Returns:
+            List of tokenized data dictionaries for calibration.
+
+        Raises:
+            ValueError: If the dataset format is invalid.
+
+        """
+        data_config = config.data_config or self.get_calibration_data_config(
+            model.model_name_or_path, trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None)
+        )
         data_config = validate_config(data_config, DataConfig)
         dataloader = data_config.to_data_container().create_dataloader()
         # each batch consists of (input_data, labels)
@@ -262,25 +507,17 @@ class GptqQuantizer(Pass):
         return dataset
 
     @staticmethod
-    def get_gptq_info(model_wrapper: ModelWrapper, name: str) -> list[str]:
-        """Get the GPTQ info from the model wrapper."""
-        if name == "outside_layer_modules":
-            return [*model_wrapper.get_embeds()[1], model_wrapper.get_pre_head_layernorm()[1]]
-        if name == "inside_layer_modules":
-            layer_wrapper = model_wrapper.get_layer_wrappers()[0]
-            return [
-                layer_wrapper.get_attention_inputs()[1],
-                layer_wrapper.get_attention_outputs()[1],
-                layer_wrapper.get_mlp_inputs()[1],
-                layer_wrapper.get_mlp_outputs()[1],
-            ]
-        if name == "layers_block_name":
-            return model_wrapper.get_layers()[1]
+    def get_calibration_data_config(model_name_or_path: str, trust_remote_code: bool | None = None) -> DataConfig:
+        """Get default calibration data configuration for GPTQ quantization.
 
-        raise ValueError(f"Unknown key {name}")
+        Args:
+            model_name_or_path: Name or path of the model.
+            trust_remote_code: Whether to trust remote code when loading data.
 
-    @staticmethod
-    def get_calibration_data_config(model_name_or_path: str, trust_remote_code: Optional[bool] = None):
+        Returns:
+            DataConfig object for calibration data.
+
+        """
         return huggingface_data_config_template(
             model_name=model_name_or_path,
             task="text-generation",
@@ -300,30 +537,24 @@ class GptqQuantizer(Pass):
             },
         )
 
-    @contextmanager
-    def _maybe_patch_gptq_model(self, gptq_model):
-        from auto_gptq import __version__ as autogptq_version
-        from transformers import __version__ as transformers_version
 
-        # almost all model types have rotary embeddings at model.model.rotary_emb so won't keep a mapping
-        rotary_embed_module_name = "model.rotary_emb"
-        if (
-            version.parse(transformers_version) >= version.parse("4.43")
-            and version.parse(autogptq_version).release < version.parse("0.8.0").release
-            and get_attr(gptq_model.model, rotary_embed_module_name)
-        ):
-            rotary_embed_module = get_attr(gptq_model.model, rotary_embed_module_name)
+@dataclass
+class QuantInfo:
+    """Class to hold quantization information for GPTQ.
 
-            if rotary_embed_module_name not in gptq_model.outside_layer_modules:
-                gptq_model.outside_layer_modules.append(rotary_embed_module_name)
+    This class stores all the necessary information for quantizing a layer,
+    including the quantizer, computed scales and zero points, and calibration data.
 
-            # add a dummy parameter to the module so that it gets moved to device
-            rotary_embed_module.register_parameter("dummy", torch.nn.Parameter(torch.zeros(0), requires_grad=False))
+    Attributes:
+        quantizer: The weight quantizer used for quantization.
+        scales: Computed scales for quantization. Set after processing.
+        zero_points: Computed zero points for quantization. Set after processing.
+        data: Calibration data including Hessian matrix and sample count.
+              Format: {"H": torch.Tensor, "N": int} or None.
 
-            yield gptq_model
+    """
 
-            # remove the dummy parameter
-            del rotary_embed_module.dummy
-            return
-
-        yield gptq_model
+    quantizer: WeightQuantizer
+    scales: torch.Tensor | None = None
+    zero_points: torch.Tensor | None = None
+    data: dict | None = None

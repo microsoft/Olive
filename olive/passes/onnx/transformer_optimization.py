@@ -12,6 +12,7 @@ from olive.common.hf.mappings import MODEL_TYPE_MAPPING
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.utils import exclude_keys
 from olive.hardware.accelerator import AcceleratorSpec, Device
+from olive.hardware.constants import ExecutionProvider
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
@@ -51,7 +52,7 @@ class OrtTransformersOptimization(Pass):
         # if device is GPU, but user choose CPU EP, the is_gpu should be False
         is_gpu = (
             accelerator_spec.accelerator_type == Device.GPU
-            and accelerator_spec.execution_provider != "CPUExecutionProvider"
+            and accelerator_spec.execution_provider != ExecutionProvider.CPUExecutionProvider
         )
 
         config = {
@@ -148,19 +149,19 @@ class OrtTransformersOptimization(Pass):
         from packaging import version
 
         if config.float16:
-            if accelerator_spec.execution_provider == "TensorrtExecutionProvider":
+            if accelerator_spec.execution_provider == ExecutionProvider.TensorrtExecutionProvider:
                 logger.info(
                     "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
                     "optimization. Suggest to set 'trt_fp16_enable' as True in OrtSessionParamsTuning."
                 )
                 return False
-            if accelerator_spec.execution_provider == "CPUExecutionProvider":
+            if accelerator_spec.execution_provider == ExecutionProvider.CPUExecutionProvider:
                 logger.info("CPUExecutionProvider does not support float16 very well, please avoid to use float16.")
                 return False
         if not config.float16 and config.use_gqa:
             logger.info("use_gqa is only supported when float16 is True.")
             return False
-        if config.use_gpu and accelerator_spec.execution_provider == "CPUExecutionProvider":
+        if config.use_gpu and accelerator_spec.execution_provider == ExecutionProvider.CPUExecutionProvider:
             logger.info("CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu.")
             return False
         if config.only_onnxruntime and config.opt_level <= 0:

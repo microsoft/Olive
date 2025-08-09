@@ -1,4 +1,4 @@
-# How To Configure Metrics
+# How to Define Evaluation Metrics
 
 This document describes how to configure the different types of Metrics.
 

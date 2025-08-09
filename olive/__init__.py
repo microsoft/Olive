@@ -18,6 +18,32 @@ __version__ = "0.10.0.dev0"
 
 # pylint: disable=C0413
 
+# Import Python API functions
+from olive.cli.api import (  # noqa: E402
+    capture_onnx_graph,
+    convert_adapters,
+    extract_adapters,
+    finetune,
+    generate_adapter,
+    generate_cost_model,
+    quantize,
+    tune_session_params,
+)
 from olive.engine.output import DeviceOutput, ModelOutput, WorkflowOutput  # noqa: E402
+from olive.workflows import run  # noqa: E402
 
-__all__ = ["DeviceOutput", "ModelOutput", "WorkflowOutput"]
+__all__ = [
+    "DeviceOutput",
+    "ModelOutput",
+    "WorkflowOutput",
+    # Python API functions
+    "capture_onnx_graph",
+    "convert_adapters",
+    "extract_adapters",
+    "finetune",
+    "generate_adapter",
+    "generate_cost_model",
+    "quantize",
+    "run",
+    "tune_session_params",
+]

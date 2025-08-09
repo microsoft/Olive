@@ -1,8 +1,7 @@
-# How To Configure Systems
-
+# How to Define `host` or `target` Systems
 A system is a environment concept (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model is evaluated on.
 
-There are five systems in Olive: **local system**, **Python environment system**, **Docker system**, **AzureML system**, **Isolated ORT system**. Each system is categorized in one of two types of systems: **host** and **target**. A **host** is the environment where the Pass is run, and a **target** is the environment where the Model is evaluated. Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.
+There are four systems in Olive: **local system**, **Python environment system**, **Docker system**, **Isolated ORT system**. Each system is categorized in one of two types of systems: **host** and **target**. A **host** is the environment where the Pass is run, and a **target** is the environment where the Model is evaluated. Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.
 
 ## Accelerator Configuration
 
@@ -123,29 +122,26 @@ For managed python environment system, Olive can only infer the onnxruntime from
 }
 ```
 
-```{Note}
-Please refer to [this example](https://github.com/microsoft/Olive/blob/main/examples/resnet/resnet_multiple_ep.json)
-for how to use managed python environment system to optimize the model against different execution providers.
-```
-
 ## Docker System
 
-The docker system represents the docker container where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The docker system is configured with the following attributes:
+The Docker system refers to the container environment where the Olive workflow is executed. It can only be set to `host`, indicating that the workflow runs inside a Docker container. Once the workflow completes, the output model folder will be mounted back to the same relative path specified in your configuration file. For example, if `output_dir` is set to `xx/yy/zz`, the output will be saved to `xx/yy/zz` on the host machine after the workflow finishes.
+
+If a target system is specified, it can only be `Local` or `PythonEnvironment`.
+
+The docker system is configured with the following attributes:
 
 * `accelerators`: The list of accelerators that are supported by the system.
-* `local_docker_config`: The configuration for the local docker system, which includes the following attributes:
+* `image_name`: The name (and optionally tag) of the Docker image to be built, e.g. `"my-image:latest"`. The default value is `"olive-docker:latest"`
+* `build_context_path`: This directory should contain all files required for the build, including the Dockerfile.
+* `dockerfile`: The relative path to the Dockerfile within the build context, e.g. `"Dockerfile"` or `"docker/Dockerfile.dev"`.
+* `build_args`: A dictionary of build-time variables to pass to the Dockerfile. Keys are argument names and values are their corresponding values.
+* `run_params`: A dictionary of parameters to be used when running the container. These correspond to keyword arguments accepted by `docker.containers.run()`.
+* `work_dir`: The working directory where the workflow runs and files are mounted. The default value is `/olive-ws`.
+* `clean_image`: Whether to remove the Docker image after the workflow finishes. The default value is `True`.
 
-    * `image_name`: The name of the docker image.
-    * `build_context_path`: The path to the build context.
-    * `dockerfile`: The path to the Dockerfile.
-
-* `requirements_file`: The path to the requirements file. If provided, Olive will install the required packages from the requirements file in the docker container.
-* `olive_managed_env`: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.
 
 ```{Note}
-* the `build_context_path`, `dockerfile` and `requirements_file` cannot be ``None`` at the same time.
 * The docker container must have `olive-ai` installed.
-* The ``device`` and ``execution_providers`` for docker system is mandatory. Otherwise, Olive will raise an error.
 ```
 
 ### Prerequisites
@@ -160,225 +156,15 @@ The docker system represents the docker container where the Pass is run or the M
 ```json
 {
     "type": "Docker",
-    "local_docker_config": {
-        "image_name": "olive",
-        "build_context_path": "docker",
-        "dockerfile": "Dockerfile"
-    },
+    "image_name": "olive",
+    "build_context_path": "docker",
+    "dockerfile": "Dockerfile"
     "accelerators": [
         {
             "device": "cpu",
             "execution_providers": ["CPUExecutionProvider"]
         }
     ]
-}
-```
-
-### Managed Docker System
-
-When `olive_managed_env = True`, Olive will manage the docker environment by installing the required packages from the `requirements_file` in the docker container if provided.
-From the time being, Olive only supports the following base Dockerfiles based on input execution providers:
-
-* CPUExecutionProvider: (*Dockerfile.cpu*)
-* CUDAExecutionProvider: (*Dockerfile.gpu*)
-* TensorrtExecutionProvider: (*Dockerfile.gpu*)
-* OpenVINOExecutionProvider: (*Dockerfile.openvino*)
-
-A typical managed Docker system can be configured by the following example:
-
-```json
-{
-    "type": "Docker",
-    "accelerators": [
-        {
-            "device": "cpu",
-            "execution_providers": [
-                "CPUExecutionProvider",
-                "OpenVINOExecutionProvider"
-            ]
-        }
-    ],
-    "olive_managed_env": true,
-    "requirements_file": "mnist_requirements.txt"
-}
-```
-
-## AzureML System
-
-The AzureML system represents the Azure Machine Learning workspace where the Pass is run or the Model is evaluated. It can be configured as a native system or a managed system. The AzureML system is configured with the following attributes:
-
-* `accelerators`: The list of accelerators that are supported by the system, which is required.
-* `aml_compute`: The name of the AzureML compute, which is required.
-* `azureml_client_config`: The configuration for the AzureML client, which includes the following attributes:
-
-    * `subscription_id`: The subscription id of the AzureML workspace.
-    * `resource_group`: The resource group of the AzureML workspace.
-    * `workspace_name`: The name of the AzureML workspace.
-
-* `aml_docker_config`: The configuration for the AzureML docker system, which includes the following attributes:
-
-    * `base_image`: The base image for the AzureML environment.
-    * `dockerfile`: The path to the Dockerfile of the AzureML environment.
-    * `build_context_path`: The path to the build context of the AzureML environment.
-    * `conda_file_path`: The path to the conda file.
-    * `name`: The name of the AzureML environment.
-    * `version`: The version of the AzureML environment.
-
-* `aml_environment_config`: The configuration for the AzureML environment, which includes the following attributes:
-
-    * `name`: The name of the AzureML environment.
-    * `version`: The version of the AzureML environment.
-    * `label`: The label of the AzureML environment.
-
-* `requirements_file`: The path to the requirements file. If provided, Olive will install the required packages from the requirements file in the AzureML environment.
-* `tags`: The tags for the AzureML environment. This is optional.
-* `resources`: The resources dictionary for the AzureML environment. This is optional.
-* `instance_count`: The instance count for the AzureML environment. Default is 1.
-* `datastore`: The datastore name where to export artifacts. Default is `workspaceblobstore`.
-* `olive_managed_env`: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.
-
-```{Note}
-* Both `aml_docker_config` and `aml_environment_config` cannot be ``None`` at the same time.
-* If `aml_environment_config` is provided, Olive will use the existing AzureML environment with the specified name, version and label.
-* Otherwise, Olive will create a new AzureML environment using the `aml_docker_config` configuration.
-* The `azureml_client_config` will be propagated from engine `azureml_client` if not provided.
-* The `requirements_file` is only used when `olive_managed_env = True` to install the required packages in the AzureML environment.
-* The ``device`` and ``execution_providers`` for AzureML system is mandatory. Otherwise, Olive will raise an error.
-```
-
-### Prerequisites
-
-1. The azureml extra dependencies are installed with `pip install olive-ai[azureml]` or `pip install azure-ai-ml azure-identity`.
-1. AzureML Workspace with necessary compute created. Read [Azure Machine Learning Workspace](https://learn.microsoft.com/en-us/azure/machine-learning/concept-workspace) for more details. Download
-the workspace config json.
-
-### Native AzureML System
-
-```json
-{
-    "type": "AzureML",
-    "accelerators": [
-        {
-            "device": "gpu",
-            "execution_providers": [
-                "CUDAExecutionProvider"
-            ]
-        }
-    ],
-    "aml_compute": "gpu-cluster",
-    "aml_docker_config": {
-        "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
-        "conda_file_path": "conda.yaml"
-    },
-    "aml_environment_config": {
-        "name": "myenv",
-        "version": "1"
-    }
-}
-```
-
-### AzureML Readymade Systems
-
-There are some readymade systems available for AzureML. These systems are pre-configured with the necessary.
-
-```json
-{
-    "type": "AzureNDV2System",
-    "accelerators": [
-        {"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]},
-        {"device": "cpu", "execution_providers": ["CPUExecutionProvider"]},
-    ],
-    "aml_compute": "gpu-cluster",
-    "aml_docker_config": {
-        "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04",
-        "conda_file_path": "conda.yaml"
-    }
-}
-```
-
-System alias list:
-
-- AzureND12SSystem:
-  - sku: "STANDARD_ND12S"
-  - num_cpus: 12
-  - num_gpus: 2
-
-- AzureND24RSSystem:
-  - sku: "STANDARD_ND24RS"
-  - num_cpus: 24
-  - num_gpus: 4
-
-- AzureND24SSystem:
-  - sku: "STANDARD_ND24S"
-  - num_cpus: 24
-  - num_gpus: 4
-
-- AzureNDV2System:
-  - sku: "STANDARD_ND40RS_V2"
-  - num_cpus: 40
-  - num_gpus: 8
-
-- AzureND6SSystem:
-  - sku: "STANDARD_ND6S"
-  - num_cpus: 6
-  - num_gpus: 1
-
-- AzureND96A100System:
-  - sku: "STANDARD_ND96AMSR_A100_V4"
-  - num_cpus: 96
-  - num_gpus: 8
-
-- AzureND96ASystem:
-  - sku: "STANDARD_ND96ASR_V4"
-  - num_cpus: 96
-  - num_gpus: 8
-
-
-```{Note}
-The accelerators specified in the readymade systems will be filtered against the devices supported by the readymade system. If the specified device is not supported by the readymade system, Olive will filter out the accelerator.
-In above example, the readymade system supports only GPU. Therefore, the final accelerators will be ``[{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}]`` and the CPU will be filtered out.
-```
-
-### Managed AzureML System
-
-When `olive_managed_env = True`, Olive will manage the AzureML environment by installing the required packages from the `requirements_file` in the AzureML environment if provided.
-
-Currently, Olive supports the following base Dockerfiles based on input execution providers:
-
-* CPUExecutionProvider: (*Dockerfile.cpu*)
-* CUDAExecutionProvider: (*Dockerfile.gpu*)
-* TensorrtExecutionProvider: (*Dockerfile.gpu*)
-* OpenVINOExecutionProvider: (*Dockerfile.openvino*)
-
-A typical managed AzureML system can be configured by the following example:
-
-```json
-{
-    "systems": {
-        "azureml_system": {
-            "type": "AzureML",
-            "accelerators": [
-                {
-                    "device": "cpu",
-                    "execution_providers": [
-                        "CPUExecutionProvider",
-                        "OpenVINOExecutionProvider"
-                    ]
-                }
-            ],
-            "azureml_client_config": {
-                "subscription_id": "subscription_id",
-                "resource_group": "resource_group",
-                "workspace_name": "workspace_name"
-            },
-            "aml_compute": "cpu-cluster",
-            "requirements_file": "mnist_requirements.txt",
-            "olive_managed_env": true,
-        }
-    },
-    "engine": {
-        "target": "azureml_system",
-    }
 }
 ```
 

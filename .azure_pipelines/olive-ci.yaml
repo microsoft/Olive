@@ -63,20 +63,17 @@ jobs:
   parameters:
     name: Linux_CPU_CI_Unit_Test
     pool: $(OLIVE_POOL_UBUNTU2004)
-    test_type: 'unit_test'
 
 - template: job_templates/olive-test-linux-gpu-template.yaml
   parameters:
     name: Linux_GPU_CI_Unit_Test
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
-    test_type: 'unit_test'
 
 # Windows unit tests
 - template: job_templates/olive-test-cpu-template.yaml
   parameters:
     name: Windows_CPU_CI_Unit_Test
     pool: $(OLIVE_POOL_WIN2019)
-    test_type: 'unit_test'
     windows: True
 
 # Linux examples test
@@ -124,35 +121,3 @@ jobs:
         exampleFolder: stable_diffusion
         exampleName: stable_diffusion_cuda_gpu
         exampleRequirements: requirements-common.txt
-
-# these jobs need secrets not available in forks
-- ${{ if ne(variables['System.PullRequest.IsFork'], 'True') }}:
-  # integration tests
-  - template: job_templates/olive-test-cpu-template.yaml
-    parameters:
-      name: Linux_CPU_CI_Integration_Test
-      pool: $(OLIVE_POOL_UBUNTU2004)
-      test_type: 'integ_test'
-
-  # Re-enable this when the cluster is ready
-  # - template: job_templates/olive-test-cpu-template.yaml
-  #   parameters:
-  #     name: Windows_CPU_CI_Integration_Test
-  #     pool: $(OLIVE_POOL_WIN2019)
-  #     test_type: 'integ_test'
-  #     windows: True
-
-  # Multiple EP Linux testing
-  - template: job_templates/olive-test-cpu-template.yaml
-    parameters:
-      name: Linux_CI_Multiple_EP_Test
-      pool: $(OLIVE_POOL_UBUNTU2004)
-      test_type: 'multiple_ep'
-
-# build documents
-- template: job_templates/olive-build-doc-template.yaml
-  parameters:
-    job_name: Test_BuildDocs
-    display_name: Test Build Docs
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    publish_docs: false

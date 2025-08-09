@@ -9,7 +9,7 @@ Sample use cases of Olive to optimize [meta-llama/Llama-3.2-1B-Instruct](https:/
   - Run the workflow with `olive run --config qdq_config_vitis_ai.json -m meta-llama/Llama-3.2-1B-Instruct -o models/llama3-vai`.
 - [PTQ + AOT Compilation for Qualcomm NPUs using QNN EP](../phi3_5/README.md):
   - Run the workflow with `olive run --config qnn_config.json -m meta-llama/Llama-3.2-1B-Instruct -o models/llama3-qnn`.
-  - Run the inference with `python app.py -m models/llama3-qnn -c "<|start_header_id|>user<|end_header_id|>\n{input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"`.
+  - Run the inference with `python app.py -m models/llama3-qnn`.
 - [PTQ + AWQ ONNX OVIR Encapsulated 4-bit weight compression using Optimum OpenVINO](./openvino/)
 
 **NOTE:**
@@ -21,3 +21,7 @@ huggingface-cli login
 ```
 
 - The quality of the quantized model is not guaranteed to be the same as the original model, especially for such a small model. Work is ongoing to improve the quality of the quantized model.
+
+## **Optimization and Quantization for AMD NPU**
+
+- [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.

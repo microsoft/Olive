@@ -143,7 +143,7 @@ class LLMAugmentedDataLoader:
         # progress bar
         progress_bar = None
         if get_verbosity() == logging.DEBUG and len(self) > 0:
-            from tqdm import tqdm
+            from tqdm.auto import tqdm
 
             progress_bar = tqdm(total=len(self), desc="LLMAugmentedDataLoader")
 

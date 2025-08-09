@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
 from olive.common.utils import set_tempdir
+from olive.hardware.constants import ExecutionProvider
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerators
@@ -30,13 +31,11 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
         extra_name = None
         if host_type is None:
             extra_name = "cpu"
-        elif host_type == SystemType.AzureML:
-            extra_name = "azureml"
         elif host_type == SystemType.Docker:
             extra_name = "docker"
         elif host_type == SystemType.Local:
             if accelerators and "GPU" in list(map(str.upper, accelerators)):
-                if execution_providers and "DmlExecutionProvider" in execution_providers:
+                if execution_providers and ExecutionProvider.DmlExecutionProvider in execution_providers:
                     extra_name = "directml"
                 else:
                     extra_name = "gpu"
@@ -57,7 +56,6 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
     ort_packages = extras.get("ort", [])
 
     local_packages = []
-    remote_packages = []
 
     # add dependencies for passes
     if run_config.passes:
@@ -66,8 +64,6 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
                 host = pass_config.host or run_config.engine.host
                 if (host and host.type == SystemType.Local) or not host:
                     local_packages.extend(get_pass_extras(pass_config.type))
-                else:
-                    remote_packages.extend(get_pass_extras(pass_config.type))
                 if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
                     logger.info(
                         "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html to install SNPE"
@@ -84,20 +80,14 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
         if run_config.engine.host.config.accelerators:
             for acc in run_config.engine.host.config.accelerators:
                 accelerators.append(acc.device)
-                if acc.execution_providers:
-                    execution_providers.extend(acc.execution_providers)
+                if acc.get_ep_strs():
+                    execution_providers.extend(acc.get_ep_strs())
 
     system_extra_name = get_system_extras(host_type, accelerators, execution_providers)
     if system_extra_name:
         local_packages.extend(extras.get(system_extra_name))
     logger.info("The following packages are required in the local environment: %s", local_packages)
-    if remote_packages:
-        logger.info(
-            "Please make sure the following packages are installed in %s environment: %s",
-            run_config.engine.host.type,
-            remote_packages,
-        )
-    return local_packages, remote_packages, ort_packages
+    return local_packages, ort_packages
 
 
 def install_packages(local_packages, ort_packages):
@@ -158,14 +148,6 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     engine = run_config.engine.create_engine(package_config, run_config.azureml_client, workflow_id)
     engine.cache.cache_olive_config(olive_config)
 
-    # run_config file will be uploaded to AML job
-    is_azureml_system = (run_config.engine.host is not None and run_config.engine.host.type == SystemType.AzureML) or (
-        run_config.engine.target is not None and run_config.engine.target.type == SystemType.AzureML
-    )
-
-    if is_azureml_system:
-        set_olive_config_for_aml_system(olive_config)
-
     auto_optimizer_enabled = (
         not run_config.passes
         and run_config.auto_optimizer_config is not None
@@ -207,17 +189,11 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     )
 
 
-def set_olive_config_for_aml_system(olive_config: dict):
-    from olive.systems.azureml.aml_system import AzureMLSystem
-
-    AzureMLSystem.olive_config = olive_config
-
-
 def run(
     run_config: Union[str, Path, dict],
     setup: bool = False,
     package_config: Optional[Union[str, Path, dict]] = None,
-    tempdir: Union[str, Path] = None,
+    tempdir: Optional[Union[str, Path]] = None,
     packages: bool = False,
 ):
     # set tempdir
@@ -232,35 +208,21 @@ def run(
     if packages or setup:
         # set the log level to INFO for packages
         set_verbosity_info()
-        local_packages, remote_packages, ort_packages = get_required_packages(package_config, run_config)
+        local_packages, ort_packages = get_required_packages(package_config, run_config)
 
         if packages:
-            generate_requirements_files(local_packages, remote_packages)
+            generate_files_from_packages(local_packages, "olive_requirements.txt")
         if setup:
             install_packages(local_packages, ort_packages)
         return None
 
-    if run_config.workflow_host is not None:
-        workflow_host = run_config.workflow_host
-        if workflow_host.type == SystemType.AzureML:
-            workflow_host = workflow_host.create_system()
-            return workflow_host.submit_workflow(run_config)
-        elif workflow_host.type == SystemType.Local:
-            logger.warning("Running workflow locally.")
-        else:
-            logger.warning("Workflow host is not supported. Ignoring workflow host.")
+    if run_config.engine.host and run_config.engine.host.type == SystemType.Docker:
+        docker_system = run_config.engine.host.create_system()
+        return docker_system.run_workflow(run_config)
 
     # set log level for olive
     set_default_logger_severity(run_config.engine.log_severity_level)
     return run_engine(package_config, run_config)
-
-
-def generate_requirements_files(local_packages, remote_packages):
-    package_list = [(local_packages, "local_requirements.txt")]
-    if remote_packages:
-        package_list.append((remote_packages, "remote_requirements.txt"))
-    for packages, file_name in package_list:
-        generate_files_from_packages(packages, file_name)
 
 
 def generate_files_from_packages(packages, file_name):
@@ -280,16 +242,8 @@ def check_local_ort_installation(package_name: str):
     if not local_ort_packages:
         return package_name
 
-    if "-" in package_name:
-        night_package_name = f"ort-nightly-{package_name.split('-')[-1]}"
-    else:
-        night_package_name = "ort-nightly"
-
-    if len(local_ort_packages) == 1 and local_ort_packages[0] in [package_name, night_package_name]:
+    if len(local_ort_packages) == 1 and local_ort_packages[0] == package_name:
         # only if one ort package is installed and it is the one we want
-        # can be the stable or nightly version
-        # TODO(jambayk): will probably be fine if we want cpu package but some other ort package is installed
-        # but we can add a check for that if needed in the future
         logger.info("%s is already installed.", local_ort_packages[0])
         return None
 
@@ -319,7 +273,7 @@ def get_local_ort_packages() -> list[str]:
             # onnxruntime-genai is under onnxruntime_genai namespace
             # not onnxruntime packages
             continue
-        if package_name.startswith(("onnxruntime", "ort-nightly")):
+        if package_name.startswith("onnxruntime"):
             local_ort_packages.append(package_name)
     return local_ort_packages
 

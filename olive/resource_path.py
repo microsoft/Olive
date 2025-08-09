@@ -34,14 +34,12 @@ class ResourceType(CaseInsensitiveEnum):
     AzureMLModel = "azureml_model"
     AzureMLRegistryModel = "azureml_registry_model"
     AzureMLDatastore = "azureml_datastore"
-    AzureMLJobOutput = "azureml_job_output"
 
 
 LOCAL_RESOURCE_TYPES = (ResourceType.LocalFile, ResourceType.LocalFolder)
 AZUREML_RESOURCE_TYPES = (
     ResourceType.AzureMLModel,
     ResourceType.AzureMLDatastore,
-    ResourceType.AzureMLJobOutput,
 )
 
 
@@ -571,59 +569,3 @@ class AzureMLDatastore(ResourcePath):
             shutil.move(source_path, new_path)
 
         return str(Path(new_path).resolve())
-
-
-class AzureMLJobOutput(ResourcePath):
-    """AzureML job output resource path."""
-
-    name = ResourceType.AzureMLJobOutput
-
-    @classmethod
-    def _default_config(cls) -> dict[str, Any]:
-        return {
-            "azureml_client": ConfigParam(
-                type_=AzureMLClientConfig, required=True, description="AzureML client config."
-            ),
-            "job_name": ConfigParam(type_=str, required=True, description="Name of the job."),
-            "output_name": ConfigParam(type_=str, required=True, description="Name of the output."),
-            "relative_path": ConfigParam(type_=str, required=True, description="Relative path to the resource."),
-        }
-
-    def get_path(self) -> str:
-        return (
-            f"azureml://jobs/{self.config.job_name}/outputs/{self.config.output_name}/paths/{self.config.relative_path}"
-        )
-
-    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
-        # directory to save the resource to
-        dir_path = Path(dir_path).resolve()
-        dir_path.mkdir(parents=True, exist_ok=True)
-
-        # path to save the resource to
-        if name:
-            new_path_name = Path(name).with_suffix(Path(self.config.relative_path).suffix).name
-        else:
-            new_path_name = Path(self.config.relative_path).name
-        new_path = dir_path / new_path_name
-        _overwrite_helper(new_path, overwrite)
-
-        # download the resource to the new path
-        ml_client = self.config.azureml_client.create_client()
-        logger.debug(
-            "Downloading job output %s output %s to %s.", self.config.job_name, self.config.output_name, new_path
-        )
-        from azure.core.exceptions import ServiceResponseError
-
-        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as tempdir:
-            temp_dir = Path(tempdir)
-            retry_func(
-                ml_client.jobs.download,
-                [self.config.job_name],
-                {"output_name": self.config.output_name, "download_path": temp_dir},
-                max_tries=self.config.azureml_client.max_operation_retries,
-                delay=self.config.azureml_client.operation_retry_interval,
-                exceptions=ServiceResponseError,
-            )
-            new_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(temp_dir / "named-outputs" / self.config.output_name / self.config.relative_path, new_path)
-        return str(new_path)

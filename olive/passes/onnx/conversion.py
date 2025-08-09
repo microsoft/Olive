@@ -169,7 +169,7 @@ def _export_pytorch_model(
     if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
         pytorch_model = TraceModelWrapper(pytorch_model)
     pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config.merge_adapter_weights)
-    pytorch_model = make_export_compatible_quant(pytorch_model)
+    pytorch_model = make_export_compatible_quant(pytorch_model, config.use_dynamo_exporter)
     # cast to dtype, want all modules including lora layers and quant linears in the same dtype
     if torch_dtype:
         pytorch_model = pytorch_model.to(torch_dtype)
@@ -497,6 +497,7 @@ class OnnxConversion(Pass):
         if isinstance(model, HfModelHandler):
             output_model.model_attributes = model_attributes = output_model.model_attributes or {}
             model_attributes["hf_task"] = model.task
+            model_attributes["type"] = model.model_type
 
             if config.save_metadata_for_token_generation:
                 # output_model can only be an ONNXModelHandler
@@ -566,7 +567,6 @@ class OnnxConversion(Pass):
             split_assignment_encoded = None
 
         output_model_path = resolve_onnx_path(output_model_path)
-
         ir_model = _export_pytorch_model(
             pytorch_model,
             dummy_inputs,
@@ -672,32 +672,32 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
 
     from torch.utils import _pytree
 
-    flat_dynamic_shapes, _ = get_the_flattened_and_tree_spec(dynamic_shapes)
-
-    # dict: {axis: axis_name} -> {int(axis): axis_name}
-    # list/tuple: [axis_name] -> [axis_name]
-    new_dynamic_shapes = [
-        {int(k): v for k, v in axes.items()} if isinstance(axes, dict) else axes for axes in flat_dynamic_shapes
-    ]
+    # Align tree spec only for not transformers.Cache.
+    if len(dummy_inputs) == 0:
+        for k, v in dummy_kwargs.items():
+            if not isinstance(v, transformers.Cache):
+                input_tree_spec = _pytree.tree_flatten(v)[1]
+                flatten_dynamic_shapes = get_the_flattened_and_tree_spec(dynamic_shapes[k], leaf_is_str=False)[0]
+                dynamic_shapes[k] = _pytree.tree_unflatten(flatten_dynamic_shapes, input_tree_spec)
+    else:
+        for i, v in enumerate(dummy_inputs):
+            if not isinstance(v, transformers.Cache):
+                input_tree_spec = _pytree.tree_flatten(v)[1]
+                flatten_dynamic_shapes = get_the_flattened_and_tree_spec(dynamic_shapes[i], leaf_is_str=False)[0]
+                dynamic_shapes[i] = _pytree.tree_unflatten(flatten_dynamic_shapes, input_tree_spec)
 
     # The input can only be either args or kwargs according to line 237.
     if len(dummy_inputs) == 0:
-        # dummy_inputs is empty, so it must be kwargs
-        _, tree_structure = get_the_flattened_and_tree_spec(dummy_kwargs, leave_is_str=False)
-        unflatten_dynamic_shapes = _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
-
         # NOTE: dynamic_shapes need to follow the same model.forward signature when it's referring to kwargs.
         param_order = list(inspect.signature(model.forward).parameters)
         # Sort io_config.dynamic_shapes based on this order
-        unflatten_dynamic_shapes = collections.OrderedDict(
-            sorted(unflatten_dynamic_shapes.items(), key=lambda item: param_order.index(item[0]))
+        dynamic_shapes = collections.OrderedDict(
+            sorted(dynamic_shapes.items(), key=lambda item: param_order.index(item[0]))
         )
         dummy_kwargs = collections.OrderedDict(
             sorted(dummy_kwargs.items(), key=lambda item: param_order.index(item[0]))
         )
-        return unflatten_dynamic_shapes, dummy_inputs, dummy_kwargs
+        return dynamic_shapes, dummy_inputs, dummy_kwargs
     # If dynamic_shapes and dummy_inputs are both list/tuple, we don't need to sort.
     # dummy_inputs is args
-    _, tree_structure = get_the_flattened_and_tree_spec(dummy_inputs, leave_is_str=False)
-    unflatten_dynamic_shapes = _pytree.tree_unflatten(new_dynamic_shapes, tree_structure)
-    return unflatten_dynamic_shapes, dummy_inputs, dummy_kwargs
+    return dynamic_shapes, dummy_inputs, dummy_kwargs

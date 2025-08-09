@@ -70,7 +70,8 @@
             "quant_preprocess": true,
             "activation_type": "uint16",
             "precision": "uint8"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "vit-base-patch16-224" }
     },
     "evaluator": "common_evaluator",
     "output_dir": "models/vit-base-patch16-224"

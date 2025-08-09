@@ -50,9 +50,7 @@ class SharedCacheCommand(BaseOliveCLICommand):
         sub_parser.set_defaults(func=SharedCacheCommand)
 
     def run(self):
-        container_client_factory = AzureContainerClientFactory(
-            self.args.account, self.args.container, exclude_managed_identity_credential=True
-        )
+        container_client_factory = AzureContainerClientFactory(self.args.account, self.args.container)
         if self.args.delete:
             if self.args.all:
                 if self.args.yes:

@@ -4,18 +4,14 @@
 # --------------------------------------------------------------------------
 import json
 import re
-import subprocess
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import ClassVar, Optional, Union
+from typing import ClassVar, Optional
 
-import yaml
-
-from olive.cli.constants import CONDA_CONFIG
 from olive.common.constants import DEFAULT_HF_TASK
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import hash_dict, hf_repo_exists, set_nested_dict_value, unescaped_str
+from olive.common.utils import hf_repo_exists, set_nested_dict_value, unescaped_str
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
@@ -36,10 +32,15 @@ class BaseOliveCLICommand(ABC):
 
         from olive.workflows import run as olive_run
 
+        Path(self.args.output_path).mkdir(parents=True, exist_ok=True)
+
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
-            if self.args.save_config_file:
+            if self.args.save_config_file or self.args.dry_run:
                 self._save_config_file(run_config)
+            if self.args.dry_run:
+                print("Dry run mode enabled. Configuration file is generated but no optimization is performed.")
+                return None
             workflow_output = olive_run(run_config)
             if not workflow_output.has_output_model():
                 print("No output model produced. Please check the log for details.")
@@ -284,42 +285,14 @@ def add_save_config_file_options(sub_parser: ArgumentParser):
         action="store_true",
         help="Generate and save the config file for the command.",
     )
+
+    sub_parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help="Enable dry run mode. This will not perform any actual optimization but will validate the configuration.",
+    )
+
     return sub_parser
-
-
-def add_remote_options(sub_parser: ArgumentParser):
-    """Add remote options to the sub_parser."""
-    remote_group = sub_parser
-    remote_group.add_argument(
-        "--resource_group",
-        type=str,
-        required=False,
-        help="Resource group for the AzureML workspace to run the workflow remotely.",
-    )
-    remote_group.add_argument(
-        "--workspace_name",
-        type=str,
-        required=False,
-        help="Workspace name for the AzureML workspace to run the workflow remotely.",
-    )
-    remote_group.add_argument(
-        "--keyvault_name",
-        type=str,
-        required=False,
-        help=(
-            "The azureml keyvault name with huggingface token to use for remote run. Refer to "
-            "https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login"
-            " for more details."
-        ),
-    )
-    remote_group.add_argument(
-        "--aml_compute",
-        type=str,
-        required=False,
-        help="The compute name to run the workflow on.",
-    )
-
-    return remote_group
 
 
 def add_input_model_options(
@@ -408,54 +381,6 @@ def output_path_type(path: str) -> str:
 
     path.mkdir(parents=True, exist_ok=True)
     return str(path)
-
-
-def is_remote_run(args: Namespace) -> bool:
-    """Check if the run is a remote run."""
-    return all([args.resource_group, args.workspace_name, args.aml_compute])
-
-
-def update_remote_options(config: dict, args: Namespace, cli_action: str, tempdir: Union[str, Path]):
-    """Update the config for remote run."""
-    if args.resource_group or args.workspace_name or args.aml_compute:
-        if not is_remote_run(args):
-            raise ValueError("resource_group, workspace_name and aml_compute are required for remote workflow run.")
-
-        config["workflow_id"] = f"{cli_action}-{hash_dict(config)}"
-
-        try:
-            subscription_id = json.loads(subprocess.check_output("az account show", shell=True).decode("utf-8"))["id"]
-            print(f"Using Azure subscription ID: {subscription_id}")
-
-        except subprocess.CalledProcessError:
-            print(
-                "Error: Unable to retrieve account information. "
-                "Make sure you are logged in to Azure CLI with command `az login`."
-            )
-
-        config["azureml_client"] = {
-            "subscription_id": subscription_id,
-            "resource_group": args.resource_group,
-            "workspace_name": args.workspace_name,
-            "keyvault_name": args.keyvault_name,
-            "default_auth_params": {"exclude_managed_identity_credential": True},
-        }
-
-        conda_file_path = Path(tempdir) / "conda_gpu.yaml"
-        with open(conda_file_path, "w") as f:
-            yaml.dump(CONDA_CONFIG, f)
-
-        config["systems"]["aml_system"] = {
-            "type": "AzureML",
-            "accelerators": [{"device": "GPU", "execution_providers": ["CUDAExecutionProvider"]}],
-            "aml_compute": args.aml_compute,
-            "aml_docker_config": {
-                "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.8-cudnn8-ubuntu22.04",
-                "conda_file_path": str(conda_file_path),
-            },
-            "hf_token": bool(args.keyvault_name),
-        }
-        config["workflow_host"] = "aml_system"
 
 
 def add_dataset_options(sub_parser, required=True, include_train=True, include_eval=True):

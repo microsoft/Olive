@@ -83,7 +83,8 @@
             "type": "OrtSessionParamsTuning",
             "io_bind": false,
             "data_config": "quant_data_config"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "clip-vit-base-patch32" }
     },
     "host": "local_system",
     "target": "local_system",

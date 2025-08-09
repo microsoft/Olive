@@ -2,11 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Union
 
+from olive.common.config_utils import validate_config
+from olive.common.ort_inference import get_ort_available_providers, maybe_register_ep_libraries
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ModelConfig
-from olive.systems.common import SystemType
+from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 
 if TYPE_CHECKING:
@@ -17,6 +19,20 @@ if TYPE_CHECKING:
 
 class LocalSystem(OliveSystem):
     system_type = SystemType.Local
+
+    def __init__(
+        self,
+        accelerators: Union[list[AcceleratorConfig], list[dict[str, Any]]] = None,
+        hf_token: bool = None,
+    ):
+        super().__init__(accelerators, hf_token)
+
+        if accelerators:
+            accelerators = [validate_config(accelerator, AcceleratorConfig) for accelerator in accelerators]
+
+            maybe_register_ep_libraries(
+                {name: path for accelerator in accelerators for name, path in accelerator.get_ep_path_map().items()}
+            )
 
     def run_pass(
         self,
@@ -47,9 +63,7 @@ class LocalSystem(OliveSystem):
 
     def get_supported_execution_providers(self) -> list[str]:
         """Get the available execution providers."""
-        import onnxruntime as ort
-
-        return ort.get_available_providers()
+        return get_ort_available_providers()
 
     def remove(self):
         raise NotImplementedError("Local system does not support system removal")

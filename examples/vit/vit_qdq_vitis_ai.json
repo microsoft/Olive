@@ -84,7 +84,8 @@
             "activation_type": "uint16",
             "weight_type": "uint8",
             "quant_type": "OnnxStaticQuantization"
-        }
+        },
+        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "vit-base-patch16-224" }
     },
     "evaluator": "common_evaluator",
     "cache_dir": "cache/vit",

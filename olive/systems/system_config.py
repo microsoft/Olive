@@ -5,19 +5,11 @@
 import importlib
 import shutil
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
-import olive.systems.system_alias as system_alias
-from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
-from olive.common.pydantic_v1 import root_validator, validator
-from olive.systems.common import (
-    AcceleratorConfig,
-    AzureMLDockerConfig,
-    AzureMLEnvironmentConfig,
-    LocalDockerConfig,
-    SystemType,
-)
+from olive.common.pydantic_v1 import validator
+from olive.systems.common import AcceleratorConfig, SystemType
 
 
 class TargetUserConfig(ConfigBase):
@@ -33,25 +25,23 @@ class LocalTargetUserConfig(TargetUserConfig):
 
 
 class DockerTargetUserConfig(TargetUserConfig):
-    # the local_docker_config is optional for managed environments and required for normal docker system
-    local_docker_config: LocalDockerConfig = None
-    is_dev: bool = False
-    olive_managed_env: bool = False
-    requirements_file: Union[Path, str] = None
+    dockerfile: str
+    build_context_path: Union[Path, str]
+    image_name: str = "olive-docker:latest"
+    work_dir: str = "/olive-ws"
+    build_args: Optional[dict] = None
+    run_params: Optional[dict] = None
+    clean_image: bool = True
 
+    @validator("build_context_path")
+    def _get_abspath(cls, v):
+        return str(Path(v).resolve()) if v else None
 
-class AzureMLTargetUserConfig(TargetUserConfig):
-    azureml_client_config: AzureMLClientConfig = None
-    aml_compute: str
-    aml_docker_config: AzureMLDockerConfig = None
-    aml_environment_config: AzureMLEnvironmentConfig = None
-    tags: dict = None
-    datastores: str = "workspaceblobstore"
-    resources: dict = None
-    instance_count: int = 1
-    is_dev: bool = False
-    olive_managed_env: bool = False
-    requirements_file: Union[Path, str] = None
+    @validator("work_dir")
+    def _validate_work_dir(cls, v):
+        if not v.startswith("/"):
+            raise ValueError(f"work_dir must be an absolute path, got: {v}")
+        return v
 
 
 class CommonPythonEnvTargetUserConfig(TargetUserConfig):
@@ -68,26 +58,6 @@ class CommonPythonEnvTargetUserConfig(TargetUserConfig):
 class PythonEnvironmentTargetUserConfig(CommonPythonEnvTargetUserConfig):
     olive_managed_env: bool = False  # if True, the environment will be created and managed by Olive
     requirements_file: Union[Path, str] = None  # path to the requirements.txt file
-
-    @root_validator(pre=True)
-    def _validate_python_environment_path(cls, values):
-        # if olive_managed_env is True, python_environment_path is not required
-        if values.get("olive_managed_env"):
-            return values
-
-        python_environment_path = values.get("python_environment_path")
-        if python_environment_path is None:
-            raise ValueError("python_environment_path is required for PythonEnvironmentSystem native mode")
-
-        # check if the path exists
-        if not Path(python_environment_path).exists():
-            raise ValueError(f"Python path {python_environment_path} does not exist")
-
-        # check if python exists in the path
-        python_path = shutil.which("python", path=python_environment_path)
-        if not python_path:
-            raise ValueError(f"Python executable not found in the path {python_environment_path}")
-        return values
 
 
 class IsolatedORTTargetUserConfig(CommonPythonEnvTargetUserConfig):
@@ -115,7 +85,6 @@ class IsolatedORTTargetUserConfig(CommonPythonEnvTargetUserConfig):
 
 _type_to_config = {
     SystemType.Local: LocalTargetUserConfig,
-    SystemType.AzureML: AzureMLTargetUserConfig,
     SystemType.Docker: DockerTargetUserConfig,
     SystemType.PythonEnvironment: PythonEnvironmentTargetUserConfig,
     SystemType.IsolatedORT: IsolatedORTTargetUserConfig,
@@ -123,7 +92,6 @@ _type_to_config = {
 
 _type_to_system_path = {
     SystemType.Local: "olive.systems.local.LocalSystem",
-    SystemType.AzureML: "olive.systems.azureml.AzureMLSystem",
     SystemType.Docker: "olive.systems.docker.DockerSystem",
     SystemType.PythonEnvironment: "olive.systems.python_environment.PythonEnvironmentSystem",
     SystemType.IsolatedORT: "olive.systems.isolated_ort.IsolatedORTSystem",
@@ -141,37 +109,6 @@ class SystemConfig(NestedConfig):
     type: SystemType
     config: TargetUserConfig = None
 
-    @root_validator(pre=True)
-    def validate_config_type(cls, values):
-        type_name = values.get("type")
-        system_alias_class = getattr(system_alias, type_name, None)
-        if system_alias_class:
-            values["type"] = system_alias_class.system_type
-            if "config" not in values:
-                values["config"] = {}
-
-            if values["type"] == SystemType.AzureML and not values["config"].get("accelerators"):
-                raise ValueError("accelerators is required for AzureML system")
-
-            if system_alias_class.accelerators:
-                valid_accelerators = []
-
-                if not values["config"].get("accelerators"):
-                    valid_accelerators = [
-                        {"device": acc, "execution_providers": None} for acc in system_alias_class.accelerators
-                    ]
-                else:
-                    for device in system_alias_class.accelerators:
-                        valid_accelerators.extend(
-                            {"device": acc["device"], "execution_providers": acc.get("execution_providers")}
-                            for acc in values["config"]["accelerators"]
-                            if acc["device"].lower() == device.lower()
-                        )
-
-                values["config"]["accelerators"] = valid_accelerators or None
-            # TODO(myguo): consider how to use num_cpus and num_gpus in distributed inference.
-        return values
-
     @validator("config", pre=True, always=True)
     def validate_config(cls, v, values):
         if "type" not in values:
@@ -183,8 +120,6 @@ class SystemConfig(NestedConfig):
 
     def create_system(self):
         system_class = import_system_from_type(self.type)
-        if system_class.system_type == SystemType.AzureML and not self.config.azureml_client_config:
-            raise ValueError("azureml_client is required for AzureML system")
         return system_class(**self.config.dict())
 
     @property

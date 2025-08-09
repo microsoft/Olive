@@ -20,14 +20,21 @@ logger = logging.getLogger(__name__)
 
 
 # TODO(jambayk): consider always returning the name of the submodule
-def get_submodules(module: nn.Module, mapping: dict, key: str, return_name: bool = False, return_name_prefix: str = ""):
+def get_submodules(
+    module: nn.Module,
+    mapping: dict,
+    key: str,
+    return_name: bool = False,
+    return_name_prefix: str = "",
+    fail_on_not_found: bool = True,
+):
     names = mapping.get(key, mapping["default"])
 
     if isinstance(names, str):
-        submodules = get_attr(module, names, fail_on_not_found=True)
+        submodules = get_attr(module, names, fail_on_not_found=fail_on_not_found)
         names = f"{return_name_prefix}{names}"
     else:
-        submodules = [get_attr(module, name, fail_on_not_found=True) for name in names]
+        submodules = [get_attr(module, name, fail_on_not_found=fail_on_not_found) for name in names]
         names = [f"{return_name_prefix}{name}" for name in names]
 
     return submodules if not return_name else (submodules, names)
@@ -192,7 +199,14 @@ class ModelWrapper:
         "gpt_neox": ["gpt_neox.embed_in"],
         "gptj": ["transformer.wte"],
         "opt": ["model.decoder.embed_tokens", "model.decoder.embed_positions"],
-        "qwen": ["transformer.wte", "transformer.rotary_emb"],
+        "qwen": ["transformer.wte"],
+    }
+    # in newer transformers versions, there is one rotary embedding per model
+    ROTARY_EMBEDDING = {
+        "default": "model.rotary_emb",
+        "falcon": "transformer.rotary_emb",
+        "gpt_neox": "gpt_neox.rotary_emb",
+        "qwen": "transformer.rotary_emb",
     }
     LM_HEAD = {"default": "lm_head"}
     PRE_HEAD_LAYERNORM = {"default": "model.norm", "gpt2": "transformer.ln_f", "qwen": "transformer.ln_f"}
@@ -239,6 +253,11 @@ class ModelWrapper:
 
     def get_embeds(self, return_name: bool = True):
         return get_submodules(self.model, self.EMBEDDINGS, self.model_type, return_name=return_name)
+
+    def get_rotary_embed(self, return_name: bool = True):
+        return get_submodules(
+            self.model, self.ROTARY_EMBEDDING, self.model_type, return_name=return_name, fail_on_not_found=False
+        )
 
     def get_lm_head(self, return_name: bool = True):
         return get_submodules(self.model, self.LM_HEAD, self.model_type, return_name=return_name)

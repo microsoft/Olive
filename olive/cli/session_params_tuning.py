@@ -12,13 +12,10 @@ from olive.cli.base import (
     add_accelerator_options,
     add_input_model_options,
     add_logging_options,
-    add_remote_options,
     add_save_config_file_options,
     add_shared_cache_options,
     get_input_model_config,
-    is_remote_run,
     update_accelerator_options,
-    update_remote_options,
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
@@ -96,7 +93,6 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         )
 
         add_accelerator_options(sub_parser, single_provider=False)
-        add_remote_options(sub_parser)
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
         add_shared_cache_options(sub_parser)
@@ -136,15 +132,11 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
                 set_nested_dict_value(config, k, v)
 
         update_accelerator_options(self.args, config, single_provider=False)
-        update_remote_options(config, self.args, "session-params-tuning", tempdir)
         update_shared_cache_options(config, self.args)
         return config
 
     def run(self):
         workflow_output = self._run_workflow()
-
-        if is_remote_run(self.args):
-            return
 
         output_path = Path(self.args.output_path).resolve()
         for device in workflow_output.get_available_devices():
@@ -159,6 +151,7 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
                 with infer_setting_output_path.open("w") as f:
                     json.dump(infer_settings, f, indent=4)
         print(f"Inference session parameters are saved to {output_path}.")
+        return workflow_output
 
 
 TEMPLATE = {

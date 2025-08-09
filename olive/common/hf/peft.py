@@ -42,11 +42,7 @@ def make_export_compatible_peft(model: torch.nn.Module, merge_weights: bool = Fa
         return model
 
     for module in model.modules():
-        if (
-            not isinstance(module, LoraLayer)
-            or len(module.active_adapters) != 1
-            or getattr(module, "use_dora", {}).get(module.active_adapters[0], False)
-        ):
+        if not isinstance(module, LoraLayer) or len(module.active_adapters) != 1:
             # these cases are complicated and not seen in normal use cases
             continue
 

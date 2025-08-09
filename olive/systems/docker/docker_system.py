@@ -5,27 +5,27 @@
 import copy
 import json
 import logging
-import shutil
+import sys
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 import docker
 from docker.errors import BuildError, ContainerError
 
-import olive.systems.docker.utils as docker_utils
-from olive.common.config_utils import ParamCategory, validate_config
-from olive.evaluator.metric_result import MetricResult
+from olive.common.utils import set_nested_dict_value
 from olive.hardware import Device
-from olive.model import ModelConfig
-from olive.systems.common import AcceleratorConfig, LocalDockerConfig, SystemType
+from olive.resource_path import find_all_resources
+from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
-from olive.systems.system_config import DockerTargetUserConfig
+from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
+from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric import Metric
+    from olive.evaluator.metric_result import MetricResult
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
     from olive.hardware.accelerator import AcceleratorSpec
+    from olive.model import ModelConfig
     from olive.passes import Pass
 
 logger = logging.getLogger(__name__)
@@ -34,376 +34,298 @@ logger = logging.getLogger(__name__)
 class DockerSystem(OliveSystem):
     system_type = SystemType.Docker
 
-    BASE_DOCKERFILE = "Dockerfile"
-
     def __init__(
         self,
-        local_docker_config: Union[dict[str, Any], LocalDockerConfig],
+        image_name: str,
+        build_context_path: str,
+        dockerfile: str,
+        work_dir: str,
+        build_args: dict = None,
+        run_params: dict = None,
+        clean_image: bool = True,
         accelerators: list[AcceleratorConfig] = None,
-        is_dev: bool = False,
         hf_token: bool = None,
-        requirements_file: Optional[Union[Path, str]] = None,
         **kwargs,  # used to hold the rest of the arguments not used by dockersystem.
     ):
         super().__init__(accelerators=accelerators, hf_token=hf_token)
 
         logger.info("Initializing Docker System...")
-        self.is_dev = is_dev
         self.docker_client = docker.from_env()
-        if local_docker_config is None:
-            raise ValueError("local_docker_config cannot be None.")
 
-        local_docker_config = validate_config(local_docker_config, LocalDockerConfig)
-        if not local_docker_config.build_context_path and not local_docker_config.dockerfile and not requirements_file:
-            raise ValueError("build_context_path, dockerfile and requirements_file cannot be None at the same time.")
+        if not build_context_path and not dockerfile:
+            raise ValueError("build_context_path and dockerfile must be provided.")
 
-        self.config = DockerTargetUserConfig(**locals(), **kwargs)
+        self.image_name = image_name
+        self.build_context_path = build_context_path
+        self.dockerfile = dockerfile
+        self.build_args = build_args or {}
+        self.run_params = run_params or {}
+        self.work_dir = Path(work_dir)
+        self.clean_image = clean_image
 
-        self.run_params = local_docker_config.run_params
+        # Get or build Docker image
+        self.image = self._get_or_build_image()
+
+    def _get_or_build_image(self):
+        """Get existing Docker image or build a new one."""
         try:
-            self.image = self.docker_client.images.get(local_docker_config.image_name)
-            logger.info("Image %s found", local_docker_config.image_name)
-
+            image = self.docker_client.images.get(self.image_name)
+            logger.info("Image %s found", self.image_name)
+            return image
         except docker.errors.ImageNotFound:
-            with tempfile.TemporaryDirectory() as tempdir:
-                build_context_path = tempdir
-                if local_docker_config.build_context_path and local_docker_config.dockerfile:
-                    dockerfile = local_docker_config.dockerfile
-                    dockerfile_path = Path(local_docker_config.build_context_path) / dockerfile
-                    shutil.copytree(local_docker_config.build_context_path, build_context_path, dirs_exist_ok=True)
-                else:
-                    dockerfile = self.BASE_DOCKERFILE
-                    dockerfile_path = Path(__file__).resolve().parent / self.BASE_DOCKERFILE
-                    shutil.copy2(dockerfile_path, build_context_path)
+            return self._build_image()
 
-                if requirements_file:
-                    shutil.copyfile(requirements_file, Path(build_context_path) / "requirements.txt")
-                else:
-                    requirements_dest = Path(build_context_path) / "requirements.txt"
-                    if not requirements_dest.exists():
-                        with (Path(build_context_path) / "requirements.txt").open("w"):
-                            pass
+    def _build_image(self):
+        """Build Docker image with real-time logging."""
+        dockerfile_path = Path(self.build_context_path) / self.dockerfile
+        logger.info(
+            "Building image from Dockerfile %s with buildargs %s",
+            dockerfile_path,
+            self.build_args,
+        )
 
-                logger.info(
-                    "Building image from Dockerfile %s with buildargs %s ",
-                    dockerfile_path,
-                    local_docker_config.build_args,
-                )
-                try:
-                    self.image, build_logs = self.docker_client.images.build(
-                        path=build_context_path,
-                        dockerfile=dockerfile,
-                        tag=local_docker_config.image_name,
-                        buildargs=local_docker_config.build_args,
-                    )
-                    logger.info("Image %s build successfully.", local_docker_config.image_name)
-                    _print_docker_logs(build_logs, logging.DEBUG)
-                except BuildError as e:
-                    logger.exception("Image build failed with error.")
-                    _print_docker_logs(e.build_log, logging.ERROR)
-                    raise
+        logger.info("Building Docker image %s...", self.image_name)
+        for log in self.docker_client.api.build(
+            path=self.build_context_path,
+            dockerfile=self.dockerfile,
+            tag=self.image_name,
+            buildargs=self.build_args,
+            decode=True,
+        ):
+            if "stream" in log:
+                line = log["stream"].strip()
+                if line:
+                    logger.info("[Docker Build] %s", line)
+                    sys.stdout.flush()
+            elif "error" in log:
+                logger.error("[Docker Build Error] %s", log["error"])
+                raise BuildError(log["error"])
 
-    def run_pass(self, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str) -> "ModelConfig":
-        """Run the pass on the model."""
+        image = self.docker_client.images.get(self.image_name)
+        logger.info("Image %s built successfully.", self.image_name)
+        return image
+
+    def run_workflow(self, run_config: RunConfig):
+        """Run Olive workflow in Docker container."""
         with tempfile.TemporaryDirectory() as tempdir:
-            return self._run_pass_container(Path(tempdir), the_pass, model_config, output_model_path)
+            self._run_workflow(run_config, tempdir)
 
-    def _run_pass_container(
-        self, workdir: Path, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str
-    ) -> "ModelConfig":
-        pass_config = the_pass.to_json(check_object=True)
+    def _run_workflow(self, run_config: RunConfig, tmp_dir: str):
+        """Execute workflow in Docker container."""
+        volumes = []
 
-        volumes_list = []
-        runner_output_path = "runner_output"
-        runner_output_name = "runner_res.json"
-        container_root_path = Path("/olive-ws/")
-        # mount pass_runner script
-        docker_runner_path, pass_runner_file_mount_str = docker_utils.create_runner_script_mount(container_root_path)
-        volumes_list.append(pass_runner_file_mount_str)
+        # Mount runner script
+        runner_path, runner_mount = self._create_runner_script_mount()
+        volumes.append(runner_mount)
 
-        # mount dev stuff
-        if self.is_dev:
-            _, dev_mount_str = docker_utils.create_dev_mount(workdir, container_root_path)
-            volumes_list.append(dev_mount_str)
+        # Prepare container configuration
+        container_config = self._prepare_container_config(run_config)
 
-        # mount model
-        docker_model_files, model_mount_str_list, mount_model_to_local = docker_utils.create_model_mount(
-            model_config=model_config, container_root_path=container_root_path
-        )
-        volumes_list.extend(model_mount_str_list)
+        # Mount workflow resources
+        container_config = self._mount_workflow_config(container_config, volumes)
 
-        # data_dir or data_config
-        docker_data_paths, data_mount_str_list = self._create_data_mounts_for_pass(container_root_path, the_pass)
-        volumes_list.extend(data_mount_str_list)
+        # Create and mount config file
+        config_path, config_mount = self._create_config_mount(tmp_dir, container_config)
+        volumes.append(config_mount)
 
-        # mount config file
-        data = self._create_runner_config(model_config, pass_config, docker_model_files, docker_data_paths)
-        logger.debug("Runner config is %s", data)
-        docker_config_file, config_file_mount_str = docker_utils.create_config_file(
-            workdir=workdir,
-            config=data,
-            container_root_path=container_root_path,
-        )
-        volumes_list.append(config_file_mount_str)
+        # Build command
+        command = f"python {runner_path} --config {config_path}"
 
-        # output mount
-        output_local_path, docker_output_path, output_mount_str = docker_utils.create_output_mount(
-            workdir=workdir,
-            docker_output_path=runner_output_path,
-            container_root_path=container_root_path,
-        )
-        volumes_list.append(output_mount_str)
-        logger.debug("The volumes list is %s", volumes_list)
+        # Get device from accelerators
+        device = self._get_device(run_config)
 
-        runner_command = docker_utils.create_runner_command(
-            runner_script_path=docker_runner_path,
-            config_path=docker_config_file,
-            output_path=docker_output_path,
-            output_name=runner_output_name,
+        # Run container
+        self._run_container(command, volumes, device=device)
+
+        # Clean up if requested
+        if self.clean_image:
+            self.remove()
+
+    def _prepare_container_config(self, run_config: RunConfig) -> dict:
+        """Prepare run config for container environment."""
+        # Replace docker system with local system
+        accelerators = run_config.engine.host.config.accelerators
+        run_config.engine.host = SystemConfig(
+            type=SystemType.Local, config=LocalTargetUserConfig(accelerators=accelerators)
         )
 
-        model_output_json_file = self._run_container(
-            runner_command, volumes_list, output_local_path, runner_output_name, the_pass.accelerator_spec
-        )
-        if model_output_json_file.is_file():
-            with model_output_json_file.open() as f:
-                model_output = json.load(f)
-                output_model = ModelConfig.parse_obj(model_output)
-                logger.debug("Copying model from %s to %s", output_local_path, output_model_path)
-                shutil.copytree(output_local_path, output_model_path, dirs_exist_ok=True)
-                logger.debug("mount_model_to_local: %s", mount_model_to_local)
-                for resource_name, resource_str in output_model.get_resource_strings().items():
-                    if not resource_str:
-                        continue
-
-                    logger.debug("Resource %s path: %s", resource_name, resource_str)
-                    original_resource_path = mount_model_to_local.get(resource_str)
-                    if original_resource_path:
-                        # If the output model path is something like /olive-ws/model.onnx
-                        # we need replace with the original model path
-                        output_model.config[resource_name] = original_resource_path
-                        logger.info("Original resource path for %s is: %s", resource_str, original_resource_path)
-                        continue
-
-                    # output_local_path should be something like: /tmp/tmpd1sjw9xa/runner_output
-                    # If there are any output models, they will be saved in that path
-                    # and the output_model.config["model_path"] would like /olive-ws/runner_output/model.onnx
-                    # the model path should starts with /olive-ws/runner_output
-                    assert resource_str.startswith(docker_output_path)
-                    candidate_resource_path = resource_str.replace(docker_output_path, output_model_path)
-                    output_model.config[resource_name] = candidate_resource_path
-
-                logger.debug("Model path is: %s", output_model.config["model_path"])
-                return output_model
-        else:
-            logger.error("Model output file %s not found.", model_output_json_file)
-            return None
-
-    def evaluate_model(
-        self, model_config: "ModelConfig", evaluator_config: "OliveEvaluatorConfig", accelerator: "AcceleratorSpec"
-    ) -> dict[str, Any]:
-        container_root_path = Path("/olive-ws/")
-        with tempfile.TemporaryDirectory() as tempdir:
-            metric_json = self._run_eval_container(
-                tempdir, model_config, evaluator_config, accelerator, container_root_path
+        if run_config.engine.target.type not in (SystemType.Local, SystemType.PythonEnvironment):
+            raise ValueError(
+                "Docker system does not support target system other than LocalSystem or PythonEnvironment."
             )
-            if metric_json.is_file():
-                with metric_json.open() as f:
-                    metrics_res = json.load(f)
-                    return MetricResult.parse_obj(metrics_res)
-            else:
-                logger.error("Metric result file %s not found.", metric_json)
-                return None
 
-    def _run_eval_container(
+        # Convert to JSON and remove unnecessary fields
+        config = run_config.to_json(make_absolute=False)
+        config.pop("evaluators", None)
+        return config
+
+    def _get_device(self, run_config: RunConfig) -> Optional[Device]:
+        """Extract device from run config."""
+        accelerators = run_config.engine.host.config.accelerators
+        return accelerators[0].device if accelerators else None
+
+    def _mount_workflow_config(
         self,
-        workdir,
-        model_config: "ModelConfig",
-        evaluator_config: "OliveEvaluatorConfig",
-        accelerator: "AcceleratorSpec",
-        container_root_path: Path,
-    ):
-        eval_output_path = "eval_output"
-        eval_output_name = "eval_res.json"
+        config: dict,
+        volumes: list[str],
+        ignore_keys: Optional[list[str]] = None,
+    ) -> dict:
+        """Mount workflow resources and update config paths."""
+        config_copy = copy.deepcopy(config)
+        ignore_keys = ignore_keys or ["systems", "evaluators"]
 
-        volumes_list = []
-        # mount eval script
-        eval_file_mount_path, eval_file_mount_str = docker_utils.create_eval_script_mount(container_root_path)
-        volumes_list.append(eval_file_mount_str)
+        # Find and mount all resources
+        all_resources = find_all_resources(config_copy, ignore_keys=ignore_keys)
+        for resource_key, resource_path in all_resources.items():
+            # Create container path
+            container_path = str(self.work_dir / Path(resource_path.get_path()).name)
 
-        # mount dev stuff
-        if self.is_dev:
-            _, dev_mount_str = docker_utils.create_dev_mount(workdir, container_root_path)
-            volumes_list.append(dev_mount_str)
+            # Add volume mount
+            mount_string = f"{resource_path.get_path()}:{container_path}"
+            volumes.append(mount_string)
 
-        # mount model
-        model_mounts, model_mount_str_list, _ = docker_utils.create_model_mount(
-            model_config=model_config, container_root_path=container_root_path
-        )
-        volumes_list += model_mount_str_list
+            # Update config with container path
+            set_nested_dict_value(config_copy, resource_key, container_path)
 
-        metrics_copy = copy.deepcopy(evaluator_config.metrics)
-        # mount metrics related external files
-        volumes_list.extend(
-            # the metrics_copy is modified when creating the volumes list
-            docker_utils.create_metric_volumes_list(
-                metrics=metrics_copy,
-                container_root_path=container_root_path,
-            )
-        )
-
-        # mount config file
-        data = self._create_eval_config(model_config, metrics_copy, model_mounts)
-        config_mount_path, config_file_mount_str = docker_utils.create_config_file(
-            workdir=workdir,
-            config=data,
-            container_root_path=container_root_path,
-        )
-        volumes_list.append(config_file_mount_str)
-
-        output_local_path, output_mount_path, output_mount_str = docker_utils.create_output_mount(
-            workdir=workdir,
-            docker_output_path=eval_output_path,
-            container_root_path=container_root_path,
-        )
-        volumes_list.append(output_mount_str)
-        logger.debug("The volumes list is %s", volumes_list)
-
-        eval_command = docker_utils.create_evaluate_command(
-            eval_script_path=eval_file_mount_path,
-            config_path=config_mount_path,
-            output_path=output_mount_path,
-            output_name=eval_output_name,
-            accelerator=accelerator,
-        )
-        return self._run_container(eval_command, volumes_list, output_local_path, eval_output_name, accelerator)
-
-    @staticmethod
-    def _create_eval_config(model_config: "ModelConfig", metrics: list["Metric"], model_mounts: dict[str, str]):
-        model_json = model_config.to_json(check_object=True)
-        for k, v in model_mounts.items():
-            model_json["config"][k] = v
-
-        return {"metrics": [k.to_json(check_object=True) for k in metrics], "model": model_json}
-
-    @staticmethod
-    def _create_runner_config(
-        model_config: "ModelConfig",
-        pass_config: dict[str, Any],
-        model_mounts: dict[str, str],
-        data_mounts: dict[str, str],
-    ):
-        model_json = model_config.to_json(check_object=True)
-        for k, v in model_mounts.items():
-            model_json["config"][k] = v
-
-        pass_config_copy = copy.deepcopy(pass_config)
-        for k, v in data_mounts.items():
-            pass_config_copy["config"][k] = v
-
-        return {"model": model_json, "pass": pass_config_copy}
+        logger.debug("Container config: %s", config_copy)
+        return config_copy
 
     def _run_container(
         self,
-        command,
-        volumes_list: list[str],
-        output_local_path,
-        output_name,
-        accelerator: "AcceleratorSpec",
+        command: str,
+        volumes: list[str],
+        device: Optional[Device] = None,
     ):
-        run_command = docker_utils.create_run_command(run_params=self.run_params)
+        """Run Docker container with given command and volumes."""
+        # Prepare run parameters
+        run_params = self._prepare_run_params()
 
-        environment = run_command.pop("environment", {})
-        envs_dict = {"PYTHONPYCACHEPREFIX": "/tmp"}
-        for k, v in envs_dict.items():
-            if isinstance(environment, list):
-                environment = {env.split("=")[0]: env.split("=")[1] for env in environment}
-            elif isinstance(environment, dict) and not environment.get(k):
-                environment[k] = v
-        if self.hf_token:
-            token = get_huggingface_token()
-            environment.update({"HF_TOKEN": token})
+        # Prepare environment variables
+        environment = self._prepare_environment(run_params.pop("environment", {}))
 
-        log_level = logging.getLevelName(logger.getEffectiveLevel())
-        environment.update({"OLIVE_LOG_LEVEL": log_level})
+        # Add GPU support if needed
+        if device == Device.GPU:
+            run_params["device_requests"] = [docker.types.DeviceRequest(capabilities=[["gpu"]])]
 
+        # Run container
+        logger.info("Container is running, it will take a while...")
         logger.debug("Running container with command: %s", command)
-        if accelerator.accelerator_type == Device.GPU:
-            run_command["device_requests"] = [docker.types.DeviceRequest(capabilities=[["gpu"]])]
 
         container = self.docker_client.containers.run(
             image=self.image,
             command=command,
-            volumes=volumes_list,
+            volumes=volumes,
             detach=True,
             environment=environment,
-            **run_command,
+            **run_params,
         )
-        docker_logs = []
-        for line in container.logs(stream=True):
-            # containers.logs can accept stdout/stderr as arguments, but it doesn't work
-            # as we cannot ensure that all the logs will be printed in the correct channel(out/err)
-            # so, we collect all the logs and print them in the end if there is an error.
+
+        # Stream logs and check result
+        self._stream_and_check_container(container, command)
+
+    def _prepare_run_params(self) -> dict:
+        """Convert run params for Docker API."""
+        if not self.run_params:
+            return {}
+        # Convert hyphenated keys to underscores
+        return {k.replace("-", "_"): v for k, v in self.run_params.items()}
+
+    def _prepare_environment(self, base_env) -> dict:
+        """Prepare environment variables for container."""
+        # Convert list to dict if needed
+        if isinstance(base_env, list):
+            environment = {env.split("=")[0]: env.split("=")[1] for env in base_env}
+        else:
+            environment = base_env.copy() if isinstance(base_env, dict) else {}
+
+        # Add default environment variables
+        environment.setdefault("PYTHONPYCACHEPREFIX", "/tmp")
+        environment["OLIVE_LOG_LEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
+
+        # Add HuggingFace token if needed
+        if self.hf_token:
+            token = self._get_huggingface_token()
+            if token:
+                environment["HF_TOKEN"] = token
+
+        return environment
+
+    def _stream_and_check_container(self, container, command: str):
+        """Stream container logs and check exit status."""
+        # Stream logs
+        for line in container.logs(stream=True, follow=True):
             log = line.decode().strip()
-            logger.debug(log)
-            docker_logs.append(log)
+            if log:
+                logger.info("[Docker] %s", log)
+                sys.stdout.flush()
+
+        # Check exit code
         exit_code = container.wait()["StatusCode"]
         container.remove()
+
         if exit_code != 0:
-            error_msg = "\n".join(docker_logs)
             raise ContainerError(
-                container, exit_code, command, self.image, f"Docker container evaluation failed with: {error_msg}"
+                container,
+                exit_code,
+                command,
+                self.image,
+                "Docker container run failed. Please check the logs for more details.",
             )
+
         logger.debug("Docker container run completed successfully")
 
-        return Path(output_local_path) / output_name
-
-    def _create_data_mounts_for_pass(self, container_root_path: Path, the_pass: "Pass"):
-        mounts = {}
-        mount_strs = []
-        config_dict = the_pass.config.dict()
-        for param, _, category in the_pass.path_params:
-            param_val = config_dict.get(param)
-            if category == ParamCategory.DATA and param_val:
-                mount = str(container_root_path / param)
-                mounts[param] = mount
-                mount_strs.append(f"{param_val}:{mount}")
-
-        return mounts, mount_strs
-
     def remove(self):
-        self.docker_client.images.remove(self.image.tags[0], force=True)
-        logger.info("Image %s removed successfully.", self.image.tags[0])
+        """Remove Docker image."""
+        image_ref = self.image.tags[0] if self.image.tags else self.image.id
+        self.docker_client.images.remove(image_ref, force=True)
+        logger.info("Image %s removed successfully.", image_ref)
 
+    def _create_config_mount(self, tmp_dir: str, config: dict) -> tuple[str, str]:
+        """Create mount for config file."""
+        # Save config to temporary file
+        config_file_path = Path(tmp_dir) / "config.json"
+        with config_file_path.open("w") as f:
+            json.dump(config, f, indent=4)
 
-def _print_docker_logs(logs, level=logging.DEBUG):
-    msgs = []
-    for log in logs:
-        if "stream" in log:
-            msgs.append(str(log["stream"]).strip())
-        else:
-            msgs.append(str(log).strip())
+        # Create mount string
+        container_path = str(self.work_dir / "config.json")
+        mount_string = f"{config_file_path}:{container_path}"
+        return container_path, mount_string
 
-    message = "\n".join(msgs)
-    logger.log(level, message)
+    def _create_runner_script_mount(self) -> tuple[str, str]:
+        """Create mount for runner script."""
+        runner_script_name = "workflow_runner.py"
+        container_path = str(self.work_dir / runner_script_name)
+        host_path = Path(__file__).resolve().parent / runner_script_name
+        mount_string = f"{host_path}:{container_path}"
+        return container_path, mount_string
 
+    @staticmethod
+    def _get_huggingface_token() -> Optional[str]:
+        """Get HuggingFace token from environment or file."""
+        import os
 
-def get_huggingface_token():
-    """Get huggingface token from environment variable or token file."""
-    import os
+        # Check environment variable
+        token = os.getenv("HF_TOKEN")
+        if token:
+            return token
 
-    if os.getenv("HF_TOKEN"):
-        return os.getenv("HF_TOKEN")
+        # Check token file
+        token_path = Path.home() / ".huggingface" / "token"
+        if token_path.exists():
+            with token_path.open() as f:
+                return f.read().strip()
 
-    token_path = Path.home() / ".huggingface" / "token"
-    if not token_path.exists():
         logger.error(
-            "Huggingface token is required at this step. Could not find huggingface token at %s. "
-            "Please login to huggingface first using `huggingface-cli login`. "
-            "If you already logged in, Olive will get token from '~/.huggingface/token' file'. "
-            "Please make sure the token file exists.",
-            token_path,
+            "HuggingFace token is required but not found. "
+            "Please set HF_TOKEN environment variable or login using 'huggingface-cli login'."
         )
         return None
-    with Path(token_path).open() as f:
-        return f.read().strip()
+
+    def run_pass(self, the_pass: "Pass", model_config: "ModelConfig", output_model_path: str) -> "ModelConfig":
+        raise NotImplementedError("DockerSystem does not support run_pass. Use run_workflow instead.")
+
+    def evaluate_model(
+        self, model_config: "ModelConfig", evaluator_config: "OliveEvaluatorConfig", accelerator: "AcceleratorSpec"
+    ) -> "MetricResult":
+        raise NotImplementedError("DockerSystem does not support evaluate_model. Use run_workflow instead.")

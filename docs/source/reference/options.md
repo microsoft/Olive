@@ -17,7 +17,6 @@ to apply from user in the form of a json dictionary. In this document, we docume
 The options are organized into following sections:
 
 - [Workflow id](#workflow-id) `workflow_id`
-- [Workflow Host](#workflow-host) `workflow_host`
 - [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
 - [Systems Information](#systems-information) `systems`
@@ -54,17 +53,6 @@ more details.
 - `max_operation_retries: [int]` The maximum number of retries for Azure ML operations like resource creation and download.
 The default value is 3. User can increase if there are network issues and the operations fail.
 - `operation_retry_interval: [int]` The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.
-- `default_auth_params: Dict[str, Any]` Default auth parameters for AzureML client. Please refer to [azure DefaultAzureCredential](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters) for more details. For example, if you want to exclude managed identity credential, you can set the following:
-
-    ```json
-    "azureml_client": {
-        // ...
-        "default_auth_params": {
-            "exclude_managed_identity_credential": true
-        }
-    }
-    ```
-
 - `keyvault_name: [str]` The keyvault name to retrieve secrets.
 
 ### Example
@@ -196,8 +184,7 @@ This is a dictionary that contains the information of systems that are reference
 dictionary is the name of the system. The value of the dictionary is another dictionary that contains the information of the system. The
 information of the system contains following items:
 
-- `type: [str]` The type of the system. The supported types are `LocalSystem`, `AzureML` and `Docker`.
-  There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [System alias list](../how-to/configure-workflows/systems.md#azureml-readymade-systems) for the complete list of system alias.
+- `type: [str]` The type of the system. The supported types are `LocalSystem`, `PythonEnvironment`, `IsolatedORT` and `Docker`.
 
 - `config: [Dict]` The system config dictionary that contains the system specific information. The fields can be provided directly under the parent dictionary.
  - `accelerators: [List[str]]` The accelerators that will be used for this workflow.
@@ -397,7 +384,6 @@ Please also find the detailed options from following table for each pass:
 | [OnnxDynamicQuantization](pass.rst#onnxdynamicquantization) | ONNX Dynamic Quantization Pass. |
 | [OnnxStaticQuantization](pass.rst#onnxstaticquantization) | ONNX Static Quantization Pass. |
 | [OnnxQuantization](pass.rst#onnxquantization) | Quantize ONNX model with onnxruntime where we can search for best parameters for static/dynamic quantization at same time. |
-| [OnnxMatMul4Quantizer](pass.rst#onnxmatmul4quantizer) | Quantize ONNX models' MatMul operations to 4-bit weights |
 | [OnnxBlockWiseRtnQuantization](pass.rst#onnxblockwisertnquantization) | Quantize ONNX models' MatMul and Gather operations to 4-bit or 8-bit weights by RTN algorithm. |
 | [OnnxHqqQuantization](pass.rst#onnxhqqquantization) | Quantize ONNX models' MatMul operations to 4-bit weights by HQQ algorithm. |
 | [GraphSurgeries](pass.rst#graphsurgeries) | ONNX graph surgeries collections. |
@@ -421,7 +407,8 @@ Please also find the detailed options from following table for each pass:
 | [QuantizationAwareTraining](pass.rst#onnxquantizationawaretraining) | Run quantization aware training on PyTorch model. |
 | [OpenVINOConversion](pass.rst#openvinoconversion) | Converts PyTorch, ONNX or TensorFlow Model to OpenVINO Model. |
 | [OpenVINOIoUpdate](pass.rst#openvinoioupdate) | Converts dynamic OpenVINO Model to static OpenVINO Model and updates IO names. |
-| [OpenVINOQuantization](pass.rst#openvinoquantization) | Post-training quantization for OpenVINO model. |
+| [OpenVINOQuantization](pass.rst#openvinoquantization) | Post-training quantization for OpenVINO models and ONNX models |
+| [OpenVINOQuantizationWithAccuracy](pass.rst#openvinoquantizationwithaccuracy) | Post-training quantization with accuracy for OpenVINO models and ONNX models |
 | [OpenVINOEncapsulation](pass.rst#openvinoencapsulation) | Generates an ONNX model that encapsulates an OpenVINO IR model. |
 | [OpenVINOOptimumConversion](pass.rst#openvinooptimumconversion) | Run [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) command using Optimum Intel® to convert Huggingface Model to OpenVINO Model and optionally perform weight compression or quantization. |
 | [SNPEConversion](pass.rst#snpeconversion) | Convert ONNX or TensorFlow model to SNPE DLC. Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK. |
@@ -434,6 +421,7 @@ Please also find the detailed options from following table for each pass:
 | [SparseGPT](pass.rst#sparsegpt) | Run SparseGPT on a Hugging Face PyTorch model.  |
 | [SliceGPT](pass.rst#slicegpt) | Run SliceGPT on a Hugging Face PyTorch model. |
 | [QuaRot](pass.rst#quarot) | Rotate model using QuaRot. |
+| [Gptq](pass.rst#gptq) | Run GPTQ quantization on a Hugging Face PyTorch model. |
 | [GptqQuantizer](pass.rst#gptqquantizer) | GPTQ quantization Pass On Pytorch Model. |
 | [AutoAWQQuantizer](pass.rst#awqquantizer) | AWQ quantization Pass On Pytorch Model. |
 | [TorchTRTConversion](pass.rst#torchtrtconversion) | Convert torch.nn.Linear modules in the transformer layers of a HuggingFace PyTorch model to TensorRT modules. |

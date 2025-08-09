@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import shutil
 from pathlib import Path
 from typing import Any, Union
 
@@ -22,6 +23,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
 from olive.passes.pass_config import PassParamDefault
 from olive.resource_path import AZUREML_RESOURCE_TYPES
+from olive.systems.common import SystemType
 from olive.systems.system_config import SystemConfig
 
 
@@ -75,6 +77,15 @@ class RunEngineConfig(EngineConfig):
             "If `true`, the log will be stored in a olive-<timestamp>.log file under the current working directory."
         ),
     )
+
+    @validator("output_dir", pre=True, always=True)
+    def validate_output_dir(cls, v):
+        if v is None:
+            v = Path.cwd().resolve()
+        else:
+            v = Path(v).resolve()
+        v.mkdir(parents=True, exist_ok=True)
+        return v
 
     def create_engine(self, olive_config, azureml_client_config, workflow_id):
         config = self.dict(include=EngineConfig.__fields__.keys())
@@ -146,9 +157,6 @@ class RunConfig(NestedConfig):
         default_factory=AutoOptimizerConfig,
         description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
     )
-    workflow_host: SystemConfig = Field(
-        None, description="Workflow host. None by default. If provided, the workflow will be run on the specified host."
-    )
 
     @root_validator(pre=True)
     def patch_evaluators(cls, values):
@@ -169,6 +177,18 @@ class RunConfig(NestedConfig):
     def insert_azureml_client(cls, values):
         values = convert_configs_to_dicts(values)
         _insert_azureml_client(values, values.get("azureml_client"))
+        return values
+
+    @root_validator()
+    def validate_python_environment_paths(cls, values):
+        # Check if we need to validate python environment path
+        engine = values.get("engine")
+        if engine:
+            engine_host = engine.host
+            if not engine_host or engine_host.type != SystemType.Docker:
+                systems = values.get("systems")
+                if systems:
+                    _validate_python_environment_path(systems)
         return values
 
     @validator("data_configs", pre=True)
@@ -266,6 +286,7 @@ class RunConfig(NestedConfig):
                 "Can't search without a valid evaluator config. "
                 "Either provider a valid evaluator config or disable search."
             )
+
         return _resolve_evaluator(v, values)
 
     @validator("passes", pre=True, each_item=True)
@@ -300,11 +321,24 @@ class RunConfig(NestedConfig):
                     )
         return v
 
-    @validator("workflow_host", pre=True)
-    def validate_workflow_host(cls, v, values):
-        if v is None:
-            return v
-        return _resolve_config(values, v)
+
+def _validate_python_environment_path(systems):
+    for system_config in systems.values():
+        if system_config.type != SystemType.PythonEnvironment:
+            continue
+
+        python_environment_path = system_config.config.python_environment_path
+        if python_environment_path is None:
+            raise ValueError("python_environment_path is required for PythonEnvironmentSystem native mode")
+
+        # check if the path exists
+        if not Path(python_environment_path).exists():
+            raise ValueError(f"Python path {python_environment_path} does not exist")
+
+        # check if python exists in the path
+        python_path = shutil.which("python", path=python_environment_path)
+        if not python_path:
+            raise ValueError(f"Python executable not found in the path {python_environment_path}")
 
 
 def _resolve_all_data_configs(config, values):

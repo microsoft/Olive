@@ -371,7 +371,7 @@ def convert_configs_to_dicts(config: Any) -> Any:
 
 
 def get_the_flattened_and_tree_spec(
-    dynamic_shapes: Union[dict[str, Any], list[Any]], leave_is_str: bool = False
+    dynamic_shapes: Union[dict[str, Any], list[Any]], leaf_is_str: bool = False
 ) -> tuple[list[Any], Any]:
     """Flattens a pytree into a list of values and a TreeSpec that can be used to reconstruct the pytree."""
     # More info: https://github.com/pytorch/pytorch/blob/48203bec636692e1a9140fe7f23ba1323b19550d/torch/utils/_pytree.py#L985
@@ -395,4 +395,4 @@ def get_the_flattened_and_tree_spec(
             and all(isinstance(k, int) and (v is None or isinstance(v, (str, int))) for k, v in x.items())
         ) or (isinstance(x, (list, tuple)) and all(v is None or isinstance(v, (str, int)) for v in x))
 
-    return _pytree.tree_flatten(dynamic_shapes, is_leaf=is_axes_with_str_key if leave_is_str else is_axes_with_int_key)
+    return _pytree.tree_flatten(dynamic_shapes, is_leaf=is_axes_with_str_key if leaf_is_str else is_axes_with_int_key)

@@ -12,7 +12,7 @@ from typing import Any, Union
 import onnxruntime as ort
 
 from olive.common.config_utils import validate_config
-from olive.common.ort_inference import check_and_normalize_provider_args
+from olive.common.ort_inference import check_and_normalize_provider_args, get_ort_available_providers
 from olive.common.pydantic_v1 import Extra
 from olive.data.config import DataConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
@@ -20,6 +20,7 @@ from olive.evaluator.metric_result import joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
+from olive.hardware.constants import ExecutionProvider
 from olive.model import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
@@ -53,7 +54,7 @@ def enable_rocm_op_tuning(inference_settings, input_tuning_result, tuning_result
     tuning_result_file_name = None
     tuning_op_result = []
     for i, ep in enumerate(execution_providers):
-        if ep == "ROCMExecutionProvider":
+        if ep == ExecutionProvider.ROCMExecutionProvider:
             set_rocm_provider_options(provider_options[i])
             tuning_result_file_name = "tuning_result.json"
         if input_tuning_result:
@@ -114,7 +115,11 @@ class OrtSessionParamsTuning(Pass):
             "providers_list": PassConfigParam(
                 type_=str,
                 default_value=execution_provider,
-                search_defaults=Categorical(AcceleratorLookup.get_execution_providers_for_device(device)),
+                search_defaults=Categorical(
+                    AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
+                        device, get_ort_available_providers()
+                    )
+                ),
                 description="Execution providers framework list to execute the ONNX models.",
             ),
             "provider_options_list": PassConfigParam(
@@ -204,7 +209,7 @@ class OrtSessionParamsTuning(Pass):
             #    file=/onnxruntime_src/onnxruntime/core/providers/cuda/cuda_execution_provider.cc ; line=181 ;
             #    expr=cudnnDestroy(cudnn_handle_);
             return False
-        elif config.execution_provider == "CPUExecutionProvider" and config.io_bind:
+        elif config.execution_provider == ExecutionProvider.CPUExecutionProvider and config.io_bind:
             # if the first combo is CPUExecutionProvider, then the io_bind should not be True
             logger.info("[Ignored] Because EP is CPUExecutionProvider, the io_bind should not be True")
             return False
@@ -212,14 +217,14 @@ class OrtSessionParamsTuning(Pass):
         # Parallel execution mode does not support the CUDA Execution Provider.
         # So ORT will make the execution mode sequential when it uses the CUDA Execution Provider.
 
-        if config.execution_provider != "CUDAExecutionProvider" and config.enable_cuda_graph:
+        if config.execution_provider != ExecutionProvider.CUDAExecutionProvider and config.enable_cuda_graph:
             logger.info("[Ignored] Because EP is not CUDAExecutionProvider, the enable_cuda_graph is ignored")
             return True
-        if config.execution_provider != "TensorrtExecutionProvider" and config.trt_fp16_enable:
+        if config.execution_provider != ExecutionProvider.TensorrtExecutionProvider and config.trt_fp16_enable:
             logger.info("[Ignored] Because EP is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
             return True
         if (
-            config.execution_provider == "CUDAExecutionProvider"
+            config.execution_provider == ExecutionProvider.CUDAExecutionProvider
             and config.enable_cuda_graph
             and config.execution_mode == ort.ExecutionMode.ORT_PARALLEL.value
         ):
@@ -272,9 +277,9 @@ class OrtSessionParamsTuning(Pass):
         config.intra_op_thread_count = config.intra_thread_num_list
         config.inter_op_thread_count = config.inter_thread_num_list
 
-        if config.execution_provider == "TensorrtExecutionProvider":
+        if config.execution_provider == ExecutionProvider.TensorrtExecutionProvider:
             config.provider_options["trt_fp16_enable"] = config.trt_fp16_enable
-        elif config.execution_provider == "CUDAExecutionProvider":
+        elif config.execution_provider == ExecutionProvider.CUDAExecutionProvider:
             config.provider_options["enable_cuda_graph"] = config.enable_cuda_graph
 
         # TODO(jambayk): decide on whether to ignore the output_model_path
@@ -353,7 +358,7 @@ class OrtSessionParamsTuning(Pass):
         else:
             inference_settings = copy.deepcopy(model.inference_settings) if model.inference_settings else {}
             # put the execution_provider and provider_options in inference_settings for baseline evaluation
-            available_eps = ort.get_available_providers()
+            available_eps = get_ort_available_providers()
             execution_providers, provider_options = check_and_normalize_provider_args(
                 [config.execution_provider], None, available_eps
             )

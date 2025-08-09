@@ -5,7 +5,7 @@
 import logging
 import math
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import onnx
@@ -27,6 +27,13 @@ logger = logging.getLogger(__name__)
 class MatMulNBitsToQDQ(Pass):
     """Convert ONNX MatMulNBits nodes to standard ONNX quantized-dequantized (QDQ) format."""
 
+    INT_ELEM_TYPE_MAP: ClassVar[dict] = {
+        (4, True): onnx.TensorProto.INT4,
+        (4, False): onnx.TensorProto.UINT4,
+        (8, True): onnx.TensorProto.INT8,
+        (8, False): onnx.TensorProto.UINT8,
+    }
+
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
@@ -46,6 +53,15 @@ class MatMulNBitsToQDQ(Pass):
                 default_value=False,
                 description=(
                     "Whether to use int4 data type for the quantized weight. Default is False and uses uint4 data type."
+                    " To be deprecated in future versions in favor of use_signed_int."
+                ),
+            ),
+            "use_signed_int": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to use signed int data type for the quantized weight. Default is False and uses unsigned"
+                    " int data type. Supersedes use_int4 when set to True."
                 ),
             ),
             "add_zero_point": PassConfigParam(
@@ -76,11 +92,6 @@ class MatMulNBitsToQDQ(Pass):
         dag = OnnxDAG.from_model_path(model.model_path)
         # remove unnecessary identity nodes
         dag.remove_identity_nodes()
-
-        # if matmulnbits zero point is the following, then the zero point is not needed in the DQ node
-        default_mnb_zp = 8 if config.use_int4 else 0
-        int_np_dtype = np.int8 if config.use_int4 else np.uint8
-        int_elem_type = onnx.TensorProto.INT4 if config.use_int4 else onnx.TensorProto.UINT4
 
         # set of nodes to exclude from the conversion
         nodes_to_exclude = set(config.nodes_to_exclude or [])
@@ -114,9 +125,9 @@ class MatMulNBitsToQDQ(Pass):
             # - originally blockwise but K <= block_size
             is_per_axis = num_k_blocks == 1
 
-            # only deal with 4 bits (int4) for now
-            if node_attributes["bits"] != 4:
-                logger.debug("%s uses %d bits, only 4 bits is supported", node_name, node_attributes["bits"])
+            bits = node_attributes["bits"]
+            if bits not in [4, 8]:
+                logger.debug("%s uses %d bits, only 4 or 8 bits is supported", node_name, bits)
                 continue
 
             # we can only deal with trivial g_idx, dequantize linear does not support g_idx
@@ -125,6 +136,9 @@ class MatMulNBitsToQDQ(Pass):
                 trivial_g_idx = np.arange(K, dtype=np.int32) // block_size
                 if not np.array_equal(g_idx, trivial_g_idx):
                     continue
+
+            unsigned_midpoint = 1 << (bits - 1)
+            use_signed_int = config.use_signed_int or (bits == 4 and config.use_int4)
 
             # name for the DQ node
             dq_name = self._get_new_node_name(dag, node_name, "DequantizeLinear")
@@ -148,7 +162,7 @@ class MatMulNBitsToQDQ(Pass):
                 # there are cases where unpack and repack is not needed: no transpose + no padding
                 # but will still do it for simplicity
                 if qi.dtype == np.uint8:
-                    qi = self._unpack_on_row(qi)
+                    qi = self._maybe_unpack_on_row(qi, bits)
                     # remove padding if any
                     qi = qi[:, :unpacked_col_size]
 
@@ -156,8 +170,13 @@ class MatMulNBitsToQDQ(Pass):
                 if new_qi_name.endswith((".scales", ".qzeros")) and is_per_axis:
                     qi = qi.flatten()
 
-                # skip if is a no-op zero point
-                if not config.add_zero_point and new_qi_name.endswith(".qzeros") and np.all(qi == default_mnb_zp):
+                # skip if is a no-op zero point, DQ zero point is all 0s == unsigned_midpoint in mnb and signed int
+                if (
+                    not config.add_zero_point
+                    and use_signed_int
+                    and new_qi_name.endswith(".qzeros")
+                    and np.all(qi == unsigned_midpoint)
+                ):
                     continue
 
                 if not config.use_transpose_op:
@@ -165,19 +184,19 @@ class MatMulNBitsToQDQ(Pass):
                     qi = qi.T
 
                 if qi.dtype == np.uint8:
-                    if config.use_int4:
-                        # no worries about making signed since the values only use 4 bits
-                        qi = qi.astype(np.int8)
-                        # subtract 8 to make it signed
-                        # no worries here again since the values are in the range 0-15 and numpy uses 2's complement
-                        qi -= 8
+                    if use_signed_int:
+                        # no worries about making signed since the values only use 4/8 bits
+                        qi = qi.astype(np.int16)
+                        # subtract unsigned_midpoint to make it signed
+                        # no worries here again since the values are in the range 0-15/255 and numpy uses 2's complement
+                        qi -= unsigned_midpoint
 
                     # pack in the format expected by onnx and create the tensor
                     tensor = onnx.helper.make_tensor(
                         new_qi_name,
-                        int_elem_type,
+                        self.INT_ELEM_TYPE_MAP[(bits, use_signed_int)],
                         qi.shape,
-                        self._pack_on_flat(qi).tobytes(),
+                        self._maybe_pack_on_flat(qi, bits, use_signed_int).tobytes(),
                         raw=True,
                     )
                 else:
@@ -187,17 +206,21 @@ class MatMulNBitsToQDQ(Pass):
                 dag.add_initializer(tensor, graph_idx)
                 # add the input name
                 dq_inputs.append(new_qi_name)
-            # DQ default zp is 0 but MatMulNBits is 8, so we need to add a zero tensor with all 8s
-            # no need to add for int4 if add_zero_point is False
-            if len(dq_inputs) == 2 and (config.add_zero_point or not config.use_int4):
+            # DQ default zp is 0 but MatMulNBits is 8/128, so we need to add a zero tensor with all 8/128s
+            # no need to add for int4/int8 if add_zero_point is False
+            if len(dq_inputs) == 2 and (config.add_zero_point or not use_signed_int):
                 zp_name = f"{dq_name}.qzeros"
                 zp_shape = [N] if is_per_axis else ([N, num_k_blocks] if config.use_transpose_op else [num_k_blocks, N])
                 zp_tensor = onnx.helper.make_tensor(
                     zp_name,
-                    int_elem_type,
+                    self.INT_ELEM_TYPE_MAP[(bits, use_signed_int)],
                     zp_shape,
-                    # no zp in matmulnbits is equivalent to 8 uint4 and 0 int4 in DQ
-                    self._pack_on_flat(np.zeros(N * num_k_blocks, dtype=int_np_dtype) + 8 - default_mnb_zp).tobytes(),
+                    # no zp in matmulnbits is equivalent to 8/128 uint4/uint8 and 0 int4/int8 in DQ
+                    self._maybe_pack_on_flat(
+                        np.zeros(N * num_k_blocks, dtype=np.int16) + (0 if use_signed_int else unsigned_midpoint),
+                        bits,
+                        use_signed_int,
+                    ).tobytes(),
                     raw=True,
                 )
                 dag.add_initializer(zp_tensor, graph_idx)
@@ -253,6 +276,10 @@ class MatMulNBitsToQDQ(Pass):
             # MatMul
             matmul_name = self._get_new_node_name(dag, node_name, "MatMul")
             matmul_output = f"{matmul_name}/output_0"
+            if matmul_output == node_output:
+                # rename the node_output to avoid conflicts, want to keep the matmul_output for consistency
+                node_output = f"{node_output}_renamed"
+                dag.rename_node_output(node_name, matmul_output, node_output)
             new_nodes.append(
                 onnx.helper.make_node("MatMul", [node_inputs[0], matmul_input], [matmul_output], name=matmul_name)
             )
@@ -265,15 +292,15 @@ class MatMulNBitsToQDQ(Pass):
             final_name = matmul_name
             final_output = matmul_output
 
-            if len(node_inputs) >= 5 and node_inputs[4]:
+            if len(node_inputs) >= 6 and node_inputs[5]:
                 # Bias Add
                 # it has bias
-                bias_i_name = node_inputs[4]
+                bias_i_name = node_inputs[5]
                 new_bias_i_name = bias_i_name.replace("MatMulNBits", "MatMul")
-                bias_initiaizer = onnx.numpy_helper.from_array(
+                bias_initializer = onnx.numpy_helper.from_array(
                     dag.get_initializer_np_array(bias_i_name), name=new_bias_i_name
                 )
-                dag.add_initializer(bias_initiaizer, graph_idx)
+                dag.add_initializer(bias_initializer, graph_idx)
 
                 bias_name = self._get_new_node_name(dag, node_name, "Add")
                 bias_output = f"{bias_name}/output_0"
@@ -329,7 +356,7 @@ class MatMulNBitsToQDQ(Pass):
     def _get_new_node_name(dag: OnnxDAG, old_name: str, op_type: str):
         """Get a new unique node name based on the old name and the new op type."""
         new_name_base = None
-        for suffix in ["MatMulNBits", "MatMul_Q4"]:
+        for suffix in ["MatMulNBits", "MatMul_Q4", "MatMul_Q8"]:
             if suffix in old_name:
                 new_name_base = old_name.replace(suffix, op_type)
                 break
@@ -346,8 +373,12 @@ class MatMulNBitsToQDQ(Pass):
         return new_name
 
     @staticmethod
-    def _unpack_on_row(tensor: "NDArray") -> "NDArray":
-        """Unpack uint8 into two uint4 (stored in uint8) column wise."""
+    def _maybe_unpack_on_row(tensor: "NDArray", bits: int) -> "NDArray":
+        """Unpack uint8 into two uint4 (stored in uint8) column wise if bits is 4."""
+        if bits == 8:
+            # no need to unpack if bits is 8
+            return tensor
+
         # two uint4 packed into one uint8
         # right 4 bits are the first uint4
         shifts = np.array([0, 4])
@@ -359,9 +390,15 @@ class MatMulNBitsToQDQ(Pass):
         return tensor.reshape(tensor.shape[0], -1)
 
     @staticmethod
-    def _pack_on_flat(tensor: "NDArray") -> "NDArray":
-        """Pack two uint4 into one uint8 on a flattened tensor."""
-        tensor = tensor.flatten()
+    def _maybe_pack_on_flat(tensor: "NDArray", bits: int, signed: bool) -> "NDArray":
+        """Pack two uint4/int4 into one uint8/int8 on a flattened tensor if bits is 4.
+
+        If bits is 8, it is cast to int8 or uint8 based on signed.
+        """
+        tensor = tensor.flatten().astype(np.int8 if signed else np.uint8)
+        if bits == 8:
+            # no need to pack if bits is 8
+            return tensor
 
         if len(tensor) % 2:
             tensor = np.pad(tensor, (0, 1), mode="constant")

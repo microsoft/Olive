@@ -158,7 +158,7 @@ class PythonEnvironmentSystem(OliveSystem):
             packages.append(f"-r {self.config.requirements_file}")
 
         # install onnxruntime package
-        onnxruntime_package = get_package_name_from_ep(accelerator.execution_provider)[0]
+        onnxruntime_package = get_package_name_from_ep(accelerator.execution_provider)
         packages.append(onnxruntime_package)
 
         _, stdout, _ = run_subprocess(

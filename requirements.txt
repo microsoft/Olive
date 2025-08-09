@@ -1,6 +1,6 @@
 numpy
 onnx
-onnx_ir>=0.1.1
+onnx_ir>=0.1.2
 onnxscript>=0.3.0
 optuna
 pandas

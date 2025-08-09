@@ -98,12 +98,6 @@ OnnxQuantization
 ----------------
 .. autoconfigclass:: olive.passes.OnnxQuantization
 
-.. _onnx_matmul4_quantizer:
-
-OnnxMatMul4Quantizer
---------------------
-.. autoconfigclass:: olive.passes.OnnxMatMul4Quantizer
-
 .. _onnx_rtn_quantization:
 
 OnnxBlockWiseRtnQuantization
@@ -306,6 +300,12 @@ SpinQuant
 ---------
 .. autoconfigclass:: olive.passes.SpinQuant
 
+.. _gptq:
+
+Gptq
+-----
+.. autoconfigclass:: olive.passes.Gptq
+
 .. _gptq_quantizer:
 
 GptqQuantizer
@@ -344,6 +344,12 @@ OpenVINOIoUpdate
 OpenVINOQuantization
 --------------------
 .. autoconfigclass:: olive.passes.OpenVINOQuantization
+
+.. _openvino_quantization_with_accuracy:
+
+OpenVINOQuantizationWithAccuracy
+--------------------------------
+.. autoconfigclass:: olive.passes.OpenVINOQuantizationWithAccuracy
 
 .. _openvino_encapsulation:
 

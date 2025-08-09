@@ -51,6 +51,7 @@ class Precision(StrEnumBase):
     FP16 = "fp16"
     FP32 = "fp32"
     NF4 = "nf4"
+    BF16 = "bf16"
 
 
 class PrecisionBits(IntEnumBase):
@@ -87,3 +88,37 @@ class OpType(StrEnumBase):
     GatherBlockQuantized = "GatherBlockQuantized"
     MatMulNBits = "MatMulNBits"
     MatMul = "MatMul"
+    QuickGelu = "QuickGelu"
+    Sigmoid = "Sigmoid"
+    Mul = "Mul"
+    RotaryEmbedding = "RotaryEmbedding"
+    Reshape = "Reshape"
+    Slice = "Slice"
+    Sub = "Sub"
+    Add = "Add"
+    Concat = "Concat"
+    Div = "Div"
+    Shape = "Shape"
+    Constant = "Constant"
+
+
+class AccuracyLevel(IntEnumBase):
+    unset = 0
+    fp32 = 1
+    fp16 = 2
+    bf16 = 3
+    int8 = 4
+
+
+def precision_bits_from_precision(p):
+    mapping = {
+        Precision.INT4: PrecisionBits.BITS4,
+        Precision.INT8: PrecisionBits.BITS8,
+        Precision.INT16: PrecisionBits.BITS16,
+        Precision.INT32: PrecisionBits.BITS32,
+        Precision.UINT4: PrecisionBits.BITS4,
+        Precision.UINT8: PrecisionBits.BITS8,
+        Precision.UINT16: PrecisionBits.BITS16,
+        Precision.UINT32: PrecisionBits.BITS32,
+    }
+    return mapping.get(p)

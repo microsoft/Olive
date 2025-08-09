@@ -13,9 +13,7 @@
       - [Inference using ONNX Runtime GenAI](#inference-using-onnx-runtime-genai)
       - [Inference using Optimum](#inference-using-optimum)
     - [Workflows](#workflows)
-      - [Running Workflows on the cloud](#running-workflows-on-the-cloud)
       - [Accelerating Workflows with shared cache](#accelerating-workflows-with-shared-cache)
-      - [Combining Remote Workflow and shared cache](#combining-remote-workflow-and-shared-cache)
 - [License](#license)
 
 # Prerequisites
@@ -160,39 +158,11 @@ inputs = tokenizer("Hello, World", return_tensors="pt").to("cuda:0")
 print(tokenizer.batch_decode(model.generate(**inputs, max_length=20), skip_special_tokens=True))
 ```
 
+## **Optimization and Quantization for AMD NPU**
+
+- [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.
+
 ## Workflows
-
-### Running Workflows on the Cloud
-
-You may notice that this workflow takes a long time to run, especially for QLoRA. Olive offers a feature that allows you to submit the workflow to the cloud, enabling it to run on the compute resources in your Azure Machine Learning workspace.
-
-To use this feature, you will need a `remote_config.json` file to configure your Azure Machine Learning workspace:
-
-```json
-{
-    "subscription_id": "<subscription_id>",
-    "resource_group": "<resource_group>",
-    "workspace_name": "<workspace_name>",
-    "keyvault_name": "<keyvault_name>",
-    "compute": "<compute>"
-}
-```
-
-More details about `keyvault_name` can be found [here](https://microsoft.github.io/Olive/features/huggingface-integration.html#huggingface-login).
-
-Make sure you have installed Olive Azure ML extra by running:
-
-```bash
-pip install olive-ai[azureml]
-```
-
-Then you can run the following command:
-
-```bash
-python llama2.py --qlora --remote_config remote_config.json
-```
-
-Olive will submit the workflow to the compute resources in your Azure Machine Learning workspace and execute the workflow there. The output artifacts will be automatically exported to the Datastore. For more detailed information, please refer to [the official documentation](https://microsoft.github.io/Olive/features/azure-ai/remote-workflow.html).
 
 ### Accelerating Workflows with shared cache
 
@@ -205,16 +175,6 @@ python llama2.py --qlora --account_name <account_name> --container_name <contain
 ```
 
 Olive will apply shared model cache for this workflow.
-
-### Combining Remote Workflow and Shared Cache
-
-To leverage both the remote workflow and shared cache for faster workflow execution, simply run:
-
-```bash
-python llama2.py --qlora --remote_config remote_config.json --account_name <account_name> --container_name <container_name>
-```
-
-This will submit the workflow to the Azure Machine Learning workspace and store intermediate models in Azure Blob Storage, significantly speeding up the process.
 
 # License
 Please see the [LICENSE](./LICENSE) file for more details. Also please follow the [user policy](./USE-POLICY-META-LLAMA-2.md) of the model provider. Besides, please refer to the [Responsible
