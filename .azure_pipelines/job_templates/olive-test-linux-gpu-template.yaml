@@ -3,7 +3,6 @@
 parameters:
   name: ''
   pool: ''
-  test_type: ''
   dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
   docker_image: 'olive-pipeline:latest'
   base_image: 'mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
@@ -49,7 +48,7 @@ jobs:
       ${{ parameters.onnxruntime }} \
       ${{ parameters.onnxruntime_nightly }} \
       test/${{ parameters.requirements_file }} \
-      test/${{ parameters.test_type }} \
+      test \
       false \
       $(hf_token)
     displayName: Run Tests in Docker

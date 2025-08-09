@@ -12,13 +12,6 @@ parser.add_argument(
     default="models/phi3_5-qdq",
     help="Path to the folder containing the outputs of Olive run",
 )
-parser.add_argument(
-    "-c",
-    "--chat_template",
-    type=str,
-    default="<|user|>\n{input} <|end|>\n<|assistant|>",
-    help="Template for the chat input",
-)
 args = parser.parse_args()
 
 # Load the base model and tokenizer
@@ -42,7 +35,9 @@ while True:
         break
 
     # Generate prompt (prompt template + input)
-    prompt = f"{args.chat_template.format(input=text)}"
+    prompt = tokenizer.apply_chat_template(
+        messages=f"""[{{"role": "user", "content": "{text}"}}]""", add_generation_prompt=True
+    )
 
     # Encode the prompt using the tokenizer
     input_tokens = tokenizer.encode(prompt)
