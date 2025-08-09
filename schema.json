@@ -9,15 +9,6 @@
       "default": "default_workflow",
       "type": "string"
     },
-    "azureml_client": {
-      "title": "Azureml Client",
-      "description": "AzureML client configuration. This client configuration will be used for all AzureML related resources in the workflow.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/AzureMLClientConfig"
-        }
-      ]
-    },
     "input_model": {
       "title": "Input Model",
       "description": "Input model configuration.",
@@ -85,56 +76,6 @@
     "input_model"
   ],
   "definitions": {
-    "AzureMLClientConfig": {
-      "title": "AzureMLClientConfig",
-      "description": "Configuration for AzureMLClient.\n\nThis class is used to create an MLClient instance for AzureML operations.\nSome fields like `read_timeout`, `max_operation_retries`, `operation_retry_interval` are used to control the\nbehavior of azureml operations like resource creation or download.",
-      "type": "object",
-      "properties": {
-        "subscription_id": {
-          "title": "Subscription Id",
-          "description": "Azure subscription id. Required if aml_config_path is not provided.",
-          "type": "string"
-        },
-        "resource_group": {
-          "title": "Resource Group",
-          "description": "Azure resource group. Required if aml_config_path is not provided.",
-          "type": "string"
-        },
-        "workspace_name": {
-          "title": "Workspace Name",
-          "description": "Azure workspace name. Required if aml_config_path is not provided.",
-          "type": "string"
-        },
-        "aml_config_path": {
-          "title": "Aml Config Path",
-          "description": "Path to AzureML config file. If provided, other fields are ignored.",
-          "type": "string"
-        },
-        "read_timeout": {
-          "title": "Read Timeout",
-          "description": "Read timeout in seconds for HTTP requests.",
-          "default": 60,
-          "type": "integer"
-        },
-        "max_operation_retries": {
-          "title": "Max Operation Retries",
-          "description": "Max number of retries for AzureML operations like resource creation or download.",
-          "default": 3,
-          "type": "integer"
-        },
-        "operation_retry_interval": {
-          "title": "Operation Retry Interval",
-          "description": "Initial interval in seconds between retries for AzureML operations like resource creation or download. The interval doubles after each retry.",
-          "default": 5,
-          "type": "integer"
-        },
-        "keyvault_name": {
-          "title": "Keyvault Name",
-          "description": "Name of the keyvault to use. If provided, the keyvault will be used to retrieve secrets.",
-          "type": "string"
-        }
-      }
-    },
     "ModelConfig": {
       "title": "ModelConfig",
       "description": "Input model config which will be used to create the model handler.",
@@ -162,7 +103,6 @@
       "enum": [
         "Docker",
         "LocalSystem",
-        "AzureML",
         "PythonEnvironment"
       ],
       "type": "string"
