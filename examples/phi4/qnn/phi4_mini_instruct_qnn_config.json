@@ -85,7 +85,6 @@
                 "htp_graph_finalization_optimization_mode": "3",
                 "soc_model": "60"
             },
-            "session_options": { "intra_op_num_threads": 2, "inter_op_num_threads": 1 },
             "weight_sharing": true
         },
         "cp": { "type": "ComposeOnnxModels" }
