@@ -191,7 +191,6 @@ class TestPythonEnvironmentSystemConfig:
                     "type": "PythonEnvironment",
                     "config": {
                         "python_environment_path": "invalid_path",
-                        "olive_managed_env": False,
                     },
                 },
                 "Python path.*invalid_path does not exist",
@@ -199,9 +198,6 @@ class TestPythonEnvironmentSystemConfig:
             (
                 {
                     "type": "PythonEnvironment",
-                    "config": {
-                        "olive_managed_env": False,
-                    },
                 },
                 "python_environment_path is required for PythonEnvironmentSystem native mode",
             ),

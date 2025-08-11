@@ -31,7 +31,6 @@ from olive.search.search_sample import SearchSample
 from olive.search.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
 from olive.systems.system_config import SystemConfig
-from olive.systems.utils import create_managed_system_with_cache
 
 if TYPE_CHECKING:
     from olive.engine.packaging.packaging_config import PackagingConfig
@@ -840,14 +839,8 @@ class Engine:
     def _create_system(self, accelerator_spec):
         def create_system(config: "SystemConfig", accelerator_spec):
             assert config, "System config is not provided"
-            if config.olive_managed_env:
-                logger.debug(
-                    "Creating olive_managed_env %s with EP %s", config.type, accelerator_spec.execution_provider
-                )
-                return create_managed_system_with_cache(config, accelerator_spec)
-            else:
-                logger.debug("create native OliveSystem %s", config.type)
-                return config.create_system()
+            logger.debug("create native OliveSystem %s", config.type)
+            return config.create_system()
 
         if not self.target:
             logger.info("Creating target system ...")
@@ -871,15 +864,3 @@ class Engine:
             logger.info("Host system created in %f seconds", time.time() - host_start_time)
 
         yield
-
-        if self.target_config.olive_managed_env:
-            # could we put it under cache system for reusing?
-            logger.info("Removing target system ...")
-            self.target.remove()
-            self.target = None
-        if self.host_config.olive_managed_env:
-            logger.info("Removing host system ...")
-            self.host.remove()
-            self.host = None
-
-        create_managed_system_with_cache.cache_clear()

@@ -43,7 +43,7 @@ class DockerTargetUserConfig(TargetUserConfig):
         return v
 
 
-class CommonPythonEnvTargetUserConfig(TargetUserConfig):
+class PythonEnvironmentTargetUserConfig(TargetUserConfig):
     # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/
     python_environment_path: Union[Path, str] = None
     environment_variables: dict[str, str] = None  # os.environ will be updated with these variables
@@ -52,12 +52,6 @@ class CommonPythonEnvTargetUserConfig(TargetUserConfig):
     @validator("python_environment_path", "prepend_to_path", pre=True, each_item=True)
     def _get_abspath(cls, v):
         return str(Path(v).resolve()) if v else None
-
-
-class PythonEnvironmentTargetUserConfig(CommonPythonEnvTargetUserConfig):
-    olive_managed_env: bool = False  # if True, the environment will be created and managed by Olive
-    requirements_file: Union[Path, str] = None  # path to the requirements.txt file
-
 
 _type_to_config = {
     SystemType.Local: LocalTargetUserConfig,
@@ -95,11 +89,3 @@ class SystemConfig(NestedConfig):
     def create_system(self):
         system_class = import_system_from_type(self.type)
         return system_class(**self.config.dict())
-
-    @property
-    def olive_managed_env(self):
-        return getattr(self.config, "olive_managed_env", False)
-
-    # the __hash__ is needed so to create_managed_system_with_cache, otherwise the following error will be raised:
-    # unhashable type: 'SystemConfig'
-    __hash__ = object.__hash__

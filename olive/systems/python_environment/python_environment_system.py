@@ -4,14 +4,11 @@
 # --------------------------------------------------------------------------
 import json
 import logging
-import os
-import platform
 import shutil
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Union
 
-from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
@@ -38,8 +35,6 @@ class PythonEnvironmentSystem(OliveSystem):
         environment_variables: dict[str, str] = None,
         prepend_to_path: list[str] = None,
         accelerators: list[AcceleratorConfig] = None,
-        olive_managed_env: bool = False,
-        requirements_file: Union[Path, str] = None,
         hf_token: bool = None,
     ):
         if python_environment_path is None:
@@ -52,14 +47,6 @@ class PythonEnvironmentSystem(OliveSystem):
             environment_variables=environment_variables,
             prepend_to_path=prepend_to_path,
         )
-        if olive_managed_env:
-            if platform.system() == OS.LINUX:
-                temp_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
-                if not os.path.exists(temp_dir):
-                    os.makedirs(temp_dir)
-                self.environ["TMPDIR"] = temp_dir
-            else:
-                self.environ["TMPDIR"] = tempfile.TemporaryDirectory().name  # pylint: disable=consider-using-with
 
         self.executable = shutil.which("python", path=self.environ["PATH"])
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
@@ -153,10 +140,6 @@ class PythonEnvironmentSystem(OliveSystem):
             f"-r {common_requirements_file}",
         ]
 
-        if self.config.requirements_file:
-            # install user requirements
-            packages.append(f"-r {self.config.requirements_file}")
-
         # install onnxruntime package
         onnxruntime_package = get_package_name_from_ep(accelerator.execution_provider)
         packages.append(onnxruntime_package)
@@ -174,20 +157,7 @@ class PythonEnvironmentSystem(OliveSystem):
         log_stdout(stdout)
 
     def remove(self):
-        vitual_env_path = Path(self.config.python_environment_path).resolve().parent
-
-        try:
-            shutil.rmtree(vitual_env_path)
-            logger.info("Virtual environment '%s' removed.", vitual_env_path)
-        except FileNotFoundError:
-            pass
-
-        if platform.system() == OS.LINUX:
-            try:
-                shutil.rmtree(self.environ["TMPDIR"])
-                logger.info("Temporary directory '%s' removed.", self.environ["TMPDIR"])
-            except FileNotFoundError:
-                pass
+        raise NotImplementedError("PythonEnvironmentSystem does not support remove.")
 
 
 def log_stdout(stdout: str):

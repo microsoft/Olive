@@ -482,12 +482,6 @@ def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
     ("system_config", "available_providers", "exception", "error_message"),
     [
         (
-            {"type": "PythonEnvironment", "config": {"olive_managed_env": True}},
-            None,
-            ValueError,
-            "Managed environment requires accelerators to be specified.",
-        ),
-        (
             {
                 "type": "LocalSystem",
                 "config": {
