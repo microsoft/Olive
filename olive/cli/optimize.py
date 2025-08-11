@@ -51,6 +51,7 @@ class OptimizeCommand(BaseOliveCLICommand):
                 "QNNExecutionProvider",
                 "VitisAIExecutionProvider",
                 "OpenVINOExecutionProvider",
+                "NvTensorRTRTXExecutionProvider",
             ],
             help="Execution provider (EP) to use for optimization.",
         )
@@ -241,6 +242,12 @@ class OptimizeCommand(BaseOliveCLICommand):
             )
 
         if self.args.provider == ExecutionProvider.CUDAExecutionProvider and self.args.device in ["cpu", "npu"]:
+            raise ValueError(
+                f"Invalid combination of provider {self.args.provider} and device {self.args.device}. "
+                "Please use a compatible provider for the specified device."
+            )
+
+        if self.args.provider == ExecutionProvider.NvTensorRTRTXExecutionProvider and self.args.device in ["cpu", "npu"]:
             raise ValueError(
                 f"Invalid combination of provider {self.args.provider} and device {self.args.device}. "
                 "Please use a compatible provider for the specified device."
@@ -515,6 +522,10 @@ class OptimizeCommand(BaseOliveCLICommand):
 
     def _enable_ort_transformers_optimization_pass(self) -> bool:
         """Return true if condition to add OrtTransformersOptimization pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        # Do not enable OrtTransformersOptimization when using NVTensorRtRTX EP
+        if provider == ExecutionProvider.NvTensorRTRTXExecutionProvider:
+            return False
         return self.args.exporter in ["torchscript_exporter", "dynamo_exporter"]
 
     def _get_ort_transformers_optimization_pass_config(self) -> dict[str, Any]:
