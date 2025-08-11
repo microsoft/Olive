@@ -24,11 +24,7 @@
             "name": "imagenet1k",
             "type": "HuggingfaceContainer",
             "user_script": "imagenet.py",
-            "load_dataset_config": {
-                "data_name": "imagenet-1k",
-                "split": "validation",
-                "streaming": true
-            },
+            "load_dataset_config": { "data_name": "imagenet-1k", "split": "validation", "streaming": true },
             "pre_process_data_config": { "type": "dataset_pre_process", "size": 256, "cache_key": "imagenet256" },
             "post_process_data_config": { "type": "imagenet_post_fun" }
         }
