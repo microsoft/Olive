@@ -51,6 +51,7 @@ class OptimizeCommand(BaseOliveCLICommand):
                 "QNNExecutionProvider",
                 "VitisAIExecutionProvider",
                 "OpenVINOExecutionProvider",
+                "WebGpuExecutionProvider",
             ],
             help="Execution provider (EP) to use for optimization.",
         )
@@ -178,6 +179,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         self.enable_optimum_openvino_conversion = False
         self.enable_dynamic_to_fixed_shape = False
         self.enable_vitis_ai_preprocess = False
+        self.enable_onnx_io_datatype_converter = False
         self.enable_openvino_io_update = False
         self.enable_onnx_peephole_optimizer = False
         self.enable_matmul_nbits_to_qdq = False
@@ -300,6 +302,10 @@ class OptimizeCommand(BaseOliveCLICommand):
         self.enable_dynamic_to_fixed_shape = self._enable_dynamic_to_fixed_shape_pass()
         if self.enable_dynamic_to_fixed_shape:
             passes_config["dynamic_to_fixed_shape"] = self._get_dynamic_to_fixed_shape_pass_config()
+
+        self.enable_onnx_io_datatype_converter = self._enable_onnx_io_datatype_converter_pass()
+        if self.enable_onnx_io_datatype_converter:
+            passes_config["onnx_io_datatype_converter"] = self._get_onnx_io_datatype_converter_pass_config()
 
         self.enable_openvino_io_update = self._enable_openvino_io_update_pass()
         if self.enable_openvino_io_update:
@@ -720,6 +726,20 @@ class OptimizeCommand(BaseOliveCLICommand):
             "keep_ov_dynamic_shapes": True,
             "op_version": "2025.1",
             "reuse_cache": True,
+        }
+
+    def _enable_onnx_io_datatype_converter_pass(self) -> bool:
+        """Return true if condition to add OnnxIODataTypeConverter pass is met."""
+        provider = ExecutionProvider(self.args.provider)
+        return provider == ExecutionProvider.WebGpuExecutionProvider
+
+    def _get_onnx_io_datatype_converter_pass_config(self) -> dict[str, Any]:
+        """Return pass dictionary for OnnxIODataTypeConverter pass."""
+        return {
+            "type": "OnnxIODataTypeConverter",
+            "name_pattern": "logits",
+            "source_dtype": 10,  # FLOAT16
+            "target_dtype": 1,   # FLOAT
         }
 
 
