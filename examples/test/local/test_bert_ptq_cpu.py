@@ -17,12 +17,11 @@ def setup():
 
 @pytest.mark.parametrize("sampler", ["tpe"])
 @pytest.mark.parametrize("execution_order", ["joint"])
-@pytest.mark.parametrize("system", ["local_system"])
 @pytest.mark.parametrize("olive_json", ["bert_ptq_cpu.json"])
-def test_bert(sampler, execution_order, system, olive_json):
+def test_bert(sampler, execution_order, olive_json):
     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json, sampler, execution_order, system)
+    olive_config = patch_config(olive_json, sampler, execution_order)
     # remove the latency goal since it is flaky on CI
     metrics = olive_config["evaluators"]["common_evaluator"]["metrics"]
     del metrics[1]["sub_types"][0]["goal"]

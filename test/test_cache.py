@@ -11,7 +11,6 @@ import pytest
 
 from olive.cache import CacheConfig, OliveCache, SharedCache
 from olive.common.constants import DEFAULT_WORKFLOW_ID
-from olive.resource_path import AzureMLModel
 
 # pylint: disable=W0201
 
@@ -35,48 +34,6 @@ class TestCache:
         assert cache_dir.exists()
         assert runs_dir.exists()
         assert clean_cache == (not dummy_file.exists())
-
-    @patch("olive.resource_path.AzureMLModel.save_to_dir")
-    def test_get_local_path_or_download(self, mock_save_to_dir, tmp_path):
-        # setup
-        cache_dir = tmp_path / "cache_dir"
-        cache_dir2 = tmp_path / "cache_dir2"
-
-        # resource_path
-        resource_path = AzureMLModel(
-            {
-                "azureml_client": {
-                    "workspace_name": "dummy_workspace_name",
-                    "subscription_id": "dummy_subscription_id",
-                    "resource_group": "dummy_resource_group",
-                },
-                "name": "dummy_model_name",
-                "version": "dummy_model_version",
-            }
-        )
-
-        mock_save_to_dir.return_value = "dummy_string_name"
-
-        # execute
-        cache_config = CacheConfig(cache_dir=cache_dir)
-        cache = cache_config.create_cache()
-        # first time
-        cached_path = cache.get_local_path_or_download(resource_path)
-        assert cached_path.get_path() == "dummy_string_name"
-        assert mock_save_to_dir.call_count == 1
-
-        # second time
-        cached_path = cache.get_local_path_or_download(resource_path)
-        assert cached_path.get_path() == "dummy_string_name"
-        # uses cached value so save_to_dir is not called again
-        assert mock_save_to_dir.call_count == 1
-
-        # change cache_dir
-        cache_config = CacheConfig(cache_dir=cache_dir2)
-        cache2 = cache_config.create_cache()
-        cached_path = cache2.get_local_path_or_download(resource_path)
-        assert cached_path.get_path() == "dummy_string_name"
-        assert mock_save_to_dir.call_count == 2
 
     @pytest.mark.parametrize(
         ("pass_name", "pass_config", "input_model_id", "accelerator_spec", "expected"),

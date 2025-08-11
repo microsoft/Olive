@@ -49,7 +49,6 @@ Config file: [resnet_ptq_qdq.json](resnet_ptq_qdq.json)
 This workflow performs ResNet optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
 
 - *PyTorch Model -> Onnx Model -> Quantized Onnx Model -> ONNX Runtime performance tuning*
-Note that: this case also demonstrates how to leverage the dataset hosted in [AML Datastore](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-datastore?view=azureml-api-2&tabs=cli-identity-based-access%2Ccli-adls-identity-based-access%2Ccli-azfiles-account-key%2Ccli-adlsgen1-identity-based-access). User can set correct local file/folder path or aml datastore url for `data_dir`.
 
 Config file: [resnet_ptq_cpu.json](resnet_ptq_cpu.json)
 

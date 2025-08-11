@@ -3,10 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-import json
 from copy import deepcopy
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -15,7 +13,6 @@ from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.package_config import OlivePackageConfig
 from olive.workflows.run.config import RunConfig
-from olive.workflows.run.run import is_execution_provider_required
 
 # pylint: disable=attribute-defined-outside-init, unsubscriptable-object
 
@@ -23,72 +20,8 @@ from olive.workflows.run.run import is_execution_provider_required
 class TestRunConfig:
     # like: Systems/Evaluation/Model and etc.
     @pytest.fixture(autouse=True)
-    def setup(self, tmp_path):
+    def setup(self):
         self.package_config = OlivePackageConfig.parse_file(OlivePackageConfig.get_default_config_path())
-
-        # create a user_script.py file in the tmp_path and refer to it
-        # this way the test can be run from any directory
-        current_dir = Path(__file__).parent
-        with open(current_dir / "mock_data" / "user_script.json") as f:
-            user_script_json = json.load(f)
-        user_script_json = json.dumps(user_script_json)
-
-        user_script_py = tmp_path / "user_script.py"
-        with open(user_script_py, "w") as f:
-            f.write("")
-
-        user_script_json = user_script_json.replace("user_script.py", user_script_py.as_posix())
-        self.user_script_config_file = tmp_path / "user_script.json"
-        with open(self.user_script_config_file, "w") as f:
-            f.write(user_script_json)
-
-    def test_config_without_azureml_config(self):
-        with self.user_script_config_file.open() as f:
-            user_script_config = json.load(f)
-
-        user_script_config.pop("azureml_client")
-        with pytest.raises(ValueError) as e:  # noqa: PT011
-            RunConfig.parse_obj(user_script_config)
-        assert "azureml_client is required for AzureML System but not provided." in str(e.value)
-
-    @pytest.fixture
-    def mock_aml_credentials(self):
-        # we need to mock all the credentials because the default credential will get tokens from all of them
-        self.mocked_env_credentials = patch("azure.identity._credentials.default.EnvironmentCredential").start()
-        self.mocked_managed_identity_credentials = patch(
-            "azure.identity._credentials.default.ManagedIdentityCredential"
-        ).start()
-        self.mocked_shared_token_cache_credentials = patch(
-            "azure.identity._credentials.default.SharedTokenCacheCredential"
-        ).start()
-        self.mocked_azure_cli_credentials = patch("azure.identity._credentials.default.AzureCliCredential").start()
-        self.mocked_azure_powershell_credentials = patch(
-            "azure.identity._credentials.default.AzurePowerShellCredential"
-        ).start()
-        self.mocked_interactive_browser_credentials = patch(
-            "azure.identity._credentials.default.InteractiveBrowserCredential"
-        ).start()
-        yield
-        patch.stopall()
-
-    @patch("azure.identity.AzureCliCredential")
-    @patch("azure.identity.InteractiveBrowserCredential")
-    def test_config_with_failed_azureml_default_auth(self, mocked_interactive_login, mocked_azure_cli_credential):
-        mocked_azure_cli_credential.side_effect = Exception("mock error")
-        with self.user_script_config_file.open() as f:
-            user_script_config = json.load(f)
-        config = RunConfig.parse_obj(user_script_config)
-        config.azureml_client.create_client()
-        assert mocked_interactive_login.call_count == 1
-
-    def test_readymade_system(self):
-        readymade_config_file = Path(__file__).parent / "mock_data" / "readymade_system.json"
-        with readymade_config_file.open() as f:
-            user_script_config = json.load(f)
-
-        cfg = RunConfig.parse_obj(user_script_config)
-        assert cfg.engine.target.config.accelerators[0].device.lower() == "gpu"
-        assert cfg.engine.target.config.accelerators[0].execution_providers == ["CUDAExecutionProvider"]
 
     def test_default_engine(self):
         default_engine_config_file = Path(__file__).parent / "mock_data" / "default_engine.json"
@@ -97,38 +30,9 @@ class TestRunConfig:
         assert run_config.engine.host is None
         assert run_config.engine.target is None
 
-    def test_deprecated_engine_ep(self):
-        with self.user_script_config_file.open() as f:
-            user_script_config = json.load(f)
-
-        user_script_config["execution_providers"] = ["CUDAExecutionProvider", "TensorrtExecutionProvider"]
-        with pytest.raises(ValidationError) as e:
-            _ = RunConfig.parse_obj(user_script_config)
-        errors = e.value.errors()
-        assert errors[0]["loc"] == ("engine", "execution_providers")
-
     @pytest.mark.parametrize(("pass_type", "is_onnx"), [("IncQuantization", True), ("LoRA", False)])
     def test_get_module_path(self, pass_type, is_onnx):
         assert self.package_config.is_onnx_module(pass_type) == is_onnx
-
-    @pytest.mark.parametrize(
-        ("passes", "is_onnx"),
-        [
-            (None, True),
-            ({"lora": {"type": "LoRA"}}, False),
-            ({"lora": {"type": "LoRA"}, "quantization": {"type": "IncQuantization"}}, True),
-        ],
-    )
-    def test_is_execution_provider_required(self, passes, is_onnx):
-        with self.user_script_config_file.open() as f:
-            user_script_config = json.load(f)
-
-        if passes:
-            user_script_config["passes"] = passes
-
-        run_config = RunConfig.parse_obj(user_script_config)
-        result = is_execution_provider_required(run_config, self.package_config)
-        assert result == is_onnx
 
 
 class TestDataConfigValidation:

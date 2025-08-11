@@ -2,7 +2,7 @@
 This folder contains examples of BERT optimization using different workflows.
 
 - QDQ: [Int8 Quantization with QDQ format](#bert-quantization-qdq)
-- CPU: [Optimization with PTQ for model from HF/AML](#bert-optimization-with-ptq-on-cpu)
+- CPU: [Optimization with PTQ for model](#bert-optimization-with-ptq-on-cpu)
 - CPU: [Optimization with Intel® Neural Compressor PTQ](#bert-optimization-with-intel®-neural-compressor-ptq-on-cpu)
 - CPU: [Optimization with QAT Customized Training Loop](#bert-optimization-with-qat-customized-training-loop-on-cpu)
 - GPU: [Optimization with CUDA/TensorRT/TensorRT-RTX](#bert-optimization-with-cudatensorrt-on-gpu)
@@ -58,12 +58,6 @@ This workflow also demonstrates how to use:
 - Huggingface `evaluate` to load multi metrics from [metric hub](https://huggingface.co/evaluate-metric).
 
 Config file: [bert_ptq_cpu.json](bert_ptq_cpu.json)
-
-#### AzureML Model Source and No Auto-tuning
-The workflow in [bert_ptq_cpu_aml.json](bert_ptq_cpu_aml.json) is similar to the above workflow, but uses AzureML Model Source to load the model and does not perform auto-tuning. Without auto-tuning, the passes will be run with the default parameters (no search space) and the final model and metrics will be saved in the output directory.
-
-In order to use this example, `<place_holder>` in the `azureml_client` section must be replaced with the appropriate values for your
-AzureML workspace.
 
 
 ### BERT optimization with Intel® Neural Compressor PTQ on CPU
