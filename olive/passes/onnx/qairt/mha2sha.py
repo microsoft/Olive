@@ -5,6 +5,7 @@
 
 import logging
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
 from olive.hardware import AcceleratorSpec
@@ -59,7 +60,7 @@ class QairtMHA2SHA(Pass):
             logger.warning("MHA2SHA V2 is not available for this SDK version, defaulting to MHA2SHA V1")
             qairt_onnx_model.mha2sha(**(config.mha2sha_kwargs if config.mha2sha_kwargs is not None else {}))
 
-        qairt_onnx_model.export(output_model_path, prefix=model.onnx_file_name.removesuffix(".onnx"))
+        qairt_onnx_model.export(output_model_path, prefix=Path(model.model_path).stem)
 
         return ONNXModelHandler(
             model_path=output_model_path,
