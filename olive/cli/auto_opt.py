@@ -13,11 +13,9 @@ from olive.cli.base import (
     add_input_model_options,
     add_logging_options,
     add_save_config_file_options,
-    add_search_options,
     add_shared_cache_options,
     get_input_model_config,
     update_accelerator_options,
-    update_search_options,
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
@@ -166,7 +164,6 @@ class AutoOptCommand(BaseOliveCLICommand):
             "--use_ort_genai", action="store_true", help="Use OnnxRuntime generate() API to run the model"
         )
 
-        add_search_options(sub_parser)
         add_shared_cache_options(sub_parser)
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
@@ -196,40 +193,14 @@ class AutoOptCommand(BaseOliveCLICommand):
             ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
         ]
-        if self.args.enable_search is None:
-            to_replace.append(("passes", self._get_passes_config(config, olive_config)))
-        elif self.args.enable_search:
-            excluded_passes = [
-                "OrtPerfTuning",
-                "OnnxConversion" if self.args.use_model_builder else "ModelBuilder",
-            ]
-            to_replace.extend(
-                [
-                    ("data_configs", self._get_data_config()),
-                    (
-                        "auto_optimizer_config",
-                        {"precisions": [self.args.precision], "excluded_passes": excluded_passes},
-                    ),
-                ]
-            )
+        to_replace.append(("passes", self._get_passes_config(config, olive_config)))
 
         for keys, value in to_replace:
             if value is not None:
                 set_nested_dict_value(config, keys, value)
 
         update_accelerator_options(self.args, config)
-        update_search_options(self.args, config)
         update_shared_cache_options(config, self.args)
-
-        if self.args.enable_search is None:
-            del config["evaluators"]
-            del config["evaluator"]
-            del config["search_strategy"]
-            del config["auto_optimizer_config"]
-        elif self.args.enable_search:
-            del config["passes"]
-            if not config["data_configs"]:
-                raise ValueError("Dataset is required when search is enabled")
 
         return config
 
@@ -375,35 +346,8 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         return passes_config
 
-
-EVALUATE_TEMPLATE = {
-    "common_evaluator": {
-        "metrics": [
-            {
-                "name": "accuracy",
-                "type": "accuracy",
-                "sub_types": [
-                    {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.1}},
-                ],
-                "data_config": "data_config",
-            },
-            {
-                "name": "latency",
-                "type": "latency",
-                "sub_types": [
-                    {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 1}},
-                ],
-                "data_config": "data_config",
-                "user_config": {"io_bind": True},
-            },
-        ]
-    }
-}
-
 TEMPLATE = {
     "input_model": {"type": "HfModel"},
-    "auto_optimizer_config": {},
-    "search_strategy": {"execution_order": "joint", "sampler": "tpe", "max_samples": 5, "seed": 0},
     "systems": {
         "local_system": {
             "type": "LocalSystem",
@@ -444,8 +388,6 @@ TEMPLATE = {
         ]
     ),
     "host": "local_system",
-    "evaluators": EVALUATE_TEMPLATE,
-    "evaluator": "common_evaluator",
     "target": "local_system",
     "no_artifacts": True,
 }
