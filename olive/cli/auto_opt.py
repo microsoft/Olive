@@ -346,6 +346,7 @@ class AutoOptCommand(BaseOliveCLICommand):
 
         return passes_config
 
+
 TEMPLATE = {
     "input_model": {"type": "HfModel"},
     "systems": {
