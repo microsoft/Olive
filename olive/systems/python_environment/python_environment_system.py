@@ -4,21 +4,18 @@
 # --------------------------------------------------------------------------
 import json
 import logging
-import os
-import platform
 import shutil
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Union
 
-from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 from olive.evaluator.metric_result import MetricResult
 from olive.model import ModelConfig
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
-from olive.systems.utils import create_new_environ, get_package_name_from_ep, run_available_providers_runner
+from olive.systems.utils import create_new_environ, run_available_providers_runner
 
 if TYPE_CHECKING:
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
@@ -38,8 +35,6 @@ class PythonEnvironmentSystem(OliveSystem):
         environment_variables: dict[str, str] = None,
         prepend_to_path: list[str] = None,
         accelerators: list[AcceleratorConfig] = None,
-        olive_managed_env: bool = False,
-        requirements_file: Union[Path, str] = None,
         hf_token: bool = None,
     ):
         if python_environment_path is None:
@@ -52,14 +47,6 @@ class PythonEnvironmentSystem(OliveSystem):
             environment_variables=environment_variables,
             prepend_to_path=prepend_to_path,
         )
-        if olive_managed_env:
-            if platform.system() == OS.LINUX:
-                temp_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
-                if not os.path.exists(temp_dir):
-                    os.makedirs(temp_dir)
-                self.environ["TMPDIR"] = temp_dir
-            else:
-                self.environ["TMPDIR"] = tempfile.TemporaryDirectory().name  # pylint: disable=consider-using-with
 
         self.executable = shutil.which("python", path=self.environ["PATH"])
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
@@ -144,50 +131,6 @@ class PythonEnvironmentSystem(OliveSystem):
 
         self.available_eps = run_available_providers_runner(self.environ)
         return self.available_eps
-
-    def install_requirements(self, accelerator: "AcceleratorSpec"):
-        """Install required packages."""
-        # install common packages
-        common_requirements_file = Path(__file__).parent.resolve() / "common_requirements.txt"
-        packages = [
-            f"-r {common_requirements_file}",
-        ]
-
-        if self.config.requirements_file:
-            # install user requirements
-            packages.append(f"-r {self.config.requirements_file}")
-
-        # install onnxruntime package
-        onnxruntime_package = get_package_name_from_ep(accelerator.execution_provider)
-        packages.append(onnxruntime_package)
-
-        _, stdout, _ = run_subprocess(
-            f"{self.executable} -m pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
-            env=self.environ,
-            check=True,
-        )
-        log_stdout(stdout)
-
-        _, stdout, _ = run_subprocess(
-            f"{self.executable} -m pip show {onnxruntime_package}", env=self.environ, check=True
-        )
-        log_stdout(stdout)
-
-    def remove(self):
-        vitual_env_path = Path(self.config.python_environment_path).resolve().parent
-
-        try:
-            shutil.rmtree(vitual_env_path)
-            logger.info("Virtual environment '%s' removed.", vitual_env_path)
-        except FileNotFoundError:
-            pass
-
-        if platform.system() == OS.LINUX:
-            try:
-                shutil.rmtree(self.environ["TMPDIR"])
-                logger.info("Temporary directory '%s' removed.", self.environ["TMPDIR"])
-            except FileNotFoundError:
-                pass
 
 
 def log_stdout(stdout: str):
