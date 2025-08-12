@@ -3,7 +3,6 @@ omit =
     olive/logging.py
     olive/passes/pytorch/pytorch_lightning_utils.py
     olive/passes/pytorch/qat_utils.py
-    olive/systems/docker/eval.py
 
 [report]
 exclude_lines =
@@ -15,3 +14,6 @@ exclude_lines =
     class .*\bConfig\):
     @(abc\.)?abstractmethod
     @(abc\.)?staticmethod
+
+exclude_also =
+    if TYPE_CHECKING:
