@@ -10,13 +10,6 @@ class OS(StrEnumBase):
     LINUX = "Linux"
 
 
-##### AzureML system #####
-
-WORKFLOW_CONFIG = "workflow_config"
-WORKFLOW_ARTIFACTS = "workflow_artifacts"
-HF_LOGIN = "HF_LOGIN"
-
-
 ############# Engine #############
 
 DEFAULT_WORKFLOW_ID = "default_workflow"
