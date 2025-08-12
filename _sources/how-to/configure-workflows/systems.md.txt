@@ -36,7 +36,6 @@ The local system represents the local machine where the Pass is run or the Model
 ```
 
 ```{Note}
-* Local system doesn't support `olive_managed_env`.
 * The accelerators attribute for local system is optional. If not provided, Olive will get the available execution providers installed in the current local machine and infer its `device`.
 * For each accelerator, either `device` or ``execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the `device` or `execution_providers` if possible.
 
@@ -57,11 +56,6 @@ The python environment system represents the python virtual environment. The pyt
 - `python_environment_path`: The path to the python virtual environment, which is required for native python system.
 - `environment_variables`: The environment variables that are required to run the python environment system. This is optional.
 - `prepend_to_path`: The path that will be prepended to the PATH environment variable. This is optional.
-- `olive_managed_env`: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.
-- `requirements_file`: The path to the requirements file, which is only required and used when `olive_managed_env = True`.
-
-### Native Python Environment System
-
 
 Here are the examples of configuring the general Python Environment System.
 
@@ -89,37 +83,9 @@ Here are the examples of configuring the general Python Environment System.
 ```
 
 ```{Note}
-- The python environment must have `olive-ai` installed if `olive_managed_env = False`.
+- The python environment must have `olive-ai` installed.
 - The accelerators for python system is optional. If not provided, Olive will get the available execution providers installed in current python virtual environment and infer its `device`.
 - For each accelerator, either `device` or `execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the `device` or `execution_providers` if possible.
-```
-
-### Managed Python Environment System
-
-When `olive_managed_env = True`, Olive will manage the python environment by installing the required packages from the `requirements_file`. As the result, the `requirements_file` is required and must be provided.
-
-For managed python environment system, Olive can only infer the onnxruntime from the following onnxruntime execution providers:
-
-- CPUExecutionProvider: (*onnxruntime*)
-- CUDAExecutionProvider: (*onnxruntime-gpu*)
-- TensorrtExecutionProvider: (*onnxruntime-gpu*)
-- OpenVINOExecutionProvider: (*onnxruntime-openvino*)
-- DmlExecutionProvider: (*onnxruntime-directml*)
-
-```json
-{
-    "type": "PythonEnvironment",
-    "accelerators": [
-        {
-            "device": "cpu",
-            "execution_providers": [
-                "CPUExecutionProvider",
-                "OpenVINOExecutionProvider"
-            ]
-        }
-    ],
-    "olive_managed_env": true,
-}
 ```
 
 ## Docker System

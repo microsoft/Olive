@@ -443,7 +443,6 @@
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <ul class="simple">
-<li><p>Local system doesn’t support <code class="docutils literal notranslate"><span class="pre">olive_managed_env</span></code>.</p></li>
 <li><p>The accelerators attribute for local system is optional. If not provided, Olive will get the available execution providers installed in the current local machine and infer its <code class="docutils literal notranslate"><span class="pre">device</span></code>.</p></li>
 <li><p>For each accelerator, either <code class="docutils literal notranslate"><span class="pre">device</span></code> or ``execution_providers<code class="docutils literal notranslate"><span class="pre">is</span> <span class="pre">optional</span> <span class="pre">but</span> <span class="pre">not</span> <span class="pre">both</span> <span class="pre">if</span> <span class="pre">the</span> <span class="pre">accelerators</span> <span class="pre">are</span> <span class="pre">specified.</span> <span class="pre">If</span></code>device<code class="docutils literal notranslate"><span class="pre">or</span></code>execution_providers<code class="docutils literal notranslate"><span class="pre">is</span> <span class="pre">not</span> <span class="pre">provided,</span> <span class="pre">Olive</span> <span class="pre">will</span> <span class="pre">infer</span> <span class="pre">the</span></code>device<code class="docutils literal notranslate"><span class="pre">or</span></code>execution_providers` if possible.</p></li>
 </ul>
@@ -464,11 +463,7 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">python_environment_path</span></code>: The path to the python virtual environment, which is required for native python system.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">environment_variables</span></code>: The environment variables that are required to run the python environment system. This is optional.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">prepend_to_path</span></code>: The path that will be prepended to the PATH environment variable. This is optional.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">olive_managed_env</span></code>: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">requirements_file</span></code>: The path to the requirements file, which is only required and used when <code class="docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>.</p></li>
 </ul>
-<section id="native-python-environment-system">
-<h3>Native Python Environment System<a class="headerlink" href="#native-python-environment-system" title="Link to this heading">#</a></h3>
 <p>Here are the examples of configuring the general Python Environment System.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;systems&quot;</span><span class="w">  </span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -495,39 +490,11 @@
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <ul class="simple">
-<li><p>The python environment must have <code class="docutils literal notranslate"><span class="pre">olive-ai</span></code> installed if <code class="docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">False</span></code>.</p></li>
+<li><p>The python environment must have <code class="docutils literal notranslate"><span class="pre">olive-ai</span></code> installed.</p></li>
 <li><p>The accelerators for python system is optional. If not provided, Olive will get the available execution providers installed in current python virtual environment and infer its <code class="docutils literal notranslate"><span class="pre">device</span></code>.</p></li>
 <li><p>For each accelerator, either <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> is optional but not both if the accelerators are specified. If <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> is not provided, Olive will infer the <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">execution_providers</span></code> if possible.</p></li>
 </ul>
 </div>
-</section>
-<section id="managed-python-environment-system">
-<h3>Managed Python Environment System<a class="headerlink" href="#managed-python-environment-system" title="Link to this heading">#</a></h3>
-<p>When <code class="docutils literal notranslate"><span class="pre">olive_managed_env</span> <span class="pre">=</span> <span class="pre">True</span></code>, Olive will manage the python environment by installing the required packages from the <code class="docutils literal notranslate"><span class="pre">requirements_file</span></code>. As the result, the <code class="docutils literal notranslate"><span class="pre">requirements_file</span></code> is required and must be provided.</p>
-<p>For managed python environment system, Olive can only infer the onnxruntime from the following onnxruntime execution providers:</p>
-<ul class="simple">
-<li><p>CPUExecutionProvider: (<em>onnxruntime</em>)</p></li>
-<li><p>CUDAExecutionProvider: (<em>onnxruntime-gpu</em>)</p></li>
-<li><p>TensorrtExecutionProvider: (<em>onnxruntime-gpu</em>)</p></li>
-<li><p>OpenVINOExecutionProvider: (<em>onnxruntime-openvino</em>)</p></li>
-<li><p>DmlExecutionProvider: (<em>onnxruntime-directml</em>)</p></li>
-</ul>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PythonEnvironment&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;execution_providers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                </span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="s2">&quot;OpenVINOExecutionProvider&quot;</span>
-<span class="w">            </span><span class="p">]</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;olive_managed_env&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
 </section>
 <section id="docker-system">
 <h2>Docker System<a class="headerlink" href="#docker-system" title="Link to this heading">#</a></h2>
@@ -626,11 +593,7 @@
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#accelerator-configuration">Accelerator Configuration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#local-system">Local System</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#python-environment-system">Python Environment System</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#native-python-environment-system">Native Python Environment System</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#managed-python-environment-system">Managed Python Environment System</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#python-environment-system">Python Environment System</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#docker-system">Docker System</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#native-docker-system">Native Docker System</a></li>
