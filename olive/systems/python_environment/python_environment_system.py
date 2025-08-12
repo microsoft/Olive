@@ -15,7 +15,7 @@ from olive.model import ModelConfig
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
-from olive.systems.utils import create_new_environ, get_package_name_from_ep, run_available_providers_runner
+from olive.systems.utils import create_new_environ, run_available_providers_runner
 
 if TYPE_CHECKING:
     from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
@@ -131,30 +131,6 @@ class PythonEnvironmentSystem(OliveSystem):
 
         self.available_eps = run_available_providers_runner(self.environ)
         return self.available_eps
-
-    def install_requirements(self, accelerator: "AcceleratorSpec"):
-        """Install required packages."""
-        # install common packages
-        common_requirements_file = Path(__file__).parent.resolve() / "common_requirements.txt"
-        packages = [
-            f"-r {common_requirements_file}",
-        ]
-
-        # install onnxruntime package
-        onnxruntime_package = get_package_name_from_ep(accelerator.execution_provider)
-        packages.append(onnxruntime_package)
-
-        _, stdout, _ = run_subprocess(
-            f"{self.executable} -m pip install --cache-dir {self.environ['TMPDIR']} {' '.join(packages)}",
-            env=self.environ,
-            check=True,
-        )
-        log_stdout(stdout)
-
-        _, stdout, _ = run_subprocess(
-            f"{self.executable} -m pip show {onnxruntime_package}", env=self.environ, check=True
-        )
-        log_stdout(stdout)
 
     def remove(self):
         raise NotImplementedError("PythonEnvironmentSystem does not support remove.")

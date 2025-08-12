@@ -53,6 +53,7 @@ class PythonEnvironmentTargetUserConfig(TargetUserConfig):
     def _get_abspath(cls, v):
         return str(Path(v).resolve()) if v else None
 
+
 _type_to_config = {
     SystemType.Local: LocalTargetUserConfig,
     SystemType.Docker: DockerTargetUserConfig,

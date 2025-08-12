@@ -257,7 +257,6 @@ class TestPythonEnvironmentSystem:
         with output_path.open("r") as f:
             assert json.load(f) == get_onnx_model().to_json()
 
-
     def test_python_system_config(self):
         config = {
             "type": "PythonEnvironment",
