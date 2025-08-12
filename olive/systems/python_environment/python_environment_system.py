@@ -132,9 +132,6 @@ class PythonEnvironmentSystem(OliveSystem):
         self.available_eps = run_available_providers_runner(self.environ)
         return self.available_eps
 
-    def remove(self):
-        raise NotImplementedError("PythonEnvironmentSystem does not support remove.")
-
 
 def log_stdout(stdout: str):
     for line in stdout.splitlines():

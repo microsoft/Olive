@@ -57,9 +57,6 @@ The python environment system represents the python virtual environment. The pyt
 - `environment_variables`: The environment variables that are required to run the python environment system. This is optional.
 - `prepend_to_path`: The path that will be prepended to the PATH environment variable. This is optional.
 
-### Native Python Environment System
-
-
 Here are the examples of configuring the general Python Environment System.
 
 ```json
