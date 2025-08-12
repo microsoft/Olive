@@ -23,7 +23,6 @@ from olive.evaluator.metric import Metric
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
-from olive.hardware import AcceleratorSpec
 from olive.logging import enable_filelog
 from olive.model import ModelConfig
 from olive.package_config import OlivePackageConfig
@@ -34,6 +33,7 @@ from olive.systems.system_config import SystemConfig
 
 if TYPE_CHECKING:
     from olive.engine.packaging.packaging_config import PackagingConfig
+    from olive.hardware import AcceleratorSpec
     from olive.passes.olive_pass import Pass
     from olive.search.search_parameter import SearchParameter
 
