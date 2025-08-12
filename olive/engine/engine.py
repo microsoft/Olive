@@ -23,7 +23,6 @@ from olive.evaluator.metric import Metric
 from olive.evaluator.metric_result import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import EXCEPTIONS_TO_RAISE, OlivePassError
-from olive.hardware import AcceleratorSpec
 from olive.logging import enable_filelog
 from olive.model import ModelConfig
 from olive.package_config import OlivePackageConfig
@@ -31,10 +30,10 @@ from olive.search.search_sample import SearchSample
 from olive.search.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
 from olive.systems.system_config import SystemConfig
-from olive.systems.utils import create_managed_system_with_cache
 
 if TYPE_CHECKING:
     from olive.engine.packaging.packaging_config import PackagingConfig
+    from olive.hardware import AcceleratorSpec
     from olive.passes.olive_pass import Pass
     from olive.search.search_parameter import SearchParameter
 
@@ -221,7 +220,7 @@ class Engine:
             )
             accelerator_output_dir.mkdir(parents=True, exist_ok=True)
             accelerator_output_dir_list.append(accelerator_output_dir)
-            with self._create_system(accelerator_spec):
+            with self._create_system():
                 run_result = self.run_accelerator(
                     input_model_config,
                     accelerator_output_dir,
@@ -837,49 +836,22 @@ class Engine:
         return signal
 
     @contextmanager
-    def _create_system(self, accelerator_spec):
-        def create_system(config: "SystemConfig", accelerator_spec):
+    def _create_system(self):
+        def create_system(config: "SystemConfig"):
             assert config, "System config is not provided"
-            if config.olive_managed_env:
-                logger.debug(
-                    "Creating olive_managed_env %s with EP %s", config.type, accelerator_spec.execution_provider
-                )
-                return create_managed_system_with_cache(config, accelerator_spec)
-            else:
-                logger.debug("create native OliveSystem %s", config.type)
-                return config.create_system()
+            logger.debug("create native OliveSystem %s", config.type)
+            return config.create_system()
 
         if not self.target:
             logger.info("Creating target system ...")
             target_start_time = time.time()
-            self.target = create_system(self.target_config, accelerator_spec)
+            self.target = create_system(self.target_config)
             logger.info("Target system created in %f seconds", time.time() - target_start_time)
 
         if not self.host:
-            host_accelerators = self.host_config.config.accelerators
-            if host_accelerators and host_accelerators[0].execution_providers:
-                host_accelerator_spec = AcceleratorSpec(
-                    host_accelerators[0].device,
-                    host_accelerators[0].get_ep_strs()[0],
-                    memory=host_accelerators[0].memory,
-                )
-            else:
-                host_accelerator_spec = None
             logger.info("Creating host system ...")
             host_start_time = time.time()
-            self.host = create_system(self.host_config, host_accelerator_spec)
+            self.host = create_system(self.host_config)
             logger.info("Host system created in %f seconds", time.time() - host_start_time)
 
         yield
-
-        if self.target_config.olive_managed_env:
-            # could we put it under cache system for reusing?
-            logger.info("Removing target system ...")
-            self.target.remove()
-            self.target = None
-        if self.host_config.olive_managed_env:
-            logger.info("Removing host system ...")
-            self.host.remove()
-            self.host = None
-
-        create_managed_system_with_cache.cache_clear()

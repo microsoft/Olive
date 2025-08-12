@@ -47,8 +47,3 @@ class OliveSystem(ABC):
     ) -> "MetricResult":
         """Evaluate the model."""
         raise NotImplementedError
-
-    @abstractmethod
-    def remove(self):
-        """Remove the system."""
-        raise NotImplementedError

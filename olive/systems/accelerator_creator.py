@@ -26,16 +26,7 @@ class AcceleratorNormalizer:
         self.system_supported_eps = None
 
     def normalize(self) -> "SystemConfig":
-        if self.system_config.olive_managed_env:
-            if not self.system_config.config.accelerators:
-                raise ValueError("Managed environment requires accelerators to be specified.")
-
-            for accelerator in self.system_config.config.accelerators:
-                if not accelerator.execution_providers:
-                    raise ValueError(
-                        f"Managed environment requires execution providers to be specified for {accelerator.device}"
-                    )
-        elif not self.system_config.config.accelerators:
+        if not self.system_config.config.accelerators:
             # default to cpu, available on all ort packages, most general
             logger.info("No accelerators specified. Defaulting to cpu.")
             self.system_config.config.accelerators = [
@@ -127,9 +118,7 @@ class AcceleratorNormalizer:
             device = Device(accelerator.device.lower())
             eps_per_device = AcceleratorLookup.get_managed_supported_execution_providers(device)
 
-            if self.system_config.olive_managed_env:
-                available_eps = eps_per_device
-            elif (
+            if (
                 self.system_config.type in (SystemType.Local, SystemType.PythonEnvironment)
                 and not self.skip_supported_eps_check
             ):

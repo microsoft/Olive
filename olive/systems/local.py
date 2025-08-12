@@ -64,6 +64,3 @@ class LocalSystem(OliveSystem):
     def get_supported_execution_providers(self) -> list[str]:
         """Get the available execution providers."""
         return get_ort_available_providers()
-
-    def remove(self):
-        raise NotImplementedError("Local system does not support system removal")

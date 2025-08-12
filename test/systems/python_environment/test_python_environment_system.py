@@ -20,8 +20,7 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.python_environment import PythonEnvironmentSystem
 from olive.systems.python_environment.evaluation_runner import main as evaluation_runner_main
 from olive.systems.python_environment.pass_runner import main as pass_runner_main
-from olive.systems.system_config import PythonEnvironmentTargetUserConfig, SystemConfig
-from olive.systems.utils import create_managed_system, create_managed_system_with_cache
+from olive.systems.system_config import SystemConfig
 from test.utils import (
     get_glue_accuracy_metric,
     get_glue_latency_metric,
@@ -258,54 +257,13 @@ class TestPythonEnvironmentSystem:
         with output_path.open("r") as f:
             assert json.load(f) == get_onnx_model().to_json()
 
-    @patch("olive.systems.utils.misc.create_managed_system")
-    def test_create_new_system_with_cache(self, mock_create_managed_system):
-        system_config = SystemConfig(
-            type="PythonEnvironment",
-            config=PythonEnvironmentTargetUserConfig(
-                olive_managed_env=True,
-            ),
-        )
-        create_managed_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
-        create_managed_system_with_cache(system_config, DEFAULT_CPU_ACCELERATOR)
-        assert mock_create_managed_system.call_count == 1
-        create_managed_system_with_cache.cache_clear()
-        assert create_managed_system_with_cache.cache_info().currsize == 0
-
-    def test_create_managed_env(self):
-        system_config = SystemConfig(
-            type="PythonEnvironment",
-            config=PythonEnvironmentTargetUserConfig(
-                olive_managed_env=True,
-            ),
-        )
-        system = create_managed_system(system_config, DEFAULT_CPU_ACCELERATOR)
-        assert system.config.olive_managed_env
-
-        host_system = create_managed_system(system_config, None)
-        assert host_system.config.olive_managed_env
-
     def test_python_system_config(self):
         config = {
             "type": "PythonEnvironment",
             "config": {
                 "python_environment_path": self.python_environment_path,
-                "olive_managed_env": False,
             },
         }
         system_config = SystemConfig.parse_obj(config)
         system = system_config.create_system()
         assert system
-
-
-class TestPythonEnvironmentSystemConfig:
-    def test_managed_system_config(self):
-        config = {
-            "type": "PythonEnvironment",
-            "config": {
-                "olive_managed_env": True,
-            },
-        }
-        system_config = SystemConfig.parse_obj(config)
-        assert system_config.config.olive_managed_env
-        assert system_config.config.python_environment_path is None
