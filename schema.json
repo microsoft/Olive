@@ -61,15 +61,6 @@
           "$ref": "#/definitions/RunPassConfig"
         }
       }
-    },
-    "auto_optimizer_config": {
-      "title": "Auto Optimizer Config",
-      "description": "Auto optimizer configuration. Only valid when passes field is empty or not provided.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/AutoOptimizerConfig"
-        }
-      ]
     }
   },
   "required": [
@@ -835,46 +826,6 @@
       "required": [
         "type"
       ]
-    },
-    "Precision": {
-      "title": "Precision",
-      "description": "An enumeration.",
-      "enum": [
-        "fp32",
-        "fp16",
-        "int8",
-        "int4"
-      ],
-      "type": "string"
-    },
-    "AutoOptimizerConfig": {
-      "title": "AutoOptimizerConfig",
-      "type": "object",
-      "properties": {
-        "opt_level": {
-          "title": "Opt Level",
-          "default": 0,
-          "type": "integer"
-        },
-        "disable_auto_optimizer": {
-          "title": "Disable Auto Optimizer",
-          "default": false,
-          "type": "boolean"
-        },
-        "precisions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Precision"
-          }
-        },
-        "excluded_passes": {
-          "title": "Excluded Passes",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
     }
   }
 }

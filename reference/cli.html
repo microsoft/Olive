@@ -704,9 +704,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">dynamic</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">fixed</span><span class="o">-</span><span class="n">shape</span><span class="o">-</span><span class="n">dim</span><span class="o">-</span><span class="n">value</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_VALUE</span> <span class="o">...</span><span class="p">]]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">num</span><span class="o">-</span><span class="n">splits</span> <span class="n">NUM_SPLITS</span> <span class="o">|</span> <span class="o">--</span><span class="n">cost</span><span class="o">-</span><span class="n">model</span> <span class="n">COST_MODEL</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">mixed</span><span class="o">-</span><span class="n">precision</span><span class="o">-</span><span class="n">overrides</span><span class="o">-</span><span class="n">config</span> <span class="p">[</span><span class="n">MIXED_PRECISION_OVERRIDES_CONFIG</span> <span class="o">...</span><span class="p">]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">enable_search</span> <span class="p">[{</span><span class="n">random</span><span class="p">,</span><span class="n">sequential</span><span class="p">,</span><span class="n">tpe</span><span class="p">}]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
 </pre></div>
@@ -801,14 +799,6 @@
 <dt><kbd>--use_ort_genai</kbd></dt>
 <dd><p>Use OnnxRuntime generate() API to run the model</p>
 <p>Default: False</p>
-</dd>
-<dt><kbd>--enable_search</kbd></dt>
-<dd><p>Possible choices: random, sequential, tpe</p>
-<p>Enable search to produce optimal model for the given criteria. Optionally provide sampler from available choices. By default, uses sequential sampler.</p>
-</dd>
-<dt><kbd>--seed</kbd></dt>
-<dd><p>Random seed for search sampler</p>
-<p>Default: 0</p>
 </dd>
 <dt><kbd>--account_name</kbd></dt>
 <dd><p>Azure storage account name for shared cache.</p>
