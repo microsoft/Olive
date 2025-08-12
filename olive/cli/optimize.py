@@ -247,7 +247,10 @@ class OptimizeCommand(BaseOliveCLICommand):
                 "Please use a compatible provider for the specified device."
             )
 
-        if self.args.provider == ExecutionProvider.NvTensorRTRTXExecutionProvider and self.args.device in ["cpu", "npu"]:
+        if self.args.provider == ExecutionProvider.NvTensorRTRTXExecutionProvider and self.args.device in [
+            "cpu",
+            "npu",
+        ]:
             raise ValueError(
                 f"Invalid combination of provider {self.args.provider} and device {self.args.device}. "
                 "Please use a compatible provider for the specified device."
