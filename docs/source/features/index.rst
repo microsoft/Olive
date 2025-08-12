@@ -6,14 +6,6 @@ Features
 
    .. grid-item-card::
 
-      **Auto Optimizer**
-
-      Auto Optimizer feature allows user to automatically create the best model for a given scenario.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Auto Optimizer <auto-opt.html>`_
-
-   .. grid-item-card::
-
       **Hugging Face Integration**
 
       Learn how to use integrations with Hugging Face, such as models, data, and metrics.
@@ -88,7 +80,6 @@ Features
    :maxdepth: 2
    :hidden:
 
-   auto-opt
    huggingface-integration
    ihv-integration/index
    model-compression
