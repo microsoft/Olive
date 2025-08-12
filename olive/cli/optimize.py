@@ -739,7 +739,7 @@ class OptimizeCommand(BaseOliveCLICommand):
             "type": "OnnxIODataTypeConverter",
             "name_pattern": "logits",
             "source_dtype": 10,  # FLOAT16
-            "target_dtype": 1,   # FLOAT
+            "target_dtype": 1,  # FLOAT
         }
 
 
