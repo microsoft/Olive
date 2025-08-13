@@ -421,19 +421,19 @@
                  <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--run-config, --config</kbd></dt>
 <dd><p>Path to json config file</p>
 </dd>
 <dt><kbd>--setup</kbd></dt>
 <dd><p>Setup environment needed to run the workflow</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--packages</kbd></dt>
 <dd><p>List packages required to run the workflow</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--tempdir</kbd></dt>
 <dd><p>Root directory for tempfile directories and files</p>
@@ -446,8 +446,8 @@
 </dd>
 </dl>
 </section>
-<section id="model-options-(not-required)">
-<h2>Model options (not required)<a class="headerlink" href="#model-options-(not-required)" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-model-options-(not-required)">
+<h2>Model options (not required)<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-model-options-(not-required)" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -457,7 +457,7 @@
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
@@ -487,8 +487,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--pass-name</kbd></dt>
 <dd><p>Name of the pass to run on the input model.</p>
@@ -498,7 +498,7 @@
 </dd>
 <dt><kbd>--list-passes</kbd></dt>
 <dd><p>List all available passes and exit.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -508,7 +508,7 @@
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
@@ -521,32 +521,32 @@
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
-<p>Default: run-pass-output</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">run-pass-output</span></code></p>
 </dd>
 <dt><kbd>--device</kbd></dt>
 <dd><p>Possible choices: gpu, cpu, npu</p>
 <p>Target device to run the model. Default is cpu.</p>
-<p>Default: “cpu”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code></p>
 </dd>
 <dt><kbd>--provider</kbd></dt>
 <dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, NvTensorRTRTXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider</p>
 <p>Execution provider to use for ONNX model. Default is CPUExecutionProvider.</p>
-<p>Default: “CPUExecutionProvider”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'CPUExecutionProvider'</span></code></p>
 </dd>
 <dt><kbd>--memory</kbd></dt>
 <dd><p>Memory limit for the accelerator in bytes. Default is None.</p>
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
 </dd>
 <dt><kbd>--save_config_file</kbd></dt>
 <dd><p>Generate and save the config file for the command.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--dry_run</kbd></dt>
 <dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 </dl>
 </section>
@@ -573,8 +573,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -584,16 +584,16 @@
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
-<p>Default: finetuned-adapter</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">finetuned-adapter</span></code></p>
 </dd>
 <dt><kbd>--torch_dtype</kbd></dt>
 <dd><p>Possible choices: bfloat16, float16, float32</p>
 <p>The torch dtype to use for training.</p>
-<p>Default: “bfloat16”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'bfloat16'</span></code></p>
 </dd>
 <dt><kbd>-d, --data_name</kbd></dt>
 <dd><p>The dataset name.</p>
@@ -603,14 +603,14 @@
 </dd>
 <dt><kbd>--train_split</kbd></dt>
 <dd><p>The split to use for training.</p>
-<p>Default: “train”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'train'</span></code></p>
 </dd>
 <dt><kbd>--eval_subset</kbd></dt>
 <dd><p>The subset to use for evaluation.</p>
 </dd>
 <dt><kbd>--eval_split</kbd></dt>
 <dd><p>The dataset split to evaluate on.</p>
-<p>Default: “”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">''</span></code></p>
 </dd>
 <dt><kbd>--data_files</kbd></dt>
 <dd><p>The dataset files. If multiple files, separate by comma.</p>
@@ -623,23 +623,23 @@
 </dd>
 <dt><kbd>--use_chat_template</kbd></dt>
 <dd><p>Use chat template for text field.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--max_seq_len</kbd></dt>
 <dd><p>Maximum sequence length for the data.</p>
-<p>Default: 1024</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1024</span></code></p>
 </dd>
 <dt><kbd>--add_special_tokens</kbd></dt>
 <dd><p>Whether to add special tokens during preprocessing.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--max_samples</kbd></dt>
 <dd><p>Maximum samples to select from the dataset.</p>
-<p>Default: 256</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">256</span></code></p>
 </dd>
 <dt><kbd>--batch_size</kbd></dt>
 <dd><p>Batch size.</p>
-<p>Default: 1</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
 </dd>
 <dt><kbd>--input_cols</kbd></dt>
 <dd><p>List of input column names. Provide one or more names separated by space. Example: –input_cols sentence1 sentence2</p>
@@ -652,33 +652,33 @@
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
 </dd>
 <dt><kbd>--save_config_file</kbd></dt>
 <dd><p>Generate and save the config file for the command.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--dry_run</kbd></dt>
 <dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 </dl>
 </section>
-<section id="lora-options">
-<h2>LoRA options<a class="headerlink" href="#lora-options" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-lora-options">
+<h2>LoRA options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-lora-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--method</kbd></dt>
 <dd><p>Possible choices: lora, qlora</p>
 <p>The method to use for fine-tuning</p>
-<p>Default: “lora”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'lora'</span></code></p>
 </dd>
 <dt><kbd>--lora_r</kbd></dt>
 <dd><p>LoRA R value.</p>
-<p>Default: 64</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">64</span></code></p>
 </dd>
 <dt><kbd>--lora_alpha</kbd></dt>
 <dd><p>LoRA alpha value.</p>
-<p>Default: 16</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">16</span></code></p>
 </dd>
 <dt><kbd>--target_modules</kbd></dt>
 <dd><p>The target modules for LoRA. If multiple, separate by comma.</p>
@@ -709,8 +709,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -720,7 +720,7 @@
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
@@ -733,17 +733,17 @@
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
-<p>Default: auto-opt-output</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">auto-opt-output</span></code></p>
 </dd>
 <dt><kbd>--device</kbd></dt>
 <dd><p>Possible choices: gpu, cpu, npu</p>
 <p>Target device to run the model. Default is cpu.</p>
-<p>Default: “cpu”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code></p>
 </dd>
 <dt><kbd>--provider</kbd></dt>
 <dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, NvTensorRTRTXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider</p>
 <p>Execution provider to use for ONNX model. Default is CPUExecutionProvider.</p>
-<p>Default: “CPUExecutionProvider”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'CPUExecutionProvider'</span></code></p>
 </dd>
 <dt><kbd>--memory</kbd></dt>
 <dd><p>Memory limit for the accelerator in bytes. Default is None.</p>
@@ -762,24 +762,24 @@
 </dd>
 <dt><kbd>--batch_size</kbd></dt>
 <dd><p>Batch size for evaluation.</p>
-<p>Default: 1</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
 </dd>
 <dt><kbd>--precision</kbd></dt>
 <dd><p>Possible choices: int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp4, fp8, fp16, fp32, nf4, bf16</p>
 <p>The output precision of the optimized model. If not specified, the default precision is fp32 for cpu and fp16 for gpu</p>
-<p>Default: fp32</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">fp32</span></code></p>
 </dd>
 <dt><kbd>--use_dynamo_exporter</kbd></dt>
 <dd><p>Whether to use dynamo_export API to export ONNX model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--use_model_builder</kbd></dt>
 <dd><p>Whether to use model builder pass for optimization, enable only when the model is supported by model builder</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--use_qdq_encoding</kbd></dt>
 <dd><p>Whether to use QDQ encoding for quantized operators instead of ONNXRuntime contrib operators like MatMulNBits</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--dynamic-to-fixed-shape-dim-param</kbd></dt>
 <dd><p>Symbolic parameter names to use for dynamic to fixed shape pass. Required only when using QNNExecutionProvider.</p>
@@ -798,7 +798,7 @@
 </dd>
 <dt><kbd>--use_ort_genai</kbd></dt>
 <dd><p>Use OnnxRuntime generate() API to run the model</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--account_name</kbd></dt>
 <dd><p>Azure storage account name for shared cache.</p>
@@ -808,15 +808,15 @@
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
 </dd>
 <dt><kbd>--save_config_file</kbd></dt>
 <dd><p>Generate and save the config file for the command.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--dry_run</kbd></dt>
 <dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 </dl>
 </section>
@@ -844,8 +844,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -855,7 +855,7 @@
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
@@ -868,30 +868,30 @@
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
-<p>Default: quantized-model</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">quantized-model</span></code></p>
 </dd>
 <dt><kbd>--algorithm</kbd></dt>
 <dd><p>Possible choices: awq, gptq, hqq, rtn, spinquant, quarot</p>
 <p>List of quantization algorithms to run.</p>
-<p>Default: “rtn”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'rtn'</span></code></p>
 </dd>
 <dt><kbd>--precision</kbd></dt>
 <dd><p>Possible choices: int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp4, fp8, fp16, fp32, nf4, bf16</p>
 <p>The precision of the quantized model.</p>
-<p>Default: “int8”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'int8'</span></code></p>
 </dd>
 <dt><kbd>--act_precision</kbd></dt>
 <dd><p>Possible choices: int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp4, fp8, fp16, fp32, nf4, bf16</p>
 <p>The precision of the activation quantization for static quantization.</p>
-<p>Default: “int8”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'int8'</span></code></p>
 </dd>
 <dt><kbd>--implementation</kbd></dt>
 <dd><p>The specific implementation of quantization algorithms to use.</p>
-<p>Default: “olive”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'olive'</span></code></p>
 </dd>
 <dt><kbd>--use_qdq_encoding</kbd></dt>
 <dd><p>Use QDQ encoding in ONNX model for the quantized nodes.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>-d, --data_name</kbd></dt>
 <dd><p>The dataset name.</p>
@@ -913,23 +913,23 @@
 </dd>
 <dt><kbd>--use_chat_template</kbd></dt>
 <dd><p>Use chat template for text field.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--max_seq_len</kbd></dt>
 <dd><p>Maximum sequence length for the data.</p>
-<p>Default: 1024</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1024</span></code></p>
 </dd>
 <dt><kbd>--add_special_tokens</kbd></dt>
 <dd><p>Whether to add special tokens during preprocessing.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--max_samples</kbd></dt>
 <dd><p>Maximum samples to select from the dataset.</p>
-<p>Default: 256</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">256</span></code></p>
 </dd>
 <dt><kbd>--batch_size</kbd></dt>
 <dd><p>Batch size.</p>
-<p>Default: 1</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
 </dd>
 <dt><kbd>--input_cols</kbd></dt>
 <dd><p>List of input column names. Provide one or more names separated by space. Example: –input_cols sentence1 sentence2</p>
@@ -942,15 +942,15 @@
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
 </dd>
 <dt><kbd>--save_config_file</kbd></dt>
 <dd><p>Generate and save the config file for the command.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--dry_run</kbd></dt>
 <dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 </dl>
 </section>
@@ -981,8 +981,8 @@
                                 <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -992,7 +992,7 @@
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
@@ -1005,28 +1005,28 @@
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
-<p>Default: onnx-model</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">onnx-model</span></code></p>
 </dd>
 <dt><kbd>--conversion_device</kbd></dt>
 <dd><p>Possible choices: cpu, gpu</p>
 <p>The device used to run the model to capture the ONNX graph.</p>
-<p>Default: “cpu”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code></p>
 </dd>
 <dt><kbd>--use_ort_genai</kbd></dt>
 <dd><p>Use OnnxRuntime generate() API to run the model</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
 </dd>
 <dt><kbd>--save_config_file</kbd></dt>
 <dd><p>Generate and save the config file for the command.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--dry_run</kbd></dt>
 <dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--account_name</kbd></dt>
 <dd><p>Azure storage account name for shared cache.</p>
@@ -1036,40 +1036,40 @@
 </dd>
 </dl>
 </section>
-<section id="pytorch-exporter-options">
-<h2>PyTorch Exporter options<a class="headerlink" href="#pytorch-exporter-options" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-pytorch-exporter-options">
+<h2>PyTorch Exporter options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-pytorch-exporter-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--use_dynamo_exporter</kbd></dt>
 <dd><p>Whether to use dynamo_export API to export ONNX model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--fixed_param_dict</kbd></dt>
 <dd><p>Fix dynamic input shapes by providing a dictionary of dimension names and values, e.g., ‘batch_size=1,max_length=128’</p>
 </dd>
 <dt><kbd>--past_key_value_name</kbd></dt>
 <dd><p>The arguments name to point to past key values. For model loaded from huggingface, it is ‘past_key_values’. Basically, it is used only when <cite>use_dynamo_exporter</cite> is True.</p>
-<p>Default: “past_key_values”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'past_key_values'</span></code></p>
 </dd>
 <dt><kbd>--torch_dtype</kbd></dt>
 <dd><p>The dtype to cast the model to before capturing the ONNX graph, e.g., ‘float32’ or ‘float16’. If not specified will use the model as is.</p>
 </dd>
 <dt><kbd>--target_opset</kbd></dt>
 <dd><p>The target opset version for the ONNX model. Default is 17.</p>
-<p>Default: 17</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">17</span></code></p>
 </dd>
 </dl>
 </section>
-<section id="model-builder-options">
-<h2>Model Builder options<a class="headerlink" href="#model-builder-options" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-model-builder-options">
+<h2>Model Builder options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-model-builder-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--use_model_builder</kbd></dt>
 <dd><p>Whether to use Model Builder to capture ONNX model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--precision</kbd></dt>
 <dd><p>Possible choices: fp16, fp32, int4</p>
 <p>The precision of the ONNX model. This is used by Model Builder</p>
-<p>Default: “fp16”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'fp16'</span></code></p>
 </dd>
 <dt><kbd>--int4_block_size</kbd></dt>
 <dd><p>Possible choices: 16, 32, 64, 128, 256</p>
@@ -1080,11 +1080,11 @@
 </dd>
 <dt><kbd>--exclude_embeds</kbd></dt>
 <dd><p>Remove embedding layer from your ONNX model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--exclude_lm_head</kbd></dt>
 <dd><p>Remove language modeling head from your ONNX model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--enable_cuda_graph</kbd></dt>
 <dd><p>The model can use CUDA graph capture for CUDA execution provider. If enabled, all nodes being placed on the CUDA EP is the prerequisite for the CUDA graph to be used correctly.</p>
@@ -1103,37 +1103,37 @@
                               <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
-<p>Default: optimized-model</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">optimized-model</span></code></p>
 </dd>
 <dt><kbd>--adapter_type</kbd></dt>
 <dd><p>Possible choices: lora, dora, loha</p>
 <p>Type of adapters to extract. Default is lora.</p>
-<p>Default: lora</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">lora</span></code></p>
 </dd>
 <dt><kbd>--adapter_format</kbd></dt>
 <dd><p>Possible choices: pt, numpy, safetensors, onnx_adapter</p>
 <p>Format to save the weights in. Default is onnx_adapter.</p>
-<p>Default: “onnx_adapter”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'onnx_adapter'</span></code></p>
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
 </dd>
 <dt><kbd>--save_config_file</kbd></dt>
 <dd><p>Generate and save the config file for the command.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--dry_run</kbd></dt>
 <dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--account_name</kbd></dt>
 <dd><p>Azure storage account name for shared cache.</p>
@@ -1156,8 +1156,8 @@
                               <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Can be a local folder or huggingface id.</p>
@@ -1165,7 +1165,7 @@
 <dt><kbd>--adapter_format</kbd></dt>
 <dd><p>Possible choices: pt, numpy, safetensors, onnx_adapter</p>
 <p>Format to save the weights in. Default is onnx_adapter.</p>
-<p>Default: “onnx_adapter”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'onnx_adapter'</span></code></p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the exported weights. Will be saved in the <cite>adapter_format</cite> format.</p>
@@ -1173,25 +1173,25 @@
 <dt><kbd>--dtype</kbd></dt>
 <dd><p>Possible choices: float32, float16</p>
 <p>Data type to save float adapter weights as. If quantize_int4 is True, this is the data type of the quantization scales. Default is float32.</p>
-<p>Default: “float32”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'float32'</span></code></p>
 </dd>
 <dt><kbd>--quantize_int4</kbd></dt>
 <dd><p>Quantize the adapter weights to int4 using blockwise quantization.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--int4_block_size</kbd></dt>
 <dd><p>Possible choices: 16, 32, 64, 128, 256</p>
 <p>Block size for int4 quantization of adapter weights. Default is 32.</p>
-<p>Default: 32</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">32</span></code></p>
 </dd>
 <dt><kbd>--int4_quantization_mode</kbd></dt>
 <dd><p>Possible choices: symmetric, asymmetric</p>
 <p>Quantization mode for int4 quantization of adapter weights. Default is symmetric.</p>
-<p>Default: “symmetric”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'symmetric'</span></code></p>
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
 </dd>
 </dl>
 </section>
@@ -1219,26 +1219,26 @@
                                  <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
-<p>Default: tuned-inference-settings</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">tuned-inference-settings</span></code></p>
 </dd>
 <dt><kbd>--cpu_cores</kbd></dt>
 <dd><p>CPU cores used for thread tuning.</p>
 </dd>
 <dt><kbd>--io_bind</kbd></dt>
 <dd><p>Whether enable IOBinding Search for ONNX Runtime inference.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--enable_cuda_graph</kbd></dt>
 <dd><p>Whether enable CUDA Graph for CUDA execution provider.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--execution_mode_list</kbd></dt>
 <dd><p>Parallelism list between operators.</p>
@@ -1248,7 +1248,7 @@
 </dd>
 <dt><kbd>--trt_fp16_enable</kbd></dt>
 <dd><p>Enable TensorRT FP16 mode.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--intra_thread_num_list</kbd></dt>
 <dd><p>List of intra thread number for test.</p>
@@ -1261,20 +1261,20 @@
 </dd>
 <dt><kbd>--disable_force_evaluate_other_eps</kbd></dt>
 <dd><p>Whether force to evaluate all execution providers which are different with the associated execution provider.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--enable_profiling</kbd></dt>
 <dd><p>Whether enable profiling for ONNX Runtime inference.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--predict_with_kv_cache</kbd></dt>
 <dd><p>Whether to use key-value cache for ORT session parameter tuning</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--device</kbd></dt>
 <dd><p>Possible choices: gpu, cpu, npu</p>
 <p>Target device to run the model. Default is cpu.</p>
-<p>Default: “cpu”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code></p>
 </dd>
 <dt><kbd>--providers_list</kbd></dt>
 <dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, NvTensorRTRTXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider</p>
@@ -1285,15 +1285,15 @@
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: 3</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
 </dd>
 <dt><kbd>--save_config_file</kbd></dt>
 <dd><p>Generate and save the config file for the command.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--dry_run</kbd></dt>
 <dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--account_name</kbd></dt>
 <dd><p>Azure storage account name for shared cache.</p>
@@ -1312,8 +1312,8 @@
                                  <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="p">{</span><span class="n">fp32</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">uint32</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">uint16</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">uint4</span><span class="p">,</span><span class="n">nf4</span><span class="p">,</span><span class="n">fp4</span><span class="p">}]</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -1323,16 +1323,16 @@
 </dd>
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
-<p>Default: “cost-model.csv”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'cost-model.csv'</span></code></p>
 </dd>
 <dt><kbd>-p, --weight_precision</kbd></dt>
 <dd><p>Possible choices: fp32, fp16, fp8, int32, uint32, int16, uint16, int8, uint8, int4, uint4, nf4, fp4</p>
 <p>Weight precision</p>
-<p>Default: “fp16”</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'fp16'</span></code></p>
 </dd>
 </dl>
 </section>
@@ -1344,8 +1344,8 @@
                                     <span class="p">{</span><span class="n">snpe</span><span class="p">,</span><span class="n">qnn</span><span class="p">}</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--py_version</kbd></dt>
 <dd><p>Possible choices: 3.6, 3.8</p>
@@ -1365,20 +1365,20 @@
                           <span class="o">--</span><span class="n">container</span> <span class="n">CONTAINER</span> <span class="p">[</span><span class="o">--</span><span class="n">model_hash</span> <span class="n">MODEL_HASH</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--delete</kbd></dt>
 <dd><p>Delete a model cache from the shared cache.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--all</kbd></dt>
 <dd><p>Delete all model cache from the cloud cache.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>-y, --yes</kbd></dt>
 <dd><p>Confirm the deletion without prompting for confirmation.</p>
-<p>Default: False</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--account</kbd></dt>
 <dd><p>The account name for the shared cache.</p>
@@ -1492,55 +1492,55 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Command Line Tools</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run">Run</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-options-(not-required)">Model options (not required)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-model-options-(not-required)">Model options (not required)</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run-pass">Run Pass</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#finetune">Finetune</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lora-options">LoRA options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lora-options">LoRA options</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-optimization">Auto-Optimization</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#quantization">Quantization</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#capture-onnx-graph">Capture Onnx Graph</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pytorch-exporter-options">PyTorch Exporter options</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-builder-options">Model Builder options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-pytorch-exporter-options">PyTorch Exporter options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-model-builder-options">Model Builder options</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-adapters">Generate Adapters</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#convert-adapters">Convert Adapters</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-cost-model-for-model-splitting">Generate Cost Model for Model Splitting</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#qualcomm-sdk">Qualcomm SDK</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#shared-cache">Shared Cache</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#providing-input-models">Providing Input Models</a></li>
