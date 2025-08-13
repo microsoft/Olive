@@ -12,7 +12,6 @@ There are several variants available in [Open LLaMA](https://huggingface.co/open
 Inference optimization workflows
 - GPU: [With Optimum conversion and merging and ORT optimizations for optimized ONNX model](#convert-optimize-and-merge-open-llama-model-for-gpus)
 - GPU: [With SparseGPT and TorchTRT conversion for an optimized PyTorch model with sparsity](#sparsify-open-llama-model-using-sparsegpt-for-gpus)
-- AzureML compute: [With Optimum conversion and merging and ORT optimizations in AzureML](#optimizing-open-llama-model-with-azure-arc)
 - CPU: [With Optimum conversion and merging and ORT optimizations and Intel® Neural Compressor 4-bits weight-only quantization for optimized INT4 ONNX model](#compress-open-llama-model-with-intel®-neural-compressor-4-bits-weight-only-quantization)
 
 Go to [How to run](#prerequisites)
@@ -74,13 +73,6 @@ Inference is done like a normal pytorch model.
 The relevant config file is [open_llama_sparsegpt_gpu.json](open_llama_sparsegpt_gpu.json)
 
 Requirements file: [requirements-sparsegpt.txt](requirements-sparsegpt.txt)
-
-### Optimizing Open Llama Model with Azure Arc
-This workflow optimizes Open Llama model on Azure ML compute, and evaluate output models on your device. Please connect your device to Azure Arc by following instruction: [Self-hosted Kubernetes cluster](https://microsoft.github.io/Olive/tutorials/azure_arc.html)
-
-This example config file is [open_llama_arc.json](open_llama_arc.json).
-
-Requirements file: [requirements-arc.txt](requirements-arc.txt)
 
 ### Compress Open Llama Model with Intel® Neural Compressor 4-bits Weight-only Quantization
 This workflow compresses Open Llama model with 4-bits weight-only quantization ([WOQ](https://github.com/intel/neural-compressor/blob/master/docs/source/quantization_weight_only.md)) using Intel® Neural Compressor, and evaluate accuracy and perplexity on [lambada_openai](https://huggingface.co/datasets/EleutherAI/lambada_openai) datasets.

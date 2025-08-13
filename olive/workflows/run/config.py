@@ -6,7 +6,6 @@ import shutil
 from pathlib import Path
 from typing import Any, Union
 
-from olive.auto_optimizer import AutoOptimizerConfig
 from olive.cache import CacheConfig
 from olive.common.config_utils import NestedConfig, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_HF_TASK, DEFAULT_WORKFLOW_ID
@@ -142,10 +141,6 @@ class RunConfig(NestedConfig):
         ),
     )
     passes: dict[str, list[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
-    auto_optimizer_config: AutoOptimizerConfig = Field(
-        default_factory=AutoOptimizerConfig,
-        description="Auto optimizer configuration. Only valid when passes field is empty or not provided.",
-    )
 
     @root_validator(pre=True)
     def patch_evaluators(cls, values):
@@ -253,11 +248,6 @@ class RunConfig(NestedConfig):
     def validate_evaluators(cls, v, values):
         for idx, metric in enumerate(v.get("metrics", [])):
             v["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
-        return v
-
-    @validator("auto_optimizer_config", pre=True)
-    def validate_auto_optimizer_config(cls, v, values):
-        _resolve_all_data_configs(v, values)
         return v
 
     @validator("engine", pre=True)

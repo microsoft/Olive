@@ -497,6 +497,11 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
             "-t text-classification --precision fp16 --exporter torchscript_exporter --provider CUDAExecutionProvider",
             "OnnxConversion, OnnxPeepholeOptimizer, OrtTransformersOptimization, OnnxFloatToFloat16",
         ],
+        [
+            "optimize",
+            "-t text-classification --precision fp16 --exporter torchscript_exporter --provider NvTensorRTRTXExecutionProvider --device gpu",
+            "OnnxConversion, OnnxPeepholeOptimizer, OnnxFloatToFloat16",
+        ],
     ]
 
     for t in test_list:
