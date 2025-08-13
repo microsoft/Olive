@@ -21,7 +21,7 @@ Always reference these instructions first and fallback to search or bash command
 - Main CLI entry point: `olive --help`
 - Key commands:
   - `olive optimize` -- Comprehensive model optimization with pass scheduling
-  - `olive auto-opt` -- Automatic optimization with minimal configuration  
+  - `olive auto-opt` -- Automatic optimization with minimal configuration
   - `olive finetune` -- Fine-tune models using PEFT
   - `olive quantize` -- Quantize models
   - `olive capture-onnx-graph` -- Export models to ONNX format
