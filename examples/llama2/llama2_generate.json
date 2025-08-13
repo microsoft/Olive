@@ -27,7 +27,6 @@
         }
     },
     "passes": {  },
-    "auto_optimizer_config": { "disable_auto_optimizer": true },
     "evaluator": "merged_evaluator",
     "host": "local_system",
     "target": "local_system",

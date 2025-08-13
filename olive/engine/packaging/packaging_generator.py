@@ -5,27 +5,20 @@
 import json
 import logging
 import shutil
-import sys
 import tempfile
 from collections import OrderedDict
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import Union
 
-from olive.common.utils import retry_func
 from olive.engine.output import ModelOutput, WorkflowOutput
 from olive.engine.packaging.packaging_config import (
-    AzureMLDeploymentPackagingConfig,
     DockerfilePackagingConfig,
-    InferencingServerType,
     PackagingConfig,
     PackagingType,
 )
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.resource_path import ResourceType, create_resource_path
-
-if TYPE_CHECKING:
-    from olive.azureml.azureml_client import AzureMLClientConfig
 
 logger = logging.getLogger(__name__)
 
@@ -36,16 +29,13 @@ def generate_output_artifacts(
     packaging_configs: Union[PackagingConfig, list[PackagingConfig]],
     workflow_output: WorkflowOutput,
     output_dir: Path,
-    azureml_client_config: "AzureMLClientConfig" = None,
 ):
     packaging_config_list = packaging_configs if isinstance(packaging_configs, list) else [packaging_configs]
     for packaging_config in packaging_config_list:
-        if packaging_config.type == PackagingType.AzureMLDeployment:
-            _package_azureml_deployment(packaging_config, workflow_output, azureml_client_config)
-        elif packaging_config.type == PackagingType.Dockerfile:
+        if packaging_config.type == PackagingType.Dockerfile:
             _package_dockerfile(packaging_config, workflow_output, output_dir)
         else:
-            _package_candidate_models(packaging_config, output_dir, workflow_output, azureml_client_config)
+            _package_candidate_models(packaging_config, output_dir, workflow_output)
 
 
 def _package_dockerfile(
@@ -88,205 +78,10 @@ def _package_dockerfile(
         file.writelines(filedata)
 
 
-def _package_azureml_deployment(
-    packaging_config: PackagingConfig,
-    workflow_output: WorkflowOutput,
-    azureml_client_config: "AzureMLClientConfig" = None,
-):
-    from azure.ai.ml.entities import (
-        AzureMLBatchInferencingServer,
-        AzureMLOnlineInferencingServer,
-        BaseEnvironment,
-        BatchDeployment,
-        BatchEndpoint,
-        CodeConfiguration,
-        ManagedOnlineDeployment,
-        ManagedOnlineEndpoint,
-        ModelConfiguration,
-        ModelPackage,
-    )
-    from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError, ServiceResponseError
-
-    config: AzureMLDeploymentPackagingConfig = packaging_config.config
-    if config.export_in_mlflow_format:
-        logger.warning("Exporting model in MLflow format is not supported for AzureML endpoint packaging.")
-
-    try:
-        # Get best model from workflow output
-        model_config = workflow_output.get_best_candidate().olive_model_config
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            tempdir = Path(temp_dir)
-
-            _save_model(
-                model_config["config"].get("model_path", None),
-                model_config["type"],
-                model_config,
-                tempdir,
-                model_config["config"].get("inference_settings", None),
-                False,
-            )
-
-            # Register model to AzureML
-            _upload_to_azureml_models(
-                azureml_client_config,
-                tempdir,
-                config.model_name,
-                config.model_version,
-                config.model_description,
-                False,
-            )
-
-        ml_client = azureml_client_config.create_client()
-
-        # AzureML package config
-        model_package_config = config.model_package
-
-        code_folder = Path(model_package_config.inferencing_server.code_folder)
-        assert code_folder.exists(), f"Code folder {code_folder} does not exist."
-
-        scoring_script = code_folder / model_package_config.inferencing_server.scoring_script
-        assert scoring_script.exists(), f"Scoring script {scoring_script} does not exist."
-
-        code_configuration = CodeConfiguration(
-            code=model_package_config.inferencing_server.code_folder,
-            scoring_script=model_package_config.inferencing_server.scoring_script,
-        )
-
-        inferencing_server = None
-        if model_package_config.inferencing_server.type == InferencingServerType.AzureMLOnline:
-            inferencing_server = AzureMLOnlineInferencingServer(code_configuration=code_configuration)
-        elif model_package_config.inferencing_server.type == InferencingServerType.AzureMLBatch:
-            inferencing_server = AzureMLBatchInferencingServer(code_configuration=code_configuration)
-
-        model_configuration = None
-        if model_package_config.model_configurations:
-            model_configuration = ModelConfiguration(
-                mode=model_package_config.model_configurations.mode,
-                mount_path=model_package_config.model_configurations.mount_path,
-            )
-
-        base_environment_source = BaseEnvironment(
-            type="EnvironmentAsset", resource_id=model_package_config.base_environment_id
-        )
-
-        package_request = ModelPackage(
-            target_environment=model_package_config.target_environment,
-            inferencing_server=inferencing_server,
-            base_environment_source=base_environment_source,
-            target_environment_version=model_package_config.target_environment_version,
-            model_configuration=model_configuration,
-            environment_variables=model_package_config.environment_variables,
-        )
-
-        # invoke model package operation
-        model_package = retry_func(
-            func=ml_client.models.package,
-            kwargs={"name": config.model_name, "version": config.model_version, "package_request": package_request},
-            max_tries=azureml_client_config.max_operation_retries,
-            delay=azureml_client_config.operation_retry_interval,
-            exceptions=ServiceResponseError,
-        )
-
-        logger.info(
-            "Target environment created successfully: name: %s, version: %s",
-            model_package_config.target_environment,
-            model_package_config.target_environment_version,
-        )
-
-        # Deploy model package
-        deployment_config = config.deployment_config
-
-        # Get endpoint
-        try:
-            endpoint = retry_func(
-                ml_client.online_endpoints.get,
-                [deployment_config.endpoint_name],
-                max_tries=azureml_client_config.max_operation_retries,
-                delay=azureml_client_config.operation_retry_interval,
-                exceptions=ServiceResponseError,
-            )
-            logger.info(
-                "Endpoint %s already exists. The scoring_uri is: %s",
-                deployment_config.endpoint_name,
-                endpoint.scoring_uri,
-            )
-        except ResourceNotFoundError:
-            logger.info("Endpoint %s does not exist. Creating a new endpoint...", deployment_config.endpoint_name)
-            if model_package_config.inferencing_server.type == InferencingServerType.AzureMLOnline:
-                endpoint = ManagedOnlineEndpoint(
-                    name=deployment_config.endpoint_name,
-                    description="this is an endpoint created by Olive automatically",
-                )
-            elif model_package_config.inferencing_server.type == InferencingServerType.AzureMLBatch:
-                endpoint = BatchEndpoint(
-                    name=deployment_config.endpoint_name,
-                    description="this is an endpoint created by Olive automatically",
-                )
-
-            endpoint = retry_func(
-                ml_client.online_endpoints.begin_create_or_update,
-                [endpoint],
-                max_tries=azureml_client_config.max_operation_retries,
-                delay=azureml_client_config.operation_retry_interval,
-                exceptions=ServiceResponseError,
-            ).result()
-            logger.info(
-                "Endpoint %s created successfully. The scoring_uri is: %s",
-                deployment_config.endpoint_name,
-                endpoint.scoring_uri,
-            )
-
-        deployment = None
-        extra_config = deployment_config.extra_config or {}
-        if model_package_config.inferencing_server.type == InferencingServerType.AzureMLOnline:
-            deployment = ManagedOnlineDeployment(
-                name=deployment_config.deployment_name,
-                endpoint_name=deployment_config.endpoint_name,
-                environment=model_package,
-                instance_type=deployment_config.instance_type,
-                instance_count=deployment_config.instance_count,
-                **extra_config,
-            )
-
-        elif model_package_config.inferencing_server.type == InferencingServerType.AzureMLBatch:
-            deployment = BatchDeployment(
-                name=deployment_config.deployment_name,
-                endpoint_name=deployment_config.endpoint_name,
-                environment=model_package,
-                compute=deployment_config.compute,
-                mini_batch_size=deployment_config.mini_batch_size,
-                **extra_config,
-            )
-        deployment = retry_func(
-            ml_client.online_deployments.begin_create_or_update,
-            [deployment],
-            max_tries=azureml_client_config.max_operation_retries,
-            delay=azureml_client_config.operation_retry_interval,
-            exceptions=ServiceResponseError,
-        ).result()
-        logger.info("Deployment %s created successfully", deployment.name)
-
-    except ResourceNotFoundError:
-        logger.exception(
-            "Failed to package AzureML deployment. The resource is not found. Please check the exception details."
-        )
-        raise
-    except ResourceExistsError:
-        logger.exception(
-            "Failed to package AzureML deployment. The resource already exists. Please check the exception details."
-        )
-        raise
-    except Exception:
-        logger.exception("Failed to package AzureML deployment. Please check the exception details.")
-        raise
-
-
 def _package_candidate_models(
     packaging_config: PackagingConfig,
     output_dir: Path,
     workflow_output: WorkflowOutput,
-    azureml_client_config: "AzureMLClientConfig" = None,
 ):
     packaging_type = packaging_config.type
     output_name = packaging_config.name
@@ -335,84 +130,11 @@ def _package_candidate_models(
             model_info_list.append(model_info)
             _copy_model_info(model_dir, model_info)
 
-            if packaging_type == PackagingType.AzureMLModels:
-                _upload_to_azureml_models(
-                    azureml_client_config,
-                    model_dir,
-                    model_name,
-                    config.version,
-                    config.description,
-                    export_in_mlflow_format,
-                )
-            elif packaging_type == PackagingType.AzureMLData:
-                _upload_to_azureml_data(
-                    azureml_client_config, model_dir, model_name, config.version, config.description
-                )
-
             model_rank += 1
 
         if model_info_list and packaging_type == PackagingType.Zipfile:
             _copy_models_rank(tempdir, model_info_list)
             _package_zipfile_model(output_dir, output_name, tempdir)
-
-
-def _upload_to_azureml_models(
-    azureml_client_config: "AzureMLClientConfig",
-    model_path: Path,
-    model_name: str,
-    version: Union[int, str],
-    description: str,
-    export_in_mlflow_format: bool,
-):
-    """Upload model to AzureML workspace Models."""
-    from azure.ai.ml.constants import AssetTypes
-    from azure.ai.ml.entities import Model
-    from azure.core.exceptions import ServiceResponseError
-
-    ml_client = azureml_client_config.create_client()
-    model = Model(
-        path=model_path,
-        type=AssetTypes.MLFLOW_MODEL if export_in_mlflow_format else AssetTypes.CUSTOM_MODEL,
-        name=model_name,
-        version=str(version),
-        description=description,
-    )
-    retry_func(
-        ml_client.models.create_or_update,
-        [model],
-        max_tries=azureml_client_config.max_operation_retries,
-        delay=azureml_client_config.operation_retry_interval,
-        exceptions=ServiceResponseError,
-    )
-
-
-def _upload_to_azureml_data(
-    azureml_client_config: "AzureMLClientConfig",
-    model_path: Path,
-    model_name: str,
-    version: Union[int, str],
-    description: str,
-):
-    """Upload model as Data to AzureML workspace Data."""
-    from azure.ai.ml.constants import AssetTypes
-    from azure.ai.ml.entities import Data
-    from azure.core.exceptions import ServiceResponseError
-
-    ml_client = azureml_client_config.create_client()
-    data = Data(
-        path=str(model_path),
-        type=AssetTypes.URI_FILE if model_path.is_file() else AssetTypes.URI_FOLDER,
-        description=description,
-        name=model_name,
-        version=str(version),
-    )
-    retry_func(
-        ml_client.data.create_or_update,
-        [data],
-        max_tries=azureml_client_config.max_operation_retries,
-        delay=azureml_client_config.operation_retry_interval,
-        exceptions=ServiceResponseError,
-    )
 
 
 def _get_model_info(model_output: "ModelOutput", model_rank: int, relative_path: str, packaging_type: PackagingType):
@@ -550,10 +272,3 @@ def _generate_onnx_mlflow_model(model_dir: Path, inference_config: dict):
         onnx_session_options=session_dict,
     )
     return mlflow_model_path
-
-
-def _get_python_version():
-    major_version = sys.version_info.major
-    minor_version = sys.version_info.minor
-
-    return f"{major_version}{minor_version}"

@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-import re
 import shutil
 import tempfile
 from abc import abstractmethod
@@ -11,7 +10,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Optional, Union
 
-from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.auto_config import AutoConfigClass
 from olive.common.config_utils import (
     CaseInsensitiveEnum,
@@ -22,7 +20,7 @@ from olive.common.config_utils import (
     validate_config,
 )
 from olive.common.pydantic_v1 import Field, validator
-from olive.common.utils import copy_dir, retry_func
+from olive.common.utils import copy_dir, get_credentials, retry_func
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +29,10 @@ class ResourceType(CaseInsensitiveEnum):
     LocalFile = "file"
     LocalFolder = "folder"
     StringName = "string_name"
-    AzureMLModel = "azureml_model"
     AzureMLRegistryModel = "azureml_registry_model"
-    AzureMLDatastore = "azureml_datastore"
 
 
 LOCAL_RESOURCE_TYPES = (ResourceType.LocalFile, ResourceType.LocalFolder)
-AZUREML_RESOURCE_TYPES = (
-    ResourceType.AzureMLModel,
-    ResourceType.AzureMLDatastore,
-)
 
 
 class ResourcePath(AutoConfigClass):
@@ -70,11 +62,7 @@ class ResourcePath(AutoConfigClass):
 
     def is_azureml_resource(self) -> bool:
         """Return True if the resource is an AzureML resource."""
-        return self.type in AZUREML_RESOURCE_TYPES or self.type == ResourceType.AzureMLRegistryModel
-
-    def is_azureml_models(self) -> bool:
-        """Return True if the resource is an AzureML model."""
-        return self.type in (ResourceType.AzureMLModel, ResourceType.AzureMLRegistryModel)
+        return self.type == ResourceType.AzureMLRegistryModel
 
     def is_string_name(self) -> bool:
         """Return True if the resource is a string name."""
@@ -147,9 +135,6 @@ def create_resource_path(
     elif Path(resource_path).is_dir():
         resource_type = ResourceType.LocalFolder
         config_key = "path"
-    elif str(resource_path).startswith("azureml://"):
-        resource_type = ResourceType.AzureMLDatastore
-        config_key = "datastore_url"
     else:
         resource_type = ResourceType.StringName
         config_key = "name"
@@ -321,29 +306,50 @@ class StringName(ResourcePath):
         return self.config.name
 
 
-def _get_azureml_resource_prefix(workspace_config: dict[str, str]) -> str:
-    return (
-        f"azureml://subscriptions/{workspace_config['subscription_id']}"
-        f"/resourcegroups/{workspace_config['resource_group']}"
-        f"/workspaces/{workspace_config['workspace_name']}"
-    )
+class AzureMLRegistryModel(ResourcePath):
+    """AzureML Model resource path."""
 
+    name = ResourceType.AzureMLRegistryModel
 
-class AzureMLResource(ResourcePath):
-    """Base class for AzureML resource paths."""
+    @classmethod
+    def _default_config(cls) -> dict[str, Any]:
+        return {
+            "registry_name": ConfigParam(
+                type_=str,
+                required=True,
+                description=(
+                    "Name of the registry. Basically, the value is parent directory name of given model in azureml"
+                ),
+            ),
+            "name": ConfigParam(type_=str, required=True, description="Name of the model."),
+            "version": ConfigParam(type_=Union[int, str], required=True, description="Version of the model."),
+            "max_operation_retries": ConfigParam(
+                type_=int,
+                default_value=3,
+                description="Max number of retries for AzureML operations like resource creation or download.",
+            ),
+            "operation_retry_interval": ConfigParam(
+                type_=int,
+                default_value=5,
+                description=(
+                    "Initial interval in seconds between retries for AzureML operations like resource creation or"
+                    " download. The interval doubles after each retry."
+                ),
+            ),
+        }
 
-    @abstractmethod
     def get_path(self) -> str:
-        raise NotImplementedError
+        return (
+            f"azureml://registries/{self.config.registry_name}/models/{self.config.name}/versions/{self.config.version}"
+        )
 
-    def _save_to_dir(
-        self,
-        dir_path: Union[Path, str],
-        ml_client,
-        azureml_client_config: AzureMLClientConfig,
-        overwrite: bool,
-        name: str = None,
-    ) -> str:
+    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
+        from azure.ai.ml import MLClient
+
+        self.set_azure_logging_if_noset()
+
+        ml_client = MLClient(credential=get_credentials(), registry_name=self.config.registry_name)
+
         # directory to save the resource to
         dir_path = Path(dir_path).resolve()
         dir_path.mkdir(parents=True, exist_ok=True)
@@ -370,202 +376,21 @@ class AzureMLResource(ResourcePath):
                 ml_client.models.download,
                 [self.config.name],
                 {"version": self.config.version, "download_path": temp_dir},
-                max_tries=azureml_client_config.max_operation_retries,
-                delay=azureml_client_config.operation_retry_interval,
+                max_tries=self.config.max_operation_retries,
+                delay=self.config.operation_retry_interval,
                 exceptions=ServiceResponseError,
             )
             new_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(temp_dir / self.config.name / model_path.name, new_path)
         return str(new_path)
 
-
-class AzureMLModel(AzureMLResource):
-    """AzureML Model resource path."""
-
-    name = ResourceType.AzureMLModel
-
-    @classmethod
-    def _default_config(cls) -> dict[str, Any]:
-        return {
-            "azureml_client": ConfigParam(
-                type_=AzureMLClientConfig, required=True, description="AzureML client config."
-            ),
-            "name": ConfigParam(type_=str, required=True, description="Name of the model."),
-            "version": ConfigParam(type_=Union[int, str], required=True, description="Version of the model."),
-        }
-
-    def get_path(self) -> str:
-        return f"azureml:{self.config.name}:{self.config.version}"
-
-    def get_aml_client_config(self) -> AzureMLClientConfig:
-        return self.config.azureml_client
-
-    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
-        ml_client = self.config.azureml_client.create_client()
-        return self._save_to_dir(dir_path, ml_client, self.config.azureml_client, overwrite, name)
-
-
-class AzureMLRegistryModel(AzureMLResource):
-    """AzureML Model resource path."""
-
-    name = ResourceType.AzureMLRegistryModel
-
-    @classmethod
-    def _default_config(cls) -> dict[str, Any]:
-        return {
-            "azureml_client": ConfigParam(
-                type_=AzureMLClientConfig, required=False, description="AzureML client config."
-            ),
-            "registry_name": ConfigParam(
-                type_=str,
-                required=True,
-                description=(
-                    "Name of the registry. Basically, the value is parent directory name of given model in azureml"
-                ),
-            ),
-            "name": ConfigParam(type_=str, required=True, description="Name of the model."),
-            "version": ConfigParam(type_=Union[int, str], required=True, description="Version of the model."),
-        }
-
-    def get_path(self) -> str:
-        return (
-            f"azureml://registries/{self.config.registry_name}/models/{self.config.name}/versions/{self.config.version}"
-        )
-
-    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
-        # azureml client
-        azureml_client_config = self.config.azureml_client or AzureMLClientConfig()
-
-        ml_client = azureml_client_config.create_registry_client(self.config.registry_name)
-        return self._save_to_dir(dir_path, ml_client, azureml_client_config, overwrite, name)
-
-
-def _datastore_url_validator(v, values, **kwargs):
-    aml_info_ready = all([values.get("azureml_client"), values.get("datastore_name"), values.get("relative_path")])
-    if not v and not aml_info_ready:
-        raise ValueError(
-            "If datastore_url is not specified, then azureml_client, datastore_name, and relative_path "
-            "must be specified."
-        )
-    elif v and aml_info_ready:
-        logger.warning("datastore_url is specified. azureml_client, datastore_name, and relative_path are ignored.")
-
-    if v and not v.startswith("azureml:"):
-        raise ValueError(f"Datastore URL {v} is not a valid AzureML datastore URL.")
-    return v
-
-
-class AzureMLDatastore(ResourcePath):
-    """AzureML DataStore resource path."""
-
-    name = ResourceType.AzureMLDatastore
-
-    @classmethod
-    def _validators(cls) -> dict[str, Callable[..., Any]]:
-        validators = super()._validators()
-        validators.update(
-            {
-                "validate_datastore_url": validator("datastore_url", allow_reuse=True)(_datastore_url_validator),
-            }
-        )
-        return validators
-
-    @classmethod
-    def _default_config(cls) -> dict[str, Any]:
-        return {
-            "azureml_client": ConfigParam(type_=AzureMLClientConfig, description="AzureML client config."),
-            "datastore_name": ConfigParam(type_=str, description="Name of the datastore."),
-            "relative_path": ConfigParam(type_=str, description="Relative path to the resource."),
-            "datastore_url": ConfigParam(type_=str, description="URL of the datastore."),
-        }
-
-    def get_path(self) -> str:
-        if self.config.datastore_url:
-            return self.config.datastore_url
-
-        workspace_config = self.config.azureml_client.get_workspace_config()
-        return (
-            f"{_get_azureml_resource_prefix(workspace_config)}"
-            f"/datastores/{self.config.datastore_name}/paths/{self.config.relative_path}"
-        )
-
-    def is_file(self, fsspec=None) -> bool:
-        try:
-            from azureml.fsspec import AzureMachineLearningFileSystem
-        except ImportError:
-            raise ImportError(
-                "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
-            ) from None
-        if fsspec is None:
-            # provide mlclient so that it is used for authentication
-            fsspec = AzureMachineLearningFileSystem(
-                self.get_path(), ml_client=self.get_aml_client_config().create_client()
-            )
-        return fsspec.info(self.get_relative_path()).get("type") == "file"
-
-    def get_relative_path(self) -> str:
-        if self.config.datastore_url:
-            return re.split("/datastores/.*/paths/", self.config.datastore_url)[-1]
-        return self.config.relative_path
-
-    def get_aml_client_config(self) -> AzureMLClientConfig:
-        if self.config.datastore_url:
-            # datastore_url is always created by validator
-            # so we should start with azureml_client if it is already there
-            client_config = self.config.azureml_client.dict() if self.config.azureml_client else {}
-            client_config["subscription_id"] = re.split("/subscriptions/", self.config.datastore_url)[-1].split("/")[0]
-            client_config["resource_group"] = re.split("/resourcegroups/", self.config.datastore_url)[-1].split("/")[0]
-            client_config["workspace_name"] = re.split("/workspaces/", self.config.datastore_url)[-1].split("/")[0]
-            return AzureMLClientConfig.parse_obj(client_config)
-        return self.config.azureml_client
-
-    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
-        # there is no direct way to download a file from a datastore
-        # so we will use a workaround to download the file by creating a aml model
-        # that references the file and downloading the model
-        try:
-            from azureml.fsspec import AzureMachineLearningFileSystem
-        except ImportError:
-            raise ImportError(
-                "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
-            ) from None
-
-        azureml_client_config = self.get_aml_client_config()
-
-        # azureml file system
-        # provide mlclient so that it is used for authentication
-        fs = AzureMachineLearningFileSystem(self.get_path(), ml_client=azureml_client_config.create_client())
-        relative_path = Path(self.get_relative_path())
-        is_file = self.is_file(fs)
-        # path to save the resource to
-        if name:
-            new_path_name = Path(name).with_suffix("" if not is_file else relative_path.suffix).name
-        else:
-            new_path_name = relative_path.name
-
-        dir_path = Path(dir_path).resolve()
-        new_path = dir_path / new_path_name
-        _overwrite_helper(new_path, overwrite)
-
-        dir_path.mkdir(parents=True, exist_ok=True)
-
-        # download artifacts to a temporary directory
-        logger.debug("Downloading aml resource for datastore %s path %s.", self.config.datastore_name, relative_path)
-
-        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
-            retry_func(
-                fs.download,
-                kwargs={
-                    "rpath": self.get_relative_path(),
-                    "lpath": temp_dir,
-                    "recursive": not is_file,
-                },
-                max_tries=azureml_client_config.max_operation_retries,
-                delay=azureml_client_config.operation_retry_interval,
-            )
-            downloaded_resource = Path(temp_dir) / relative_path.name
-            # only if the resource is a existed file we will move it to the new path
-            source_path = downloaded_resource if is_file else temp_dir
-            shutil.move(source_path, new_path)
-
-        return str(Path(new_path).resolve())
+    def set_azure_logging_if_noset(self):
+        # set logger level to error to avoid too many logs from azure sdk
+        azure_ml_logger = logging.getLogger("azure.ai.ml")
+        # only set the level if it is not set, to avoid changing the level set by the user
+        if not azure_ml_logger.level:
+            azure_ml_logger.setLevel(logging.ERROR)
+        azure_identity_logger = logging.getLogger("azure.identity")
+        # only set the level if it is not set, to avoid changing the level set by the user
+        if not azure_identity_logger.level:
+            azure_identity_logger.setLevel(logging.ERROR)

@@ -17,7 +17,6 @@ to apply from user in the form of a json dictionary. In this document, we docume
 The options are organized into following sections:
 
 - [Workflow id](#workflow-id) `workflow_id`
-- [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
 - [Systems Information](#systems-information) `systems`
 - [Evaluators Information](#evaluators-information) `evaluators`
@@ -28,70 +27,6 @@ The options are organized into following sections:
 
 You can name the workflow run by specifying `workflow_id` section in your config file. Olive will save the cache under `<cache_dir>/<workflow_id>` folder, and automatically save the current running config in the cache folder.
 
-## Workflow Host
-
-Workflow host is where the Olive workflow will be run. The default value is `None`. If `None` set for workflow host, Olive will run workflow locally. It supports `AzureML` system for now.
-
-## Azure ML Client
-
-If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:
-
-- You have AzureML system for targets or hosts.
-- You have Azure ML model as input model.
-
-AzureML authentication credentials is needed. Refer to
-[this](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk)  for
-more details.
-
-`azureml_client: [Dict]`
-
-- `subscription_id: [str]` Azure account subscription id.
-- `resource_group: [str]` Azure account resource group name.
-- `workspace_name: [str]` Azure ML workspace name.
-- `aml_config_path: [str]` The path to Azure config file, if Azure ML client config is in a separate file.
-- `read_timeout: [int]` read timeout in seconds for HTTP requests, user can increase if they find the default value too small. The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to sometimes hang for a long time between retries of job stream and download steps.
-- `max_operation_retries: [int]` The maximum number of retries for Azure ML operations like resource creation and download.
-The default value is 3. User can increase if there are network issues and the operations fail.
-- `operation_retry_interval: [int]` The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.
-- `keyvault_name: [str]` The keyvault name to retrieve secrets.
-
-### Example
-
-#### `azureml_client` with `aml_config_path`:
-
-##### `aml_config.json`:
-
-```json
-{
-    "subscription_id": "<subscription_id>",
-    "resource_group": "<resource_group>",
-    "workspace_name": "<workspace_name>",
-}
-```
-
-##### `azureml_client`:
-
-```json
-"azureml_client": {
-    "aml_config_path": "aml_config.json",
-    "read_timeout" : 4000,
-    "max_operation_retries" : 4,
-    "operation_retry_interval" : 5
-},
-```
-
-#### `azureml_client` with azureml config fields:
-
-```json
-"azureml_client": {
-    "subscription_id": "<subscription_id>",
-    "resource_group": "<resource_group>",
-    "workspace_name": "<workspace_name>",
-    "read_timeout" : 4000,
-    "max_operation_retries" : 4,
-    "operation_retry_interval" : 5
-},
-```
 
 <!-- TODO(anyone): Docs for all model handlers-->
 ## Input Model Information
@@ -184,11 +119,11 @@ This is a dictionary that contains the information of systems that are reference
 dictionary is the name of the system. The value of the dictionary is another dictionary that contains the information of the system. The
 information of the system contains following items:
 
-- `type: [str]` The type of the system. The supported types are `LocalSystem`, `PythonEnvironment`, `IsolatedORT` and `Docker`.
+- `type: [str]` The type of the system. The supported types are `LocalSystem`, `PythonEnvironment`, and `Docker`.
 
 - `config: [Dict]` The system config dictionary that contains the system specific information. The fields can be provided directly under the parent dictionary.
  - `accelerators: [List[str]]` The accelerators that will be used for this workflow.
- - `hf_token: [bool]` Whether to use a Huggingface token to access Huggingface resources. If it is set to `True`, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the `HF_TOKEN` environment variable or from the token file located at `~/.huggingface/token`. For AzureML system, Olive will retrieve the token from user keyvault secret. If set to `False`, no token will be utilized during this workflow run. The default value is `False`.
+ - `hf_token: [bool]` Whether to use a Huggingface token to access Huggingface resources. If it is set to `True`, For local system, Docker system, and PythonEnvironment system, Olive will retrieve the token from the `HF_TOKEN` environment variable or from the token file located at `~/.huggingface/token`. If set to `False`, no token will be utilized during this workflow run. The default value is `False`.
 
 Please refer to [How To Configure System](../how-to/configure-workflows/systems.md) for the more information of the system config dictionary.
 
@@ -196,15 +131,7 @@ Please refer to [How To Configure System](../how-to/configure-workflows/systems.
 
 ```json
 "systems": {
-    "local_system": {"type": "LocalSystem"},
-    "aml_system": {
-        "type": "AzureML",
-        "aml_compute": "cpu-cluster",
-        "aml_docker_config": {
-            "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-            "conda_file_path": "conda.yaml"
-        }
-    }
+    "local_system": {"type": "LocalSystem"}
 }
 ```
 
@@ -271,18 +198,8 @@ information of the evaluator contains following items:
         - `metric_func_kwargs: Dict[str, Any]` Keyword arguments for `metric_func` provided by the user. The functions must be able to take the keyword arguments either through the function signature
         as keyword/positional parameters after the required positional parameters or through `**kwargs`.
 
-    Note that for above `data_dir` config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.
+    Note that for above `data_dir` config which is related to resource path, Olive supports local file and local folder.
 
-    ```json
-    "data_dir": {
-        "type": "azureml_datastore",
-        "azureml_client": "azureml_client",
-        "datastore_name": "test",
-        "relative_path": "cifar-10-batches-py"
-    }
-    // provide azureml datastore url
-    "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py"
-    ```
 
 ### Example
 

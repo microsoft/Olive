@@ -1,7 +1,7 @@
 # How to Define `host` or `target` Systems
 A system is a environment concept (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model is evaluated on.
 
-There are four systems in Olive: **local system**, **Python environment system**, **Docker system**, **Isolated ORT system**. Each system is categorized in one of two types of systems: **host** and **target**. A **host** is the environment where the Pass is run, and a **target** is the environment where the Model is evaluated. Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.
+There are three systems in Olive: **local system**, **Python environment system**, **Docker system**. Each system is categorized in one of two types of systems: **host** and **target**. A **host** is the environment where the Pass is run, and a **target** is the environment where the Model is evaluated. Most of time, the **host** and **target** are the same, but they can be different in some cases. For example, you can run a Pass on a local machine with a CPU and evaluate a Model on a remote machine with a GPU.
 
 ## Accelerator Configuration
 
@@ -36,7 +36,6 @@ The local system represents the local machine where the Pass is run or the Model
 ```
 
 ```{Note}
-* Local system doesn't support `olive_managed_env`.
 * The accelerators attribute for local system is optional. If not provided, Olive will get the available execution providers installed in the current local machine and infer its `device`.
 * For each accelerator, either `device` or ``execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the `device` or `execution_providers` if possible.
 
@@ -57,11 +56,6 @@ The python environment system represents the python virtual environment. The pyt
 - `python_environment_path`: The path to the python virtual environment, which is required for native python system.
 - `environment_variables`: The environment variables that are required to run the python environment system. This is optional.
 - `prepend_to_path`: The path that will be prepended to the PATH environment variable. This is optional.
-- `olive_managed_env`: A boolean flag to indicate if the environment is managed by Olive. This is optional and defaults to False.
-- `requirements_file`: The path to the requirements file, which is only required and used when `olive_managed_env = True`.
-
-### Native Python Environment System
-
 
 Here are the examples of configuring the general Python Environment System.
 
@@ -89,37 +83,9 @@ Here are the examples of configuring the general Python Environment System.
 ```
 
 ```{Note}
-- The python environment must have `olive-ai` installed if `olive_managed_env = False`.
+- The python environment must have `olive-ai` installed.
 - The accelerators for python system is optional. If not provided, Olive will get the available execution providers installed in current python virtual environment and infer its `device`.
 - For each accelerator, either `device` or `execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the `device` or `execution_providers` if possible.
-```
-
-### Managed Python Environment System
-
-When `olive_managed_env = True`, Olive will manage the python environment by installing the required packages from the `requirements_file`. As the result, the `requirements_file` is required and must be provided.
-
-For managed python environment system, Olive can only infer the onnxruntime from the following onnxruntime execution providers:
-
-- CPUExecutionProvider: (*onnxruntime*)
-- CUDAExecutionProvider: (*onnxruntime-gpu*)
-- TensorrtExecutionProvider: (*onnxruntime-gpu*)
-- OpenVINOExecutionProvider: (*onnxruntime-openvino*)
-- DmlExecutionProvider: (*onnxruntime-directml*)
-
-```json
-{
-    "type": "PythonEnvironment",
-    "accelerators": [
-        {
-            "device": "cpu",
-            "execution_providers": [
-                "CPUExecutionProvider",
-                "OpenVINOExecutionProvider"
-            ]
-        }
-    ],
-    "olive_managed_env": true,
-}
 ```
 
 ## Docker System
@@ -166,27 +132,4 @@ The docker system is configured with the following attributes:
         }
     ]
 }
-```
-
-## Isolated ORT System
-
-The isolated ORT system represents the isolated ONNX Runtime environment in which the `olive-ai` is not installed. It can only be configured as a target system. The isolated ORT system is configured with the following attributes:
-
-* `accelerators`: The list of accelerators that are supported by the system.
-* `python_environment_path`: The path to the python virtual environment.
-* `environment_variables`: The environment variables that are required to run the python environment. This is optional.
-* `prepend_to_path`: The path that will be prepended to the PATH environment variable. This is optional.
-
-```json
-{
-    "type": "IsolatedORT",
-    "python_environment_path": "/home/user/.virtualenvs/myenv/bin",
-    "accelerators": [{"device": "cpu"}]
-}
-```
-
-```{Note}
-* Isolated ORT System does not support `olive_managed_env` and can only be used to evaluate ONNX models.
-* The accelerators for Isolated ORT system is optional. If not provided, Olive will get the available execution providers installed in current virtual environment and infer its device.
-* For each accelerator, either `device` or `execution_providers` is optional but not both if the accelerators are specified. If `device` or `execution_providers` is not provided, Olive will infer the ``device`` or `execution_providers` if possible.
 ```

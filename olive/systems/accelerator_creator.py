@@ -26,42 +26,26 @@ class AcceleratorNormalizer:
         self.system_supported_eps = None
 
     def normalize(self) -> "SystemConfig":
-        if self.system_config.olive_managed_env:
-            if not self.system_config.config.accelerators:
-                raise ValueError("Managed environment requires accelerators to be specified.")
-
-            for accelerator in self.system_config.config.accelerators:
-                if not accelerator.execution_providers:
-                    raise ValueError(
-                        f"Managed environment requires execution providers to be specified for {accelerator.device}"
-                    )
-        elif not self.system_config.config.accelerators:
+        if not self.system_config.config.accelerators:
             # default to cpu, available on all ort packages, most general
             logger.info("No accelerators specified. Defaulting to cpu.")
             self.system_config.config.accelerators = [
                 {"device": "cpu", **({"execution_providers": ["CPUExecutionProvider"]} if self.is_ep_required else {})}
             ]
         else:
-            if self.system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.IsolatedORT):
-                if self.is_ep_required:
-                    target = self.system_config.create_system()
-                    self.system_supported_eps = target.get_supported_execution_providers()
-                    # Remove the AzureMLExecutionProvider
-                    if "AzureExecutionProvider" in self.system_supported_eps:
-                        self.system_supported_eps.remove("AzureExecutionProvider")
+            # docker should never reach here since it only supports workflow run
+            if self.is_ep_required:
+                target = self.system_config.create_system()
+                self.system_supported_eps = target.get_supported_execution_providers()
+                # Remove the AzureMLExecutionProvider
+                if "AzureExecutionProvider" in self.system_supported_eps:
+                    self.system_supported_eps.remove("AzureExecutionProvider")
 
-                    assert self.system_supported_eps, "No supported execution providers found for the target system."
+                assert self.system_supported_eps, "No supported execution providers found for the target system."
 
-                    self._fill_accelerators()
-                else:
-                    self._fill_device()
+                self._fill_accelerators()
             else:
-                # for AzureML
-                for accelerator in self.system_config.config.accelerators:
-                    if not accelerator.device or (not accelerator.execution_providers and self.is_ep_required):
-                        raise ValueError(
-                            "AzureML system requires device and execution providers to be specified explicitly."
-                        )
+                self._fill_device()
 
             if self.is_ep_required:
                 self._check_execution_providers()
@@ -134,18 +118,16 @@ class AcceleratorNormalizer:
             device = Device(accelerator.device.lower())
             eps_per_device = AcceleratorLookup.get_managed_supported_execution_providers(device)
 
-            if self.system_config.olive_managed_env:
-                available_eps = eps_per_device
-            elif (
-                self.system_config.type in (SystemType.Local, SystemType.PythonEnvironment, SystemType.IsolatedORT)
+            if (
+                self.system_config.type in (SystemType.Local, SystemType.PythonEnvironment)
                 and not self.skip_supported_eps_check
             ):
                 # skip_supported_eps_check is False here
                 # target is used so we need to check that the system supported eps are compatible with the accelerators
                 available_eps = self.system_supported_eps
             else:
-                # AzureML and Docker system: These are required to be specified by the user.
-                # Local, PythonEnvironment, IsolatedORT: skip_supported_eps_check is True
+                # Docker system: These are required to be specified by the user.
+                # Local, PythonEnvironment: skip_supported_eps_check is True
                 # the target is not used so no need to check the compatibility between the system supported eps and
                 # the accelerators (available_eps == accelerator.get_ep_strs(), the check will always pass)
                 # Example scenario: to run optimization workflow for qnn-ep on x86 machine, the pass (onnxquantization)

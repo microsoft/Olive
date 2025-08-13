@@ -6,21 +6,6 @@ Features
 
    .. grid-item-card::
 
-      **Auto Optimizer**
-
-      Auto Optimizer feature allows user to automatically create the best model for a given scenario.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Auto Optimizer <auto-opt.html>`_
-
-   .. grid-item-card::
-      **Azure AI Integration**
-
-      Learn how to use integrations with Azure AI, such as model catalog, remote compute, and data/job artifacts.
-
-      :octicon:`arrow-right;1em;sd-text-info` `Integrate with Azure AI <azure-ai/index.html>`_
-
-   .. grid-item-card::
-
       **Hugging Face Integration**
 
       Learn how to use integrations with Hugging Face, such as models, data, and metrics.
@@ -83,12 +68,18 @@ Features
 
       :octicon:`arrow-right;1em;sd-text-info` `Quantization <quantization.html>`_
 
+   .. grid-item-card::
+      **Share models cache on Azure**
+
+      Olive provides ability to share models cache on Azure.
+
+      :octicon:`arrow-right;1em;sd-text-info` `Shared cache <shared-model-cache.html>`_
+
+
 .. toctree::
    :maxdepth: 2
    :hidden:
 
-   auto-opt
-   azure-ai/index
    huggingface-integration
    ihv-integration/index
    model-compression
@@ -97,4 +88,5 @@ Features
    onnx-transformations
    peft-adapters
    quantization
+   shared-model-cache
 

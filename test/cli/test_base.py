@@ -79,22 +79,6 @@ from olive.cli.base import get_input_model_config
                 },
             },
         ),
-        # AML model test
-        (
-            "azureml:my_model:1",  # model_name_or_path
-            False,  # trust_remote_code
-            None,  # task
-            "model.py",  # model_script
-            "scripts",  # script_dir
-            {"_model_loader": False, "_io_config": True, "_dummy_inputs": False},  # has_function results
-            {  # expected config
-                "type": "PyTorchModel",
-                "model_script": "model.py",
-                "script_dir": "scripts",
-                "io_config": "_io_config",
-                "model_path": {"type": "azureml_model", "name": "my_model", "version": "1"},
-            },
-        ),
         # HF str name test
         (
             "hf_model",  # model_name_or_path
