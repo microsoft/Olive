@@ -14,7 +14,7 @@ Always reference these instructions first and fallback to search or bash command
 
 ### Build and Test Commands
 - Lint code: `lintrunner` -- takes 1-2 seconds for single files, 5+ seconds for entire codebase. NEVER CANCEL.
-- Lint with auto-fix: `lintrunner -a`
+- Lint with auto-fix: `lintrunner --all-files -a`
 - Import test: `python -c "import olive; print('Olive version:', olive.__version__)"`
 
 ### Command Line Interface
@@ -83,7 +83,7 @@ Always reference these instructions first and fallback to search or bash command
 
 ### Python Package Information
 - Package name: `olive-ai`
-- Python version: 3.9+ (currently testing on 3.12)
+- Python version: 3.10+ (currently testing on 3.12)
 - Entry point: `olive` command (defined in setup.py console_scripts)
 - Version location: `olive/__init__.py` (__version__)
 
