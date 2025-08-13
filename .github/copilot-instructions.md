@@ -64,6 +64,15 @@ Always reference these instructions first and fallback to search or bash command
 - `examples/` -- Example scripts and notebooks (35+ model optimization examples)
 - `docs/` -- Documentation
 - `.github/workflows/` -- CI/CD pipelines (lint.yml, codeql.yml)
+- `olive/passes/onnx` -- Directory of ONNX transformations passes
+- `olive/passes/pytorch` -- Directory of Pytorch passes
+- `olive/data` -- Data configurations and data containers
+- `olive/evaluator` -- Evaluator to measure quality and performance
+- `olive/model` -- Model handlers
+- `olive/search` -- Search algorithms
+- `olive/systems` -- Host and target systems
+- `olive/engine` -- Core engine responsible for executing the workflow
+- `olive/cli` -- Command line tools to prepare and drive the workflow
 
 ### Key Configuration Files
 - `pyproject.toml` -- Modern Python packaging configuration with ruff, pylint, pytest settings
