@@ -152,12 +152,6 @@ VitisAIQuantization
 -------------------
 .. autoconfigclass:: olive.passes.VitisAIQuantization
 
-.. _append_pre_post_processing:
-
-AppendPrePostProcessingOps
---------------------------
-.. autoconfigclass:: olive.passes.AppendPrePostProcessingOps
-
 .. _extract_adapters:
 
 ExtractAdapters
