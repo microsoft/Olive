@@ -72,12 +72,20 @@ def default_calibration_dataloader(
             self.io_config = io_config
             self.kwargs = kwargs
             self.data_iter = iter(self.dataloader)
+            self.curr_index = 0
+            self.end_index = 0
+
+        def __len__(self):
+            return len(self.dataloader)
 
         def get_next(self):
+            if self.end_index > 0 and self.curr_index >= self.end_index:
+                return None
             if self.data_iter is None:
                 self.data_iter = iter(self.dataloader)
             try:
                 batch = next(self.data_iter)
+                self.curr_index += 1
             except StopIteration:
                 return None
             if isinstance(batch, (list, tuple)):
@@ -91,6 +99,10 @@ def default_calibration_dataloader(
             else:
                 batch = {k: v.detach().cpu().numpy() for k, v in batch.items()}
             return batch
+
+        def set_range(self, start_index, end_index):
+            self.start_index = start_index
+            self.end_index = end_index
 
         def rewind(self):
             self.data_iter = None
