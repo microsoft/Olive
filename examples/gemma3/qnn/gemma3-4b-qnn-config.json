@@ -1,9 +1,9 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "google/gemma-3-4b-it" },
+    "input_model": { "type": "HfModel", "model_path": "google/gemma-3-4b-it" , "model_attributes": {"head_dim": 256}},
     "systems": {
         "qnn_system": {
             "type": "PythonEnvironment",
-            "python_environment_path": "/path/to/qnn/env/bin",
+            "python_environment_path": "/local/mnt2/workspace/kromero/olive/olive-venv/bin",
             "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ]
         }
     },

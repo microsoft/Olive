@@ -5,6 +5,9 @@ uv pip install setuptools
 # Requires installation of uv
 uv pip install -r ../requirements.txt
 
+# Require installation of Olive dependencies
+uv pip install -r ../../../requirements.txt
+
 # Disable CUDA extension build
 export BUILD_CUDA_EXT=0
 
