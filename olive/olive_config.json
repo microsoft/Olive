@@ -18,14 +18,6 @@
             "extra_dependencies": [ "aimet-onnx" ],
             "dataset": "dataset_required"
         },
-        "AppendPrePostProcessingOps": {
-            "module_path": "olive.passes.onnx.append_pre_post_processing_ops.AppendPrePostProcessingOps",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
         "AutoAWQQuantizer": {
             "module_path": "olive.passes.pytorch.autoawq.AutoAWQQuantizer",
             "supported_providers": [ "*" ],
