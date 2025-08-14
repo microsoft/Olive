@@ -310,7 +310,6 @@ Please also find the detailed options from following table for each pass:
 | [IncStaticQuantization](pass.rst#incstaticquantization) |  Intel® Neural Compressor Static Quantization Pass. |
 | [IncQuantization](pass.rst#incquantization) | Quantize ONNX model with Intel® Neural Compressor where we can search for best parameters for static/dynamic quantization at same time. |
 | [VitisAIQuantization](pass.rst#vitisaiquantization) | AMD-Xilinx Vitis-AI Quantization Pass. |
-| [AppendPrePostProcessingOps](pass.rst#appendprepostprocessing) | Add Pre/Post nodes to the input model. |
 | [ExtractAdapters](pass.rst#extractadapters) | Extract adapters from ONNX model |
 | [CaptureSplitInfo](pass.rst#capturesplitinfo) | Capture the split information of the model layers. Only splits the transformer layers. |
 | [SelectiveMixedPrecision](pass.rst#selectivemixedprecision) | Annotate the model with mixed precision information. |
@@ -321,7 +320,6 @@ Please also find the detailed options from following table for each pass:
 | [QLoRA](pass.rst#qlora) | Run QLoRA fine-tuning on a Hugging Face PyTorch model. |
 | [DoRA](pass.rst#dora) | Run DoRA fine-tuning on a Hugging Face PyTorch model. |
 | [LoftQ](pass.rst#loftq) | Run LoftQ fine-tuning on a Hugging Face PyTorch model. |
-| [QuantizationAwareTraining](pass.rst#onnxquantizationawaretraining) | Run quantization aware training on PyTorch model. |
 | [OpenVINOConversion](pass.rst#openvinoconversion) | Converts PyTorch, ONNX or TensorFlow Model to OpenVINO Model. |
 | [OpenVINOIoUpdate](pass.rst#openvinoioupdate) | Converts dynamic OpenVINO Model to static OpenVINO Model and updates IO names. |
 | [OpenVINOQuantization](pass.rst#openvinoquantization) | Post-training quantization for OpenVINO models and ONNX models |

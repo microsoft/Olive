@@ -26,12 +26,6 @@ jobs:
       resnet_vitis_ai_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_vitis_ai_ptq_cpu
-      resnet_qat:
-        exampleFolder: resnet
-        exampleName: resnet_qat
-      super_resolution:
-        exampleFolder: super_resolution
-        exampleName: super_resolution
       mobilenet_onnx:
         exampleFolder: mobilenet/onnx
         exampleName: mobilenet
@@ -48,12 +42,6 @@ jobs:
       resnet_vitis_ai_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_vitis_ai_ptq_cpu
-      resnet_qat:
-        exampleFolder: resnet
-        exampleName: resnet_qat
-      super_resolution:
-        exampleFolder: super_resolution
-        exampleName: super_resolution
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-linux-gpu-template.yaml
