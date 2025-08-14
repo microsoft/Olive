@@ -264,12 +264,6 @@ LoRA/QLoRA/LoftQ HFTrainingArguments
 
 .. autopydantic_settings:: olive.passes.pytorch.lora.HFTrainingArguments
 
-.. _quantization_aware_training:
-
-QuantizationAwareTraining
--------------------------
-.. autoconfigclass:: olive.passes.QuantizationAwareTraining
-
 .. _merge_adapter_weights:
 
 MergeAdapterWeights
