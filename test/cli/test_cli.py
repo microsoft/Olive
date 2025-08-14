@@ -328,7 +328,7 @@ def test_shared_cache_delete_all_with_confirmation(mock_AzureContainerClientFact
     mock_factory_instance.delete_all.assert_called_once()
 
 
-@pytest.mark.parametrize("algorithm_name", ["awq", "gptq"])
+@pytest.mark.parametrize("algorithm_name", ["awq", "gptq", "aimet"])
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists")
 def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
@@ -338,25 +338,49 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
     # setup
     command_args = [
         "quantize",
-        "-m",
-        "dummy_model",
-        "--algorithm",
-        algorithm_name,
         "-o",
         str(output_dir),
     ]
 
     if algorithm_name == "gptq":
+        command_args += ["-m", "dummy_model"]
+        command_args += ["--algorithm", "gptq"]
         command_args += ["-d", "dummy_dataset"]
         command_args += ["--implementation", "autogptq"]
-    if algorithm_name == "awq":
+    elif algorithm_name == "awq":
+        command_args += ["-m", "dummy_model"]
+        command_args += ["--algorithm", "awq"]
         command_args += ["--implementation", "awq"]
+    elif algorithm_name == "aimet":
+        # AIMET requires ONNX model, not HF model
+        import torch
+        import torch.nn as nn
+
+        # Create a simple ONNX model for testing
+        class SimpleModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(10, 5)
+            def forward(self, x):
+                return self.linear(x)
+
+        model = SimpleModel()
+        dummy_input = torch.randn(1, 10)
+        onnx_path = tmp_path / "test_model.onnx"
+        torch.onnx.export(model, dummy_input, str(onnx_path),
+                         input_names=["input"], output_names=["output"])
+
+        command_args += ["-m", str(onnx_path)]
+        command_args += ["--algorithm", "rtn"]  # Use rtn for AIMET
+        command_args += ["-d", "dummy_dataset"]  # AIMET requires dataset
+        command_args += ["--implementation", "aimet"]
+        command_args += ["--use_qdq_encoding"]  # AIMET outputs QDQ
 
     # execute
     cli_main(command_args)
 
     config = mock_run.call_args[0][0]
-    assert config["input_model"]["model_path"] == "dummy_model"
+    assert config["input_model"]["model_path"] in [c[1] for c in command_args if c in ["-m", "--model_name_or_path"]]
     assert mock_run.call_count == 1
 
 
