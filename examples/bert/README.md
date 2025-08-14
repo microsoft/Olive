@@ -4,7 +4,6 @@ This folder contains examples of BERT optimization using different workflows.
 - QDQ: [Int8 Quantization with QDQ format](#bert-quantization-qdq)
 - CPU: [Optimization with PTQ for model](#bert-optimization-with-ptq-on-cpu)
 - CPU: [Optimization with Intel® Neural Compressor PTQ](#bert-optimization-with-intel®-neural-compressor-ptq-on-cpu)
-- CPU: [Optimization with QAT Customized Training Loop](#bert-optimization-with-qat-customized-training-loop-on-cpu)
 - GPU: [Optimization with CUDA/TensorRT/TensorRT-RTX](#bert-optimization-with-cudatensorrt-on-gpu)
 - Qualcomm NPU: [Optimization with PTQ on Qualcomm NPU using QNN EP](./qnn/)
 - Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model](./openvino/)
@@ -112,12 +111,6 @@ User can use SmoothQuant by setting `smooth_quant` in `recipes` as shown below. 
     }
 }
 ```
-
-### BERT optimization with QAT Customized Training Loop on CPU
-This workflow performs BERT optimization on CPU with QAT Customized Training Loop. It performs the optimization pipeline:
-- *PyTorch Model -> PyTorch Model after QAT -> Onnx Model -> Transformers Optimized Onnx Model -> ONNX Runtime performance tuning*
-
-Config file: [bert_qat_customized_train_loop_cpu.json](bert_qat_customized_train_loop_cpu.json)
 
 ### BERT optimization with CUDA/TensorRT on GPU
 This workflow performs BERT optimization on GPU with CUDA/TensorRT. It performs the optimization pipeline:

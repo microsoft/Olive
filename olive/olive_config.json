@@ -522,15 +522,6 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
-        "QuantizationAwareTraining": {
-            "module_path": "olive.passes.pytorch.quantization_aware_training.QuantizationAwareTraining",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "module_dependencies": [ "pytorch-lightning" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
         "QuarkQuantization": {
             "module_path": "olive.passes.quark_quantizer.quark_quantization.QuarkQuantization",
             "supported_providers": [ "CPUExecutionProvider", "ROCMExecutionProvider", "CUDAExecutionProvider" ],
