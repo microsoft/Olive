@@ -36,6 +36,7 @@ class ImplName(StrEnumBase):
     QUAROT = "quarot"
     AWQ = "awq"
     AUTOGPTQ = "autogptq"
+    QUARK = "quark"
 
 
 class QuantizeCommand(BaseOliveCLICommand):
@@ -164,6 +165,7 @@ class QuantizeCommand(BaseOliveCLICommand):
                 "algorithm": self.args.algorithm,
                 "bits": precision_bits_from_precision(self.args.precision),
             },
+            "QuarkQuantization": {"quant_algo": self.args.algorithm},
             "MatMulNBitsToQDQ": {},
         }
 
@@ -238,6 +240,7 @@ PT_QUANT_IMPLEMENTATION_MAPPING = [
     {"impl_name": ImplName.SPINQUANT, "pass_type": "SpinQuant"},
     {"impl_name": ImplName.AWQ, "pass_type": "AutoAWQQuantizer"},
     {"impl_name": ImplName.AUTOGPTQ, "pass_type": "GptqQuantizer"},
+    {"impl_name": ImplName.QUARK, "pass_type": "QuarkQuantization"},
 ]
 
 # Pass order in this mapping is important. More than one passes could be selected from this mapping.

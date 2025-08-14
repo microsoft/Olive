@@ -328,7 +328,7 @@ def test_shared_cache_delete_all_with_confirmation(mock_AzureContainerClientFact
     mock_factory_instance.delete_all.assert_called_once()
 
 
-@pytest.mark.parametrize("algorithm_name", ["awq", "gptq"])
+@pytest.mark.parametrize("algorithm_name", ["awq", "gptq", "quark"])
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists")
 def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
@@ -351,6 +351,8 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
         command_args += ["--implementation", "autogptq"]
     if algorithm_name == "awq":
         command_args += ["--implementation", "awq"]
+    if algorithm_name == "quark":
+        command_args += ["--implementation", "quark"]
 
     # execute
     cli_main(command_args)
