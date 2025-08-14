@@ -5,7 +5,6 @@ import sys
 def main():
     """Add new version to versions.json."""
     if len(sys.argv) != 2:
-        print("Usage: python update_versions_json.py <version>")
         sys.exit(1)
 
     new_version = sys.argv[1]
@@ -19,7 +18,6 @@ def main():
     # Check if version already exists
     for v in versions:
         if v["version"] == new_version:
-            print(f"Version {new_version} already exists in versions.json")
             return
 
     # Remove "(latest)" from all existing versions
@@ -41,8 +39,6 @@ def main():
     with open(versions_file, "w") as f:
         json.dump(versions, f, indent=4)
         f.write("\n")
-
-    print(f"Added version {new_version} to versions.json")
 
 
 if __name__ == "__main__":
