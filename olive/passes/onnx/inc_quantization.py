@@ -11,6 +11,8 @@ from typing import Any, Optional, Union
 
 from packaging import version
 
+import onnx
+
 from olive.common.config_utils import validate_config
 from olive.common.utils import exclude_keys
 from olive.constants import PrecisionBits, QuantAlgorithm
@@ -522,6 +524,9 @@ class IncQuantization(Pass):
             #  which is data_config's create_dataloader but not create_calibration_dataloader
             inc_calib_dataloader = data_config.to_data_container().create_dataloader()
 
+        # Clear ValueInfoProto for all initializers because INC does not correctly modify them
+        _clear_value_info_proto_for_initializers(model.model_path)
+
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
         )
@@ -592,3 +597,18 @@ class IncStaticQuantization(IncQuantization):
         # external data config
         config.update(get_external_data_config())
         return config
+
+
+def _clear_value_info_proto_for_initializers(model_path: str) -> None:
+    """Clear ValueInfoProto for all initializers in the ONNX model."""
+    model = onnx.load(model_path, load_external_data=False)
+    all_initializer_names = {initializer.name for initializer in model.graph.initializer}
+    new_value_info = []
+    for info in model.graph.value_info:
+        if info.name in all_initializer_names:
+            continue
+        # If the value info is not in the initializers, we keep it
+        new_value_info.append(info)
+    del model.graph.value_info[:]
+    model.graph.value_info.extend(new_value_info)
+    onnx.save(model, model_path)
