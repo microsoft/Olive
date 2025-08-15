@@ -9,9 +9,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from packaging import version
-
 import onnx
+from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import exclude_keys
