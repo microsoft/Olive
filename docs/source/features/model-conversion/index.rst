@@ -14,11 +14,6 @@ Model Conversion
 
       :octicon:`arrow-right;1em;sd-text-info` `TorchTRT Conversion <convert-pytorch.html>`_
 
-   .. grid-item-card::
-      **SNPE**
-
-      :octicon:`arrow-right;1em;sd-text-info` `SNPE <snpe.html>`_
-
 .. toctree::
    :maxdepth: 1
    :hidden:

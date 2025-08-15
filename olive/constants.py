@@ -15,7 +15,6 @@ class Framework(StrEnumBase):
     PYTORCH = "PyTorch"
     QNN = "QNN"
     TENSORFLOW = "TensorFlow"
-    SNPE = "SNPE"
     OPENVINO = "OpenVINO"
 
 
@@ -29,7 +28,6 @@ class ModelFileFormat(StrEnumBase):
     PYTORCH_SLICE_GPT_MODEL = "PyTorch.SliceGPT"
     TENSORFLOW_PROTOBUF = "TensorFlow.Protobuf"
     TENSORFLOW_SAVED_MODEL = "TensorFlow.SavedModel"
-    SNPE_DLC = "SNPE.DLC"
     QNN_CPP = "QNN.CPP"
     QNN_LIB = "QNN.LIB"
     QNN_SERIALIZED_BIN = "QNN.SERIALIZED.BIN"

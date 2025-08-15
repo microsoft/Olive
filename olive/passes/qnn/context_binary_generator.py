@@ -6,12 +6,11 @@
 import logging
 import platform
 from pathlib import Path
-from typing import Union
 
 from olive.common.constants import OS
 from olive.constants import ModelFileFormat
 from olive.hardware import AcceleratorSpec
-from olive.model import QNNModelHandler, SNPEModelHandler
+from olive.model import QNNModelHandler
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.platform_sdk.qualcomm.runner import QNNSDKRunner
@@ -50,7 +49,7 @@ class QNNContextBinaryGenerator(Pass):
 
     def _run_for_config(
         self,
-        model: Union[QNNModelHandler, SNPEModelHandler],
+        model: QNNModelHandler,
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> QNNModelHandler:
@@ -62,9 +61,6 @@ class QNNContextBinaryGenerator(Pass):
 
         extra_args = config.extra_args or ""
         model_arg = f"--model {model.model_path}"
-
-        if model.model_file_format == ModelFileFormat.SNPE_DLC and "--dlc_path" not in extra_args:
-            extra_args += f" --dlc_path {model.model_path}"
 
         # if dlc_path is set, use {qnn_root_path}/lib/{qnn_target_arch_name}/libQnnModelDlc.so
         # as the model argument

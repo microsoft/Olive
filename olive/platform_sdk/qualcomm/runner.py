@@ -14,7 +14,6 @@ from pathlib import Path
 from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 from olive.platform_sdk.qualcomm.qnn.env import QNNSDKEnv
-from olive.platform_sdk.qualcomm.snpe.env import SNPESDKEnv
 
 logger = logging.getLogger(__name__)
 
@@ -22,26 +21,19 @@ USE_OLIVE_ENV = "USE_OLIVE_ENV"
 USE_OLIVE_ENV_DEFAULT_VALUE = "1"
 
 
-class SDKRunner:
+class QNNSDKRunner:
     def __init__(
         self,
-        platform,
         use_dev_tools: bool = False,
         runs: int = 1,
         sleep: int = 0,
     ):
-        self.platform = platform
         # use_dev_tools: whether use dev tools under the sdk
         self.use_dev_tools = use_dev_tools
         self.runs = runs
         self.sleep = sleep
 
-        if self.platform not in ("SNPE", "QNN"):
-            raise ValueError(f"Unsupported platform {platform}")
-        elif self.platform == "SNPE":
-            self.sdk_env = SNPESDKEnv(use_dev_tools=self.use_dev_tools)
-        elif self.platform == "QNN":
-            self.sdk_env = QNNSDKEnv(use_dev_tools=self.use_dev_tools)
+        self.sdk_env = QNNSDKEnv(use_dev_tools=self.use_dev_tools)
 
     def _use_olive_env(self):
         return os.environ.get(USE_OLIVE_ENV, USE_OLIVE_ENV_DEFAULT_VALUE) == USE_OLIVE_ENV_DEFAULT_VALUE
@@ -55,7 +47,7 @@ class SDKRunner:
         else:
             cmd_list = cmd
 
-        if platform.system() == OS.WINDOWS and cmd_list[0].startswith(("snpe-", "qnn-")):
+        if platform.system() == OS.WINDOWS and cmd_list[0].startswith("qnn-"):
             logger.debug("Resolving command %s on Windows.", cmd_list)
             cmd_dir = Path(self.sdk_env.sdk_root_path) / "bin" / self.sdk_env.target_arch
             cmd_name = cmd_list[0]
@@ -84,19 +76,9 @@ class SDKRunner:
 
         for run in range(self.runs):
             run_log_msg = "" if self.runs == 1 else f" (run {run + 1}/{self.runs})"
-            logger.debug("Running %s command%s: ", self.platform, run_log_msg)
+            logger.debug("Running command%s: ", run_log_msg)
             _, stdout, stderr = run_subprocess(cmd, env, check=True)
             if self.sleep > 0 and run < self.runs - 1:
                 time.sleep(self.sleep)
 
         return stdout, stderr
-
-
-class SNPESDKRunner(SDKRunner):
-    def __init__(self, use_dev_tools: bool = False, runs: int = 1, sleep: int = 0):
-        super().__init__("SNPE", use_dev_tools, runs, sleep)
-
-
-class QNNSDKRunner(SDKRunner):
-    def __init__(self, use_dev_tools: bool = False, runs: int = 1, sleep: int = 0):
-        super().__init__("QNN", use_dev_tools, runs, sleep)

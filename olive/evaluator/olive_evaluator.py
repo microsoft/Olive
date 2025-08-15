@@ -39,7 +39,7 @@ from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoad
 if TYPE_CHECKING:
     from torch.utils.data import DataLoader
 
-    from olive.model import OliveModelHandler, OpenVINOModelHandler, QNNModelHandler, SNPEModelHandler
+    from olive.model import OliveModelHandler, OpenVINOModelHandler, QNNModelHandler
 
 logger = logging.getLogger(__name__)
 
@@ -815,95 +815,6 @@ class PyTorchEvaluator(_OliveEvaluator):
                 latencies.append(time.perf_counter() - t)
 
         return latencies
-
-
-@Registry.register(str(Framework.SNPE))
-@Registry.register("SNPEEvaluator")
-class SNPEEvaluator(_OliveEvaluator):
-    def _inference(
-        self,
-        model: "SNPEModelHandler",
-        metric: Metric,
-        dataloader: "DataLoader",
-        post_func=None,
-        device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
-    ) -> tuple[OliveModelOutput, Any]:
-        dataloader = self._prepare_dataloader(dataloader, model)
-        inference_settings = metric.get_inference_settings(Framework.SNPE.lower())
-        # for accuracy evaluation, the `return_numpy_results` is required to be True
-        # but for model inference, it is not required to be True.
-        # We just set it to True for simple evaluation.
-        inference_settings["return_numpy_results"] = True
-
-        session = model.prepare_session(inference_settings=inference_settings, device=device)
-        run_kwargs = metric.get_run_kwargs()
-
-        preds = []
-        targets = []
-        logits = []
-        for data_dir, input_list, labels in dataloader:
-            run_kwargs["data_dir"] = data_dir
-            result = model.run_session(session, input_list, **run_kwargs)
-            # as the SNPE inference will return a list of outputs which is beyond the model output shape
-            # we need to squeeze the fist dimensions of output to get right accuracy metrics
-            for idx, output in enumerate(result.get("results")):
-                if post_func:
-                    post_output = post_func(output)
-                else:
-                    raise ValueError("Post processing function is required for SNPE model")
-                preds.extend(post_output.tolist())
-                if isinstance(labels[idx], (list, np.ndarray)):
-                    targets.extend(labels[idx])
-                else:
-                    targets.append(labels[idx])
-                # only when return_numpy_results is True, the result is a dict with "logits" key
-                logits.extend(output.get("logits", np.array([])).tolist())
-        return OliveModelOutput(preds=preds, logits=logits), targets
-
-    def _evaluate_accuracy(
-        self,
-        model: "SNPEModelHandler",
-        metric: Metric,
-        dataloader: "DataLoader",
-        post_func=None,
-        device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
-    ) -> MetricResult:
-        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
-        return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
-
-    def _evaluate_raw_latency(
-        self,
-        model: "SNPEModelHandler",
-        metric: Metric,
-        dataloader: "DataLoader",
-        post_func=None,
-        device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
-    ) -> list[float]:
-        dataloader = self._prepare_dataloader(dataloader, model, 1)
-        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
-        session = model.prepare_session(
-            inference_settings=metric.get_inference_settings(Framework.SNPE.lower()), device=device
-        )
-
-        data_dir, input_data, _ = next(iter(dataloader))
-        total_runs = warmup_num + repeat_test_num
-        run_kwargs = metric.get_run_kwargs()
-        run_kwargs["data_dir"] = data_dir
-        run_kwargs["runs"] = total_runs
-        run_kwargs["sleep"] = sleep_num
-
-        results = model.run_session(session, input_data, **run_kwargs)
-        return results["latencies"]["total_inference_time"][warmup_num:]
-
-    def _prepare_dataloader(
-        self, dataloader: Union["DataLoader", FileListDataLoader], model: "SNPEModelHandler", file_chunk_size=None
-    ) -> FileListDataLoader:
-        if isinstance(dataloader, FileListDataLoader):
-            return dataloader
-        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_chunk_size)
 
 
 @Registry.register(str(Framework.OPENVINO))
