@@ -1,3 +1,4 @@
+import sys
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
@@ -69,6 +70,39 @@ def test_run_without_ep(mock_model_to_json, mock_model_from_json, mock_run, conf
     workflow_output = olive_run(config)
     assert len(workflow_output.get_available_devices()) == 1
     assert workflow_output.get_available_devices()[0] == "cpu"
+
+
+ONNX_INPUT_CONFIG = {"type": "ONNXModel", "model_path": "model.onnx"}
+
+
+@pytest.mark.parametrize(
+    ("config_test", "is_ep_required"),
+    [
+        (
+            {
+                "input_model": ONNX_INPUT_CONFIG,
+                "evaluators": {"common_evaluator": EVALUATORS_CONFIG},
+                "evaluator": "common_evaluator",
+            },
+            True,
+        ),
+        ({"input_model": ONNX_INPUT_CONFIG}, False),
+        (
+            {
+                "input_model": INPUT_MODEL_CONFIG,
+                "evaluators": {"common_evaluator": EVALUATORS_CONFIG},
+                "evaluator": "common_evaluator",
+            },
+            False,
+        ),
+        ({"input_model": INPUT_MODEL_CONFIG}, False),
+    ],
+)
+@patch("olive.engine.engine.Engine.run")
+def test_create_accelerator_only_eval(mock_run, config_test, is_ep_required):
+    with patch.object(sys.modules[olive_run.__module__], "create_accelerators") as mock_create_accelerators:
+        olive_run(config_test)
+        assert mock_create_accelerators.call_args.kwargs["is_ep_required"] == is_ep_required
 
 
 def test_run_packages():
