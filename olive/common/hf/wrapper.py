@@ -9,8 +9,8 @@ import torch
 from torch import nn
 from transformers import PretrainedConfig
 
-from olive.common.utils import find_first_matched_value, get_attr, replace_submodules, set_attr
 from olive.common.hf.utils import get_model_attributes_config
+from olive.common.utils import find_first_matched_value, get_attr, replace_submodules, set_attr
 
 if TYPE_CHECKING:
     from transformers import PreTrainedModel
@@ -213,9 +213,9 @@ class ModelWrapper:
     LM_HEAD = {"default": "lm_head"}
     PRE_HEAD_LAYERNORM = {
         "default": "model.norm",
-        "gemma3": "model.language_model.norm", 
-        "gpt2": "transformer.ln_f", 
-        "qwen": "transformer.ln_f"
+        "gemma3": "model.language_model.norm",
+        "gpt2": "transformer.ln_f",
+        "qwen": "transformer.ln_f",
     }
     LAYERS = {
         "default": "model.layers",
@@ -240,10 +240,12 @@ class ModelWrapper:
         self.hidden_size = find_first_matched_value(model_attributes_config, self.HIDDEN_SIZE_NAMES)
         self.num_attention_heads = find_first_matched_value(model_attributes_config, self.NUM_ATTENTION_HEADS_NAMES)
         self.num_key_value_heads = (
-            find_first_matched_value(model_attributes_config, self.NUM_KEY_VALUE_HEADS_NAMES) or self.num_attention_heads
+            find_first_matched_value(model_attributes_config, self.NUM_KEY_VALUE_HEADS_NAMES)
+            or self.num_attention_heads
         )
         self.head_dim = (
-            find_first_matched_value(model_attributes_config, self.HEAD_DIM_NAMES) or self.hidden_size // self.num_attention_heads
+            find_first_matched_value(model_attributes_config, self.HEAD_DIM_NAMES)
+            or self.hidden_size // self.num_attention_heads
         )
         self.num_hidden_layers = find_first_matched_value(model_attributes_config, self.NUM_HIDDEN_LAYER_NAMES)
         self.max_length = find_first_matched_value(model_attributes_config, self.MAX_LENGTH)

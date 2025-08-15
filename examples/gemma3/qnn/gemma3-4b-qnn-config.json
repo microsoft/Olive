@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "google/gemma-3-4b-it" , "model_attributes": {"head_dim": 256}},
+    "input_model": { "type": "HfModel", "model_path": "google/gemma-3-4b-it", "model_attributes": { "head_dim": 256 } },
     "systems": {
         "qnn_system": {
             "type": "PythonEnvironment",
