@@ -113,9 +113,14 @@ stages:
         displayName: Download Docs from Pipeline Artifact
         condition: ne('${{parameters.doc_version}}', 'latest')
 
+      # Update versions.json for release versions
+      - script: |
+          python .azure_pipelines/scripts/update_versions_json.py ${{parameters.doc_version}}
+        displayName: Update versions.json
+        condition: ne('${{parameters.doc_version}}', 'latest')
+
       # commit and push the docs
       - script: |
-          ls -d */ | grep -E "[0-9]+\.[0-9]+\.[0-9]+" | xargs -I {} cp ./_static/js/custom_version.js {}_static/js/
           git add -A
           git commit -m "Update docs from $(Build.SourceVersion)"
           git push origin gh-pages

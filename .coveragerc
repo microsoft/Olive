@@ -1,8 +1,6 @@
 [run]
 omit =
     olive/logging.py
-    olive/passes/pytorch/pytorch_lightning_utils.py
-    olive/passes/pytorch/qat_utils.py
     olive/systems/docker/eval.py
 
 [report]

@@ -216,8 +216,14 @@ def get_ort_inference_session(
     for idx, provider in enumerate(providers):
         if provider in ["CUDAExecutionProvider", "DmlExecutionProvider"] and device_id is not None:
             provider_options[idx]["device_id"] = str(device_id)
-        elif provider == "QNNExecutionProvider" and "backend_path" not in provider_options[idx]:
+        elif (
+            provider == "QNNExecutionProvider"
+            and "backend_path" not in provider_options[idx]
+            and not ort_supports_ep_devices
+        ):
             # add backend_path for QNNExecutionProvider
+            # not required after 1.22.
+            # Causes backend load failure for Windows ML where this dll is in a different location than the ort dlls
             provider_options[idx]["backend_path"] = "QnnHtp.dll"
     logger.debug("Normalized providers: %s, provider_options: %s", providers, provider_options)
 

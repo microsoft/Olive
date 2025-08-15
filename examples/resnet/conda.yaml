@@ -6,7 +6,6 @@ dependencies:
   - pip=20.2
   - pip:
       - onnxruntime
-      - pytorch-lightning
       - psutil
       - scipy
       - tabulate
