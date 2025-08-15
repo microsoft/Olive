@@ -91,14 +91,6 @@ class OptimizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--act_precision",
             type=str,
-            choices=[p.value for p in Precision],
-            help="Target precision for optimization.",
-        )
-
-        # Optional activation precision
-        sub_parser.add_argument(
-            "--act_precision",
-            type=str,
             choices=[Precision.INT8, Precision.UINT8, Precision.INT16, Precision.UINT16],
             help="Activation precision for quantization (optional).",
         )
