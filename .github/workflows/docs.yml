@@ -1,0 +1,45 @@
+name: "Docs"
+description: "CI workflow to verify docs build"
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    branches:
+      - "main"
+
+
+env:
+  PYTHON_VERSION: "3.10"
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Build docs
+      run: |
+        python -m pip install .
+        cd docs
+        python -m pip install -r requirements.txt
+        python -m pip install onnxruntime torch
+        make html
+        make linkcheck
+        make schema
