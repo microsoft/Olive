@@ -98,7 +98,6 @@ ONNX_INPUT_CONFIG = {"type": "ONNXModel", "model_path": "model.onnx"}
         ({"input_model": INPUT_MODEL_CONFIG}, False),
     ],
 )
-# @patch(f"{olive_run.__module__}.create_accelerators")
 @patch("olive.engine.engine.Engine.run")
 def test_create_accelerator_only_eval(mock_run, config_test, is_ep_required):
     with patch.object(sys.modules[olive_run.__module__], "create_accelerators") as mock_create_accelerators:
