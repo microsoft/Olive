@@ -6,6 +6,8 @@
 import logging
 import numpy as np
 import os
+import subprocess
+import zipfile
 import torch
 
 from huggingface_hub import hf_hub_download
@@ -86,32 +88,88 @@ class GemmaDataset:
         self.first_n = first_n
         
         self.processor = AutoProcessor.from_pretrained(self.model_id)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_id, cache_dir=None, use_fast=True, trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_id, cache_dir=self.CACHE_DIR, use_fast=True, trust_remote_code=True)
 
         self.setup_dataset()
+
+    def _download_and_extract_images(self):
+        """
+        Downloads the coco train2017 image dataset and extracts them to the cache directory
+        """
+        zip_filename = "train2017.zip"
+        zip_path = os.path.join(self.CACHE_DIR, zip_filename)
+        extract_path = os.path.join(self.CACHE_DIR, "train2017")
+        
+        # Create cache directory if it doesn't exist
+        os.makedirs(self.CACHE_DIR, exist_ok=True)
+        
+        # Check if images are already downloaded and extracted
+        if os.path.exists(extract_path) and os.listdir(extract_path):
+            logger.info(f"Images already exist at {extract_path}")
+            return extract_path
+        
+        # Download the dataset if zip doesn't exist
+        if not os.path.exists(zip_path):
+            logger.info(f"Downloading COCO train2017 dataset to {zip_path}")
+            try:
+                subprocess.run([
+                    "wget", 
+                    "https://images.cocodataset.org/zips/train2017.zip",
+                    "--no-check-certificate",
+                    "-O", zip_path
+                ], check=True, cwd=self.CACHE_DIR)
+                logger.info("Download completed successfully")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to download dataset: {e}")
+                raise
+            except FileNotFoundError:
+                logger.error("wget command not found. Please install wget or use an alternative download method.")
+                raise
+        
+        # Extract the zip file
+        logger.info(f"Extracting {zip_path} to {self.CACHE_DIR}")
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(self.CACHE_DIR)
+            logger.info("Extraction completed successfully")
+        except zipfile.BadZipFile as e:
+            logger.error(f"Failed to extract zip file: {e}")
+            # Remove corrupted zip file so it can be re-downloaded
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            raise
+        
+        return extract_path
 
     def setup_dataset(self):
          # Uses a LlaVA dataset and transforms it to something Gemma-compatible
 
          # Issue with Arrow leads to errors when using load_dataset directly on liuhaotian/LLaVA-Instruct-150K
-         file_path = hf_hub_download(repo_id="liuhaotian/LLaVA-Instruct-150K", filename="llava_instruct_80k.json", repo_type="dataset")
+         file_path = hf_hub_download(repo_id="liuhaotian/LLaVA-Instruct-150K", filename="llava_instruct_80k.json", repo_type="dataset", cache_dir=self.CACHE_DIR)
 
-         
-
-         logger.error(file_path)
-         logger.error(image_file_path)
+         self.image_data_path = self._download_and_extract_images()
          self.raw_datasets = load_dataset("json", data_files=[file_path], split="train")
+
+         # Limit data processing to the first_n rows
          self.raw_datasets = self.raw_datasets if self.first_n is None else self.raw_datasets.select(range(self.first_n))
-         logger.error(self.raw_datasets)
 
          # Convert the Llava-style conversation to Gemma-style conversation
          self.raw_datasets = self.raw_datasets.map(self._convert_llava_to_gemma_conversation)
-         for row in self.raw_datasets:
-            print(row)
 
-    def get_train_dataset(self, first_n: Optional[int] = None):
-        self.train_dataset = self.raw_datasets if first_n is None else self.raw_datasets[:first_n]
-        return self.train_dataset
+         # Extract image details using a lambda to pass the dataset_path
+         self.raw_datasets = self.raw_datasets.map(self._extract_image_details)
+
+         # Filter out any images that are not RGB
+         self.raw_datasets = self.raw_datasets.filter(lambda x: x["image_mode"] == 'RGB')
+
+         # Loads the images and tokenizes the text
+         self.raw_datasets = self.raw_datasets.with_transform(self._load_image_and_tokenize)
+
+         for entry in self.raw_datasets:
+             logger.error(entry)
+
+    def get_train_dataset(self):
+        return self.raw_datasets
     
     @staticmethod
     def _convert_llava_to_gemma_conversation(entry: dict[str, any]):
@@ -162,7 +220,33 @@ class GemmaDataset:
             ),
         }
     
+    def _extract_image_details(self, entry: dict[str, any]):
+        """
+        Extract image details from the dataset example.
+        Opens the image file and adds image mode information to the example.
+        """
+        image = PILImage.open(fp=os.path.join(self.image_data_path, entry["image"]))
+        entry['image_mode'] = image.mode
+        return entry
+
+    def _load_image_and_tokenize(self, entry: dict[str, any]):
+        """
+        Load image and tokenize the conversation for model input.
+        
+        Args:
+            entry: Dataset entry containing text conversation and image path
+            
+        Returns:
+            Tokenized inputs ready for model processing
+        """
+        inputs = self.processor.apply_chat_template(entry['text'][0],
+                                                   add_generation_prompt=True, tokenize=True,
+                                                   return_tensors="pt", return_dict=True)
+        inputs = {k: v.unsqueeze(0) for k, v in inputs.items()}
+        inputs["input_ids"] = inputs["input_ids"][0]
+        return inputs
+
 
 @Registry.register_dataset()
 def gemma_dataset(model_id: str):
-    return GemmaDataset(model_id, first_n=5).get_train_dataset()
+    return GemmaDataset(model_id, first_n=200).get_train_dataset()
