@@ -328,7 +328,7 @@ def test_shared_cache_delete_all_with_confirmation(mock_AzureContainerClientFact
     mock_factory_instance.delete_all.assert_called_once()
 
 
-@pytest.mark.parametrize("algorithm_name", ["awq", "gptq", "quark"])
+@pytest.mark.parametrize("algorithm_name", ["awq", "gptq"])
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists")
 def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
@@ -351,8 +351,33 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
         command_args += ["--implementation", "autogptq"]
     if algorithm_name == "awq":
         command_args += ["--implementation", "awq"]
-    if algorithm_name == "quark":
-        command_args += ["--implementation", "quark"]
+
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == "dummy_model"
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists")
+def test_quantize_command_quark_implementation(mock_repo_exists, mock_run, tmp_path):
+    # setup
+    output_dir = tmp_path / "output_dir"
+
+    # Test Quark implementation with AWQ algorithm
+    command_args = [
+        "quantize",
+        "-m",
+        "dummy_model",
+        "--algorithm",
+        "awq",
+        "--implementation",
+        "quark",
+        "-o",
+        str(output_dir),
+    ]
 
     # execute
     cli_main(command_args)
