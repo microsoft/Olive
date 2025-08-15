@@ -146,12 +146,6 @@ IncQuantization
 ---------------
 .. autoconfigclass:: olive.passes.IncQuantization
 
-.. _vitis_ai_quantization:
-
-VitisAIQuantization
--------------------
-.. autoconfigclass:: olive.passes.VitisAIQuantization
-
 .. _extract_adapters:
 
 ExtractAdapters

@@ -4,7 +4,6 @@ This folder contains examples of ResNet optimization using different workflows.
 
 - QDQ: [with ONNX Runtime optimizations and static quantization with QDQ format](#resnet-optimization-with-ptq-qdq)
 - CPU: [with ONNX Runtime optimizations and static/dynamic quantization](#resnet-optimization-with-ptq-on-cpu)
-- AMD DPU: [with AMD Vitis-AI Quantization](#resnet-optimization-with-vitis-ai-ptq-on-amd-dpu)
 - Intel® GPU: [with OpenVINO and DirectML execution providers in ONNX Runtime](#resnet-optimization-with-openvino-and-dml-execution-providers)
 - Qualcomm NPU: [with QNN execution provider in ONNX Runtime](./qnn/)
 - Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX Model or ONNX OpenVINO IR Encapsulated Model](./openvino/)
@@ -63,14 +62,6 @@ The workflow in [resnet_dynamic_ptq_cpu.json](resnet_dynamic_ptq_cpu.json) is si
 The [openvino](./openvino/) folder contains 2 example config files.
 It has an example workflow for generating a quantized ONNX OpenVINO IR encapsulated model and another example for generating a quantized ONNX model.
 All details including setup, workflow details and example config files and scripts along with requirements.txt to setup an environment, and instructions to execute those workflows are included in that folder.
-
-### ResNet optimization with Vitis-AI PTQ on AMD DPU
-
-This workflow performs ResNet optimization on AMD DPU with AMD Vitis-AI Quantization. It performs the optimization pipeline:
-
-- *PyTorch Model -> Onnx Model -> AMD Vitis-AI Quantized Onnx Model*
-
-Config file: [resnet_vitis_ai_ptq_cpu.json](resnet_vitis_ai_ptq_cpu.json)
 
 ### ResNet optimization with Nvidia TensorRT-RTX execution provider
 

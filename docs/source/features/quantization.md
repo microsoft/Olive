@@ -183,25 +183,6 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 Please refer to [IncQuantization](inc_quantization), [IncDynamicQuantization](inc_dynamic_quantization) and
 [IncStaticQuantization](inc_static_quantization) for more details about the passes and their config parameters.
 
-## Quantize with AMD Vitis AI Quantizer
-Olive also integrates [AMD Vitis AI Quantizer](https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py) for quantization.
-
-The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
-Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.
-
-### Example Configuration
-```json
-"vitis_ai_quantization": {
-    "type": "VitisAIQuantization",
-    "calibrate_method":"NonOverflow",
-    "quant_format":"QDQ",
-    "activation_type":"uint8",
-    "precision":"int8",
-    "data_config": "calib_data_config"
-}
-```
-Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
-
 ## NVIDIA TensorRT Model Optimizer-Windows
 Olive also integrates [TensorRT Model Optimizer-Windows](https://github.com/NVIDIA/TensorRT-Model-Optimizer)
 

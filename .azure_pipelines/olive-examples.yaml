@@ -23,9 +23,6 @@ jobs:
       bert_inc:
         exampleFolder: bert
         exampleName: bert_inc
-      resnet_vitis_ai_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_vitis_ai_ptq_cpu
       mobilenet_onnx:
         exampleFolder: mobilenet/onnx
         exampleName: mobilenet
@@ -39,9 +36,6 @@ jobs:
       bert_inc:
         exampleFolder: bert
         exampleName: bert_inc
-      resnet_vitis_ai_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_vitis_ai_ptq_cpu
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-linux-gpu-template.yaml
