@@ -13,8 +13,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "int16" ],
-            "supported_algorithms": [ "rtn", "awq", "gptq", "hqq", "spinquant", "quarot" ],
-            "supported_quantization_encodings": [ "qdq" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "aimet-onnx" ],
             "dataset": "dataset_required"
         },
