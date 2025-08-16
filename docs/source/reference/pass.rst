@@ -351,27 +351,6 @@ OpenVINOOptimumConversion
 -------------------------
 .. autoconfigclass:: olive.passes.OpenVINOOptimumConversion
 
-SNPE
-=================================
-
-.. _snpe_conversion:
-
-SNPEConversion
---------------
-.. autoconfigclass:: olive.passes.SNPEConversion
-
-.. _snpe_quantization:
-
-SNPEQuantization
-----------------
-.. autoconfigclass:: olive.passes.SNPEQuantization
-
-.. _snpe_to_onnx_conversion:
-
-SNPEtoONNXConversion
---------------------
-.. autoconfigclass:: olive.passes.SNPEtoONNXConversion
-
 QNN
 =================================
 

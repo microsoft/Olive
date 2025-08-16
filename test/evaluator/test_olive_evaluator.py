@@ -17,7 +17,6 @@ from olive.evaluator.olive_evaluator import (
     OnnxEvaluator,
     OpenVINOEvaluator,
     PyTorchEvaluator,
-    SNPEEvaluator,
 )
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
@@ -27,7 +26,6 @@ from test.utils import (
     get_custom_metric_no_eval,
     get_latency_metric,
     get_mock_openvino_model,
-    get_mock_snpe_model,
     get_onnx_model,
     get_pytorch_model,
     get_throughput_metric,
@@ -257,7 +255,6 @@ class TestOliveEvaluator:
     CUSTOM_TEST_CASE: ClassVar[list] = [
         (PyTorchEvaluator(), get_pytorch_model, get_custom_metric, 0.382715310),
         (OnnxEvaluator(), get_onnx_model, get_custom_metric, 0.382715310),
-        (SNPEEvaluator(), get_mock_snpe_model, get_custom_metric, 0.382715310),
         (OpenVINOEvaluator(), get_mock_openvino_model, get_custom_metric, 0.382715310),
     ]
 

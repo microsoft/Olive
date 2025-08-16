@@ -113,16 +113,6 @@ QNN Model is a model type that is used to load QNN models.
 - `model_file_format` is the format of the QNN model file. It can be `QNN.CPP`, `QNN.LIB`, or `QNN.SERIALIZED.BIN`.
 - `model_path` is the path to the model file for `QNN.CPP` and `QNN.SERIALIZED.BIN` formats, or the path to the model directory for `QNN.LIB` format.
 
-### SNPE Model
-SNPE Model is a model type that is used to load SNPE models.
-```json
-{
-    "type": "SNPEModel",
-    "model_path": "model.dlc"
-}
-```
-- `model_path` is the path to the SNPE DLC file.
-
 ### TensorFlow Model
 TensorFlow Model is a model type that is used to load TensorFlow models.
 ```json

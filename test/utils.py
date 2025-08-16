@@ -126,12 +126,6 @@ def delete_onnx_model_files():
         os.remove(ONNX_MODEL_PATH)
 
 
-def get_mock_snpe_model():
-    olive_model = MagicMock()
-    olive_model.framework = Framework.SNPE
-    return olive_model
-
-
 def get_mock_openvino_model():
     olive_model = MagicMock()
     olive_model.framework = Framework.OPENVINO

@@ -21,17 +21,10 @@ class ConfigureQualcommSDKCommand(BaseOliveCLICommand):
             required=True,
             choices=["3.6", "3.8"],
         )
-        sub_parser.add_argument(
-            "--sdk",
-            type=str,
-            help="Qualcomm SDK: snpe or qnn",
-            required=True,
-            choices=["snpe", "qnn"],
-        )
 
         sub_parser.set_defaults(func=ConfigureQualcommSDKCommand)
 
     def run(self):
         from olive.platform_sdk.qualcomm.configure.configure import configure
 
-        configure(self.args.py_version, self.args.sdk)
+        configure(self.args.py_version)

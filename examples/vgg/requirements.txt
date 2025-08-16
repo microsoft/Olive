@@ -1,3 +1,0 @@
-onnxruntime
-pillow
-torchvision

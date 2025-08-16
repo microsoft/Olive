@@ -113,7 +113,7 @@ b. More fine-grained control of the conversion conditions is also possible:
 
 ## Convert dynamic shape to fixed shape
 
-In qnn, snpe and other mobile inference scenarios, the input shape of the model is often fixed. The `DynamicToFixedShape` pass converts the dynamic shape of the model to a fixed shape.
+In qnn and other mobile inference scenarios, the input shape of the model is often fixed. The `DynamicToFixedShape` pass converts the dynamic shape of the model to a fixed shape.
 
 For example, often models have a dynamic batch size so that training is more efficient. In mobile scenarios the batch generally has a size of 1. Making the batch size dimension ‘fixed’ by setting it to 1 may allow NNAPI and CoreML to run of the model.
 

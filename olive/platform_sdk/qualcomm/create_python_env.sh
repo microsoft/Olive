@@ -5,19 +5,15 @@
 # --------------------------------------------------------------------------
 set -eux
 
-# This script creates a python environment in $QNN_SDK_ROOT/olive-pyenv or $SNPE_ROOT/olive-pyenv
+# This script creates a python environment in $QNN_SDK_ROOT/olive-pyenv
 
-# Usage: ./create_python_env.sh -v/--version <python_version> --sdk <snpe/qnn>
+# Usage: ./create_python_env.sh -v/--version <python_version>
 while [[ "$#" -gt 0 ]]; do
     key="$1"
 
     case $key in
         -v|--version)
             PY_VERSION="$2"
-            shift # Shift past argument
-            ;;
-        --sdk)
-            SDK="$2"
             shift # Shift past argument
             ;;
         *)
@@ -30,17 +26,8 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 
-if [ "$SDK" == "snpe" ]; then
-    SDK_ROOT=$SNPE_ROOT
-elif [ "$SDK" == "qnn" ]; then
-    SDK_ROOT=$QNN_SDK_ROOT
-else
-    echo "Unknown SDK: $SDK"
-    exit 1
-fi
-
 PY_ENV_NAME=olive-pyenv
-FILES_DIR=$SDK_ROOT/python-env-setup
+FILES_DIR=$QNN_SDK_ROOT/python-env-setup
 rm -rf "$FILES_DIR"
 mkdir "$FILES_DIR"
 
@@ -64,7 +51,7 @@ $CONDA create -y -p "$FILES_DIR"/$PY_ENV_NAME python="$PY_VERSION"
 # if PIP_EXTRA_ARGS is set, then use it else use ""
 PIP_EXTRA_ARGS=${PIP_EXTRA_ARGS:-""}
 
-# Install snpe requirements
+# Install requirements
 "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install --upgrade pip "$PIP_EXTRA_ARGS"
 if [ "$PY_VERSION" == "3.6" ]; then
     "$FILES_DIR"/$PY_ENV_NAME/bin/python -m pip install onnx==1.11.0 onnx-simplifier packaging tensorflow==1.15.0 pyyaml pandas==1.1.5 numpy==1.18.5 "$PIP_EXTRA_ARGS"
@@ -76,8 +63,8 @@ else
 fi
 
 
-rm -rf "${SDK_ROOT:?}"/$PY_ENV_NAME
-mv "$FILES_DIR"/$PY_ENV_NAME "$SDK_ROOT"/$PY_ENV_NAME
+rm -rf "${QNN_SDK_ROOT:?}"/$PY_ENV_NAME
+mv "$FILES_DIR"/$PY_ENV_NAME "$QNN_SDK_ROOT"/$PY_ENV_NAME
 
 # Remove all unnecessary files
 rm -rf "$FILES_DIR"

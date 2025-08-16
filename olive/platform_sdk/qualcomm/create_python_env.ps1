@@ -1,9 +1,7 @@
-# This script creates a python environment in $QNN_SDK_ROOT\olive-pyenv or $SNPE_ROOT\olive-pyenv
-# e.g. create_python_env.ps1 -py_version 3.6 -sdk snpe
-
+# This script creates a python environment in $QNN_SDK_ROOT\olive-pyenv
+# e.g. create_python_env.ps1 -py_version 3.6
 param (
-    [string]$PY_VERSION,
-    [string]$SDK
+    [string]$PY_VERSION
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,19 +14,9 @@ function ExitOnFailure {
     }
 }
 
-if ($SDK -eq "snpe") {
-    $SDK_ROOT = $env:SNPE_ROOT
-}
-elseif ($SDK -eq "qnn") {
-    $SDK_ROOT = $env:QNN_SDK_ROOT
-}
-else {
-    Write-Host "Unknown SDK: $SDK"
-    exit 1
-}
-
+$QNN_SDK_ROOT = $env:QNN_SDK_ROOT
 $PY_ENV_NAME = "olive-pyenv"
-$FILES_DIR = Join-Path $SDK_ROOT "python-env-setup"
+$FILES_DIR = Join-Path $QNN_SDK_ROOT "python-env-setup"
 Remove-Item -Path $FILES_DIR -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -Path $FILES_DIR -ItemType Directory | Out-Null
 
@@ -54,7 +42,7 @@ else {
 & $CONDA create -y -p (Join-Path $FILES_DIR $PY_ENV_NAME) python=$PY_VERSION
 ExitOnFailure
 
-# Install snpe requirements
+# Install requirements
 # if PIP_EXTRA_ARGS is set, then use it else use ""
 $PIP_EXTRA_ARGS = $env:PIP_EXTRA_ARGS
 # to back-compat with older versions of the powershell
@@ -73,8 +61,8 @@ else {
 }
 ExitOnFailure
 
-Remove-Item -Path "$SDK_ROOT\$PY_ENV_NAME" -Recurse -Force -ErrorAction SilentlyContinue
-Move-Item -Path (Join-Path $FILES_DIR $PY_ENV_NAME) -Destination (Join-Path $SDK_ROOT $PY_ENV_NAME) -Force
+Remove-Item -Path "$QNN_SDK_ROOT\$PY_ENV_NAME" -Recurse -Force -ErrorAction SilentlyContinue
+Move-Item -Path (Join-Path $FILES_DIR $PY_ENV_NAME) -Destination (Join-Path $QNN_SDK_ROOT $PY_ENV_NAME) -Force
 
 # Remove all unnecessary files
 Remove-Item -Path $FILES_DIR -Recurse -Force -ErrorAction SilentlyContinue

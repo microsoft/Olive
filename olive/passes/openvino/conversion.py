@@ -62,13 +62,13 @@ class OpenVINOConversion(Pass):
                 type_=str,
                 default_value="ov_model",
                 required=False,
-                description=("Name of output openVINO model."),
+                description="Name of output openVINO model.",
             ),
             "static": PassConfigParam(
                 type_=bool,
                 default_value=True,
                 required=False,
-                description=("Create a static model instead of a dynamic model.Enabled by default."),
+                description="Create a static model instead of a dynamic model.Enabled by default.",
             ),
         }
 
@@ -82,9 +82,6 @@ class OpenVINOConversion(Pass):
             import openvino as ov
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
-
-        if model.framework == Framework.SNPE:
-            raise ValueError("OpenVINO conversion is not supported for SNPE model.")
 
         input_model = model.model_path
         if model.framework == Framework.PYTORCH:

@@ -22,7 +22,7 @@ Let's use Phi-3.5 available on Hugging Face ( https://huggingface.co/microsoft/P
         "model_path": "microsoft/Phi-3.5-mini-instruct"
     }
 ```
-Olive supports a number of different input model types including **HuggingFace**, **Pytorch**, **ONNX**, **OpenVINO**, **QNN**, **SNPE**, **TensorFlow**, and **Composite**. For detailed instructions on configuring your input model, see [how to configure input model](../configure-workflows/how-to-configure-model.md).
+Olive supports a number of different input model types including **HuggingFace**, **Pytorch**, **ONNX**, **OpenVINO**, **QNN**, **TensorFlow**, and **Composite**. For detailed instructions on configuring your input model, see [how to configure input model](../configure-workflows/how-to-configure-model.md).
 
 ## Passes to apply
 
