@@ -151,6 +151,11 @@ class ModelBuilder(Pass):
                     "for the CUDA graph to be used correctly."
                 ),
             ),
+            "extra_options": PassConfigParam(
+                type_=dict[str, Any],
+                required=False,
+                description="Extra key-value pairs options to pass to the model builder.",
+            ),
         }
 
     @classmethod
@@ -191,7 +196,7 @@ class ModelBuilder(Pass):
         output_model_path: str,
     ) -> ONNXModelHandler:
         try:
-            from onnxruntime_genai.models.builder import create_model
+            from onnxruntime_genai.models.builder import check_extra_options, create_model
         except ImportError:
             raise ImportError(
                 "onnxruntime-genai package is required to run ModelBuilder pass. Please install the package"
@@ -228,6 +233,10 @@ class ModelBuilder(Pass):
             input_path = model_path
             if model.adapter_path:
                 extra_args["adapter_path"] = model.adapter_path
+
+        # Add extra options support for model builder
+        if config.extra_options:
+            extra_args.update(check_extra_options(config.extra_options))
 
         extra_args.update(
             {
