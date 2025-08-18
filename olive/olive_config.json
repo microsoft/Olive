@@ -541,30 +541,6 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
-        "SNPEConversion": {
-            "module_path": "olive.passes.snpe.conversion.SNPEConversion",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
-        "SNPEtoONNXConversion": {
-            "module_path": "olive.passes.snpe.snpe_to_onnx.SNPEtoONNXConversion",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
-        "SNPEQuantization": {
-            "module_path": "olive.passes.snpe.quantization.SNPEQuantization",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
         "SparseGPT": {
             "module_path": "olive.passes.pytorch.sparsegpt.SparseGPT",
             "supported_providers": [ "*" ],

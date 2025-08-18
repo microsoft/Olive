@@ -156,13 +156,13 @@ def test_workflow_run_command_with_overrides(mock_run, tmp_path):
 @patch("olive.platform_sdk.qualcomm.configure.configure.configure")
 def test_configure_qualcomm_sdk_command(mock_configure):
     # setup
-    command_args = ["configure-qualcomm-sdk", "--py_version", "3.6", "--sdk", "snpe"]
+    command_args = ["configure-qualcomm-sdk", "--py_version", "3.8"]
 
     # execute
     cli_main(command_args)
 
     # assert
-    mock_configure.assert_called_once_with("3.6", "snpe")
+    mock_configure.assert_called_once_with("3.8")
 
 
 @patch("olive.workflows.run")
@@ -484,8 +484,8 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         [
             "optimize",
             (
-                "-t text-classification --precision int8 --exporter torchscript_exporter --provider QNNExecutionProvider "
-                '--device npu --dim_param "batch_size,sequence_length" --dim_value 1,128'
+                "-t text-classification --precision int8 --exporter torchscript_exporter --provider"
+                ' QNNExecutionProvider --device npu --dim_param "batch_size,sequence_length" --dim_value 1,128'
             ),
             (
                 "OnnxConversion, DynamicToFixedShape, OnnxPeepholeOptimizer, OrtTransformersOptimization, "
@@ -499,7 +499,10 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         ],
         [
             "optimize",
-            "-t text-classification --precision fp16 --exporter torchscript_exporter --provider NvTensorRTRTXExecutionProvider --device gpu",
+            (
+                "-t text-classification --precision fp16 --exporter torchscript_exporter --provider"
+                " NvTensorRTRTXExecutionProvider --device gpu"
+            ),
             "OnnxConversion, OnnxPeepholeOptimizer, OnnxFloatToFloat16",
         ],
     ]

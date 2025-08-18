@@ -64,12 +64,6 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
                 host = pass_config.host or run_config.engine.host
                 if (host and host.type == SystemType.Local) or not host:
                     local_packages.extend(get_pass_extras(pass_config.type))
-                if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
-                    logger.info(
-                        "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html to install SNPE"
-                        " prerequisites for pass %s",
-                        pass_config.type,
-                    )
 
     # add dependencies for engine
     host_type = None
