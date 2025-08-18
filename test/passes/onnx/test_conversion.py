@@ -40,12 +40,6 @@ def _torch_is_older_than(version_str: str) -> bool:
     ],
 )
 def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter: bool, dynamic: bool, tmp_path):
-    if platform.system() == "Windows" and use_dynamo_exporter:
-        # TODO(anyone): Investigate why this test fails on Windows and/or re-enable once torch 2.7 is released
-        pytest.skip("Dynamo export test is skipped on Windows")
-    if use_dynamo_exporter and dynamic and _torch_is_older_than("2.7.0"):
-        pytest.skip("Dynamo export test with dynamic shapes is skipped when torch<2.7.0")
-
     # setup
     p = create_pass_from_dict(
         OnnxConversion, {"use_dynamo_exporter": use_dynamo_exporter, "dynamic": dynamic}, disable_search=True
@@ -81,7 +75,7 @@ def test_onnx_conversion_pass_quant_model(quantizer_pass, tmp_path):
 
 
 @pytest.mark.skipif(not hasattr(torch.onnx, "ops"), reason="requires torch>=2.8")
-@pytest.mark.skipif(platform.system() == "Windows", reason="torch ops fails on Windows")
+@pytest.mark.skipif(platform.system() == "Windows", reason="FIXME: torch ops fails on Windows")
 @pytest.mark.parametrize("quantizer_pass", [Gptq, GptqQuantizer])
 def test_onnx_conversion_pass_quant_model_with_torch_ops(quantizer_pass, tmp_path):
     if quantizer_pass == GptqQuantizer and not torch.cuda.is_available():
