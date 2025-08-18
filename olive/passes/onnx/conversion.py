@@ -10,12 +10,12 @@ import multiprocessing
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import onnx
 import torch
 import transformers
-from onnxscript import version_converter
+from onnxscript import ir, version_converter
 from packaging import version
 from transformers.modeling_utils import PreTrainedModel
 
@@ -32,10 +32,15 @@ from olive.model import (
 from olive.model.config import IoConfig
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
 logger = logging.getLogger(__name__)
+
+
+def _torch_is_older_than(version_str: str) -> bool:
+    torch_version = version.parse(torch.__version__).release
+    return torch_version < version.parse(version_str).release
 
 
 class TraceModelWrapper(torch.nn.Module):
@@ -47,6 +52,368 @@ class TraceModelWrapper(torch.nn.Module):
         if isinstance(self.model(*input_data, **input_dict), dict):
             return list(self.model(*input_data, **input_dict).values())
         return self.model(*input_data, **input_dict)
+
+
+def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
+    if not isinstance(pytorch_model, PreTrainedModel):
+        return
+
+    transformers_version = version.parse(transformers.__version__)
+    if transformers_version < version.parse("4.45"):
+        return
+
+    orig_forward_name = "forward" if hasattr(pytorch_model, "forward") else "call"
+    orig_forward = getattr(pytorch_model, orig_forward_name)
+    signature = inspect.signature(orig_forward)
+
+    logits_to_keep_name = "logits_to_keep" if transformers_version >= version.parse("4.49") else "num_logits_to_keep"
+    # num_logits_to_keep was added in transformers 4.45 and isn't added as inputs when exporting the model
+    logits_to_keep_index = (
+        list(signature.parameters.keys()).index(logits_to_keep_name)
+        if logits_to_keep_name in signature.parameters
+        else None
+    )
+    pkv_index = (
+        list(signature.parameters.keys()).index("past_key_values")
+        if "past_key_values" in signature.parameters
+        else None
+    )
+
+    @functools.wraps(orig_forward)
+    def patched_forward(*args, **kwargs):
+        from transformers.cache_utils import DynamicCache, EncoderDecoderCache
+
+        args = list(args) if args else []
+        kwargs = kwargs or {}
+
+        if logits_to_keep_name in kwargs or (logits_to_keep_index is not None and len(args) <= logits_to_keep_index):
+            kwargs[logits_to_keep_name] = 0
+        elif logits_to_keep_index is not None:
+            args[logits_to_keep_index] = 0
+
+        if (
+            pkv_index
+            and pkv_index < len(args)  # pkv is in args
+            and isinstance(args[pkv_index], (list, tuple))
+            and isinstance(args[pkv_index][0], (list, tuple))
+        ):
+            if len(args[pkv_index][0]) == 2:
+                args[pkv_index] = DynamicCache.from_legacy_cache(args[pkv_index])
+            elif len(args[pkv_index][0]) == 4:
+                args[pkv_index] = EncoderDecoderCache.from_legacy_cache(args[pkv_index])
+            else:
+                raise ValueError(
+                    f"past_key_values should have either 2 or 4 elements, but it has {len(args[pkv_index][0])} elements"
+                )
+        elif (
+            "past_key_values" in kwargs  # pkv is in kwargs
+            and isinstance(kwargs["past_key_values"], (list, tuple))
+            and isinstance(kwargs["past_key_values"][0], (list, tuple))
+        ):
+            if len(kwargs["past_key_values"][0]) == 2:
+                kwargs["past_key_values"] = DynamicCache.from_legacy_cache(kwargs["past_key_values"])
+            elif len(kwargs["past_key_values"][0]) == 4:
+                kwargs["past_key_values"] = EncoderDecoderCache.from_legacy_cache(kwargs["past_key_values"])
+            else:
+                raise ValueError(
+                    "past_key_values should have either 2 or 4 elements, "
+                    f"but it has {len(kwargs['past_key_values'][0])} elements"
+                )
+
+        outputs = orig_forward(*args, **kwargs)
+
+        if isinstance(outputs.get("past_key_values"), (DynamicCache, EncoderDecoderCache)):
+            outputs["past_key_values"] = outputs["past_key_values"].to_legacy_cache()
+
+        return outputs
+
+    setattr(pytorch_model, orig_forward_name, patched_forward)
+    logger.debug("PyTorch model patched for transformers v%s.", transformers.__version__)
+
+
+@torch.no_grad()
+def _export_pytorch_model(
+    pytorch_model: torch.nn.Module,
+    dummy_inputs,
+    io_config,
+    config: type[BasePassConfig],
+    device: Union[str, torch.device],
+    dynamo: bool,
+    torch_dtype: Optional[torch.dtype] = None,
+) -> ir.Model:
+    """Export a torch.nn.Module to ONNX and return the loaded ONNX model.
+
+    :param pytorch_model: the torch.nn.Module to export
+    :param dummy_inputs: the dummy inputs to the model. Can be None if using dynamo_exporter
+    :param io_config: the io_config for the model. This consists of the input and output names, and dynamic axes
+    :param config: the config for the pass
+    :param device: the device to use for conversion
+    :param dynamo: whether to use the dynamo=True option for export
+    :param torch_dtype: the dtype to cast the model to before conversion
+    :param tempdir: directory to use for temporary files
+    """
+    from olive.common.hf.peft import make_export_compatible_peft
+    from olive.common.hf.quant import make_export_compatible_quant
+
+    device = torch.device(device)
+    use_gpu = device != torch.device("cpu")
+    if use_gpu and torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    logger.debug("Converting model on device %s with dtype %s.", device, torch_dtype)
+    pytorch_model.to(device)
+
+    dummy_inputs = tensor_data_to_dtype(dummy_inputs, torch_dtype)
+    dummy_inputs = tensor_data_to_device(dummy_inputs, device)
+
+    if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
+        pytorch_model = TraceModelWrapper(pytorch_model)
+    pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config.merge_adapter_weights)
+    pytorch_model = make_export_compatible_quant(pytorch_model, config.use_dynamo_exporter)
+    # cast to dtype, want all modules including lora layers and quant linears in the same dtype
+    if torch_dtype:
+        pytorch_model = pytorch_model.to(torch_dtype)
+
+    # Apply any necessary patches
+    _patch_model_if_necessary(pytorch_model)
+
+    # get input and output names, and dynamic axes
+    assert io_config is not None, "Cannot get io_config for the model."
+    io_config = validate_config(io_config, IoConfig)
+    # If dynamic is False, set dynamic_axes and dynamic_shapes to None
+    if not config.dynamic:
+        io_config.dynamic_axes = None
+        io_config.dynamic_shapes = None
+
+    # Create tempdir for the case when fallback or dynamo=False is used. This is because when fallback
+    # is taken, the old export always writes a model to the disk. When that happens we need to
+    # load the model back into IR and load all the external tensor to memory
+    with tempfile.TemporaryDirectory(prefix="olive_tmp") as tmp_dir:
+        tmp_model_path = resolve_onnx_path(tmp_dir)
+
+        if dynamo:
+            # Take the "release" version so that dev builds like 2.5.0dev1234 are treated as 2.5.0
+            if _torch_is_older_than("2.7.0") and (
+                io_config.dynamic_axes is not None or io_config.dynamic_shapes is not None
+            ):
+                logger.warning(
+                    "We recommend PyTorch version 2.7.0 or later for dynamic_shapes support. "
+                    "Please upgrade to PyTorch 2.7.0 or newer if you need dynamic shapes.",
+                )
+            # The new "dynamo" api is torch.onnx.export with dynamo=True
+            if _torch_is_older_than("2.6.0"):
+                raise RuntimeError(
+                    f"torch.onnx.export(..., dynamo=True) is not available for torch version {torch.__version__}. "
+                    "Please upgrade PyTorch to 2.6.0 or above."
+                )
+
+            if isinstance(dummy_inputs, dict):
+                dummy_kwargs = dummy_inputs
+                dummy_inputs = ()
+            else:
+                dummy_kwargs = {}
+                dummy_inputs = tuple(dummy_inputs)
+
+            # NOTE: Usually validation is done in io_config.py, but because
+            # dynamic_shapes has nested complexity, and it can't be validated multiple
+            # times like others, we validate it here.
+            io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
+                io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
+            )
+            onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
+                pytorch_model,
+                dummy_inputs,
+                tmp_model_path,  # needed for fallback=True
+                kwargs=dummy_kwargs,
+                opset_version=config.target_opset,
+                input_names=io_config.input_names,
+                output_names=io_config.output_names,
+                dynamic_axes=io_config.dynamic_axes,
+                dynamic_shapes=io_config.dynamic_shapes,
+                dynamo=True,
+                fallback=True,
+                optimize=config.optimize,
+                report=logger.isEnabledFor(logging.DEBUG),
+            )
+            assert onnx_program is not None
+            model = onnx_program.model
+            # We can run load_to_model on all models: If the model is from dynamo=True,
+            # there is no external tensor so nothing will happen; if the model is from
+            # fallback, the external tensors will be loaded into memory so the tempdir
+            # can be removed.
+            ir.external_data.load_to_model(model)
+        else:
+            torch.onnx.export(
+                pytorch_model,
+                dummy_inputs,
+                tmp_model_path,
+                export_params=True,
+                opset_version=config.target_opset,
+                input_names=io_config.input_names,
+                output_names=io_config.output_names,
+                dynamic_axes=io_config.dynamic_axes,
+            )
+            model = ir.load(tmp_model_path)
+            # After the line below, the model is loaded into memory, so it's safe to
+            # delete previously exported file(s)
+            ir.external_data.load_to_model(model)
+
+            # Workaround as described under IoConfig.string_to_int_dim_params: change numeric dim_param to dim_value
+            if io_config.string_to_int_dim_params:
+                string_to_int_dim_params = set(io_config.string_to_int_dim_params)
+                for output in model.graph.outputs:
+                    new_shape = []
+                    # Create a new shape only when any dimension was changed
+                    changed = False
+                    for dim in output.shape:
+                        if isinstance(dim, ir.SymbolicDim) and dim.value in string_to_int_dim_params:
+                            new_shape.append(int(dim.value))
+                            changed = True
+                        else:
+                            new_shape.append(dim)
+                    if changed:
+                        output.shape = ir.Shape(new_shape)
+
+    # Reset to CPU so the resource consumed on GPU could be free.
+    if use_gpu:
+        pytorch_model.to("cpu")
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    return model
+
+
+def _get_dummy_inputs(
+    model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig]
+) -> Union[dict, Any]:
+    """Get dummy inputs for the model."""
+    return model.get_dummy_inputs(
+        filter_hook=(model.merge_kv_cache_hook if config.use_dynamo_exporter else model.merge_kv_cache_to_tuple_hook),
+        filter_hook_kwargs={
+            "past_kv_names": config.past_key_value_name,
+        },
+    )
+
+
+def _export_ranked_model(params):
+    """Export one rank of a DistributedHfModel to ONNX and save the model to the output path.
+
+    :param params: a tuple of (pass_config, model_config, world_size, device, local_rank, output_dirpath)
+        pass_config: the config for the pass
+        model_config: the config for the DistributedHfModel
+        device: the device to use for conversion
+        torch_dtype: the dtype to cast the model to before conversion
+        local_rank: the rank of the current process as well as the rank of the model to be converted
+        output_dirpath: the path to the directory to save the model. The .onnx model will be saved in this
+            directory with the name specified by DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT
+    """
+    pass_config, model_config, device, torch_dtype, local_rank, output_dirpath = params
+
+    model_type = model_config.get("model_attributes", {}).get("model_type")
+
+    if model_type == "llama":
+        from olive.passes.pytorch.tensor_parallel_llama2 import (
+            replace_llama2_tensor_parallel_layers as replace_tensor_parallel_layers,
+        )
+        from olive.passes.pytorch.tensor_parallel_llama2 import (
+            restore_llama2_tensor_parallel_layers as restore_tensor_parallel_layers,
+        )
+    else:
+        raise ValueError(f"Unsupported model type '{model_type}' for conversion pass")
+
+    output_filename = DistributedOnnxModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(local_rank)
+    output_filepath = resolve_onnx_path(output_dirpath, output_filename)
+
+    restore_args = replace_tensor_parallel_layers()
+    try:
+        input_model = DistributedHfModelHandler(**model_config)
+
+        olive_pytorch_model = input_model.load_model(local_rank)
+        dummy_inputs = _get_dummy_inputs(olive_pytorch_model, pass_config)
+        io_config = None if pass_config.use_dynamo_exporter else olive_pytorch_model.io_config
+        pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
+
+        ranked_onnx_model = _export_pytorch_model(
+            pytorch_model,
+            dummy_inputs,
+            io_config,
+            pass_config,
+            device,
+            dynamo=False,
+            torch_dtype=torch_dtype,
+        )
+
+        # save the model to the output path
+        ir_model_to_olive_model(ranked_onnx_model, output_filepath, pass_config)
+    finally:
+        restore_tensor_parallel_layers(restore_args)
+
+    return 1  # Return 1 for success.
+
+
+def _prepare_hf_model(model: HfModelHandler, device: str, torch_dtype: Optional[torch.dtype] = None) -> HfModelHandler:
+    """Prepare the HfModelHandler for conversion.
+
+    This method handles the following cases:
+    1. HfModelHandler with no load kwargs
+        - no need to change the model
+    2. HfModelHandler with load kwargs
+        - update load_kwargs.torch_dtype if torch_dtype is specified
+        - if torch_dtype not specified, make sure the load kwargs specify a dtype that is supported for
+            conversion on the specified device
+        - if quantization_method == "bitsandbytes" and load_in_4bit is True
+            - remove quantization config from the load kwargs
+            - find quantized modules and add them to the model attributes
+            - the onnx model must be quantized using OnnxBnb4Quantization pass after conversion
+    """
+    from olive.common.hf.peft import is_peft_model
+
+    if not model.load_kwargs:
+        return model
+
+    model_attributes = deepcopy(model.model_attributes or {})
+    load_kwargs = model.load_kwargs
+    model_dtype = load_kwargs.get_torch_dtype()
+    new_load_kwargs = deepcopy(load_kwargs.dict())
+
+    if torch_dtype and torch_dtype != model_dtype:
+        # if the load kwargs specify a different dtype, update the load kwargs
+        logger.debug(
+            "Changing torch_dtype in load kwargs from %s to %s.",
+            load_kwargs.get_torch_dtype(),
+            torch_dtype,
+        )
+        new_load_kwargs["torch_dtype"] = torch_dtype
+        model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
+
+    if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config["load_in_4bit"]:
+        logger.debug(
+            "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
+            " from the load kwargs. Use OnnxBnb4Quantization pass after conversion to quantize the"
+            " model."
+        )
+        new_load_kwargs["quantization_method"] = None
+        new_load_kwargs["quantization_config"] = None
+        model_attributes["quantization_config"] = load_kwargs.quantization_config
+        if "quantized_modules" not in model_attributes:
+            # find and add quantized modules to the model attributes
+            # the QLoRA pass already adds quantized_modules to the model attributes, so this will not be
+            # executed if the model was generated by QLoRA
+            quantized_model = model.load_model(cache_model=False)
+
+            # if PeftModel, need to unload adapter before finding quantized modules
+            if is_peft_model(quantized_model):
+                quantized_model = quantized_model.unload()
+
+            import bitsandbytes as bnb
+
+            model_attributes["quantized_modules"] = find_submodules(quantized_model, bnb.nn.Linear4bit)
+
+    model_config = model.to_json()["config"]
+    model_config["load_kwargs"] = new_load_kwargs
+    model_config["model_attributes"] = model_attributes
+    return HfModelHandler(**model_config)
 
 
 class OnnxConversion(Pass):
@@ -167,318 +534,6 @@ class OnnxConversion(Pass):
 
         return self._convert_model_on_device(model, config, output_model_path, device, torch_dtype)
 
-    @staticmethod
-    @torch.no_grad()
-    def _export_pytorch_model(
-        pytorch_model: torch.nn.Module,
-        dummy_inputs,
-        io_config,
-        config: type[BasePassConfig],
-        device: Union[str, torch.device],
-        torch_dtype: Optional[torch.dtype] = None,
-        tempdir: Optional[Union[Path, str]] = None,
-    ) -> onnx.ModelProto:
-        """Export a torch.nn.Module to ONNX and return the loaded ONNX model.
-
-        :param pytorch_model: the torch.nn.Module to export
-        :param dummy_inputs: the dummy inputs to the model. Can be None if using dynamo_exporter
-        :param io_config: the io_config for the model. This consists of the input and output names, and dynamic axes
-        :param config: the config for the pass
-        :param device: the device to use for conversion
-        :param torch_dtype: the dtype to cast the model to before conversion
-        :param tempdir: directory to use for temporary files
-        :param dynamic: whether to export the model with dynamic axes/shapes
-        """
-        from olive.common.hf.peft import make_export_compatible_peft
-        from olive.common.hf.quant import make_export_compatible_quant
-
-        device = torch.device(device)
-        use_gpu = device != torch.device("cpu")
-        if use_gpu and torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
-        logger.debug("Converting model on device %s with dtype %s.", device, torch_dtype)
-        pytorch_model.to(device)
-
-        dummy_inputs = tensor_data_to_dtype(dummy_inputs, torch_dtype)
-        dummy_inputs = tensor_data_to_device(dummy_inputs, device)
-
-        if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
-            pytorch_model = TraceModelWrapper(pytorch_model)
-        pytorch_model = make_export_compatible_peft(pytorch_model, merge_weights=config.merge_adapter_weights)
-        pytorch_model = make_export_compatible_quant(pytorch_model, config.use_dynamo_exporter)
-        # cast to dtype, want all modules including lora layers and quant linears in the same dtype
-        if torch_dtype:
-            pytorch_model = pytorch_model.to(torch_dtype)
-
-        # Apply any necessary patches
-        OnnxConversion._patch_model_if_necessary(pytorch_model)
-
-        # get input and output names, and dynamic axes
-        assert io_config is not None, "Cannot get io_config for the model."
-        io_config = validate_config(io_config, IoConfig)
-        # If dynamic is False, set dynamic_axes and dynamic_shapes to None
-        if not config.dynamic:
-            io_config.dynamic_axes = None
-            io_config.dynamic_shapes = None
-
-        onnx_model = None
-        if config.use_dynamo_exporter:
-            # Take the "release" version so that dev builds like 2.5.0dev1234 are treated as 2.5.0
-            torch_version = version.parse(torch.__version__).release
-            if torch_version < version.parse("2.7.0").release and io_config.dynamic_shapes is not None:
-                logger.warning(
-                    "Dynamic shape support in torch.onnx.export(..., dynamo=True) requires "
-                    "PyTorch version 2.7.0 or later. "
-                    "Please upgrade to PyTorch 2.7.0 or newer if you need dynamic shapes.",
-                )
-            # The "legacy dynamo" is the torch.onnx_dynamo_export API
-            legacy_dynamo_supported_version = version.parse("2.2.0").release
-            # The new "dynamo" api is torch.onnx.export with dynamo=True
-            dynamo_supported_version = version.parse("2.7.0").release
-            if torch_version < legacy_dynamo_supported_version:
-                raise ImportError(
-                    f"torch.onnx.export(..., dynamo=True) is not available for torch version {torch_version}. "
-                    "Please upgrade your torch version to 2.7.0 or above."
-                )
-            from torch._dynamo import config as dynamo_config
-
-            dynamo_config.capture_scalar_outputs = True
-            if isinstance(dummy_inputs, dict):
-                dummy_kwargs = dummy_inputs
-                dummy_inputs = ()
-            else:
-                dummy_kwargs = {}
-                dummy_inputs = tuple(dummy_inputs)
-
-            if torch_version < dynamo_supported_version:
-                onnx_program = torch.onnx.dynamo_export(
-                    pytorch_model,
-                    *dummy_inputs,
-                    **dummy_kwargs,
-                    export_options=torch.onnx.ExportOptions(dynamic_shapes=True),
-                )
-                onnx_model = onnx_program.model_proto
-            else:
-                # NOTE: Usually validation is done in io_config.py, but because
-                # dynamic_shapes has nested complexity, and it can't be validated multiple
-                # times like others, we validate it here.
-                io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
-                    io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
-                )
-                # there might be multiple files created during export, so we need to track the dir
-                # if there are other processes writing to the same dir, we might end up deleting files created by
-                # other processes
-                with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
-                    tmp_dir_path = Path(tmp_dir)
-                    tmp_model_path = resolve_onnx_path(tmp_dir_path)
-                    onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
-                        pytorch_model,
-                        dummy_inputs,
-                        tmp_model_path,  # needed for fallback=True
-                        kwargs=dummy_kwargs,
-                        opset_version=config.target_opset,
-                        input_names=io_config.input_names,
-                        output_names=io_config.output_names,
-                        dynamic_axes=io_config.dynamic_axes,
-                        dynamic_shapes=io_config.dynamic_shapes,
-                        dynamo=True,
-                        fallback=True,
-                        optimize=config.optimize,
-                        report=logger.isEnabledFor(logging.DEBUG),
-                    )
-                    assert onnx_program is not None
-                    onnx_model = onnx_program.model_proto
-        else:
-            # there might be multiple files created during export, so we need to track the dir
-            # if there are other processes writing to the same dir, we might end up deleting files created by
-            # other processes
-            with tempfile.TemporaryDirectory(dir=tempdir, prefix="olive_tmp") as tmp_dir:
-                tmp_dir_path = Path(tmp_dir)
-                tmp_model_path = resolve_onnx_path(tmp_dir_path)
-
-                torch.onnx.export(
-                    pytorch_model,
-                    dummy_inputs,
-                    tmp_model_path,
-                    export_params=True,
-                    opset_version=config.target_opset,
-                    input_names=io_config.input_names,
-                    output_names=io_config.output_names,
-                    dynamic_axes=io_config.dynamic_axes,
-                )
-                onnx_model = onnx.load(tmp_model_path)
-                # the model is loaded into memory, so it's safe to delete previously exported file(s)
-
-            # Workaround as described under IoConfig.string_to_int_dim_params: change numeric dim_param to dim_value
-            if io_config.string_to_int_dim_params:
-                for tensor in onnx_model.graph.output:
-                    for dim_proto in tensor.type.tensor_type.shape.dim:
-                        if (
-                            dim_proto.HasField("dim_param")
-                            and dim_proto.dim_param in io_config.string_to_int_dim_params
-                        ):
-                            dim_value = int(dim_proto.dim_param)
-                            dim_proto.Clear()
-                            dim_proto.dim_value = dim_value
-
-        # Reset to CPU so the resource consumed on GPU could be free.
-        if use_gpu:
-            pytorch_model.to("cpu")
-
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-
-        return onnx_model
-
-    @staticmethod
-    def _prepare_hf_model(
-        model: HfModelHandler, device: str, torch_dtype: Optional[torch.dtype] = None
-    ) -> HfModelHandler:
-        """Prepare the HfModelHandler for conversion.
-
-        This method handles the following cases:
-        1. HfModelHandler with no load kwargs
-            - no need to change the model
-        2. HfModelHandler with load kwargs
-            - update load_kwargs.torch_dtype if torch_dtype is specified
-            - if torch_dtype not specified, make sure the load kwargs specify a dtype that is supported for
-                conversion on the specified device
-            - if quantization_method == "bitsandbytes" and load_in_4bit is True
-                - remove quantization config from the load kwargs
-                - find quantized modules and add them to the model attributes
-                - the onnx model must be quantized using OnnxBnb4Quantization pass after conversion
-        """
-        from olive.common.hf.peft import is_peft_model
-
-        if not model.load_kwargs:
-            return model
-
-        model_attributes = deepcopy(model.model_attributes or {})
-        load_kwargs = model.load_kwargs
-        model_dtype = load_kwargs.get_torch_dtype()
-        new_load_kwargs = deepcopy(load_kwargs.dict())
-
-        if torch_dtype and torch_dtype != model_dtype:
-            # if the load kwargs specify a different dtype, update the load kwargs
-            logger.debug(
-                "Changing torch_dtype in load kwargs from %s to %s.",
-                load_kwargs.get_torch_dtype(),
-                torch_dtype,
-            )
-            new_load_kwargs["torch_dtype"] = torch_dtype
-            model_attributes["torch_dtype"] = str(torch_dtype).replace("torch.", "")
-
-        if load_kwargs.quantization_method == "bitsandbytes" and load_kwargs.quantization_config["load_in_4bit"]:
-            logger.debug(
-                "Bitsandbytes 4bit quantization is not supported for conversion. The quantization config is removed"
-                " from the load kwargs. Use OnnxBnb4Quantization pass after conversion to quantize the"
-                " model."
-            )
-            new_load_kwargs["quantization_method"] = None
-            new_load_kwargs["quantization_config"] = None
-            model_attributes["quantization_config"] = load_kwargs.quantization_config
-            if "quantized_modules" not in model_attributes:
-                # find and add quantized modules to the model attributes
-                # the QLoRA pass already adds quantized_modules to the model attributes, so this will not be
-                # executed if the model was generated by QLoRA
-                quantized_model = model.load_model(cache_model=False)
-
-                # if PeftModel, need to unload adapter before finding quantized modules
-                if is_peft_model(quantized_model):
-                    quantized_model = quantized_model.unload()
-
-                import bitsandbytes as bnb
-
-                model_attributes["quantized_modules"] = find_submodules(quantized_model, bnb.nn.Linear4bit)
-
-        model_config = model.to_json()["config"]
-        model_config["load_kwargs"] = new_load_kwargs
-        model_config["model_attributes"] = model_attributes
-        return HfModelHandler(**model_config)
-
-    @staticmethod
-    def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
-        if not isinstance(pytorch_model, PreTrainedModel):
-            return
-
-        transformers_version = version.parse(transformers.__version__)
-        if transformers_version < version.parse("4.45"):
-            return
-
-        orig_forward_name = "forward" if hasattr(pytorch_model, "forward") else "call"
-        orig_forward = getattr(pytorch_model, orig_forward_name)
-        signature = inspect.signature(orig_forward)
-
-        logits_to_keep_name = (
-            "logits_to_keep" if transformers_version >= version.parse("4.49") else "num_logits_to_keep"
-        )
-        # num_logits_to_keep was added in transformers 4.45 and isn't added as inputs when exporting the model
-        logits_to_keep_index = (
-            list(signature.parameters.keys()).index(logits_to_keep_name)
-            if logits_to_keep_name in signature.parameters
-            else None
-        )
-        pkv_index = (
-            list(signature.parameters.keys()).index("past_key_values")
-            if "past_key_values" in signature.parameters
-            else None
-        )
-
-        @functools.wraps(orig_forward)
-        def patched_forward(*args, **kwargs):
-            from transformers.cache_utils import DynamicCache, EncoderDecoderCache
-
-            args = list(args) if args else []
-            kwargs = kwargs or {}
-
-            if logits_to_keep_name in kwargs or (
-                logits_to_keep_index is not None and len(args) <= logits_to_keep_index
-            ):
-                kwargs[logits_to_keep_name] = 0
-            elif logits_to_keep_index is not None:
-                args[logits_to_keep_index] = 0
-
-            if (
-                pkv_index
-                and pkv_index < len(args)  # pkv is in args
-                and isinstance(args[pkv_index], (list, tuple))
-                and isinstance(args[pkv_index][0], (list, tuple))
-            ):
-                if len(args[pkv_index][0]) == 2:
-                    args[pkv_index] = DynamicCache.from_legacy_cache(args[pkv_index])
-                elif len(args[pkv_index][0]) == 4:
-                    args[pkv_index] = EncoderDecoderCache.from_legacy_cache(args[pkv_index])
-                else:
-                    raise ValueError(
-                        "past_key_values should have either 2 or 4 elements, "
-                        f"but it has {len(args[pkv_index][0])} elements"
-                    )
-            elif (
-                "past_key_values" in kwargs  # pkv is in kwargs
-                and isinstance(kwargs["past_key_values"], (list, tuple))
-                and isinstance(kwargs["past_key_values"][0], (list, tuple))
-            ):
-                if len(kwargs["past_key_values"][0]) == 2:
-                    kwargs["past_key_values"] = DynamicCache.from_legacy_cache(kwargs["past_key_values"])
-                elif len(kwargs["past_key_values"][0]) == 4:
-                    kwargs["past_key_values"] = EncoderDecoderCache.from_legacy_cache(kwargs["past_key_values"])
-                else:
-                    raise ValueError(
-                        "past_key_values should have either 2 or 4 elements, "
-                        f"but it has {len(kwargs['past_key_values'][0])} elements"
-                    )
-
-            outputs = orig_forward(*args, **kwargs)
-
-            if isinstance(outputs.get("past_key_values"), (DynamicCache, EncoderDecoderCache)):
-                outputs["past_key_values"] = outputs["past_key_values"].to_legacy_cache()
-
-            return outputs
-
-        setattr(pytorch_model, orig_forward_name, patched_forward)
-        logger.debug("PyTorch model patched for transformers v%s.", transformers.__version__)
-
     def _convert_model_on_device(
         self,
         model: Union[HfModelHandler, PyTorchModelHandler],
@@ -492,104 +547,41 @@ class OnnxConversion(Pass):
         if isinstance(model, HfModelHandler):
             # optimum export config needs the loaded model to get io_config so we create a new model handler
             # which will be used to load the model and get the io_config
-            model = self._prepare_hf_model(model, device, torch_dtype)
+            model = _prepare_hf_model(model, device, torch_dtype)
 
         # load the model
         pytorch_model = model.load_model(cache_model=False)
         pytorch_model.eval()
 
         # get dummy inputs
-        dummy_inputs = self._get_dummy_inputs(model, config)
+        dummy_inputs = _get_dummy_inputs(model, config)
         io_config = model.io_config
-
-        converted_onnx_model = OnnxConversion._export_pytorch_model(
-            pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
-        )
 
         model_attributes = deepcopy(model.model_attributes or {})
 
         # add split information if present
         split_assignments = model_attributes.get("split_assignments")
         if split_assignments:
-            split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
-            onnx.helper.set_model_props(converted_onnx_model, {"split_assignments": split_assignment_str})
-
-        # save the model to the output path and return the model
-        output_model_path = resolve_onnx_path(output_model_path)
-        output_model = model_proto_to_olive_model(converted_onnx_model, output_model_path, config)
-        output_model.model_attributes = deepcopy(model.model_attributes or {})
-        return output_model
-
-    @staticmethod
-    def _get_dummy_inputs(
-        model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig]
-    ) -> Union[dict, tuple]:
-        """Get dummy inputs for the model."""
-        return model.get_dummy_inputs(
-            filter_hook=(
-                model.merge_kv_cache_hook if config.use_dynamo_exporter else model.merge_kv_cache_to_tuple_hook
-            ),
-            filter_hook_kwargs={
-                "past_kv_names": config.past_key_value_name,
-            },
-        )
-
-    @staticmethod
-    def _export_ranked_model(params):
-        """Export one rank of a DistributedHfModel to ONNX and save the model to the output path.
-
-        :param params: a tuple of (pass_config, model_config, world_size, device, local_rank, output_dirpath)
-            pass_config: the config for the pass
-            model_config: the config for the DistributedHfModel
-            device: the device to use for conversion
-            torch_dtype: the dtype to cast the model to before conversion
-            local_rank: the rank of the current process as well as the rank of the model to be converted
-            output_dirpath: the path to the directory to save the model. The .onnx model will be saved in this
-                directory with the name specified by DistributedOnnxModel.DEFAULT_RANKED_MODEL_NAME_FORMAT
-        """
-        pass_config, model_config, device, torch_dtype, local_rank, output_dirpath, tempdir = params
-
-        model_type = model_config.get("model_attributes", {}).get("model_type")
-
-        if model_type == "llama":
-            from olive.passes.pytorch.tensor_parallel_llama2 import (
-                replace_llama2_tensor_parallel_layers as replace_tensor_parallel_layers,
-            )
-            from olive.passes.pytorch.tensor_parallel_llama2 import (
-                restore_llama2_tensor_parallel_layers as restore_tensor_parallel_layers,
-            )
+            split_assignment_encoded = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
         else:
-            raise ValueError(f"Unsupported model type '{model_type}' for conversion pass")
+            split_assignment_encoded = None
 
-        output_filename = DistributedOnnxModelHandler.DEFAULT_RANKED_MODEL_NAME_FORMAT.format(local_rank)
-        output_filepath = resolve_onnx_path(output_dirpath, output_filename)
+        output_model_path = resolve_onnx_path(output_model_path)
+        ir_model = _export_pytorch_model(
+            pytorch_model,
+            dummy_inputs,
+            io_config=io_config,
+            config=config,
+            device=device,
+            dynamo=config.use_dynamo_exporter,
+            torch_dtype=torch_dtype,
+        )
+        if split_assignment_encoded:
+            ir_model.metadata_props["split_assignments"] = split_assignment_encoded
+        output_model = ir_model_to_olive_model(ir_model, output_model_path, config)
 
-        try:
-            restore_args = replace_tensor_parallel_layers()
-
-            input_model = DistributedHfModelHandler(**model_config)
-
-            olive_pytorch_model = input_model.load_model(local_rank)
-            dummy_inputs = OnnxConversion._get_dummy_inputs(olive_pytorch_model, pass_config)
-            io_config = None if pass_config.use_dynamo_exporter else olive_pytorch_model.io_config
-            pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
-
-            ranked_onnx_modelproto = OnnxConversion._export_pytorch_model(
-                pytorch_model,
-                dummy_inputs,
-                io_config,
-                pass_config,
-                device,
-                torch_dtype,
-                tempdir,
-            )
-
-            # save the model to the output path
-            model_proto_to_olive_model(ranked_onnx_modelproto, output_filepath, pass_config)
-        finally:
-            restore_tensor_parallel_layers(restore_args)  # pylint: disable=used-before-assignment
-
-        return 1  # Return 1 for success.
+        output_model.model_attributes = model_attributes
+        return output_model
 
     def _convert_distributed_model_on_device(
         self,
@@ -614,18 +606,17 @@ class OnnxConversion(Pass):
                 torch_dtype,
                 rank,
                 output_model_path,
-                tempfile.tempdir,
             )
             for rank in range(world_size)
         ]
 
         max_parallel_jobs = min(world_size, config.parallel_jobs or multiprocessing.cpu_count())
         if max_parallel_jobs <= 1:
-            results = [OnnxConversion._export_ranked_model(_) for _ in params]
+            results = [_export_ranked_model(_) for _ in params]
         else:
             context = multiprocessing.get_context("spawn")
             with context.Pool(processes=max_parallel_jobs) as pool:
-                results = pool.map(OnnxConversion._export_ranked_model, params)
+                results = pool.map(_export_ranked_model, params)
 
         if world_size != sum(results):
             raise RuntimeError("Failed to convert models")
