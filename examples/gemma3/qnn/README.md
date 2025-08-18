@@ -6,7 +6,7 @@ This repository demonstrates the optimization of the [Google Gemma-3-4B](https:/
 
 Requirements:
 * Python 3.10
-* uv
+* uv - Used throughout the setup scripts, please follow the [publically available installation instructions](https://docs.astral.sh/uv/getting-started/installation/#installation-methods)
 
 This repository contains an automated setup script for Linux that can be used to help automate many of the steps listed in the tutorial above:
 
@@ -16,8 +16,14 @@ source env_setup.sh
 
 ## Optimization Process
 
-Run the following command in your Olive environment after completing the above setup steps:
+Since Gemma-3-4B is a multi-modal model composed of both vision and text components, the strategy for optimizing it through Olive is to operate on the constituent models separately before configuring them to work in concert at the onnxruntime-genai stage.
+
+Thus, the following commands should be used to separately produce context binaries for the text and vision portions of the model, respectively.
 
 ```bash
-olive run --config gemma3-4b-qnn-config.json
+olive run --config gemma3-4b-text-qnn-config.json
+```
+
+```bash
+olive run --config gemma3-4b-vision-qnn-config.json
 ```

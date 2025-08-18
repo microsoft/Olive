@@ -1,5 +1,5 @@
 {
-    "input_model": { "type": "HfModel", "model_path": "google/gemma-3-4b-it", "model_attributes": { "head_dim": 256 } },
+    "input_model": { "type": "HfModel", "model_path": "google/gemma-3-4b-it" },
     "systems": {
         "qnn_system": {
             "type": "PythonEnvironment",
@@ -9,9 +9,9 @@
     },
     "data_configs": [
         {
-            "name": "gemma_data_config",
+            "name": "gemma_text_data_config",
             "user_script": "user_script.py",
-            "load_dataset_config": { "type": "gemma_dataset", "model_id": "google/gemma-3-4b-it" }
+            "load_dataset_config": { "type": "gemma_text_dataset", "model_id": "google/gemma-3-4b-it" }
         }
     ],
     "passes": {
@@ -23,7 +23,7 @@
             "group_size": -1,
             "lm_head": false,
             "device": "cuda",
-            "data_config": "gemma_data_config"
+            "data_config": "gemma_text_data_config"
         },
         "cs": { "type": "CaptureSplitInfo", "num_splits": 4, "unique_embeds_lm_head_splits": true },
         "mb": {
@@ -51,7 +51,7 @@
         },
         "sq": {
             "type": "OnnxStaticQuantization",
-            "data_config": "gemma_data_config",
+            "data_config": "gemma_text_data_config",
             "activation_type": "uint16",
             "precision": "uint8",
             "calibration_providers": [ "CUDAExecutionProvider" ],
@@ -74,7 +74,7 @@
     },
     "target": "qnn_system",
     "log_severity_level": 1,
-    "output_dir": "models/gemma-3-4b-it",
+    "output_dir": "models/gemma-3-4b-it-text",
     "cache_dir": "cache",
     "no_artifacts": true
 }
