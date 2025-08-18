@@ -101,7 +101,7 @@ def default_calibration_dataloader(
             return batch
 
         def set_range(self, start_index, end_index):
-            self.start_index = start_index
+            self.curr_index = start_index
             self.end_index = end_index
 
         def rewind(self):
