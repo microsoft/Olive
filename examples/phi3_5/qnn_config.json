@@ -72,7 +72,8 @@
             "calibration_providers": [ "CUDAExecutionProvider" ],
             "quant_preprocess": true,
             "op_types_to_exclude": [ "GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits" ],
-            "save_as_external_data": true
+            "save_as_external_data": true,
+            "extra_option": { "CalibStridedMinMax": 4 }
         },
         "sp": { "type": "SplitModel" },
         "st": { "type": "StaticLLM", "batch_size": 1, "context_length": 64 },
