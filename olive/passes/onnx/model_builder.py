@@ -372,3 +372,5 @@ class ModelBuilder(Pass):
         # NvTensorRtRtx EP requires Opset 21, so force use_qdq which controls it.
         if self.accelerator_spec.execution_provider == ExecutionProvider.NvTensorRTRTXExecutionProvider:
             kv_pairs["use_qdq"] = True
+
+        return kv_pairs
