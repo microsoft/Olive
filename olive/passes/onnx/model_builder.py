@@ -196,7 +196,7 @@ class ModelBuilder(Pass):
         output_model_path: str,
     ) -> ONNXModelHandler:
         try:
-            from onnxruntime_genai.models.builder import check_extra_options, create_model
+            from onnxruntime_genai.models.builder import create_model
         except ImportError:
             raise ImportError(
                 "onnxruntime-genai package is required to run ModelBuilder pass. Please install the package"
@@ -244,7 +244,7 @@ class ModelBuilder(Pass):
 
         # Override extra options with user provided in extra_options parameter
         if config.extra_options:
-            extra_args.update(check_extra_options(config.extra_options))
+            extra_args.update(config.extra_options)
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
 
