@@ -62,9 +62,13 @@ class QuantScheme(StrEnumBase):
     TF_ENHANCED = "tf_enhanced"
 
 
-def _has_quantization_nodes(model: onnx.ModelProto):
-    quantize_op_types = {"QuantizeLinear", "DequantizeLinear", "DynamicQuantizeLinear", "MatMulNBits"}
+def _has_qdq_nodes(model: onnx.ModelProto):
+    quantize_op_types = {"QuantizeLinear", "DequantizeLinear"}
     return any(node.op_type in quantize_op_types for node in model.graph.node)
+
+
+def _has_dynamic_quantization(model: onnx.ModelProto):
+    return any(node.op_type == "DynamicQuantizeLinear" for node in model.graph.node)
 
 
 def _disable_quantizer(sim, tensor_name: str):
@@ -201,11 +205,17 @@ class AimetQuantization(Pass):
 
         onnx_model = onnx.load(model.model_path)
 
-        if _has_quantization_nodes(onnx_model):
-            raise NotImplementedError("AIMET Quantization does not support pre-quantized models")
+        if _has_dynamic_quantization(onnx_model):
+            raise NotImplementedError("AIMET Quantization does not support dynamically quantized models.")
 
         with tempfile.TemporaryDirectory(prefix="olive_tmp") as tmp_dir:
-            sim = aimet_onnx.QuantizationSimModel(
+            # pylint:disable = protected-access
+            sim_initializer = (
+                aimet_onnx.QuantizationSimModel
+                if not _has_qdq_nodes(onnx_model)
+                else aimet_onnx.QuantizationSimModel._from_onnx_qdq
+            )
+            sim = sim_initializer(
                 onnx_model,
                 param_type=param_type,
                 activation_type=act_type,
