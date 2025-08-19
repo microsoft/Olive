@@ -49,7 +49,7 @@ class TraceModelWrapper(torch.nn.Module):
         return self.model(*input_data, **input_dict)
 
 
-class OnnxConversion(Pass):
+class (Pass):
     """Convert a PyTorch model to ONNX model using torch.onnx.export on CPU."""
 
     @classmethod
@@ -212,7 +212,7 @@ class OnnxConversion(Pass):
             pytorch_model = pytorch_model.to(torch_dtype)
 
         # Apply any necessary patches
-        OnnxConversion._patch_model_if_necessary(pytorch_model)
+        ._patch_model_if_necessary(pytorch_model)
 
         # get input and output names, and dynamic axes
         assert io_config is not None, "Cannot get io_config for the model."
@@ -502,7 +502,7 @@ class OnnxConversion(Pass):
         dummy_inputs = self._get_dummy_inputs(model, config)
         io_config = model.io_config
 
-        converted_onnx_model = OnnxConversion._export_pytorch_model(
+        converted_onnx_model = ._export_pytorch_model(
             pytorch_model, dummy_inputs, io_config, config, device, torch_dtype, tempfile.tempdir
         )
 
@@ -570,11 +570,11 @@ class OnnxConversion(Pass):
             input_model = DistributedHfModelHandler(**model_config)
 
             olive_pytorch_model = input_model.load_model(local_rank)
-            dummy_inputs = OnnxConversion._get_dummy_inputs(olive_pytorch_model, pass_config)
+            dummy_inputs = ._get_dummy_inputs(olive_pytorch_model, pass_config)
             io_config = None if pass_config.use_dynamo_exporter else olive_pytorch_model.io_config
             pytorch_model = olive_pytorch_model.prepare_session(rank=local_rank)
 
-            ranked_onnx_modelproto = OnnxConversion._export_pytorch_model(
+            ranked_onnx_modelproto = ._export_pytorch_model(
                 pytorch_model,
                 dummy_inputs,
                 io_config,
@@ -621,11 +621,11 @@ class OnnxConversion(Pass):
 
         max_parallel_jobs = min(world_size, config.parallel_jobs or multiprocessing.cpu_count())
         if max_parallel_jobs <= 1:
-            results = [OnnxConversion._export_ranked_model(_) for _ in params]
+            results = [._export_ranked_model(_) for _ in params]
         else:
             context = multiprocessing.get_context("spawn")
             with context.Pool(processes=max_parallel_jobs) as pool:
-                results = pool.map(OnnxConversion._export_ranked_model, params)
+                results = pool.map(._export_ranked_model, params)
 
         if world_size != sum(results):
             raise RuntimeError("Failed to convert models")

@@ -1,13 +1,15 @@
 {
     "input_model": { 
-        "type": "HfModel", 
-        "model_path": "google/gemma-3-4b-it",
+        "type": "PyTorchModel",
+        "model_script": "custom_gemma3_4b_it_vision.py",
+        "model_loader": "load_gemma3_model",
+        "dummy_inputs_func": "get_dummy_inputs",
         "io_config": {
-            "input_names": [ "input_ids", "pixel_values", "attention_mask" ],
-            "input_shapes": [ [ 10, 77 ], [ 1, 3, 224, 224 ], [ 10, 77 ] ],
-            "input_types": [ "int64", "float32", "int64" ],
-            "output_names": [ "logits_per_image" ],
-            "output_shapes": [ [ 1, 2 ] ]
+            "input_names": ["input_ids", "pixel_values", "attention_mask"],
+            "input_shapes": [[1, 256], [1, 3, 896, 896], [1, 256]],
+            "input_types": ["int64", "float32", "int64"],
+            "output_names": ["last_hidden_state"],
+            "output_shapes": [[1, 256, 2560]]
         } 
     },
     "systems": {
