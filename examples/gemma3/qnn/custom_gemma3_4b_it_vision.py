@@ -4,17 +4,33 @@
 # --------------------------------------------------------------------------
 
 
+import logging
+
 import torch
 from transformers import AutoModel
 
+logger = logging.getLogger(__name__)
+
+
+class Gemma3VisualEmbeddingGenerator(torch.nn.Module):
+    def __init__(self, full_model):
+        super().__init__()
+        # Extract only the vision components
+        self.vision_tower = full_model.vision_tower
+        self.multi_modal_projector = full_model.multi_modal_projector
+
+    def forward(self, pixel_values):
+        # Process images through vision tower
+        image_outputs = self.vision_tower(pixel_values, output_hidden_states=True)
+        selected_image_feature = image_outputs.last_hidden_state
+        # Project to final embedding space
+        return self.multi_modal_projector(selected_image_feature)
+
 
 def load_gemma3_model(model_path):
-    return AutoModel.from_pretrained("google/gemma-3-4b-it")
+    full_model = AutoModel.from_pretrained("google/gemma-3-4b-it")
+    logger.info("Loaded full model: %s", full_model)
 
-
-def get_dummy_inputs(model_handler):
-    return {
-        "input_ids": torch.full((1, 256), 262144, dtype=torch.long),  # Image token ID
-        "pixel_values": torch.randn(1, 3, 896, 896, dtype=torch.float32),
-        "attention_mask": torch.ones((1, 256), dtype=torch.long),
-    }
+    vision_model = Gemma3VisualEmbeddingGenerator(full_model)
+    logger.info("Created vision-only model: %s", vision_model)
+    return vision_model
