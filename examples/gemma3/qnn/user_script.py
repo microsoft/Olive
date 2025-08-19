@@ -203,16 +203,20 @@ class GemmaDataset:
         inputs["input_ids"] = inputs["input_ids"][0]
         return inputs
 
+
 SHORTCUT_FIRST_N = 256
+
 
 @Registry.register_dataset()
 def gemma_dataset(model_id: str):
     return GemmaDataset(model_id, first_n=SHORTCUT_FIRST_N).get_train_dataset()
 
+
 @Registry.register_dataset()
 def gemma_text_dataset(model_id: str):
-    return GemmaDataset(model_id, first_n=SHORTCUT_FIRST_N, filter='text').get_train_dataset
+    return GemmaDataset(model_id, first_n=SHORTCUT_FIRST_N, filter="text").get_train_dataset
+
 
 @Registry.register_dataset()
 def gemma_vision_dataset(model_id: str):
-    return GemmaDataset(model_id, first_n=SHORTCUT_FIRST_N, filter='images').get_train_dataset()
+    return GemmaDataset(model_id, first_n=SHORTCUT_FIRST_N, filter="images").get_train_dataset()

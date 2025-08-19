@@ -1,16 +1,16 @@
 {
-    "input_model": { 
+    "input_model": {
         "type": "PyTorchModel",
         "model_script": "custom_gemma3_4b_it_vision.py",
         "model_loader": "load_gemma3_model",
         "dummy_inputs_func": "get_dummy_inputs",
         "io_config": {
-            "input_names": ["input_ids", "pixel_values", "attention_mask"],
-            "input_shapes": [[1, 256], [1, 3, 896, 896], [1, 256]],
-            "input_types": ["int64", "float32", "int64"],
-            "output_names": ["last_hidden_state"],
-            "output_shapes": [[1, 256, 2560]]
-        } 
+            "input_names": [ "input_ids", "pixel_values", "attention_mask" ],
+            "input_shapes": [ [ 1, 256 ], [ 1, 3, 896, 896 ], [ 1, 256 ] ],
+            "input_types": [ "int64", "float32", "int64" ],
+            "output_names": [ "last_hidden_state" ],
+            "output_shapes": [ [ 1, 256, 2560 ] ]
+        }
     },
     "systems": {
         "qnn_system": {
