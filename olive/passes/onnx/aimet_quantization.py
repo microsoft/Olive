@@ -47,6 +47,16 @@ def precision_to_qtype(p: Precision):
     return precision_mapping.get(p)
 
 
+def _get_dataloader(data_config, model_path, io_config, providers):
+    # Note: bool(_CalibrationDataReader) is not implemented, convert to generator to avoid error
+    return (
+        x
+        for x in data_config.to_data_container().create_calibration_dataloader(
+            model_path=model_path, io_config=io_config, calibration_providers=providers
+        )
+    )
+
+
 class QuantScheme(StrEnumBase):
     MIN_MAX = "min_max"
     TF_ENHANCED = "tf_enhanced"
@@ -185,8 +195,9 @@ class AimetQuantization(Pass):
 
         data_config = validate_config(config.data_config, DataConfig)
 
-        # Note: bool(_CalibrationDataReader) is not implemented, convert to generator to avoid error
-        calib_dataloader = (x for x in data_config.to_data_container().create_calibration_dataloader())
+        calib_dataloader = _get_dataloader(
+            data_config, model.model_path, model.io_config, run_config["calibration_providers"]
+        )
 
         onnx_model = onnx.load(model.model_path)
 
