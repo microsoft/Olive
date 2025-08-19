@@ -149,7 +149,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             ),
         )
         mb_group.add_argument(
-            "--extra_options",
+            "--extra_mb_options",
             type=str,
             required=False,
             help="Extra key-value pairs options to pass to the model builder. e.g., 'int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm'.",
@@ -200,9 +200,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                     (("passes", "m", "enable_cuda_graph"), self.args.enable_cuda_graph),
                 ]
             )
-            if self.args.extra_options:
+            if self.args.extra_mb_options:
                 to_replace.append(
-                    (("passes", "m", "extra_options"), self._parse_extra_options(self.args.extra_options.split(",")))
+                    (
+                        ("passes", "m", "extra_options"),
+                        BaseOliveCLICommand._parse_extra_options(self.args.extra_mb_options.split(",")),
+                    )
                 )
             if self.args.int4_block_size is not None:
                 to_replace.append((("passes", "m", "int4_block_size"), self.args.int4_block_size))
@@ -244,18 +247,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         update_shared_cache_options(config, self.args)
 
         return config
-
-    @staticmethod
-    def _parse_extra_options(kv_items):
-        kv_pairs = {}
-
-        if kv_items:
-            for kv_str in kv_items:
-                kv = kv_str.split("=")
-                kv_pairs[kv[0].strip()] = kv[1].strip()
-
-        print(f"Extra options: {kv_pairs}")
-        return kv_pairs
 
 
 TEMPLATE = {

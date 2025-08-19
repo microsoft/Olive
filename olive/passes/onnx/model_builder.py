@@ -234,17 +234,17 @@ class ModelBuilder(Pass):
             if model.adapter_path:
                 extra_args["adapter_path"] = model.adapter_path
 
-        # Add extra options support for model builder
-        if config.extra_options:
-            extra_args.update(check_extra_options(config.extra_options))
-
         extra_args.update(
             {
                 key: value.value if isinstance(value, IntEnumBase) else value
                 for key, value in config.dict().items()
-                if value is not None and key not in {"precision", "metadata_only", "search"}
+                if value is not None and key not in {"precision", "metadata_only", "search", "extra_options"}
             }
         )
+
+        # Override extra options with user provided in extra_options parameter
+        if config.extra_options:
+            extra_args.update(check_extra_options(config.extra_options))
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
 

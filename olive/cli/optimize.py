@@ -174,6 +174,14 @@ class OptimizeCommand(BaseOliveCLICommand):
             help="Path to QNN environment directory (required when using AOT with QNN).",
         )
 
+        # Extra options for model builder
+        sub_parser.add_argument(
+            "--extra_mb_options",
+            type=str,
+            required=False,
+            help="Extra key-value pairs options to pass to the model builder. e.g., 'int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm'.",
+        )
+
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=OptimizeCommand)
@@ -471,6 +479,12 @@ class OptimizeCommand(BaseOliveCLICommand):
             config["int4_block_size"] = block_size_value
             config["int4_accuracy_level"] = 4
             config["int4_op_types_to_quantize"] = ["MatMul", "Gather"]
+
+        extra_options = {}
+        if self.args.extra_mb_options:
+            extra_options = BaseOliveCLICommand._parse_extra_options(self.args.extra_mb_options.split(","))
+        config["extra_options"] = extra_options
+
         return config
 
     def _enable_onnx_conversion_pass(self) -> bool:

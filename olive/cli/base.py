@@ -49,6 +49,18 @@ class BaseOliveCLICommand(ABC):
             return workflow_output
 
     @staticmethod
+    def _parse_extra_options(kv_items):
+        kv_pairs = {}
+
+        if kv_items:
+            for kv_str in kv_items:
+                kv = kv_str.split("=")
+                kv_pairs[kv[0].strip()] = kv[1].strip()
+
+        print(f"Extra options: {kv_pairs}")
+        return kv_pairs
+
+    @staticmethod
     def _save_config_file(config: dict):
         """Save the config file."""
         config_file_path = Path(config["output_dir"]) / "config.json"
