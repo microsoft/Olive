@@ -244,7 +244,7 @@ class ModelBuilder(Pass):
 
         # Override extra options with user provided in extra_options parameter
         if config.extra_options:
-            extra_args.update(self._check_extra_options(config.extra_options))
+            extra_args.update(config.extra_options)
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
 
@@ -327,50 +327,3 @@ class ModelBuilder(Pass):
             )
 
         return output_model
-
-    def _check_extra_options(self, kv_pairs: dict[str, Any]) -> dict[str, Any]:
-        """Check key-value pairs and set values correctly.
-
-        Reference: https://github.com/microsoft/onnxruntime-genai/blob/b92970cbba32ab03eed8cc08607e78fd5504a15b/src/python/py/models/builder.py#L4154
-        """
-        bools = [
-            "int4_is_symmetric",
-            "exclude_embeds",
-            "exclude_lm_head",
-            "include_hidden_states",
-            "enable_cuda_graph",
-            "use_8bits_moe",
-            "use_qdq",
-            "use_webgpu_fp32",
-            "use_cuda_bf16",
-        ]
-        for key in bools:
-            if key in kv_pairs:
-                if kv_pairs[key] in {"false", "False", "0"}:
-                    kv_pairs[key] = False
-                elif kv_pairs[key] in {"true", "True", "1"}:
-                    kv_pairs[key] = True
-                else:
-                    raise ValueError(f"{key} must be false/False/0 or true/True/1.")
-
-        if "int4_op_types_to_quantize" in kv_pairs:
-            op_types_to_quantize = ()
-            for op_type in kv_pairs["int4_op_types_to_quantize"].split("/"):
-                op_types_to_quantize += (op_type,)
-            kv_pairs["int4_op_types_to_quantize"] = op_types_to_quantize
-
-        if "int4_nodes_to_exclude" in kv_pairs:
-            kv_pairs["int4_nodes_to_exclude"] = kv_pairs["int4_nodes_to_exclude"].split(",")
-
-        if "exclude_lm_head" in kv_pairs and "include_hidden_states" in kv_pairs:
-            # 'exclude_lm_head' is for when 'hidden_states' are outputted and 'logits' are not outputted
-            # 'include_hidden_states' is for when 'hidden_states' are outputted and 'logits' are outputted
-            raise ValueError(
-                "Both 'exclude_lm_head' and 'include_hidden_states' cannot be used together. Please use only one of them at once."
-            )
-
-        # NvTensorRtRtx EP requires Opset 21, so force use_qdq which controls it.
-        if self.accelerator_spec.execution_provider == ExecutionProvider.NvTensorRTRTXExecutionProvider:
-            kv_pairs["use_qdq"] = True
-
-        return kv_pairs
