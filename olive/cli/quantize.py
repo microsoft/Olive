@@ -133,7 +133,7 @@ class QuantizeCommand(BaseOliveCLICommand):
 
         if not pass_list:
             raise ValueError(
-                f"Quantiation for precision {precision}, algorithm {algo} and implementation {impl} "
+                f"Quantization for precision {precision}, algorithm {algo} and implementation {impl} "
                 f"with QDQ {self.args.use_qdq_encoding} is not supported"
             )
 
@@ -237,6 +237,7 @@ PT_QUANT_IMPLEMENTATION_MAPPING = [
     # TODO(jambayk): consider exposing the activation bits through the act_precision argument
     {"impl_name": ImplName.SPINQUANT, "pass_type": "SpinQuant"},
     {"impl_name": ImplName.AWQ, "pass_type": "AutoAWQQuantizer"},
+    {"impl_name": ImplName.OLIVE, "pass_type": "Gptq"},
     {"impl_name": ImplName.AUTOGPTQ, "pass_type": "GptqQuantizer"},
 ]
 
