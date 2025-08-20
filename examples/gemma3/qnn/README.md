@@ -14,6 +14,8 @@ This repository contains an automated setup script for Linux that can be used to
 source env_setup.sh
 ```
 
+> **Warning:** The above script uses a different commit hash (558449bed3ef2653c36041650d30da6bbbca440d) for building GPTQModel than the Phi-3.5 tutorial due to a [memory leak issue](https://github.com/ModelCloud/GPTQModel/commit/558449bed3ef2653c36041650d30da6bbbca440d) with Gemma3.
+
 ## Optimization Process
 
 Since Gemma-3-4B is a multi-modal model composed of both vision and text components, the strategy for optimizing it through Olive is to operate on the constituent models before configuring them to work in concert at the onnxruntime-genai stage.

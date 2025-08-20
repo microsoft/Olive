@@ -34,7 +34,8 @@
             "data_config": "gemma_vision_data_config",
             "activation_type": "uint16",
             "precision": "uint8",
-            "calibrate_method": "MinMax"
+            "calibrate_method": "MinMax",
+            "calibration_providers": [ "CUDAExecutionProvider" ]
         },
         "cb": {
             "type": "EPContextBinaryGenerator",

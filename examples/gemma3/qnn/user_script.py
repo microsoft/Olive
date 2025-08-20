@@ -330,7 +330,7 @@ class GemmaVisionOnlyDataset(BaseGemmaDataset):
 
 
 # Remove this when submitting for review
-SHORTCUT_FIRST_N = 2
+SHORTCUT_FIRST_N = 256
 
 
 @Registry.register_dataset()

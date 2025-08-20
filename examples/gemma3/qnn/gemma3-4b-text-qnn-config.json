@@ -15,7 +15,7 @@
         }
     ],
     "passes": {
-        "q": { "type": "QuaRot" },
+        "q": { "type": "QuaRot", "device": "cpu" },
         "g": {
             "type": "GptqModel",
             "bits": 4,
