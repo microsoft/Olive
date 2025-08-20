@@ -48,6 +48,7 @@ DEVICE_TO_EXECUTION_PROVIDERS = {
         ExecutionProvider.NvTensorRTRTXExecutionProvider,
         ExecutionProvider.OpenVINOExecutionProvider,
         ExecutionProvider.JsExecutionProvider,
+        ExecutionProvider.WebGpuExecutionProvider,
     },
     "npu": {
         ExecutionProvider.DmlExecutionProvider,
