@@ -2,10 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import inspect
 import logging
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import onnx
 from packaging import version
@@ -95,6 +97,54 @@ def _exclude_op_types(sim, op_types_to_exclude: list[str]):
         _disable_quantizer(sim, product.name)
 
 
+SUPPORTED_TECHNIQUES: dict[str, "_AimetTechnique"] = {}
+
+
+class _AimetTechnique:
+    @staticmethod
+    def apply(sim, **kwargs):
+        raise NotImplementedError
+
+    @classmethod
+    def __init_subclass__(cls):
+        SUPPORTED_TECHNIQUES[cls.__name__.lower()] = cls
+
+    @classmethod
+    def validate_args(cls, **kwargs):
+        signature = inspect.signature(cls.apply)
+        try:
+            signature.bind(None, **kwargs)
+            return True
+        except TypeError as e:
+            logger.warning("Unsupported arguments for technique %s:\n%s\n", cls.__qualname__, e)
+            return False
+
+
+class LPBQ(_AimetTechnique):
+    @staticmethod
+    def apply(  # pylint: disable=arguments-differ
+        sim,
+        *,
+        op_types: Iterable[str] = ("Conv", "Gemm", "MatMul"),
+        bitwidth: int = 4,
+        decompressed_bw: int = 8,
+        block_size: int = 64,
+        nodes_to_exclude: Optional[list[str]] = None,
+    ):
+        from aimet_onnx.quantsim import set_grouped_blockwise_quantization_for_weights
+
+        set_grouped_blockwise_quantization_for_weights(
+            sim,
+            op_types=op_types,
+            bitwidth=bitwidth,
+            decompressed_bw=decompressed_bw,
+            block_size=block_size,
+            excluded_nodes=nodes_to_exclude,
+        )
+
+        return sim
+
+
 class AimetQuantization(Pass):
     """Quantize ONNX model using aimet-onnx."""
 
@@ -145,6 +195,12 @@ class AimetQuantization(Pass):
                 default_value=None,
                 description="List of operator types to exclude from quantization.",
             ),
+            "techniques": PassConfigParam(
+                type_=list[dict[str, Any]],
+                default_value=[],
+                required=False,
+                description="List of techniques to apply in order, each with its name and parameters",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -169,6 +225,20 @@ class AimetQuantization(Pass):
         if config.quant_scheme not in ("min_max", "tf_enhanced"):
             logger.warning("Unsupported quant_scheme: %s", config.quant_scheme)
             return False
+
+        for technique in config.techniques:
+            if "name" not in technique:
+                logger.warning("Techniques must specify a name")
+                return False
+
+            name = technique["name"].lower()
+            technique_cls = SUPPORTED_TECHNIQUES.get(name)
+            if not technique_cls:
+                logger.warning("Unsupported technique: %s", name)
+                return False
+
+            if not technique_cls.validate_args(**{key: value for key, value in technique.items() if key != "name"}):
+                return False
 
         return True
 
@@ -228,6 +298,11 @@ class AimetQuantization(Pass):
             op_types_to_exclude = run_config["op_types_to_exclude"]
             if op_types_to_exclude:
                 _exclude_op_types(sim, op_types_to_exclude)
+
+            techniques = run_config["techniques"]
+            for technique in techniques:
+                name = technique.pop("name").lower()
+                sim = SUPPORTED_TECHNIQUES[name].apply(sim, **technique)
 
             sim.compute_encodings(calib_dataloader)
             qdq_model = sim.to_onnx_qdq()
