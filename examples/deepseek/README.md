@@ -11,3 +11,7 @@ Sample use cases of Olive to optimize a [DeepSeek R1 Distill](https://huggingfac
   - Run the workflow with `olive run --config qnn_config.json -m deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B -o models/deepseek-r1-qnn`.
   - Run the inference with `python app.py -m models/deepseek-r1-qnn`.
 - [PTQ + AWQ ONNX OVIR Encapsulated 4-bit weight compression using Optimum OpenVINO](./openvino/)
+
+## **Optimization and Quantization for AMD NPU**
+
+- [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.
