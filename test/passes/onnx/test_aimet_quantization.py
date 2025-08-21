@@ -236,7 +236,7 @@ def test_aimet_quantization_excludes_op_types(tmp_path, op_types, disabled_quant
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
 @pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
-def test_aimet_quantization_raises_error_with_prequantized_model(tmp_path):
+def test_aimet_quantization_preserves_quantization_in_prequantized_model(tmp_path):
     input_model = dummy_quantized_onnx_model(tmp_path / "dummy_model.onnx")
     config = {
         "data_config": DataConfig(
@@ -249,8 +249,19 @@ def test_aimet_quantization_raises_error_with_prequantized_model(tmp_path):
     }
     p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
 
-    with pytest.raises(NotImplementedError):
-        p.run(input_model, tmp_path)
+    out = p.run(input_model, tmp_path)
+
+    model = onnx.load(out.model_path)
+
+    tensor_to_quantizer = {
+        node.input[0]: node for node in model.graph.node if node.op_type in ("QuantizeLinear", "DequantizeLinear")
+    }
+
+    weight_quantizer = tensor_to_quantizer["weight_dq"]
+    weight_scale = [t for t in model.graph.initializer if t.name == weight_quantizer.input[1]]
+    weight_scale = onnx.numpy_helper.to_array(weight_scale[0])
+    assert weight_scale == np.array(0.1).astype(np.float32)
+    assert "input" in tensor_to_quantizer
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")

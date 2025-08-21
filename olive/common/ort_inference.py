@@ -37,10 +37,14 @@ def ort_supports_ep_devices() -> bool:
 
 def maybe_register_ep_libraries(ep_paths: dict[str, str]):
     """Register execution provider libraries if onnxruntime supports it."""
-    if not ort_supports_ep_devices():
+    try:
+        import onnxruntime as ort
+    except ImportError:
+        logger.debug("Skipping EP registration since onnxruntime is not installed")
         return
 
-    import onnxruntime as ort
+    if not ort_supports_ep_devices():
+        return
 
     # providers that ort was built with such as CUDA, QNN, VitisAI but need registration
     for provider in set(ort.get_available_providers()):
