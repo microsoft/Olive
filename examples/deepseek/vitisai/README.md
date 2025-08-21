@@ -1,68 +1,8 @@
-# Model Optimization and Quantization for AMD NPU
+# **Optimization and Quantization for AMD NPU**
 
-This folder contains sample Olive configurations to optimize DeepSeek models for AMD NPU.
+- VitisAI recipes have been **migrated to the olive-recipes repository**:
+  - [deepseek-ai-DeepSeek-R1-Distill-Llama-8B/VitisAI](https://github.com/microsoft/olive-recipes/tree/main/deepseek-ai-DeepSeek-R1-Distill-Llama-8B/VitisAI)
+  - [deepseek-ai-DeepSeek-R1-Distill-Qwen-1.5B/VitisAI](https://github.com/microsoft/olive-recipes/tree/main/deepseek-ai-DeepSeek-R1-Distill-Qwen-1.5B/VitisAI)
+  - [deepseek-ai-DeepSeek-R1-Distill-Qwen-7B/VitisAI](https://github.com/microsoft/olive-recipes/tree/main/deepseek-ai-DeepSeek-R1-Distill-Qwen-7B/VitisAI)
 
-## ✅ Supported Models and Configs
-
-| Model Name                                               | Config File Name                                      |
-|:---------------------------------------------------------|:------------------------------------------------------|
-| `deepseek-ai/DeepSeek-R1-Distill-Llama-8B`               | `DeepSeek-R1-Distill-Llama-8B_quark_vitisai_llm.json`    |
-| `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B`              | `DeepSeek-R1-Distill-Qwen-1.5B_quark_vitisai_llm.json`   |
-| `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`                | `DeepSeek-R1-Distill-Qwen-7B_quark_vitisai_llm.json`     |
-
-## **Run the Quantization Config**
-
-### **Quark quantization**
-
-For LLMs - follow the below commands to generate the optimized model for VitisAI Execution Provider.
-
-**Note:** We’ve tested it on Linux with ROCm and on Linux with CUDA. It is also supported on Windows with CPU, though quantization may be slower. Support for Windows with CUDA/ROCm is planned for a future release.
-
-For more details about quark, see the [Quark Documentation](https://quark.docs.amd.com/latest/)
-
-#### Create a Python 3.10 conda environment and run the below commands
-```bash
-conda create -n olive python=3.10
-conda activate olive
-```
-
-```bash
-cd Olive
-pip install -e .
-pip install -r requirements.txt
-```
-
-#### Install VitisAI LLM dependencies
-
-```bash
-cd examples/deepseek/vitisai
-pip install --force-reinstall -r requirements_vitisai_llm.txt
-
-# Note: If you're running model generation on a Windows system, please uncomment the following line in requirements_vitisai_llm.txt:
-# --extra-index-url=https://pypi.amd.com/simple
-# model-generate==1.5.1
-```
-Make sure to install the correct version of PyTorch before running quantization. If using AMD GPUs, update PyTorch to use ROCm-compatible PyTorch build. For example see the below commands
-
-```bash
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
-
-python -c "import torch; print(torch.cuda.is_available())" # Must return `True`
-```
-#### Generate optimized LLM model for VitisAI NPU
-Follow the above setup instructions, then run the below command to generate the optimized LLM model for VitisAI EP
-
-```bash
-# DeepSeek-R1-Distill-Llama-8B
-olive run --config DeepSeek-R1-Distill-Llama-8B_quark_vitisai_llm.json
-
-# DeepSeek-R1-Distill-Qwen-1.5B
-olive run --config DeepSeek-R1-Distill-Qwen-1.5B_quark_vitisai_llm.json
-
-# DeepSeek-R1-Distill-Qwen-7B
-olive run --config DeepSeek-R1-Distill-Qwen-7B_quark_vitisai_llm.json
-```
-
-✅ Optimized model saved in: `models/DeepSeek-R1-Distill-Llama-8B-vai/`
-> **Note:** Output model is saved in `output_dir` mentioned in the json files.
-
+Please refer to the above links in **olive-recipes** for the latest configs, requirements, and README instructions.
