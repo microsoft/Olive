@@ -57,6 +57,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
             -1 = per-channel, 0 = per-tensor, >0 = groupwise.
         modules_to_not_convert : List of module names to exclude from quantization.
         overrides: Per-module overrides for quantization parameters.
+        offset_zp: Whether packed zero points is offset by -1 like autogptq checkpoints.
 
     """
 
@@ -68,6 +69,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         group_size: int,
         modules_to_not_convert: list | None = None,
         overrides: dict | None = None,
+        offset_zp: bool = True,
         **kwargs,
     ):
         # pylint: disable=W0231
@@ -81,6 +83,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
             module_name: OliveHfQuantizationOverrideConfig(**override)
             for module_name, override in (overrides or {}).items()
         }
+        self.offset_zp = offset_zp
         self.post_init()
 
     def post_init(self):
@@ -111,6 +114,18 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
 
         Returns:
             dict: Initialization arguments for QuantLinear.
+
+        """
+        return {**self.get_weight_quantizer_init_args(module_name), "offset_zp": self.offset_zp}
+
+    def get_weight_quantizer_init_args(self, module_name: str) -> dict:
+        """Get the initialization arguments for a WeightQuantizer layer based on the module name.
+
+        Args:
+            module_name (str): The name of the module to get initialization args for.
+
+        Returns:
+            dict: Initialization arguments for WeightQuantizer.
 
         """
         init_args = {

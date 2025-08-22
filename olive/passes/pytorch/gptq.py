@@ -178,6 +178,7 @@ class Gptq(Pass):
             "bits": config.bits,
             "symmetric": config.sym,
             "group_size": config.group_size,
+            "offset_zp": False,
         }
         if mp_info := (model.model_attributes or {}).get("mixed_precision_info"):
             for k, v in quant_config.items():
@@ -203,7 +204,9 @@ class Gptq(Pass):
 
         def add_quant_info(module: torch.nn.Module, name: str) -> torch.nn.Module:
             # TODO(jambayk): validate that the module and config are compatible
-            module.quant_info = QuantInfo(quantizer=WeightQuantizer(**quant_config.get_qlinear_init_args(name)))
+            module.quant_info = QuantInfo(
+                quantizer=WeightQuantizer(**quant_config.get_weight_quantizer_init_args(name))
+            )
             return module
 
         replace_matching_submodules(
@@ -459,6 +462,7 @@ class Gptq(Pass):
                 group_size=module.quant_info.quantizer.group_size,
                 scales=module.quant_info.scales,
                 zero_points=module.quant_info.zero_points,
+                offset_zp=quant_config.offset_zp,
             ).to("cpu")  # move the original module to CPU
 
         replace_matching_submodules(
