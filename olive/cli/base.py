@@ -49,6 +49,21 @@ class BaseOliveCLICommand(ABC):
             return workflow_output
 
     @staticmethod
+    def _parse_extra_options(kv_items):
+        from onnxruntime_genai import __version__ as OrtGenaiVersion
+        from packaging import version
+
+        if version.parse(OrtGenaiVersion) <= version.parse("0.9.0"):
+            raise ValueError(
+                "onnxruntime-genai version <= 0.9.0 is not supported for extra_options in CLI. "
+                "Please either upgrade to onnxruntime-genai version > 0.9.0 or use the model builder pass directly in the config file."
+            )
+
+        from onnxruntime_genai.models.builder import parse_extra_options
+
+        return parse_extra_options(kv_items)
+
+    @staticmethod
     def _save_config_file(config: dict):
         """Save the config file."""
         config_file_path = Path(config["output_dir"]) / "config.json"
