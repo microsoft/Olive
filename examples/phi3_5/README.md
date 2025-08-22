@@ -108,8 +108,12 @@ olive run --config qdq_config.json
 ##### **For QDQ quantization**
 Follow above mentioned setup instruction and run the below command to generate the optimized model for VitisAI EP.
 
+Config file for VitisAI (now part of **[olive-recipes](https://github.com/microsoft/olive-recipes)** in the below link):
+
+- [microsoft/Phi-3.5-mini-instruct](https://github.com/microsoft/olive-recipes/blob/main/microsoft-Phi-3.5-mini-instruct/aitk/phi3_5_vitis_ai_config.json)
+
 ```bash
-olive run --config qdq_config_vitis_ai.json
+olive run --config phi3_5_vitis_ai_config.json
 ```
 
 ✅ Optimized model saved in: `models/phi3_5-vai/`

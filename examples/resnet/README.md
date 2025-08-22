@@ -37,9 +37,9 @@ Config file: [resnet_ptq_qdq.json](resnet_ptq_qdq.json)
 
 - *HF Model-> ONNX Model -> Optimizations -> Quantized Onnx Model*
 
- Config file for VitisAI:
+ Config file for VitisAI (now part of **[olive-recipes](https://github.com/microsoft/olive-recipes)** in the below link):
 
-- [microsoft/resnet-50](resnet_ptq_qdq_vitis_ai.json)
+- [microsoft/resnet-50](https://github.com/microsoft/olive-recipes/blob/main/microsoft-resnet-50/aitk/resnet_qdq_amd.json)
 
 ### ResNet optimization with PTQ on CPU
 

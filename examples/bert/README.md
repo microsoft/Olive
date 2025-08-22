@@ -42,9 +42,10 @@ Go to [How to run](#how-to-run)
  This workflow quantizes the model. It performs the pipeline:
  - *HF Model-> ONNX Model -> Optimizations -> Quantized Onnx Model*
 
- Config files for VitisAI:
- - [Intel/bert-base-uncased](bert_ptq_qdq_vitis_ai.json)
- - [google-bert/bert-base-multilingual-cased](google_bert_qdq_vitis_ai.json)
+ Config files for VitisAI (now part of **[olive-recipes](https://github.com/microsoft/olive-recipes)** in the below link):
+
+ - [Intel/bert-base-uncased](https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/bert_qdq_amd.json)
+ - [google-bert/bert-base-multilingual-cased](https://github.com/microsoft/olive-recipes/blob/main/google-bert-bert-base-multilingual-cased/aitk/bert-base-multilingual-cased_qdq_amd.json)
 
 
 ### BERT optimization with PTQ on CPU

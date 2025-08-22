@@ -51,10 +51,10 @@ Accuracy / latency
  This workflow quantizes the model. It performs the pipeline:
  - *HF Model-> ONNX Model -> Optimizations -> Quantized Onnx Model*
 
- Config files for VitisAI:
- - [laion/CLIP-ViT-B-32-laion2B-s34B-b79K](laion_CLIP-ViT-B-32-laion2B-s34B-b79K_ptq_qdq_vitis_ai.json)
- - [openai/clip-vit-base-patch16](openai_clip-vit-base-patch16_ptq_qdq_vitis_ai.json)
- - [openai/clip-vit-base-patch32](openai_clip-vit-base-patch32_ptq_qdq_vitis_ai.json)
+ Config files for VitisAI (now part of **[olive-recipes](https://github.com/microsoft/olive-recipes)** in the below link):
+ - [laion/CLIP-ViT-B-32-laion2B-s34B-b79K](https://github.com/microsoft/olive-recipes/blob/main/laion-CLIP-ViT-B-32-laion2B-s34B-b79K/aitk/laion_clip_qdq_amd.json)
+ - [openai/clip-vit-base-patch16](https://github.com/microsoft/olive-recipes/blob/main/openai-clip-vit-base-patch16/aitk/openai_clip_qdq_amd.json)
+ - [openai/clip-vit-base-patch32](https://github.com/microsoft/olive-recipes/blob/main/openai-clip-vit-base-patch32/aitk/openai_clip_qdq_amd.json)
 
 ### Optimization with Nvidia TensorRT-RTX execution provider
  This example performs optimization with Nvidia TensorRT-RTX execution provider. It performs the optimization pipeline:
