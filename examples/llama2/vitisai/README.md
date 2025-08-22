@@ -4,4 +4,5 @@
   - [meta-llama-Llama-2-7b-chat-hf/VitisAI](https://github.com/microsoft/olive-recipes/tree/main/meta-llama-Llama-2-7b-chat-hf/VitisAI)
   - [meta-llama-Llama-2-7b-hf/VitisAI](https://github.com/microsoft/olive-recipes/tree/main/meta-llama-Llama-2-7b-hf/VitisAI)
 
-Please refer to the above links in **olive-recipes** for the latest configs, requirements, and README instructions.
+Please refer to the above links in **olive-recipes** for the latest configs, requirements, and README instructions for each model.
+

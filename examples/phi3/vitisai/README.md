@@ -4,4 +4,6 @@
   - [microsoft-Phi-3-mini-4k-instruct/VitisAI](https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3-mini-4k-instruct/VitisAI)
   - [microsoft-Phi-3-mini-128k-instruct/VitisAI](https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3-mini-128k-instruct/VitisAI)
 
-Please refer to the above links in **olive-recipes** for the latest configs, requirements, and README instructions.
+Please refer to the above links in **olive-recipes** for the latest configs, requirements, and README instructions for each model.
+
+

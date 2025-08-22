@@ -30,8 +30,8 @@ Config file: [vit_qdq.json](vit_qdq.json)
  This workflow quantizes the model. It performs the pipeline:
  - *HF Model-> ONNX Model -> Optimizations -> Quantized Onnx Model*
 
- Config files for VitisAI:
- - [google/vit-base-patch16-224](vit_qdq_vitis_ai.json)
+ Config files for VitisAI (now part of **[olive-recipes](https://github.com/microsoft/olive-recipes)** in the below link):
+ - [google/vit-base-patch16-224](https://github.com/microsoft/olive-recipes/blob/main/google-vit-base-patch16-224/aitk/vit-base-patch16-224_qdq_amd.json)
 
 ### Optimization with Nvidia TensorRT-RTX execution provider
  This example performs optimization with Nvidia TensorRT-RTX execution provider. It performs the optimization pipeline:

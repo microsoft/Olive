@@ -6,4 +6,6 @@
   - [meta-llama-Llama-3.2-3B-Instruct/VitisAI](https://github.com/microsoft/olive-recipes/tree/main/meta-llama-Llama-3.2-3B-Instruct/VitisAI)
   - [meta-llama-Meta-Llama-3-8B/VitisAI](https://github.com/microsoft/olive-recipes/tree/main/meta-llama-Meta-Llama-3-8B/VitisAI)
 
-Please refer to the above links in **olive-recipes** for the latest configs, requirements, and README instructions.
+Please refer to the above links in **olive-recipes** for the latest configs, requirements, and README instructions for each model.
+
+
