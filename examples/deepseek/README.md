@@ -6,7 +6,10 @@ Sample use cases of Olive to optimize a [DeepSeek R1 Distill](https://huggingfac
 - [QDQ Model with 4-bit Weights & 16-bit Activations](../phi3_5/README.md):
   - Run the workflow with `olive run --config qdq_config.json -m deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B -o models/deepseek-r1-qdq`.
 - [AMD NPU: Optimization and Quantization with for VitisAI](../phi3_5/README.md):
-  - Run the workflow with `olive run --config qdq_config_vitis_ai.json -m deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B -o models/deepseek-r1-vai`.
+
+  - Config files for VitisAI (now part of **[olive-recipes](https://github.com/microsoft/olive-recipes)** in the below link):
+    - [deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B](https://github.com/microsoft/olive-recipes/blob/main/deepseek-ai-DeepSeek-R1-Distill-Qwen-1.5B/aitk/deepseek_vitis_ai_config.json)
+  - Run the workflow with `olive run --config deepseek_vitis_ai_config.json -m deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B -o models/deepseek-r1-vai`.
 - [PTQ + AOT Compilation for Qualcomm NPUs using QNN EP](../phi3_5/README.md):
   - Run the workflow with `olive run --config qnn_config.json -m deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B -o models/deepseek-r1-qnn`.
   - Run the inference with `python app.py -m models/deepseek-r1-qnn`.

@@ -6,7 +6,10 @@ Sample use cases of Olive to optimize [meta-llama/Llama-3.2-1B-Instruct](https:/
 - [QDQ Model with 4-bit Weights & 16-bit Activations](../phi3_5/README.md):
   - Run the workflow with `olive run --config qdq_config.json -m meta-llama/Llama-3.2-1B-Instruct -o models/llama3-qdq`.
 - [AMD NPU: Optimization and Quantization with for VitisAI](../phi3_5/README.md):
-  - Run the workflow with `olive run --config qdq_config_vitis_ai.json -m meta-llama/Llama-3.2-1B-Instruct -o models/llama3-vai`.
+
+  -  Config files for VitisAI (now part of **[olive-recipes](https://github.com/microsoft/olive-recipes)** in the below link):
+     - [meta-llama/Llama-3.2-1B-Instruct](https://github.com/microsoft/olive-recipes/blob/main/meta-llama-Llama-3.2-1B-Instruct/aitk/llama3_2_vitis_ai_config.json)
+  - Run the workflow with `olive run --config llama3_2_vitis_ai_config.json -m meta-llama/Llama-3.2-1B-Instruct -o models/llama3-vai`.
 - [PTQ + AOT Compilation for Qualcomm NPUs using QNN EP](../phi3_5/README.md):
   - Run the workflow with `olive run --config qnn_config.json -m meta-llama/Llama-3.2-1B-Instruct -o models/llama3-qnn`.
   - Run the inference with `python app.py -m models/llama3-qnn`.
