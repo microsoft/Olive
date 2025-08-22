@@ -33,7 +33,6 @@ class QuantLinear(nn.Module):
         bias: bool = True,
         device: torch.device | None = None,
         dtype: torch.dtype = torch.float32,
-        offset_zp: bool = True,
     ):
         """Initialize QuantLinear layer.
 
@@ -46,7 +45,6 @@ class QuantLinear(nn.Module):
             bias: Whether to include bias
             device: Device to place tensors on
             dtype: Data type for scales and bias
-            offset_zp: Whether packed zero points is offset by -1 like autogptq checkpoints.
 
         """
         super().__init__()
@@ -58,7 +56,6 @@ class QuantLinear(nn.Module):
         self.quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
         self.device = device
         self.dtype = dtype
-        self.offset_zp = offset_zp
         self.packing_factor = 32 // bits
 
         # using the same layout and packing as auto-gptq
@@ -100,7 +97,6 @@ class QuantLinear(nn.Module):
         bits: int = 4,
         symmetric: bool = True,
         group_size: int = -1,
-        offset_zp: bool = True,
         scales: torch.device | None = None,
         zero_points: torch.device | None = None,
     ) -> QuantLinear:
@@ -111,7 +107,6 @@ class QuantLinear(nn.Module):
             bits: Number of bits for quantization (4 or 8)
             symmetric: Whether to use symmetric quantization
             group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
-            offset_zp: Whether packed zero points is offset by -1 like autogptq checkpoints.
             scales: Optional precomputed scales for quantization
             zero_points: Optional precomputed zero points for quantization (unsigned, in range [0, 2^bits - 1]).
 
@@ -138,7 +133,6 @@ class QuantLinear(nn.Module):
             bits=bits,
             symmetric=symmetric,
             group_size=group_size,
-            offset_zp=offset_zp,
             bias=linear.bias.clone() if linear.bias is not None else None,
         )
 
@@ -151,7 +145,6 @@ class QuantLinear(nn.Module):
         bits: int = 4,
         symmetric: bool = True,
         group_size: int = -1,
-        offset_zp: bool = True,
         bias: torch.device | None = None,
     ):
         """Create a QuantLinear layer from quantized tensors.
@@ -163,7 +156,6 @@ class QuantLinear(nn.Module):
             bits: Number of bits for quantization (4 or 8)
             symmetric: Whether to use symmetric quantization
             group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
-            offset_zp: Whether packed zero points is offset by -1 like autogptq checkpoints.
             bias: Optional bias tensor
 
         Returns:
@@ -181,13 +173,12 @@ class QuantLinear(nn.Module):
             bias=bias is not None,
             device=qweight.device,
             dtype=scales.dtype,
-            offset_zp=offset_zp,
         )
         qlinear.qweight = qlinear._pack_to_int32(qweight.to(torch.int32).t(), axis=0).contiguous()
         scale_shape = qlinear.quantizer.get_qparam_shape((out_features, in_features))
         qlinear.scales = scales.reshape(scale_shape).t().contiguous()
         qlinear.qzeros = qlinear._pack_to_int32(
-            zero_points.to(torch.int32).reshape(scale_shape).t() - (1 if qlinear.offset_zp else 0), axis=1
+            zero_points.to(torch.int32).reshape(scale_shape).t(), axis=1
         ).contiguous()
         if bias is not None:
             qlinear.bias = bias.contiguous()
@@ -229,7 +220,7 @@ class QuantLinear(nn.Module):
 
         """
         qweight = self._unpack_from_int32(self.qweight, (self.in_features, self.out_features), axis=0)
-        qzeros = self._unpack_from_int32(self.qzeros, self.scales.shape, axis=1) + (1 if self.offset_zp else 0)
+        qzeros = self._unpack_from_int32(self.qzeros, self.scales.shape, axis=1)
         scales = self.scales
         return qweight, scales, qzeros
 

@@ -174,12 +174,7 @@ class Gptq(Pass):
             OliveHfQuantizationConfig object with quantization settings.
 
         """
-        quant_config = {
-            "bits": config.bits,
-            "symmetric": config.sym,
-            "group_size": config.group_size,
-            "offset_zp": False,
-        }
+        quant_config = {"bits": config.bits, "symmetric": config.sym, "group_size": config.group_size}
         if mp_info := (model.model_attributes or {}).get("mixed_precision_info"):
             for k, v in quant_config.items():
                 if mp_info["default"].get(k) is not None and v != mp_info["default"][k]:
@@ -462,7 +457,6 @@ class Gptq(Pass):
                 group_size=module.quant_info.quantizer.group_size,
                 scales=module.quant_info.scales,
                 zero_points=module.quant_info.zero_points,
-                offset_zp=quant_config.offset_zp,
             ).to("cpu")  # move the original module to CPU
 
         replace_matching_submodules(
