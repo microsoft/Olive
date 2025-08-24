@@ -119,6 +119,10 @@ def save_model_config(config: Union["PretrainedConfig", "GenerationConfig"], out
     config.save_pretrained(output_dir, **kwargs)
 
 
+def get_model_attributes_config(config: "PretrainedConfig", model_type: str):
+    return config.text_config if model_type == "gemma3" else config
+
+
 def save_module_files(
     config: "PretrainedConfig", model_name_or_path: str, output_dir: str, **kwargs
 ) -> tuple["PretrainedConfig", list[str]]:
