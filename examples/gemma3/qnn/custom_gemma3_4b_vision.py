@@ -27,7 +27,7 @@ class Gemma3VisualEmbeddingGenerator(torch.nn.Module):
         return self.multi_modal_projector(selected_image_feature)
 
 
-def load_gemma3_model(model_path):
+def load_gemma3_vision_model(model_path):
     full_model = AutoModel.from_pretrained("google/gemma-3-4b-it")
     logger.info("Loaded full model: %s", full_model)
 
