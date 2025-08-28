@@ -75,7 +75,7 @@ setup(
     url="https://microsoft.github.io/Olive/",
     download_url="https://github.com/microsoft/Olive/tags",
     packages=find_packages(include=["olive*"]),
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=requirements,
     extras_require=EXTRAS,
     include_package_data=False,

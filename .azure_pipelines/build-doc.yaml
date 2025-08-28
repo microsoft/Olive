@@ -30,7 +30,7 @@ stages:
       steps:
       - template: job_templates/olive-setup-template.yaml
         parameters:
-          python_version: '3.9'
+          python_version: '3.10'
           onnxruntime: 'onnxruntime'
           torch: 'torch'
 
