@@ -82,6 +82,8 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
 
         self.model = model if cache_model else None
 
+        logger.error(self.model)
+
         return model
 
     @property
