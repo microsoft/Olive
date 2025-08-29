@@ -14,6 +14,39 @@ Run Olive workflow defined in the input .json configuration file.
     :prog: olive
     :path: run
 
+Optimize
+========
+
+Optimize input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models).
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: optimize
+
+Quantization
+============
+
+Quantize PyTorch or ONNX model using various Quantization algorithms.
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: quantize
+
+Capture Onnx Graph
+==================
+
+Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model or PyTorch model.
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: capture-onnx-graph
+
 Run Pass
 ========
 
@@ -46,28 +79,6 @@ Automatically optimize the input model for the given target and precision.
     :func: get_cli_parser
     :prog: olive
     :path: auto-opt
-
-Quantization
-============
-
-Quantize PyTorch or ONNX model using various Quantization algorithms.
-
-.. argparse::
-    :module: olive.cli.launcher
-    :func: get_cli_parser
-    :prog: olive
-    :path: quantize
-
-Capture Onnx Graph
-==================
-
-Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model or PyTorch model.
-
-.. argparse::
-    :module: olive.cli.launcher
-    :func: get_cli_parser
-    :prog: olive
-    :path: capture-onnx-graph
 
 Generate Adapters
 ==================
@@ -115,8 +126,8 @@ Generate a cost model for a given model and save it as a csv file. This cost mod
     :path: generate-cost-model
 
 
-Qualcomm SDK
-============
+Configure Qualcomm SDK
+======================
 
 Configure Qualcomm SDK.
 
