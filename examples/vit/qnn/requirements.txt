@@ -1,4 +1,0 @@
-datasets==3.6.0
-pillow
-tabulate
-torchvision
