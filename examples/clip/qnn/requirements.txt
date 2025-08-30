@@ -1,5 +1,0 @@
-datasets==3.6.0
-evaluate
-pillow
-scikit-learn
-tabulate
