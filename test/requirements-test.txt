@@ -16,7 +16,7 @@ neural-compressor<2.4
 nncf>=2.16.0
 numpy<2.0.0
 nvidia-modelopt
-onnx>=1.18.0
+onnx==1.18.0
 onnx-graphsurgeon
 onnxconverter_common
 onnxmltools
