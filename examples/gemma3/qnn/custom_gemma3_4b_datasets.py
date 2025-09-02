@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import copy
 import logging
 import os
 import subprocess
@@ -11,10 +12,12 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
+import torch
 from datasets import load_dataset
 from huggingface_hub import hf_hub_download
 from PIL import Image as PILImage
 from transformers import (
+    AutoModel,
     AutoProcessor,
     AutoTokenizer,
 )
@@ -310,16 +313,15 @@ class GemmaTextOnlyDataset(BaseGemmaDataset):
         return {k: v.squeeze(0) for k, v in inputs.items()}  # Remove batch dimension
 
 
-class GemmaVisionOnlyDataset(BaseGemmaDataset):
-    """Dataset for only the vision tower of the Gemma 3 model."""
+class GemmaImageDataset(BaseGemmaDataset):
+    """Dataset for only the image processing of the Gemma 3 model."""
 
     def _initialize_processor_components(self):
-        """No additional components needed for vision-only processing."""
+        """No additional components needed for image-only processing."""
 
     def _process_dataset_entry(self, entry: dict[str, any]):
-        """Load image and extract only pixel_values for vision-only processing."""
+        """Load image and extract only pixel_values for image-only processing."""
         # Load and process the image
-        logger.error("PROCESSING IMAGE")
         image = PILImage.open(fp=os.path.join(self.image_data_path, entry["image"][0]))
 
         # Process image to get pixel_values
@@ -327,6 +329,136 @@ class GemmaVisionOnlyDataset(BaseGemmaDataset):
 
         # Return only pixel_values
         return {"pixel_values": inputs["pixel_values"]}
+
+
+class GemmaImageEmbeddingDataset(BaseGemmaDataset):
+    """Dataset that pre-computes and caches image embeddings as numpy arrays."""
+
+    def __init__(self, model_id, first_n=None):
+        # Initialize lazy-loaded model components
+        self._vision_tower = None
+        self._multi_modal_projector = None
+
+        super().__init__(model_id, first_n)
+
+    def _initialize_processor_components(self):
+        """Initialize only standard processor components."""
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_id, cache_dir=self.CACHE_DIR, use_fast=True, trust_remote_code=True
+        )
+
+    def _get_vision_components(self):
+        """Lazy-load vision model components when first needed."""
+        if self._vision_tower is None:
+            logger.info("Loading vision model components for cached embedding dataset")
+            full_model = AutoModel.from_pretrained(self.model_id)
+
+            # Extract vision components (equivalent to Gemma3VisualEmbeddingGenerator)
+            self._vision_tower = full_model.vision_tower
+            self._multi_modal_projector = full_model.multi_modal_projector
+
+            # Clean up full model to save memory
+            del full_model.language_model
+
+        return self._vision_tower, self._multi_modal_projector
+
+    def _process_dataset_entry(self, entry: dict[str, any]):
+        """Process entry to return input_ids and cached image features."""
+        # Convert conversation and tokenize
+        inputs = self.processor.apply_chat_template(
+            entry["text"][0], add_generation_prompt=True, tokenize=True, return_tensors="pt", return_dict=True
+        )
+
+        # Load and process image
+        image = PILImage.open(fp=os.path.join(self.image_data_path, entry["image"][0]))
+        pixel_values = torch.tensor(self.processor(text="<start_of_image>", images=image).pixel_values)
+
+        # Get vision components and extract features
+        vision_tower, projector = self._get_vision_components()
+        pixel_values = pixel_values.to(device="cuda")
+
+        with torch.no_grad():
+            # Process through vision tower
+            image_outputs = vision_tower(pixel_values, output_hidden_states=True)
+            selected_image_feature = image_outputs.last_hidden_state
+            # Project to final embedding space
+            image_features = projector(selected_image_feature)
+            # Convert to numpy for caching
+            image_features = image_features.cpu().detach().numpy()
+
+        return {"input_ids": inputs["input_ids"].squeeze(0), "image_features": image_features}
+
+
+class GemmaEmbeddingDataset(BaseGemmaDataset):
+    """Dataset that pre-merges text and image embeddings."""
+
+    def __init__(self, model_id, first_n=None):
+        # Initialize lazy-loaded model components
+        self._vision_tower = None
+        self._multi_modal_projector = None
+        self._embedding_layer = None
+
+        super().__init__(model_id, first_n)
+
+    def _initialize_processor_components(self):
+        """Initialize only standard processor components."""
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_id, cache_dir=self.CACHE_DIR, use_fast=True, trust_remote_code=True
+        )
+
+    def _get_model_components(self):
+        """Lazy-load all required model components when first needed."""
+        if self._embedding_layer is None:
+            logger.info("Loading model components for merged embedding dataset")
+            full_model = AutoModel.from_pretrained(self.model_id)
+
+            # Extract components
+            self._vision_tower = full_model.vision_tower
+            self._multi_modal_projector = full_model.multi_modal_projector
+            self._embedding_layer = copy.deepcopy(full_model.language_model.embed_tokens)
+
+            # Clean up full model
+            del full_model.language_model
+
+        return self._vision_tower, self._multi_modal_projector, self._embedding_layer
+
+    def _merge_embeddings(self, input_ids: torch.Tensor, pixel_values: torch.Tensor):
+        """Merge text and image embeddings at special token positions."""
+        vision_tower, projector, embedding_layer = self._get_model_components()
+
+        # Get text embeddings
+        inputs_embeds = embedding_layer(input_ids.to(device="cuda"))
+
+        # Process image
+        pixel_values = pixel_values.to(dtype=inputs_embeds.dtype, device="cuda")
+        with torch.no_grad():
+            image_outputs = vision_tower(pixel_values, output_hidden_states=True)
+            selected_image_feature = image_outputs.last_hidden_state
+            image_features = projector(selected_image_feature)
+
+        # Merge at special token positions (image_token_index = 262144)
+        image_token_index = 262144
+        special_image_mask = (input_ids == image_token_index).unsqueeze(-1)
+        special_image_mask = special_image_mask.expand_as(inputs_embeds).to(inputs_embeds.device)
+
+        image_features = image_features.to(inputs_embeds.device, inputs_embeds.dtype)
+        return inputs_embeds.masked_scatter(special_image_mask, image_features)
+
+    def _process_dataset_entry(self, entry: dict[str, any]):
+        """Process entry to return merged embeddings."""
+        # Convert conversation and tokenize
+        inputs = self.processor.apply_chat_template(
+            entry["text"][0], add_generation_prompt=True, tokenize=True, return_tensors="pt", return_dict=True
+        )
+
+        # Load and process image
+        image = PILImage.open(fp=os.path.join(self.image_data_path, entry["image"][0]))
+        pixel_values = torch.tensor(self.processor(text="<start_of_image>", images=image).pixel_values)
+
+        # Merge embeddings
+        inputs_embeds = self._merge_embeddings(inputs["input_ids"], pixel_values)
+
+        return {"inputs_embeds": inputs_embeds, "attention_mask": inputs["attention_mask"].squeeze(0)}
 
 
 # Remove this when submitting for review
@@ -346,6 +478,18 @@ def gemma_text_dataset(model_id: str):
 
 
 @Registry.register_dataset()
-def gemma_vision_dataset(model_id: str):
-    """Vision-only Gemma 3 dataset."""
-    return GemmaVisionOnlyDataset(model_id, first_n=SHORTCUT_FIRST_N).get_dataset()
+def gemma_image_dataset(model_id: str):
+    """Image-only Gemma 3 dataset."""
+    return GemmaImageDataset(model_id, first_n=SHORTCUT_FIRST_N).get_dataset()
+
+
+@Registry.register_dataset()
+def gemma_embedding_dataset(model_id: str):
+    """Gemma 3 dataset with pre-merged text and image embeddings."""
+    return GemmaEmbeddingDataset(model_id, first_n=SHORTCUT_FIRST_N).get_dataset()
+
+
+@Registry.register_dataset()
+def gemma_image_embedding_dataset(model_id: str):
+    """Gemma 3 dataset with pre-computed cached image embeddings."""
+    return GemmaImageEmbeddingDataset(model_id, first_n=SHORTCUT_FIRST_N).get_dataset()

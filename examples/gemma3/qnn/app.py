@@ -1,7 +1,6 @@
 # app.py
 # ruff: noqa: T201
 from argparse import ArgumentParser
-import numpy as np
 
 import onnxruntime_genai as og
 

@@ -16,16 +16,15 @@ class EmbeddingLayer(torch.nn.Module):
     def __init__(self, full_model):
         super().__init__()
         self.embedding_layer = full_model.language_model.embed_tokens
- 
+
     def forward(self, input_ids, image_features):
-        image_token_index=262144
+        image_token_index = 262144
         inputs_embeds = self.embedding_layer(input_ids)
- 
+
         special_image_mask = (input_ids == image_token_index).unsqueeze(-1)
         special_image_mask = special_image_mask.expand_as(inputs_embeds).to(inputs_embeds.device)
         image_features = image_features.to(inputs_embeds.device, inputs_embeds.dtype)
-        inputs_embeds = inputs_embeds.masked_scatter(special_image_mask, image_features)
-        return inputs_embeds
+        return inputs_embeds.masked_scatter(special_image_mask, image_features)
 
 
 def load_gemma3_embedding_model(model_path):

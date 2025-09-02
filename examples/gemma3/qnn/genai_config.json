@@ -369,36 +369,22 @@
                         "inputs": [
                             "/model/layers.34/final_norm_layernorm/SkipLayerNorm_Mul_output_0_QuantizeLinear_Output"
                         ],
-                        "outputs": [
-                            "logits"
-                        ]
+                        "outputs": [ "logits" ]
                     }
                 }
             ]
         },
         "embedding": {
             "filename": "embeddings_combined.onnx",
-            "inputs": {
-                "input_ids": "input_ids",
-                "image_features": "image_features"
-            },
-            "outputs": {
-                "inputs_embeds": "inputs_embeds"
-            }
+            "inputs": { "input_ids": "input_ids", "image_features": "image_features" },
+            "outputs": { "inputs_embeds": "inputs_embeds" }
         },
         "vision": {
             "filename": "model_ctx.onnx",
-            "inputs": {
-                "pixel_values": "pixel_values"
-            },
-            "outputs": {
-                "image_features": "image_features"
-            }
+            "inputs": { "pixel_values": "pixel_values" },
+            "outputs": { "image_features": "image_features" }
         },
-        "eos_token_id": [
-            1,
-            106
-        ],
+        "eos_token_id": [ 1, 106 ],
         "pad_token_id": 0,
         "type": "gemma3",
         "vocab_size": 262208

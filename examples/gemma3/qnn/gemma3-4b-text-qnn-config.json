@@ -9,9 +9,9 @@
     },
     "data_configs": [
         {
-            "name": "gemma_text_data_config",
+            "name": "gemma_embedding_data_config",
             "user_script": "custom_gemma3_4b_datasets.py",
-            "load_dataset_config": { "type": "gemma_text_dataset", "model_id": "google/gemma-3-4b-it" }
+            "load_dataset_config": { "type": "gemma_embedding_dataset", "model_id": "google/gemma-3-4b-it" }
         }
     ],
     "passes": {
@@ -23,7 +23,7 @@
             "group_size": -1,
             "lm_head": false,
             "device": "cuda",
-            "data_config": "gemma_text_data_config"
+            "data_config": "gemma_embedding_data_config"
         },
         "cs": { "type": "CaptureSplitInfo", "num_splits": 2, "unique_embeds_lm_head_splits": true },
         "mb": {
@@ -51,7 +51,7 @@
         },
         "sq": {
             "type": "OnnxStaticQuantization",
-            "data_config": "gemma_text_data_config",
+            "data_config": "gemma_embedding_data_config",
             "activation_type": "uint16",
             "precision": "uint8",
             "calibration_providers": [ "CUDAExecutionProvider" ],
@@ -68,7 +68,7 @@
                 "htp_graph_finalization_optimization_mode": "3",
                 "soc_model": "60"
             },
-            "session_options": {"intra_op_num_threads": 2, "inter_op_num_threads": 1},
+            "session_options": { "intra_op_num_threads": 2, "inter_op_num_threads": 1 },
             "weight_sharing": true
         },
         "cp": { "type": "ComposeOnnxModels" }

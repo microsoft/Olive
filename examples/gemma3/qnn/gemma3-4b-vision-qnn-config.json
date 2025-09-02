@@ -22,7 +22,7 @@
         {
             "name": "gemma_vision_data_config",
             "user_script": "custom_gemma3_4b_datasets.py",
-            "load_dataset_config": { "type": "gemma_vision_dataset", "model_id": "google/gemma-3-4b-it" }
+            "load_dataset_config": { "type": "gemma_image_dataset", "model_id": "google/gemma-3-4b-it" }
         }
     ],
     "passes": {
