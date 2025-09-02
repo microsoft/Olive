@@ -125,5 +125,3 @@ Licensed under the [MIT](./LICENSE) License.
 
 [![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive%20CI?label=Olive-CI)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1240)
 [![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive-ORT-Nightly?label=Olive-ORT-Nightly)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1279)
-[![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive%2FOlive%20Docs?label=Olive-Docs)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=2064)
-
