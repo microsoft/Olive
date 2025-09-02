@@ -256,7 +256,7 @@ command = [
 code = "FORMAT-JSON"
 is_formatter = true
 include_patterns = ['**/*.json']
-exclude_patterns = ['**/vit_id2label.json']
+exclude_patterns = []
 command = [
   'python',
   'scripts/format_json.py',
