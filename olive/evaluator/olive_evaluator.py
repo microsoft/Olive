@@ -1001,7 +1001,7 @@ class LMEvaluator(OliveEvaluator):
         device = _OliveEvaluator.device_string_to_torch_device(self.device or device)
         if self.model_class == "hf":
             init_args = {
-                "pretrained": model.load_model().eval().to(device),
+                "pretrained": model.load_model(cache_model=False).eval().to(device),
                 "tokenizer": model.get_hf_tokenizer(),
                 "device": device,
             }
