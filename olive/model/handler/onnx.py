@@ -10,6 +10,7 @@ import onnx
 from onnx import ModelProto
 from onnxscript import ir
 
+from olive.common.onnx_io import get_io_config
 from olive.common.ort_inference import OrtSessionFallbackError, get_ort_available_providers, get_ort_inference_session
 from olive.common.utils import load_weights
 from olive.constants import Framework, ModelFileFormat
@@ -18,7 +19,7 @@ from olive.hardware.accelerator import AcceleratorLookup, Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
 from olive.model.handler.mixin import OnnxEpValidateMixin
-from olive.model.utils.onnx_utils import get_additional_file_path, get_io_config, get_onnx_file_path
+from olive.model.utils.onnx_utils import get_additional_file_path, get_onnx_file_path
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -178,7 +179,7 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin):
             return self._io_config
 
         # save io_config
-        self._io_config = get_io_config(onnx.load(self.model_path, load_external_data=False))
+        self._io_config = get_io_config(self.model_path)
         return self._io_config
 
     def _get_default_execution_providers(self, device: Device):

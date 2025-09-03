@@ -5,12 +5,9 @@
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from olive.model.utils.path_utils import normalize_path_suffix
-
-if TYPE_CHECKING:
-    from onnx import ModelProto
 
 logger = logging.getLogger(__name__)
 
@@ -86,41 +83,3 @@ def dump_tuning_result(session, tuning_result_path):
     tuning_result = session.get_tuning_results()
     with Path(tuning_result_path).open("w") as f:
         json.dump(tuning_result, f, indent=2)
-
-
-def get_io_config(model_proto: "ModelProto") -> dict:
-    try:
-        from onnx.helper import tensor_dtype_to_np_dtype
-    except ImportError:
-        from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
-
-        def tensor_dtype_to_np_dtype(tensor_type):
-            return TENSOR_TYPE_TO_NP_TYPE[tensor_type]
-
-    io_config = {
-        "input_names": [],
-        "input_shapes": [],
-        "input_types": [],
-        "output_names": [],
-        "output_shapes": [],
-        "output_types": [],
-    }
-    for prefix, ios in [("input", model_proto.graph.input), ("output", model_proto.graph.output)]:
-        for io in ios:
-            # get name, type, shape
-            name = io.name
-            tensor_type = io.type.tensor_type
-            if tensor_type.elem_type == 0:
-                # sequence type
-                # TODO(jambayk): add support for different types
-                # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
-                tensor_type = io.type.sequence_type.elem_type.tensor_type
-            data_type = str(tensor_dtype_to_np_dtype(tensor_type.elem_type))
-            shape = [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
-
-            # append to io_config
-            io_config[f"{prefix}_names"].append(name)
-            io_config[f"{prefix}_types"].append(data_type)
-            io_config[f"{prefix}_shapes"].append(shape)
-
-    return io_config
