@@ -1,4 +1,0 @@
-azure-ai-ml
-azure-identity
-datasets
-optimum
