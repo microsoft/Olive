@@ -247,8 +247,7 @@ class ZeroOutInput(ProtoSurgeon):
         self.input_idx = input_idx
 
     def __call__(self, model: ModelProto):
-        from onnx.helper import make_node
-        from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
+        from onnx.helper import make_node, tensor_dtype_to_np_dtype
 
         node = self.get_node_by_name(model, self.node_name)
         if node is None:
@@ -292,7 +291,7 @@ class ZeroOutInput(ProtoSurgeon):
         if target_shape is None or target_type is None:
             raise ValueError(f"Cannot determine shape and type for input '{input_name}'.")
 
-        zero_values = np.zeros(target_shape, dtype=TENSOR_TYPE_TO_NP_TYPE[target_type])
+        zero_values = np.zeros(target_shape, dtype=tensor_dtype_to_np_dtype(target_type))
 
         zero_tensor = make_tensor(
             name=f"{self.node_name}_zero_tensor",
