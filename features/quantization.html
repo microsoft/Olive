@@ -586,34 +586,14 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <a class="reference internal" href="../reference/pass.html#inc-static-quantization"><span class="std std-ref">IncStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
 </section>
 </section>
-<section id="quantize-with-amd-vitis-ai-quantizer">
-<h2>Quantize with AMD Vitis AI Quantizer<a class="headerlink" href="#quantize-with-amd-vitis-ai-quantizer" title="Link to this heading">#</a></h2>
-<p>Olive also integrates <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/quantize.py">AMD Vitis AI Quantizer</a> for quantization.</p>
-<p>The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
-Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.</p>
-<section id="id8">
-<h3>Example Configuration<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;vitis_ai_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;VitisAIQuantization&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;calibrate_method&quot;</span><span class="p">:</span><span class="s2">&quot;NonOverflow&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;quant_format&quot;</span><span class="p">:</span><span class="s2">&quot;QDQ&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;activation_type&quot;</span><span class="p">:</span><span class="s2">&quot;uint8&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;precision&quot;</span><span class="p">:</span><span class="s2">&quot;int8&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p>Please refer to <a class="reference internal" href="../reference/pass.html#vitis-ai-quantization"><span class="std std-ref">VitisAIQuantization</span></a> for more details about the pass and its config parameters.</p>
-</section>
-</section>
 <section id="nvidia-tensorrt-model-optimizer-windows">
 <h2>NVIDIA TensorRT Model Optimizer-Windows<a class="headerlink" href="#nvidia-tensorrt-model-optimizer-windows" title="Link to this heading">#</a></h2>
 <p>Olive also integrates <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Model-Optimizer">TensorRT Model Optimizer-Windows</a></p>
 <p>The TensorRT Model Optimizer-Windows is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users,it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.</p>
 <p>The primary objective of the TensorRT Model Optimizer-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard.</p>
 <p>Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ algorithm.</p>
-<section id="id9">
-<h3>Example Configuration<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
+<section id="id8">
+<h3>Example Configuration<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq&quot;</span><span class="p">,</span>
@@ -706,12 +686,8 @@ Olive consolidates the Vitis™ AI quantization into a single pass called VitisA
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-amd-vitis-ai-quantizer">Quantize with AMD Vitis AI Quantizer</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Example Configuration</a></li>
-</ul>
-</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#nvidia-tensorrt-model-optimizer-windows">NVIDIA TensorRT Model Optimizer-Windows</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id9">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Example Configuration</a></li>
 </ul>
 </li>
 </ul>

@@ -474,238 +474,24 @@
 </dl>
 </section>
 </section>
-<section id="run-pass">
-<h1>Run Pass<a class="headerlink" href="#run-pass" title="Link to this heading">#</a></h1>
-<p>Run a single pass on the input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models).</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span><span class="o">-</span><span class="k">pass</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">name</span> <span class="n">PASS_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">config</span> <span class="n">PASS_CONFIG</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="nb">list</span><span class="o">-</span><span class="n">passes</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+<section id="optimize">
+<h1>Optimize<a class="headerlink" href="#optimize" title="Link to this heading">#</a></h1>
+<p>Optimize input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models).</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">optimize</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
-</pre></div>
-</div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
-<dl class="option-list">
-<dt><kbd>--pass-name</kbd></dt>
-<dd><p>Name of the pass to run on the input model.</p>
-</dd>
-<dt><kbd>--pass-config</kbd></dt>
-<dd><p>JSON string with pass-specific configuration parameters.</p>
-</dd>
-<dt><kbd>--list-passes</kbd></dt>
-<dd><p>List all available passes and exit.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>-m, --model_name_or_path</kbd></dt>
-<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
-</dd>
-<dt><kbd>-t, --task</kbd></dt>
-<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
-</dd>
-<dt><kbd>--trust_remote_code</kbd></dt>
-<dd><p>Trust remote code when loading a huggingface model.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>-a, --adapter_path</kbd></dt>
-<dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
-</dd>
-<dt><kbd>--model_script</kbd></dt>
-<dd><p>The script file containing the model definition. Required for the local PyTorch model.</p>
-</dd>
-<dt><kbd>--script_dir</kbd></dt>
-<dd><p>The directory containing the local PyTorch model script file. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
-</dd>
-<dt><kbd>-o, --output_path</kbd></dt>
-<dd><p>Path to save the command output.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">run-pass-output</span></code></p>
-</dd>
-<dt><kbd>--device</kbd></dt>
-<dd><p>Possible choices: gpu, cpu, npu</p>
-<p>Target device to run the model. Default is cpu.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code></p>
-</dd>
-<dt><kbd>--provider</kbd></dt>
-<dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, NvTensorRTRTXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider</p>
-<p>Execution provider to use for ONNX model. Default is CPUExecutionProvider.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">'CPUExecutionProvider'</span></code></p>
-</dd>
-<dt><kbd>--memory</kbd></dt>
-<dd><p>Memory limit for the accelerator in bytes. Default is None.</p>
-</dd>
-<dt><kbd>--log_level</kbd></dt>
-<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
-</dd>
-<dt><kbd>--save_config_file</kbd></dt>
-<dd><p>Generate and save the config file for the command.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--dry_run</kbd></dt>
-<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-</dl>
-</section>
-</section>
-<section id="finetune">
-<h1>Finetune<a class="headerlink" href="#finetune" title="Link to this heading">#</a></h1>
-<p>Fine-tune a model on a dataset using HuggingFace peft. Huggingface training arguments can be provided along with the defined options.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">method</span> <span class="p">{</span><span class="n">lora</span><span class="p">,</span><span class="n">qlora</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">lora_r</span> <span class="n">LORA_R</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">lora_alpha</span> <span class="n">LORA_ALPHA</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">target_modules</span> <span class="n">TARGET_MODULES</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="p">{</span><span class="n">bfloat16</span><span class="p">,</span><span class="n">float16</span><span class="p">,</span><span class="n">float32</span><span class="p">}]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">train_subset</span> <span class="n">TRAIN_SUBSET</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">train_split</span> <span class="n">TRAIN_SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">eval_subset</span> <span class="n">EVAL_SUBSET</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">eval_split</span> <span class="n">EVAL_SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">data_files</span> <span class="n">DATA_FILES</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">text_field</span> <span class="n">TEXT_FIELD</span> <span class="o">|</span> <span class="o">--</span><span class="n">text_template</span> <span class="n">TEXT_TEMPLATE</span> <span class="o">|</span> <span class="o">--</span><span class="n">use_chat_template</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">max_seq_len</span> <span class="n">MAX_SEQ_LEN</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">add_special_tokens</span> <span class="n">ADD_SPECIAL_TOKENS</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">max_samples</span> <span class="n">MAX_SAMPLES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
-</pre></div>
-</div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
-<dl class="option-list">
-<dt><kbd>-m, --model_name_or_path</kbd></dt>
-<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
-</dd>
-<dt><kbd>-t, --task</kbd></dt>
-<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
-</dd>
-<dt><kbd>--trust_remote_code</kbd></dt>
-<dd><p>Trust remote code when loading a huggingface model.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>-o, --output_path</kbd></dt>
-<dd><p>Path to save the command output.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">finetuned-adapter</span></code></p>
-</dd>
-<dt><kbd>--torch_dtype</kbd></dt>
-<dd><p>Possible choices: bfloat16, float16, float32</p>
-<p>The torch dtype to use for training.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">'bfloat16'</span></code></p>
-</dd>
-<dt><kbd>-d, --data_name</kbd></dt>
-<dd><p>The dataset name.</p>
-</dd>
-<dt><kbd>--train_subset</kbd></dt>
-<dd><p>The subset to use for training.</p>
-</dd>
-<dt><kbd>--train_split</kbd></dt>
-<dd><p>The split to use for training.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">'train'</span></code></p>
-</dd>
-<dt><kbd>--eval_subset</kbd></dt>
-<dd><p>The subset to use for evaluation.</p>
-</dd>
-<dt><kbd>--eval_split</kbd></dt>
-<dd><p>The dataset split to evaluate on.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">''</span></code></p>
-</dd>
-<dt><kbd>--data_files</kbd></dt>
-<dd><p>The dataset files. If multiple files, separate by comma.</p>
-</dd>
-<dt><kbd>--text_field</kbd></dt>
-<dd><p>The text field to use for fine-tuning.</p>
-</dd>
-<dt><kbd>--text_template</kbd></dt>
-<dd><p>Template to generate text field from. E.g. ‘### Question: {prompt} n### Answer: {response}’</p>
-</dd>
-<dt><kbd>--use_chat_template</kbd></dt>
-<dd><p>Use chat template for text field.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--max_seq_len</kbd></dt>
-<dd><p>Maximum sequence length for the data.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">1024</span></code></p>
-</dd>
-<dt><kbd>--add_special_tokens</kbd></dt>
-<dd><p>Whether to add special tokens during preprocessing.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--max_samples</kbd></dt>
-<dd><p>Maximum samples to select from the dataset.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">256</span></code></p>
-</dd>
-<dt><kbd>--batch_size</kbd></dt>
-<dd><p>Batch size.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
-</dd>
-<dt><kbd>--input_cols</kbd></dt>
-<dd><p>List of input column names. Provide one or more names separated by space. Example: –input_cols sentence1 sentence2</p>
-</dd>
-<dt><kbd>--account_name</kbd></dt>
-<dd><p>Azure storage account name for shared cache.</p>
-</dd>
-<dt><kbd>--container_name</kbd></dt>
-<dd><p>Azure storage container name for shared cache.</p>
-</dd>
-<dt><kbd>--log_level</kbd></dt>
-<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
-</dd>
-<dt><kbd>--save_config_file</kbd></dt>
-<dd><p>Generate and save the config file for the command.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--dry_run</kbd></dt>
-<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-</dl>
-</section>
-<section id="olive.cli.launcher-get_cli_parser-lora-options">
-<h2>LoRA options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-lora-options" title="Link to this heading">#</a></h2>
-<dl class="option-list">
-<dt><kbd>--method</kbd></dt>
-<dd><p>Possible choices: lora, qlora</p>
-<p>The method to use for fine-tuning</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">'lora'</span></code></p>
-</dd>
-<dt><kbd>--lora_r</kbd></dt>
-<dd><p>LoRA R value.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">64</span></code></p>
-</dd>
-<dt><kbd>--lora_alpha</kbd></dt>
-<dd><p>LoRA alpha value.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">16</span></code></p>
-</dd>
-<dt><kbd>--target_modules</kbd></dt>
-<dd><p>The target modules for LoRA. If multiple, separate by comma.</p>
-</dd>
-</dl>
-</section>
-</section>
-<section id="auto-optimization">
-<h1>Auto-Optimization<a class="headerlink" href="#auto-optimization" title="Link to this heading">#</a></h1>
-<p>Automatically optimize the input model for the given target and precision.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">split</span> <span class="n">SPLIT</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">subset</span> <span class="n">SUBSET</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">uint4</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">uint16</span><span class="p">,</span><span class="n">uint32</span><span class="p">,</span><span class="n">fp4</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">nf4</span><span class="p">,</span><span class="n">bf16</span><span class="p">}]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">use_dynamo_exporter</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">use_qdq_encoding</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">dynamic</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">fixed</span><span class="o">-</span><span class="n">shape</span><span class="o">-</span><span class="n">dim</span><span class="o">-</span><span class="n">param</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_PARAM</span> <span class="o">...</span><span class="p">]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">dynamic</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">fixed</span><span class="o">-</span><span class="n">shape</span><span class="o">-</span><span class="n">dim</span><span class="o">-</span><span class="n">value</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_VALUE</span> <span class="o">...</span><span class="p">]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">num</span><span class="o">-</span><span class="n">splits</span> <span class="n">NUM_SPLITS</span> <span class="o">|</span> <span class="o">--</span><span class="n">cost</span><span class="o">-</span><span class="n">model</span> <span class="n">COST_MODEL</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">mixed</span><span class="o">-</span><span class="n">precision</span><span class="o">-</span><span class="n">overrides</span><span class="o">-</span><span class="n">config</span> <span class="p">[</span><span class="n">MIXED_PRECISION_OVERRIDES_CONFIG</span> <span class="o">...</span><span class="p">]]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">WebGpuExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">uint4</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">uint16</span><span class="p">,</span><span class="n">uint32</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">bf16</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">act_precision</span> <span class="p">{</span><span class="n">int8</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">uint16</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">num_split</span> <span class="n">NUM_SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">exporter</span> <span class="p">{</span><span class="n">model_builder</span><span class="p">,</span><span class="n">dynamo_exporter</span><span class="p">,</span><span class="n">torchscript_exporter</span><span class="p">,</span><span class="n">optimum_exporter</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">dim_param</span> <span class="n">DIM_PARAM</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dim_value</span> <span class="n">DIM_VALUE</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">use_qdq_format</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">surgeries</span> <span class="p">[</span><span class="n">SURGERIES</span> <span class="o">...</span><span class="p">]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">block_size</span> <span class="n">BLOCK_SIZE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">modality</span> <span class="p">{</span><span class="n">text</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">enable_aot</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">qnn_env_path</span> <span class="n">QNN_ENV_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">extra_mb_options</span> <span class="n">EXTRA_MB_OPTIONS</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
 </pre></div>
 </div>
@@ -733,78 +519,66 @@
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">auto-opt-output</span></code></p>
-</dd>
-<dt><kbd>--device</kbd></dt>
-<dd><p>Possible choices: gpu, cpu, npu</p>
-<p>Target device to run the model. Default is cpu.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code></p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">optimized-model</span></code></p>
 </dd>
 <dt><kbd>--provider</kbd></dt>
-<dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, NvTensorRTRTXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider</p>
-<p>Execution provider to use for ONNX model. Default is CPUExecutionProvider.</p>
+<dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, QNNExecutionProvider, VitisAIExecutionProvider, OpenVINOExecutionProvider, WebGpuExecutionProvider, NvTensorRTRTXExecutionProvider</p>
+<p>Execution provider (EP) to use for optimization.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">'CPUExecutionProvider'</span></code></p>
 </dd>
-<dt><kbd>--memory</kbd></dt>
-<dd><p>Memory limit for the accelerator in bytes. Default is None.</p>
-</dd>
-<dt><kbd>-d, --data_name</kbd></dt>
-<dd><p>The dataset name.</p>
-</dd>
-<dt><kbd>--split</kbd></dt>
-<dd><p>The dataset split to use for evaluation.</p>
-</dd>
-<dt><kbd>--subset</kbd></dt>
-<dd><p>The dataset subset to use for evaluation.</p>
-</dd>
-<dt><kbd>--input_cols</kbd></dt>
-<dd><p>The input columns to use for evaluation.</p>
-</dd>
-<dt><kbd>--batch_size</kbd></dt>
-<dd><p>Batch size for evaluation.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
+<dt><kbd>--device</kbd></dt>
+<dd><p>Possible choices: cpu, gpu, npu</p>
+<p>Target device for optimization.</p>
 </dd>
 <dt><kbd>--precision</kbd></dt>
-<dd><p>Possible choices: int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp4, fp8, fp16, fp32, nf4, bf16</p>
-<p>The output precision of the optimized model. If not specified, the default precision is fp32 for cpu and fp16 for gpu</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">fp32</span></code></p>
+<dd><p>Possible choices: int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp16, fp32, bf16</p>
+<p>Target precision for optimization.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'fp32'</span></code></p>
 </dd>
-<dt><kbd>--use_dynamo_exporter</kbd></dt>
-<dd><p>Whether to use dynamo_export API to export ONNX model.</p>
+<dt><kbd>--act_precision</kbd></dt>
+<dd><p>Possible choices: int8, uint8, int16, uint16</p>
+<p>Activation precision for quantization (optional).</p>
+</dd>
+<dt><kbd>--num_split</kbd></dt>
+<dd><p>Number of splits for model splitting (optional).</p>
+</dd>
+<dt><kbd>--memory</kbd></dt>
+<dd><p>Available device memory in MB (optional).</p>
+</dd>
+<dt><kbd>--exporter</kbd></dt>
+<dd><p>Possible choices: model_builder, dynamo_exporter, torchscript_exporter, optimum_exporter</p>
+<p>Exporter to use for model conversion (optional).</p>
+</dd>
+<dt><kbd>--dim_param</kbd></dt>
+<dd><p>Dynamic parameter names for dynamic to fixed shape conversion (optional).</p>
+</dd>
+<dt><kbd>--dim_value</kbd></dt>
+<dd><p>Fixed dimension values for dynamic to fixed shape conversion (optional).</p>
+</dd>
+<dt><kbd>--use_qdq_format</kbd></dt>
+<dd><p>Use QDQ format for quantization instead of QOperator format.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
-<dt><kbd>--use_model_builder</kbd></dt>
-<dd><p>Whether to use model builder pass for optimization, enable only when the model is supported by model builder</p>
+<dt><kbd>--surgeries</kbd></dt>
+<dd><p>List of graph surgeries to apply (optional).</p>
+</dd>
+<dt><kbd>--block_size</kbd></dt>
+<dd><p>Block size for quantization. Use -1 for per-channel quantization (optional).</p>
+</dd>
+<dt><kbd>--modality</kbd></dt>
+<dd><p>Possible choices: text</p>
+<p>Model modality for optimization. Only ‘text’ is currently supported.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'text'</span></code></p>
+</dd>
+<dt><kbd>--enable_aot</kbd></dt>
+<dd><p>Enable Ahead-of-Time (AOT) compilation.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
-<dt><kbd>--use_qdq_encoding</kbd></dt>
-<dd><p>Whether to use QDQ encoding for quantized operators instead of ONNXRuntime contrib operators like MatMulNBits</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+<dt><kbd>--qnn_env_path</kbd></dt>
+<dd><p>Path to QNN environment directory (required when using AOT with QNN).</p>
 </dd>
-<dt><kbd>--dynamic-to-fixed-shape-dim-param</kbd></dt>
-<dd><p>Symbolic parameter names to use for dynamic to fixed shape pass. Required only when using QNNExecutionProvider.</p>
-</dd>
-<dt><kbd>--dynamic-to-fixed-shape-dim-value</kbd></dt>
-<dd><p>Symbolic parameter values to use for dynamic to fixed shape pass. Required only when using QNNExecutionProvider.</p>
-</dd>
-<dt><kbd>--num-splits</kbd></dt>
-<dd><p>Number of splits to use for model splitting. Input model must be an HfModel.</p>
-</dd>
-<dt><kbd>--cost-model</kbd></dt>
-<dd><p>Path to the cost model csv file to use for model splitting. Mutually exclusive with num-splits. Must be a csv with headers <cite>module,num_params,num_bytes,num_flops</cite> where each row corresponds to the name or a module (with no children), the number of parameters, the number of bytes, and the number of FLOPs(batch_size=1, seqlen=1) the module uses when in the desired precision.</p>
-</dd>
-<dt><kbd>--mixed-precision-overrides-config</kbd></dt>
-<dd><p>Dictionary of name to precision. Has to be even number of entreis with even entries being the keys and odd entries being the values. Required only when output precision is “fp16” and MixedPrecisionOverrides pass is enabled.</p>
-</dd>
-<dt><kbd>--use_ort_genai</kbd></dt>
-<dd><p>Use OnnxRuntime generate() API to run the model</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--account_name</kbd></dt>
-<dd><p>Azure storage account name for shared cache.</p>
-</dd>
-<dt><kbd>--container_name</kbd></dt>
-<dd><p>Azure storage container name for shared cache.</p>
+<dt><kbd>--extra_mb_options</kbd></dt>
+<dd><p>Extra key-value pairs options to pass to the model builder. e.g., ‘int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm’.</p>
 </dd>
 <dt><kbd>--log_level</kbd></dt>
 <dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
@@ -975,6 +749,7 @@
                                 <span class="p">[</span><span class="o">--</span><span class="n">exclude_embeds</span> <span class="n">EXCLUDE_EMBEDS</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">exclude_lm_head</span> <span class="n">EXCLUDE_LM_HEAD</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">enable_cuda_graph</span> <span class="n">ENABLE_CUDA_GRAPH</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">extra_mb_options</span> <span class="n">EXTRA_MB_OPTIONS</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
@@ -1088,6 +863,356 @@
 </dd>
 <dt><kbd>--enable_cuda_graph</kbd></dt>
 <dd><p>The model can use CUDA graph capture for CUDA execution provider. If enabled, all nodes being placed on the CUDA EP is the prerequisite for the CUDA graph to be used correctly.</p>
+</dd>
+<dt><kbd>--extra_mb_options</kbd></dt>
+<dd><p>Extra key-value pairs options to pass to the model builder. e.g., ‘int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm’.</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="run-pass">
+<h1>Run Pass<a class="headerlink" href="#run-pass" title="Link to this heading">#</a></h1>
+<p>Run a single pass on the input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models).</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span><span class="o">-</span><span class="k">pass</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">name</span> <span class="n">PASS_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">config</span> <span class="n">PASS_CONFIG</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="nb">list</span><span class="o">-</span><span class="n">passes</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">,</span><span class="n">WebGpuExecutionProvider</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
+</pre></div>
+</div>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>--pass-name</kbd></dt>
+<dd><p>Name of the pass to run on the input model.</p>
+</dd>
+<dt><kbd>--pass-config</kbd></dt>
+<dd><p>JSON string with pass-specific configuration parameters.</p>
+</dd>
+<dt><kbd>--list-passes</kbd></dt>
+<dd><p>List all available passes and exit.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>-m, --model_name_or_path</kbd></dt>
+<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
+</dd>
+<dt><kbd>-t, --task</kbd></dt>
+<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
+</dd>
+<dt><kbd>--trust_remote_code</kbd></dt>
+<dd><p>Trust remote code when loading a huggingface model.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>-a, --adapter_path</kbd></dt>
+<dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
+</dd>
+<dt><kbd>--model_script</kbd></dt>
+<dd><p>The script file containing the model definition. Required for the local PyTorch model.</p>
+</dd>
+<dt><kbd>--script_dir</kbd></dt>
+<dd><p>The directory containing the local PyTorch model script file. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
+</dd>
+<dt><kbd>-o, --output_path</kbd></dt>
+<dd><p>Path to save the command output.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">run-pass-output</span></code></p>
+</dd>
+<dt><kbd>--device</kbd></dt>
+<dd><p>Possible choices: gpu, cpu, npu</p>
+<p>Target device to run the model. Default is cpu.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code></p>
+</dd>
+<dt><kbd>--provider</kbd></dt>
+<dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, NvTensorRTRTXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider, WebGpuExecutionProvider</p>
+<p>Execution provider to use for ONNX model. Default is CPUExecutionProvider.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'CPUExecutionProvider'</span></code></p>
+</dd>
+<dt><kbd>--memory</kbd></dt>
+<dd><p>Memory limit for the accelerator in bytes. Default is None.</p>
+</dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
+</dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="finetune">
+<h1>Finetune<a class="headerlink" href="#finetune" title="Link to this heading">#</a></h1>
+<p>Fine-tune a model on a dataset using HuggingFace peft. Huggingface training arguments can be provided along with the defined options.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">method</span> <span class="p">{</span><span class="n">lora</span><span class="p">,</span><span class="n">qlora</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">lora_r</span> <span class="n">LORA_R</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">lora_alpha</span> <span class="n">LORA_ALPHA</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">target_modules</span> <span class="n">TARGET_MODULES</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="p">{</span><span class="n">bfloat16</span><span class="p">,</span><span class="n">float16</span><span class="p">,</span><span class="n">float32</span><span class="p">}]</span> <span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">train_subset</span> <span class="n">TRAIN_SUBSET</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">train_split</span> <span class="n">TRAIN_SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">eval_subset</span> <span class="n">EVAL_SUBSET</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">eval_split</span> <span class="n">EVAL_SPLIT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">data_files</span> <span class="n">DATA_FILES</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">text_field</span> <span class="n">TEXT_FIELD</span> <span class="o">|</span> <span class="o">--</span><span class="n">text_template</span> <span class="n">TEXT_TEMPLATE</span> <span class="o">|</span> <span class="o">--</span><span class="n">use_chat_template</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">max_seq_len</span> <span class="n">MAX_SEQ_LEN</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">add_special_tokens</span> <span class="n">ADD_SPECIAL_TOKENS</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">max_samples</span> <span class="n">MAX_SAMPLES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="n">INPUT_COLS</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
+</pre></div>
+</div>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>-m, --model_name_or_path</kbd></dt>
+<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
+</dd>
+<dt><kbd>-t, --task</kbd></dt>
+<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
+</dd>
+<dt><kbd>--trust_remote_code</kbd></dt>
+<dd><p>Trust remote code when loading a huggingface model.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>-o, --output_path</kbd></dt>
+<dd><p>Path to save the command output.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">finetuned-adapter</span></code></p>
+</dd>
+<dt><kbd>--torch_dtype</kbd></dt>
+<dd><p>Possible choices: bfloat16, float16, float32</p>
+<p>The torch dtype to use for training.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'bfloat16'</span></code></p>
+</dd>
+<dt><kbd>-d, --data_name</kbd></dt>
+<dd><p>The dataset name.</p>
+</dd>
+<dt><kbd>--train_subset</kbd></dt>
+<dd><p>The subset to use for training.</p>
+</dd>
+<dt><kbd>--train_split</kbd></dt>
+<dd><p>The split to use for training.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'train'</span></code></p>
+</dd>
+<dt><kbd>--eval_subset</kbd></dt>
+<dd><p>The subset to use for evaluation.</p>
+</dd>
+<dt><kbd>--eval_split</kbd></dt>
+<dd><p>The dataset split to evaluate on.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">''</span></code></p>
+</dd>
+<dt><kbd>--data_files</kbd></dt>
+<dd><p>The dataset files. If multiple files, separate by comma.</p>
+</dd>
+<dt><kbd>--text_field</kbd></dt>
+<dd><p>The text field to use for fine-tuning.</p>
+</dd>
+<dt><kbd>--text_template</kbd></dt>
+<dd><p>Template to generate text field from. E.g. ‘### Question: {prompt} n### Answer: {response}’</p>
+</dd>
+<dt><kbd>--use_chat_template</kbd></dt>
+<dd><p>Use chat template for text field.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--max_seq_len</kbd></dt>
+<dd><p>Maximum sequence length for the data.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1024</span></code></p>
+</dd>
+<dt><kbd>--add_special_tokens</kbd></dt>
+<dd><p>Whether to add special tokens during preprocessing.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--max_samples</kbd></dt>
+<dd><p>Maximum samples to select from the dataset.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">256</span></code></p>
+</dd>
+<dt><kbd>--batch_size</kbd></dt>
+<dd><p>Batch size.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
+</dd>
+<dt><kbd>--input_cols</kbd></dt>
+<dd><p>List of input column names. Provide one or more names separated by space. Example: –input_cols sentence1 sentence2</p>
+</dd>
+<dt><kbd>--account_name</kbd></dt>
+<dd><p>Azure storage account name for shared cache.</p>
+</dd>
+<dt><kbd>--container_name</kbd></dt>
+<dd><p>Azure storage container name for shared cache.</p>
+</dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
+</dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+</dl>
+</section>
+<section id="olive.cli.launcher-get_cli_parser-lora-options">
+<h2>LoRA options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-lora-options" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>--method</kbd></dt>
+<dd><p>Possible choices: lora, qlora</p>
+<p>The method to use for fine-tuning</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'lora'</span></code></p>
+</dd>
+<dt><kbd>--lora_r</kbd></dt>
+<dd><p>LoRA R value.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">64</span></code></p>
+</dd>
+<dt><kbd>--lora_alpha</kbd></dt>
+<dd><p>LoRA alpha value.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">16</span></code></p>
+</dd>
+<dt><kbd>--target_modules</kbd></dt>
+<dd><p>The target modules for LoRA. If multiple, separate by comma.</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="auto-optimization">
+<h1>Auto-Optimization<a class="headerlink" href="#auto-optimization" title="Link to this heading">#</a></h1>
+<p>Automatically optimize the input model for the given target and precision.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">,</span><span class="n">WebGpuExecutionProvider</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DATA_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">split</span> <span class="n">SPLIT</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">subset</span> <span class="n">SUBSET</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">input_cols</span> <span class="p">[</span><span class="n">INPUT_COLS</span> <span class="o">...</span><span class="p">]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">uint4</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">uint16</span><span class="p">,</span><span class="n">uint32</span><span class="p">,</span><span class="n">fp4</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">nf4</span><span class="p">,</span><span class="n">bf16</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">use_dynamo_exporter</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">use_qdq_encoding</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">dynamic</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">fixed</span><span class="o">-</span><span class="n">shape</span><span class="o">-</span><span class="n">dim</span><span class="o">-</span><span class="n">param</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_PARAM</span> <span class="o">...</span><span class="p">]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">dynamic</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">fixed</span><span class="o">-</span><span class="n">shape</span><span class="o">-</span><span class="n">dim</span><span class="o">-</span><span class="n">value</span> <span class="p">[</span><span class="n">DYNAMIC_TO_FIXED_SHAPE_DIM_VALUE</span> <span class="o">...</span><span class="p">]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">num</span><span class="o">-</span><span class="n">splits</span> <span class="n">NUM_SPLITS</span> <span class="o">|</span> <span class="o">--</span><span class="n">cost</span><span class="o">-</span><span class="n">model</span> <span class="n">COST_MODEL</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">mixed</span><span class="o">-</span><span class="n">precision</span><span class="o">-</span><span class="n">overrides</span><span class="o">-</span><span class="n">config</span> <span class="p">[</span><span class="n">MIXED_PRECISION_OVERRIDES_CONFIG</span> <span class="o">...</span><span class="p">]]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">use_ort_genai</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
+</pre></div>
+</div>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>-m, --model_name_or_path</kbd></dt>
+<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
+</dd>
+<dt><kbd>-t, --task</kbd></dt>
+<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
+</dd>
+<dt><kbd>--trust_remote_code</kbd></dt>
+<dd><p>Trust remote code when loading a huggingface model.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>-a, --adapter_path</kbd></dt>
+<dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
+</dd>
+<dt><kbd>--model_script</kbd></dt>
+<dd><p>The script file containing the model definition. Required for the local PyTorch model.</p>
+</dd>
+<dt><kbd>--script_dir</kbd></dt>
+<dd><p>The directory containing the local PyTorch model script file. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
+</dd>
+<dt><kbd>-o, --output_path</kbd></dt>
+<dd><p>Path to save the command output.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">auto-opt-output</span></code></p>
+</dd>
+<dt><kbd>--device</kbd></dt>
+<dd><p>Possible choices: gpu, cpu, npu</p>
+<p>Target device to run the model. Default is cpu.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code></p>
+</dd>
+<dt><kbd>--provider</kbd></dt>
+<dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, NvTensorRTRTXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider, WebGpuExecutionProvider</p>
+<p>Execution provider to use for ONNX model. Default is CPUExecutionProvider.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'CPUExecutionProvider'</span></code></p>
+</dd>
+<dt><kbd>--memory</kbd></dt>
+<dd><p>Memory limit for the accelerator in bytes. Default is None.</p>
+</dd>
+<dt><kbd>-d, --data_name</kbd></dt>
+<dd><p>The dataset name.</p>
+</dd>
+<dt><kbd>--split</kbd></dt>
+<dd><p>The dataset split to use for evaluation.</p>
+</dd>
+<dt><kbd>--subset</kbd></dt>
+<dd><p>The dataset subset to use for evaluation.</p>
+</dd>
+<dt><kbd>--input_cols</kbd></dt>
+<dd><p>The input columns to use for evaluation.</p>
+</dd>
+<dt><kbd>--batch_size</kbd></dt>
+<dd><p>Batch size for evaluation.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
+</dd>
+<dt><kbd>--precision</kbd></dt>
+<dd><p>Possible choices: int4, int8, int16, int32, uint4, uint8, uint16, uint32, fp4, fp8, fp16, fp32, nf4, bf16</p>
+<p>The output precision of the optimized model. If not specified, the default precision is fp32 for cpu and fp16 for gpu</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">fp32</span></code></p>
+</dd>
+<dt><kbd>--use_dynamo_exporter</kbd></dt>
+<dd><p>Whether to use dynamo_export API to export ONNX model.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--use_model_builder</kbd></dt>
+<dd><p>Whether to use model builder pass for optimization, enable only when the model is supported by model builder</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--use_qdq_encoding</kbd></dt>
+<dd><p>Whether to use QDQ encoding for quantized operators instead of ONNXRuntime contrib operators like MatMulNBits</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--dynamic-to-fixed-shape-dim-param</kbd></dt>
+<dd><p>Symbolic parameter names to use for dynamic to fixed shape pass. Required only when using QNNExecutionProvider.</p>
+</dd>
+<dt><kbd>--dynamic-to-fixed-shape-dim-value</kbd></dt>
+<dd><p>Symbolic parameter values to use for dynamic to fixed shape pass. Required only when using QNNExecutionProvider.</p>
+</dd>
+<dt><kbd>--num-splits</kbd></dt>
+<dd><p>Number of splits to use for model splitting. Input model must be an HfModel.</p>
+</dd>
+<dt><kbd>--cost-model</kbd></dt>
+<dd><p>Path to the cost model csv file to use for model splitting. Mutually exclusive with num-splits. Must be a csv with headers <cite>module,num_params,num_bytes,num_flops</cite> where each row corresponds to the name or a module (with no children), the number of parameters, the number of bytes, and the number of FLOPs(batch_size=1, seqlen=1) the module uses when in the desired precision.</p>
+</dd>
+<dt><kbd>--mixed-precision-overrides-config</kbd></dt>
+<dd><p>Dictionary of name to precision. Has to be even number of entreis with even entries being the keys and odd entries being the values. Required only when output precision is “fp16” and MixedPrecisionOverrides pass is enabled.</p>
+</dd>
+<dt><kbd>--use_ort_genai</kbd></dt>
+<dd><p>Use OnnxRuntime generate() API to run the model</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--account_name</kbd></dt>
+<dd><p>Azure storage account name for shared cache.</p>
+</dd>
+<dt><kbd>--container_name</kbd></dt>
+<dd><p>Azure storage container name for shared cache.</p>
+</dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
+</dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 </dl>
 </section>
@@ -1212,7 +1337,7 @@
                                  <span class="p">[</span><span class="o">--</span><span class="n">enable_profiling</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">predict_with_kv_cache</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">providers_list</span> <span class="p">[{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">}</span> <span class="o">...</span><span class="p">]]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">providers_list</span> <span class="p">[{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">,</span><span class="n">WebGpuExecutionProvider</span><span class="p">}</span> <span class="o">...</span><span class="p">]]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">memory</span> <span class="n">MEMORY</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
@@ -1277,7 +1402,7 @@
 <p>Default: <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code></p>
 </dd>
 <dt><kbd>--providers_list</kbd></dt>
-<dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, NvTensorRTRTXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider</p>
+<dd><p>Possible choices: CPUExecutionProvider, CUDAExecutionProvider, DmlExecutionProvider, JsExecutionProvider, MIGraphXExecutionProvider, NvTensorRTRTXExecutionProvider, OpenVINOExecutionProvider, QNNExecutionProvider, ROCMExecutionProvider, TensorrtExecutionProvider, VitisAIExecutionProvider, WebGpuExecutionProvider</p>
 <p>List of execution providers to use for ONNX model. They are case sensitive. If not provided, all available providers will be used.</p>
 </dd>
 <dt><kbd>--memory</kbd></dt>
@@ -1337,11 +1462,10 @@
 </dl>
 </section>
 </section>
-<section id="qualcomm-sdk">
-<h1>Qualcomm SDK<a class="headerlink" href="#qualcomm-sdk" title="Link to this heading">#</a></h1>
+<section id="configure-qualcomm-sdk">
+<h1>Configure Qualcomm SDK<a class="headerlink" href="#configure-qualcomm-sdk" title="Link to this heading">#</a></h1>
 <p>Configure Qualcomm SDK.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">configure</span><span class="o">-</span><span class="n">qualcomm</span><span class="o">-</span><span class="n">sdk</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">py_version</span> <span class="p">{</span><span class="mf">3.6</span><span class="p">,</span><span class="mf">3.8</span><span class="p">}</span> <span class="o">--</span><span class="n">sdk</span>
-                                    <span class="p">{</span><span class="n">snpe</span><span class="p">,</span><span class="n">qnn</span><span class="p">}</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">configure</span><span class="o">-</span><span class="n">qualcomm</span><span class="o">-</span><span class="n">sdk</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">py_version</span> <span class="p">{</span><span class="mf">3.6</span><span class="p">,</span><span class="mf">3.8</span><span class="p">}</span>
 </pre></div>
 </div>
 <section id="olive.cli.launcher-get_cli_parser-named-arguments">
@@ -1350,10 +1474,6 @@
 <dt><kbd>--py_version</kbd></dt>
 <dd><p>Possible choices: 3.6, 3.8</p>
 <p>Python version: Use 3.6 for tensorflow 1.15 and 3.8 otherwise</p>
-</dd>
-<dt><kbd>--sdk</kbd></dt>
-<dd><p>Possible choices: snpe, qnn</p>
-<p>Qualcomm SDK: snpe or qnn</p>
 </dd>
 </dl>
 </section>
@@ -1496,16 +1616,7 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-model-options-(not-required)">Model options (not required)</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run-pass">Run Pass</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
-</ul>
-</li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#finetune">Finetune</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lora-options">LoRA options</a></li>
-</ul>
-</li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-optimization">Auto-Optimization</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#optimize">Optimize</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
@@ -1517,6 +1628,19 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-pytorch-exporter-options">PyTorch Exporter options</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-model-builder-options">Model Builder options</a></li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run-pass">Run Pass</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#finetune">Finetune</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lora-options">LoRA options</a></li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-optimization">Auto-Optimization</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-adapters">Generate Adapters</a><ul class="visible nav section-nav flex-column">
@@ -1535,7 +1659,7 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#qualcomm-sdk">Qualcomm SDK</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-qualcomm-sdk">Configure Qualcomm SDK</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>

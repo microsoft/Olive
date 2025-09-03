@@ -440,7 +440,7 @@ to apply from user in the form of a json dictionary. In this document, we docume
 <p><code class="docutils literal notranslate"><span class="pre">input_model:</span> <span class="pre">[Dict]</span></code></p>
 <p>User should specify input model type and configuration using <code class="docutils literal notranslate"><span class="pre">input</span> <span class="pre">model</span></code> dictionary. It contains following items:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> Type of the input model which is case insensitive.. The supported types contain <code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">PyTorchModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">ONNXModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">OpenVINOModelHandler</span></code>,<code class="docutils literal notranslate"><span class="pre">SNPEModelHandler</span></code> and etc.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> Type of the input model which is case insensitive.. The supported types contain <code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">PyTorchModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">ONNXModelHandler</span></code>, <code class="docutils literal notranslate"><span class="pre">OpenVINOModelHandler</span></code> and etc.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The configuration of the pass. Its fields can be provided directly to the parent dictionary. For example, for <code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code>, the input model config dictionary specifies following items:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">model_path:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The model path can be a string or a dictionary. If it is a string, it is a huggingface hub model id or a local directory. If it is a dictionary, it contains information about the model path. Please refer to <a class="reference internal" href="../how-to/configure-workflows/how-to-configure-model.html#configuring-model-path"><span class="std std-ref">Configuring Model Path</span></a> for the more information of the model path dictionary.</p></li>
@@ -528,13 +528,10 @@ The dynamic axis of the present key value cache. If it is null, Olive will infer
 <tr class="row-even"><td class="text-left"><p>OpenVINOModelHandler</p></td>
 <td class="text-left"><p>OpenVINO IR model</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p>SNPEModelHandler</p></td>
-<td class="text-left"><p>SNPE DLC model</p></td>
-</tr>
-<tr class="row-even"><td class="text-left"><p>TensorFlowModelHandler</p></td>
+<tr class="row-odd"><td class="text-left"><p>TensorFlowModelHandler</p></td>
 <td class="text-left"><p>TensorFlow model</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p>CompositeModelHandler</p></td>
+<tr class="row-even"><td class="text-left"><p>CompositeModelHandler</p></td>
 <td class="text-left"><p>Composite Model</p></td>
 </tr>
 </tbody>
@@ -786,65 +783,53 @@ will be used.</p></li>
 <tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#incquantization"><span class="std std-ref">IncQuantization</span></a></p></td>
 <td class="text-left"><p>Quantize ONNX model with Intel® Neural Compressor where we can search for best parameters for static/dynamic quantization at same time.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#vitisaiquantization"><span class="std std-ref">VitisAIQuantization</span></a></p></td>
-<td class="text-left"><p>AMD-Xilinx Vitis-AI Quantization Pass.</p></td>
-</tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#extractadapters"><span class="std std-ref">ExtractAdapters</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#extractadapters"><span class="std std-ref">ExtractAdapters</span></a></p></td>
 <td class="text-left"><p>Extract adapters from ONNX model</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#capturesplitinfo"><span class="std std-ref">CaptureSplitInfo</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#capturesplitinfo"><span class="std std-ref">CaptureSplitInfo</span></a></p></td>
 <td class="text-left"><p>Capture the split information of the model layers. Only splits the transformer layers.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#selectivemixedprecision"><span class="std std-ref">SelectiveMixedPrecision</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#selectivemixedprecision"><span class="std std-ref">SelectiveMixedPrecision</span></a></p></td>
 <td class="text-left"><p>Annotate the model with mixed precision information.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#splitmodel"><span class="std std-ref">SplitModel</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#splitmodel"><span class="std std-ref">SplitModel</span></a></p></td>
 <td class="text-left"><p>Split an ONNX model into multiple smaller sub-models based on predefined assignments.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#lora"><span class="std std-ref">LoRA</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#lora"><span class="std std-ref">LoRA</span></a></p></td>
 <td class="text-left"><p>Run LoRA fine-tuning on a Hugging Face PyTorch model.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#loha"><span class="std std-ref">LoHa</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#loha"><span class="std std-ref">LoHa</span></a></p></td>
 <td class="text-left"><p>Run LoHa fine-tuning on a Hugging Face PyTorch model.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#lokr"><span class="std std-ref">LoKr</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#lokr"><span class="std std-ref">LoKr</span></a></p></td>
 <td class="text-left"><p>Run LoKr fine-tuning on a Hugging Face PyTorch model.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#qlora"><span class="std std-ref">QLoRA</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#qlora"><span class="std std-ref">QLoRA</span></a></p></td>
 <td class="text-left"><p>Run QLoRA fine-tuning on a Hugging Face PyTorch model.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#dora"><span class="std std-ref">DoRA</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#dora"><span class="std std-ref">DoRA</span></a></p></td>
 <td class="text-left"><p>Run DoRA fine-tuning on a Hugging Face PyTorch model.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#loftq"><span class="std std-ref">LoftQ</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#loftq"><span class="std std-ref">LoftQ</span></a></p></td>
 <td class="text-left"><p>Run LoftQ fine-tuning on a Hugging Face PyTorch model.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoconversion"><span class="std std-ref">OpenVINOConversion</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoconversion"><span class="std std-ref">OpenVINOConversion</span></a></p></td>
 <td class="text-left"><p>Converts PyTorch, ONNX or TensorFlow Model to OpenVINO Model.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoioupdate"><span class="std std-ref">OpenVINOIoUpdate</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoioupdate"><span class="std std-ref">OpenVINOIoUpdate</span></a></p></td>
 <td class="text-left"><p>Converts dynamic OpenVINO Model to static OpenVINO Model and updates IO names.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoquantization"><span class="std std-ref">OpenVINOQuantization</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoquantization"><span class="std std-ref">OpenVINOQuantization</span></a></p></td>
 <td class="text-left"><p>Post-training quantization for OpenVINO models and ONNX models</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoquantizationwithaccuracy"><span class="std std-ref">OpenVINOQuantizationWithAccuracy</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoquantizationwithaccuracy"><span class="std std-ref">OpenVINOQuantizationWithAccuracy</span></a></p></td>
 <td class="text-left"><p>Post-training quantization with accuracy for OpenVINO models and ONNX models</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoencapsulation"><span class="std std-ref">OpenVINOEncapsulation</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoencapsulation"><span class="std std-ref">OpenVINOEncapsulation</span></a></p></td>
 <td class="text-left"><p>Generates an ONNX model that encapsulates an OpenVINO IR model.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinooptimumconversion"><span class="std std-ref">OpenVINOOptimumConversion</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinooptimumconversion"><span class="std std-ref">OpenVINOOptimumConversion</span></a></p></td>
 <td class="text-left"><p>Run <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/openvino/export">optimum-cli export openvino</a> command using Optimum Intel® to convert Huggingface Model to OpenVINO Model and optionally perform weight compression or quantization.</p></td>
-</tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#snpeconversion"><span class="std std-ref">SNPEConversion</span></a></p></td>
-<td class="text-left"><p>Convert ONNX or TensorFlow model to SNPE DLC. Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK.</p></td>
-</tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#snpequantization"><span class="std std-ref">SNPEQuantization</span></a></p></td>
-<td class="text-left"><p>Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK.</p></td>
-</tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#snpetoonnxconversion"><span class="std std-ref">SNPEtoONNXConversion</span></a></p></td>
-<td class="text-left"><p>Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node.</p></td>
 </tr>
 <tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#qnnconversion"><span class="std std-ref">QNNConversion</span></a></p></td>
 <td class="text-left"><p>Convert ONNX, TensorFlow, or PyTorch model to QNN C++ model. Quantize the model if –input_list is provided as extra_args. Uses qnn-[framework]-converter tool from the QNN SDK.</p></td>
