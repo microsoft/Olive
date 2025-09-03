@@ -31,7 +31,7 @@ def load_gemma3_embedding_model(model_path):
     full_model = AutoModel.from_pretrained("google/gemma-3-4b-it")
     logger.info("Loaded full model: %s", full_model)
 
-    embedding_layer = EmbeddingLayer(full_model.language_model.embed_tokens)
+    embedding_layer = EmbeddingLayer(full_model)
 
     logger.info("Created embedding-only model: %s", embedding_layer)
     return embedding_layer

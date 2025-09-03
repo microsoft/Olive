@@ -211,13 +211,7 @@ class BaseGemmaDataset(ABC):
         self.raw_datasets = self.raw_datasets.filter(lambda x: x["image_mode"] == "RGB")
 
         # Apply dataset-specific processing
-        logger.error(self.raw_datasets[0])
-        logger.error(self.raw_datasets[1])
-
         self.raw_datasets = self.raw_datasets.with_transform(self._process_dataset_entry)
-
-        logger.error(self.raw_datasets[0])
-        logger.error(self.raw_datasets[1])
 
     def get_dataset(self):
         """Return the processed dataset."""
@@ -331,8 +325,8 @@ class GemmaImageDataset(BaseGemmaDataset):
         return {"pixel_values": inputs["pixel_values"]}
 
 
-class GemmaImageEmbeddingDataset(BaseGemmaDataset):
-    """Dataset that pre-computes and caches image embeddings as numpy arrays."""
+class GemmaEmbeddingInputDataset(BaseGemmaDataset):
+    """Dataset that is the input to the embedding layer."""
 
     def __init__(self, model_id, first_n=None):
         # Initialize lazy-loaded model components
@@ -361,6 +355,24 @@ class GemmaImageEmbeddingDataset(BaseGemmaDataset):
             del full_model.language_model
 
         return self._vision_tower, self._multi_modal_projector
+
+    def setup_dataset(self):
+        """Set up the multimodal dataset with text conversation conversion."""
+        self._load_base_dataset()
+
+        # Convert the Llava-style conversation to Gemma-style conversation (preserve images)
+        self.raw_datasets = self.raw_datasets.map(
+            lambda entry: self._convert_llava_to_gemma_conversation(entry, strip_images=False)
+        )
+
+        # Extract image details
+        self.raw_datasets = self.raw_datasets.map(self._extract_image_details)
+
+        # Filter out any images that are not RGB
+        self.raw_datasets = self.raw_datasets.filter(lambda x: x["image_mode"] == "RGB")
+
+        # Apply multimodal processing
+        self.raw_datasets = self.raw_datasets.with_transform(self._process_dataset_entry)
 
     def _process_dataset_entry(self, entry: dict[str, any]):
         """Process entry to return input_ids and cached image features."""
@@ -413,9 +425,9 @@ class GemmaEmbeddingDataset(BaseGemmaDataset):
             full_model = AutoModel.from_pretrained(self.model_id)
 
             # Extract components
-            self._vision_tower = full_model.vision_tower
-            self._multi_modal_projector = full_model.multi_modal_projector
-            self._embedding_layer = copy.deepcopy(full_model.language_model.embed_tokens)
+            self._vision_tower = full_model.vision_tower.cuda()
+            self._multi_modal_projector = full_model.multi_modal_projector.cuda()
+            self._embedding_layer = copy.deepcopy(full_model.language_model.embed_tokens).cuda()
 
             # Clean up full model
             del full_model.language_model
@@ -444,6 +456,24 @@ class GemmaEmbeddingDataset(BaseGemmaDataset):
         image_features = image_features.to(inputs_embeds.device, inputs_embeds.dtype)
         return inputs_embeds.masked_scatter(special_image_mask, image_features)
 
+    def setup_dataset(self):
+        """Set up the multimodal dataset with text conversation conversion."""
+        self._load_base_dataset()
+
+        # Convert the Llava-style conversation to Gemma-style conversation (preserve images)
+        self.raw_datasets = self.raw_datasets.map(
+            lambda entry: self._convert_llava_to_gemma_conversation(entry, strip_images=False)
+        )
+
+        # Extract image details
+        self.raw_datasets = self.raw_datasets.map(self._extract_image_details)
+
+        # Filter out any images that are not RGB
+        self.raw_datasets = self.raw_datasets.filter(lambda x: x["image_mode"] == "RGB")
+
+        # Apply multimodal processing
+        self.raw_datasets = self.raw_datasets.with_transform(self._process_dataset_entry)
+
     def _process_dataset_entry(self, entry: dict[str, any]):
         """Process entry to return merged embeddings."""
         # Convert conversation and tokenize
@@ -458,7 +488,11 @@ class GemmaEmbeddingDataset(BaseGemmaDataset):
         # Merge embeddings
         inputs_embeds = self._merge_embeddings(inputs["input_ids"], pixel_values)
 
-        return {"inputs_embeds": inputs_embeds, "attention_mask": inputs["attention_mask"].squeeze(0)}
+        return {
+            "input_ids": inputs["input_ids"],
+            "inputs_embeds": inputs_embeds,
+            "attention_mask": inputs["attention_mask"].squeeze(0),
+        }
 
 
 # Remove this when submitting for review
@@ -484,12 +518,12 @@ def gemma_image_dataset(model_id: str):
 
 
 @Registry.register_dataset()
-def gemma_embedding_dataset(model_id: str):
-    """Gemma 3 dataset with pre-merged text and image embeddings."""
-    return GemmaEmbeddingDataset(model_id, first_n=SHORTCUT_FIRST_N).get_dataset()
+def gemma_embedding_input_dataset(model_id: str):
+    """Gemma 3 dataset with embedding layer input."""
+    return GemmaEmbeddingInputDataset(model_id, first_n=SHORTCUT_FIRST_N).get_dataset()
 
 
 @Registry.register_dataset()
-def gemma_image_embedding_dataset(model_id: str):
-    """Gemma 3 dataset with pre-computed cached image embeddings."""
-    return GemmaImageEmbeddingDataset(model_id, first_n=SHORTCUT_FIRST_N).get_dataset()
+def gemma_embedding_dataset(model_id: str):
+    """Gemma 3 dataset with pre-merged text and image embeddings."""
+    return GemmaEmbeddingDataset(model_id, first_n=SHORTCUT_FIRST_N).get_dataset()
