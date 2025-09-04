@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING
 
 from olive.cli.base import BaseOliveCLICommand, add_logging_options, add_telemetry_options
 from olive.common.utils import WeightsFileFormat, save_weights
+from olive.telemetry.telemetry_events import action
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
-from olive.telemetry.telemetry_events import action
 
 
 class ConvertAdaptersCommand(BaseOliveCLICommand):
