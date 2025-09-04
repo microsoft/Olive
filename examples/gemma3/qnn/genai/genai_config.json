@@ -6,19 +6,13 @@
             "session_options": {
                 "log_id": "onnxruntime-genai",
                 "provider_options": [
-                    {
-                        "qnn": {
-                            "htp_performance_mode": "burst",
-                            "htp_graph_finalization_optimization_mode": "3",
-                            "soc_model": "60"
-                        }
-                    }
                 ]
             },
             "head_size": 256,
             "hidden_size": 2560,
             "inputs": {
-                "input_ids": "inputs_embeds",
+                "input_ids":"input_ids",
+                "inputs_embeds": "inputs_embeds",
                 "attention_mask": "attention_mask",
                 "past_key_names": "past_key_values.%d.key",
                 "past_value_names": "past_key_values.%d.value",
@@ -42,10 +36,20 @@
             },
             "pipeline": [
                 {
+                    "embeddings": {
+                        "filename": "embeddings.onnx",
+                        "inputs": [
+                            "input_ids"
+                        ],
+                        "outputs": [
+                            "/model/embed_tokens/Mul/output_0_QuantizeLinear_Output"
+                        ],
+                        "run_on_prompt": false
+                    },
                     "context_ctx": {
                         "filename": "context_ctx.onnx",
                         "inputs": [
-                            "inputs_embeds",
+                            "/model/embed_tokens/Mul/output_0_QuantizeLinear_Output",
                             "past_key_values.0.key",
                             "past_key_values.0.value",
                             "past_seq_len",
@@ -206,7 +210,7 @@
                     "iterator_ctx": {
                         "filename": "iterator_ctx.onnx",
                         "inputs": [
-                            "inputs_embeds",
+                            "/model/embed_tokens/Mul/output_0_QuantizeLinear_Output",
                             "past_key_values.0.key",
                             "past_key_values.0.value",
                             "past_seq_len",
@@ -369,22 +373,49 @@
                         "inputs": [
                             "/model/layers.34/final_norm_layernorm/SkipLayerNorm_Mul_output_0_QuantizeLinear_Output"
                         ],
-                        "outputs": [ "logits" ]
+                        "outputs": [
+                            "logits"
+                        ]
                     }
                 }
             ]
         },
         "embedding": {
-            "filename": "embeddings_combined.onnx",
-            "inputs": { "input_ids": "input_ids", "image_features": "image_features" },
-            "outputs": { "inputs_embeds": "inputs_embeds" }
+            "filename": "embeddings_with_image.onnx",
+            "inputs": {
+                "input_ids": "input_ids",
+                "image_features": "image_features"
+            },
+            "outputs": {
+                "inputs_embeds": "/model/embed_tokens/Mul/output_0_QuantizeLinear_Output"
+            }
         },
         "vision": {
-            "filename": "model_ctx.onnx",
-            "inputs": { "pixel_values": "pixel_values" },
-            "outputs": { "image_features": "image_features" }
+            "filename": "model_ctx_vision.onnx",
+            "inputs": {
+                "pixel_values": "pixel_values"
+            },
+            "outputs": {
+                "image_features": "image_features"
+            },
+            "session_options": {
+                "intra_op_num_threads": 2,
+                "inter_op_num_threads": 1,
+                "provider_options": [
+                    {
+                        "qnn": {
+                            "htp_performance_mode": "burst",
+                            "htp_graph_finalization_optimization_mode": "3",
+                            "soc_model": "60"
+                        }
+                    }
+                ]
+            }
         },
-        "eos_token_id": [ 1, 106 ],
+        "eos_token_id": [
+            1,
+            106
+        ],
         "pad_token_id": 0,
         "type": "gemma3",
         "vocab_size": 262208

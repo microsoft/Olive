@@ -11,6 +11,7 @@ from transformers import AutoConfig, AutoModel, AutoTokenizer, GenerationConfig
 from olive.common.hf.mappings import TASK_TO_PEFT_TASK_TYPE
 from olive.common.hf.mlflow import get_pretrained_name_or_path
 from olive.common.utils import hardlink_copy_file
+import importlib
 
 if TYPE_CHECKING:
     from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTrainedModel":
+def load_model_from_task(task: str, model_name_or_path: str, custom_task_class_name:str = None, custom_task_class_module:str = None, **kwargs) -> "PreTrainedModel":
     """Load huggingface model from task and model_name_or_path."""
     from transformers.pipelines import check_task
 
@@ -55,7 +56,12 @@ def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTr
             AUTO_QUANTIZATION_CONFIG_MAPPING["olive"] = OliveHfQuantizationConfig
             AUTO_QUANTIZER_MAPPING["olive"] = OliveHfQuantizer
 
-    class_tuple = targeted_task["pt"] or (AutoModel,)
+    if (custom_task_class_module is not None and custom_task_class_name is not None):
+        module = importlib.import_module(custom_task_class_module)
+        class_tuple = (getattr(module, custom_task_class_name),)
+    else:
+        class_tuple = targeted_task["pt"] or (AutoModel,)
+    print("class_tuple", class_tuple)
     model = None
     for i, model_class in enumerate(class_tuple):
         try:

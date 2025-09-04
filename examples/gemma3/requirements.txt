@@ -1,5 +1,7 @@
-datasets
-onnxruntime-genai-cuda==0.7.1
-onnxruntime-gpu==1.21.1
-optimum
 transformers
+datasets
+optimum
+onnxruntime-gpu==1.22.0
+onnxruntime-genai-cuda==0.9.0
+setuptools
+tabulate

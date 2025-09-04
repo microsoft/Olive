@@ -4,33 +4,75 @@
         "model_script": "custom_gemma3_4b_embedding.py",
         "model_loader": "load_gemma3_embedding_model",
         "io_config": {
-            "input_names": [ "input_ids", "image_features" ],
-            "input_shapes": [ [ 1, 64 ], [ 1, 256, 2560 ] ],
-            "input_types": [ "int32", "float32" ],
-            "output_names": [ "/model/embed_tokens/Mul/output_0" ],
-            "output_shapes": [ [ 1, 64, 2560 ] ],
+            "input_names": [
+                "input_ids",
+                "image_features"
+            ],
+            "input_shapes": [
+                [
+                    1,
+                    64
+                ],
+                [
+                    1,
+                    256,
+                    2560
+                ]
+            ],
+            "input_types": [
+                "int64",
+                "float32"
+            ],
+            "output_names": [
+                "/model/embed_tokens/Mul/output_0"
+            ],
+            "output_shapes": [
+                [
+                    1,
+                    64,
+                    2560
+                ]
+            ],
             "dynamic_axes": {
-                "input_ids": { "0": "batch_size", "1": "seq_length" },
-                "image_features": { "0": "batch_size" }
+                "input_ids": {
+                    "0": "batch_size",
+                    "1": "seq_length"
+                },
+                "image_features": {
+                    "0": "batch_size",
+                    "1": "image_tokens_length"
+                }
             }
         }
     },
     "systems": {
-        "qnn_system": {
-            "type": "PythonEnvironment",
-            "python_environment_path": "/local/mnt2/workspace/kromero/olive/olive-venv/bin",
-            "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ]
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "cpu",
+                    "execution_providers": [
+                        "CPUExecutionProvider"
+                    ]
+                }
+            ]
         }
     },
     "data_configs": [
         {
             "name": "gemma_embedding_data_config",
             "user_script": "custom_gemma3_4b_datasets.py",
-            "load_dataset_config": { "type": "gemma_embedding_input_dataset", "model_id": "google/gemma-3-4b-it" }
+            "load_dataset_config": {
+                "type": "gemma_embedding_input_dataset",
+                "model_id": "google/gemma-3-4b-it"
+            }
         }
     ],
     "passes": {
-        "conversion": { "type": "OnnxConversion", "target_opset": 20 },
+        "conversion": {
+            "type": "OnnxConversion",
+            "target_opset": 20
+        },
         "quantization": {
             "type": "OnnxStaticQuantization",
             "quant_preprocess": false,
@@ -38,13 +80,18 @@
             "activation_type": "uint16",
             "precision": "uint8",
             "calibrate_method": "MinMax",
-            "calibration_providers": [ "CUDAExecutionProvider" ],
+            "calibration_providers": [
+                "CUDAExecutionProvider"
+            ],
             "per_channel": true,
             "weight_symmetric": true
         },
-        "add_metadata": { "type": "AddOliveMetadata", "graph_name": "gemma-3-4b-it-vision" }
+        "add_metadata": {
+            "type": "AddOliveMetadata",
+            "graph_name": "gemma-3-4b-it-embedding"
+        }
     },
-    "target": "qnn_system",
+    "target": "local_system",
     "log_severity_level": 1,
     "output_dir": "models/gemma-3-4b-it-embed",
     "cache_dir": "cache-embd",

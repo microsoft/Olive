@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 @model_handler_registry("HFModel")
 class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):  # pylint: disable=too-many-ancestors
     resource_keys: tuple[str, ...] = ("model_path", "adapter_path")
-    json_config_keys: tuple[str, ...] = ("task", "load_kwargs")
+    json_config_keys: tuple[str, ...] = ("task", "load_kwargs", "custom_task_class_name", "custom_task_class_module")
 
     def __init__(
         self,
@@ -38,6 +38,8 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         io_config: Union[dict[str, Any], IoConfig, str] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[dict[str, Any]] = None,
+        custom_task_class_name: str = None,
+        custom_task_class_module: str = None
     ):
         super().__init__(
             model_file_format=None,
@@ -47,6 +49,8 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         )
         self.add_resources(locals())
         self.task = task
+        self.custom_task_class_name = custom_task_class_name
+        self.custom_task_class_module = custom_task_class_module
         self.load_kwargs = validate_config(load_kwargs, HfLoadKwargs, warn_unused_keys=False) if load_kwargs else None
 
         self.model_attributes = {**self.get_hf_model_config().to_dict(), **(self.model_attributes or {})}
@@ -72,7 +76,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         if self.model:
             model = self.model
         else:
-            model = load_model_from_task(self.task, self.model_path, **self.get_load_kwargs())
+            model = load_model_from_task(self.task, self.model_path, self.custom_task_class_name, self.custom_task_class_module, **self.get_load_kwargs())
 
             # we only have peft adapters for now
             if self.adapter_path:

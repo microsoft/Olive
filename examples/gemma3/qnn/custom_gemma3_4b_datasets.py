@@ -150,7 +150,6 @@ class BaseGemmaDataset(ABC):
                         zip_path,
                     ],
                     check=True,
-                    cwd=self.CACHE_DIR,
                 )
                 logger.info("Download completed successfully")
             except subprocess.CalledProcessError:
@@ -354,7 +353,7 @@ class GemmaEmbeddingInputDataset(BaseGemmaDataset):
             # Clean up full model to save memory
             del full_model.language_model
 
-        return self._vision_tower, self._multi_modal_projector
+        return self._vision_tower.cuda(), self._multi_modal_projector.cuda()
 
     def setup_dataset(self):
         """Set up the multimodal dataset with text conversation conversion."""
@@ -398,7 +397,7 @@ class GemmaEmbeddingInputDataset(BaseGemmaDataset):
             # Convert to numpy for caching
             image_features = image_features.cpu().detach().numpy()
 
-        return {"input_ids": inputs["input_ids"].squeeze(0), "image_features": image_features}
+        return {"input_ids": inputs["input_ids"], "image_features": image_features}
 
 
 class GemmaEmbeddingDataset(BaseGemmaDataset):
