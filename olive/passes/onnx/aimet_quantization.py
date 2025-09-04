@@ -171,6 +171,21 @@ class Adaround(_AimetTechnique):
         return sim
 
 
+class SeqMSE(_AimetTechnique):
+    @staticmethod
+    def apply(  # pylint: disable=arguments-differ
+        sim,
+        *,
+        data_config=None,
+        num_candidates: int = 20,
+    ):
+        from aimet_onnx import apply_seq_mse
+
+        apply_seq_mse(sim, data_config, num_candidates)
+
+        return sim
+
+
 class AimetQuantization(Pass):
     """Quantize ONNX model using aimet-onnx."""
 

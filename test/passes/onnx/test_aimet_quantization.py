@@ -314,6 +314,42 @@ def test_aimet_quantization_excludes_adaround_nodes(tmp_path):
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
 @pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+def test_aimet_quantization_applies_seq_mse(tmp_path):
+    input_model = dummy_onnx_matmul_model(tmp_path / "dummy_model_mm.onnx")
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
+        ),
+        "precision": "int4",
+        "techniques": [
+            {
+                "name": "seqmse",
+                "num_candidates": 5,
+                "data_config": DataConfig(
+                    name="test_quant_dc_config",
+                    load_dataset_config=DataComponentConfig(type="simple_dataset"),
+                    dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
+                ),
+            }
+        ],
+    }
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+
+    with patch("aimet_onnx.apply_seq_mse") as mock_seq_mse:
+        out = p.run(input_model, tmp_path)
+        assert mock_seq_mse.call_count == 1
+
+        (_, data, num_candidates), _ = mock_seq_mse.call_args
+        assert isinstance(data, Iterable)
+        assert num_candidates == 5
+
+    assert out is not None
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 @pytest.mark.parametrize(
     ("op_types", "disabled_quantizers"),
     [
