@@ -1,0 +1,7 @@
+transformers
+datasets
+optimum
+onnxruntime-gpu==1.22.0
+onnxruntime-genai-cuda==0.9.0
+setuptools
+tabulate
