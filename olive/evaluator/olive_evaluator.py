@@ -972,6 +972,9 @@ class LMEvaluator(OliveEvaluator):
         self.model_class = kwargs.get("model_class")
         self.batch_size = kwargs.get("batch_size", 1)
         self.max_length = kwargs.get("max_length")
+        self.ep = kwargs.get("execution_provider")
+        self.ep_options = kwargs.get("provider_options")
+        self.device = kwargs.get("device")
 
     def evaluate(
         self,
@@ -980,48 +983,50 @@ class LMEvaluator(OliveEvaluator):
         device: Device = Device.CPU,
         execution_providers: Union[str, list[str]] = None,
     ) -> MetricResult:
-        import lm_eval
+        from lm_eval import simple_evaluate
+        from lm_eval.api.registry import get_model
+        from lm_eval.tasks import TaskManager
+
+        import olive.evaluator.lmeval_ort  # noqa: F401 # pylint: disable=unused-import
 
         if not self.model_class:
-            if isinstance(model, (HfModelHandler, PyTorchModelHandler)):
+            if isinstance(model, HfModelHandler):
                 self.model_class = "hf"
             elif isinstance(model, ONNXModelHandler):
-                self.model_class = "onnx"
+                self.model_class = "ort"
             else:
                 raise ValueError("Failed to automatically deduce model class. Provide it in user input!")
 
-        pretrained = None
-        tokenizer = None
+        init_args = {}
+        device = _OliveEvaluator.device_string_to_torch_device(self.device or device)
         if self.model_class == "hf":
-            tokenizer = model.get_hf_tokenizer()
-            pretrained = model.load_model().eval().to(device)
-            device = _OliveEvaluator.device_string_to_torch_device(device)
+            init_args = {
+                "pretrained": model.load_model(cache_model=False).eval().to(device),
+                "tokenizer": model.get_hf_tokenizer(),
+                "device": device,
+            }
+        elif self.model_class == "ort":
+            init_args = {
+                "model_path": model.model_path,
+                "ep": self.ep or execution_providers,
+                "ep_options": self.ep_options,
+            }
+        elif self.model_class == "ortgenai":
+            init_args = {
+                "pretrained": str(Path(model.model_path).parent),
+                "ep": self.ep or execution_providers,
+                "ep_options": self.ep_options,
+                "device": device,
+            }
+        else:
+            raise ValueError(f"Unknown model class: {self.model_class}")
 
-        elif self.model_class == "onnx":
-            import onnxruntime_genai as og
+        lmmodel = get_model(self.model_class)(**init_args, batch_size=self.batch_size, max_length=self.max_length)
 
-            import olive.evaluator.lmeval_onnx_model  # noqa: F401 # pylint: disable=unused-import
-
-            model_path = Path(model.model_path)
-            model_path = model_path.parent if model_path.is_file() else model_path
-            pretrained = og.Model(str(model_path))
-            tokenizer = og.Tokenizer(pretrained)
-            device = None
-
-        lmmodel = lm_eval.api.registry.get_model(self.model_class)(
-            pretrained=pretrained,
-            tokenizer=tokenizer,
-            batch_size=self.batch_size,
-            device=device,
-            max_length=self.max_length,
-        )
-
-        task_manager = lm_eval.tasks.TaskManager()
-
-        results = lm_eval.simple_evaluate(
+        results = simple_evaluate(
             model=lmmodel,
             tasks=self.tasks,
-            task_manager=task_manager,
+            task_manager=TaskManager(),
             log_samples=False,
             batch_size=self.batch_size,
             device=device,
