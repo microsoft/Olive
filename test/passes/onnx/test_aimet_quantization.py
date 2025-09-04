@@ -4,6 +4,8 @@
 # --------------------------------------------------------------------------
 import json
 import platform
+from collections.abc import Iterable
+from unittest.mock import patch
 
 import numpy as np
 import onnx
@@ -251,6 +253,73 @@ def test_aimet_quantization_applies_lpbq(tmp_path):
         else:
             # All other quantizers should not be blockwise
             assert not block_size_attr
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+def test_aimet_quantization_applies_adaround(tmp_path):
+    input_model = dummy_onnx_matmul_model(tmp_path / "dummy_model_mm.onnx")
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
+        ),
+        "techniques": [
+            {
+                "name": "adaround",
+                "num_iterations": 5,
+                "data_config": DataConfig(
+                    name="test_quant_dc_config",
+                    load_dataset_config=DataComponentConfig(type="simple_dataset"),
+                    dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
+                ),
+            }
+        ],
+    }
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+
+    with patch("aimet_onnx.apply_adaround") as mock_seq_mse:
+        out = p.run(input_model, tmp_path)
+        assert mock_seq_mse.call_count == 1
+
+        (_, data, num_iterations, nodes_to_include), _ = mock_seq_mse.call_args
+        assert isinstance(data, Iterable)
+        assert num_iterations == 5
+        assert nodes_to_include is None
+
+    assert out is not None
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+def test_aimet_quantization_excludes_adaround_nodes(tmp_path):
+    input_model = dummy_onnx_matmul_model(tmp_path / "dummy_model_mm.onnx")
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
+        ),
+        "techniques": [
+            {
+                "name": "adaround",
+                "nodes_to_exclude": ["matmul"],
+                "data_config": DataConfig(
+                    name="test_quant_dc_config",
+                    load_dataset_config=DataComponentConfig(type="simple_dataset"),
+                    dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
+                ),
+            }
+        ],
+    }
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+
+    with patch("aimet_onnx.apply_adaround") as mock_seq_mse:
+        p.run(input_model, tmp_path)
+        assert mock_seq_mse.call_count == 1
+        (_, _, _, nodes_to_include), _ = mock_seq_mse.call_args
+        assert not nodes_to_include
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")

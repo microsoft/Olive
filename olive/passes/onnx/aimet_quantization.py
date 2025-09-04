@@ -145,6 +145,27 @@ class LPBQ(_AimetTechnique):
         return sim
 
 
+class Adaround(_AimetTechnique):
+    @staticmethod
+    def apply(  # pylint: disable=arguments-differ
+        sim, data_config, *, num_iterations: int = 20, nodes_to_exclude: Optional[list[str]] = None
+    ):
+        from aimet_onnx import apply_adaround
+        from aimet_onnx.adaround.adaround_weight import AdaroundSupportedModules
+
+        if nodes_to_exclude is not None:
+            nodes_to_optimize = {
+                node.name for node in sim.connected_graph.ordered_ops if node.type in AdaroundSupportedModules
+            }
+            nodes_to_optimize -= set(nodes_to_exclude)
+        else:
+            nodes_to_optimize = None
+
+        apply_adaround(sim, list(data_config), num_iterations, nodes_to_optimize)
+
+        return sim
+
+
 class AimetQuantization(Pass):
     """Quantize ONNX model using aimet-onnx."""
 
@@ -267,12 +288,6 @@ class AimetQuantization(Pass):
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        data_config = validate_config(config.data_config, DataConfig)
-
-        calib_dataloader = _get_dataloader(
-            data_config, model.model_path, model.io_config, run_config["calibration_providers"]
-        )
-
         onnx_model = onnx.load(model.model_path)
 
         if _has_dynamic_quantization(onnx_model):
@@ -302,7 +317,19 @@ class AimetQuantization(Pass):
             techniques = run_config["techniques"]
             for technique in techniques:
                 name = technique.pop("name").lower()
+
+                if "data_config" in technique:
+                    data_config = validate_config(technique["data_config"], DataConfig)
+                    technique["data_config"] = _get_dataloader(
+                        data_config, model.model_path, model.io_config, run_config["calibration_providers"]
+                    )
+
                 sim = SUPPORTED_TECHNIQUES[name].apply(sim, **technique)
+
+            data_config = validate_config(config.data_config, DataConfig)
+            calib_dataloader = _get_dataloader(
+                data_config, model.model_path, model.io_config, run_config["calibration_providers"]
+            )
 
             sim.compute_encodings(calib_dataloader)
             qdq_model = sim.to_onnx_qdq()
