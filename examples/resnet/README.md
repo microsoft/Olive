@@ -3,7 +3,7 @@
 This folder contains examples of ResNet optimization using different workflows.
 
 - QDQ: [with ONNX Runtime optimizations and static quantization with QDQ format](#resnet-optimization-with-ptq-qdq)
-- CPU: [with ONNX Runtime optimizations and static/dynamic quantization](#resnet-optimization-with-ptq-on-cpu)
+- CPU: [with ONNX Runtime optimizations and static quantization](#resnet-optimization-with-ptq-on-cpu)
 - Intel® GPU: [with OpenVINO and DirectML execution providers in ONNX Runtime](#resnet-optimization-with-openvino-and-dml-execution-providers)
 - Qualcomm NPU: [with QNN execution provider in ONNX Runtime](./qnn/)
 - Intel® NPU: [Optimization with OpenVINO on Intel® NPU to generate an ONNX Model or ONNX OpenVINO IR Encapsulated Model](./openvino/)
@@ -52,10 +52,6 @@ Config file: [resnet_ptq_cpu.json](resnet_ptq_cpu.json)
 #### Static Quantization
 
 The workflow in [resnet_static_ptq_cpu.json](resnet_static_ptq_cpu.json) is similar to the above workflow, but specifically uses static quantization instead of static/dynamic quantization.
-
-#### Dynamic Quantization
-
-The workflow in [resnet_dynamic_ptq_cpu.json](resnet_dynamic_ptq_cpu.json) is similar to the above workflow, but specifically uses dynamic quantization instead of static/dynamic quantization.
 
 ### ResNet optimization and quantization with OpenVINO NNCF on Intel® NPU
 
