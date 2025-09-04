@@ -80,6 +80,11 @@ class Gptq(Pass):
                     " Required for PyTorch models."
                 ),
             ),
+            "lm_head": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether to quantize the language model head. Default value is False.",
+            ),
         }
 
     @classmethod
@@ -153,6 +158,19 @@ class Gptq(Pass):
                 return_output=True,
             )
 
+        # TODO(jambayk): maybe try generalizing the lm_head quantization with the layer quantization
+        if config.lm_head:
+            hidden_states = self.run_layer(
+                wrapper.get_pre_head_layernorm(return_name=False), hidden_states, return_output=True
+            )
+
+            lm_head = wrapper.get_lm_head(return_name=False)
+            handle = lm_head.register_forward_hook(self.accumulate_hessian)
+            self.run_layer(lm_head, hidden_states, return_output=True)
+            handle.remove()
+
+            self.process_module(lm_head, percdamp=config.damp_percent, actorder=config.desc_act)
+
         # finalize the quantization
         self.finalize(wrapper, quant_config, device)
         wrapper.model.config.use_cache = original_use_cache
@@ -178,6 +196,7 @@ class Gptq(Pass):
             "bits": config.bits,
             "symmetric": config.sym,
             "group_size": config.group_size,
+            "lm_head": config.lm_head,
         }
         if mp_info := (model.model_attributes or {}).get("mixed_precision_info"):
             for k, v in quant_config.items():
@@ -195,11 +214,13 @@ class Gptq(Pass):
             quant_config: Quantization configuration to use.
 
         """
-        # TODO(jambayk): make lm head quantization configurable
+        if quant_config.lm_head:
+            wrapper.maybe_untie_word_embeddings()
+
         lm_head_name = wrapper.get_lm_head()[1]
 
         def should_quantize(module: torch.nn.Module, name: str) -> bool:
-            return isinstance(module, torch.nn.Linear) and name != lm_head_name
+            return isinstance(module, torch.nn.Linear) and (name != lm_head_name or quant_config.lm_head)
 
         def add_quant_info(module: torch.nn.Module, name: str) -> torch.nn.Module:
             # TODO(jambayk): validate that the module and config are compatible
@@ -265,8 +286,8 @@ class Gptq(Pass):
         self,
         layer: torch.nn.Module,
         hidden_states: list[torch.Tensor],
-        layer_args: list[tuple],
-        layer_kwargs: list[dict],
+        layer_args: list[tuple] | None = None,
+        layer_kwargs: list[dict] | None = None,
         return_output: bool = False,
     ) -> list[torch.Tensor] | None:
         """Run a layer with the given inputs.
@@ -289,8 +310,8 @@ class Gptq(Pass):
             # TODO(jambayk): support non true-sequential if needed
             layer_output = layer(
                 hs,
-                *layer_args[i],
-                **layer_kwargs[i],
+                *(layer_args[i] if layer_args else ()),
+                **(layer_kwargs[i] if layer_kwargs else {}),
             )[0]
             if return_output:
                 outputs.append(layer_output)

@@ -55,6 +55,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         symmetric: Whether to use symmetric quantization.
         group_size: Quantization group size.
             -1 = per-channel, 0 = per-tensor, >0 = groupwise.
+        lm_head: Whether to quantize the language model head.
         modules_to_not_convert : List of module names to exclude from quantization.
         overrides: Per-module overrides for quantization parameters.
 
@@ -66,6 +67,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         bits: int,
         symmetric: bool,
         group_size: int,
+        lm_head: bool = False,
         modules_to_not_convert: list | None = None,
         overrides: dict | None = None,
         **kwargs,
@@ -76,6 +78,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         self.bits = bits
         self.symmetric = symmetric
         self.group_size = group_size
+        self.lm_head = lm_head
         self.modules_to_not_convert = modules_to_not_convert
         self.overrides = {
             module_name: OliveHfQuantizationOverrideConfig(**override)
@@ -135,9 +138,8 @@ class OliveHfQuantizer(HfQuantizer):
         from olive.common.quant.linear import QuantLinear
 
         # this helps skip modules such as lm_head which is generally not quantized
-        # newer transformers versions have a `get_keys_to_not_convert` function
-        # TODO(jambayk): maybe add an option to skip/include lm head if we start quantizing it
-        self.modules_to_not_convert = get_keys_to_not_convert(model)
+        # TODO(jambayk): maybe get the lm_head module name ourselves instead of `get_keys_to_not_convert` from transformers
+        self.modules_to_not_convert = [] if self.quantization_config.lm_head else get_keys_to_not_convert(model)
         if self.quantization_config.modules_to_not_convert:
             self.modules_to_not_convert.extend(self.quantization_config.modules_to_not_convert)
         if keep_in_fp32_modules:

@@ -986,8 +986,11 @@ class LMEvaluator(OliveEvaluator):
         from lm_eval import simple_evaluate
         from lm_eval.api.registry import get_model
         from lm_eval.tasks import TaskManager
+        from lm_eval.utils import setup_logging
 
         import olive.evaluator.lmeval_ort  # noqa: F401 # pylint: disable=unused-import
+
+        setup_logging("ERROR")
 
         if not self.model_class:
             if isinstance(model, HfModelHandler):
