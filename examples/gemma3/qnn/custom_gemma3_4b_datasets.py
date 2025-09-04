@@ -496,7 +496,7 @@ class GemmaEmbeddingDataset(BaseGemmaDataset):
 
 
 # Remove this when submitting for review
-SHORTCUT_FIRST_N = 20
+SHORTCUT_FIRST_N = 25
 
 
 @Registry.register_dataset()

@@ -1,7 +1,7 @@
 {
     "input_model": {
         "type": "PyTorchModel",
-        "model_script": "custom_gemma3_4b_it_vision.py",
+        "model_script": "custom_gemma3_4b_vision.py",
         "model_loader": "load_gemma3_vision_model",
         "io_config": {
             "input_names": [ "pixel_values" ],
@@ -34,7 +34,9 @@
             "data_config": "gemma_vision_data_config",
             "activation_type": "uint16",
             "precision": "uint8",
-            "calibrate_method": "MinMax"
+            "calibrate_method": "MinMax",
+            "per_channel": true,
+            "weight_symmetric": true
         },
         "cb": {
             "type": "EPContextBinaryGenerator",
