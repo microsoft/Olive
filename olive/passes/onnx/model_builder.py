@@ -12,6 +12,7 @@ from typing import Any, ClassVar, Union
 
 import onnx
 import transformers
+from packaging import version
 
 from olive.common.utils import IntEnumBase
 from olive.constants import Precision
@@ -204,6 +205,7 @@ class ModelBuilder(Pass):
                 " corresponding to your onnxruntime installation using pip. cpu: onnxruntime-genai, cuda:"
                 " onnxruntime-genai-cuda, directml: onnxruntime-genai-directml"
             ) from None
+        self.maybe_patch_quant()
 
         precision = config.precision
         metadata_only = config.metadata_only
@@ -328,3 +330,22 @@ class ModelBuilder(Pass):
             )
 
         return output_model
+
+    # TODO(jambayk): Remove this once version 0.9.1 with olive quant changes is released
+    @staticmethod
+    def maybe_patch_quant():
+        """Patch onnxruntime-genai olive quant model to disable offset handling for qzeros in version 0.9.0."""
+        from onnxruntime_genai import __version__ as genai_version
+
+        if version.parse(genai_version) != version.parse("0.9.0"):
+            return
+
+        from onnxruntime_genai.models.quantized_model import OliveModel
+
+        if getattr(OliveModel.handle_qzeros, "__name__", "") == "_noop_handle_qzeros":
+            return
+
+        def _noop_handle_qzeros(self, module):
+            pass
+
+        OliveModel.handle_qzeros = _noop_handle_qzeros
