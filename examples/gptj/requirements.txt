@@ -1,3 +1,0 @@
-datasets
-neural-compressor
-onnxruntime

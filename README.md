@@ -13,20 +13,13 @@
 
 Given a model and targeted hardware, Olive (abbreviation of **O**nnx **LIVE**) composes the best suitable optimization techniques to output the most efficient ONNX model(s) for inferencing on the cloud or edge, while taking a set of constraints such as accuracy and latency into consideration.
 
-### ✅ Benefits of using Olive
-
-- **Reduce frustration** of manual trial-and-error model optimization experimentation. Define your target and precision and let Olive automatically produce the best model for you.
-- **40+ built-in model optimization components** covering industry-leading techniques across model compression, optimization, finetuning, and compilation.
-- **Easy-to-use CLI** for common model optimization tasks.
-- **Workflows** to orchestrate model transformations and optimizations steps.
-- Support for compiling LoRA adapters for **MultiLoRA serving**.
-- Seamless integration with **Hugging Face** and **Azure AI**.
-- Built-in **caching** mechanism to **improve productivity**.
-
-
 ## 📰 News Highlights
 Here are some recent videos, blog articles and labs that highlight Olive:
 
+- [ Sep 2025 ] [Olive examples are relocated to new Olive-recipes repository]((https://github.com/microsoft/olive-recipes)
+- [ Aug 2025 ] [Olive 0.9.2 is released with new quantization algorithms](https://github.com/microsoft/Olive/releases/tag/v0.9.2)
+- [ May 2025 ] [Olive 0.9.0 is released with support for NPUs](https://github.com/microsoft/Olive/releases/tag/v0.9.0)
+- [ Mar 2025 ] [Olive 0.8.0 is released with new quantization techniques](https://github.com/microsoft/Olive/releases/tag/v0.8.0)
 - [ Feb 2025 ] [New Notebook available - Finetune and Optimize DeepSeek R1 with Olive 🐋 ](examples/getting_started/olive-deepseek-finetune.ipynb)
 - [ Nov 2024 ] [Democratizing AI Model optimization with the new Olive CLI](https://onnxruntime.ai/blogs/olive-cli)
 - [ Nov 2024 ] [Unlocking NLP Potential: Fine-Tuning with Microsoft Olive (Ignite Pre-Day Lab PRE016)](https://github.com/Azure/Ignite_FineTuning_workshop)
@@ -37,17 +30,6 @@ Here are some recent videos, blog articles and labs that highlight Olive:
 For a full list of news and blogs, read the [news archive](./NEWS.md).
 
 ## 🚀 Getting Started
-
-### Notebooks available!
-
-The following notebooks are available that demonstrate key optimization workflows with Olive and include the application code to inference the optimized models on the ONNX Runtime.
-
-| Title | Task | Description | Time Required |Notebook Links
-| -------- | ------------ | ------------ |-------- | -------- |
-| **Quickstart** | Text Generation | *Learn how to quantize & optimize an SLM for the ONNX Runtime using a single Olive command.* | 5mins  | [Download](examples/getting_started/olive_quickstart.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb) |
-| **Optimizing popular SLMs** | Text Generation | *Choose from a curated list of over 20 popular SLMs to quantize & optimize for the ONNX runtime.* | 5mins  | [Download](examples/getting_started/text-gen-optimized-slms.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/text-gen-optimized-slms.ipynb) |
-| **How to finetune models for on-device inference** | Text Generation | *Learn how to Quantize (using AWQ method), fine-tune, and optimize an SLM for on-device inference.* |15mins| [Download](examples/getting_started/olive-awq-ft-llama.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive-awq-ft-llama.ipynb) |
-| **Finetune and Optimize DeepSeek R1 with Olive** | Text Generation | *Learn how to Finetune and Optimize DeepSeek-R1-Distill-Qwen-1.5B for on-device inference.* |15mins| [Download](examples/getting_started/olive-deepseek-finetune.ipynb) / [Open in Colab](https://colab.research.google.com/github/microsoft/Olive/blob/main/examples/getting_started/olive-deepseek-finetune.ipynb) |
 
 ### ✨ Quickstart
 If you prefer using the command line directly instead of Jupyter notebooks, we've outlined the quickstart commands here.
@@ -108,7 +90,7 @@ The sample chat app to run is found as [model-chat.py](https://github.com/micros
 ## 🎓 Learn more
 
 - [Documentation](https://microsoft.github.io/Olive)
-- [Examples](./examples)
+- [Recipes](https//github.com/microsoft/olive-recipes)
 
 ## 🤝 Contributions and Feedback
 - We welcome contributions! Please read the [contribution guidelines](./CONTRIBUTING.md) for more details on how to contribute to the Olive project.
