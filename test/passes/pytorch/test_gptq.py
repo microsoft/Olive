@@ -16,6 +16,7 @@ from olive.passes.pytorch.gptq import Gptq
 from test.utils import make_local_tiny_llama
 
 
+# running on CPU takes time so will only run a subset of tests when GPU is not available
 @pytest.mark.parametrize(
     ("model_path", "expected_model_type"),
     [
@@ -23,8 +24,9 @@ from test.utils import make_local_tiny_llama
         ("tiny-llama", "LlamaForCausalLM"),
     ],
 )
-@pytest.mark.parametrize("group_size", [-1, 16])
-def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_size: int):
+@pytest.mark.parametrize("group_size", [-1, 16] if torch.cuda.is_available() else [16])
+@pytest.mark.parametrize("lm_head", [True, False] if torch.cuda.is_available() else [False])
+def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_size: int, lm_head: bool):
     # setup
     if model_path == "tiny-llama":
         input_model = make_local_tiny_llama(tmp_path / "input_model")
@@ -32,7 +34,7 @@ def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_s
         input_model = HfModelHandler(model_path=model_path)
     p = create_pass_from_dict(
         Gptq,
-        {"group_size": group_size},
+        {"group_size": group_size, "lm_head": lm_head},
         disable_search=True,
         accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider"),
     )
@@ -52,3 +54,5 @@ def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_s
     assert loaded_model.config.quantization_config.group_size == group_size
     assert not any(isinstance(m, torch.nn.Linear) for m in loaded_model.model.layers.modules())
     assert isinstance(loaded_model.model.layers[0].self_attn.o_proj, QuantLinear)
+    assert loaded_model.config.quantization_config.lm_head == lm_head
+    assert isinstance(loaded_model.lm_head, QuantLinear) == lm_head

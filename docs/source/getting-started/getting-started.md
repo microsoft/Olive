@@ -9,7 +9,7 @@ hide:
 
 This quickstart is available as a Jupyter Notebook, which you can download and run on your own computer.
 
-```{button-link} https://github.com/microsoft/Olive/blob/main/examples/getting_started/olive_quickstart.ipynb
+```{button-link} https://github.com/microsoft/Olive/blob/main/notebooks/olive_quickstart.ipynb
 :color: primary
 :outline:
 

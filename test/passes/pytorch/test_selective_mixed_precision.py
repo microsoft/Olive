@@ -29,13 +29,14 @@ def input_model_fixture(tmp_path_factory):
 
 
 @pytest.mark.parametrize(
-    ("algorithm", "expected_layer_indices"),
+    ("algorithm", "expected_layer_indices", "include_qkv"),
     [
-        ("k_quant_mixed", [0, 3, 6, 7]),  # first 1/8, every 3rd, and last 1/8
-        ("k_quant_last", []),
+        ("k_quant_down", [0, 3, 6, 7], False),  # first 1/8, every 3rd, and last 1/8
+        ("k_quant_mixed", [0, 3, 6, 7], True),
+        ("k_quant_last", [], False),
     ],
 )
-def test_selective_mixed_precision(algorithm, expected_layer_indices, input_model, tmp_path):
+def test_selective_mixed_precision(algorithm, expected_layer_indices, include_qkv, input_model, tmp_path):
     """Test SelectiveMixedPrecision pass with different algorithms."""
     config = {"algorithm": algorithm}
     p = create_pass_from_dict(SelectiveMixedPrecision, config, disable_search=True)
@@ -53,9 +54,15 @@ def test_selective_mixed_precision(algorithm, expected_layer_indices, input_mode
     for idx in expected_layer_indices:
         expected_mp_info["overrides"].update(
             {
-                f"model.layers.{idx}.self_attn.q_proj": {"bits": PrecisionBits.BITS8},
-                f"model.layers.{idx}.self_attn.k_proj": {"bits": PrecisionBits.BITS8},
-                f"model.layers.{idx}.self_attn.v_proj": {"bits": PrecisionBits.BITS8},
+                **(
+                    {
+                        f"model.layers.{idx}.self_attn.q_proj": {"bits": PrecisionBits.BITS8},
+                        f"model.layers.{idx}.self_attn.k_proj": {"bits": PrecisionBits.BITS8},
+                        f"model.layers.{idx}.self_attn.v_proj": {"bits": PrecisionBits.BITS8},
+                    }
+                    if include_qkv
+                    else {}
+                ),
                 f"model.layers.{idx}.mlp.down_proj": {"bits": PrecisionBits.BITS8},
             }
         )
