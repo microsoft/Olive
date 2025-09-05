@@ -5,3 +5,6 @@ onnxruntime-gpu==1.22.0
 onnxruntime-genai-cuda==0.9.0
 setuptools
 tabulate
+onnx==1.18.0
+onnx-ir==0.1.4
+onnxscript==0.3.2
