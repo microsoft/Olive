@@ -53,12 +53,6 @@ Config file: [resnet_ptq_cpu.json](resnet_ptq_cpu.json)
 
 The workflow in [resnet_static_ptq_cpu.json](resnet_static_ptq_cpu.json) is similar to the above workflow, but specifically uses static quantization instead of static/dynamic quantization.
 
-### ResNet optimization and quantization with OpenVINO NNCF on Intel® NPU
-
-The [openvino](./openvino/) folder contains 2 example config files.
-It has an example workflow for generating a quantized ONNX OpenVINO IR encapsulated model and another example for generating a quantized ONNX model.
-All details including setup, workflow details and example config files and scripts along with requirements.txt to setup an environment, and instructions to execute those workflows are included in that folder.
-
 ### ResNet optimization with Nvidia TensorRT-RTX execution provider
 
 This example performs ResNet optimization with Nvidia TensorRT-RTX execution provider. It performs the optimization pipeline:
