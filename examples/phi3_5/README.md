@@ -224,5 +224,3 @@ python app.py -m models/phi3_5-qnn
 ```
 
 ## **PTQ + AOT Compilation for Intel® NPUs using Optimum Intel®**
-
-- [**Intel® NPU**](./openvino/): Optimization with Optimum Intel® on Intel® NPU to generate an ONNX OpenVINO IR Encapsulated Model instructions are in the in the [openvino](./openvino/) folder.
