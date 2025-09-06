@@ -57,7 +57,7 @@ def test_hf_wrapper(model_path):
         assert len(layer_wrapper.get_attention_inputs(False)) == 1
 
         # split qkv
-        model_wrapper.maybe_unpack_qkv()
+        model_wrapper.maybe_split_qkv()
 
         # check the split qkv
         modules, names = layer_wrapper.get_attention_inputs()

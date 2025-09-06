@@ -2,13 +2,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 import logging
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING, Callable
 
 import torch
 from torch import nn
 from transformers import PretrainedConfig
 
+from olive.common.quant.linear import QuantLinear
 from olive.common.utils import find_first_matched_value, get_attr, replace_submodules, set_attr
 
 if TYPE_CHECKING:
@@ -19,7 +22,6 @@ logger = logging.getLogger(__name__)
 # ruff: noqa: RUF012
 
 
-# TODO(jambayk): consider always returning the name of the submodule
 def get_submodules(
     module: nn.Module,
     mapping: dict,
@@ -40,49 +42,84 @@ def get_submodules(
     return submodules if not return_name else (submodules, names)
 
 
-class UnpackedQKV(nn.Module):
-    """Unpacks the QKV projection matrix into separate projections."""
+class SplitLinear(nn.Module):
+    """Split a single linear layer into multiple linear layers along the output dimension."""
 
-    def __init__(self, qkv: nn.Module, num_attn_heads: int, num_key_value_heads: int, head_dim: int):
+    def __init__(self, linear: nn.Linear | QuantLinear, names: list[str], sizes: list[int]):
         super().__init__()
-        q_size = num_attn_heads * head_dim
-        kv_size = num_key_value_heads * head_dim
+        assert sum(sizes) == linear.out_features, "Sizes must sum to the output features of the linear layer."
+        self.projs = nn.ModuleDict()
 
-        def create_proj(start, end):
-            proj = nn.Linear(q_size, end - start)
-            proj.weight = nn.Parameter(qkv.weight[start:end], requires_grad=qkv.weight.requires_grad)
+        if isinstance(linear, nn.Linear):
+            weight = linear.weight
+        elif isinstance(linear, QuantLinear):
+            weight, scale, zero_point = linear.get_unpacked_params()
+        else:
+            raise ValueError("linear must be an instance of nn.Linear or QuantLinear.")
+
+        start = 0
+        for name, size in zip(names, sizes):
+            if isinstance(linear, nn.Linear):
+                proj = nn.Linear(linear.in_features, size)
+                proj.weight = nn.Parameter(weight[start : start + size], requires_grad=linear.weight.requires_grad)
+            else:
+                scale_zp_slice = slice(start, start + size) if scale.shape[0] == linear.out_features else slice(None)
+                proj = QuantLinear.from_tensors(
+                    weight[start : start + size],
+                    scale[scale_zp_slice],
+                    zero_point[scale_zp_slice],
+                    bits=linear.quantizer.bits,
+                    symmetric=linear.quantizer.symmetric,
+                    group_size=linear.quantizer.group_size,
+                )
             proj.bias = (
-                None if qkv.bias is None else nn.Parameter(qkv.bias[start:end], requires_grad=qkv.bias.requires_grad)
+                None
+                if linear.bias is None
+                else nn.Parameter(linear.bias[start : start + size], requires_grad=linear.bias.requires_grad)
             )
-            return proj
+            self.projs[name] = proj
+            start += size
 
-        self.q_proj = create_proj(0, q_size)
-        self.k_proj = create_proj(q_size, q_size + kv_size)
-        self.v_proj = create_proj(q_size + kv_size, q_size + 2 * kv_size)
-
-    def forward(self, hidden_states):
-        return torch.cat([self.q_proj(hidden_states), self.k_proj(hidden_states), self.v_proj(hidden_states)], dim=-1)
+    def forward(self, x):
+        return torch.cat([proj(x) for proj in self.projs.values()], dim=-1)
 
     @torch.no_grad()
-    def create_packed(self) -> nn.Linear:
-        """Repacks the QKV projections into a single projection matrix."""
-        qkv = nn.Linear(
-            self.q_proj.in_features + self.k_proj.in_features + self.v_proj.in_features,
-            self.q_proj.out_features,
-        )
-        qkv.weight = nn.Parameter(
-            torch.cat([self.q_proj.weight, self.k_proj.weight, self.v_proj.weight], dim=0),
-            requires_grad=self.q_proj.weight.requires_grad,
-        )
-        qkv.bias = (
+    def create_joined(self) -> nn.Linear | QuantLinear:
+        """Join the split linear layers back into a single linear layer."""
+        all_projs = list(self.projs.values())
+        if isinstance(all_projs[0], nn.Linear):
+            weight = torch.cat([proj.weight for proj in all_projs], dim=0)
+            joined = nn.Linear(all_projs[0].in_features, weight.shape[0])
+            joined.weight = nn.Parameter(weight, requires_grad=all_projs[0].weight.requires_grad)
+        else:
+            weights = []
+            scales = []
+            zero_points = []
+            for proj in all_projs:
+                weight, scale, zero_point = proj.get_unpacked_params()
+                weights.append(weight)
+                scales.append(scale)
+                zero_points.append(zero_point)
+            joined = QuantLinear.from_tensors(
+                torch.cat(weights, dim=0),
+                torch.cat(scales, dim=0) if scales[0].shape[0] == all_projs[0].out_features else scales[0],
+                (
+                    torch.cat(zero_points, dim=0)
+                    if zero_points[0].shape[0] == all_projs[0].out_features
+                    else zero_points[0]
+                ),
+                bits=all_projs[0].quantizer.bits,
+                symmetric=all_projs[0].quantizer.symmetric,
+                group_size=all_projs[0].quantizer.group_size,
+            )
+        joined.bias = (
             None
-            if self.q_proj.bias is None
+            if all_projs[0].bias is None
             else nn.Parameter(
-                torch.cat([self.q_proj.bias, self.k_proj.bias, self.v_proj.bias]),
-                requires_grad=self.q_proj.bias.requires_grad,
+                torch.cat([proj.bias for proj in all_projs], dim=0), requires_grad=all_projs[0].bias.requires_grad
             )
         )
-        return qkv
+        return joined
 
 
 class LayerWrapper:
@@ -146,9 +183,9 @@ class LayerWrapper:
         attention_inputs, names = get_submodules(
             self.attn, self.ATTENTION_INPUTS, self.model_type, return_name=True, return_name_prefix=f"{self.attn_name}."
         )
-        if isinstance(attention_inputs[0], UnpackedQKV):
-            names = [f"{names[0]}.{part}" for part in ["q_proj", "k_proj", "v_proj"]]
-            attention_inputs = [attention_inputs[0].q_proj, attention_inputs[0].k_proj, attention_inputs[0].v_proj]
+        if isinstance(attention_inputs[0], SplitLinear):
+            names = [f"{names[0]}.projs.{part}" for part in attention_inputs[0].projs]
+            attention_inputs = list(attention_inputs[0].projs.values())
         return attention_inputs if not return_name else (attention_inputs, names)
 
     def get_attention_outputs(self, return_name: bool = True):
@@ -161,9 +198,13 @@ class LayerWrapper:
         )
 
     def get_mlp_inputs(self, return_name: bool = True):
-        return get_submodules(
+        mlp_inputs, names = get_submodules(
             self.mlp, self.MLP_INPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
         )
+        if isinstance(mlp_inputs[0], SplitLinear):
+            names = [f"{names[0]}.projs.{part}" for part in mlp_inputs[0].projs]
+            mlp_inputs = list(mlp_inputs[0].projs.values())
+        return mlp_inputs if not return_name else (mlp_inputs, names)
 
     def get_mlp_outputs(self, return_name: bool = True):
         return get_submodules(
@@ -174,6 +215,7 @@ class LayerWrapper:
 class ModelWrapper:
     """Wrapper for transformer model."""
 
+    INTERMEDIATE_SIZE_NAMES = ("ffn_hidden_size", "intermediate_size")
     HIDDEN_SIZE_NAMES = ("hidden_size", "dim", "d_model", "n_embd")
     NUM_ATTENTION_HEADS_NAMES = (
         "num_attention_heads",
@@ -221,11 +263,12 @@ class ModelWrapper:
         "qwen": "transformer.h",
     }
 
-    def __init__(self, config: Union[PretrainedConfig, dict]):
+    def __init__(self, config: PretrainedConfig | dict):
         self.config = config if isinstance(config, PretrainedConfig) else PretrainedConfig.from_dict(config)
         self.model_type = find_first_matched_value(self.config, "model_type")
 
         # model attributes
+        self.intermediate_size = find_first_matched_value(self.config, self.INTERMEDIATE_SIZE_NAMES)
         self.hidden_size = find_first_matched_value(self.config, self.HIDDEN_SIZE_NAMES)
         self.num_attention_heads = find_first_matched_value(self.config, self.NUM_ATTENTION_HEADS_NAMES)
         self.num_key_value_heads = (
@@ -241,13 +284,13 @@ class ModelWrapper:
         self._layer_wrappers = None
 
     @property
-    def model(self) -> "PreTrainedModel":
+    def model(self) -> PreTrainedModel:
         if self._model is None:
             raise ValueError("Model is not set. Please set the model using set_model method.")
 
         return self._model
 
-    def set_model(self, model: "PreTrainedModel"):
+    def set_model(self, model: PreTrainedModel):
         self._model = model
         self._layer_wrappers = [LayerWrapper(layer, self.model_type) for layer in self.get_layers(False)]
 
@@ -283,22 +326,42 @@ class ModelWrapper:
             self.get_lm_head(False).weight = nn.Parameter(self.get_embeds(False)[0].weight.clone().detach())
             logger.debug("Untied word embeddings.")
 
-    def maybe_unpack_qkv(self):
-        """Unpack the QKV projection matrix into separate projections for models like phi3."""
+    def maybe_split_qkv(self):
+        """Split the QKV projection matrix into separate projections for models like phi3."""
         for layer_wrapper in self.get_layer_wrappers():
             attn_inputs, attn_input_names = layer_wrapper.get_attention_inputs()
 
             if len(attn_inputs) != 1 or not isinstance(attn_inputs[0], nn.Linear):
                 return
 
+            q_size = self.num_attention_heads * self.head_dim
+            kv_size = self.num_key_value_heads * self.head_dim
+
             set_attr(
                 layer_wrapper.layer,
                 attn_input_names[0],
-                UnpackedQKV(
+                SplitLinear(
                     attn_inputs[0],
-                    self.num_attention_heads,
-                    self.num_key_value_heads,
-                    self.head_dim,
+                    ["q_proj", "k_proj", "v_proj"],
+                    [q_size, kv_size, kv_size],
+                ),
+            )
+
+    def maybe_split_mlp_inputs(self):
+        """Split the MLP input projection matrix into separate projections for models like phi3."""
+        for layer_wrapper in self.get_layer_wrappers():
+            mlp_inputs, mlp_input_names = layer_wrapper.get_mlp_inputs()
+
+            if len(mlp_inputs) != 1 or not isinstance(mlp_inputs[0], nn.Linear):
+                return
+
+            set_attr(
+                layer_wrapper.layer,
+                mlp_input_names[0],
+                SplitLinear(
+                    mlp_inputs[0],
+                    ["gate_proj", "up_proj"],
+                    [self.intermediate_size, self.intermediate_size],
                 ),
             )
 
@@ -312,7 +375,7 @@ class ModelWrapper:
         """
         replacements = replacements or []
         # unpack qkv before saving
-        replacements.append([UnpackedQKV, lambda module: module.create_packed()])
+        replacements.append([SplitLinear, lambda module: module.create_joined()])
 
         for submodule_type, replacement_fn in replacements:
             logger.debug("Replacing %s with %s", submodule_type, replacement_fn)
@@ -321,7 +384,7 @@ class ModelWrapper:
         self.model.save_pretrained(output_model_path)
 
     @classmethod
-    def from_model(cls, model: "PreTrainedModel") -> "ModelWrapper":
+    def from_model(cls, model: PreTrainedModel) -> ModelWrapper:
         model_wrapper = cls(model.config)
         model_wrapper.set_model(model)
         return model_wrapper

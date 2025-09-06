@@ -118,7 +118,7 @@ class RotateBase(Pass):
         set_attr(model_wrapper.model, lm_head_name, RotateLinear(lm_head, Q_pre=R1))
 
         # need v_proj to be rotated separately, so unpack if necessary
-        model_wrapper.maybe_unpack_qkv()
+        model_wrapper.maybe_split_qkv()
 
         # rotate the hidden layers
         for layer_wrapper in model_wrapper.get_layer_wrappers():
