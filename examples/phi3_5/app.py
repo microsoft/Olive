@@ -12,10 +12,21 @@ parser.add_argument(
     default="models/phi3_5-qdq",
     help="Path to the folder containing the outputs of Olive run",
 )
+parser.add_argument(
+    "-e",
+    "--execution_provider",
+    type=str,
+    help="Execution provider to use for ONNX Runtime",
+)
 args = parser.parse_args()
 
 # Load the base model and tokenizer
-model = og.Model(f"{args.model_folder}/model")
+config = og.Config(f"{args.model_folder}/model")
+if args.execution_provider:
+    config.clear_providers()
+    if args.execution_provider != "cpu":
+        config.append_provider(args.execution_provider)
+model = og.Model(config)
 tokenizer = og.Tokenizer(model)
 tokenizer_stream = tokenizer.create_stream()
 
