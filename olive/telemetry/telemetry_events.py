@@ -5,7 +5,6 @@
 from datetime import datetime
 
 from olive.telemetry.telemetry_logger import TelemetryLogger
-from olive.telemetry.utils import _format_exception_msg
 
 logger = TelemetryLogger()
 
@@ -23,13 +22,13 @@ def log_action(action_name: str, called_from: str, start_time: datetime, duratio
     )
 
 
-def log_error(action_name: str, called_from: str, error: Exception):
+def log_error(action_name: str, called_from: str, exception_type: str, exception_message: str):
     logger.log(
         "OliveError",
         {
             "action_name": action_name,
             "called_from": called_from,
-            "errorType": type(error).__name__,
-            "error": _format_exception_msg(error),
+            "exception_type": exception_type,
+            "exception_message": exception_message,
         },
     )

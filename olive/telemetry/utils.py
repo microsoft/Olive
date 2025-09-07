@@ -5,12 +5,12 @@
 import traceback
 
 
-def _format_exception_msg(exc: Exception) -> str:
+def _format_exception_msg(ex: Exception) -> str:
     folder = "Olive"
     file_line = 'File "'
-    exc = traceback.format_exception(exc, limit=5)
+    ex = traceback.format_exception(ex, limit=5)
     lines = []
-    for line in exc:
+    for line in ex:
         line_trunc = line.strip()
         if line_trunc.startswith(file_line) and folder in line_trunc:
             idx = line_trunc.find(folder)

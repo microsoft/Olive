@@ -3,6 +3,7 @@ import inspect
 from datetime import datetime
 
 from olive.telemetry.telemetry_events import log_action, log_error
+from olive.telemetry.utils import _format_exception_msg
 
 
 def action(func):
@@ -19,14 +20,14 @@ def action(func):
             called_from = "Script"
 
         success = False
-        error = None
+        exception = None
         start_time = datetime.now()
         try:
             result = func(*args, **kwargs)
             success = True
         except Exception as ex:
             result = None
-            error = ex
+            exception = ex
         duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
         action_name = args[0].__class__.__name__ if args else "Invalid"
 
@@ -35,9 +36,11 @@ def action(func):
 
         log_action(action_name, called_from, start_time, duration_ms, success)
 
-        if error:
-            log_error(action_name, called_from, error)
-            raise error
+        if exception:
+            exception_type = type(exception).__name__
+            exception_message = _format_exception_msg(exception)
+            log_error(action_name, called_from, exception_type, exception_message)
+            raise exception
 
         return result
 
