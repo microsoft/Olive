@@ -14,7 +14,6 @@ import zlib
 from collections.abc import Sequence
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path
 from time import time
 from typing import Optional
 
@@ -30,6 +29,7 @@ from opentelemetry.sdk._logs.export import (
     LogExportResult,
 )
 
+from olive.telemetry.constants import _ENDPOINT, _HEADERS
 from olive.version import __version__ as VERSION
 
 _MAX_RETRYS = 6
@@ -38,25 +38,18 @@ _MAX_RETRYS = 6
 class MSFTLogExporter(LogExporter):
     def __init__(
         self,
-        endpoint_file: str = Path(__file__).parent / "endpoint.b64",
-        headers_file: str = Path(__file__).parent / "headers.b64",
         headers: Optional[dict[str, str]] = None,
         timeout: Optional[float] = 10,
         compression: Optional[Compression] = Compression.Deflate,
     ):
         self._shutdown_is_occuring = threading.Event()
 
-        with open(Path(__file__).parent / "endpoint.b64", "rb") as f:
-            encoded_data = f.read()
-
-        self._endpoint = base64.b64decode(encoded_data).decode()
+        self._endpoint = base64.b64decode(_ENDPOINT).decode()
         self._timeout = timeout
         self._compression = compression
         self._session = requests.Session()
 
-        with open(headers_file, "rb") as f:
-            encoded_data = f.read()
-        self._headers = json.loads(base64.b64decode(encoded_data).decode())
+        self._headers = json.loads(base64.b64decode(_HEADERS).decode())
         self._iKey = f"o:{self._headers['x-apikey'].split('-')[0]}"
         if headers:
             self._headers.update(headers)

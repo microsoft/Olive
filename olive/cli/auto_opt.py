@@ -23,7 +23,7 @@ from olive.common.utils import set_nested_dict_value
 from olive.constants import Precision
 from olive.hardware.constants import ExecutionProvider
 from olive.package_config import OlivePackageConfig
-from olive.telemetry.telemetry_events import action
+from olive.telemetry.telemetry import action
 
 
 class AutoOptCommand(BaseOliveCLICommand):

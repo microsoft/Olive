@@ -11,7 +11,7 @@ from olive.cli.base import (
     add_telemetry_options,
     get_input_model_config,
 )
-from olive.telemetry.telemetry_events import action
+from olive.telemetry.telemetry import action
 
 
 class WorkflowRunCommand(BaseOliveCLICommand):

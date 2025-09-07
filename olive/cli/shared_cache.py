@@ -6,7 +6,7 @@ import logging
 
 from olive.cli.base import BaseOliveCLICommand, add_telemetry_options
 from olive.common.container_client_factory import AzureContainerClientFactory
-from olive.telemetry.telemetry_events import action
+from olive.telemetry.telemetry import action
 
 logger = logging.getLogger(__name__)
 

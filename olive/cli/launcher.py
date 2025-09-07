@@ -58,9 +58,9 @@ def main(raw_args=None, called_as_console_script: bool = True):
 
     args, unknown_args = parser.parse_known_args(raw_args)
 
-    t = TelemetryLogger()
+    logger = TelemetryLogger()
     if args.disable_telemetry:
-        t.disable_telemetry()
+        logger.disable_telemetry()
 
     if not hasattr(args, "func"):
         parser.print_help()
@@ -69,7 +69,7 @@ def main(raw_args=None, called_as_console_script: bool = True):
     # Run the command
     service = args.func(parser, args, unknown_args)
     service.run()
-    t.shutdown()
+    logger.shutdown()
 
 
 def legacy_call(deprecated_module: str, command_name: str, *args):

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from olive.cli.base import BaseOliveCLICommand, add_input_model_options, add_telemetry_options, get_input_model_config
 from olive.model import ModelConfig
-from olive.telemetry.telemetry_events import action
+from olive.telemetry.telemetry import action
 
 logger = logging.getLogger(__name__)
 

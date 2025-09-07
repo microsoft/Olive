@@ -8,7 +8,7 @@ from transformers.utils import TRANSFORMERS_CACHE
 
 from olive.cli.base import BaseOliveCLICommand, add_logging_options, add_telemetry_options
 from olive.common.utils import WeightsFileFormat, save_weights
-from olive.telemetry.telemetry_events import action
+from olive.telemetry.telemetry import action
 
 
 class ExtractAdaptersCommand(BaseOliveCLICommand):

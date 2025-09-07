@@ -16,7 +16,7 @@ from olive.cli.base import (
     get_input_model_config,
     update_accelerator_options,
 )
-from olive.telemetry.telemetry_events import action
+from olive.telemetry.telemetry import action
 
 
 @action

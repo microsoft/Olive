@@ -17,7 +17,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import IntEnumBase, set_nested_dict_value
-from olive.telemetry.telemetry_events import action
+from olive.telemetry.telemetry import action
 
 
 class ModelBuilderAccuracyLevel(IntEnumBase):

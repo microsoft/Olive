@@ -17,7 +17,7 @@ from olive.cli.base import (
 )
 from olive.common.utils import WeightsFileFormat, set_nested_dict_value
 from olive.passes.onnx.common import AdapterType
-from olive.telemetry.telemetry_events import action
+from olive.telemetry.telemetry import action
 
 
 class GenerateAdapterCommand(BaseOliveCLICommand):

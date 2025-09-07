@@ -21,7 +21,7 @@ from olive.cli.base import (
 from olive.common.utils import set_nested_dict_value
 from olive.constants import Precision, precision_bits_from_precision
 from olive.hardware.constants import ExecutionProvider
-from olive.telemetry.telemetry_events import action
+from olive.telemetry.telemetry import action
 
 
 class OptimizeCommand(BaseOliveCLICommand):

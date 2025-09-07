@@ -44,17 +44,22 @@ class TelemetryLogger:
                 logger.addHandler(handler)
                 cls._logger = logger
             except Exception:
-                pass
+                # If any error occurs during initialization, we will not set up the logger and will silently fail.
+                cls._logger = None
+                cls._logger_provider = None
         return cls._instance
 
     def __init__(self):
         pass
 
     def log(self, event_name: str, information: dict[str, Any]):
-        self._logger.info(event_name, extra=information)
+        if self._logger:  # in case the logger was not initialized properly
+            self._logger.info(event_name, extra=information)
 
     def disable_telemetry(self):
-        self._logger.disabled = True
+        if self._logger:  # in case the logger was not initialized properly
+            self._logger.disabled = True
 
     def shutdown(self):
-        self._logger_provider.shutdown()
+        if self._logger_provider:  # in case the logger provider was not initialized properly
+            self._logger_provider.shutdown()
