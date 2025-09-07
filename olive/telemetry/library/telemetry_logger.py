@@ -10,7 +10,7 @@ from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.resources import Resource
 
-from olive.telemetry.msft_log_exporter import MSFTLogExporter
+from olive.telemetry.library.msft_log_exporter import MSFTLogExporter
 
 
 class TelemetryLogger:

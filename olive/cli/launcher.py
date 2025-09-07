@@ -20,7 +20,7 @@ from olive.cli.run import WorkflowRunCommand
 from olive.cli.run_pass import RunPassCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
 from olive.cli.shared_cache import SharedCacheCommand
-from olive.telemetry.telemetry_logger import TelemetryLogger
+from olive.telemetry.library.telemetry_logger import TelemetryLogger
 
 
 def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from datetime import datetime
 
-from olive.telemetry.telemetry_logger import TelemetryLogger
+from olive.telemetry.lib.telemetry_logger import TelemetryLogger
 
 logger = TelemetryLogger()
 
