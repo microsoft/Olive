@@ -2,7 +2,6 @@
 
 |Scenario| Model|Examples|Hardware Targeted Optimization|
 |---|-----------|-----------|-----------|
-|NLP|deepseek|[Link](https://github.com/microsoft/Olive/tree/main/examples/deepseek)|`QDQ`: QDQ Model with 4-bit Weights & 16-bit Activations<br>`QNN EP`: PTQ + AOT Compilation for Qualcomm NPUs using QNN EP<br>`Vitis AI EP`: PTQ + AOT Compilation for AMD NPUs using Vitis AI EP
 ||llama2|[Link](https://github.com/microsoft/Olive/tree/main/examples/llama2)|`CPU`: with ONNX Runtime optimizations for optimized FP32 ONNX model<br>`CPU`: with ONNX Runtime optimizations for optimized INT8 ONNX model<br>`CPU`: with ONNX Runtime optimizations for optimized INT4 ONNX model<br>`GPU`: with ONNX Runtime optimizations for optimized FP16 ONNX model<br>`GPU`: with ONNX Runtime optimizations for optimized INT4 ONNX model<br>`GPU`: with QLoRA for model fine tune and ONNX Runtime optimizations for optimized ONNX model
 ||llama3|[Link](https://github.com/microsoft/Olive/tree/main/examples/llama3)|`QDQ`: QDQ Model with 4-bit Weights & 16-bit Activations<br>`QNN EP`: PTQ + AOT Compilation for Qualcomm NPUs using QNN EP<br>`Vitis AI EP`: PTQ + AOT Compilation for AMD NPUs using Vitis AI EP
 ||mistral|[Link](https://github.com/microsoft/Olive/tree/main/examples/mistral)|`CPU`: with Optimum conversion and ONNX Runtime optimizations and Intel® Neural Compressor static quantization for optimized INT8 ONNX model<br>`GPU`: with ONNX Runtime optimizations for optimized FP16 ONNX model
