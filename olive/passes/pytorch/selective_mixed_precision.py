@@ -27,6 +27,7 @@ class SelectiveMixedPrecision(Pass):
     class Algorithm(StrEnumBase):
         """The algorithm to use for mixed precision."""
 
+        K_QUANT_DOWN = "k_quant_down"
         K_QUANT_MIXED = "k_quant_mixed"
         K_QUANT_LAST = "k_quant_last"
         # TODO(jambayk): add other heuristic/algorithms
@@ -54,7 +55,7 @@ class SelectiveMixedPrecision(Pass):
         override_config = {"bits": PrecisionBits.BITS8}
         overrides = {model_wrapper.get_lm_head()[1]: override_config}
 
-        if config.algorithm == SelectiveMixedPrecision.Algorithm.K_QUANT_MIXED:
+        if config.algorithm != SelectiveMixedPrecision.Algorithm.K_QUANT_LAST:
             layer_prefix = model_wrapper.get_layers()[1]
             num_layers = model_wrapper.num_hidden_layers
             for layer_idx, layer_wrapper in enumerate(model_wrapper.get_layer_wrappers()):
@@ -66,8 +67,9 @@ class SelectiveMixedPrecision(Pass):
                     continue
 
                 # Add qkv
-                for attn_input_name in layer_wrapper.get_attention_inputs(return_name=True)[1]:
-                    overrides[f"{layer_prefix}.{layer_idx}.{attn_input_name}"] = override_config
+                if config.algorithm == SelectiveMixedPrecision.Algorithm.K_QUANT_MIXED:
+                    for attn_input_name in layer_wrapper.get_attention_inputs(return_name=True)[1]:
+                        overrides[f"{layer_prefix}.{layer_idx}.{attn_input_name}"] = override_config
 
                 # Add down_proj
                 for attn_output_name in layer_wrapper.get_mlp_outputs(return_name=True)[1]:
