@@ -257,8 +257,6 @@ class GemmaMultimodalDataset(BaseGemmaDataset):
         inputs = self.processor.apply_chat_template(
             entry["text"][0], add_generation_prompt=True, tokenize=True, return_tensors="pt", return_dict=True
         )
-        inputs = {k: v.unsqueeze(0) for k, v in inputs.items()}
-        inputs["input_ids"] = inputs["input_ids"][0]
         return inputs
 
 
@@ -495,13 +493,13 @@ class GemmaEmbeddingDataset(BaseGemmaDataset):
 
 
 # Remove this when submitting for review
+TEXT_SHORTCUT_FIRST_N = 600
 SHORTCUT_FIRST_N = 200
-
 
 @Registry.register_dataset()
 def gemma_dataset(model_id: str):
     """Full E2E Gemma 3 multi-modal dataset (image + text)."""
-    return GemmaMultimodalDataset(model_id, first_n=SHORTCUT_FIRST_N).get_dataset()
+    return GemmaMultimodalDataset(model_id, first_n=TEXT_SHORTCUT_FIRST_N).get_dataset()
 
 
 @Registry.register_dataset()

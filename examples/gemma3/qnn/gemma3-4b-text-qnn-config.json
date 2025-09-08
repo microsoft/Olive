@@ -20,33 +20,11 @@
     },
     "data_configs": [
         {
-            "name": "wikitext2_train_joined",
-            "type": "HuggingfaceContainer",
+            "name": "gemma_data_config",
+            "user_script": "custom_gemma3_4b_datasets.py",
             "load_dataset_config": {
-                "data_name": "wikitext",
-                "subset": "wikitext-2-raw-v1",
-                "split": "train"
-            },
-            "pre_process_data_config": {
-                "strategy": "join",
-                "add_special_tokens": false,
-                "max_seq_len": 4096,
-                "max_samples": 256
-            }
-        },
-        {
-            "name": "wikitext2_train_act",
-            "type": "HuggingfaceContainer",
-            "load_dataset_config": {
-                "data_name": "wikitext",
-                "subset": "wikitext-2-raw-v1",
-                "split": "train"
-            },
-            "pre_process_data_config": {
-                "strategy": "line-by-line",
-                "add_special_tokens": true,
-                "max_samples": 256,
-                "max_seq_len": 2048
+                "type": "gemma_dataset",
+                "model_id": "google/gemma-3-4b-it"
             }
         }
     ],
@@ -58,7 +36,7 @@
             "group_size": -1,
             "lm_head": false,
             "device": "cuda",
-            "data_config": "wikitext2_train_joined"
+            "data_config": "gemma_data_config"
         },
         "cs": {
             "type": "CaptureSplitInfo",
@@ -101,7 +79,7 @@
         },
         "sq": {
             "type": "OnnxStaticQuantization",
-            "data_config": "wikitext2_train_act",
+            "data_config": "gemma_data_config",
             "activation_type": "uint16",
             "precision": "uint8",
             "calibration_providers": [
