@@ -63,7 +63,7 @@ def action(func):
         if action_name.endswith("Command"):
             action_name = action_name[: -len("Command")]
 
-        log_action(action_name, called_from, start_time, duration_ms, success)
+        log_action(action_name, called_from, duration_ms, success)
 
         if exception:
             exception_type = type(exception).__name__
