@@ -22,11 +22,10 @@ def log_action(action_name: str, called_from: str, start_time: datetime, duratio
     )
 
 
-def log_error(action_name: str, called_from: str, exception_type: str, exception_message: str):
+def log_error(called_from: str, exception_type: str, exception_message: str):
     logger.log(
         "OliveError",
         {
-            "action_name": action_name,
             "called_from": called_from,
             "exception_type": exception_type,
             "exception_message": exception_message,
