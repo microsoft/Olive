@@ -7,7 +7,7 @@ from typing import Any
 
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogExporter
 from opentelemetry.sdk.resources import Resource
 
 from olive.telemetry.library.msft_log_exporter import MSFTLogExporter
@@ -16,6 +16,7 @@ from olive.telemetry.library.msft_log_exporter import MSFTLogExporter
 class TelemetryLogger:
     _instance = None  # Class-level attribute to store the single instance
     _logger: logging.Logger = None
+    _logger_exporter: LogExporter = None
     _logger_provider: LoggerProvider = None
 
     def __new__(cls, *args, **kwargs):
@@ -25,7 +26,7 @@ class TelemetryLogger:
             cls._instance = super().__new__(cls)
 
             try:
-                exporter = MSFTLogExporter()
+                cls._logger_exporter = MSFTLogExporter()
                 cls._logger_provider = LoggerProvider(
                     resource=Resource.create(
                         {
@@ -35,7 +36,7 @@ class TelemetryLogger:
                     ),
                 )
                 set_logger_provider(cls._logger_provider)
-                cls._logger_provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
+                cls._logger_provider.add_log_record_processor(BatchLogRecordProcessor(cls._logger_exporter))
                 handler = LoggingHandler(level=logging.INFO, logger_provider=cls._logger_provider)
 
                 logger = logging.getLogger("olive.telemetry")
@@ -51,6 +52,9 @@ class TelemetryLogger:
 
     def __init__(self):
         pass
+
+    def add_metadata(self, metadata: dict[str, Any]):
+        self._logger_exporter.add_metadata(metadata)
 
     def log(self, event_name: str, information: dict[str, Any]):
         if self._logger:  # in case the logger was not initialized properly

@@ -5,7 +5,6 @@
 import base64
 import gzip
 import hashlib
-import hmac
 import json
 import platform
 import random
@@ -15,7 +14,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from io import BytesIO
 from time import time
-from typing import Optional
+from typing import Any, Optional
 
 import requests
 from deviceid import get_device_id
@@ -56,11 +55,16 @@ class MSFTLogExporter(LogExporter):
         if self._compression is not Compression.NoCompression:
             self._headers.update({"Content-Encoding": self._compression.value})
         self._session.headers.update(self._headers)
-        self._device_id = self._generate_encrypted_device_id()
-        self._system = platform.system().lower()
-        self._release = platform.release()
-        self._version = platform.version()
-        self._arch = platform.machine()
+        self._metadata = {
+            "device_id": self._generate_encrypted_device_id(),
+            "os": {
+                "name": platform.system().lower(),
+                "version": platform.version(),
+                "release": platform.release(),
+                "arch": platform.machine(),
+            },
+            "version": VERSION,
+        }
 
         self._shutdown = False
 
@@ -75,24 +79,10 @@ class MSFTLogExporter(LogExporter):
             str: FIPS-compliant encrypted device ID (hex-encoded)
 
         """
-        try:
-            # Get the raw device ID
-            raw_device_id = get_device_id()
-
-            # Create a deterministic key from existing configuration
-            # Using the API key and endpoint as key material for HMAC
-            key_material = f"{self._headers.get('x-apikey', '')}{self._endpoint}".encode()
-
-            # Use SHA256 to create a consistent 32-byte key
-            encryption_key = hashlib.sha256(key_material).digest()
-
-            # Use HMAC-SHA256 to encrypt the device ID (FIPS 140-2 approved)
-            return hmac.new(encryption_key, raw_device_id.encode("utf-8"), hashlib.sha256).hexdigest()
-
-        except Exception:
-            # Fallback to a consistent hash if anything fails
-            fallback_data = f"olive-telemetry-{self._iKey}".encode()
-            return hashlib.sha256(fallback_data).hexdigest()
+        # Get the raw device ID
+        raw_device_id = get_device_id().encode("utf-8")
+        # Use SHA256 to encrypt and use Base64 encoding
+        return base64.b64encode(hashlib.sha256(raw_device_id).digest()).decode("utf-8")
 
     def _export(self, data: bytes, timeout_sec: Optional[float] = None):
         if self._compression == Compression.Deflate:
@@ -132,6 +122,9 @@ class MSFTLogExporter(LogExporter):
             )
         return resp
 
+    def add_metadata(self, metadata: dict[str, Any]):
+        self._metadata.update(metadata)
+
     def export(self, batch: Sequence[LogData]) -> LogExportResult:
         if self._shutdown:
             return LogExportResult.FAILURE
@@ -143,9 +136,7 @@ class MSFTLogExporter(LogExporter):
                 for k, v in (log_record.attributes or {}).items()
                 if k not in {"code.file.path", "code.function.name", "code.line.number"}
             }
-            data["deviceID"] = self._device_id
-            data["os"] = {"name": self._system, "version": self._version, "release": self._release, "arch": self._arch}
-            data["version"] = VERSION
+            data.update(self._metadata)
             log_entry = {
                 "ver": "4.0",
                 "name": log_record.body,
