@@ -176,7 +176,7 @@ class Gptq(Pass):
         wrapper.model.config.use_cache = original_use_cache
 
         # save the quantized model
-        wrapper.model.save_pretrained(output_model_path)
+        wrapper.save_model(output_model_path)
         model.save_metadata(output_model_path)
 
         return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
@@ -216,6 +216,8 @@ class Gptq(Pass):
         """
         if quant_config.lm_head:
             wrapper.maybe_untie_word_embeddings()
+        wrapper.maybe_split_qkv()
+        wrapper.maybe_split_mlp_inputs()
 
         lm_head_name = wrapper.get_lm_head()[1]
 
@@ -224,6 +226,9 @@ class Gptq(Pass):
 
         def add_quant_info(module: torch.nn.Module, name: str) -> torch.nn.Module:
             # TODO(jambayk): validate that the module and config are compatible
+            # TODO(jambayk): generalize the split name logic if needed
+            if "split_projs" in name:
+                name = ".".join(name.split(".")[:-2])
             module.quant_info = QuantInfo(quantizer=WeightQuantizer(**quant_config.get_qlinear_init_args(name)))
             return module
 

@@ -48,12 +48,12 @@ class SplitLinear(nn.Module):
     def __init__(self, linear: nn.Linear | QuantLinear, names: list[str], sizes: list[int]):
         super().__init__()
         assert sum(sizes) == linear.out_features, "Sizes must sum to the output features of the linear layer."
-        self.projs = nn.ModuleDict()
+        self.split_projs = nn.ModuleDict()
 
         if isinstance(linear, nn.Linear):
             weight = linear.weight
         elif isinstance(linear, QuantLinear):
-            weight, scale, zero_point = linear.get_unpacked_params()
+            weight, scale, zero_point = linear.get_unpacked_params(transpose=False)
         else:
             raise ValueError("linear must be an instance of nn.Linear or QuantLinear.")
 
@@ -63,7 +63,7 @@ class SplitLinear(nn.Module):
                 proj = nn.Linear(linear.in_features, size)
                 proj.weight = nn.Parameter(weight[start : start + size], requires_grad=linear.weight.requires_grad)
             else:
-                scale_zp_slice = slice(start, start + size) if scale.shape[0] == linear.out_features else slice(None)
+                scale_zp_slice = slice(start, start + size) if linear.quantizer.group_size == 0 else slice(None)
                 proj = QuantLinear.from_tensors(
                     weight[start : start + size],
                     scale[scale_zp_slice],
@@ -77,37 +77,47 @@ class SplitLinear(nn.Module):
                 if linear.bias is None
                 else nn.Parameter(linear.bias[start : start + size], requires_grad=linear.bias.requires_grad)
             )
-            self.projs[name] = proj
+            self.split_projs[name] = proj
             start += size
 
     def forward(self, x):
-        return torch.cat([proj(x) for proj in self.projs.values()], dim=-1)
+        return torch.cat([proj(x) for proj in self.split_projs.values()], dim=-1)
 
     @torch.no_grad()
     def create_joined(self) -> nn.Linear | QuantLinear:
         """Join the split linear layers back into a single linear layer."""
-        all_projs = list(self.projs.values())
+        all_projs = list(self.split_projs.values())
         if isinstance(all_projs[0], nn.Linear):
             weight = torch.cat([proj.weight for proj in all_projs], dim=0)
             joined = nn.Linear(all_projs[0].in_features, weight.shape[0])
             joined.weight = nn.Parameter(weight, requires_grad=all_projs[0].weight.requires_grad)
         else:
+            for key in ["bits", "symmetric", "group_size"]:
+                assert all(
+                    getattr(proj.quantizer, key) == getattr(all_projs[0].quantizer, key) for proj in all_projs
+                ), f"All QuantLinear layers must have the same {key} setting."
             weights = []
             scales = []
             zero_points = []
             for proj in all_projs:
-                weight, scale, zero_point = proj.get_unpacked_params()
+                weight, scale, zero_point = proj.get_unpacked_params(transpose=False)
                 weights.append(weight)
                 scales.append(scale)
                 zero_points.append(zero_point)
+            if all_projs[0].quantizer.group_size == 0:
+                for scale, zero_point in zip(scales[1:], zero_points[1:]):
+                    assert torch.equal(scales[0], scale), (
+                        "All QuantLinear layers must have the same scales when group_size is 0."
+                    )
+                    assert torch.equal(zero_points[0], zero_point), (
+                        "All QuantLinear layers must have the same zero_points when group_size is 0."
+                    )
+                scales = [scales[0]]
+                zero_points = [zero_points[0]]
             joined = QuantLinear.from_tensors(
                 torch.cat(weights, dim=0),
-                torch.cat(scales, dim=0) if scales[0].shape[0] == all_projs[0].out_features else scales[0],
-                (
-                    torch.cat(zero_points, dim=0)
-                    if zero_points[0].shape[0] == all_projs[0].out_features
-                    else zero_points[0]
-                ),
+                torch.cat(scales, dim=0),
+                torch.cat(zero_points, dim=0),
                 bits=all_projs[0].quantizer.bits,
                 symmetric=all_projs[0].quantizer.symmetric,
                 group_size=all_projs[0].quantizer.group_size,
@@ -184,8 +194,8 @@ class LayerWrapper:
             self.attn, self.ATTENTION_INPUTS, self.model_type, return_name=True, return_name_prefix=f"{self.attn_name}."
         )
         if isinstance(attention_inputs[0], SplitLinear):
-            names = [f"{names[0]}.projs.{part}" for part in attention_inputs[0].projs]
-            attention_inputs = list(attention_inputs[0].projs.values())
+            names = [f"{names[0]}.split_projs.{part}" for part in attention_inputs[0].split_projs]
+            attention_inputs = list(attention_inputs[0].split_projs.values())
         return attention_inputs if not return_name else (attention_inputs, names)
 
     def get_attention_outputs(self, return_name: bool = True):
@@ -199,11 +209,11 @@ class LayerWrapper:
 
     def get_mlp_inputs(self, return_name: bool = True):
         mlp_inputs, names = get_submodules(
-            self.mlp, self.MLP_INPUTS, self.model_type, return_name=return_name, return_name_prefix=f"{self.mlp_name}."
+            self.mlp, self.MLP_INPUTS, self.model_type, return_name=True, return_name_prefix=f"{self.mlp_name}."
         )
         if isinstance(mlp_inputs[0], SplitLinear):
-            names = [f"{names[0]}.projs.{part}" for part in mlp_inputs[0].projs]
-            mlp_inputs = list(mlp_inputs[0].projs.values())
+            names = [f"{names[0]}.split_projs.{part}" for part in mlp_inputs[0].split_projs]
+            mlp_inputs = list(mlp_inputs[0].split_projs.values())
         return mlp_inputs if not return_name else (mlp_inputs, names)
 
     def get_mlp_outputs(self, return_name: bool = True):

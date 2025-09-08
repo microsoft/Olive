@@ -374,7 +374,7 @@ def make_auto_gptq_qlinearnbit(qlinear, dynamo):
 
 def make_olive_qlinearnbit(qlinear, dynamo):
     return QuantLinearNbit.from_tensors(
-        *qlinear.get_unpacked_params(),
+        *qlinear.get_unpacked_params(transpose=True),
         group_size=qlinear.quantizer.group_size,
         bits=qlinear.quantizer.bits,
         bias=qlinear.bias,

@@ -198,7 +198,7 @@ class QuantLinear(nn.Module):
         x_dtype = x.dtype
 
         # unpack weights and zero points
-        qweight, scales, qzeros = self.get_unpacked_params()
+        qweight, scales, qzeros = self.get_unpacked_params(transpose=True)
         if self.quantizer.group_size > 0:
             scales = scales.repeat_interleave(self.quantizer.group_size, dim=0)
             qzeros = qzeros.repeat_interleave(self.quantizer.group_size, dim=0)
@@ -212,16 +212,23 @@ class QuantLinear(nn.Module):
         return out.to(x_dtype)
 
     @torch.no_grad()
-    def get_unpacked_params(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def get_unpacked_params(self, transpose: bool = False) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Get unpacked quantization parameters.
 
+        Args:
+            transpose: Whether to transpose the params (default: False)
+
         Returns:
-            Tuple of (unpacked weights, scales, zero points)
+            Tuple of (unpacked weights, scales, zero points). Shape is (out_features, in_features) when transpose is False
 
         """
         qweight = self._unpack_from_int32(self.qweight, (self.in_features, self.out_features), axis=0)
         qzeros = self._unpack_from_int32(self.qzeros, self.scales.shape, axis=1)
         scales = self.scales
+        if not transpose:
+            qweight = qweight.t()
+            scales = scales.t()
+            qzeros = qzeros.t()
         return qweight, scales, qzeros
 
     @torch.no_grad()
