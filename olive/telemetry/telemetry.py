@@ -8,11 +8,12 @@ from olive.telemetry.utils import _format_exception_msg
 
 
 # For more complex tracking scenarios
-class TelemetryContext:
-    def __init__(self, event_name: str):
+class ActionContext:
+    def __init__(self, event_name: str, called_from: str = "ContextManager"):
         self.event_name = event_name
         self.start_time = datetime.now()
         self.metadata = {}
+        self.called_from = called_from
 
     def add_metadata(self, key: str, value: Any):
         self.metadata[key] = value
@@ -24,14 +25,14 @@ class TelemetryContext:
         # Send telemetry with all collected metadata
         log_action(
             self.event_name,
-            "ContextManager",
+            self.called_from,
             self.start_time,
             int((datetime.now() - self.start_time).total_seconds() * 1000),
             exc_type is None,
         )
 
         if exc_type is not None:
-            log_error("ContextManager", self.start_time, exc_val, _format_exception_msg(exc_tb))
+            log_error(self.called_from, self.start_time, exc_val, _format_exception_msg(exc_tb))
 
 
 def action(func):
