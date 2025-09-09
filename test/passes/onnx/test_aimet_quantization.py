@@ -265,17 +265,7 @@ def test_aimet_quantization_applies_adaround(tmp_path):
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
             dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
         ),
-        "techniques": [
-            {
-                "name": "adaround",
-                "num_iterations": 5,
-                "data_config": DataConfig(
-                    name="test_quant_dc_config",
-                    load_dataset_config=DataComponentConfig(type="simple_dataset"),
-                    dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
-                ),
-            }
-        ],
+        "techniques": [{"name": "adaround", "num_iterations": 5}],
     }
     p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
 

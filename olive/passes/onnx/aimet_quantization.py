@@ -110,6 +110,11 @@ class _AimetTechnique:
         SUPPORTED_TECHNIQUES[cls.__name__.lower()] = cls
 
     @classmethod
+    def _requires_data(cls):
+        signature = inspect.signature(cls.apply)
+        return "data_config" in signature.parameters
+
+    @classmethod
     def validate_args(cls, **kwargs):
         signature = inspect.signature(cls.apply)
         try:
@@ -148,7 +153,7 @@ class LPBQ(_AimetTechnique):
 class Adaround(_AimetTechnique):
     @staticmethod
     def apply(  # pylint: disable=arguments-differ
-        sim, data_config, *, num_iterations: int = 20, nodes_to_exclude: Optional[list[str]] = None
+        sim, *, data_config=None, num_iterations: int = 20, nodes_to_exclude: Optional[list[str]] = None
     ):
         from aimet_onnx import apply_adaround
         from aimet_onnx.adaround.adaround_weight import AdaroundSupportedModules
@@ -317,14 +322,17 @@ class AimetQuantization(Pass):
             techniques = run_config["techniques"]
             for technique in techniques:
                 name = technique.pop("name").lower()
+                technique_impl = SUPPORTED_TECHNIQUES[name]
 
-                if "data_config" in technique:
-                    data_config = validate_config(technique["data_config"], DataConfig)
+                if technique_impl._requires_data():
+                    # If no data_config provided for technique, use calibration data
+                    data_config = technique.get("data_config", None) or config.data_config
+                    data_config = validate_config(data_config, DataConfig)
                     technique["data_config"] = _get_dataloader(
                         data_config, model.model_path, model.io_config, run_config["calibration_providers"]
                     )
 
-                sim = SUPPORTED_TECHNIQUES[name].apply(sim, **technique)
+                sim = technique_impl.apply(sim, **technique)
 
             data_config = validate_config(config.data_config, DataConfig)
             calib_dataloader = _get_dataloader(
