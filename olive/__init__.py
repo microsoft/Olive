@@ -28,6 +28,7 @@ from olive.cli.api import (  # noqa: E402
     tune_session_params,
 )
 from olive.engine.output import DeviceOutput, ModelOutput, WorkflowOutput  # noqa: E402
+from olive.version import __version__  # noqa: E402
 from olive.workflows import run  # noqa: E402
 
 __all__ = [
@@ -44,4 +45,5 @@ __all__ = [
     "quantize",
     "run",
     "tune_session_params",
+    "__version__",
 ]
