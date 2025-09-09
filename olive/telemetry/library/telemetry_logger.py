@@ -30,8 +30,8 @@ class TelemetryLogger:
                 cls._logger_provider = LoggerProvider(
                     resource=Resource.create(
                         {
-                            "service.name": "olive-telemetry",
-                            "service.instance.id": "olive-telemetry-instance",
+                            "service.name": __name__,
+                            "service.instance.id": f"{__name__}-instance",
                         }
                     ),
                 )
@@ -39,7 +39,7 @@ class TelemetryLogger:
                 cls._logger_provider.add_log_record_processor(BatchLogRecordProcessor(cls._logger_exporter))
                 handler = LoggingHandler(level=logging.INFO, logger_provider=cls._logger_provider)
 
-                logger = logging.getLogger("olive.telemetry")
+                logger = logging.getLogger(__name__)
                 logger.propagate = False
                 logger.setLevel(logging.INFO)
                 logger.addHandler(handler)

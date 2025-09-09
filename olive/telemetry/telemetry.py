@@ -1,5 +1,4 @@
 import functools
-import inspect
 from datetime import datetime
 from typing import Any
 
@@ -38,16 +37,6 @@ class ActionContext:
 def action(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        stack = inspect.stack()
-        caller_frame = stack[1]
-        caller_module = inspect.getmodule(caller_frame[0])
-        called_from = caller_module.__name__
-
-        if caller_module is None:
-            called_from = "Interactive"
-        elif caller_module.__name__ == "__main__":
-            called_from = "Script"
-
         success = False
         exception = None
         start_time = datetime.now()
@@ -63,12 +52,12 @@ def action(func):
         if action_name.endswith("Command"):
             action_name = action_name[: -len("Command")]
 
-        log_action(action_name, called_from, duration_ms, success)
+        log_action(action_name, duration_ms, success)
 
         if exception:
             exception_type = type(exception).__name__
             exception_message = _format_exception_msg(exception)
-            log_error(called_from, exception_type, exception_message)
+            log_error(exception_type, exception_message)
             raise exception
 
         return result

@@ -28,7 +28,7 @@ from opentelemetry.sdk._logs.export import (
     LogExportResult,
 )
 
-from olive.telemetry.constants import _ENDPOINT, _HEADERS
+from olive.telemetry.library.constants import _ENDPOINT, _HEADERS
 from olive.version import __version__ as VERSION
 
 _MAX_RETRYS = 6
