@@ -153,7 +153,7 @@ class LPBQ(_AimetTechnique):
 class Adaround(_AimetTechnique):
     @staticmethod
     def apply(  # pylint: disable=arguments-differ
-        sim, *, data_config=None, num_iterations: int = 20, nodes_to_exclude: Optional[list[str]] = None
+        sim, *, data_config=None, num_iterations: int = 10000, nodes_to_exclude: Optional[list[str]] = None
     ):
         from aimet_onnx import apply_adaround
         from aimet_onnx.adaround.adaround_weight import AdaroundSupportedModules
