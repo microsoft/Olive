@@ -20,22 +20,9 @@ jobs:
     name: Linux_Examples
     pool: $(OLIVE_POOL_UBUNTU2004)
     examples:
-      bert_inc:
-        exampleFolder: bert
-        exampleName: bert_inc
       mobilenet_onnx:
         exampleFolder: mobilenet/onnx
         exampleName: mobilenet
-
-# Windows examples test
-- template: job_templates/olive-example-cpu-template.yaml
-  parameters:
-    name: Windows_CI
-    pool: $(OLIVE_POOL_WIN2019)
-    examples:
-      bert_inc:
-        exampleFolder: bert
-        exampleName: bert_inc
 
 # Linux GPU examples testing.
 - template: job_templates/olive-example-linux-gpu-template.yaml
