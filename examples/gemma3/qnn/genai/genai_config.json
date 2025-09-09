@@ -3,15 +3,11 @@
         "bos_token_id": 2,
         "context_length": 131072,
         "decoder": {
-            "session_options": {
-                "log_id": "onnxruntime-genai",
-                "provider_options": [
-                ]
-            },
+            "session_options": { "log_id": "onnxruntime-genai", "provider_options": [  ] },
             "head_size": 256,
             "hidden_size": 2560,
             "inputs": {
-                "input_ids":"input_ids",
+                "input_ids": "input_ids",
                 "inputs_embeds": "inputs_embeds",
                 "attention_mask": "attention_mask",
                 "past_key_names": "past_key_values.%d.key",
@@ -38,12 +34,8 @@
                 {
                     "embeddings": {
                         "filename": "embeddings.onnx",
-                        "inputs": [
-                            "input_ids"
-                        ],
-                        "outputs": [
-                            "/model/embed_tokens/Mul/output_0_QuantizeLinear_Output"
-                        ],
+                        "inputs": [ "input_ids" ],
+                        "outputs": [ "/model/embed_tokens/Mul/output_0_QuantizeLinear_Output" ],
                         "run_on_prompt": false
                     },
                     "context_ctx": {
@@ -373,31 +365,20 @@
                         "inputs": [
                             "/model/layers.34/final_norm_layernorm/SkipLayerNorm_Mul_output_0_QuantizeLinear_Output"
                         ],
-                        "outputs": [
-                            "logits"
-                        ]
+                        "outputs": [ "logits" ]
                     }
                 }
             ]
         },
         "embedding": {
             "filename": "embeddings_with_image.onnx",
-            "inputs": {
-                "input_ids": "input_ids",
-                "image_features": "image_features"
-            },
-            "outputs": {
-                "inputs_embeds": "/model/embed_tokens/Mul/output_0_QuantizeLinear_Output"
-            }
+            "inputs": { "input_ids": "input_ids", "image_features": "image_features" },
+            "outputs": { "inputs_embeds": "/model/embed_tokens/Mul/output_0_QuantizeLinear_Output" }
         },
         "vision": {
             "filename": "model_ctx_vision.onnx",
-            "inputs": {
-                "pixel_values": "pixel_values"
-            },
-            "outputs": {
-                "image_features": "image_features"
-            },
+            "inputs": { "pixel_values": "pixel_values" },
+            "outputs": { "image_features": "image_features" },
             "session_options": {
                 "intra_op_num_threads": 2,
                 "inter_op_num_threads": 1,
@@ -412,10 +393,7 @@
                 ]
             }
         },
-        "eos_token_id": [
-            1,
-            106
-        ],
+        "eos_token_id": [ 1, 106 ],
         "pad_token_id": 0,
         "type": "gemma3",
         "vocab_size": 262208

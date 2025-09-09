@@ -39,7 +39,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[dict[str, Any]] = None,
         custom_task_class_name: str = None,
-        custom_task_class_module: str = None
+        custom_task_class_module: str = None,
     ):
         super().__init__(
             model_file_format=None,
@@ -76,7 +76,13 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         if self.model:
             model = self.model
         else:
-            model = load_model_from_task(self.task, self.model_path, self.custom_task_class_name, self.custom_task_class_module, **self.get_load_kwargs())
+            model = load_model_from_task(
+                self.task,
+                self.model_path,
+                self.custom_task_class_name,
+                self.custom_task_class_module,
+                **self.get_load_kwargs(),
+            )
 
             # we only have peft adapters for now
             if self.adapter_path:

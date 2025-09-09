@@ -9,23 +9,14 @@
         "qnn_system": {
             "type": "PythonEnvironment",
             "python_environment_path": "",
-            "accelerators": [
-                {
-                    "execution_providers": [
-                        "QNNExecutionProvider"
-                    ]
-                }
-            ]
+            "accelerators": [ { "execution_providers": [ "QNNExecutionProvider" ] } ]
         }
     },
     "data_configs": [
         {
             "name": "gemma_data_config",
             "user_script": "custom_gemma3_4b_datasets.py",
-            "load_dataset_config": {
-                "type": "gemma_dataset",
-                "model_id": "google/gemma-3-4b-it"
-            }
+            "load_dataset_config": { "type": "gemma_dataset", "model_id": "google/gemma-3-4b-it" }
         }
     ],
     "passes": {
@@ -38,42 +29,27 @@
             "device": "cuda",
             "data_config": "gemma_data_config"
         },
-        "cs": {
-            "type": "CaptureSplitInfo",
-            "num_splits": 2,
-            "unique_embeds_lm_head_splits": true
-        },
+        "cs": { "type": "CaptureSplitInfo", "num_splits": 2, "unique_embeds_lm_head_splits": true },
         "mb": {
             "type": "ModelBuilder",
             "precision": "int4",
             "int4_block_size": 32,
             "int4_accuracy_level": 4,
-            "int4_op_types_to_quantize": [
-                "MatMul",
-                "Gather"
-            ]
+            "int4_op_types_to_quantize": [ "MatMul", "Gather" ]
         },
         "mq": {
             "type": "MatMulNBitsToQDQ",
             "use_int4": true,
             "add_zero_point": true,
-            "nodes_to_exclude": [
-                "/lm_head/MatMul_Q4"
-            ],
+            "nodes_to_exclude": [ "/lm_head/MatMul_Q4" ],
             "save_as_external_data": true
         },
         "gs": {
             "type": "GraphSurgeries",
             "surgeries": [
-                {
-                    "surgeon": "RemoveRopeMultiCache"
-                },
-                {
-                    "surgeon": "AttentionMaskToSequenceLengths"
-                },
-                {
-                    "surgeon": "SimplifiedLayerNormToL2Norm"
-                }
+                { "surgeon": "RemoveRopeMultiCache" },
+                { "surgeon": "AttentionMaskToSequenceLengths" },
+                { "surgeon": "SimplifiedLayerNormToL2Norm" }
             ],
             "save_as_external_data": true
         },
@@ -82,25 +58,13 @@
             "data_config": "gemma_data_config",
             "activation_type": "uint16",
             "precision": "uint8",
-            "calibration_providers": [
-                "CUDAExecutionProvider"
-            ],
+            "calibration_providers": [ "CUDAExecutionProvider" ],
             "quant_preprocess": true,
-            "op_types_to_exclude": [
-                "GatherBlockQuantized",
-                "GroupQueryAttention",
-                "MatMulNBits"
-            ],
+            "op_types_to_exclude": [ "GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits" ],
             "save_as_external_data": true
         },
-        "sp": {
-            "type": "SplitModel"
-        },
-        "st": {
-            "type": "StaticLLM",
-            "batch_size": 1,
-            "context_length": 64
-        },
+        "sp": { "type": "SplitModel" },
+        "st": { "type": "StaticLLM", "batch_size": 1, "context_length": 64 },
         "cb": {
             "type": "EPContextBinaryGenerator",
             "provider_options": {
@@ -110,15 +74,10 @@
                 "htp_arch": "v73",
                 "soc_model": "60"
             },
-            "session_options": {
-                "intra_op_num_threads": 2,
-                "inter_op_num_threads": 1
-            },
+            "session_options": { "intra_op_num_threads": 2, "inter_op_num_threads": 1 },
             "weight_sharing": true
         },
-        "cp": {
-            "type": "ComposeOnnxModels"
-        }
+        "cp": { "type": "ComposeOnnxModels" }
     },
     "target": "qnn_system",
     "log_severity_level": 0,

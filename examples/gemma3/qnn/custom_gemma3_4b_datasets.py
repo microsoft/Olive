@@ -254,10 +254,9 @@ class GemmaMultimodalDataset(BaseGemmaDataset):
             Tokenized inputs ready for model processing
 
         """
-        inputs = self.processor.apply_chat_template(
+        return self.processor.apply_chat_template(
             entry["text"][0], add_generation_prompt=True, tokenize=True, return_tensors="pt", return_dict=True
         )
-        return inputs
 
 
 class GemmaTextOnlyDataset(BaseGemmaDataset):
@@ -495,6 +494,7 @@ class GemmaEmbeddingDataset(BaseGemmaDataset):
 # Remove this when submitting for review
 TEXT_SHORTCUT_FIRST_N = 600
 SHORTCUT_FIRST_N = 200
+
 
 @Registry.register_dataset()
 def gemma_dataset(model_id: str):

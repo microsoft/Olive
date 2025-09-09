@@ -4,13 +4,14 @@
 import argparse
 import glob
 import json
+import logging
 import os
 import time
 from pathlib import Path
 
 import onnxruntime_genai as og
 
-# og.set_log_options(enabled=True, model_input_values=True, model_output_values=True)
+logger = logging.getLogger(__name__)
 
 
 def _find_dir_contains_sub_dir(current_dir: Path, target_dir_name):
@@ -30,15 +31,15 @@ def _complete(text, state):
 
 
 def run(args: argparse.Namespace):
-    print("Loading model...")
+    logger.info("Loading model...")
     config = og.Config(args.model_path)
     if args.execution_provider != "follow_config":
         config.clear_providers()
         if args.execution_provider != "cpu":
-            print(f"Setting model to {args.execution_provider}...")
+            logger.info(f"Setting model to {args.execution_provider}...")
             config.append_provider(args.execution_provider)
     model = og.Model(config)
-    print("Model loaded")
+    logger.info("Model loaded")
 
     tokenizer = og.Tokenizer(model)
     processor = model.create_multimodal_processor()
@@ -68,16 +69,15 @@ def run(args: argparse.Namespace):
                 image_paths = [str(Path(__file__).parent / "images" / "dog.jpg")]
 
         image_paths = [image_path for image_path in image_paths if image_path]
-        print(image_paths)
 
         images = None
         if len(image_paths) == 0:
-            print("No image provided")
+            logger.info("No image provided")
         else:
             for i, image_path in enumerate(image_paths):
                 if not os.path.exists(image_path):
                     raise FileNotFoundError(f"Image file not found: {image_path}")
-                print(f"Using image: {image_path}")
+                logger.info(f"Using image: {image_path}")
 
             images = og.Images.open(*image_paths)
 
@@ -103,17 +103,14 @@ def run(args: argparse.Namespace):
 
         # Apply the chat template using the tokenizer
         message_json = json.dumps(messages)
-        print(message_json)
         prompt = tokenizer.apply_chat_template(message_json, add_generation_prompt=True)
 
-        print("Processing images and prompt...")
+        logger.info("Processing images and prompt...")
         inputs = processor(prompt, images=images)
 
-        print("Generating response...")
+        logger.info("Generating response...")
         params = og.GeneratorParams(model)
         params.set_search_options(max_length=1024)
-
-        print(inputs)
 
         generator = og.Generator(model, params)
         generator.set_inputs(inputs)
@@ -123,14 +120,10 @@ def run(args: argparse.Namespace):
             generator.generate_next_token()
 
             new_token = generator.get_next_tokens()[0]
-            print(stream.decode(new_token), end="", flush=True)
+            logger.info(stream.decode(new_token), end="", flush=True)
 
-        print()
         total_run_time = time.time() - start_time
-        print(f"Total Time : {total_run_time:.2f}")
-
-        for _ in range(3):
-            print()
+        logger.info(f"Total Time : {total_run_time:.2f}")
 
         # Delete the generator to free the captured graph before creating another one
         del generator
