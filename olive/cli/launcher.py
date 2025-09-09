@@ -61,7 +61,6 @@ def main(raw_args=None, called_as_console_script: bool = True):
     logger = TelemetryLogger()
     if args.disable_telemetry:
         logger.disable_telemetry()
-    logger.set_metadata({"called_from": "console" if called_as_console_script else "script"})
 
     if not hasattr(args, "func"):
         parser.print_help()
