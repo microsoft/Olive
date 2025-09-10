@@ -1,3 +1,0 @@
-auto-gptq
-datasets
-optimum
