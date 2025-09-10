@@ -216,8 +216,8 @@ Here is an example for `user_script`:
 
 Some examples:
 
-- [user_script](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
-- [The `json_config`](https://github.com/microsoft/Olive/blob/main/examples/bert/bert_inc_ptq_cpu.json#L10)
+- [user_script](https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/user_script.py)
+- [The `json_config`](https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/bert_ov.json#L23)
 
 The components will be called with the following arguments along with any additional keyword arguments provided in the config:
 
