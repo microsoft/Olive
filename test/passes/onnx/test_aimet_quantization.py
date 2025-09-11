@@ -269,11 +269,11 @@ def test_aimet_quantization_applies_adaround(tmp_path):
     }
     p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
 
-    with patch("aimet_onnx.apply_adaround") as mock_seq_mse:
+    with patch("aimet_onnx.apply_adaround") as mock_adaround:
         out = p.run(input_model, tmp_path)
-        assert mock_seq_mse.call_count == 1
+        assert mock_adaround.call_count == 1
 
-        (_, data, num_iterations, nodes_to_include), _ = mock_seq_mse.call_args
+        (_, data, num_iterations, nodes_to_include), _ = mock_adaround.call_args
         assert isinstance(data, Iterable)
         assert num_iterations == 5
         assert nodes_to_include is None
@@ -305,10 +305,10 @@ def test_aimet_quantization_excludes_adaround_nodes(tmp_path):
     }
     p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
 
-    with patch("aimet_onnx.apply_adaround") as mock_seq_mse:
+    with patch("aimet_onnx.apply_adaround") as mock_adaround:
         p.run(input_model, tmp_path)
-        assert mock_seq_mse.call_count == 1
-        (_, _, _, nodes_to_include), _ = mock_seq_mse.call_args
+        assert mock_adaround.call_count == 1
+        (_, _, _, nodes_to_include), _ = mock_adaround.call_args
         assert not nodes_to_include
 
 
@@ -327,11 +327,6 @@ def test_aimet_quantization_applies_seq_mse(tmp_path):
             {
                 "name": "seqmse",
                 "num_candidates": 5,
-                "data_config": DataConfig(
-                    name="test_quant_dc_config",
-                    load_dataset_config=DataComponentConfig(type="simple_dataset"),
-                    dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
-                ),
             }
         ],
     }
