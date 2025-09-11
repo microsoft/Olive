@@ -1215,7 +1215,7 @@ class RemoveRopeMultiCache(ProtoSurgeon):
 
         # check if the GQA node has cos_cache and sin_cache inputs
         # GQA can have 9 inputs (onnxruntime-genai <= 0.9.0) or 11 inputs (onnxruntime-genai > 0.9.0)
-        if dag.get_node_op_type(first_node) == "GroupQueryAttention" and len(first_node_inputs) >= 9:
+        if dag.get_node_op_type(first_node) == "GroupQueryAttention" and len(first_node_inputs) < 9:
             return dag.model
 
         # check if cos_cache and sin_cache come from an If node
