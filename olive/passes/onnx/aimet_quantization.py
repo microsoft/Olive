@@ -110,6 +110,11 @@ class _AimetTechnique:
         SUPPORTED_TECHNIQUES[cls.__name__.lower()] = cls
 
     @classmethod
+    def _requires_data(cls):
+        signature = inspect.signature(cls.apply)
+        return "data_config" in signature.parameters
+
+    @classmethod
     def validate_args(cls, **kwargs):
         signature = inspect.signature(cls.apply)
         try:
@@ -141,6 +146,27 @@ class LPBQ(_AimetTechnique):
             block_size=block_size,
             excluded_nodes=nodes_to_exclude,
         )
+
+        return sim
+
+
+class Adaround(_AimetTechnique):
+    @staticmethod
+    def apply(  # pylint: disable=arguments-differ
+        sim, *, data_config=None, num_iterations: int = 10000, nodes_to_exclude: Optional[list[str]] = None
+    ):
+        from aimet_onnx import apply_adaround
+        from aimet_onnx.adaround.adaround_weight import AdaroundSupportedModules
+
+        if nodes_to_exclude is not None:
+            nodes_to_optimize = {
+                node.name for node in sim.connected_graph.ordered_ops if node.type in AdaroundSupportedModules
+            }
+            nodes_to_optimize -= set(nodes_to_exclude)
+        else:
+            nodes_to_optimize = None
+
+        apply_adaround(sim, list(data_config), num_iterations, nodes_to_optimize)
 
         return sim
 
@@ -267,12 +293,6 @@ class AimetQuantization(Pass):
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        data_config = validate_config(config.data_config, DataConfig)
-
-        calib_dataloader = _get_dataloader(
-            data_config, model.model_path, model.io_config, run_config["calibration_providers"]
-        )
-
         onnx_model = onnx.load(model.model_path)
 
         if _has_dynamic_quantization(onnx_model):
@@ -302,7 +322,22 @@ class AimetQuantization(Pass):
             techniques = run_config["techniques"]
             for technique in techniques:
                 name = technique.pop("name").lower()
-                sim = SUPPORTED_TECHNIQUES[name].apply(sim, **technique)
+                technique_impl = SUPPORTED_TECHNIQUES[name]
+
+                if technique_impl._requires_data():
+                    # If no data_config provided for technique, use calibration data
+                    data_config = technique.get("data_config", None) or config.data_config
+                    data_config = validate_config(data_config, DataConfig)
+                    technique["data_config"] = _get_dataloader(
+                        data_config, model.model_path, model.io_config, run_config["calibration_providers"]
+                    )
+
+                sim = technique_impl.apply(sim, **technique)
+
+            data_config = validate_config(config.data_config, DataConfig)
+            calib_dataloader = _get_dataloader(
+                data_config, model.model_path, model.io_config, run_config["calibration_providers"]
+            )
 
             sim.compute_encodings(calib_dataloader)
             qdq_model = sim.to_onnx_qdq()
