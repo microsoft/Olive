@@ -1,2 +1,0 @@
--r requirements.txt
-git+https://github.com/microsoft/TransformerCompression.git@main

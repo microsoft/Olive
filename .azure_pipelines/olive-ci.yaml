@@ -82,9 +82,6 @@ jobs:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     examples:
-      bert_ptq_cpu:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
@@ -98,9 +95,6 @@ jobs:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     examples:
-      bert_ptq_cpu:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
@@ -114,9 +108,6 @@ jobs:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     examples:
-      bert_cuda_gpu:
-        exampleFolder: bert
-        exampleName: bert_cuda_gpu
       stable_diffusion_cuda_gpu:
         exampleFolder: stable_diffusion
         exampleName: stable_diffusion_cuda_gpu

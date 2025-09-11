@@ -149,10 +149,8 @@ d. Specify parameters with user defined values
 }
 ```
 
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
+Check out [this file](https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/user_script.py)
 for an example implementation of `"user_script.py"` and `"calib_data_config/dataloader_config/type"`.
-
-check out [this file](https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu) for an example for Intel® Neural Compressor quantization.
 
 ## Quantize with Intel® Neural Compressor
 In addition to the default onnxruntime quantization tool, Olive also integrates [Intel® Neural Compressor](https://github.com/intel/neural-compressor).
@@ -202,4 +200,4 @@ Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into
 }
 ```
 
-Please refer to [Phi3 example](https://github.com/microsoft/Olive/tree/main/examples/phi3#quantize-using-nvidia-tensorrt-model-optimizer)  for usability and setup details.
+Please refer to [Phi3.5 example](https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3.5-mini-instruct/NvTensorRtRtx)  for usability and setup details.
