@@ -2095,7 +2095,7 @@ improve performance.
 }
 ```
 
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
+Check out [this file](https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/user_script.py)
 for an example implementation of `"user_script.py"` and `"calib_data_config/dataloader_config/type"`.
 
 [1]: <https://onnxruntime.ai/docs/performance/quantization.html> "ONNX Runtime Quantization"
