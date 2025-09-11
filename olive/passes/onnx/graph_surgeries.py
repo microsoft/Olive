@@ -1214,11 +1214,17 @@ class RemoveRopeMultiCache(ProtoSurgeon):
         first_node_inputs = dag.get_node_inputs(first_node)
 
         # check if the GQA node has cos_cache and sin_cache inputs
-        if dag.get_node_op_type(first_node) == "GroupQueryAttention" and len(first_node_inputs) != 9:
+        # GQA can have 9 inputs (onnxruntime-genai <= 0.9.0) or 11 inputs (onnxruntime-genai > 0.9.0)
+        if (
+            dag.get_node_op_type(first_node) == "GroupQueryAttention"
+            and len(first_node_inputs) != 9
+            and len(first_node_inputs) != 11
+        ):
             return dag.model
 
         # check if cos_cache and sin_cache come from an If node
-        cache_names = {"cos_cache": first_node_inputs[-2], "sin_cache": first_node_inputs[-1]}
+        # cos_cache and sin_cache are at positions 7 and 8
+        cache_names = {"cos_cache": first_node_inputs[7], "sin_cache": first_node_inputs[8]}
         for cache_name in cache_names.values():
             if dag.is_input(cache_name) or dag.is_initializer(cache_name):
                 return dag.model
