@@ -181,6 +181,7 @@ class ModelWrapper:
         "n_head",
         "n_heads",
         "encoder_attention_heads",
+        "decoder_num_attention_heads",
     )
     NUM_KEY_VALUE_HEADS_NAMES = ("num_key_value_heads",)
     HEAD_DIM_NAMES = ("head_dim",)
