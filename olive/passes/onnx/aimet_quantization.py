@@ -179,6 +179,14 @@ class SeqMSE(_AimetTechnique):
         data_config=None,
         num_candidates: int = 20,
     ):
+        """Apply aimet_onnx sequential MSE technique to sim.
+
+        Args:
+            sim: QuantizationSimModel to optimize.
+            data_config: Dataset to use for optimization. If not specified for the technique, will default to the calibration data.
+            num_candidates: Number of encoding candidates to sweep for each weight.
+
+        """
         from aimet_onnx import apply_seq_mse
 
         apply_seq_mse(sim, data_config, num_candidates)
