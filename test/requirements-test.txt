@@ -22,7 +22,7 @@ onnxconverter_common
 onnxmltools
 onnxoptimizer
 onnxruntime_extensions
-git+https://github.com/microsoft/onnxscript
+https://github.com/microsoft/onnxscript/archive/refs/heads/main.zip
 onnxsim
 openvino>=2025.1.0
 optimum[openvino]>=1.17.0, <=1.24
