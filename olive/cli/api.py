@@ -274,7 +274,7 @@ def extract_adapters(model_name_or_path: str, **kwargs) -> None:
     _run_unified_command(ExtractAdaptersCommand, **kwargs)
 
 
-def run(run_config: str, **kwargs) -> None:
+def run(run_config: str, **kwargs) -> WorkflowOutput:
     """Run a workflow.
 
     Args:
@@ -283,4 +283,4 @@ def run(run_config: str, **kwargs) -> None:
 
     """
     kwargs["run_config"] = run_config
-    _run_unified_command(WorkflowRunCommand, **kwargs)
+    return _run_unified_command(WorkflowRunCommand, **kwargs)
