@@ -39,6 +39,7 @@ class ORTGenerator:
         device_id: int = 0,
         adapters: dict[str, Any] = None,
         adapter_mode: AdapterMode = AdapterMode.inputs,
+        custom_op_lib: Optional[str] = None,
     ):
         """Initialize the generator.
 
@@ -59,6 +60,7 @@ class ORTGenerator:
         self.device_id = device_id
         self.adapter_info = adapters or {"default": {"weights": None, "template": None}}
         self.adapter_mode = AdapterMode(adapter_mode)
+        self.custom_op_lib = custom_op_lib
 
         # Determine attention type
         self.attn_type = "default"
@@ -101,7 +103,13 @@ class ORTGenerator:
 
         # create the session
         self.sessions, self.adapters = self.prepare_sessions(
-            self.model_path, self.execution_provider, self.device, self.device_id, self.adapter_info, self.adapter_mode
+            self.model_path,
+            self.execution_provider,
+            self.device,
+            self.device_id,
+            self.adapter_info,
+            self.adapter_mode,
+            self.custom_op_lib,
         )
         self.default_adapter = next(iter(self.adapters.keys()))
 
@@ -139,6 +147,7 @@ class ORTGenerator:
         device_id: int,
         adapter_info: dict[str, Any],
         adapter_mode: AdapterMode,
+        custom_op_lib: Optional[str] = None,
     ) -> tuple[dict[str, InferenceSession], dict[str, dict[str, Any]]]:
         """Prepare the sessions and adapters for the model.
 
@@ -166,7 +175,13 @@ class ORTGenerator:
         if adapter_mode == AdapterMode.inputs:
             # there is only one session
             # TODO(jambayk): test and enable graph for cuda and dml
-            sessions["default"] = InferenceSession(model_path, providers=providers, provider_options=provider_options)
+            session_options = SessionOptions()
+            if custom_op_lib is not None:
+                session_options.register_custom_ops_library(custom_op_lib)
+
+            sessions["default"] = InferenceSession(
+                model_path, providers=providers, provider_options=provider_options, sess_options=session_options
+            )
             for name, info in adapter_info.items():
                 adapters[name] = {
                     "session": "default",
@@ -197,6 +212,9 @@ class ORTGenerator:
 
                 session_options = SessionOptions()
                 session_options.add_external_initializers(initializer_names, initializer_values)
+
+                if custom_op_lib is not None:
+                    session_options.register_custom_ops_library(custom_op_lib)
 
                 sessions[name] = InferenceSession(
                     model_path, providers=providers, provider_options=provider_options, sess_options=session_options
