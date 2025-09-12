@@ -22,7 +22,6 @@
 why-olive.md
 getting-started/getting-started.md
 how-to/index
-examples.md
 features/index
 reference/index
 ```
