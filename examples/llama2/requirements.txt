@@ -1,6 +1,0 @@
-datasets>=2.8.0
-onnx>=1.14.0
-optimum>=1.17.0
-torch
-# transformers optimizer fusions don't match in newer versions
-transformers>=4.33.2,<= 4.37.2
