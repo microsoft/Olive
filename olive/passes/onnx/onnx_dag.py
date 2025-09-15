@@ -942,7 +942,6 @@ class OnnxDAG:
             for init in initializers:
                 # TODO(jambayk): maybe move to onnx-ir backend for more memory efficiency
                 graph.initializer.add().CopyFrom(init)
-                init.Clear()
             graph.ClearField("output")
             graph.output.extend(outputs)
             graph.ClearField("value_info")
