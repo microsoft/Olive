@@ -942,12 +942,13 @@ class OnnxDAG:
             for init in initializers:
                 # TODO(jambayk): maybe move to onnx-ir backend for more memory efficiency
                 graph.initializer.add().CopyFrom(init)
+                init.Clear()
             graph.ClearField("output")
             graph.output.extend(outputs)
             graph.ClearField("value_info")
             graph.value_info.extend(value_infos)
-            # reinitialize the dag, cleans up unused components, new init references
-            self._initialize_dag()
+        # reinitialize the dag, cleans up unused components, new init references
+        self._initialize_dag()
 
     def remove_identity_nodes(self):
         """Remove identity nodes from the graph."""
