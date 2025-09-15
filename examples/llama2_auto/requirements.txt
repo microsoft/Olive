@@ -1,0 +1,5 @@
+transformers==4.37.2
+torch -i https://download.pytorch.org/whl/nightly/cu118
+onnxruntime-gpu==1.17.0
+onnx==1.15.0
+datasets==2.8.0

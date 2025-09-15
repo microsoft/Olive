@@ -12,14 +12,7 @@ Performs optimization pipeline:
 ## Prerequisites
 ### Clone the repository and install Olive
 
-Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
-
-## Install onnxruntime
-This example requires onnxruntime-gpu>=1.17.0. Please install the latest version of onnxruntime:
-
-```bash
-python -m pip install "onnxruntime-gpu>=1.17.0"
-```
+Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive. Only tested with Python 3.8.
 
 ### Install extra dependencies
 Install the necessary python packages:
@@ -33,22 +26,23 @@ This example requires the latest nightly build of triton. Note: This needs to be
 # Uninstall previous triton packages
 pip uninstall -y triton triton-nightly
 # Install latest nightly build of triton-nightly
-pip install -U --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/ triton-nightly
+pip install triton-nightly==2.1.0.post20240108192258 --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/
 ```
 
 ## Set CUDA_HOME
-Set the path to cuda as `CUDA_HOME` environment variable. Only tested with CUDA 12.2
+Set the path to cuda as `CUDA_HOME` environment variable. Only tested with CUDA 12.2 and 12.5.
 
 ## Run the example
 ```bash
 python -m olive.workflows.run --config llama2_auto_fusion.json
 ```
 
-**Note**: If you want to package the model, custom operator library and sample code into a zip file, add the following config option under `"engine"` in the config file:
-```json
-"packaging_config": {
-    "type": "Zipfile",
-    "name": "open_llama_3b_auto_fusion"
-}
+## Notes
+- The triton compilation required `libxcrypt`. If it doesn't exist, install it using:
+```bash
+# ubuntu
+sudo apt-get install libxcrypt-dev
+
+# Azure Linux
+sudo dnf install libxcrypt-devel
 ```
-It might take a while to compress the files into a zip file.
