@@ -1,8 +1,0 @@
--r requirements.txt
-# transformers>=4.33.2,<= 4.37.2 not compatible with latest accelerate
-accelerate<1.0.0
-bitsandbytes==0.43.3
-onnxruntime_genai
-peft
-scikit-learn
-sentencepiece
