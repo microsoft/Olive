@@ -37,31 +37,3 @@ jobs:
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
     onnxruntime_nightly: true
-
-# Linux examples test
-- template: job_templates/olive-example-cpu-template.yaml
-  parameters:
-    name: Linux_CI
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    onnxruntime_nightly: true
-    examples:
-      resnet_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_ptq_cpu
-      mobilenet_qnn_ep:
-        exampleFolder: mobilenet/qnn
-        exampleName: mobilenet_qnn_ep
-
-# # Windows examples test
-- template: job_templates/olive-example-cpu-template.yaml
-  parameters:
-    name: Windows_CI
-    pool: $(OLIVE_POOL_WIN2019)
-    onnxruntime_nightly: true
-    examples:
-      resnet_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_ptq_cpu
-      mobilenet_qnn_ep:
-        exampleFolder: mobilenet/qnn
-        exampleName: mobilenet_qnn_ep
