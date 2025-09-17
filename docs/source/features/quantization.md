@@ -17,9 +17,6 @@ Please refer to [GptqQuantizer](gptq_quantizer) for more details about the pass 
 }
 ```
 
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/llama2/llama2_template.json)
-for an example implementation of `"wikitext2_train"`.
-
 ## AutoAWQ
 AutoAWQ is an easy-to-use package for 4-bit quantized models and it speeds up models by 3x and reduces memory requirements by 3x compared to FP16. AutoAWQ implements the Activation-aware Weight Quantization (AWQ) algorithm for quantizing LLMs. AutoAWQ was created and improved upon from the original work from MIT.
 

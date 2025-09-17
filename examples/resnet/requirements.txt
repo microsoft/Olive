@@ -1,5 +1,0 @@
-datasets
-psutil
-scipy
-tabulate
-torchvision
