@@ -31,10 +31,6 @@ good-names = [
 ]
 
 [tool.pylint.main]
-# https://github.com/pylint-dev/pylint/issues/3242#issuecomment-776482259
-# Please don't use ** for the pattern. It will cause pylint to crash.
-# the crash error message would like:
-# re.error: multiple repeat at position 41
 
 [tool.pylint.messages_control]
 disable = [
