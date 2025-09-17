@@ -20,7 +20,7 @@ Here are some recent videos, blog articles and labs that highlight Olive:
 - [ Aug 2025 ] [Olive 0.9.2 is released with new quantization algorithms](https://github.com/microsoft/Olive/releases/tag/v0.9.2)
 - [ May 2025 ] [Olive 0.9.0 is released with support for NPUs](https://github.com/microsoft/Olive/releases/tag/v0.9.0)
 - [ Mar 2025 ] [Olive 0.8.0 is released with new quantization techniques](https://github.com/microsoft/Olive/releases/tag/v0.8.0)
-- [ Feb 2025 ] [New Notebook available - Finetune and Optimize DeepSeek R1 with Olive 🐋 ](examples/getting_started/olive-deepseek-finetune.ipynb)
+- [ Feb 2025 ] [New Notebook available - Finetune and Optimize DeepSeek R1 with Olive 🐋 ](https://github.com/microsoft/Olive/blob/main/notebooks/olive-deepseek-finetune.ipynb)
 - [ Nov 2024 ] [Democratizing AI Model optimization with the new Olive CLI](https://onnxruntime.ai/blogs/olive-cli)
 - [ Nov 2024 ] [Unlocking NLP Potential: Fine-Tuning with Microsoft Olive (Ignite Pre-Day Lab PRE016)](https://github.com/Azure/Ignite_FineTuning_workshop)
 - [ Nov 2024 ] [Olive supports generating models for MultiLoRA serving on the ONNX Runtime ](https://onnxruntime.ai/blogs/multilora)
