@@ -14,6 +14,7 @@ from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
 from olive.cli.optimize import OptimizeCommand
 from olive.cli.quantize import QuantizeCommand
+from olive.cli.run import WorkflowRunCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
 from olive.engine.output import WorkflowOutput
 
@@ -271,3 +272,15 @@ def extract_adapters(model_name_or_path: str, **kwargs) -> None:
     """
     kwargs["model_name_or_path"] = model_name_or_path
     _run_unified_command(ExtractAdaptersCommand, **kwargs)
+
+
+def run(run_config: str, **kwargs) -> None:
+    """Run a workflow.
+
+    Args:
+        run_config: Path to Olive workflow config
+        **kwargs: All other CLI arguments supported by extract-adapters command
+
+    """
+    kwargs["run_config"] = run_config
+    _run_unified_command(WorkflowRunCommand, **kwargs)

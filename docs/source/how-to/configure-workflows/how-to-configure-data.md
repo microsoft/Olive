@@ -125,7 +125,7 @@ If no data config template can meet the requirement, we can also define the (dat
     each component can be customized by the following fields:
 
     - `name`: the name of the component.
-    - `type`: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in `user_script` with the way Olive does for [`huggingface_dataset`](https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26). In this way, they need to provide `user_script` and `script_dir`. There is an [example](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py) with customized component type.
+    - `type`: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in `user_script` with the way Olive does for [`huggingface_dataset`](https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26). In this way, they need to provide `user_script` and `script_dir`. There is an [example](https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/user_script.py) with customized component type.
     - `params`: the dictionary of component function parameters. The key is the parameter name for given component type and the value is the parameter value.
 
 - `user_script`: the user script path which contains the customized component type.
@@ -216,8 +216,8 @@ Here is an example for `user_script`:
 
 Some examples:
 
-- [user_script](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
-- [The `json_config`](https://github.com/microsoft/Olive/blob/main/examples/bert/bert_inc_ptq_cpu.json#L10)
+- [user_script](https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/user_script.py)
+- [The `json_config`](https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/bert_ov.json#L23)
 
 The components will be called with the following arguments along with any additional keyword arguments provided in the config:
 

@@ -1,3 +1,0 @@
-evaluate
-scikit-learn
-timm

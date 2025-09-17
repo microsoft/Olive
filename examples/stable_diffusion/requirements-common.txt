@@ -1,9 +1,0 @@
-accelerate
-# breaking changes in diffusers lora implementation
-diffusers<0.30.0
-onnx
-pillow
-tabulate
-torch
-# StableDiffusionSafetyChecker vision_model ignores attn_implementation
-transformers<4.43.0

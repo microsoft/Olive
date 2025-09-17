@@ -1,2 +1,0 @@
--r requirements-common.txt
-onnxruntime-directml>=1.16.2

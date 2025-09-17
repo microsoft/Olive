@@ -1,8 +1,0 @@
-huggingface-hub
-markdown
-mdtex2html
-optimum
-Pygments
-sentencepiece
-tabulate
-torch

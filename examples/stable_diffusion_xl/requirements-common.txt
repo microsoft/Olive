@@ -1,9 +1,0 @@
-accelerate
-diffusers
-invisible-watermark
-onnx
-optimum
-pillow
-torch
-# StableDiffusionSafetyChecker vision_model ignores attn_implementation
-transformers<4.43.0
