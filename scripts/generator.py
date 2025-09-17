@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
@@ -41,6 +42,7 @@ class ORTGenerator:
         adapter_mode: AdapterMode = AdapterMode.inputs,
     ):
         """Initialize the generator.
+
         :param model_path: Path to the model.
         :param tokenizer: The tokenizer to use.
         :param execution_provider: The execution provider to use.
@@ -140,6 +142,7 @@ class ORTGenerator:
         adapter_mode: AdapterMode,
     ) -> tuple[dict[str, InferenceSession], dict[str, dict[str, Any]]]:
         """Prepare the sessions and adapters for the model.
+
         :param model_path: Path to the model.
         :param execution_provider: The execution provider to use.
         :param device: The device to use.
@@ -209,6 +212,7 @@ class ORTGenerator:
         self, name: Optional[str] = None, use_io_binding: bool = False
     ) -> tuple[InferenceSession, str, dict[str, Any]]:
         """Get the session, template and inputs for the specified adapter.
+
         :param name: Name of the adapter to use. If None, the default adapter is used.
         :param use_io_binding: Whether to use IO binding for the adapter.
         :return: Tuple of session, template and inputs.
@@ -237,6 +241,7 @@ class ORTGenerator:
         cache_backend: str = "ort",
     ) -> Union[str, list[str]]:
         """Generate text from the model given a prompt.
+
         :param prompt: The prompt to generate text from. Can be a string/string-tuples or a list.
         :param adapter: The adapter to use for generation. If None, the default adapter is used.
         :param max_gen_len: The maximum length of the generated text.

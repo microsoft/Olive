@@ -28,6 +28,7 @@ class Cache(ABC):
         dtype: str = "float32",
     ):
         """Initialize the cache.
+
         :param past_names: List of past key and value names.
         :param present_names: List of present key and value names.
             Names must be in the same order as past_names.
@@ -46,6 +47,7 @@ class Cache(ABC):
     @abstractmethod
     def update(self, present_kvs: list["NDArray"]):
         """Update the cache with the present key-value tensors.
+
         :param present_kvs: List of present key-value tensors. This must be past key-value tensors
             concatenated with the key-value tensors from the current step.
         """
@@ -59,6 +61,7 @@ class Cache(ABC):
 
 class DynamicCache(Cache):
     """Dynamic cache that doesn't have a fixed size for the cache tensors.
+
     It stores the most recent key-value tensors and uses them as inputs for the next step.
     """
 
@@ -72,6 +75,7 @@ class DynamicCache(Cache):
         dtype: str = "float32",
     ):
         """Initialize the cache.
+
         :param past_names: List of past key and value names.
         :param present_names: List of present key and value names.
             Names must be in the same order as past_names.
@@ -89,6 +93,7 @@ class DynamicCache(Cache):
 
     def update(self, present_kvs: list["NDArray"]):
         """Update the cache with the present key-value tensors.
+
         :param present_kvs: List of present key-value tensors.
         """
         for k, v in zip(self.past_names, present_kvs):
@@ -96,6 +101,7 @@ class DynamicCache(Cache):
 
     def get_kv_inputs(self) -> dict[str, "NDArray"]:
         """Get the key-value tensors to be used as inputs for the next step.
+
         :return: Dictionary of key-value tensors.
         """
         return self.cache
@@ -103,6 +109,7 @@ class DynamicCache(Cache):
 
 class StaticCache(Cache):
     """Static cache that has a fixed size for the cache tensors.
+
     During prompt processing, it stores the present key-value tensors at the beginning of the cache.
     During token generation, it stores the new key-value tensors at the first empty slot in the cache.
     """
@@ -118,6 +125,7 @@ class StaticCache(Cache):
         max_cache_len: int = 2048,
     ):
         """Initialize the cache.
+
         :param past_names: List of past key and value names.
         :param present_names: List of present key and value names.
             Names must be in the same order as past_names.
@@ -139,6 +147,7 @@ class StaticCache(Cache):
 
     def update(self, present_kvs: list["NDArray"]):
         """Update the cache with the present key-value tensors.
+
         At the prompt processing step, i.e., when the cache is empty, the present key-value tensors can have any length
         smaller than or equal to max_cache_len.
         In token generation step, i.e., with one new token at each step, the present key-value tensors must have length
@@ -168,6 +177,7 @@ class StaticCache(Cache):
 
     def get_kv_inputs(self) -> dict[str, "NDArray"]:
         """Get the key-value tensors to be used as inputs for the next step.
+
         During prompt processing, this returns an kev-value tensors with 0 length.
         During token generation, this returns the kev-value tensors with length max_cache_len.
             Appropriate attention mask should be applied to the key-value tensors to mask out
@@ -198,6 +208,7 @@ class IOBoundCache(ABC):
         backend: str = "ort",
     ):
         """Initialize the cache.
+
         :param past_names: List of past key and value names.
         :param present_names: List of present key and value names.
             Names must be in the same order as past_names.
@@ -232,6 +243,7 @@ class IOBoundCache(ABC):
 
     def get_empty_ortvalue(self, *shape) -> OrtValue:
         """Get an empty OrtValue with the given shape.
+
         :param shape: Shape of the OrtValue.
         :return: OrtValue with the given shape with zeros.
         """
@@ -239,6 +251,7 @@ class IOBoundCache(ABC):
 
     def get_empty_buffer(self, *shape) -> Union["Tensor", OrtValue]:
         """Get an empty buffer with the given shape.
+
         :param shape: Shape of the buffer.
         :return: Buffer with the given shape with zeros. If backend is "torch", returns a torch.Tensor.
             If backend is "ort", returns an OrtValue.
@@ -252,6 +265,7 @@ class IOBoundCache(ABC):
     @abstractmethod
     def update(self, present_kvs: list[OrtValue]):
         """Update the cache with the present key-value tensors.
+
         :param present_kvs: List of present key-value tensors as OrtValue.
         """
         raise NotImplementedError
@@ -259,6 +273,7 @@ class IOBoundCache(ABC):
     @abstractmethod
     def bind_kv_io(self, io_binding: "IOBinding"):
         """Bind the cache tensors to the IO binding object.
+
         Past key-value tensors are bound as inputs and present key-value tensors are bound as outputs.
         :param io_binding: IOBinding object to bind the cache tensors.
         """
@@ -281,6 +296,7 @@ class DynamicIOBoundCache(IOBoundCache):
         backend: str = "ort",
     ):
         """Initialize the cache.
+
         :param past_names: List of past key and value names.
         :param present_names: List of present key and value names.
             Names must be in the same order as past_names.
@@ -304,6 +320,7 @@ class DynamicIOBoundCache(IOBoundCache):
 
     def update(self, present_kvs: list[OrtValue]):
         """Update the cache with the present key-value tensors.
+
         :param present_kvs: List of present key-value tensors as OrtValue.
         """
         for k, ort_value in zip(self.past_names, present_kvs):
@@ -311,6 +328,7 @@ class DynamicIOBoundCache(IOBoundCache):
 
     def bind_kv_io(self, io_binding: "IOBinding"):
         """Bind the cache tensors to the IO binding object.
+
         Past key-value tensors are bound as inputs and present key-value tensors are bound as outputs.
         Outputs are not pre-allocated and will be allocated dynamically by the session.
         :param io_binding: IOBinding object to bind the cache tensors.
@@ -324,6 +342,7 @@ class DynamicIOBoundCache(IOBoundCache):
 
 class StaticIOBoundCache(IOBoundCache):
     """Static IO bound cache that has a fixed size for the cache tensors.
+
     During prompt processing, it stores the present key-value tensors at the beginning of the cache.
     During token generation, it stores the new key-value tensors at the first empty slot in the cache.
     Torch backend is faster than ort backend.
@@ -343,6 +362,7 @@ class StaticIOBoundCache(IOBoundCache):
         max_cache_len: int = 2048,
     ):
         """Initialize the cache.
+
         :param past_names: List of past key and value names.
         :param present_names: List of present key and value names.
             Names must be in the same order as past_names.
@@ -377,6 +397,7 @@ class StaticIOBoundCache(IOBoundCache):
 
     def update(self, present_kvs: list[OrtValue]):
         """Update the cache with the present key-value tensors.
+
         At the prompt processing step, i.e., when the cache is empty, the present key-value tensors can have any length
         smaller than or equal to max_cache_len.
         In token generation step, i.e. with one new token at each step, the present key-value tensors must have length
@@ -418,6 +439,7 @@ class StaticIOBoundCache(IOBoundCache):
 
     def bind_kv_io(self, io_binding: "IOBinding"):
         """Bind the cache tensors to the IO binding object.
+
         Past key-value tensors are bound as inputs and present key-value tensors are bound as outputs.
         During prompt processing, the past key-value tensors have length 0 and the present key-value tensors
             will be allocated dynamically by the session.
@@ -464,6 +486,7 @@ class StaticIOBoundCache(IOBoundCache):
 
 class GQASharedCache(IOBoundCache):
     """GroupQueryAttention (GQA) contrib op compatible cache.
+
     It uses the same fixed length tensor buffers for both past and present key-value tensors.
     """
 
@@ -481,6 +504,7 @@ class GQASharedCache(IOBoundCache):
         backend: str = "ort",
     ):
         """Initialize the cache.
+
         :param past_names: List of past key and value names.
         :param present_names: List of present key and value names.
             Names must be in the same order as past_names.
@@ -511,6 +535,7 @@ class GQASharedCache(IOBoundCache):
 
     def update(self, present_kvs: list[OrtValue]):
         """Update the cache with the present key-value tensors.
+
         Expects the present key-value tensors to be the same as the cache tensors.
         There is no padding in between the key-value tensors. For each element in the batch, the key-value tensors
         are inserted right after the previous key-value tensors. In case of uneven sequence lengths, the key-value
@@ -522,6 +547,7 @@ class GQASharedCache(IOBoundCache):
 
     def bind_kv_io(self, io_binding: "IOBinding"):
         """Bind the cache tensors to the IO binding object.
+
         Both past and present key-value tensors are bound to the same cache with length max_cache_len.
         Appropriate attention mask should be used to inform the GroupQueryAttention contrib op about the
             valid length of the key-value tensors and input tokens.
