@@ -35,7 +35,7 @@ You can name the workflow run by specifying `workflow_id` section in your config
 
 User should specify input model type and configuration using `input model` dictionary. It contains following items:
 
-- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `HfModelHandler`, `PyTorchModelHandler`, `ONNXModelHandler`, `OpenVINOModelHandler`,`SNPEModelHandler` and etc.
+- `type: [str]` Type of the input model which is case insensitive.. The supported types contain `HfModelHandler`, `PyTorchModelHandler`, `ONNXModelHandler`, `OpenVINOModelHandler` and etc.
 
 - `config: [Dict]` The configuration of the pass. Its fields can be provided directly to the parent dictionary. For example, for `HfModelHandler`, the input model config dictionary specifies following items:
 
@@ -98,7 +98,6 @@ Please find the detailed list for each model type:
 | DistributedOnnxModelHandler | ONNX model |
 | QNNModelHandler | QNN model |
 | OpenVINOModelHandler | OpenVINO IR model |
-| SNPEModelHandler | SNPE DLC model |
 | TensorFlowModelHandler | TensorFlow model |
 | CompositeModelHandler | Composite Model |
 
@@ -309,8 +308,6 @@ Please also find the detailed options from following table for each pass:
 | [IncDynamicQuantization](pass.rst#incdynamicquantization) |  Intel® Neural Compressor Dynamic Quantization Pass. |
 | [IncStaticQuantization](pass.rst#incstaticquantization) |  Intel® Neural Compressor Static Quantization Pass. |
 | [IncQuantization](pass.rst#incquantization) | Quantize ONNX model with Intel® Neural Compressor where we can search for best parameters for static/dynamic quantization at same time. |
-| [VitisAIQuantization](pass.rst#vitisaiquantization) | AMD-Xilinx Vitis-AI Quantization Pass. |
-| [AppendPrePostProcessingOps](pass.rst#appendprepostprocessing) | Add Pre/Post nodes to the input model. |
 | [ExtractAdapters](pass.rst#extractadapters) | Extract adapters from ONNX model |
 | [CaptureSplitInfo](pass.rst#capturesplitinfo) | Capture the split information of the model layers. Only splits the transformer layers. |
 | [SelectiveMixedPrecision](pass.rst#selectivemixedprecision) | Annotate the model with mixed precision information. |
@@ -321,16 +318,12 @@ Please also find the detailed options from following table for each pass:
 | [QLoRA](pass.rst#qlora) | Run QLoRA fine-tuning on a Hugging Face PyTorch model. |
 | [DoRA](pass.rst#dora) | Run DoRA fine-tuning on a Hugging Face PyTorch model. |
 | [LoftQ](pass.rst#loftq) | Run LoftQ fine-tuning on a Hugging Face PyTorch model. |
-| [QuantizationAwareTraining](pass.rst#onnxquantizationawaretraining) | Run quantization aware training on PyTorch model. |
 | [OpenVINOConversion](pass.rst#openvinoconversion) | Converts PyTorch, ONNX or TensorFlow Model to OpenVINO Model. |
 | [OpenVINOIoUpdate](pass.rst#openvinoioupdate) | Converts dynamic OpenVINO Model to static OpenVINO Model and updates IO names. |
 | [OpenVINOQuantization](pass.rst#openvinoquantization) | Post-training quantization for OpenVINO models and ONNX models |
 | [OpenVINOQuantizationWithAccuracy](pass.rst#openvinoquantizationwithaccuracy) | Post-training quantization with accuracy for OpenVINO models and ONNX models |
 | [OpenVINOEncapsulation](pass.rst#openvinoencapsulation) | Generates an ONNX model that encapsulates an OpenVINO IR model. |
 | [OpenVINOOptimumConversion](pass.rst#openvinooptimumconversion) | Run [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) command using Optimum Intel® to convert Huggingface Model to OpenVINO Model and optionally perform weight compression or quantization. |
-| [SNPEConversion](pass.rst#snpeconversion) | Convert ONNX or TensorFlow model to SNPE DLC. Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK. |
-| [SNPEQuantization](pass.rst#snpequantization) | Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK. |
-| [SNPEtoONNXConversion](pass.rst#snpetoonnxconversion) | Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node. |
 | [QNNConversion](pass.rst#qnnconversion) | Convert ONNX, TensorFlow, or PyTorch model to QNN C++ model. Quantize the model if –input_list is provided as extra_args. Uses qnn-[framework]-converter tool from the QNN SDK. |
 | [QNNModelLibGenerator](pass.rst#qnnmodellibgenerator) |  |
 | [QNNContextBinaryGenerator](pass.rst#qnncontextbinarygenerator) | Compile QNN C++ model source code into QNN model library for a specific target. Uses qnn-model-lib-generator tool from the QNN SDK. |

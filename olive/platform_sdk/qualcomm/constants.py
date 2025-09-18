@@ -14,13 +14,6 @@ class SDKTargetDevice(StrEnumBase):
     aarch64_android = "aarch64-android"
 
 
-class SNPEDevice(StrEnumBase):
-    CPU = "cpu"
-    GPU = "gpu"
-    DSP = "dsp"
-    AIP = "aip"
-
-
 class InputType(StrEnumBase):
     DEFAULT = "default"
     IMAGE = "image"

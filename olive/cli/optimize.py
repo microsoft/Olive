@@ -71,7 +71,19 @@ class OptimizeCommand(BaseOliveCLICommand):
             "--precision",
             type=str,
             default=Precision.FP32,
-            choices=[p.value for p in Precision],
+            choices=[
+                Precision.INT4,
+                Precision.INT8,
+                Precision.INT16,
+                Precision.INT32,
+                Precision.UINT4,
+                Precision.UINT8,
+                Precision.UINT16,
+                Precision.UINT32,
+                Precision.FP16,
+                Precision.FP32,
+                Precision.BF16,
+            ],
             help="Target precision for optimization.",
         )
 
@@ -79,7 +91,7 @@ class OptimizeCommand(BaseOliveCLICommand):
         sub_parser.add_argument(
             "--act_precision",
             type=str,
-            choices=[p.value for p in Precision],
+            choices=[Precision.INT8, Precision.UINT8, Precision.INT16, Precision.UINT16],
             help="Activation precision for quantization (optional).",
         )
 
@@ -160,6 +172,14 @@ class OptimizeCommand(BaseOliveCLICommand):
             "--qnn_env_path",
             type=str,
             help="Path to QNN environment directory (required when using AOT with QNN).",
+        )
+
+        # Extra options for model builder
+        sub_parser.add_argument(
+            "--extra_mb_options",
+            type=str,
+            required=False,
+            help="Extra key-value pairs options to pass to the model builder. e.g., 'int4_is_symmetric=true,int4_op_types_to_quantize=MatMul/Gemm'.",
         )
 
         add_logging_options(sub_parser)
@@ -459,6 +479,12 @@ class OptimizeCommand(BaseOliveCLICommand):
             config["int4_block_size"] = block_size_value
             config["int4_accuracy_level"] = 4
             config["int4_op_types_to_quantize"] = ["MatMul", "Gather"]
+
+        extra_options = {}
+        if self.args.extra_mb_options:
+            extra_options = BaseOliveCLICommand._parse_extra_options(self.args.extra_mb_options.split(","))
+        config["extra_options"] = extra_options
+
         return config
 
     def _enable_onnx_conversion_pass(self) -> bool:
@@ -622,10 +648,12 @@ class OptimizeCommand(BaseOliveCLICommand):
         config = {
             "type": "OnnxStaticQuantization",
             "precision": precision.value,
-            "activation_precision": self.args.act_precision if self.args.act_precision else Precision.INT8,
             "calibration_providers": ["CUDAExecutionProvider"],
             "quant_format": "QDQ" if self.args.use_qdq_format else "QOperator",
         }
+        if self.args.act_precision:
+            config["activation_type"] = self.args.act_precision
+
         if self.is_hf_model and self.args.modality == "text":
             # these are contrib ops, no need for qdq around them
             config["op_types_to_exclude"] = ["GatherBlockQuantized", "GroupQueryAttention", "MatMulNBits"]

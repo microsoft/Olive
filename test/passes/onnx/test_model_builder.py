@@ -16,7 +16,11 @@ from test.utils import make_local_tiny_llama
 def test_model_builder(tmp_path, metadata_only):
     input_model = make_local_tiny_llama(tmp_path / "input_model", "onnx" if metadata_only else "hf")
 
-    p = create_pass_from_dict(ModelBuilder, {"precision": "fp32", "metadata_only": metadata_only}, disable_search=True)
+    p = create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32", "metadata_only": metadata_only, "extra_options": {"int4_is_symmetric": True}},
+        disable_search=True,
+    )
     output_folder = tmp_path / "output_model"
 
     # execute the pass

@@ -39,7 +39,7 @@ from olive.platform_sdk.qualcomm.utils.data_loader import FileListCommonDataLoad
 if TYPE_CHECKING:
     from torch.utils.data import DataLoader
 
-    from olive.model import OliveModelHandler, OpenVINOModelHandler, QNNModelHandler, SNPEModelHandler
+    from olive.model import OliveModelHandler, OpenVINOModelHandler, QNNModelHandler
 
 logger = logging.getLogger(__name__)
 
@@ -817,95 +817,6 @@ class PyTorchEvaluator(_OliveEvaluator):
         return latencies
 
 
-@Registry.register(str(Framework.SNPE))
-@Registry.register("SNPEEvaluator")
-class SNPEEvaluator(_OliveEvaluator):
-    def _inference(
-        self,
-        model: "SNPEModelHandler",
-        metric: Metric,
-        dataloader: "DataLoader",
-        post_func=None,
-        device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
-    ) -> tuple[OliveModelOutput, Any]:
-        dataloader = self._prepare_dataloader(dataloader, model)
-        inference_settings = metric.get_inference_settings(Framework.SNPE.lower())
-        # for accuracy evaluation, the `return_numpy_results` is required to be True
-        # but for model inference, it is not required to be True.
-        # We just set it to True for simple evaluation.
-        inference_settings["return_numpy_results"] = True
-
-        session = model.prepare_session(inference_settings=inference_settings, device=device)
-        run_kwargs = metric.get_run_kwargs()
-
-        preds = []
-        targets = []
-        logits = []
-        for data_dir, input_list, labels in dataloader:
-            run_kwargs["data_dir"] = data_dir
-            result = model.run_session(session, input_list, **run_kwargs)
-            # as the SNPE inference will return a list of outputs which is beyond the model output shape
-            # we need to squeeze the fist dimensions of output to get right accuracy metrics
-            for idx, output in enumerate(result.get("results")):
-                if post_func:
-                    post_output = post_func(output)
-                else:
-                    raise ValueError("Post processing function is required for SNPE model")
-                preds.extend(post_output.tolist())
-                if isinstance(labels[idx], (list, np.ndarray)):
-                    targets.extend(labels[idx])
-                else:
-                    targets.append(labels[idx])
-                # only when return_numpy_results is True, the result is a dict with "logits" key
-                logits.extend(output.get("logits", np.array([])).tolist())
-        return OliveModelOutput(preds=preds, logits=logits), targets
-
-    def _evaluate_accuracy(
-        self,
-        model: "SNPEModelHandler",
-        metric: Metric,
-        dataloader: "DataLoader",
-        post_func=None,
-        device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
-    ) -> MetricResult:
-        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
-        return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
-
-    def _evaluate_raw_latency(
-        self,
-        model: "SNPEModelHandler",
-        metric: Metric,
-        dataloader: "DataLoader",
-        post_func=None,
-        device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
-    ) -> list[float]:
-        dataloader = self._prepare_dataloader(dataloader, model, 1)
-        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
-        session = model.prepare_session(
-            inference_settings=metric.get_inference_settings(Framework.SNPE.lower()), device=device
-        )
-
-        data_dir, input_data, _ = next(iter(dataloader))
-        total_runs = warmup_num + repeat_test_num
-        run_kwargs = metric.get_run_kwargs()
-        run_kwargs["data_dir"] = data_dir
-        run_kwargs["runs"] = total_runs
-        run_kwargs["sleep"] = sleep_num
-
-        results = model.run_session(session, input_data, **run_kwargs)
-        return results["latencies"]["total_inference_time"][warmup_num:]
-
-    def _prepare_dataloader(
-        self, dataloader: Union["DataLoader", FileListDataLoader], model: "SNPEModelHandler", file_chunk_size=None
-    ) -> FileListDataLoader:
-        if isinstance(dataloader, FileListDataLoader):
-            return dataloader
-        return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_chunk_size)
-
-
 @Registry.register(str(Framework.OPENVINO))
 @Registry.register("OpenVINOEvaluator")
 class OpenVINOEvaluator(_OliveEvaluator):
@@ -1061,6 +972,9 @@ class LMEvaluator(OliveEvaluator):
         self.model_class = kwargs.get("model_class")
         self.batch_size = kwargs.get("batch_size", 1)
         self.max_length = kwargs.get("max_length")
+        self.ep = kwargs.get("execution_provider")
+        self.ep_options = kwargs.get("provider_options")
+        self.device = kwargs.get("device")
 
     def evaluate(
         self,
@@ -1069,48 +983,53 @@ class LMEvaluator(OliveEvaluator):
         device: Device = Device.CPU,
         execution_providers: Union[str, list[str]] = None,
     ) -> MetricResult:
-        import lm_eval
+        from lm_eval import simple_evaluate
+        from lm_eval.api.registry import get_model
+        from lm_eval.tasks import TaskManager
+        from lm_eval.utils import setup_logging
+
+        import olive.evaluator.lmeval_ort  # noqa: F401 # pylint: disable=unused-import
+
+        setup_logging("ERROR")
 
         if not self.model_class:
-            if isinstance(model, (HfModelHandler, PyTorchModelHandler)):
+            if isinstance(model, HfModelHandler):
                 self.model_class = "hf"
             elif isinstance(model, ONNXModelHandler):
-                self.model_class = "onnx"
+                self.model_class = "ort"
             else:
                 raise ValueError("Failed to automatically deduce model class. Provide it in user input!")
 
-        pretrained = None
-        tokenizer = None
+        init_args = {}
+        device = _OliveEvaluator.device_string_to_torch_device(self.device or device)
         if self.model_class == "hf":
-            tokenizer = model.get_hf_tokenizer()
-            pretrained = model.load_model().eval().to(device)
-            device = _OliveEvaluator.device_string_to_torch_device(device)
+            init_args = {
+                "pretrained": model.load_model(cache_model=False).eval().to(device),
+                "tokenizer": model.get_hf_tokenizer(),
+                "device": device,
+            }
+        elif self.model_class == "ort":
+            init_args = {
+                "model_path": model.model_path,
+                "ep": self.ep or execution_providers,
+                "ep_options": self.ep_options,
+            }
+        elif self.model_class == "ortgenai":
+            init_args = {
+                "pretrained": str(Path(model.model_path).parent),
+                "ep": self.ep or execution_providers,
+                "ep_options": self.ep_options,
+                "device": device,
+            }
+        else:
+            raise ValueError(f"Unknown model class: {self.model_class}")
 
-        elif self.model_class == "onnx":
-            import onnxruntime_genai as og
+        lmmodel = get_model(self.model_class)(**init_args, batch_size=self.batch_size, max_length=self.max_length)
 
-            import olive.evaluator.lmeval_onnx_model  # noqa: F401 # pylint: disable=unused-import
-
-            model_path = Path(model.model_path)
-            model_path = model_path.parent if model_path.is_file() else model_path
-            pretrained = og.Model(str(model_path))
-            tokenizer = og.Tokenizer(pretrained)
-            device = None
-
-        lmmodel = lm_eval.api.registry.get_model(self.model_class)(
-            pretrained=pretrained,
-            tokenizer=tokenizer,
-            batch_size=self.batch_size,
-            device=device,
-            max_length=self.max_length,
-        )
-
-        task_manager = lm_eval.tasks.TaskManager()
-
-        results = lm_eval.simple_evaluate(
+        results = simple_evaluate(
             model=lmmodel,
             tasks=self.tasks,
-            task_manager=task_manager,
+            task_manager=TaskManager(),
             log_samples=False,
             batch_size=self.batch_size,
             device=device,

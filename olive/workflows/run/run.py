@@ -64,12 +64,6 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
                 host = pass_config.host or run_config.engine.host
                 if (host and host.type == SystemType.Local) or not host:
                     local_packages.extend(get_pass_extras(pass_config.type))
-                if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
-                    logger.info(
-                        "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html to install SNPE"
-                        " prerequisites for pass %s",
-                        pass_config.type,
-                    )
 
     # add dependencies for engine
     host_type = None
@@ -116,14 +110,16 @@ def install_packages(local_packages, ort_packages):
 
 
 def is_execution_provider_required(run_config: RunConfig, package_config: OlivePackageConfig) -> bool:
+    # input model is onnx and we want to evaluate the input model
+    # there are passes that produce onnx models
     return (
-        any(
-            package_config.is_onnx_module(p.type)
-            for passes_configs in run_config.passes.values()
-            for p in passes_configs
-        )
-        if run_config.passes
-        else False
+        run_config.engine.evaluator
+        and run_config.engine.evaluate_input_model
+        and run_config.input_model.type.lower() == "onnxmodel"
+    ) or any(
+        package_config.is_onnx_module(p.type)
+        for passes_configs in (run_config.passes or {}).values()
+        for p in passes_configs
     )
 
 
@@ -152,8 +148,6 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     target_not_used = (
         # no evaluator given (also implies no search)
         engine.evaluator_config is None
-        # not using auto optimizer
-        and used_passes_configs
         # no pass specific evaluator
         # no pass needs to run on target
         and all(

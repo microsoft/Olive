@@ -247,8 +247,7 @@ class ZeroOutInput(ProtoSurgeon):
         self.input_idx = input_idx
 
     def __call__(self, model: ModelProto):
-        from onnx.helper import make_node
-        from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
+        from onnx.helper import make_node, tensor_dtype_to_np_dtype
 
         node = self.get_node_by_name(model, self.node_name)
         if node is None:
@@ -292,7 +291,7 @@ class ZeroOutInput(ProtoSurgeon):
         if target_shape is None or target_type is None:
             raise ValueError(f"Cannot determine shape and type for input '{input_name}'.")
 
-        zero_values = np.zeros(target_shape, dtype=TENSOR_TYPE_TO_NP_TYPE[target_type])
+        zero_values = np.zeros(target_shape, dtype=tensor_dtype_to_np_dtype(target_type))
 
         zero_tensor = make_tensor(
             name=f"{self.node_name}_zero_tensor",
@@ -1215,11 +1214,13 @@ class RemoveRopeMultiCache(ProtoSurgeon):
         first_node_inputs = dag.get_node_inputs(first_node)
 
         # check if the GQA node has cos_cache and sin_cache inputs
-        if dag.get_node_op_type(first_node) == "GroupQueryAttention" and len(first_node_inputs) != 9:
+        # GQA can have 9 inputs (onnxruntime-genai <= 0.9.0) or 11 inputs (onnxruntime-genai > 0.9.0)
+        if dag.get_node_op_type(first_node) == "GroupQueryAttention" and len(first_node_inputs) < 9:
             return dag.model
 
         # check if cos_cache and sin_cache come from an If node
-        cache_names = {"cos_cache": first_node_inputs[-2], "sin_cache": first_node_inputs[-1]}
+        # cos_cache and sin_cache are at positions 7 and 8
+        cache_names = {"cos_cache": first_node_inputs[7], "sin_cache": first_node_inputs[8]}
         for cache_name in cache_names.values():
             if dag.is_input(cache_name) or dag.is_initializer(cache_name):
                 return dag.model

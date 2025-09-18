@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pytest
 import torch
 from onnxscript import ir
+from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.model import HfModelHandler, PyTorchModelHandler
@@ -20,6 +21,11 @@ from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 from olive.passes.pytorch.autogptq import GptqQuantizer
 from olive.passes.pytorch.gptq import Gptq
 from test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
+
+
+def _torch_is_older_than(version_str: str) -> bool:
+    torch_version = version.parse(torch.__version__).release
+    return torch_version < version.parse(version_str).release
 
 
 @pytest.mark.parametrize(
@@ -33,11 +39,7 @@ from test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorc
         (get_pytorch_model(), True, False),
     ],
 )
-def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter, dynamic, tmp_path):
-    if platform.system() == "Windows" and use_dynamo_exporter:
-        # TODO(anyone): Investigate why this test fails on Windows and/or re-enable once torch 2.7 is released
-        pytest.skip("Dynamo export test is skipped on Windows")
-
+def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter: bool, dynamic: bool, tmp_path):
     # setup
     p = create_pass_from_dict(
         OnnxConversion, {"use_dynamo_exporter": use_dynamo_exporter, "dynamic": dynamic}, disable_search=True
@@ -73,7 +75,7 @@ def test_onnx_conversion_pass_quant_model(quantizer_pass, tmp_path):
 
 
 @pytest.mark.skipif(not hasattr(torch.onnx, "ops"), reason="requires torch>=2.8")
-@pytest.mark.skipif(platform.system() == "Windows", reason="torch ops fails on Windows")
+@pytest.mark.skipif(platform.system() == "Windows", reason="FIXME: torch ops fails on Windows")
 @pytest.mark.parametrize("quantizer_pass", [Gptq, GptqQuantizer])
 def test_onnx_conversion_pass_quant_model_with_torch_ops(quantizer_pass, tmp_path):
     if quantizer_pass == GptqQuantizer and not torch.cuda.is_available():

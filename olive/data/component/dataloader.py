@@ -4,11 +4,11 @@
 # --------------------------------------------------------------------------
 
 import logging
-import re
 from typing import Optional, Union
 
 import torch
 
+from olive.common.onnx_io import get_kv_info
 from olive.common.utils import format_data
 from olive.data.registry import Registry
 from olive.logging import get_verbosity
@@ -72,12 +72,20 @@ def default_calibration_dataloader(
             self.io_config = io_config
             self.kwargs = kwargs
             self.data_iter = iter(self.dataloader)
+            self.curr_index = 0
+            self.end_index = 0
+
+        def __len__(self):
+            return len(self.dataloader)
 
         def get_next(self):
+            if self.end_index > 0 and self.curr_index >= self.end_index:
+                return None
             if self.data_iter is None:
                 self.data_iter = iter(self.dataloader)
             try:
                 batch = next(self.data_iter)
+                self.curr_index += 1
             except StopIteration:
                 return None
             if isinstance(batch, (list, tuple)):
@@ -91,6 +99,10 @@ def default_calibration_dataloader(
             else:
                 batch = {k: v.detach().cpu().numpy() for k, v in batch.items()}
             return batch
+
+        def set_range(self, start_index, end_index):
+            self.curr_index = start_index
+            self.end_index = end_index
 
         def rewind(self):
             self.data_iter = None
@@ -116,7 +128,7 @@ class LLMAugmentedDataLoader:
 
         self.position_ids = "position_ids" in self.io_config["input_names"]
         self.past_seq_len = "past_seq_len" in self.io_config["input_names"]
-        self.kv_info = self.get_kv_info(self.io_config)
+        self.kv_info = get_kv_info(self.io_config)
         self.has_gqa = False
         for node in onnx.load(self.model_path, load_external_data=False).graph.node:
             if node.op_type == "GroupQueryAttention":
@@ -245,70 +257,6 @@ class LLMAugmentedDataLoader:
             batch["past_seq_len"] = attention_mask.sum(-1, keepdim=True) - 1
             batch["total_seq_len"] = torch.tensor(attention_mask.shape[-1])
             del batch["attention_mask"]
-
-    @staticmethod
-    def get_kv_info(io_config: dict) -> Optional[dict]:
-        """Return the kv_info dictionary containing information about past keys and values.
-
-        :param io_config: A dictionary containing the input and output names and shapes.
-        :return: A dictionary with keys "past_names", "present_to_past", "num_kv_heads", and "head_size".
-            If no kv_info is found, returns None. Only dynamic shapes are accepted currently.
-        """
-        # assuming batch_size, num_kv_heads, past_seq_len, head_size
-        kv_options = {
-            r"past_key_values.(\d+).key": {
-                "past_key": "past_key_values.%d.key",
-                "past_value": "past_key_values.%d.value",
-                "present_key": "present.%d.key",
-                "present_value": "present.%d.value",
-            },
-            r"past_key_(\d+)": {
-                "past_key": "past_key_%d",
-                "past_value": "past_value_%d",
-                "present_key": "present_key_%d",
-                "present_value": "present_value_%d",
-            },
-        }
-
-        # Find the format of the past keys and values
-        # only accept dynamic shapes for now
-        kv_format = None
-        for idx, i_name in enumerate(io_config["input_names"]):
-            for pattern in kv_options:
-                if re.match(pattern, i_name) and not isinstance(io_config["input_shapes"][idx][2], int):
-                    kv_format = pattern
-                    break
-            if kv_format:
-                break
-
-        if kv_format is None:
-            return None
-
-        # find the number of layers
-        num_layers = 0
-        for i_name in io_config["input_names"]:
-            num_layers += int(re.match(kv_format, i_name) is not None)
-        logger.debug("Found %d layers with past keys/values", num_layers)
-
-        past_names = []
-        present_to_past = {}
-        for k in ["key", "value"]:
-            past_names.extend([kv_options[kv_format][f"past_{k}"] % i for i in range(num_layers)])
-            present_to_past.update(
-                {
-                    kv_options[kv_format][f"present_{k}"] % i: kv_options[kv_format][f"past_{k}"] % i
-                    for i in range(num_layers)
-                }
-            )
-
-        past_shape = io_config["input_shapes"][io_config["input_names"].index(past_names[0])]
-
-        return {
-            "past_names": past_names,
-            "present_to_past": present_to_past,
-            "num_kv_heads": past_shape[1],
-            "head_size": past_shape[3],
-        }
 
     @staticmethod
     def get_empty_kv_cache(batch_size: int, kv_info: dict, has_gqa: bool):

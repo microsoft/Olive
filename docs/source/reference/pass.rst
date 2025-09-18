@@ -146,18 +146,6 @@ IncQuantization
 ---------------
 .. autoconfigclass:: olive.passes.IncQuantization
 
-.. _vitis_ai_quantization:
-
-VitisAIQuantization
--------------------
-.. autoconfigclass:: olive.passes.VitisAIQuantization
-
-.. _append_pre_post_processing:
-
-AppendPrePostProcessingOps
---------------------------
-.. autoconfigclass:: olive.passes.AppendPrePostProcessingOps
-
 .. _extract_adapters:
 
 ExtractAdapters
@@ -264,12 +252,6 @@ LoRA/QLoRA/LoftQ HFTrainingArguments
 
 .. autopydantic_settings:: olive.passes.pytorch.lora.HFTrainingArguments
 
-.. _quantization_aware_training:
-
-QuantizationAwareTraining
--------------------------
-.. autoconfigclass:: olive.passes.QuantizationAwareTraining
-
 .. _merge_adapter_weights:
 
 MergeAdapterWeights
@@ -362,27 +344,6 @@ OpenVINOEncapsulation
 OpenVINOOptimumConversion
 -------------------------
 .. autoconfigclass:: olive.passes.OpenVINOOptimumConversion
-
-SNPE
-=================================
-
-.. _snpe_conversion:
-
-SNPEConversion
---------------
-.. autoconfigclass:: olive.passes.SNPEConversion
-
-.. _snpe_quantization:
-
-SNPEQuantization
-----------------
-.. autoconfigclass:: olive.passes.SNPEQuantization
-
-.. _snpe_to_onnx_conversion:
-
-SNPEtoONNXConversion
---------------------
-.. autoconfigclass:: olive.passes.SNPEtoONNXConversion
 
 QNN
 =================================

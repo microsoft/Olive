@@ -2063,125 +2063,6 @@ Transformed pattern:
 ```
 
 
-## Append Pre/Post Processing Ops
-
-`AppendPrePostProcessingOps` inserts pre and post processing ops into the ONNX graph.
-
-### Example Configuration
-
-```json
-{
-    "type": "AppendPrePostProcessingOps",
-    "tool_command": "superresolution",
-    "tool_command_args": {
-        "output_format": "png"
-    }
-}
-```
-
-`AppendPrePostProcessingOps` also supports pre/post processing ops by leveraging the [onnxruntime-extension steps](https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps) and `PrePostProcessor`.
-You can refer to [here](https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/Example%20usage%20of%20the%20PrePostProcessor.md) to see how to leverage `PrePostProcessor` to customize pre and post processing ops.
-
-* Olive introduces two placeholders to represent the model input/output shape dimension value: `__model_input__` and `__model_output__`.
-* To support the IoMapEntry, the step need choose use the full form. For example:
-
-```json
-    "YCbCrToPixels": {
-        "params": {
-            "layout": "BGR",
-        },
-        "io_map": [
-            ["Y1_uint8", 0, 0],
-            ["Cb1_uint8", 0, 1],
-            ["Cr1_uint8", 0, 2],
-        ],
-    }
-```
-
-* The `tool_command_args` will be used to describe the input parameters to create the `PrePostProcessor` instance. It is list of `PrePostProcessorInput`.
-  The `name` is the tensor name. The `data_type` and `shape` will be used to create the tensor type. The `shape` can be a list of integers or a list of string.
-
-Users that write their own pre/post processing steps need to have the knowledge about whether the step includes the operators that is built-in support or supported in onnxruntime-extensions.
-For example, for some ops like `ConvertImageToBGR` which requires other extensions may be incompatible with ort-web, user need to exclude this kind of ops to generate proper models.
-
-Here are some examples to describe the pre/post processing which is exactly same with [superresolution](https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/add_pre_post_processing_to_model.py#L89)
-
-```json
-{
-    "pre": [
-        {"ConvertImageToBGR": {}},
-        {
-            "Resize": {
-                "resize_to": [
-                    {"type": "__model_input__", "input_index": 0, "dim_index": -2},
-                    {"type": "__model_input__", "input_index": 0, "dim_index": -1},
-                ]
-            }
-        },
-        {
-            "CenterCrop": {
-                "height": {"type": "__model_input__", "input_index": 0, "dim_index": -2},
-                "width": {"type": "__model_input__", "input_index": 0, "dim_index": -1},
-            }
-        },
-        {"PixelsToYCbCr": {"layout": "BGR"}},
-        {"ImageBytesToFloat": {}},
-        {"Unsqueeze": {"axes": [0, 1]}},
-    ],
-    "post": [
-        {"Squeeze": {"axes": [0, 1]}},
-        {"FloatToImageBytes": {"name": "Y1_uint8"}},
-        {
-            "Resize": {
-                "params": {
-                    "resize_to": [
-                        {"type": "__model_output__", "output_index": 0, "dim_index": -2},
-                        {"type": "__model_output__", "output_index": 0, "dim_index": -1},
-                    ],
-                    "layout": "HW",
-                },
-                "io_map": [["PixelsToYCbCr", 1, 0]],
-            }
-        },
-        {"FloatToImageBytes": {"multiplier": 1.0, "name": "Cb1_uint8"}},
-        {
-            "Resize": {
-                "params": {
-                    "resize_to": [
-                        {"type": "__model_output__", "output_index": 0, "dim_index": -2},
-                        {"type": "__model_output__", "output_index": 0, "dim_index": -1},
-                    ],
-                    "layout": "HW",
-                },
-                "io_map": [["PixelsToYCbCr", 2, 0]],
-            }
-        },
-        {"FloatToImageBytes": {"multiplier": 1.0, "name": "Cr1_uint8"}},
-        {
-            "YCbCrToPixels": {
-                "params": {
-                    "layout": "BGR",
-                },
-                "io_map": [
-                    ["Y1_uint8", 0, 0],
-                    ["Cb1_uint8", 0, 1],
-                    ["Cr1_uint8", 0, 2],
-                ],
-            }
-        },
-        {"ConvertBGRToImage": {"image_format": "png"}},
-    ],
-    "tool_command_args": [
-        {
-            "name": "image",
-            "data_type": "uint8",
-            "shape": ["num_bytes"],
-        }
-    ],
-    "target_opset": 16,
-}
-```
-
 ## ORT Performance Tuning
 
 ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
@@ -2214,7 +2095,7 @@ improve performance.
 }
 ```
 
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
+Check out [this file](https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/user_script.py)
 for an example implementation of `"user_script.py"` and `"calib_data_config/dataloader_config/type"`.
 
 [1]: <https://onnxruntime.ai/docs/performance/quantization.html> "ONNX Runtime Quantization"

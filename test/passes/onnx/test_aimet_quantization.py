@@ -4,6 +4,8 @@
 # --------------------------------------------------------------------------
 import json
 import platform
+from collections.abc import Iterable
+from unittest.mock import patch
 
 import numpy as np
 import onnx
@@ -19,7 +21,6 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.aimet_quantization import AimetQuantization
-from test.utils import get_pytorch_model_dummy_input
 
 IS_LINUX = platform.system() == OS.LINUX
 CUDA_AVAILABLE = torch.cuda.is_available()
@@ -27,15 +28,17 @@ CUDA_AVAILABLE = torch.cuda.is_available()
 
 class DummyCalibrationDataReader(CalibrationDataReader):
     # pylint: disable=W0223
-    def __init__(self, batch_size: int = 16):
+    def __init__(self, batch_size: int = 16, input_shape=1):
         super().__init__()
+        self.batch_size = batch_size
+        self.input_shape = input_shape
         self.sample_counter = 500
 
     def get_next(self) -> dict:
         if self.sample_counter <= 0:
             return None
 
-        data = get_pytorch_model_dummy_input()
+        data = torch.randn(1, self.input_shape)
         try:
             item = {"input": data}
             self.sample_counter -= 1
@@ -49,12 +52,36 @@ def _test_quant_dataloader(dataset, batch_size, **kwargs):
     return DummyCalibrationDataReader(batch_size=batch_size)
 
 
+@Registry.register_dataloader()
+def _test_quant_dataloader_len_16(dataset, batch_size, **kwargs):
+    return DummyCalibrationDataReader(batch_size=batch_size, input_shape=16)
+
+
 def dummy_onnx_model(model_path):
     matmul_node = onnx.helper.make_node("MatMul", inputs=["input", "weight"], outputs=["matmul_out"], name="matmul")
     softmax_node = onnx.helper.make_node("Softmax", inputs=["matmul_out"], outputs=["output"], name="softmax")
     weight = onnx.numpy_helper.from_array(np.random.randn(1, 1).astype(np.float32), name="weight")
     input_tensor = onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, [1, 1])
     output_tensor = onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, 1])
+    graph = onnx.helper.make_graph(
+        [matmul_node, softmax_node],
+        "dummy_graph",
+        initializer=[weight],
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+    model = onnx.helper.make_model(graph, ir_version=10, opset_imports=[onnx.helper.make_operatorsetid("", 22)])
+    onnx.checker.check_model(model)
+    onnx.save(model, model_path)
+    return ONNXModelHandler(model_path)
+
+
+def dummy_onnx_matmul_model(model_path):
+    matmul_node = onnx.helper.make_node("MatMul", inputs=["input", "weight"], outputs=["matmul_out"], name="matmul")
+    softmax_node = onnx.helper.make_node("Softmax", inputs=["matmul_out"], outputs=["output"], name="softmax")
+    weight = onnx.numpy_helper.from_array(np.random.randn(16, 16).astype(np.float32), name="weight")
+    input_tensor = onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, [1, 16])
+    output_tensor = onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, 16])
     graph = onnx.helper.make_graph(
         [matmul_node, softmax_node],
         "dummy_graph",
@@ -194,6 +221,99 @@ def test_aimet_quantization_adheres_to_custom_config(tmp_path):
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
 @pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+def test_aimet_quantization_applies_lpbq(tmp_path):
+    block_size = 4
+    input_model = dummy_onnx_matmul_model(tmp_path / "dummy_model_mm.onnx")
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
+        ),
+        "precision": "int8",
+        "activation_type": "uint8",
+        "quant_scheme": "min_max",
+        "techniques": [{"name": "lpbq", "block_size": block_size, "op_types": ("MatMul",)}],
+    }
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+
+    out = p.run(input_model, tmp_path)
+
+    assert out is not None
+
+    model = onnx.load(out.model_path)
+
+    tensor_to_quantizer = {node.input[0]: node for node in model.graph.node if node.op_type in ("QuantizeLinear",)}
+    for name, quantizer in tensor_to_quantizer.items():
+        block_size_attr = [attr for attr in quantizer.attribute if attr.name == "block_size"]
+        if name == "weight":
+            # MatMul weight quantizer should be blockwise
+            assert len(block_size_attr) == 1
+            assert block_size_attr[0].i == block_size
+        else:
+            # All other quantizers should not be blockwise
+            assert not block_size_attr
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+def test_aimet_quantization_applies_adaround(tmp_path):
+    input_model = dummy_onnx_matmul_model(tmp_path / "dummy_model_mm.onnx")
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
+        ),
+        "techniques": [{"name": "adaround", "num_iterations": 5}],
+    }
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+
+    with patch("aimet_onnx.apply_adaround") as mock_seq_mse:
+        out = p.run(input_model, tmp_path)
+        assert mock_seq_mse.call_count == 1
+
+        (_, data, num_iterations, nodes_to_include), _ = mock_seq_mse.call_args
+        assert isinstance(data, Iterable)
+        assert num_iterations == 5
+        assert nodes_to_include is None
+
+    assert out is not None
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+def test_aimet_quantization_excludes_adaround_nodes(tmp_path):
+    input_model = dummy_onnx_matmul_model(tmp_path / "dummy_model_mm.onnx")
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
+        ),
+        "techniques": [
+            {
+                "name": "adaround",
+                "nodes_to_exclude": ["matmul"],
+                "data_config": DataConfig(
+                    name="test_quant_dc_config",
+                    load_dataset_config=DataComponentConfig(type="simple_dataset"),
+                    dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
+                ),
+            }
+        ],
+    }
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+
+    with patch("aimet_onnx.apply_adaround") as mock_seq_mse:
+        p.run(input_model, tmp_path)
+        assert mock_seq_mse.call_count == 1
+        (_, _, _, nodes_to_include), _ = mock_seq_mse.call_args
+        assert not nodes_to_include
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 @pytest.mark.parametrize(
     ("op_types", "disabled_quantizers"),
     [
@@ -236,7 +356,7 @@ def test_aimet_quantization_excludes_op_types(tmp_path, op_types, disabled_quant
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
 @pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
-def test_aimet_quantization_raises_error_with_prequantized_model(tmp_path):
+def test_aimet_quantization_preserves_quantization_in_prequantized_model(tmp_path):
     input_model = dummy_quantized_onnx_model(tmp_path / "dummy_model.onnx")
     config = {
         "data_config": DataConfig(
@@ -249,8 +369,19 @@ def test_aimet_quantization_raises_error_with_prequantized_model(tmp_path):
     }
     p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
 
-    with pytest.raises(NotImplementedError):
-        p.run(input_model, tmp_path)
+    out = p.run(input_model, tmp_path)
+
+    model = onnx.load(out.model_path)
+
+    tensor_to_quantizer = {
+        node.input[0]: node for node in model.graph.node if node.op_type in ("QuantizeLinear", "DequantizeLinear")
+    }
+
+    weight_quantizer = tensor_to_quantizer["weight_dq"]
+    weight_scale = [t for t in model.graph.initializer if t.name == weight_quantizer.input[1]]
+    weight_scale = onnx.numpy_helper.to_array(weight_scale[0])
+    assert weight_scale == np.array(0.1).astype(np.float32)
+    assert "input" in tensor_to_quantizer
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
@@ -261,6 +392,9 @@ def test_aimet_quantization_raises_error_with_prequantized_model(tmp_path):
         {"precision": Precision.UINT8, "activation_type": Precision.UINT8},
         {"precision": Precision.INT8, "activation_type": Precision.INT8},
         {"precision": Precision.INT8, "activation_type": Precision.INT4},
+        {"techniques": [{"name": "lpbq", "unsupported_arg": 0}]},
+        {"techniques": [{"block_size": 64}]},
+        {"techniques": [{"name": "unsupported"}]},
     ],
 )
 def test_validate_config_returns_false_for_unsupported_configurations(pass_config):

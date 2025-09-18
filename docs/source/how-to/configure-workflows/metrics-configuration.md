@@ -80,7 +80,7 @@ def eval_accuracy(model, device, execution_providers):
 ```
 
 ```{Note}
-Please refer to [this `user_script.py`](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py) for a detailed example of how to set up a custom metric.
+Please refer to [this `user_script.py`](https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/user_script.py) for a detailed example of how to set up a custom metric.
 ```
 
 
