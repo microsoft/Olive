@@ -52,7 +52,7 @@ class ModelBuilder(Pass):
         ExecutionProvider.DmlExecutionProvider: "dml",
         ExecutionProvider.WebGpuExecutionProvider: "webgpu",
         ExecutionProvider.JsExecutionProvider: "web",
-        ExecutionProvider.NvTensorRTRTXExecutionProvider: "NvTensorRtRtx",
+        ExecutionProvider.NvTensorRTRTXExecutionProvider: "trt-rtx",
     }
 
     @classmethod
