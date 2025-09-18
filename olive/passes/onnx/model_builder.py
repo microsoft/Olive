@@ -23,6 +23,7 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pass_config import BasePassConfig
+from olive.search.search_parameter import Boolean, Categorical
 
 logger = logging.getLogger(__name__)
 
@@ -81,11 +82,16 @@ class ModelBuilder(Pass):
             "int4_block_size": PassConfigParam(
                 type_=ModelBuilder.BlockSize,
                 required=False,
+                search_defaults=Categorical([
+                    ModelBuilder.BlockSize.B32,
+                    ModelBuilder.BlockSize.B64,
+                    ModelBuilder.BlockSize.B128]),
                 description="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
             ),
             "int4_is_symmetric": PassConfigParam(
                 type_=bool,
                 required=False,
+                search_defaults=Boolean(),
                 description="Specify whether symmetric or asymmetric INT4 quantization needs to be used.",
             ),
             "int4_op_types_to_quantize": PassConfigParam(
@@ -104,6 +110,12 @@ class ModelBuilder(Pass):
             "int4_algo_config": PassConfigParam(
                 type_=str,
                 required=False,
+                search_defaults=Categorical([
+                    "default",
+                    "rtn",
+                    "k_quant_mixed",
+                    "k_quant_last",
+                ]),
                 description="Specify the INT4 quantization algorithm to use in GenAI Model Builder",
             ),
             "use_qdq": PassConfigParam(

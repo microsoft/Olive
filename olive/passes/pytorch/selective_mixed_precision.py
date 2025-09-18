@@ -12,6 +12,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.search.search_parameter import Boolean, Categorical
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,11 @@ class SelectiveMixedPrecision(Pass):
         return {
             "algorithm": PassConfigParam(
                 type_=SelectiveMixedPrecision.Algorithm,
-                required=True,
+                required=False,
+                search_defaults=Categorical([
+                    SelectiveMixedPrecision.Algorithm.K_QUANT_DOWN,
+                    SelectiveMixedPrecision.Algorithm.K_QUANT_MIXED,
+                    SelectiveMixedPrecision.Algorithm.K_QUANT_LAST]),
                 description="The algorithm to use for mixed precision.",
             )
         }
