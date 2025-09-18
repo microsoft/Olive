@@ -115,7 +115,7 @@ def test_run_packages():
     }
 
     # execute
-    olive_run(config, packages=True)
+    olive_run(config, list_required_packages=True)
     requirements_file_path = Path("olive_requirements.txt")
 
     # assert

@@ -5,8 +5,6 @@
 import json
 import platform
 import shutil
-import sys
-import venv
 from pathlib import Path
 
 import pytest
@@ -15,14 +13,6 @@ from olive.common.constants import OS
 from olive.common.utils import run_subprocess
 
 # pylint: disable=redefined-outer-name
-
-
-class DependencySetupEnvBuilder(venv.EnvBuilder):
-    def post_setup(self, context) -> None:
-        super().post_setup(context)
-        # Install Olive only
-        olive_root = str(Path(__file__).parents[2].resolve())
-        run_subprocess([context.env_exe, "-Im", "pip", "install", olive_root], check=True)
 
 
 @pytest.fixture
@@ -43,30 +33,29 @@ def config_json(tmp_path):
     return str(config_json_file)
 
 
-@pytest.mark.skip(reason="onnxruntime is locked because lazy loading is failing with CLI run")
 def test_dependency_setup(tmp_path, config_json):
-    builder = DependencySetupEnvBuilder(with_pip=True)
-    builder.create(str(tmp_path))
-
-    if platform.system() == OS.WINDOWS:
-        ort_extra = "onnxruntime-directml"
-    else:
-        ort_extra = "onnxruntime-gpu"
-
-    user_script_config_file = config_json
     cmd = [
         "olive",
         "run",
         "--config",
-        str(user_script_config_file),
-        "--setup",
+        str(config_json),
+        "--list_required_packages",
     ]
 
-    return_code, _, stderr = run_subprocess(cmd, check=True)
+    return_code, _, stderr = run_subprocess(cmd, check=False)
     if return_code != 0:
         pytest.fail(stderr)
 
-    _, outputs, _ = run_subprocess([sys.executable, "-Im", "pip", "list"], check=True)
-    assert ort_extra in outputs
-    assert "psutil" in outputs
+    output_filepath = Path("olive_requirements.txt")
+    assert output_filepath.exists()
+
+    required_packages = []
+    with output_filepath.open() as strm:
+        required_packages = [_.strip() for _ in strm.readlines()]
+
+    ort_extra = "onnxruntime-directml" if platform.system() == OS.WINDOWS else "onnxruntime-gpu"
+
+    assert ort_extra in required_packages
+    assert "psutil" in required_packages
+    output_filepath.unlink()
     shutil.rmtree(tmp_path, ignore_errors=True)
