@@ -91,9 +91,6 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
                 model = PeftModel.from_pretrained(model, self.adapter_path)
 
         self.model = model if cache_model else None
-
-        logger.error(self.model)
-
         return model
 
     @property

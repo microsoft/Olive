@@ -67,7 +67,7 @@ def load_model_from_task(
         class_tuple = (getattr(module, custom_task_class_name),)
     else:
         class_tuple = targeted_task["pt"] or (AutoModel,)
-    print("class_tuple", class_tuple)
+
     model = None
     for i, model_class in enumerate(class_tuple):
         try:
