@@ -12,7 +12,7 @@ evaluate
 marshmallow
 ml_dtypes
 mlflow>=2.4.0, <2.20.0
-neural-compressor<2.4
+neural-compressor
 nncf>=2.16.0
 numpy<2.0.0
 nvidia-modelopt
