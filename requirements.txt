@@ -2,8 +2,11 @@ numpy
 onnx
 onnx_ir>=0.1.2
 onnxscript>=0.3.0
+opentelemetry-exporter-otlp-proto-http>=1.36.0
+opentelemetry-sdk>=1.36.0
 optuna
 pandas
+py-deviceid>=0.1.1
 pydantic
 pyyaml
 torch
