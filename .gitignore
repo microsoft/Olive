@@ -7,8 +7,6 @@ cache/
 olive_tmp_*/
 /olive-venv
 augmented_model.onnx
-examples/**/data
-examples/**/model
 test/**/data
 nc_workspace/
 run_cache/
