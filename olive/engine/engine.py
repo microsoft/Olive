@@ -447,6 +447,7 @@ class Engine:
         for sample in self.search_strategy:  # pylint: disable=not-an-iterable
             self._compute_search_pass_configs(accelerator_spec, sample)
 
+            should_prune, signal, model_ids = True, None, []
             if self.computed_passes_configs:
                 # get the model id of the first input model
                 model_id = sample.model_ids[0]
@@ -456,10 +457,16 @@ class Engine:
                     "Step %d with search point %s ...", self.search_strategy.iteration_count, sample.search_point
                 )
 
-                # run all the passes in the step
-                should_prune, signal, model_ids = self._run_passes(model_config, model_id, accelerator_spec)
-            else:
-                should_prune, signal, model_ids = True, None, []
+                try:
+                    # run all the passes in the step
+                    should_prune, signal, model_ids = self._run_passes(model_config, model_id, accelerator_spec)
+                except Exception:
+                    logger.warning(
+                        "Step %d search point %s ... FAILED.",
+                        self.search_strategy.iteration_count,
+                        sample.search_point,
+                        exc_info=True,
+                    )
 
             # record feedback signal
             self.search_strategy.record_feedback_signal(sample.search_point.index, signal, model_ids, should_prune)

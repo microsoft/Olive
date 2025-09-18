@@ -558,10 +558,6 @@ class TestEngine:
                     "cache_dir": tmpdir,
                     "clean_cache": True,
                 },
-                "search_strategy": {
-                    "execution_order": "joint",
-                    "sampler": "random",
-                },
                 "evaluator": evaluator_config,
             }
             engine = Engine(**options)

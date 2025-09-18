@@ -46,6 +46,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         if input_model_config := get_input_model_config(self.args, required=False):
             print("Replacing input model config in run config")
             run_config["input_model"] = input_model_config
+
         for arg_key, rc_key in [("output_path", "output_dir"), ("log_level", "log_severity_level")]:
             if (arg_value := getattr(self.args, arg_key)) is not None:
                 print(f"Replacing {rc_key} in run config with {arg_value}")
@@ -54,10 +55,19 @@ class WorkflowRunCommand(BaseOliveCLICommand):
                 # add value to run config directly
                 run_config[rc_key] = arg_value
 
-        olive_run(
+        workflow_output = olive_run(
             run_config,
             setup=self.args.setup,
             packages=self.args.packages,
             tempdir=self.args.tempdir,
             package_config=self.args.package_config,
         )
+
+        if self.args.setup is True:
+            print("Setup completed!")
+        elif workflow_output.has_output_model():
+            print(f"Model is saved at {self.args.output_path}")
+        else:
+            print("No output model produced. Please check the log for details.")
+
+        return workflow_output
