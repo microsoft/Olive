@@ -88,19 +88,16 @@ def test_unknown_args():
     assert "-u" in error_message
 
 
-@pytest.mark.parametrize("packages", [True, False])
-@pytest.mark.parametrize("setup", [True, False])
+@pytest.mark.parametrize("list_required_packages", [True, False])
 @pytest.mark.parametrize("tempdir", [None, "tempdir"])
 @patch("olive.workflows.run")
-def test_workflow_run_command(mock_run, tempdir, setup, packages, tmp_path):
+def test_workflow_run_command(mock_run, tempdir, list_required_packages, tmp_path):
     # setup
     config_path = tmp_path / "config.json"
     config_path.write_text(json.dumps({"key": "value"}))  # Create a dummy config file
     command_args = ["run", "--run-config", str(config_path)]
-    if packages:
-        command_args.append("--packages")
-    if setup:
-        command_args.append("--setup")
+    if list_required_packages:
+        command_args.append("--list_required_packages")
     if tempdir is not None:
         command_args.extend(["--tempdir", tempdir])
 
@@ -109,7 +106,7 @@ def test_workflow_run_command(mock_run, tempdir, setup, packages, tmp_path):
 
     # assert
     mock_run.assert_called_once_with(
-        {"key": "value"}, setup=setup, package_config=None, tempdir=tempdir, packages=packages
+        {"key": "value"}, package_config=None, tempdir=tempdir, list_required_packages=list_required_packages
     )
 
 
@@ -146,10 +143,9 @@ def test_workflow_run_command_with_overrides(mock_run, tmp_path):
             "output_dir": str(Path("new_output_path").resolve()),
             "log_severity_level": 2,
         },
-        setup=False,
+        list_required_packages=False,
         package_config=None,
         tempdir=None,
-        packages=False,
     )
 
 

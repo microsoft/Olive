@@ -20,7 +20,6 @@ def runner_entry(config):
         config = json.load(f)
 
     logger.info("Running workflow with config: %s", config)
-    olive_run(config, setup=True)
     olive_run(config)
 
 

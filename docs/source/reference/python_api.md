@@ -8,10 +8,9 @@ This is the most generic way to run an Olive workflow from a configuration file.
 
 **Arguments:**
 - `run_config` (str, Path, or dict): Path to config file or config dictionary.
-- `setup` (bool): Setup environment needed to run the workflow. Defaults to `False`.
+- `list_required_packages` (bool): List packages required to run a workflow. Defaults to `False`.
 - `package_config` (str, Path, dict, optional): Path to optional package config file.
 - `tempdir` (str or Path, optional): Root directory for tempfile directories and files.
-- `packages` (bool): List packages required to run the workflow. Defaults to `False`.
 
 ```python
 from olive import run

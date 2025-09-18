@@ -12,8 +12,9 @@ class WorkflowRunCommand(BaseOliveCLICommand):
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser("run", help="Run an olive workflow")
         sub_parser.add_argument("--run-config", "--config", type=str, help="Path to json config file", required=True)
-        sub_parser.add_argument("--setup", help="Setup environment needed to run the workflow", action="store_true")
-        sub_parser.add_argument("--packages", help="List packages required to run the workflow", action="store_true")
+        sub_parser.add_argument(
+            "--list_required_packages", help="List packages required to run the workflow", action="store_true"
+        )
         sub_parser.add_argument(
             "--tempdir", type=str, help="Root directory for tempfile directories and files", required=False
         )
@@ -57,14 +58,13 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
         workflow_output = olive_run(
             run_config,
-            setup=self.args.setup,
-            packages=self.args.packages,
+            list_required_packages=self.args.list_required_packages,
             tempdir=self.args.tempdir,
             package_config=self.args.package_config,
         )
 
-        if self.args.setup is True:
-            print("Setup completed!")
+        if self.args.list_required_packages is True:
+            print("Required packages listed!")
         elif workflow_output.has_output_model():
             print(f"Model is saved at {self.args.output_path}")
         else:

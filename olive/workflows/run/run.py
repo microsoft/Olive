@@ -2,10 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import importlib.metadata
 import logging
-import subprocess
-import sys
 from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
@@ -24,9 +21,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_required_packages(package_config: OlivePackageConfig, run_config: RunConfig):
-    extras = deepcopy(package_config.extra_dependencies)
-
+def get_required_packages(package_config: OlivePackageConfig, run_config: RunConfig) -> set[str]:
     def get_system_extras(host_type, accelerators, execution_providers):
         extra_name = None
         if host_type is None:
@@ -53,17 +48,17 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
             extra_results.extend(package_config.extra_dependencies.get(extra_name, []))
         return extra_results
 
+    extras = deepcopy(package_config.extra_dependencies)
     ort_packages = extras.get("ort", [])
 
-    local_packages = []
-
     # add dependencies for passes
+    required_packages = []
     if run_config.passes:
         for passes_configs in run_config.passes.values():
             for pass_config in passes_configs:
                 host = pass_config.host or run_config.engine.host
                 if (host and host.type == SystemType.Local) or not host:
-                    local_packages.extend(get_pass_extras(pass_config.type))
+                    required_packages.extend(get_pass_extras(pass_config.type))
 
     # add dependencies for engine
     host_type = None
@@ -79,34 +74,10 @@ def get_required_packages(package_config: OlivePackageConfig, run_config: RunCon
 
     system_extra_name = get_system_extras(host_type, accelerators, execution_providers)
     if system_extra_name:
-        local_packages.extend(extras.get(system_extra_name))
-    logger.info("The following packages are required in the local environment: %s", local_packages)
-    return local_packages, ort_packages
+        required_packages.extend(extras.get(system_extra_name))
 
-
-def install_packages(local_packages, ort_packages):
-    logger.info("installing packages: %s", local_packages)
-    packages_install = []
-    for package in set(local_packages):
-        if package in ort_packages:
-            package_to_install = check_local_ort_installation(package)
-            if package_to_install:
-                packages_install.append(package_to_install)
-        else:
-            try:
-                # use importlib.metadata to check if package is installed
-                # better than __import__ since the package name can be different from the import name
-                importlib.metadata.distribution(package)
-                logger.info("%s is already installed.", package)
-            except importlib.metadata.PackageNotFoundError:
-                packages_install.append(package)
-
-    if packages_install:
-        # Install all packages once time
-        cmd = [sys.executable, "-m", "pip", "install", *packages_install]
-        logger.info("Running: %s", " ".join(cmd))
-        subprocess.check_call(cmd)
-        logger.info("Successfully installed %s.", packages_install)
+    logger.info("The following packages are required in the local environment: %s", required_packages)
+    return set.union(set(required_packages), set(ort_packages))
 
 
 def is_execution_provider_required(run_config: RunConfig, package_config: OlivePackageConfig) -> bool:
@@ -178,10 +149,9 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
 
 def run(
     run_config: Union[str, Path, dict],
-    setup: bool = False,
+    list_required_packages: bool = False,
     package_config: Optional[Union[str, Path, dict]] = None,
     tempdir: Optional[Union[str, Path]] = None,
-    packages: bool = False,
 ):
     # set tempdir
     set_tempdir(tempdir)
@@ -192,15 +162,11 @@ def run(
     package_config = OlivePackageConfig.parse_file_or_obj(package_config)
     run_config: RunConfig = RunConfig.parse_file_or_obj(run_config)
 
-    if packages or setup:
+    if list_required_packages:
         # set the log level to INFO for packages
         set_verbosity_info()
-        local_packages, ort_packages = get_required_packages(package_config, run_config)
-
-        if packages:
-            generate_files_from_packages(local_packages, "olive_requirements.txt")
-        if setup:
-            install_packages(local_packages, ort_packages)
+        required_packages = get_required_packages(package_config, run_config)
+        generate_files_from_packages(required_packages, "olive_requirements.txt")
         return None
 
     if run_config.engine.host and run_config.engine.host.type == SystemType.Docker:
@@ -220,49 +186,6 @@ def generate_files_from_packages(packages, file_name):
         with file_path.open("w") as f:
             f.write("\n".join(packages))
         logger.info("Requirements file %s is generated.", file_name)
-
-
-def check_local_ort_installation(package_name: str):
-    """Check whether ORT is installed. If not, will return current package name to install."""
-    local_ort_packages = get_local_ort_packages()
-
-    if not local_ort_packages:
-        return package_name
-
-    if len(local_ort_packages) == 1 and local_ort_packages[0] == package_name:
-        # only if one ort package is installed and it is the one we want
-        logger.info("%s is already installed.", local_ort_packages[0])
-        return None
-
-    # instruction to user
-    messages = [
-        "There are one or more onnxruntime packages installed in your environment!",
-        "The setup process is stopped to avoid potential conflicts. Please run the following commands manually:",
-    ]
-    uninstall_command = f"{sys.executable} -m pip uninstall -y " + " ".join(local_ort_packages)
-    messages.append(f"Uninstall all existing onnxruntime packages: '{uninstall_command}'")
-    messages.append(f"Install {package_name}: '{sys.executable} -m pip install {package_name}'")
-    messages.append(
-        "You can also instead install the corresponding nightly version following the instructions at"
-        " https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages"
-    )
-    logger.warning("\n".join(messages))
-    return None
-
-
-def get_local_ort_packages() -> list[str]:
-    all_packages = importlib.metadata.distributions()
-    local_ort_packages = []
-    for package in all_packages:
-        package_name = package.metadata["Name"]
-        if package_name == "onnxruntime_extensions" or package_name.startswith("onnxruntime-genai"):
-            # onnxruntime-packages is under onnxruntime_extensions namespace
-            # onnxruntime-genai is under onnxruntime_genai namespace
-            # not onnxruntime packages
-            continue
-        if package_name.startswith("onnxruntime"):
-            local_ort_packages.append(package_name)
-    return local_ort_packages
 
 
 def get_used_passes_configs(run_config: RunConfig) -> list["RunPassConfig"]:
