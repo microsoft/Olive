@@ -34,13 +34,13 @@ if sys.version_info >= (3, 11):
         pass
 
 else:
-    from enum import Enum
+    from enum import Enum, IntEnum
 
     class StrEnumBase(str, Enum):
         def __str__(self) -> str:
             return self.value
 
-    class IntEnumBase(int, Enum):
+    class IntEnumBase(IntEnum):
         pass
 
 
