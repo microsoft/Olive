@@ -154,7 +154,7 @@ Model compilation using QNN Execution Provider requires a Python environment wit
 ```bash
 # Install ONNX Runtime QNN
 pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
-pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple onnxruntime-qnn --no-deps
+pip install --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple "onnxruntime-qnn==1.22.2" --no-deps
 ```
 
 Replace `/path/to/qnn/env/bin` in [qnn_config.json](qnn_config.json) with the path to the directory containing your QNN environment's Python executable. This path can be found by running the following command in the environment:
@@ -202,9 +202,7 @@ The optimized model can be used for inference using ONNX Runtime QNNExecutionPro
 Open ARM64 Native Tools Command Prompt for VS2022 and run the following commands:
 
 ```bash
-pip install -r https://raw.githubusercontent.com/microsoft/onnxruntime/refs/heads/main/requirements.txt
-pip install -U --pre --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple onnxruntime-qnn --no-deps
-pip install "onnxruntime-genai>=0.7.0"
+pip install "onnxruntime-qnn>=1.22.2" "onnxruntime-genai>=0.7.0"
 ```
 
 #### **Run Console-Based Chat Interface**
