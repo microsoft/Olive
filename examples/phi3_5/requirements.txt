@@ -1,2 +1,4 @@
 datasets
 optimum
+# newer transformers might have incompatibility with gptq passes
+transformers==4.53.2
