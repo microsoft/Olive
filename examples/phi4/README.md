@@ -17,3 +17,8 @@ This repository demonstrates the optimization of the following models using **po
 ## **Optimization and Quantization for AMD NPU**
 
 - [**AMD NPU**](./vitisai/): Instructions to run quantization and optimization for AMD NPU are in the in the [vitisai](./vitisai/) folder.
+
+## **Optimization and Quantization for Qualcomm NPU**
+
+- [**QUALCOMM NPU**](../phi3_5/README.md): Instructions to run quantization and optimization for QUALCOMM NPU are in [this folder](../phi3_5/README.md).
+  - Config for phi4 mini instruct model present in qnn/phi4_mini_instruct_qnn_config.json

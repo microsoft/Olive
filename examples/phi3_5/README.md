@@ -9,7 +9,7 @@ This repository demonstrates the optimization of the [Microsoft Phi-3.5 Mini Ins
     - [**Usage**](#usage)
       - [**Quantization Python Environment Setup**](#quantization-python-environment-setup)
       - [**Run the Quantization Config**](#run-the-quantization-config)
-  - [**PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**](#ptq--aot-compilation-for-qualcomm-npus-using-qnn-ep)
+  - [**QUALCOMM NPU: PTQ + AOT Compilation using QNN EP**](#qualcomm-npu-ptq--aot-compilation-using-qnn-ep)
     - [**Resource Optimization Strategy**](#resource-optimization-strategy)
     - [**Compilation for Qualcomm NPU Deployment**](#compilation-for-qualcomm-npu-deployment)
     - [**Usage**](#usage-1)
@@ -112,7 +112,7 @@ olive run --config qdq_config_vitis_ai.json
 
 ✅ Optimized model saved in: `models/phi3_5-vai/`
 
-## **PTQ + AOT Compilation for Qualcomm NPUs using QNN EP**
+## **QUALCOMM NPU: PTQ + AOT Compilation using QNN EP**
 
 This process extends the [**QDQ Model with 4-bit Weights & 16-bit Activations**](#qdq-model-with-4-bit-weights--16-bit-activations) by compiling it specifically for **Qualcomm NPUs** using the **QNN Execution Provider**.
 
