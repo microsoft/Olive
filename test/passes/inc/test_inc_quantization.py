@@ -87,8 +87,6 @@ def test_inc_weight_only_quantization(tmp_path):
             dataloader_config=DataComponentConfig(type="_cifar10_val_dataloader"),
         ),
     }
-    if torch.cuda.is_available():
-        config["backend"] = "onnxrt_cuda_ep"
     output_folder = str(tmp_path / "quantized")
 
     # create IncQuantization pass
