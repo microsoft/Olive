@@ -38,10 +38,6 @@ jobs:
       --gpus=all \
       -v /var/run/docker.sock:/var/run/docker.sock \
       -v $(Build.SourcesDirectory)/logs:/logs \
-      -e WORKSPACE_SUBSCRIPTION_ID=$(workspace-subscription-id) \
-      -e WORKSPACE_RESOURCE_GROUP=$(workspace-resource-group) \
-      -e WORKSPACE_NAME=$(workspace-name) \
-      -e MANAGED_IDENTITY_CLIENT_ID=$(olive-1es-identity-client-id) \
       ${{ parameters.docker_image }} \
       bash .azure_pipelines/scripts/${{ parameters.test_script }} \
       ${{ parameters.torch }} \
