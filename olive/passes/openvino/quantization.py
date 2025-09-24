@@ -267,7 +267,7 @@ class OpenVINOQuantizationBase(Pass):
 
         if config.ignored_scope:
             kwargs = {config.ignored_scope_type: config.ignored_scope}
-            extra_params["ignored_scopes"] = nncf.IgnoredScope(**kwargs)
+            extra_params["ignored_scope"] = nncf.IgnoredScope(**kwargs)
 
         return extra_params
 

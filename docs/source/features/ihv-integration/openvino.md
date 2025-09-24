@@ -12,7 +12,7 @@ For Generative AI models, install Optimum Intel® from [Optimum Intel® Installa
 
 ## Prerequisites
 
-Note: OpenVINO version in Olive: 2025.1.0
+Note: OpenVINO version in Olive >= 2025.3.0
 
 ### Option 1: install Olive with OpenVINO extras
 
@@ -23,15 +23,15 @@ pip install olive-ai[openvino]
 ### Option 2: Install OpenVINO Runtime and OpenVINO Development Tools from Pypi
 
 ```bash
-pip install openvino==2025.1.0
-pip install nncf==2.16.0
+pip install openvino>=2025.3.0
+pip install nncf>=2.18.0
 pip install onnxruntime-openvino
 ```
 
 ### Install Optimum Intel® for Generative AI Workloads
 
 ```bash
-pip install optimum[openvino]
+pip install optimum[openvino]<=1.24.0
 ```
 
 More detailed instructions are available at [Optimum Intel® Installation Instructions](https://huggingface.co/docs/optimum/main/en/intel/installation)
@@ -93,6 +93,27 @@ Please refer to [OpenVINOQuantizationWithAccuracy](https://microsoft.github.io/O
     "validation_func": "validate",
     "max_drop": 0.01,
     "drop_type": "ABSOLUTE"
+}
+```
+
+## Weight Compression
+
+`OpenVINOWeightCompression` pass runs [Weight Compression](https://docs.openvino.ai/2025/openvino-workflow/model-optimization-guide/weight-compression.html) to compress Huggingface to OpenVINO model and Huggingface to ONNX model, as well as ONNX to ONNX model using Intel® NNCF.
+
+Please refer to [OpenVINOWeightCompression](https://microsoft.github.io/Olive/reference/pass.html#openvinoweightcompression) for more details about the `OpenVINOWeightCompression` pass and its config parameters.
+
+### Example Weight Compression Configuration
+
+```json
+{
+    "type": "OpenVINOWeightCompression",
+    "data_config": "compress_data_config",
+    "transform_fn": "custom_transform_func",
+    "extra_args": { "tokenizer": True },
+    "compress_config": {
+        "mode": "INT4_SYM",
+        "ratio": 0.8
+    }
 }
 ```
 
