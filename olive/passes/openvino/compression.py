@@ -93,15 +93,15 @@ def maybe_load_preprocessors(
         preprocessors.append(
             AutoTokenizer.from_pretrained(src_name_or_path, subfolder=subfolder, trust_remote_code=trust_remote_code)
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Could not load tokenizer using specified model ID or path.\n Exception: %s", e)
 
     try:
         preprocessors.append(
             AutoProcessor.from_pretrained(src_name_or_path, subfolder=subfolder, trust_remote_code=trust_remote_code)
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Could not load processor using specified model ID or path.\n Exception: %s", e)
 
     try:
         preprocessors.append(
@@ -109,8 +109,8 @@ def maybe_load_preprocessors(
                 src_name_or_path, subfolder=subfolder, trust_remote_code=trust_remote_code
             )
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Could not load feature extractor using specified model ID or path.\n Exception: %s", e)
 
     try:
         preprocessors.append(
@@ -118,8 +118,8 @@ def maybe_load_preprocessors(
                 src_name_or_path, subfolder=subfolder, trust_remote_code=trust_remote_code
             )
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Could not load image processor using specified model ID or path.\n Exception: %s", e)
 
     return preprocessors
 
