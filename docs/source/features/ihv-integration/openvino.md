@@ -109,7 +109,7 @@ Please refer to [OpenVINOWeightCompression](https://microsoft.github.io/Olive/re
     "type": "OpenVINOWeightCompression",
     "data_config": "compress_data_config",
     "transform_fn": "custom_transform_func",
-    "extra_args": { "tokenizer": True },
+    "extra_args": { "tokenizer": true },
     "compress_config": {
         "mode": "INT4_SYM",
         "ratio": 0.8
