@@ -6,8 +6,13 @@
 import onnx
 import pytest
 
+from olive.common.utils import is_hardlink
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.common import model_proto_to_olive_model, resave_model
+from olive.passes.onnx.common import (
+    add_version_metadata_to_model_proto,
+    model_proto_to_olive_model,
+    resave_model,
+)
 from olive.passes.onnx.conversion import OnnxConversion
 from test.utils import ONNX_MODEL_PATH, get_hf_model
 
@@ -47,4 +52,11 @@ def test_resave_model(has_external_data, tmp_path):
     assert resave_path.exists()
     if has_external_data:
         assert (resave_path.parent / "resave.onnx.data").exists()
-    assert onnx.load(resave_path) == onnx.load(input_model.model_path)
+
+    input_model = onnx.load(input_model.model_path)
+    resaved_model = onnx.load(resave_path)
+
+    if not is_hardlink(resave_path):
+        input_model = add_version_metadata_to_model_proto(input_model)
+
+    assert resaved_model == input_model

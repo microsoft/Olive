@@ -10,7 +10,12 @@ import onnx
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes import Pass
-from olive.passes.onnx.common import fix_dim_params, process_llm_pipeline, resave_model
+from olive.passes.onnx.common import (
+    add_version_metadata_to_model_proto,
+    fix_dim_params,
+    process_llm_pipeline,
+    resave_model,
+)
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
@@ -119,6 +124,8 @@ class StaticLLM(Pass):
 
                     # save the model with fixed shapes
                     component_model_path = output_dir / f"{new_component_name}.onnx"
+                    # Add olive version to metadata
+                    add_version_metadata_to_model_proto(component_proto)
                     onnx.save_model(component_proto, component_model_path)
                     new_groups[key][new_component_name] = ONNXModelHandler(
                         model_path=output_dir, onnx_file_name=component_model_path.name
