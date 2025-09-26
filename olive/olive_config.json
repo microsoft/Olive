@@ -70,6 +70,14 @@
             "supported_quantization_encodings": [  ],
             "run_on_target": true
         },
+        "EstimateNPULatency": {
+            "module_path": "olive.passes.onnx.vitis_ai.estimate_npu_latency.EstimateNPULatency",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "ExtractAdapters": {
             "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters",
             "supported_providers": [ "*" ],
