@@ -602,7 +602,7 @@
         }
     },
     "extra_dependencies": {
-        "aimet-onnx": [ "aimet-onnx>=2.14.0" ],
+        "aimet-onnx": [ "aimet-onnx>=2.15.0" ],
         "auto-opt": [ "optimum" ],
         "azureml": [ "azure-ai-ml>=1.11.1", "azure-identity" ],
         "bnb": [ "bitsandbytes", "triton" ],

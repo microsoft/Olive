@@ -155,7 +155,9 @@ def test_aimet_quantization_uses_provided_precisions(tmp_path, precisions):
 
     initializer_dict = {tensor.name: tensor for tensor in model.graph.initializer}
     tensor_to_quantizer = {
-        node.input[0]: node for node in model.graph.node if node.op_type in ("QuantizeLinear", "DequantizeLinear")
+        node.input[0].removesuffix("_q"): node
+        for node in model.graph.node
+        if node.op_type in ("QuantizeLinear", "DequantizeLinear")
     }
 
     # Weight should be symmetrically quantized with precision type
@@ -375,7 +377,7 @@ def test_aimet_quantization_excludes_op_types(tmp_path, op_types, disabled_quant
     model = onnx.load(out.model_path)
 
     tensor_to_quantizer = {
-        tensor: node
+        tensor.removesuffix("_q"): node
         for node in model.graph.node
         for tensor in (node.input[0], node.output[0])
         if node.op_type in ("QuantizeLinear", "DequantizeLinear")
@@ -405,7 +407,9 @@ def test_aimet_quantization_preserves_quantization_in_prequantized_model(tmp_pat
     model = onnx.load(out.model_path)
 
     tensor_to_quantizer = {
-        node.input[0]: node for node in model.graph.node if node.op_type in ("QuantizeLinear", "DequantizeLinear")
+        node.input[0].removesuffix("_q"): node
+        for node in model.graph.node
+        if node.op_type in ("QuantizeLinear", "DequantizeLinear")
     }
 
     weight_quantizer = tensor_to_quantizer["weight_dq"]

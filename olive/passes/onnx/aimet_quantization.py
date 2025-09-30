@@ -363,6 +363,6 @@ class AimetQuantization(Pass):
             )
 
             sim.compute_encodings(calib_dataloader)
-            qdq_model = sim.to_onnx_qdq()
+            qdq_model = sim.to_onnx_qdq(prequantize_constants=True)
 
         return model_proto_to_olive_model(qdq_model, output_model_path, config)
