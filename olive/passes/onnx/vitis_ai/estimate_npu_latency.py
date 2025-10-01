@@ -4,13 +4,10 @@
 #
 
 import logging
-from pathlib import Path
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
-from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import model_proto_to_file, resave_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -73,13 +70,5 @@ class EstimateNPULatency(Pass):
 
             logger.info("Finish running perf estimator pass")
 
-        # return the original model
-        output_model_path = Path(resolve_onnx_path(output_model_path, Path(model.model_path).name))
-        has_external_data = resave_model(model.model_path, output_model_path)
-        onnx_model = model.load_model()
-        model_proto_to_file(onnx_model, output_model_path)
-
-        return ONNXModelHandler(
-            model_path=output_model_path.parent if has_external_data else output_model_path,
-            onnx_file_name=output_model_path.name if has_external_data else None
-        )
+        # Return the original model as is
+        return model
