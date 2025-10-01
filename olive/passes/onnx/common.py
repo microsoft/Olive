@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import json
 import logging
-import re
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
@@ -12,10 +11,10 @@ from typing import Any, Callable, Optional, Union
 import onnx
 from onnx import external_data_helper
 from onnxscript import ir
+from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
 
 from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
-from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile, LocalFolder
 
@@ -422,61 +421,52 @@ def resave_model(
     return True
 
 
-LORA_NAME_PATTERNS = [
-    f".*[./]{name}[./]{matmul}$"
-    for name in ["default_0", "default_0_1", "default", "default_1", "lora_A", "lora_B"]
-    for matmul in ["MatMul", "MatMul_Q4"]
-]
-LOHA_NAME_PATTERNS = [f".*[./]{name}[./]default" for name in ["hada_w1_a", "hada_w1_b", "hada_w2_a", "hada_w2_b"]]
-
-DORA_NAME_PATTERNS = [
-    f".*{pattern}$"
-    for pattern in [
-        "default/Div",
-        "default/default/MatMul",
-        "default/default_1/MatMul",
-        "default/default/MatMul_Q4",
-        "default/default_1/MatMul_Q4",
-    ]
-]
+LORA_NAME_PATTERNS = ["lora_A", "lora_B"]
+LOHA_NAME_PATTERNS = ["hada_w1_a", "hada_w1_b", "hada_w2_a", "hada_w2_b"]
+DORA_NAME_PATTERNS = ["lora_A", "lora_B", "lora_magnitude_vector"]
+PATTERN_MAP = {
+    AdapterType.LORA: LORA_NAME_PATTERNS,
+    AdapterType.DORA: DORA_NAME_PATTERNS,
+    AdapterType.LOHA: LOHA_NAME_PATTERNS,
+}
 
 
-# TODO(jambayk): considering matching by subgraph pattern, more involved but more reliable
 def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA) -> bool:
     """Check if the model has adapters.
 
     :param model_path: The path to the model.
     :return: True if the model has adapters, False otherwise.
     """
-    dag = OnnxDAG(onnx.load(model_path, load_external_data=False))
-    if adapter_type == AdapterType.LOHA and is_loha_model(dag):
-        return True
-    else:
-        for node_name in dag.get_node_names():
-            op_type = dag.get_node_op_type(node_name)
-            if (adapter_type == AdapterType.LORA and is_lora_node(op_type, node_name)) or (
-                adapter_type == AdapterType.DORA and is_dora_node(op_type, node_name)
-            ):
-                return True
-    return False
-
-
-def is_dora_node(op_type: str, node_name: str) -> bool:
-    return op_type in {"MatMul", "MatMulNBits", "Div"} and any(
-        re.match(pattern, node_name) for pattern in DORA_NAME_PATTERNS
+    ir_model = ir.load(model_path)
+    return any(
+        get_adapter_name(initializer, PATTERN_MAP.get(adapter_type, []))
+        for initializer in ir_model.graph.initializers.values()
     )
 
 
-def is_lora_node(op_type: str, node_name: str) -> bool:
-    return op_type in {"MatMul", "MatMulNBits"} and any(re.match(pattern, node_name) for pattern in LORA_NAME_PATTERNS)
+def get_adapter_name(initializer, patterns) -> str:
+    """Get the adapter name from the initializer.
 
+    If the model is exported by torch dynamo, the LORA adapter may be folded into a single tensor.
+    In this case, the adapter name is stored in the metadata_props of the initializer.
+    We look for the adapter name in both the initializer name and the metadata_props.
+    If not found, return None.
 
-def is_loha_model(dag: OnnxDAG) -> bool:
-    for graph in dag.graphs:
-        for initializer in graph.initializer:
-            if any(re.match(pattern, initializer.name) for pattern in LOHA_NAME_PATTERNS):
-                return True
-    return False
+    :param initializer: The initializer to check.
+    :param patterns: The patterns to look for.
+    :return: The adapter name if found, None otherwise.
+    """
+    adapter_name = None
+
+    if any(x in initializer.name for x in patterns):
+        adapter_name = initializer.name
+    elif FOLDED_FROM_KEY in initializer.metadata_props:
+        import ast
+
+        folded_from_str = initializer.metadata_props[FOLDED_FROM_KEY]
+        folded_from = set(ast.literal_eval(folded_from_str))
+        adapter_name = next((s for s in folded_from if any(x in s for x in patterns)), None)
+    return adapter_name
 
 
 def _fix_output_shapes(model_proto: onnx.ModelProto):
