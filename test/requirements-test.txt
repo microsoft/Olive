@@ -11,7 +11,7 @@ docker>=7.1.0
 evaluate
 marshmallow
 ml_dtypes
-mlflow>=2.4.0, <2.20.0
+mlflow
 neural-compressor<2.4
 nncf>=2.16.0
 numpy<2.0.0
