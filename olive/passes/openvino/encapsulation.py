@@ -283,8 +283,7 @@ def _compatible_type(default_val: Any, new_val: Any) -> bool:
 def apply_genai_overrides(
     defaults: MutableMapping[str, Any], overrides: Mapping[str, Any], *, path: str = ""
 ) -> MutableMapping[str, Any]:
-    """Recursively merge `overrides` into `defaults`.
-    """
+    """Recursively merge `overrides` into `defaults`."""
     for k, v in overrides.items():
         here = f"{path}.{k}" if path else k
         if k not in defaults:
@@ -299,9 +298,7 @@ def apply_genai_overrides(
 
         # Replace lists/tuples and scalars
         if not _compatible_type(dv, v):
-            logger.warning(
-                f"Type mismatch at {here}: default={type(dv).__name__}, new={type(v).__name__}. Using new anyway."
-            )
+            logger.warning("Type mismatch at %s", here)
         defaults[k] = v
     return defaults
 
