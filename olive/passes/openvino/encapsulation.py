@@ -2,21 +2,24 @@
 # Copyright (c) Intel Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import os
 import logging
+import numbers
+import os
+from collections.abc import Mapping, MutableMapping
 from pathlib import Path
-from typing import ClassVar, Union
+from typing import Any, ClassVar, Union
 
 import onnx.helper as helper
 from onnx import TensorProto, save
-from typing import Any, Mapping, MutableMapping
-import numbers
+
 from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+
 logger = logging.getLogger(__name__)
+
 
 class OpenVINOEncapsulation(Pass):
     """Encapsulates OpenVINO models with onnx context nodes."""
@@ -103,9 +106,7 @@ class OpenVINOEncapsulation(Pass):
                 type_=dict,
                 default_value=None,
                 required=False,
-                description=(
-                    "Configuration overrides for genai_config.json generation. "
-                )
+                description=("Configuration overrides for genai_config.json generation. "),
             ),
         }
 
@@ -278,9 +279,11 @@ def _compatible_type(default_val: Any, new_val: Any) -> bool:
         return isinstance(new_val, Mapping)
     return True  # fall back to permissive
 
-def apply_genai_overrides(defaults: MutableMapping[str, Any], overrides: Mapping[str, Any], *, path: str = "") -> MutableMapping[str, Any]:
-    """
-    Recursively merge `overrides` into `defaults`.
+
+def apply_genai_overrides(
+    defaults: MutableMapping[str, Any], overrides: Mapping[str, Any], *, path: str = ""
+) -> MutableMapping[str, Any]:
+    """Recursively merge `overrides` into `defaults`.
     """
     for k, v in overrides.items():
         here = f"{path}.{k}" if path else k
@@ -296,7 +299,9 @@ def apply_genai_overrides(defaults: MutableMapping[str, Any], overrides: Mapping
 
         # Replace lists/tuples and scalars
         if not _compatible_type(dv, v):
-            logger.warning(f"Type mismatch at {here}: default={type(dv).__name__}, new={type(v).__name__}. Using new anyway.")
+            logger.warning(
+                f"Type mismatch at {here}: default={type(dv).__name__}, new={type(v).__name__}. Using new anyway."
+            )
         defaults[k] = v
     return defaults
 
