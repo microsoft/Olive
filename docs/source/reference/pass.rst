@@ -333,6 +333,12 @@ OpenVINOQuantizationWithAccuracy
 --------------------------------
 .. autoconfigclass:: olive.passes.OpenVINOQuantizationWithAccuracy
 
+.. _openvino_weight_compression:
+
+OpenVINOWeightCompression
+--------------------------
+.. autoconfigclass:: olive.passes.OpenVINOWeightCompression
+
 .. _openvino_encapsulation:
 
 OpenVINOEncapsulation
