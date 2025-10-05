@@ -13,7 +13,7 @@ marshmallow
 ml_dtypes
 mlflow>=2.4.0, <2.20.0
 neural-compressor<2.4
-nncf>=2.16.0
+nncf>=2.18.0
 numpy<2.0.0
 nvidia-modelopt
 onnx==1.18.0
@@ -24,7 +24,7 @@ onnxoptimizer
 onnxruntime_extensions
 onnxscript>=0.2.4
 onnxsim
-openvino>=2025.1.0
+openvino>=2025.3.0
 optimum[openvino]>=1.17.0, <=1.24
 optuna
 pandas

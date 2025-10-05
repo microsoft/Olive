@@ -75,6 +75,27 @@ def get_external_data_config() -> dict[str, PassConfigParam]:
     }
 
 
+def add_version_metadata_to_model_proto(model: onnx.ModelProto) -> onnx.ModelProto:
+    olive_version = None
+    try:
+        import olive
+
+        olive_version = getattr(olive, "__version__", "unknown")
+    except Exception:
+        olive_version = "unknown"
+
+    for md in model.metadata_props:
+        if md.key == "olive_version":
+            md.value = olive_version
+            return model
+
+    md = model.metadata_props.add()
+    md.key = "olive_version"
+    md.value = olive_version
+
+    return model
+
+
 def model_proto_to_file(
     model: onnx.ModelProto,
     output_path: Union[str, Path],
@@ -118,6 +139,8 @@ def model_proto_to_file(
         )
 
     if not save_as_external_data:
+        # Add olive version to metadata
+        add_version_metadata_to_model_proto(model)
         # save model
         onnx.save_model(model, str(output_path))
         return False
@@ -135,6 +158,8 @@ def model_proto_to_file(
         if any(output_dir.iterdir()):
             raise RuntimeError(f"Output directory ({output_dir}) for external data is not empty.")
 
+    # Add olive version to metadata
+    add_version_metadata_to_model_proto(model)
     # save model
     onnx.save_model(
         model,
@@ -391,7 +416,7 @@ def resave_model(
     if not external_file_names:
         if force_external_data:
             # save the model with single external data file
-            model_proto_to_file(onnx.load(model_path), new_model_path, {"save_as_external_data": True})
+            model_proto_to_file(onnx.load(model_path), new_model_path, save_as_external_data=True)
             return True
 
         # no external data, so we can just copy the model
@@ -400,7 +425,7 @@ def resave_model(
 
     if len(external_file_names) > 1:
         # save the model with single external data file
-        model_proto_to_file(onnx.load(model_path), new_model_path, {"save_as_external_data": True})
+        model_proto_to_file(onnx.load(model_path), new_model_path, save_as_external_data=True)
         return True
 
     external_file_path = str(model_path.parent / external_file_names[0])
