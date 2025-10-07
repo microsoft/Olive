@@ -65,9 +65,5 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
         if self.args.list_required_packages is True:
             print("Required packages listed!")
-        elif workflow_output.has_output_model():
-            print(f"Model is saved at {self.args.output_path}")
-        else:
-            print("No output model produced. Please check the log for details.")
 
         return workflow_output
