@@ -497,6 +497,10 @@ def hardlink_copy_dir(src_dir, dst_dir, **kwargs):
     copy_dir(src_dir, dst_dir, copy_function=hardlink_copy_file, dirs_exist_ok=True, **kwargs)
 
 
+def is_hardlink(path: Union[str, Path]) -> bool:
+    return Path(path).stat().st_nlink > 1
+
+
 def set_tempdir(tempdir: str = None):
     """Set the root directory for tempfiles.
 

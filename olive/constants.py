@@ -66,6 +66,9 @@ class QuantAlgorithm(CaseInsensitiveEnum):
     RTN = "rtn"
     SPINQUANT = "spinquant"
     QUAROT = "quarot"
+    LPBQ = "lpbq"
+    SEQMSE = "seqmse"
+    ADAROUND = "adaround"
 
 
 class QuantEncoding(StrEnumBase):

@@ -174,7 +174,7 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
         return model
 
     def _load_slicegpt_model(self):
-        from slicgpt.hf_utils import load_sliced_model
+        from slicegpt.hf_utils import load_sliced_model
 
         model_name = self.model_attributes.get("model_name")
         if not model_name:

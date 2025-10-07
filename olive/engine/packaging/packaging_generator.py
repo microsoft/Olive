@@ -18,6 +18,7 @@ from olive.engine.packaging.packaging_config import (
 )
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
+from olive.passes.onnx.common import add_version_metadata_to_model_proto
 from olive.resource_path import ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)
@@ -265,6 +266,8 @@ def _generate_onnx_mlflow_model(model_dir: Path, inference_config: dict):
     # MLFlow will save models with default config save_as_external_data=True
     # https://github.com/mlflow/mlflow/blob/1d6eaaa65dca18688d9d1efa3b8b96e25801b4e9/mlflow/onnx.py#L175
     # There will be an alphanumeric file generated in the same folder as the model file
+    # Add olive version to metadata
+    add_version_metadata_to_model_proto(model_proto)
     mlflow.onnx.save_model(
         model_proto,
         mlflow_model_path,

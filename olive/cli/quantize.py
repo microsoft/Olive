@@ -36,6 +36,7 @@ class ImplName(StrEnumBase):
     QUAROT = "quarot"
     AWQ = "awq"
     AUTOGPTQ = "autogptq"
+    AIMET = "aimet"
 
 
 class QuantizeCommand(BaseOliveCLICommand):
@@ -165,6 +166,12 @@ class QuantizeCommand(BaseOliveCLICommand):
                 "bits": precision_bits_from_precision(self.args.precision),
             },
             "MatMulNBitsToQDQ": {},
+            "AimetQuantization": {
+                "precision": self.args.precision,
+                "activation_type": self.args.act_precision,
+                "data_config": "default_data_config",
+                "techniques": [{"name": self.args.algorithm}],
+            },
         }
 
         passes_dict = {}
@@ -251,4 +258,5 @@ ONNX_QUANT_IMPLEMENTATION_MAPPING = [
     {"impl_name": ImplName.OLIVE, "pass_type": "OnnxHqqQuantization"},
     {"impl_name": ImplName.OLIVE, "pass_type": "OnnxBlockWiseRtnQuantization"},
     {"impl_name": ImplName.INC, "pass_type": "IncStaticQuantization"},
+    {"impl_name": ImplName.AIMET, "pass_type": "AimetQuantization"},
 ]
