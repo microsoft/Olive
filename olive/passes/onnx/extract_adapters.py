@@ -87,123 +87,123 @@ class ExtractAdapters(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        logger.warning("=== ExtractAdapters Pass 开始执行 ===")
-        logger.warning(f"输入模型路径: {model.model_path}")
-        logger.warning(f"输出模型路径: {output_model_path}")
-        logger.warning(f"适配器类型: {config.adapter_type}")
+        logger.warning("=== ExtractAdapters Pass START ===")
+        logger.warning(f"Input model path: {model.model_path}")
+        logger.warning(f"Output model path: {output_model_path}")
+        logger.warning(f"Adapter type: {config.adapter_type}")
         logger.warning(f"make_inputs: {config.make_inputs}")
         logger.warning(f"save_format: {config.save_format}")
         
-        # 验证输入模型
+        # Validate input model
         if model is None:
-            logger.error("输入模型为 None！")
+            logger.error("Input model is None!")
             return None
-        
+
         if not hasattr(model, 'model_path') or not model.model_path:
-            logger.error("输入模型没有有效的 model_path！")
+            logger.error("Input model has no valid model_path!")
             return None
-        
-        logger.warning(f"输入模型类型: {type(model)}")
-        logger.warning(f"输入模型属性: {getattr(model, 'model_attributes', 'None')}")
+
+        logger.warning(f"Input model type: {type(model)}")
+        logger.warning(f"Input model attributes: {getattr(model, 'model_attributes', 'None')}")
         
         try:
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-            logger.warning(f"解析后的输出模型路径: {output_model_path}")
+            logger.warning(f"Resolved output model path: {output_model_path}")
         except Exception as e:
-            logger.error(f"解析输出模型路径时出错: {e}")
+            logger.error(f"Error resolving output model path: {e}")
             return None
 
         try:
-            logger.warning("正在加载 IR 模型...")
+            logger.warning("Loading IR model...")
             ir_model = model.load_ir_model()
-            logger.warning(f"IR 模型加载成功，类型: {type(ir_model)}")
-            
-            logger.warning("正在加载外部数据到模型...")
+            logger.warning(f"IR model loaded successfully, type: {type(ir_model)}")
+
+            logger.warning("Loading external data to model...")
             ir.external_data.load_to_model(ir_model)
-            logger.warning("外部数据加载完成")
-            
-            # 记录模型基本信息
+            logger.warning("External data loaded")
+
+            # Log model basic info
             if hasattr(ir_model, 'graph') and ir_model.graph:
-                logger.warning(f"模型图中的初始化器数量: {len(ir_model.graph.initializers)}")
-                logger.warning(f"模型图中的输入数量: {len(ir_model.graph.inputs)}")
-                logger.warning(f"模型图中的输出数量: {len(ir_model.graph.outputs)}")
-                
-                # 记录前几个初始化器的名称
+                logger.warning(f"Number of initializers in graph: {len(ir_model.graph.initializers)}")
+                logger.warning(f"Number of inputs in graph: {len(ir_model.graph.inputs)}")
+                logger.warning(f"Number of outputs in graph: {len(ir_model.graph.outputs)}")
+
+                # Log first few initializer names
                 init_names = list(ir_model.graph.initializers.keys())[:10]
-                logger.warning(f"前10个初始化器名称: {init_names}")
+                logger.warning(f"First 10 initializer names: {init_names}")
             else:
-                logger.error("IR 模型没有有效的图结构！")
+                logger.error("IR model has no valid graph structure!")
                 return None
-                
+
         except Exception as e:
-            logger.error(f"加载 IR 模型时出错: {e}")
-            logger.error(f"错误类型: {type(e)}")
+            logger.error(f"Error loading IR model: {e}")
+            logger.error(f"Error type: {type(e)}")
             import traceback
-            logger.error(f"完整错误堆栈: {traceback.format_exc()}")
+            logger.error(f"Full error stack: {traceback.format_exc()}")
             return None
 
         # dictionary to store adapter weights
         weights = {}
 
         try:
-            logger.warning(f"开始提取 {config.adapter_type} 适配器权重...")
+            logger.warning(f"Starting to extract {config.adapter_type} adapter weights...")
             if config.adapter_type in [AdapterType.LORA, AdapterType.DORA, AdapterType.LOHA]:
                 weights = self._extract_adapter(ir_model, adapter_type=config.adapter_type)
-                logger.warning(f"提取到的权重数量: {len(weights)}")
+                logger.warning(f"Number of extracted weights: {len(weights)}")
                 if weights:
-                    logger.warning(f"权重名称: {list(weights.keys())}")
-                    # 记录权重的形状信息
+                    logger.warning(f"Weight names: {list(weights.keys())}")
+                    # Log weight shapes
                     for name, weight in weights.items():
-                        logger.warning(f"权重 {name}: shape={weight.shape}, dtype={weight.dtype}")
+                        logger.warning(f"Weight {name}: shape={weight.shape}, dtype={weight.dtype}")
                 else:
-                    logger.warning("没有提取到任何权重！")
+                    logger.warning("No weights extracted!")
             else:
-                logger.error(f"不支持的适配器类型: {config.adapter_type}")
+                logger.error(f"Unsupported adapter type: {config.adapter_type}")
                 raise ValueError(f"Unsupported adapter type: {config.adapter_type}")
         except Exception as e:
-            logger.error(f"提取适配器权重时出错: {e}")
-            logger.error(f"错误类型: {type(e)}")
+            logger.error(f"Error extracting adapter weights: {e}")
+            logger.error(f"Error type: {type(e)}")
             import traceback
-            logger.error(f"完整错误堆栈: {traceback.format_exc()}")
+            logger.error(f"Full error stack: {traceback.format_exc()}")
             return None
 
         if not weights:
             logger.warning("No %s modules found in the model. Returning the original model.", config.adapter_type)
-            logger.warning("=== ExtractAdapters Pass 结束（返回原始模型）===")
+            logger.warning("=== ExtractAdapters Pass END (returning original model) ===")
             return model
 
         try:
             if config.make_inputs:
-                logger.info("开始将权重转换为输入...")
+                logger.warning("Starting to convert weights to inputs...")
                 # create inputs for the weights
                 for weight_name in weights:
-                    logger.info(f"正在处理权重: {weight_name}")
+                    logger.warning(f"Processing weight: {weight_name}")
                     self._convert_initializer_to_input(ir_model, weight_name)
                     self._make_dynamic_optional(ir_model, weights, weight_name, config)
-                logger.info("权重转换为输入完成")
+                logger.warning("Weights conversion to inputs completed")
         except Exception as e:
-            logger.error(f"转换权重为输入时出错: {e}")
-            logger.error(f"错误类型: {type(e)}")
+            logger.error(f"Error converting weights to inputs: {e}")
+            logger.error(f"Error type: {type(e)}")
             import traceback
-            logger.error(f"完整错误堆栈: {traceback.format_exc()}")
+            logger.error(f"Full error stack: {traceback.format_exc()}")
             return None
 
         try:
-            logger.info("开始保存权重文件...")
+            logger.warning("Starting to save weights file...")
             weights_path = save_weights(weights, Path(output_model_path).parent / "adapter_weights", config.save_format)
-            logger.info(f"权重文件保存成功: {weights_path}")
+            logger.warning(f"Weights file saved successfully: {weights_path}")
         except Exception as e:
-            logger.error(f"保存权重文件时出错: {e}")
-            logger.error(f"错误类型: {type(e)}")
+            logger.error(f"Error saving weights file: {e}")
+            logger.error(f"Error type: {type(e)}")
             import traceback
-            logger.error(f"完整错误堆栈: {traceback.format_exc()}")
+            logger.error(f"Full error stack: {traceback.format_exc()}")
             return None
 
         try:
             weights_file_name = weights_path.name if hasattr(weights_path, 'name') else Path(weights_path).name
             external_init_file = weights_file_name if not config.make_inputs else None
             constant_inputs_file = weights_file_name if config.make_inputs else None
-            logger.info("开始保存模型...")
+            logger.warning("Starting to save model...")
             # save the model
             output_model = model_proto_to_olive_model(
                 ir.to_proto(ir_model),
@@ -212,83 +212,83 @@ class ExtractAdapters(Pass):
                 external_initializers_file_name=external_init_file,
                 constant_inputs_file_name=constant_inputs_file,
             )
-            
+
             if output_model is None:
-                logger.error("model_proto_to_olive_model 返回了 None！")
+                logger.error("model_proto_to_olive_model returned None!")
                 return None
-            
-            logger.info(f"输出模型创建成功，类型: {type(output_model)}")
-            logger.info(f"输出模型路径: {getattr(output_model, 'model_path', 'None')}")
+
+            logger.warning(f"Output model created successfully, type: {type(output_model)}")
+            logger.warning(f"Output model path: {getattr(output_model, 'model_path', 'None')}")
             
         except Exception as e:
-            logger.error(f"创建输出模型时出错: {e}")
-            logger.error(f"错误类型: {type(e)}")
+            logger.error(f"Error creating output model: {e}")
+            logger.error(f"Error type: {type(e)}")
             import traceback
             traceback_str = traceback.format_exc()
-            logger.error(f"完整错误堆栈: {traceback_str}")
+            logger.error(f"Full error stack: {traceback_str}")
             return None
 
         try:
-            logger.info("开始设置模型属性...")
+            logger.warning("Starting to set model attributes...")
             output_model.model_attributes = deepcopy(model.model_attributes) or {}
-            logger.info(f"复制的模型属性: {output_model.model_attributes}")
-            
+            logger.warning(f"Copied model attributes: {output_model.model_attributes}")
+
             # add adapter weights to the model attributes
             output_model.model_attributes["additional_files"] = additional_files = output_model.model_attributes.get(
                 "additional_files", []
             )
             additional_files.append(str(weights_path))
-            logger.info(f"添加的附加文件: {additional_files}")
-            
+            logger.warning(f"Added additional files: {additional_files}")
+
             # save information about the weights in the model attributes
             weights_info = {name: [list(value.shape), str(value.dtype)] for name, value in weights.items()}
-            logger.info(f"权重信息: {weights_info}")
-            
+            logger.warning(f"Weights info: {weights_info}")
+
             if not config.make_inputs:
                 output_model.model_attributes["external_initializers"] = weights_info
-                logger.info("权重信息保存为 external_initializers")
+                logger.warning("Weights info saved as external_initializers")
             else:
                 output_model.model_attributes["constant_inputs"] = weights_info
-                logger.info("权重信息保存为 constant_inputs")
-                
-            logger.info(f"最终模型属性: {output_model.model_attributes}")
-            
+                logger.warning("Weights info saved as constant_inputs")
+
+            logger.warning(f"Final model attributes: {output_model.model_attributes}")
+
         except Exception as e:
-            logger.error(f"设置模型属性时出错: {e}")
-            logger.error(f"错误类型: {type(e)}")
+            logger.error(f"Error setting model attributes: {e}")
+            logger.error(f"Error type: {type(e)}")
             import traceback
-            logger.error(f"完整错误堆栈: {traceback.format_exc()}")
+            logger.error(f"Full error stack: {traceback.format_exc()}")
             return None
-        
-        logger.warning("=== ExtractAdapters Pass 成功完成 ===")
-        logger.warning(f"返回的模型类型: {type(output_model)}")
-        logger.warning(f"返回的模型路径: {getattr(output_model, 'model_path', 'None')}")
+
+        logger.warning("=== ExtractAdapters Pass COMPLETED SUCCESSFULLY ===")
+        logger.warning(f"Returned model type: {type(output_model)}")
+        logger.warning(f"Returned model path: {getattr(output_model, 'model_path', 'None')}")
         return output_model
 
     def _convert_initializer_to_input(self, model: ir.Model, initializer_name: str):
         """Convert a specific initializer to an input."""
-        logger.info(f"将初始化器转换为输入: {initializer_name}")
-        
+        logger.warning(f"Converting initializer to input: {initializer_name}")
+
         graph = model.graph
 
         # Check if the initializer exists
         if initializer_name not in graph.initializers:
-            logger.error(f"初始化器 '{initializer_name}' 在图中不存在！")
-            logger.info(f"可用的初始化器: {list(graph.initializers.keys())[:10]}...")
+            logger.error(f"Initializer '{initializer_name}' not found in graph!")
+            logger.warning(f"Available initializers: {list(graph.initializers.keys())[:10]}...")
             raise ValueError(f"Initializer '{initializer_name}' not found in graph")
 
         # Get the initializer
         initializer = graph.initializers[initializer_name]
-        logger.info(f"找到初始化器: {initializer_name}, 类型: {type(initializer)}")
+        logger.warning(f"Found initializer: {initializer_name}, type: {type(initializer)}")
 
         # Check if it's already an input
         if initializer in graph.inputs:
-            logger.info(f"初始化器 {initializer_name} 已经是输入，跳过")
+            logger.warning(f"Initializer {initializer_name} already an input, skipping")
             return  # Already an input
 
         # Add to inputs
         graph.inputs.append(initializer)
-        logger.info(f"成功将 {initializer_name} 添加到输入列表，当前输入数量: {len(graph.inputs)}")
+        logger.warning(f"Successfully added {initializer_name} to input list, current number of inputs: {len(graph.inputs)}")
 
     def _decompose_gemm(self, ir_model: ir.Model):
         """Decompose Gemm nodes into MatMul and Add nodes."""
@@ -313,15 +313,15 @@ class ExtractAdapters(Pass):
         hada_w1_a + hada_w1_b -> MatMul -> ...
         hada_w2_a + hada_w2_b -> MatMul -> ...
         """
-        logger.warning(f"=== 开始提取 {adapter_type} 适配器权重 ===")
-        
+        logger.warning(f"=== Starting to extract {adapter_type} adapter weights ===")
+
         if adapter_type == AdapterType.DORA:
-            logger.warning("DoRA 类型，需要先分解 Gemm 节点...")
+            logger.warning("DoRA type, need to decompose Gemm nodes first...")
             try:
                 ir_model = self._decompose_gemm(ir_model)
-                logger.warning("Gemm 节点分解完成")
+                logger.warning("Gemm node decomposition completed")
             except Exception as e:
-                logger.error(f"分解 Gemm 节点时出错: {e}")
+                logger.error(f"Error decomposing Gemm nodes: {e}")
                 raise
 
         # dictionary to store adapter weights
@@ -331,53 +331,53 @@ class ExtractAdapters(Pass):
         patterns = None
         if adapter_type == AdapterType.LORA:
             patterns = LORA_NAME_PATTERNS
-            logger.warning(f"使用 LoRA 模式: {patterns}")
+            logger.warning(f"Using LoRA patterns: {patterns}")
         elif adapter_type == AdapterType.DORA:
             patterns = DORA_NAME_PATTERNS
-            logger.warning(f"使用 DoRA 模式: {patterns}")
+            logger.warning(f"Using DoRA patterns: {patterns}")
         elif adapter_type == AdapterType.LOHA:
             patterns = LOHA_NAME_PATTERNS
-            logger.warning(f"使用 LoHa 模式: {patterns}")
+            logger.warning(f"Using LoHa patterns: {patterns}")
         else:
-            logger.error(f"不支持的适配器类型: {adapter_type}")
+            logger.error(f"Unsupported adapter type: {adapter_type}")
             raise ValueError(f"Unsupported adapter type: {adapter_type}")
 
-        logger.warning(f"开始扫描模型中的初始化器，总数: {len(ir_model.graph.initializers)}")
-        
+        logger.warning(f"Starting to scan initializers in model, total: {len(ir_model.graph.initializers)}")
+
         to_rename = []
         matched_count = 0
         for i, initializer in enumerate(ir_model.graph.initializers.values()):
-            if i < 10:  # 只记录前10个的详细信息
-                logger.warning(f"检查初始化器 [{i}]: {initializer.name}")
-            
+            if i < 10:  # Only logging details of first 10
+                logger.warning(f"Checking initializer [{i}]: {initializer.name}")
+
             adapter_weight = get_adapter_name(initializer, patterns)
             if adapter_weight is None:
                 if i < 10:
-                    logger.warning(f"  -> 不匹配任何适配器模式")
+                    logger.warning(f"  -> Does not match any adapter pattern")
                 continue
 
-            logger.warning(f"找到匹配的适配器权重: {initializer.name} -> {adapter_weight}")
+            logger.warning(f"Found matching adapter weight: {initializer.name} -> {adapter_weight}")
             to_rename.append((initializer, adapter_weight))
             matched_count += 1
 
-        logger.warning(f"总共找到 {matched_count} 个匹配的适配器权重")
+        logger.warning(f"Total found {matched_count} matching adapter weights")
         
         if not to_rename:
-            
-            # 记录一些初始化器名称供调试
+
+            # Log some initializer names for debugging
             init_names = list(ir_model.graph.initializers.keys())[:20]
-            logger.warning("没有找到任何匹配的适配器权重！")
-            logger.warning("可能的原因:")
-            logger.warning("1. 模型中没有适配器权重")
-            logger.warning("2. 适配器权重的命名模式与预期不符")
-            logger.warning("3. 适配器类型选择错误")
-            logger.warning(f"模型中的前20个初始化器名称: {init_names}")
+            logger.warning("No matching adapter weights found!")
+            logger.warning("Possible reasons:")
+            logger.warning("1. Model has no adapter weights")
+            logger.warning("2. Adapter weight naming pattern does not match expectations")
+            logger.warning("3. Wrong adapter type selected")
+            logger.warning(f"First 20 initializer names in model: {init_names}")
             return weights
 
-        logger.warning("开始处理匹配的适配器权重...")
+        logger.warning("Starting to process matching adapter weights...")
         for i, (initializer, adapter_weight) in enumerate(to_rename):
-            logger.info(f"处理权重 [{i+1}/{len(to_rename)}]: {initializer.name} -> {adapter_weight}")
-            
+            logger.warning(f"Processing weight [{i+1}/{len(to_rename)}]: {initializer.name} -> {adapter_weight}")
+
             try:
                 old_name = initializer.name
 
@@ -385,9 +385,9 @@ class ExtractAdapters(Pass):
                 if hasattr(initializer, 'const_value') and initializer.const_value is not None:
                     weight_data = initializer.const_value.numpy()
                     weights[adapter_weight] = weight_data
-                    logger.info(f"  权重数据提取成功: shape={weight_data.shape}, dtype={weight_data.dtype}")
+                    logger.warning(f"  Weight data extracted successfully: shape={weight_data.shape}, dtype={weight_data.dtype}")
                 else:
-                    logger.error(f"  初始化器 {old_name} 没有有效的 const_value")
+                    logger.error(f"  Initializer {old_name} has no valid const_value")
                     continue
 
                 # Rename the initializer
@@ -397,9 +397,9 @@ class ExtractAdapters(Pass):
                 if old_name in ir_model.graph.initializers:
                     ir_model.graph.initializers.pop(old_name)
                     ir_model.graph.initializers[adapter_weight] = initializer
-                    logger.info(f"  初始化器字典更新成功")
+                    logger.warning(f"  Initializer dictionary updated successfully")
                 else:
-                    logger.warning(f"  初始化器 {old_name} 不在字典中")
+                    logger.warning(f"  Initializer {old_name} not in dictionary")
 
                 # Create external tensor
                 external_tensor = ir.ExternalTensor(
@@ -413,82 +413,82 @@ class ExtractAdapters(Pass):
                 )
 
                 initializer.const_value = external_tensor
-                logger.info(f"  外部张量创建成功")
-                
+                logger.warning(f"  External tensor created successfully")
+
             except Exception as e:
-                logger.error(f"处理权重 {initializer.name} 时出错: {e}")
-                logger.error(f"错误类型: {type(e)}")
+                logger.error(f"Error processing weight {initializer.name}: {e}")
+                logger.error(f"Error type: {type(e)}")
                 import traceback
-                logger.error(f"完整错误堆栈: {traceback.format_exc()}")
+                logger.error(f"Full error stack: {traceback.format_exc()}")
                 continue
 
-        logger.warning(f"=== 适配器权重提取完成，成功提取 {len(weights)} 个权重 ===")
+        logger.warning(f"=== Adapter weight extraction completed, successfully extracted {len(weights)} weights ===")
         return weights
 
     def _make_dynamic_optional(
         self, model: ir.Model, weights: dict[str, "NDArray"], name: str, config: type[BasePassConfig]
     ):
         """Make the input dynamic and optional."""
-        logger.info(f"处理动态可选输入: {name}")
-        
+        logger.warning(f"Processing dynamic optional input: {name}")
+
         if "lora_magnitude_vector" in name:
             # magnitude vector's shape is independent of lora_r, so we do nothing
-            logger.info(f"跳过 magnitude vector: {name}")
+            logger.warning(f"Skipping magnitude vector: {name}")
             return
 
         # Determine which dimension should be made dynamic based on pattern in name
         dim_idx = 1
         if "lora_A" in name:
             dim_idx = 1
-            logger.info(f"LoRA A 权重，使用维度索引: {dim_idx}")
+            logger.warning(f"LoRA A weight, using dimension index: {dim_idx}")
         elif "lora_B" in name:
             dim_idx = 0
-            logger.info(f"LoRA B 权重，使用维度索引: {dim_idx}")
+            logger.warning(f"LoRA B weight, using dimension index: {dim_idx}")
         elif "hada_w1_a" in name or "hada_w2_a" in name:
             dim_idx = 0  # For the first matrix in Hadamard products
-            logger.info(f"LoHa w1_a/w2_a 权重，使用维度索引: {dim_idx}")
+            logger.warning(f"LoHa w1_a/w2_a weight, using dimension index: {dim_idx}")
         elif "hada_w1_b" in name or "hada_w2_b" in name:
             dim_idx = 1  # For the second matrix in Hadamard products
-            logger.info(f"LoHa w1_b/w2_b 权重，使用维度索引: {dim_idx}")
+            logger.warning(f"LoHa w1_b/w2_b weight, using dimension index: {dim_idx}")
 
         # make the input dynamic
         if config.dynamic_lora_r:
-            logger.info(f"设置动态 lora_r 维度: {name}, dim_idx={dim_idx}")
+            logger.warning(f"Setting dynamic lora_r dimension: {name}, dim_idx={dim_idx}")
             try:
                 self._make_input_dim_dynamic(model, name, dim_idx, "lora_r")
-                logger.info(f"成功设置动态维度: {name}")
+                logger.warning(f"Successfully set dynamic dimension: {name}")
             except Exception as e:
-                logger.error(f"设置动态维度时出错: {e}")
+                logger.error(f"Error setting dynamic dimension: {e}")
                 raise
         else:
-            logger.info(f"跳过动态维度设置 (dynamic_lora_r=False): {name}")
+            logger.warning(f"Skipping dynamic dimension setting (dynamic_lora_r=False): {name}")
 
         # create default initializer with the lora_r dimension set to 0
         if config.optional_inputs:
-            logger.info(f"创建可选输入的默认初始化器: {name}")
+            logger.warning(f"Creating default initializer for optional input: {name}")
             try:
                 shape = list(weights[name].shape)
                 original_shape = shape.copy()
                 shape[dim_idx] = 0
-                logger.info(f"原始形状: {original_shape}, 新形状: {shape}")
-                
+                logger.warning(f"Original shape: {original_shape}, New shape: {shape}")
+
                 zero_array = np.zeros(shape, dtype=weights[name].dtype)
-                logger.info(f"创建零数组: shape={zero_array.shape}, dtype={zero_array.dtype}")
-                
+                logger.warning(f"Creating zero array: shape={zero_array.shape}, dtype={zero_array.dtype}")
+
                 initializer_value = model.graph.initializers[name]
                 initializer_value.const_value = ir.Tensor(zero_array)
                 model.graph.inputs.append(initializer_value)
-                logger.info(f"成功创建可选输入: {name}")
+                logger.warning(f"Successfully created optional input: {name}")
             except Exception as e:
-                logger.error(f"创建可选输入时出错: {e}")
+                logger.error(f"Error creating optional input: {e}")
                 raise
         else:
-            logger.info(f"跳过可选输入创建 (optional_inputs=False): {name}")
+            logger.warning(f"Skipping optional input creation (optional_inputs=False): {name}")
 
     def _make_input_dim_dynamic(self, model: ir.Model, input_name: str, dim_idx: int, dim_param: str):
         """Make a dimension of an input dynamic."""
-        logger.info(f"设置输入维度为动态: {input_name}, dim_idx={dim_idx}, dim_param={dim_param}")
-        
+        logger.warning(f"Setting input dimension to dynamic: {input_name}, dim_idx={dim_idx}, dim_param={dim_param}")
+
         # Find the input value
         input_value = None
         for inp in model.graph.inputs:
@@ -497,33 +497,33 @@ class ExtractAdapters(Pass):
                 break
 
         if input_value is None:
-            logger.error(f"{input_name} 不是一个输入！")
-            logger.info(f"当前输入列表: {[inp.name for inp in model.graph.inputs]}")
+            logger.error(f"{input_name} is not an input!")
+            logger.warning(f"Current input list: {[inp.name for inp in model.graph.inputs]}")
             raise ValueError(f"{input_name} is not an input.")
 
-        logger.info(f"找到输入: {input_name}, 类型: {type(input_value)}")
+        logger.warning(f"Found input: {input_name}, type: {type(input_value)}")
 
         if input_value.shape is None:
-            logger.error(f"输入 {input_name} 没有形状信息！")
+            logger.error(f"Input {input_name} has no shape information!")
             raise ValueError(f"Input {input_name} does not have shape information.")
 
-        logger.info(f"输入形状: {input_value.shape}, 长度: {len(input_value.shape)}")
+        logger.warning(f"Input shape: {input_value.shape}, length: {len(input_value.shape)}")
 
         if dim_idx >= len(input_value.shape):
-            logger.error(f"输入 {input_name} 的维度数为 {len(input_value.shape)}，但尝试访问维度 {dim_idx}")
+            logger.error(f"Input {input_name} has rank {len(input_value.shape)}, but trying to access dimension {dim_idx}")
             raise ValueError(
                 f"Input {input_name} has rank {len(input_value.shape.dims)} but trying to access dim {dim_idx}."
             )
 
         # Create new shape with symbolic dimension
         new_dims = list(input_value.shape)
-        logger.info(f"原始维度: {new_dims}")
-        
+        logger.warning(f"Original dimensions: {new_dims}")
+
         if isinstance(new_dims[dim_idx], ir.SymbolicDim) and new_dims[dim_idx].value is not None:
-            logger.error(f"无法替换现有的动态维度 {new_dims[dim_idx].value} 为 {dim_param}")
+            logger.error(f"Cannot replace existing dynamic dimension {new_dims[dim_idx].value} with {dim_param}")
             raise ValueError(f"Can't replace existing dynamic dim {new_dims[dim_idx].value} with {dim_param}")
 
         new_dims[dim_idx] = ir.SymbolicDim(dim_param)
         input_value.shape = ir.Shape(new_dims)
-        logger.info(f"新维度: {new_dims}")
-        logger.info(f"成功设置动态维度: {input_name}[{dim_idx}] = {dim_param}")
+        logger.warning(f"New dimensions: {new_dims}")
+        logger.warning(f"Successfully set dynamic dimension: {input_name}[{dim_idx}] = {dim_param}")
