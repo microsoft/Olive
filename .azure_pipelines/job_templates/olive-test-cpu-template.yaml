@@ -37,8 +37,8 @@ jobs:
         python -m pip install pytest
         python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
 
-        coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --capture=no --log-cli-level=DEBUG --log-file=$(Build.SourcesDirectory)/logs/pytest.log --log-file-level=DEBUG --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/passes/onnx/test_extract_adapters.py --basetemp $(PYTEST_BASETEMP)
-        coverage xml
+        export PYTHONUNBUFFERED=1
+        python -m pytest -v -s --capture=no --log-cli-level=DEBUG --log-level=DEBUG --tb=short --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/passes/onnx/test_extract_adapters.py --basetemp $(PYTEST_BASETEMP)
     displayName: Test Olive
 
   - task: CredScan@3
