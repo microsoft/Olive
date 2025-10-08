@@ -46,15 +46,36 @@ def input_model_info_fixture(tmp_path_factory, request):
     del peft_model, pytorch_model
 
     # pytorch model
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"=== Creating HfModelHandler with adapter_path: {adapters_path} ===")
     olive_pytorch_model = HfModelHandler(model_path=model_name, task="text-generation", adapter_path=adapters_path)
+
+    # Debug: Check if adapters are loaded
+    logger.warning(f"PyTorch model attributes: {olive_pytorch_model.model_attributes}")
+    logger.warning(f"Adapter path exists: {adapters_path.exists()}")
+    if adapters_path.exists():
+        adapter_files = list(adapters_path.iterdir())
+        logger.warning(f"Files in adapter_path: {[f.name for f in adapter_files]}")
 
     # export to onnx
     # optimize True will fold multiple adapters into one, this won't happen for real models from LORA pass
     # Disable optimize just for testing purpose
+    logger.warning(f"=== Starting ONNX conversion with adapter_type: {adapter_type} ===")
+
     conversion_pass = create_pass_from_dict(
         OnnxConversion, {"use_dynamo_exporter": True, "optimize": False}, disable_search=True
     )
     olive_onnx_model = conversion_pass.run(olive_pytorch_model, str(tmp_path / "onnx-export"))
+
+    # Debug: Check exported model initializers
+    import onnx
+    onnx_proto = onnx.load(olive_onnx_model.model_path, load_external_data=False)
+    init_names = [init.name for init in onnx_proto.graph.initializer]
+    logger.warning(f"=== Exported ONNX model has {len(init_names)} initializers ===")
+    logger.warning(f"First 30 initializer names: {init_names[:30]}")
+    lora_inits = [name for name in init_names if 'lora' in name.lower()]
+    logger.warning(f"Found {len(lora_inits)} initializers with 'lora' in name: {lora_inits}")
 
     # int4 quantization
     rtn_quantizer = create_pass_from_dict(OnnxBlockWiseRtnQuantization, {}, disable_search=True)
