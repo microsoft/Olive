@@ -87,12 +87,6 @@ class ExtractAdapters(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        print("=== ExtractAdapters Pass 开始执行 ===")
-        print(f"输入模型路径: {model.model_path}")
-        print(f"输出模型路径: {output_model_path}")
-        print(f"适配器类型: {config.adapter_type}")
-        print(f"make_inputs: {config.make_inputs}")
-        print(f"save_format: {config.save_format}")
         logger.warning("=== ExtractAdapters Pass 开始执行 ===")
         logger.warning(f"输入模型路径: {model.model_path}")
         logger.warning(f"输出模型路径: {output_model_path}")
@@ -102,12 +96,10 @@ class ExtractAdapters(Pass):
         
         # 验证输入模型
         if model is None:
-            print("❌ 错误：输入模型为 None！")
             logger.error("输入模型为 None！")
             return None
         
         if not hasattr(model, 'model_path') or not model.model_path:
-            print("❌ 错误：输入模型没有有效的 model_path！")
             logger.error("输入模型没有有效的 model_path！")
             return None
         
@@ -154,39 +146,28 @@ class ExtractAdapters(Pass):
         weights = {}
 
         try:
-            print(f"🔍 开始提取 {config.adapter_type} 适配器权重...")
             logger.warning(f"开始提取 {config.adapter_type} 适配器权重...")
             if config.adapter_type in [AdapterType.LORA, AdapterType.DORA, AdapterType.LOHA]:
                 weights = self._extract_adapter(ir_model, adapter_type=config.adapter_type)
-                print(f"📊 提取到的权重数量: {len(weights)}")
                 logger.warning(f"提取到的权重数量: {len(weights)}")
                 if weights:
-                    print(f"📝 权重名称: {list(weights.keys())}")
                     logger.warning(f"权重名称: {list(weights.keys())}")
                     # 记录权重的形状信息
                     for name, weight in weights.items():
-                        print(f"  权重 {name}: shape={weight.shape}, dtype={weight.dtype}")
                         logger.warning(f"权重 {name}: shape={weight.shape}, dtype={weight.dtype}")
                 else:
-                    print("⚠️ 没有提取到任何权重！")
                     logger.warning("没有提取到任何权重！")
             else:
-                print(f"❌ 错误：不支持的适配器类型: {config.adapter_type}")
                 logger.error(f"不支持的适配器类型: {config.adapter_type}")
                 raise ValueError(f"Unsupported adapter type: {config.adapter_type}")
         except Exception as e:
-            print(f"❌ 提取适配器权重时出错: {e}")
-            print(f"错误类型: {type(e)}")
             logger.error(f"提取适配器权重时出错: {e}")
             logger.error(f"错误类型: {type(e)}")
             import traceback
-            print(f"完整错误堆栈: {traceback.format_exc()}")
             logger.error(f"完整错误堆栈: {traceback.format_exc()}")
             return None
 
         if not weights:
-            print(f"⚠️ 模型中没有找到 {config.adapter_type} 模块，返回原始模型")
-            print("=== ExtractAdapters Pass 结束（返回原始模型）===")
             logger.warning("No %s modules found in the model. Returning the original model.", config.adapter_type)
             logger.warning("=== ExtractAdapters Pass 结束（返回原始模型）===")
             return model
@@ -208,36 +189,20 @@ class ExtractAdapters(Pass):
             return None
 
         try:
-            print("💾 开始保存权重文件...")
-            print(f"权重数量: {len(weights)}")
-            print(f"输出模型路径: {output_model_path}")
-            print(f"输出模型父目录: {Path(output_model_path).parent}")
-            print(f"保存格式: {config.save_format}")
             logger.info("开始保存权重文件...")
             weights_path = save_weights(weights, Path(output_model_path).parent / "adapter_weights", config.save_format)
-            print(f"✅ 权重文件保存成功")
-            print(f"  完整路径: {weights_path}")
-            print(f"  文件名: {weights_path.name if hasattr(weights_path, 'name') else Path(weights_path).name}")
-            print(f"  文件是否存在: {Path(weights_path).exists()}")
             logger.info(f"权重文件保存成功: {weights_path}")
         except Exception as e:
-            print(f"❌ 保存权重文件时出错: {e}")
             logger.error(f"保存权重文件时出错: {e}")
             logger.error(f"错误类型: {type(e)}")
             import traceback
-            print(f"完整错误堆栈: {traceback.format_exc()}")
             logger.error(f"完整错误堆栈: {traceback.format_exc()}")
             return None
 
         try:
-            print("🏗️ 开始保存模型...")
             weights_file_name = weights_path.name if hasattr(weights_path, 'name') else Path(weights_path).name
-            print(f"config.make_inputs = {config.make_inputs}")
-            print(f"weights_file_name = {weights_file_name}")
             external_init_file = weights_file_name if not config.make_inputs else None
             constant_inputs_file = weights_file_name if config.make_inputs else None
-            print(f"external_initializers_file_name = {external_init_file}")
-            print(f"constant_inputs_file_name = {constant_inputs_file}")
             logger.info("开始保存模型...")
             # save the model
             output_model = model_proto_to_olive_model(
@@ -249,25 +214,17 @@ class ExtractAdapters(Pass):
             )
             
             if output_model is None:
-                print("❌ 致命错误：model_proto_to_olive_model 返回了 None！")
                 logger.error("model_proto_to_olive_model 返回了 None！")
                 return None
             
-            print(f"✅ 输出模型创建成功，类型: {type(output_model)}")
-            print(f"📁 输出模型路径: {getattr(output_model, 'model_path', 'None')}")
-            print(f"📁 constant_inputs_file_name: {getattr(output_model, 'constant_inputs_file_name', 'None')}")
-            print(f"📁 constant_inputs_path: {getattr(output_model, 'constant_inputs_path', 'None')}")
             logger.info(f"输出模型创建成功，类型: {type(output_model)}")
             logger.info(f"输出模型路径: {getattr(output_model, 'model_path', 'None')}")
             
         except Exception as e:
-            print(f"❌ 创建输出模型时出错: {e}")
-            print(f"错误详情: {str(e)}")
             logger.error(f"创建输出模型时出错: {e}")
             logger.error(f"错误类型: {type(e)}")
             import traceback
             traceback_str = traceback.format_exc()
-            print(f"完整错误堆栈:\n{traceback_str}")
             logger.error(f"完整错误堆栈: {traceback_str}")
             return None
 
@@ -303,11 +260,6 @@ class ExtractAdapters(Pass):
             logger.error(f"完整错误堆栈: {traceback.format_exc()}")
             return None
         
-        print("🎉 === ExtractAdapters Pass 成功完成 ===")
-        print(f"📦 返回的模型类型: {type(output_model)}")
-        print(f"📁 返回的模型路径: {getattr(output_model, 'model_path', 'None')}")
-        print(f"📁 constant_inputs_path: {getattr(output_model, 'constant_inputs_path', 'None')}")
-        print(f"📁 external_initializers_path: {getattr(output_model, 'external_initializers_path', 'None')}")
         logger.warning("=== ExtractAdapters Pass 成功完成 ===")
         logger.warning(f"返回的模型类型: {type(output_model)}")
         logger.warning(f"返回的模型路径: {getattr(output_model, 'model_path', 'None')}")
@@ -411,15 +363,9 @@ class ExtractAdapters(Pass):
         logger.warning(f"总共找到 {matched_count} 个匹配的适配器权重")
         
         if not to_rename:
-            print("⚠️ 没有找到任何匹配的适配器权重！")
-            print("可能的原因:")
-            print("1. 模型中没有适配器权重")
-            print("2. 适配器权重的命名模式与预期不符")
-            print("3. 适配器类型选择错误")
             
             # 记录一些初始化器名称供调试
             init_names = list(ir_model.graph.initializers.keys())[:20]
-            print(f"🔍 模型中的前20个初始化器名称: {init_names}")
             logger.warning("没有找到任何匹配的适配器权重！")
             logger.warning("可能的原因:")
             logger.warning("1. 模型中没有适配器权重")
