@@ -7,6 +7,7 @@
 import copy
 import json
 import logging
+from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, Union
 
@@ -14,7 +15,6 @@ import onnx
 import transformers
 from packaging import version
 
-from olive.common.utils import IntEnumBase
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
@@ -33,14 +33,14 @@ class ModelBuilder(Pass):
     See https://github.com/microsoft/onnxruntime-genai
     """
 
-    class BlockSize(IntEnumBase):
+    class BlockSize(IntEnum):
         B16 = 16
         B32 = 32
         B64 = 64
         B128 = 128
         B256 = 256
 
-    class AccuracyLevel(IntEnumBase):
+    class AccuracyLevel(IntEnum):
         fp32 = 1
         fp16 = 2
         bf16 = 3
@@ -239,7 +239,7 @@ class ModelBuilder(Pass):
 
         extra_args.update(
             {
-                key: value.value if isinstance(value, IntEnumBase) else value
+                key: value.value if isinstance(value, IntEnum) else value
                 for key, value in config.dict().items()
                 if value is not None and key not in {"precision", "metadata_only", "search", "extra_options"}
             }

@@ -440,10 +440,10 @@ class IncQuantization(Pass):
     def _set_woq_config(self, run_config):
         # set weight only quantization config for INC API
         weight_only_config = run_config["weight_only_config"]
-        bits = weight_only_config.get("bits", PrecisionBits.BITS4).value
+        bits = int(weight_only_config.get("bits") or PrecisionBits.BITS4)
         group_size = weight_only_config.get("group_size", 32)
         scheme = weight_only_config.get("scheme", "asym")
-        algo = (weight_only_config.get("algorithm") or QuantAlgorithm.RTN).value.upper()
+        algo = (weight_only_config.get("algorithm") or QuantAlgorithm.RTN.value).upper()
         return {"bits": bits, "group_size": group_size, "scheme": scheme, "algorithm": algo}
 
     def _run_for_config(

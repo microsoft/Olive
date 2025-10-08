@@ -2,8 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from enum import IntEnum
+
 from olive.common.config_utils import CaseInsensitiveEnum
-from olive.common.utils import IntEnumBase, StrEnumBase
+from olive.common.utils import StrEnumBase
 
 MSFT_DOMAIN = "com.microsoft"
 
@@ -52,7 +54,7 @@ class Precision(StrEnumBase):
     BF16 = "bf16"
 
 
-class PrecisionBits(IntEnumBase):
+class PrecisionBits(IntEnum):
     BITS4 = 4
     BITS8 = 8
     BITS16 = 16
@@ -103,7 +105,7 @@ class OpType(StrEnumBase):
     Constant = "Constant"
 
 
-class AccuracyLevel(IntEnumBase):
+class AccuracyLevel(IntEnum):
     unset = 0
     fp32 = 1
     fp16 = 2

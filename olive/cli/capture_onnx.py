@@ -5,6 +5,7 @@
 import argparse
 from argparse import ArgumentParser
 from copy import deepcopy
+from enum import IntEnum
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -15,10 +16,10 @@ from olive.cli.base import (
     get_input_model_config,
     update_shared_cache_options,
 )
-from olive.common.utils import IntEnumBase, set_nested_dict_value
+from olive.common.utils import set_nested_dict_value
 
 
-class ModelBuilderAccuracyLevel(IntEnumBase):
+class ModelBuilderAccuracyLevel(IntEnum):
     fp32 = 1
     fp16 = 2
     bf16 = 3
