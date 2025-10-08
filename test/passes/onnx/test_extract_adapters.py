@@ -24,6 +24,12 @@ from test.utils import get_onnx_model
 
 @pytest.fixture(name="input_model_info", scope="module")
 def input_model_info_fixture(tmp_path_factory, request):
+    # Fix Windows encoding issue that causes dynamo exporter to fail
+    import os
+    import sys
+    if sys.platform == "win32":
+        os.environ["PYTHONIOENCODING"] = "utf-8"
+
     tmp_path = tmp_path_factory.mktemp("extract-adapters-test")
 
     model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
