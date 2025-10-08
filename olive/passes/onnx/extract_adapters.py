@@ -209,9 +209,16 @@ class ExtractAdapters(Pass):
 
         try:
             print("💾 开始保存权重文件...")
+            print(f"权重数量: {len(weights)}")
+            print(f"输出模型路径: {output_model_path}")
+            print(f"输出模型父目录: {Path(output_model_path).parent}")
+            print(f"保存格式: {config.save_format}")
             logger.info("开始保存权重文件...")
             weights_path = save_weights(weights, Path(output_model_path).parent / "adapter_weights", config.save_format)
-            print(f"✅ 权重文件保存成功: {weights_path}")
+            print(f"✅ 权重文件保存成功")
+            print(f"  完整路径: {weights_path}")
+            print(f"  文件名: {weights_path.name if hasattr(weights_path, 'name') else Path(weights_path).name}")
+            print(f"  文件是否存在: {Path(weights_path).exists()}")
             logger.info(f"权重文件保存成功: {weights_path}")
         except Exception as e:
             print(f"❌ 保存权重文件时出错: {e}")
@@ -224,14 +231,21 @@ class ExtractAdapters(Pass):
 
         try:
             print("🏗️ 开始保存模型...")
+            weights_file_name = weights_path.name if hasattr(weights_path, 'name') else Path(weights_path).name
+            print(f"config.make_inputs = {config.make_inputs}")
+            print(f"weights_file_name = {weights_file_name}")
+            external_init_file = weights_file_name if not config.make_inputs else None
+            constant_inputs_file = weights_file_name if config.make_inputs else None
+            print(f"external_initializers_file_name = {external_init_file}")
+            print(f"constant_inputs_file_name = {constant_inputs_file}")
             logger.info("开始保存模型...")
             # save the model
             output_model = model_proto_to_olive_model(
                 ir.to_proto(ir_model),
                 output_model_path,
                 config,
-                external_initializers_file_name=weights_path.name if not config.make_inputs else None,
-                constant_inputs_file_name=weights_path.name if config.make_inputs else None,
+                external_initializers_file_name=external_init_file,
+                constant_inputs_file_name=constant_inputs_file,
             )
             
             if output_model is None:
@@ -241,17 +255,20 @@ class ExtractAdapters(Pass):
             
             print(f"✅ 输出模型创建成功，类型: {type(output_model)}")
             print(f"📁 输出模型路径: {getattr(output_model, 'model_path', 'None')}")
+            print(f"📁 constant_inputs_file_name: {getattr(output_model, 'constant_inputs_file_name', 'None')}")
             print(f"📁 constant_inputs_path: {getattr(output_model, 'constant_inputs_path', 'None')}")
             logger.info(f"输出模型创建成功，类型: {type(output_model)}")
             logger.info(f"输出模型路径: {getattr(output_model, 'model_path', 'None')}")
             
         except Exception as e:
             print(f"❌ 创建输出模型时出错: {e}")
+            print(f"错误详情: {str(e)}")
             logger.error(f"创建输出模型时出错: {e}")
             logger.error(f"错误类型: {type(e)}")
             import traceback
-            print(f"完整错误堆栈: {traceback.format_exc()}")
-            logger.error(f"完整错误堆栈: {traceback.format_exc()}")
+            traceback_str = traceback.format_exc()
+            print(f"完整错误堆栈:\n{traceback_str}")
+            logger.error(f"完整错误堆栈: {traceback_str}")
             return None
 
         try:

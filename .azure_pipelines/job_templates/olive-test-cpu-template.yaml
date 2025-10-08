@@ -37,7 +37,7 @@ jobs:
         python -m pip install pytest
         python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
 
-        coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test --basetemp $(PYTEST_BASETEMP)
+        coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --capture=no -p no:warnings --disable-warnings --log-cli-level=INFO --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test --basetemp $(PYTEST_BASETEMP)
         coverage xml
     displayName: Test Olive
 
