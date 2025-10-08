@@ -25,23 +25,17 @@ logger = logging.getLogger(__name__)
 
 
 if sys.version_info >= (3, 11):
-    from enum import IntEnum, StrEnum
+    from enum import StrEnum
 
     class StrEnumBase(StrEnum):
         pass
 
-    class IntEnumBase(IntEnum):
-        pass
-
 else:
-    from enum import Enum, IntEnum
+    from enum import Enum
 
     class StrEnumBase(str, Enum):
         def __str__(self) -> str:
             return self.value
-
-    class IntEnumBase(IntEnum):
-        pass
 
 
 def run_subprocess(cmd, env=None, cwd=None, check=False):
