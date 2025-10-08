@@ -87,12 +87,12 @@ class ExtractAdapters(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        logger.info("=== ExtractAdapters Pass 开始执行 ===")
-        logger.info(f"输入模型路径: {model.model_path}")
-        logger.info(f"输出模型路径: {output_model_path}")
-        logger.info(f"适配器类型: {config.adapter_type}")
-        logger.info(f"make_inputs: {config.make_inputs}")
-        logger.info(f"save_format: {config.save_format}")
+        logger.warning("=== ExtractAdapters Pass 开始执行 ===")
+        logger.warning(f"输入模型路径: {model.model_path}")
+        logger.warning(f"输出模型路径: {output_model_path}")
+        logger.warning(f"适配器类型: {config.adapter_type}")
+        logger.warning(f"make_inputs: {config.make_inputs}")
+        logger.warning(f"save_format: {config.save_format}")
         
         # 验证输入模型
         if model is None:
@@ -103,34 +103,34 @@ class ExtractAdapters(Pass):
             logger.error("输入模型没有有效的 model_path！")
             return None
         
-        logger.info(f"输入模型类型: {type(model)}")
-        logger.info(f"输入模型属性: {getattr(model, 'model_attributes', 'None')}")
+        logger.warning(f"输入模型类型: {type(model)}")
+        logger.warning(f"输入模型属性: {getattr(model, 'model_attributes', 'None')}")
         
         try:
             output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
-            logger.info(f"解析后的输出模型路径: {output_model_path}")
+            logger.warning(f"解析后的输出模型路径: {output_model_path}")
         except Exception as e:
             logger.error(f"解析输出模型路径时出错: {e}")
             return None
 
         try:
-            logger.info("正在加载 IR 模型...")
+            logger.warning("正在加载 IR 模型...")
             ir_model = model.load_ir_model()
-            logger.info(f"IR 模型加载成功，类型: {type(ir_model)}")
+            logger.warning(f"IR 模型加载成功，类型: {type(ir_model)}")
             
-            logger.info("正在加载外部数据到模型...")
+            logger.warning("正在加载外部数据到模型...")
             ir.external_data.load_to_model(ir_model)
-            logger.info("外部数据加载完成")
+            logger.warning("外部数据加载完成")
             
             # 记录模型基本信息
             if hasattr(ir_model, 'graph') and ir_model.graph:
-                logger.info(f"模型图中的初始化器数量: {len(ir_model.graph.initializers)}")
-                logger.info(f"模型图中的输入数量: {len(ir_model.graph.inputs)}")
-                logger.info(f"模型图中的输出数量: {len(ir_model.graph.outputs)}")
+                logger.warning(f"模型图中的初始化器数量: {len(ir_model.graph.initializers)}")
+                logger.warning(f"模型图中的输入数量: {len(ir_model.graph.inputs)}")
+                logger.warning(f"模型图中的输出数量: {len(ir_model.graph.outputs)}")
                 
                 # 记录前几个初始化器的名称
                 init_names = list(ir_model.graph.initializers.keys())[:10]
-                logger.info(f"前10个初始化器名称: {init_names}")
+                logger.warning(f"前10个初始化器名称: {init_names}")
             else:
                 logger.error("IR 模型没有有效的图结构！")
                 return None
@@ -146,15 +146,15 @@ class ExtractAdapters(Pass):
         weights = {}
 
         try:
-            logger.info(f"开始提取 {config.adapter_type} 适配器权重...")
+            logger.warning(f"开始提取 {config.adapter_type} 适配器权重...")
             if config.adapter_type in [AdapterType.LORA, AdapterType.DORA, AdapterType.LOHA]:
                 weights = self._extract_adapter(ir_model, adapter_type=config.adapter_type)
-                logger.info(f"提取到的权重数量: {len(weights)}")
+                logger.warning(f"提取到的权重数量: {len(weights)}")
                 if weights:
-                    logger.info(f"权重名称: {list(weights.keys())}")
+                    logger.warning(f"权重名称: {list(weights.keys())}")
                     # 记录权重的形状信息
                     for name, weight in weights.items():
-                        logger.info(f"权重 {name}: shape={weight.shape}, dtype={weight.dtype}")
+                        logger.warning(f"权重 {name}: shape={weight.shape}, dtype={weight.dtype}")
                 else:
                     logger.warning("没有提取到任何权重！")
             else:
@@ -168,8 +168,8 @@ class ExtractAdapters(Pass):
             return None
 
         if not weights:
-            logger.info("No %s modules found in the model. Returning the original model.", config.adapter_type)
-            logger.info("=== ExtractAdapters Pass 结束（返回原始模型）===")
+            logger.warning("No %s modules found in the model. Returning the original model.", config.adapter_type)
+            logger.warning("=== ExtractAdapters Pass 结束（返回原始模型）===")
             return model
 
         try:
@@ -256,9 +256,9 @@ class ExtractAdapters(Pass):
             logger.error(f"完整错误堆栈: {traceback.format_exc()}")
             return None
         
-        logger.info("=== ExtractAdapters Pass 成功完成 ===")
-        logger.info(f"返回的模型类型: {type(output_model)}")
-        logger.info(f"返回的模型路径: {getattr(output_model, 'model_path', 'None')}")
+        logger.warning("=== ExtractAdapters Pass 成功完成 ===")
+        logger.warning(f"返回的模型类型: {type(output_model)}")
+        logger.warning(f"返回的模型路径: {getattr(output_model, 'model_path', 'None')}")
         return output_model
 
     def _convert_initializer_to_input(self, model: ir.Model, initializer_name: str):
@@ -309,13 +309,13 @@ class ExtractAdapters(Pass):
         hada_w1_a + hada_w1_b -> MatMul -> ...
         hada_w2_a + hada_w2_b -> MatMul -> ...
         """
-        logger.info(f"=== 开始提取 {adapter_type} 适配器权重 ===")
+        logger.warning(f"=== 开始提取 {adapter_type} 适配器权重 ===")
         
         if adapter_type == AdapterType.DORA:
-            logger.info("DoRA 类型，需要先分解 Gemm 节点...")
+            logger.warning("DoRA 类型，需要先分解 Gemm 节点...")
             try:
                 ir_model = self._decompose_gemm(ir_model)
-                logger.info("Gemm 节点分解完成")
+                logger.warning("Gemm 节点分解完成")
             except Exception as e:
                 logger.error(f"分解 Gemm 节点时出错: {e}")
                 raise
@@ -327,50 +327,50 @@ class ExtractAdapters(Pass):
         patterns = None
         if adapter_type == AdapterType.LORA:
             patterns = LORA_NAME_PATTERNS
-            logger.info(f"使用 LoRA 模式: {patterns}")
+            logger.warning(f"使用 LoRA 模式: {patterns}")
         elif adapter_type == AdapterType.DORA:
             patterns = DORA_NAME_PATTERNS
-            logger.info(f"使用 DoRA 模式: {patterns}")
+            logger.warning(f"使用 DoRA 模式: {patterns}")
         elif adapter_type == AdapterType.LOHA:
             patterns = LOHA_NAME_PATTERNS
-            logger.info(f"使用 LoHa 模式: {patterns}")
+            logger.warning(f"使用 LoHa 模式: {patterns}")
         else:
             logger.error(f"不支持的适配器类型: {adapter_type}")
             raise ValueError(f"Unsupported adapter type: {adapter_type}")
 
-        logger.info(f"开始扫描模型中的初始化器，总数: {len(ir_model.graph.initializers)}")
+        logger.warning(f"开始扫描模型中的初始化器，总数: {len(ir_model.graph.initializers)}")
         
         to_rename = []
         matched_count = 0
         for i, initializer in enumerate(ir_model.graph.initializers.values()):
             if i < 10:  # 只记录前10个的详细信息
-                logger.info(f"检查初始化器 [{i}]: {initializer.name}")
+                logger.warning(f"检查初始化器 [{i}]: {initializer.name}")
             
             adapter_weight = get_adapter_name(initializer, patterns)
             if adapter_weight is None:
                 if i < 10:
-                    logger.info(f"  -> 不匹配任何适配器模式")
+                    logger.warning(f"  -> 不匹配任何适配器模式")
                 continue
 
-            logger.info(f"找到匹配的适配器权重: {initializer.name} -> {adapter_weight}")
+            logger.warning(f"找到匹配的适配器权重: {initializer.name} -> {adapter_weight}")
             to_rename.append((initializer, adapter_weight))
             matched_count += 1
 
-        logger.info(f"总共找到 {matched_count} 个匹配的适配器权重")
+        logger.warning(f"总共找到 {matched_count} 个匹配的适配器权重")
         
         if not to_rename:
             logger.warning("没有找到任何匹配的适配器权重！")
-            logger.info("可能的原因:")
-            logger.info("1. 模型中没有适配器权重")
-            logger.info("2. 适配器权重的命名模式与预期不符")
-            logger.info("3. 适配器类型选择错误")
+            logger.warning("可能的原因:")
+            logger.warning("1. 模型中没有适配器权重")
+            logger.warning("2. 适配器权重的命名模式与预期不符")
+            logger.warning("3. 适配器类型选择错误")
             
             # 记录一些初始化器名称供调试
             init_names = list(ir_model.graph.initializers.keys())[:20]
-            logger.info(f"模型中的前20个初始化器名称: {init_names}")
+            logger.warning(f"模型中的前20个初始化器名称: {init_names}")
             return weights
 
-        logger.info("开始处理匹配的适配器权重...")
+        logger.warning("开始处理匹配的适配器权重...")
         for i, (initializer, adapter_weight) in enumerate(to_rename):
             logger.info(f"处理权重 [{i+1}/{len(to_rename)}]: {initializer.name} -> {adapter_weight}")
             
@@ -418,7 +418,7 @@ class ExtractAdapters(Pass):
                 logger.error(f"完整错误堆栈: {traceback.format_exc()}")
                 continue
 
-        logger.info(f"=== 适配器权重提取完成，成功提取 {len(weights)} 个权重 ===")
+        logger.warning(f"=== 适配器权重提取完成，成功提取 {len(weights)} 个权重 ===")
         return weights
 
     def _make_dynamic_optional(
