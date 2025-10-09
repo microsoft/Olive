@@ -256,7 +256,7 @@ class Engine:
             if len(accelerator_output_dir_list) > 1 and self.skip_saving_artifacts:
                 [shutil.rmtree(folder) for folder in accelerator_output_dir_list if folder.exists()]
         else:
-            logger.warning("No output model")
+            logger.warning("No output model produced. Please check the log for details.")
 
         return workflow_output
 

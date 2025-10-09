@@ -40,11 +40,6 @@ jobs:
         coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test --basetemp $(PYTEST_BASETEMP)
         coverage xml
     displayName: Test Olive
-    env:
-      WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
-      WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
-      WORKSPACE_NAME: $(workspace-name)
-      MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
 
   - task: CredScan@3
     displayName: 'Run CredScan'

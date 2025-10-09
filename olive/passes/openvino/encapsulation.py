@@ -2,9 +2,12 @@
 # Copyright (c) Intel Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
+import numbers
 import os
+from collections.abc import Mapping, MutableMapping
 from pathlib import Path
-from typing import ClassVar, Union
+from typing import Any, ClassVar, Union
 
 import onnx.helper as helper
 from onnx import TensorProto, save
@@ -14,6 +17,8 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, OpenVINOModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+
+logger = logging.getLogger(__name__)
 
 
 class OpenVINOEncapsulation(Pass):
@@ -96,6 +101,12 @@ class OpenVINOEncapsulation(Pass):
                 default_value=False,
                 required=False,
                 description=("Reuse cache of previous passes to reduce storage footprint."),
+            ),
+            "genai_config_override": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                required=False,
+                description=("Configuration overrides for genai_config.json generation. "),
             ),
         }
 
@@ -252,6 +263,46 @@ def extract_shape_list(shape, config, prefix: str = "input_0_") -> list:
     return shape_list
 
 
+def _compatible_type(default_val: Any, new_val: Any) -> bool:
+    """Loose type check: allow ints for floats, bool as bool, etc."""
+    if default_val is None:
+        return True
+    if isinstance(default_val, bool):
+        return isinstance(new_val, bool)
+    if isinstance(default_val, numbers.Real) and not isinstance(default_val, bool):
+        return isinstance(new_val, numbers.Real) and not isinstance(new_val, bool)
+    if isinstance(default_val, str):
+        return isinstance(new_val, str)
+    if isinstance(default_val, (list, tuple)):
+        return isinstance(new_val, (list, tuple))
+    if isinstance(default_val, Mapping):
+        return isinstance(new_val, Mapping)
+    return True  # fall back to permissive
+
+
+def apply_genai_overrides(
+    defaults: MutableMapping[str, Any], overrides: Mapping[str, Any], *, path: str = ""
+) -> MutableMapping[str, Any]:
+    """Recursively merge `overrides` into `defaults`."""
+    for k, v in overrides.items():
+        here = f"{path}.{k}" if path else k
+        if k not in defaults:
+            continue
+
+        dv = defaults[k]
+
+        # Recurse for dicts
+        if isinstance(dv, Mapping) and isinstance(v, Mapping):
+            apply_genai_overrides(dv, v, path=here)
+            continue
+
+        # Replace lists/tuples and scalars
+        if not _compatible_type(dv, v):
+            logger.warning("Type mismatch at %s", here)
+        defaults[k] = v
+    return defaults
+
+
 def create_genai_config(model_name: str, output_path: str, config: type[BasePassConfig]) -> None:
     """Generate the genai_config.json from the model config files.
 
@@ -370,6 +421,9 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
     genai_config["model"]["vocab_size"] = src_config.get("vocab_size", -1)
 
     genai_config["search"]["max_length"] = src_config.get("max_position_embeddings", -1)
+
+    if isinstance(config.genai_config_override, dict):
+        apply_genai_overrides(genai_config, config.genai_config_override)
 
     # Step 2: Write to JSON file
     output_genai_config = Path(output_path) / "genai_config.json"
