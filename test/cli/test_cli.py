@@ -324,35 +324,42 @@ def test_shared_cache_delete_all_with_confirmation(mock_AzureContainerClientFact
     mock_factory_instance.delete_all.assert_called_once()
 
 
-@pytest.mark.parametrize("algorithm_name", ["awq", "gptq"])
+@pytest.mark.parametrize("algorithm_name", ["awq", "gptq", "lpbq", "seqmse", "adaround"])
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists")
 def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
+    from test.utils import ONNX_MODEL_PATH
+
     # setup
     output_dir = tmp_path / "output_dir"
 
     # setup
     command_args = [
         "quantize",
-        "-m",
-        "dummy_model",
         "--algorithm",
         algorithm_name,
         "-o",
         str(output_dir),
     ]
 
+    model_name = "dummy_model"
     if algorithm_name == "gptq":
         command_args += ["-d", "dummy_dataset"]
         command_args += ["--implementation", "autogptq"]
     if algorithm_name == "awq":
         command_args += ["--implementation", "awq"]
+    if algorithm_name in {"lpbq", "seqmse", "adaround"}:
+        model_name = str(ONNX_MODEL_PATH)
+        command_args += ["-d", "dummy_dataset"]
+        command_args += ["--implementation", "aimet"]
+
+    command_args += ["-m", model_name]
 
     # execute
     cli_main(command_args)
 
     config = mock_run.call_args[0][0]
-    assert config["input_model"]["model_path"] == "dummy_model"
+    assert config["input_model"]["model_path"] == model_name
     assert mock_run.call_count == 1
 
 

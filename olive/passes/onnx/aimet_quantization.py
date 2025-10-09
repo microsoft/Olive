@@ -171,6 +171,29 @@ class Adaround(_AimetTechnique):
         return sim
 
 
+class SeqMSE(_AimetTechnique):
+    @staticmethod
+    def apply(  # pylint: disable=arguments-differ
+        sim,
+        *,
+        data_config=None,
+        num_candidates: int = 20,
+    ):
+        """Apply aimet_onnx sequential MSE technique to sim.
+
+        Args:
+            sim: QuantizationSimModel to optimize.
+            data_config: Dataset to use for optimization. If not specified for the technique, will default to the calibration data.
+            num_candidates: Number of encoding candidates to sweep for each weight.
+
+        """
+        from aimet_onnx import apply_seq_mse
+
+        apply_seq_mse(sim, data_config, num_candidates)
+
+        return sim
+
+
 class AimetQuantization(Pass):
     """Quantize ONNX model using aimet-onnx."""
 
@@ -340,6 +363,6 @@ class AimetQuantization(Pass):
             )
 
             sim.compute_encodings(calib_dataloader)
-            qdq_model = sim.to_onnx_qdq()
+            qdq_model = sim.to_onnx_qdq(prequantize_constants=True)
 
         return model_proto_to_olive_model(qdq_model, output_model_path, config)

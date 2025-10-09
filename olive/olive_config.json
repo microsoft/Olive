@@ -13,8 +13,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "int16" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ],
+            "supported_algorithms": [ "lpbq", "seqmse", "adaround" ],
+            "supported_quantization_encodings": [ "qdq" ],
             "extra_dependencies": [ "aimet-onnx" ],
             "dataset": "dataset_required"
         },
@@ -412,6 +412,15 @@
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "openvino" ]
         },
+        "OpenVINOWeightCompression": {
+            "module_path": "olive.passes.openvino.compression.OpenVINOWeightCompression",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
         "OptimumConversion": {
             "module_path": "olive.passes.onnx.optimum_conversion.OptimumConversion",
             "supported_providers": [ "*" ],
@@ -611,7 +620,7 @@
         }
     },
     "extra_dependencies": {
-        "aimet-onnx": [ "aimet-onnx>=2.12.0" ],
+        "aimet-onnx": [ "aimet-onnx>=2.15.0" ],
         "auto-opt": [ "optimum" ],
         "azureml": [ "azure-ai-ml>=1.11.1", "azure-identity" ],
         "bnb": [ "bitsandbytes", "triton" ],
@@ -627,8 +636,8 @@
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "nvmo": [ "nvidia-modelopt[onnx]" ],
         "openvino": [
-            "openvino>=2025.1.0",
-            "nncf>=2.16.0",
+            "openvino>=2025.3.0",
+            "nncf>=2.18.0",
             "numpy<2.0",
             "optimum[openvino]<=1.24",
             "onnxruntime-openvino"

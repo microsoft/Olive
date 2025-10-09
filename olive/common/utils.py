@@ -25,12 +25,9 @@ logger = logging.getLogger(__name__)
 
 
 if sys.version_info >= (3, 11):
-    from enum import IntEnum, StrEnum
+    from enum import StrEnum
 
     class StrEnumBase(StrEnum):
-        pass
-
-    class IntEnumBase(IntEnum):
         pass
 
 else:
@@ -39,9 +36,6 @@ else:
     class StrEnumBase(str, Enum):
         def __str__(self) -> str:
             return self.value
-
-    class IntEnumBase(int, Enum):
-        pass
 
 
 def run_subprocess(cmd, env=None, cwd=None, check=False):
@@ -495,6 +489,10 @@ def hardlink_copy_dir(src_dir, dst_dir, **kwargs):
         logger.warning("dirs_exist_ok is not supported for hardlink_copy_dir. Ignoring.")
 
     copy_dir(src_dir, dst_dir, copy_function=hardlink_copy_file, dirs_exist_ok=True, **kwargs)
+
+
+def is_hardlink(path: Union[str, Path]) -> bool:
+    return Path(path).stat().st_nlink > 1
 
 
 def set_tempdir(tempdir: str = None):
