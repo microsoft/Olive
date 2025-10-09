@@ -1,14 +1,7 @@
 # we use v1 API so need autodoc_pydantic<2.0.0
 # will also install pydantic<2.0.0
 autodoc_pydantic<2.0.0
-azure-ai-ml>=1.11.1
-azure-identity
-azureml-fsspec
-docker
-marshmallow
 myst_parser
-onnxconverter_common
-psutil
 pydata_sphinx_theme
 scipy
 # stringify got removed at v8.0.0, making it incompatible with autodoc_pydantic<2.0.0
