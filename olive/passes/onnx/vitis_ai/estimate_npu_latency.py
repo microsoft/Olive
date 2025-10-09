@@ -59,7 +59,6 @@ class EstimateNPULatency(Pass):
             # Override default parameters if specified
             if config.target_device:
                 EstimatorSettings.target_device = config.target_device
-            EstimatorSettings.initialized = True
 
             logger.info(
                 "Running perf estimator for model path: %s and target device: %s",
@@ -68,7 +67,6 @@ class EstimateNPULatency(Pass):
             )
 
             run_perf_estimate(EstimatorSettings)
-
             logger.info("Finish running perf estimator pass")
 
         # Return the original model as is
