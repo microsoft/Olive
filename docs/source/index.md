@@ -12,6 +12,8 @@
   content: "Find more details on specific Olive capabilities, such as quantization, running workflows on remote compute, model packaging, conversions, and more!<br/>{octicon}`arrow-right` [How-To](how-to/index)"
 - header: "{fas}`code`  Reference"
   content: "Get more details on specific Olive capabilities, such as running workflows on remote compute (for example, Azure AI), model packaging, conversions, and more!<br/>{octicon}`arrow-right` [Reference](reference/index)"
+- header: "{octicon}`megaphone` Blogs"
+  content: "Read the latest news and updates about Olive, including new experiments, features, and use cases.<br/>{octicon}`arrow-right` [Blogs](blogs/index)"
 ```
 
 
@@ -24,4 +26,5 @@ getting-started/getting-started.md
 how-to/index
 features/index
 reference/index
+blogs/index
 ```
