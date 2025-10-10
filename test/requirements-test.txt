@@ -20,7 +20,6 @@ onnx==1.18.0
 onnx-graphsurgeon
 onnxconverter_common
 onnxmltools
-onnxoptimizer
 onnxruntime_extensions
 onnxscript>=0.2.4
 onnxsim
