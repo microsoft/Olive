@@ -8,8 +8,13 @@ FROM ${BASE_IMAGE}
 ARG PYTHON_VERSION
 ARG TENSORRT_VERSION
 
-RUN apt-add-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && \
+# needed for python version other than 3.10 on ubuntu 22.04
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    software-properties-common && \
+    apt-add-repository -y ppa:deadsnakes/ppa
+
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
