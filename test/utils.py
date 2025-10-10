@@ -82,6 +82,7 @@ def create_onnx_model_file():
         opset_version=10,
         input_names=io_config["input_names"],
         output_names=io_config["output_names"],
+        external_data=False,
     )
 
 
