@@ -259,6 +259,9 @@ class Gptq(Pass):
             module.to(device)
 
         def store_input_hook(_, args: tuple, kwargs: dict) -> None:
+            if kwargs.get("hidden_states") is not None:
+                # handle case where hidden_states is passed as a kwarg
+                args = (kwargs.pop("hidden_states"), *args)
             # assume first argument is the hidden state
             hidden_states.append(args[0])
             layer_args.append(args[1:])
@@ -312,8 +315,10 @@ class Gptq(Pass):
                 hs,
                 *(layer_args[i] if layer_args else ()),
                 **(layer_kwargs[i] if layer_kwargs else {}),
-            )[0]
+            )
             if return_output:
+                if isinstance(layer_output, tuple):
+                    layer_output = layer_output[0]
                 outputs.append(layer_output)
 
         layer.to("cpu")
