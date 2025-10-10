@@ -7,7 +7,7 @@ parameters:
   docker_image: 'olive-pipeline:latest'
   base_image: 'mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
   trt_version: '10.5.0.18-1+cuda12.6'
-  python_version: '3.12'
+  python_version: '3.11'
   onnxruntime: 'onnxruntime-gpu'
   torch: 'torch'
   requirements_file: 'requirements-test-gpu.txt'
