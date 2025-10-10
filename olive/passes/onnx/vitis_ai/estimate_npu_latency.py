@@ -44,7 +44,7 @@ class EstimateNPULatency(Pass):
             from estimator.run import run_perf_estimate
         except ImportError:
             perf_installed = False
-            logger.error("Estimator module not found. Install perf-estimator package"
+            logger.exception("Estimator module not found. Install perf-estimator package"
                         " and delete cached run before rerunning.")
 
         if not isinstance(model, ONNXModelHandler):
