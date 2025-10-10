@@ -281,6 +281,7 @@ class Gptq(Pass):
         hook.remove()
         for module in pre_layer_modules:
             module.to("cpu")
+
         return hidden_states, layer_args, layer_kwargs
 
     @torch.no_grad()
