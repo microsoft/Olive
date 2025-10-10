@@ -60,7 +60,6 @@ def default_calibration_dataloader(
     dataloader,
     model_path: Optional[str] = None,
     io_config: Optional[dict] = None,
-    calibration_providers: Optional[list[str]] = None,
     **kwargs,
 ):
     from onnxruntime.quantization import CalibrationDataReader
@@ -109,22 +108,19 @@ def default_calibration_dataloader(
 
     if model_path and io_config:
         # there is no overhead for non-llm models
-        dataloader = LLMAugmentedDataLoader(
-            dataloader, model_path, io_config, calibration_providers=calibration_providers
-        )
+        dataloader = LLMAugmentedDataLoader(dataloader, model_path, io_config)
 
     return _CalibrationDataReader(dataloader, io_config, **kwargs)
 
 
 # TODO(jambayk): generalize this and make this available for dataloaders
 class LLMAugmentedDataLoader:
-    def __init__(self, dataloader, model_path: str, io_config: dict, calibration_providers: Optional[list[str]] = None):
+    def __init__(self, dataloader, model_path: str, io_config: dict):
         import onnx
 
         self.dataloader = dataloader
         self.model_path = model_path
         self.io_config = io_config
-        self.calibration_providers = calibration_providers
 
         self.position_ids = "position_ids" in self.io_config["input_names"]
         self.past_seq_len = "past_seq_len" in self.io_config["input_names"]
@@ -136,17 +132,9 @@ class LLMAugmentedDataLoader:
                 logger.debug("Model has GroupQueryAttention: %s", self.has_gqa)
                 break
 
-        self._session = None
-
     def __len__(self):
         try:
-            return len(self.dataloader) * (
-                2
-                if not self.has_gqa
-                and self.kv_info
-                and self.kv_info["past_names"][0] not in next(iter(self.dataloader))[0]
-                else 1
-            )
+            return len(self.dataloader)
         except (TypeError, NotImplementedError):
             # len() not implemented for dataloader
             return 0
@@ -168,9 +156,7 @@ class LLMAugmentedDataLoader:
             assert isinstance(batch, dict), "Only support dict type batch data"
 
             if self.kv_info and self.kv_info["past_names"][0] not in batch:
-                # GQA: use all tokens for prefill
-                # No GQA: use all - 1 tokens for prefill, last token for decode
-                prefill_slice = slice(0, None) if self.has_gqa else slice(None, -1)
+                # always use all tokens for prefill, later passes can sync quant params between past and present
 
                 attention_mask = batch["attention_mask"]
                 # prepend mask for past keys and values
@@ -179,62 +165,20 @@ class LLMAugmentedDataLoader:
                     # No GQA: one unattended past token so that the calibrator data collection works
                     attention_mask = torch.cat([torch.zeros_like(attention_mask[:, :1]), attention_mask], dim=-1)
 
-                # prefill: all - 1 tokens
+                # prefill: all tokens
                 prefill_batch = {
-                    "input_ids": batch["input_ids"][:, prefill_slice],
-                    "attention_mask": attention_mask[:, prefill_slice],
+                    "input_ids": batch["input_ids"],
+                    "attention_mask": attention_mask,
                     **self.get_empty_kv_cache(batch["input_ids"].shape[0], self.kv_info, self.has_gqa),
                 }
                 self.add_extra_inputs(prefill_batch)
 
-                prefill_label = (
-                    label[:, prefill_slice]
-                    if (isinstance(label, torch.Tensor) and label.shape == batch["input_ids"].shape)
-                    else label
-                )
-
-                yield prefill_batch, prefill_label
-                if progress_bar:
-                    progress_bar.update(1)
-
-                if self.has_gqa:
-                    continue
-
-                # decode: last token, all - 1 past keys/values generated from prefill
-                session_outputs = self.session.run(None, format_data(prefill_batch, self.io_config))
-                session_outputs = dict(zip(self.io_config["output_names"], session_outputs))
-
-                decode_batch = {
-                    "input_ids": batch["input_ids"][:, -1:],
-                    "attention_mask": attention_mask,
-                    **{v: session_outputs[k] for k, v in self.kv_info["present_to_past"].items()},
-                }
-                self.add_extra_inputs(decode_batch)
-
-                decode_label = (
-                    label[:, -1:]
-                    if (isinstance(label, torch.Tensor) and label.shape == batch["input_ids"].shape)
-                    else label
-                )
-
-                yield decode_batch, decode_label
-                if progress_bar:
-                    progress_bar.update(1)
+                yield prefill_batch, label
             else:
                 self.add_extra_inputs(batch)
                 yield batch, label
-                if progress_bar:
-                    progress_bar.update(1)
-
-    @property
-    def session(self):
-        from onnxruntime import InferenceSession
-
-        if self._session is not None:
-            return self._session
-
-        self._session = InferenceSession(self.model_path, providers=self.calibration_providers)
-        return self._session
+            if progress_bar:
+                progress_bar.update(1)
 
     def add_extra_inputs(self, batch: dict[str, torch.Tensor]):
         """Add extra inputs to the batch.
