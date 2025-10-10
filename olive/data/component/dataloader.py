@@ -165,18 +165,13 @@ class LLMAugmentedDataLoader:
                     # No GQA: one unattended past token so that the calibrator data collection works
                     attention_mask = torch.cat([torch.zeros_like(attention_mask[:, :1]), attention_mask], dim=-1)
 
-                # prefill: all tokens
-                prefill_batch = {
+                batch = {
                     "input_ids": batch["input_ids"],
                     "attention_mask": attention_mask,
                     **self.get_empty_kv_cache(batch["input_ids"].shape[0], self.kv_info, self.has_gqa),
                 }
-                self.add_extra_inputs(prefill_batch)
-
-                yield prefill_batch, label
-            else:
-                self.add_extra_inputs(batch)
-                yield batch, label
+            self.add_extra_inputs(batch)
+            yield batch, label
             if progress_bar:
                 progress_bar.update(1)
 
