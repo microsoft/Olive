@@ -161,9 +161,9 @@
 </li>
 
 
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../examples.html">
-    Examples
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    Features
   </a>
 </li>
 
@@ -175,16 +175,16 @@
                 </button>
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
-<li class=" current active">
-  <a class="nav-link dropdown-item nav-internal" href="../index.html">
-    Features
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../reference/index.html">
+    Reference
   </a>
 </li>
 
 
 <li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../../reference/index.html">
-    Reference
+  <a class="nav-link dropdown-item nav-internal" href="../../blogs/index.html">
+    Blogs
   </a>
 </li>
 
@@ -297,13 +297,6 @@
 </li>
 
 
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../examples.html">
-    Examples
-  </a>
-</li>
-
-
 <li class="nav-item current active">
   <a class="nav-link nav-internal" href="../index.html">
     Features
@@ -314,6 +307,13 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../../reference/index.html">
     Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../blogs/index.html">
+    Blogs
   </a>
 </li>
 
@@ -419,7 +419,7 @@ platforms.</p>
 <p>For Generative AI models, install Optimum Intel® from <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/installation">Optimum Intel® Installation Instructions</a></p>
 <section id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h2>
-<p>Note: OpenVINO version in Olive: 2025.1.0</p>
+<p>Note: OpenVINO version in Olive &gt;= 2025.3.0</p>
 <section id="option-1-install-olive-with-openvino-extras">
 <h3>Option 1: install Olive with OpenVINO extras<a class="headerlink" href="#option-1-install-olive-with-openvino-extras" title="Link to this heading">#</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>openvino<span class="o">]</span>
@@ -428,15 +428,15 @@ platforms.</p>
 </section>
 <section id="option-2-install-openvino-runtime-and-openvino-development-tools-from-pypi">
 <h3>Option 2: Install OpenVINO Runtime and OpenVINO Development Tools from Pypi<a class="headerlink" href="#option-2-install-openvino-runtime-and-openvino-development-tools-from-pypi" title="Link to this heading">#</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">openvino</span><span class="o">==</span><span class="m">2025</span>.1.0
-pip<span class="w"> </span>install<span class="w"> </span><span class="nv">nncf</span><span class="o">==</span><span class="m">2</span>.16.0
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>openvino&gt;<span class="o">=</span><span class="m">2025</span>.3.0
+pip<span class="w"> </span>install<span class="w"> </span>nncf&gt;<span class="o">=</span><span class="m">2</span>.18.0
 pip<span class="w"> </span>install<span class="w"> </span>onnxruntime-openvino
 </pre></div>
 </div>
 </section>
 <section id="install-optimum-intel-for-generative-ai-workloads">
 <h3>Install Optimum Intel® for Generative AI Workloads<a class="headerlink" href="#install-optimum-intel-for-generative-ai-workloads" title="Link to this heading">#</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>optimum<span class="o">[</span>openvino<span class="o">]</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>optimum<span class="o">[</span>openvino<span class="o">]</span>&lt;<span class="o">=</span><span class="m">1</span>.24.0
 </pre></div>
 </div>
 <p>More detailed instructions are available at <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/installation">Optimum Intel® Installation Instructions</a></p>
@@ -491,6 +491,26 @@ quantization information, are inserted into the model. The actual transition to 
 <span class="w">    </span><span class="nt">&quot;validation_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;validate&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;max_drop&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;drop_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ABSOLUTE&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="weight-compression">
+<h2>Weight Compression<a class="headerlink" href="#weight-compression" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">OpenVINOWeightCompression</span></code> pass runs <a class="reference external" href="https://docs.openvino.ai/2025/openvino-workflow/model-optimization-guide/weight-compression.html">Weight Compression</a> to compress Huggingface to OpenVINO model and Huggingface to ONNX model, as well as ONNX to ONNX model using Intel® NNCF.</p>
+<p>Please refer to <a class="reference external" href="https://microsoft.github.io/Olive/reference/pass.html#openvinoweightcompression">OpenVINOWeightCompression</a> for more details about the <code class="docutils literal notranslate"><span class="pre">OpenVINOWeightCompression</span></code> pass and its config parameters.</p>
+<section id="example-weight-compression-configuration">
+<h3>Example Weight Compression Configuration<a class="headerlink" href="#example-weight-compression-configuration" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OpenVINOWeightCompression&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;compress_data_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;transform_fn&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;custom_transform_func&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;extra_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;tokenizer&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;compress_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INT4_SYM&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;ratio&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -595,6 +615,10 @@ quantization information, are inserted into the model. The actual transition to 
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-training-quantization-ptq">Post Training Quantization (PTQ)</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-ptq-configuration">Example PTQ Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#weight-compression">Weight Compression</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-weight-compression-configuration">Example Weight Compression Configuration</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-encapsulation">Model Encapsulation</a><ul class="nav section-nav flex-column">

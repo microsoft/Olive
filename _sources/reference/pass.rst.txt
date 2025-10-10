@@ -194,6 +194,13 @@ ModelBuilder
 ------------
 .. autoconfigclass:: olive.passes.ModelBuilder
 
+.. _aimet_quantization:
+
+AimetQuantization
+-----------------
+
+.. autoconfigclass:: olive.passes.AimetQuantization
+
 Pytorch
 =================================
 
@@ -332,6 +339,12 @@ OpenVINOQuantization
 OpenVINOQuantizationWithAccuracy
 --------------------------------
 .. autoconfigclass:: olive.passes.OpenVINOQuantizationWithAccuracy
+
+.. _openvino_weight_compression:
+
+OpenVINOWeightCompression
+--------------------------
+.. autoconfigclass:: olive.passes.OpenVINOWeightCompression
 
 .. _openvino_encapsulation:
 

@@ -162,8 +162,8 @@
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../examples.html">
-    Examples
+  <a class="nav-link nav-internal" href="../../features/index.html">
+    Features
   </a>
 </li>
 
@@ -176,15 +176,15 @@
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
 <li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../../features/index.html">
-    Features
+  <a class="nav-link dropdown-item nav-internal" href="../../reference/index.html">
+    Reference
   </a>
 </li>
 
 
 <li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../../reference/index.html">
-    Reference
+  <a class="nav-link dropdown-item nav-internal" href="../../blogs/index.html">
+    Blogs
   </a>
 </li>
 
@@ -298,13 +298,6 @@
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../examples.html">
-    Examples
-  </a>
-</li>
-
-
-<li class="nav-item ">
   <a class="nav-link nav-internal" href="../../features/index.html">
     Features
   </a>
@@ -314,6 +307,13 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../../reference/index.html">
     Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../blogs/index.html">
+    Blogs
   </a>
 </li>
 
@@ -548,7 +548,7 @@
 <p>each component can be customized by the following fields:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">name</span></code>: the name of the component.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in <code class="docutils literal notranslate"><span class="pre">user_script</span></code> with the way Olive does for <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26"><code class="docutils literal notranslate"><span class="pre">huggingface_dataset</span></code></a>. In this way, they need to provide <code class="docutils literal notranslate"><span class="pre">user_script</span></code> and <code class="docutils literal notranslate"><span class="pre">script_dir</span></code>. There is an <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py">example</a> with customized component type.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in <code class="docutils literal notranslate"><span class="pre">user_script</span></code> with the way Olive does for <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26"><code class="docutils literal notranslate"><span class="pre">huggingface_dataset</span></code></a>. In this way, they need to provide <code class="docutils literal notranslate"><span class="pre">user_script</span></code> and <code class="docutils literal notranslate"><span class="pre">script_dir</span></code>. There is an <a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/user_script.py">example</a> with customized component type.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">params</span></code>: the dictionary of component function parameters. The key is the parameter name for given component type and the value is the parameter value.</p></li>
 </ul>
 </li>
@@ -636,8 +636,8 @@ def customized_dataloader(dataset):
 </div>
 <p>Some examples:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py">user_script</a></p></li>
-<li><p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert/bert_inc_ptq_cpu.json#L10">The <code class="docutils literal notranslate"><span class="pre">json_config</span></code></a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/user_script.py">user_script</a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/bert_ov.json#L23">The <code class="docutils literal notranslate"><span class="pre">json_config</span></code></a></p></li>
 </ul>
 <p>The components will be called with the following arguments along with any additional keyword arguments provided in the config:</p>
 <ul class="simple">

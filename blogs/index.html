@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Model Compression &#8212; Olive latest documentation</title>
+    <title>Blogs &#8212; Olive latest documentation</title>
   
   
   
@@ -50,7 +50,7 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'features/model-compression';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'blogs/index';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
@@ -60,8 +60,8 @@
         </script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Model Conversion" href="model-conversion/index.html" />
-    <link rel="prev" title="QNN" href="ihv-integration/qnn.html" />
+    <link rel="next" title="Exploring Optimal Quantization Settings for Small Language Models with Olive" href="quant-slms.html" />
+    <link rel="prev" title="Python Interface" href="../reference/python_api.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="latest" />
@@ -161,8 +161,8 @@
 </li>
 
 
-<li class="nav-item current active">
-  <a class="nav-link nav-internal" href="index.html">
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../features/index.html">
     Features
   </a>
 </li>
@@ -182,8 +182,8 @@
 </li>
 
 
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../blogs/index.html">
+<li class=" current active">
+  <a class="nav-link dropdown-item nav-internal" href="#">
     Blogs
   </a>
 </li>
@@ -246,10 +246,6 @@
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
 </div>
 
     </header>
@@ -297,8 +293,8 @@
 </li>
 
 
-<li class="nav-item current active">
-  <a class="nav-link nav-internal" href="index.html">
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../features/index.html">
     Features
   </a>
 </li>
@@ -311,8 +307,8 @@
 </li>
 
 
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../blogs/index.html">
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="#">
     Blogs
   </a>
 </li>
@@ -386,10 +382,7 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Features</a></li>
-    
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Model Compression</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Blogs</span></li>
   </ul>
 </nav>
 </div>
@@ -406,48 +399,25 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="model-compression">
-<h1>Model Compression<a class="headerlink" href="#model-compression" title="Link to this heading">#</a></h1>
-<section id="sparsegpt">
-<h2>SparseGPT<a class="headerlink" href="#sparsegpt" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">SparseGPT</span></code> prunes GPT like models using a pruning method called <a class="reference external" href="https://arxiv.org/abs/2301.00774">SparseGPT</a>. This one-shot pruning method can perform unstructured
-sparsity up to 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
-as 2:4 and 4:8 patterns.</p>
-<p>Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.</p>
-<p>This pass only supports HfModels. Please refer to <a class="reference internal" href="../reference/pass.html#sparsegpt"><span class="std std-ref">SparseGPT</span></a> for more details on the types of transformers models supported.</p>
-<p><strong>Note:</strong> TensorRT can accelerate inference on 2:4 sparse models as described in <a class="reference external" href="https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/">this blog</a>.</p>
-<section id="example-configuration">
-<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SparseGPT&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;sparsity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span>
-<span class="p">}</span>
-</pre></div>
+  <section id="blogs">
+<h1>Blogs<a class="headerlink" href="#blogs" title="Link to this heading">#</a></h1>
+<br/>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 gallery-directive docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-3 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-header docutils">
+<p class="sd-card-text"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-cpu" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5.75V2h3V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75V5h1.25a.75.75 0 0 1 0 1.5H14v3h1.25a.75.75 0 0 1 0 1.5H14v1.25A1.75 1.75 0 0 1 12.25 14H11v1.25a.75.75 0 0 1-1.5 0V14h-3v1.25a.75.75 0 0 1-1.5 0V14H3.75A1.75 1.75 0 0 1 2 12.25V11H.75a.75.75 0 0 1 0-1.5H2v-3H.75a.75.75 0 0 1 0-1.5H2V3.75C2 2.784 2.784 2 3.75 2H5V.75a.75.75 0 0 1 1.5 0Zm5.75 11.75a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25ZM5.75 5h4.5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75v-4.5A.75.75 0 0 1 5.75 5Zm.75 4.5h3v-3h-3Z"></path></svg> Exploring Optimal Quantization Settings for Small Language Models</p>
 </div>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SparseGPT&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;sparsity&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">4</span><span class="p">]</span>
-<span class="p">}</span>
-</pre></div>
+<div class="sd-card-body docutils">
+<p class="sd-card-text">An exploration of how Olive applies different quantization strategies such as GPTQ, mixed precision, and QuaRot to optimize small language models for efficiency and accuracy.<br/><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-arrow-right" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"></path></svg> <a class="reference internal" href="quant-slms.html"><span class="std std-doc">Exploring Optimal Quantization Settings for Small Language Models</span></a></p>
 </div>
-</section>
-</section>
-<section id="slicegpt">
-<h2>SliceGPT<a class="headerlink" href="#slicegpt" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">SliceGPT</span></code> is post-training sparsification scheme that makes transformer networks smaller by applying orthogonal transformations to each transformer layer that reduces the model size by slicing off the least-significant rows and columns of the weight matrices. This results in speedups and a reduced memory footprint.</p>
-<p>Please refer to the original <a class="reference external" href="https://arxiv.org/abs/2401.15024">paper</a> for more details on the algorithm and expected results for different models, sparsities and datasets.</p>
-<p>This pass only supports HuggingFace transformer PyTorch models. Please refer to <a class="reference internal" href="../reference/pass.html#slicegpt"><span class="std std-ref">SliceGPT</span></a> for more details on the types of transformers models supported.</p>
-<section id="id1">
-<h3>Example Configuration<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SliceGPT&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;sparsity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.4</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;calibration_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wikitext2&quot;</span>
-<span class="p">}</span>
-</pre></div>
 </div>
-</section>
-</section>
+</div>
+</div>
+</div>
+<div class="toctree-wrapper compound">
+</div>
 </section>
 
 
@@ -461,20 +431,20 @@ as 2:4 and 4:8 patterns.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="ihv-integration/qnn.html"
+       href="../reference/python_api.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">QNN</p>
+        <p class="prev-next-title">Python Interface</p>
       </div>
     </a>
     <a class="right-next"
-       href="model-conversion/index.html"
+       href="quant-slms.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Model Conversion</p>
+        <p class="prev-next-title">Exploring Optimal Quantization Settings for Small Language Models with Olive</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -484,31 +454,6 @@ as 2:4 and 4:8 patterns.</p>
             </div>
             
             
-              
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
-
-
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sparsegpt">SparseGPT</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-configuration">Example Configuration</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#slicegpt">SliceGPT</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Example Configuration</a></li>
-</ul>
-</li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
           </div>

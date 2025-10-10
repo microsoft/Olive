@@ -162,8 +162,8 @@
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../examples.html">
-    Examples
+  <a class="nav-link nav-internal" href="../features/index.html">
+    Features
   </a>
 </li>
 
@@ -175,16 +175,16 @@
                 </button>
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../features/index.html">
-    Features
+<li class=" current active">
+  <a class="nav-link dropdown-item nav-internal" href="index.html">
+    Reference
   </a>
 </li>
 
 
-<li class=" current active">
-  <a class="nav-link dropdown-item nav-internal" href="index.html">
-    Reference
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../blogs/index.html">
+    Blogs
   </a>
 </li>
 
@@ -298,13 +298,6 @@
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../examples.html">
-    Examples
-  </a>
-</li>
-
-
-<li class="nav-item ">
   <a class="nav-link nav-internal" href="../features/index.html">
     Features
   </a>
@@ -314,6 +307,13 @@
 <li class="nav-item current active">
   <a class="nav-link nav-internal" href="index.html">
     Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../blogs/index.html">
+    Blogs
   </a>
 </li>
 
@@ -413,7 +413,7 @@
 <section id="run">
 <h1>Run<a class="headerlink" href="#run" title="Link to this heading">#</a></h1>
 <p>Run Olive workflow defined in the input .json configuration file.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">run</span><span class="o">-</span><span class="n">config</span> <span class="n">RUN_CONFIG</span> <span class="p">[</span><span class="o">--</span><span class="n">setup</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">packages</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">run</span><span class="o">-</span><span class="n">config</span> <span class="n">RUN_CONFIG</span> <span class="p">[</span><span class="o">--</span><span class="n">list_required_packages</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">package</span><span class="o">-</span><span class="n">config</span> <span class="n">PACKAGE_CONFIG</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
@@ -427,11 +427,7 @@
 <dt><kbd>--run-config, --config</kbd></dt>
 <dd><p>Path to json config file</p>
 </dd>
-<dt><kbd>--setup</kbd></dt>
-<dd><p>Setup environment needed to run the workflow</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--packages</kbd></dt>
+<dt><kbd>--list_required_packages</kbd></dt>
 <dd><p>List packages required to run the workflow</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
@@ -602,7 +598,7 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">algorithm</span> <span class="p">{</span><span class="n">awq</span><span class="p">,</span><span class="n">gptq</span><span class="p">,</span><span class="n">hqq</span><span class="p">,</span><span class="n">rtn</span><span class="p">,</span><span class="n">spinquant</span><span class="p">,</span><span class="n">quarot</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">algorithm</span> <span class="p">{</span><span class="n">awq</span><span class="p">,</span><span class="n">gptq</span><span class="p">,</span><span class="n">hqq</span><span class="p">,</span><span class="n">rtn</span><span class="p">,</span><span class="n">spinquant</span><span class="p">,</span><span class="n">quarot</span><span class="p">,</span><span class="n">lpbq</span><span class="p">,</span><span class="n">seqmse</span><span class="p">,</span><span class="n">adaround</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">uint4</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">uint16</span><span class="p">,</span><span class="n">uint32</span><span class="p">,</span><span class="n">fp4</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">nf4</span><span class="p">,</span><span class="n">bf16</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">act_precision</span> <span class="p">{</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">uint4</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">uint16</span><span class="p">,</span><span class="n">uint32</span><span class="p">,</span><span class="n">fp4</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">nf4</span><span class="p">,</span><span class="n">bf16</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">implementation</span> <span class="n">IMPLEMENTATION</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_qdq_encoding</span><span class="p">]</span>
@@ -645,7 +641,7 @@
 <p>Default: <code class="docutils literal notranslate"><span class="pre">quantized-model</span></code></p>
 </dd>
 <dt><kbd>--algorithm</kbd></dt>
-<dd><p>Possible choices: awq, gptq, hqq, rtn, spinquant, quarot</p>
+<dd><p>Possible choices: awq, gptq, hqq, rtn, spinquant, quarot, lpbq, seqmse, adaround</p>
 <p>List of quantization algorithms to run.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">'rtn'</span></code></p>
 </dd>

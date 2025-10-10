@@ -161,9 +161,9 @@
 </li>
 
 
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../examples.html">
-    Examples
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Features
   </a>
 </li>
 
@@ -175,16 +175,16 @@
                 </button>
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
-<li class=" current active">
-  <a class="nav-link dropdown-item nav-internal" href="index.html">
-    Features
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
+    Reference
   </a>
 </li>
 
 
 <li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
-    Reference
+  <a class="nav-link dropdown-item nav-internal" href="../blogs/index.html">
+    Blogs
   </a>
 </li>
 
@@ -297,13 +297,6 @@
 </li>
 
 
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../examples.html">
-    Examples
-  </a>
-</li>
-
-
 <li class="nav-item current active">
   <a class="nav-link nav-internal" href="index.html">
     Features
@@ -314,6 +307,13 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../reference/index.html">
     Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../blogs/index.html">
+    Blogs
   </a>
 </li>
 
@@ -422,8 +422,6 @@
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/llama2/llama2_template.json">this file</a>
-for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;wikitext2_train&quot;</span></code>.</p>
 </section>
 </section>
 <section id="autoawq">
@@ -553,9 +551,8 @@ This preprocessing step fuses operators unsupported by QNN EP and inserts necess
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py">this file</a>
+<p>Check out <a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/intel-bert-base-uncased-mrpc/aitk/user_script.py">this file</a>
 for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;calib_data_config/dataloader_config/type&quot;</span></code>.</p>
-<p>check out <a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu">this file</a> for an example for Intel® Neural Compressor quantization.</p>
 </section>
 </section>
 <section id="quantize-with-intel-neural-compressor">
@@ -602,7 +599,96 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>Please refer to <a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/phi3#quantize-using-nvidia-tensorrt-model-optimizer">Phi3 example</a>  for usability and setup details.</p>
+<p>Please refer to <a class="reference external" href="https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3.5-mini-instruct/NvTensorRtRtx">Phi3.5 example</a>  for usability and setup details.</p>
+</section>
+</section>
+<section id="quantize-with-ai-model-efficiency-toolkit">
+<h2>Quantize with AI Model Efficiency Toolkit<a class="headerlink" href="#quantize-with-ai-model-efficiency-toolkit" title="Link to this heading">#</a></h2>
+<p>Olive supports quantizing models with Qualcomm’s <a class="reference external" href="https://github.com/quic/aimet">AI Model Efficiency Toolkit</a> (AIMET).</p>
+<p>AIMET is a software toolkit for quantizing trained ML models to optimize deployment on edge devices such as mobile phones or laptops. AIMET employs post-training and fine-tuning techniques to minimize accuracy loss during quantization.</p>
+<p>Olive consolidates AIMET quantization into a single pass called AimetQuantization which supports LPBQ, SeqMSE, and AdaRound. Multiple techniques can be applied in a single pass by listing them in the techniques array. If no techniques are specified, AIMET applies basic static quantization to the model using the provided data.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Technique</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>LPBQ</strong></p></td>
+<td><p>An alternative to blockwise quantization which allows backends to leverage existing per-channel quantization kernels while significantly improving encoding granularity.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>SeqMSE</strong></p></td>
+<td><p>Optimizes the weight encodings of each layer of a model to minimize the difference between the layer’s original and quantized outputs.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>AdaRound</strong></p></td>
+<td><p>Tunes the rounding direction for quantized model weights to minimize the local quantization error at each layer output.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="id9">
+<h3>Example Configuration<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AimetQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<section id="lpbq">
+<h4>LPBQ<a class="headerlink" href="#lpbq" title="Link to this heading">#</a></h4>
+<p>Configurations:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">block_size</span></code>: Number of input channels to group in each block (default: <code class="docutils literal notranslate"><span class="pre">64</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">op_types</span></code>: List of operator types for which to enable LPBQ (default: <code class="docutils literal notranslate"><span class="pre">[&quot;Gemm&quot;,</span> <span class="pre">&quot;MatMul&quot;,</span> <span class="pre">&quot;Conv&quot;]</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nodes_to_exclude</span></code>: List of node names to exclude from LPBQ weight quantization (default: <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p></li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AimetQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;techniques&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lpbq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;block_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="seqmse">
+<h4>SeqMSE<a class="headerlink" href="#seqmse" title="Link to this heading">#</a></h4>
+<p>Configurations:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">data_config</span></code>: Data config to use for SeqMSE optimization. Defaults to calibration set if not specified.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_candidates</span></code>: Number of encoding candidates to sweep for each weight (default: <code class="docutils literal notranslate"><span class="pre">20</span></code>).</p></li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AimetQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;int4&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;techniques&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;seqmse&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;num_candidates&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="adaround">
+<h4>AdaRound<a class="headerlink" href="#adaround" title="Link to this heading">#</a></h4>
+<p>Configurations:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">num_iterations</span></code>: Number of optimization steps to take for each layer (default: <code class="docutils literal notranslate"><span class="pre">10000</span></code>). Recommended value is
+10K for weight bitwidths &gt;= 8-bits, 15K for weight bitwidths &lt; 8 bits.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nodes_to_exclude</span></code>: List of node names to exclude from AdaRound optimization (default: <code class="docutils literal notranslate"><span class="pre">None</span></code>).</p></li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AimetQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;techniques&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;adaround&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;num_iterations&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;nodes_to_exclude&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/lm_head/MatMul&quot;</span><span class="p">]}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Please refer to <a class="reference internal" href="../reference/pass.html#aimet-quantization"><span class="std std-ref">AimetQuantization</span></a> for more details about the pass and its config parameters.</p>
+</section>
 </section>
 </section>
 </section>
@@ -688,6 +774,15 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#nvidia-tensorrt-model-optimizer-windows">NVIDIA TensorRT Model Optimizer-Windows</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-ai-model-efficiency-toolkit">Quantize with AI Model Efficiency Toolkit</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id9">Example Configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#lpbq">LPBQ</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#seqmse">SeqMSE</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#adaround">AdaRound</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

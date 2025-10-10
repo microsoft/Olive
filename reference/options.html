@@ -162,8 +162,8 @@
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../examples.html">
-    Examples
+  <a class="nav-link nav-internal" href="../features/index.html">
+    Features
   </a>
 </li>
 
@@ -175,16 +175,16 @@
                 </button>
                 <ul id="pst-nav-more-links" class="dropdown-menu">
                     
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../features/index.html">
-    Features
+<li class=" current active">
+  <a class="nav-link dropdown-item nav-internal" href="index.html">
+    Reference
   </a>
 </li>
 
 
-<li class=" current active">
-  <a class="nav-link dropdown-item nav-internal" href="index.html">
-    Reference
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../blogs/index.html">
+    Blogs
   </a>
 </li>
 
@@ -298,13 +298,6 @@
 
 
 <li class="nav-item ">
-  <a class="nav-link nav-internal" href="../examples.html">
-    Examples
-  </a>
-</li>
-
-
-<li class="nav-item ">
   <a class="nav-link nav-internal" href="../features/index.html">
     Features
   </a>
@@ -314,6 +307,13 @@
 <li class="nav-item current active">
   <a class="nav-link nav-internal" href="index.html">
     Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../blogs/index.html">
+    Blogs
   </a>
 </li>
 
@@ -820,54 +820,57 @@ will be used.</p></li>
 <td class="text-left"><p>Converts dynamic OpenVINO Model to static OpenVINO Model and updates IO names.</p></td>
 </tr>
 <tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoquantization"><span class="std std-ref">OpenVINOQuantization</span></a></p></td>
-<td class="text-left"><p>Post-training quantization for OpenVINO models and ONNX models</p></td>
+<td class="text-left"><p>Post-training quantization for OpenVINO models and ONNX models using Intel® NNCF</p></td>
 </tr>
 <tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoquantizationwithaccuracy"><span class="std std-ref">OpenVINOQuantizationWithAccuracy</span></a></p></td>
-<td class="text-left"><p>Post-training quantization with accuracy for OpenVINO models and ONNX models</p></td>
+<td class="text-left"><p>Post-training quantization with accuracy for OpenVINO models and ONNX models using Intel® NNCF</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoencapsulation"><span class="std std-ref">OpenVINOEncapsulation</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoweightcompression"><span class="std std-ref">OpenVINOWeightCompression</span></a></p></td>
+<td class="text-left"><p>Weight Compression to compress Huggingface to OpenVINO model and Huggingface to ONNX model as well as ONNX to ONNX model using Intel® NNCF</p></td>
+</tr>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinoencapsulation"><span class="std std-ref">OpenVINOEncapsulation</span></a></p></td>
 <td class="text-left"><p>Generates an ONNX model that encapsulates an OpenVINO IR model.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinooptimumconversion"><span class="std std-ref">OpenVINOOptimumConversion</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#openvinooptimumconversion"><span class="std std-ref">OpenVINOOptimumConversion</span></a></p></td>
 <td class="text-left"><p>Run <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/openvino/export">optimum-cli export openvino</a> command using Optimum Intel® to convert Huggingface Model to OpenVINO Model and optionally perform weight compression or quantization.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#qnnconversion"><span class="std std-ref">QNNConversion</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#qnnconversion"><span class="std std-ref">QNNConversion</span></a></p></td>
 <td class="text-left"><p>Convert ONNX, TensorFlow, or PyTorch model to QNN C++ model. Quantize the model if –input_list is provided as extra_args. Uses qnn-[framework]-converter tool from the QNN SDK.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#qnnmodellibgenerator"><span class="std std-ref">QNNModelLibGenerator</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#qnnmodellibgenerator"><span class="std std-ref">QNNModelLibGenerator</span></a></p></td>
 <td class="text-left"><p></p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#qnncontextbinarygenerator"><span class="std std-ref">QNNContextBinaryGenerator</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#qnncontextbinarygenerator"><span class="std std-ref">QNNContextBinaryGenerator</span></a></p></td>
 <td class="text-left"><p>Compile QNN C++ model source code into QNN model library for a specific target. Uses qnn-model-lib-generator tool from the QNN SDK.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#mergeadapterweights"><span class="std std-ref">MergeAdapterWeights</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#mergeadapterweights"><span class="std std-ref">MergeAdapterWeights</span></a></p></td>
 <td class="text-left"><p>Merge adapter weights into the base model and save transformer context files.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#sparsegpt"><span class="std std-ref">SparseGPT</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#sparsegpt"><span class="std std-ref">SparseGPT</span></a></p></td>
 <td class="text-left"><p>Run SparseGPT on a Hugging Face PyTorch model.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#slicegpt"><span class="std std-ref">SliceGPT</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#slicegpt"><span class="std std-ref">SliceGPT</span></a></p></td>
 <td class="text-left"><p>Run SliceGPT on a Hugging Face PyTorch model.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#quarot"><span class="std std-ref">QuaRot</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#quarot"><span class="std std-ref">QuaRot</span></a></p></td>
 <td class="text-left"><p>Rotate model using QuaRot.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#gptq"><span class="std std-ref">Gptq</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#gptq"><span class="std std-ref">Gptq</span></a></p></td>
 <td class="text-left"><p>Run GPTQ quantization on a Hugging Face PyTorch model.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#gptqquantizer"><span class="std std-ref">GptqQuantizer</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#gptqquantizer"><span class="std std-ref">GptqQuantizer</span></a></p></td>
 <td class="text-left"><p>GPTQ quantization Pass On Pytorch Model.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#awqquantizer"><span class="std std-ref">AutoAWQQuantizer</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#awqquantizer"><span class="std std-ref">AutoAWQQuantizer</span></a></p></td>
 <td class="text-left"><p>AWQ quantization Pass On Pytorch Model.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#torchtrtconversion"><span class="std std-ref">TorchTRTConversion</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#torchtrtconversion"><span class="std std-ref">TorchTRTConversion</span></a></p></td>
 <td class="text-left"><p>Convert torch.nn.Linear modules in the transformer layers of a HuggingFace PyTorch model to TensorRT modules.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#optimumconversion"><span class="std std-ref">OptimumConversion</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#optimumconversion"><span class="std std-ref">OptimumConversion</span></a></p></td>
 <td class="text-left"><p>Convert huggingface models to ONNX via the Optimum library.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="pass.html#optimummerging"><span class="std std-ref">OptimumMerging</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="pass.html#optimummerging"><span class="std std-ref">OptimumMerging</span></a></p></td>
 <td class="text-left"><p>Merge 2 models together with an <code class="docutils literal notranslate"><span class="pre">if</span></code> node via the Optimum library.</p></td>
 </tr>
 </tbody>
