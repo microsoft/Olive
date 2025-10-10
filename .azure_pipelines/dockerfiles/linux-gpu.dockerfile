@@ -8,7 +8,8 @@ FROM ${BASE_IMAGE}
 ARG PYTHON_VERSION
 ARG TENSORRT_VERSION
 
-RUN apt-get update && \
+RUN apt-add-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
