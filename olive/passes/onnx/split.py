@@ -127,14 +127,25 @@ class SplitModel(Pass):
                 continue
 
             # before the splits - assign to the closest child split
+            # before the splits - assign to all child splits
             # outside the splits - assign to 0
-            child_splits = [
-                node_assignments[child_name]
-                for child_name in dag.get_consumers(node_name)
-                if child_name in node_assignments
-            ]
+            # child_splits = [
+            #     node_assignments[child_name]
+            #     for child_name in dag.get_consumers(node_name)
+            #     if child_name in node_assignments
+            # ]
+            child_splits = set()
+            for child_name in dag.get_consumers(node_name):
+                assignment = node_assignments.get(child_name, [])
+                if isinstance(assignment, list):
+                    child_splits.update(assignment)
+                elif assignment is not None:
+                    child_splits.add(assignment)
+            child_splits = list(child_splits)
 
-            node_assignments[node_name] = min(child_splits) if child_splits else 0
+            # node_assignments[node_name] = min(child_splits) if child_splits else 0
+            # print(node_name, child_splits)
+            node_assignments[node_name] = child_splits if child_splits else 0
 
         # change all assignments to list for consistency
         for node_name, split_id in node_assignments.items():
@@ -217,19 +228,24 @@ class SplitModel(Pass):
 
         if missing_vi:
             logger.debug("Missing value info for some io. Using onnxruntime shape inference to infer them.")
-            from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
+            # from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
 
-            # should we just use the same model proto? might modify dynamic shapes of existing value infos
-            # if this becomes an issue replace with a newly loaded model proto
-            shape_inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True)
-            shape_inferred_dag = OnnxDAG(shape_inferred_proto, only_main_graph=True)
+            # # should we just use the same model proto? might modify dynamic shapes of existing value infos
+            # # if this becomes an issue replace with a newly loaded model proto
+            # shape_inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True)
+            # shape_inferred_dag = OnnxDAG(shape_inferred_proto, only_main_graph=True)
 
+            # for input_name, split_ids in missing_vi.items():
+            #     io = shape_inferred_dag.get_io(input_name)
+            #     if not io.proto:
+            #         raise ValueError(f"Missing value info for input {input_name} for splits {split_ids}")
+            #     for idx in split_ids:
+            #         split_dags[idx].add_value_info(io.proto[0], 0, overwrite=True)
+            logger.debug("Missing vi: %s", missing_vi)
             for input_name, split_ids in missing_vi.items():
-                io = shape_inferred_dag.get_io(input_name)
-                if not io.proto:
-                    raise ValueError(f"Missing value info for input {input_name} for splits {split_ids}")
+                fake_vi = onnx.helper.make_empty_tensor_value_info(input_name)
                 for idx in split_ids:
-                    split_dags[idx].add_value_info(io.proto[0], 0, overwrite=True)
+                    split_dags[idx].add_value_info(fake_vi, 0, overwrite=True)
 
         component_models = []
         component_names = []
