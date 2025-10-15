@@ -83,6 +83,7 @@ def create_onnx_model_file():
         input_names=io_config["input_names"],
         output_names=io_config["output_names"],
         external_data=False,
+        dynamo=False,
     )
 
 
@@ -98,6 +99,8 @@ def create_onnx_model_with_dynamic_axis(onnx_model_path, batch_size=1):
         input_names=io_config["input_names"],
         output_names=io_config["output_names"],
         dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+        external_data=False,
+        dynamo=False,
     )
 
 

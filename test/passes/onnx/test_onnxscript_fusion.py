@@ -17,9 +17,11 @@ from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.onnxscript_fusion import OnnxScriptFusion
 
 
-# TODO(anyone): Remove the skip condition once the issue is resolved
+# TODO(anyone): Remove the skip conditions once the issues are resolved
 @pytest.mark.skipif(platform.system() == "Windows", reason="Skip on Windows due to export failure")
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse("2.7.0"), reason="Requires PyTorch 2.7 or higher")
+@pytest.mark.skipif(
+    version.parse(torch.__version__) != version.parse("2.8.0"), reason="Dynamo export requires 2.8+. 2.9 has issues."
+)
 def test_onnxscript_fusion_pass_works(tmp_path):
     base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
     conversion_pass = create_pass_from_dict(

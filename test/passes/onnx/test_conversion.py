@@ -74,7 +74,10 @@ def test_onnx_conversion_pass_quant_model(quantizer_pass, tmp_path):
     assert num_mnb == 2 * 4
 
 
-@pytest.mark.skipif(not hasattr(torch.onnx, "ops"), reason="requires torch>=2.8")
+@pytest.mark.skipif(
+    version.parse(torch.__version__) != version.parse("2.8.0"),
+    reason="Dynamo export requires 2.8+. FIXME: 2.9 has issues.",
+)
 @pytest.mark.skipif(platform.system() == "Windows", reason="FIXME: torch ops fails on Windows")
 @pytest.mark.parametrize("quantizer_pass", [Gptq, GptqQuantizer])
 def test_onnx_conversion_pass_quant_model_with_torch_ops(quantizer_pass, tmp_path):
