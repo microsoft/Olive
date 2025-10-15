@@ -243,6 +243,11 @@ def _export_pytorch_model(
             # can be removed.
             ir.external_data.load_to_model(model)
         else:
+            dynamo_args = {}
+            if not _torch_is_older_than("2.9.0"):
+                # default is True in 2.9.0 and later
+                dynamo_args["dynamo"] = False
+
             torch.onnx.export(
                 pytorch_model,
                 dummy_inputs,
@@ -252,6 +257,7 @@ def _export_pytorch_model(
                 input_names=io_config.input_names,
                 output_names=io_config.output_names,
                 dynamic_axes=io_config.dynamic_axes,
+                **dynamo_args,
             )
             model = ir.load(tmp_model_path)
             # After the line below, the model is loaded into memory, so it's safe to
