@@ -175,6 +175,8 @@ def test_aimet_quantization_uses_provided_precisions(tmp_path, precisions):
         assert offset.dtype == np.dtype(act_type)
 
 
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_applies_precision_overrides(tmp_path):
     input_model = dummy_onnx_model(tmp_path / "dummy_model.onnx")
     config = {
