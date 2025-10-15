@@ -431,7 +431,13 @@ def test_rmsnorm_to_l2norm(tmp_path, use_rsqrt, use_cast, all_ones):
     module = RMSNorm(hidden_size, use_rsqrt=use_rsqrt, use_cast=use_cast, all_ones=all_ones)
     input_model_path = tmp_path / "input_model.onnx"
     torch.onnx.export(
-        module, torch.randn(1, hidden_size), input_model_path, input_names=["x"], output_names=["y"], opset_version=20
+        module,
+        torch.randn(1, hidden_size),
+        input_model_path,
+        input_names=["x"],
+        output_names=["y"],
+        opset_version=20,
+        dynamo=False,
     )
     input_model = ONNXModelHandler(input_model_path)
 
