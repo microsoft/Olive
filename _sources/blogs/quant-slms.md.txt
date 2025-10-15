@@ -47,15 +47,15 @@ Results were compared against:
 
 ---
 
-## Models Evaluated
+## Recipes
 
-We ran the sweeps on the following SLMs:
+We ran the sweeps on the following SLMs using these recipes:
 
-* [DeepSeek-R1-Distill-Qwen-1.5B](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B)
-* [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct)
-* [Phi-3.5-mini-instruct](https://huggingface.co/microsoft/Phi-3.5-mini-instruct)
-* [Phi-4-mini-instruct](https://huggingface.co/microsoft/Phi-4-mini-instruct)
-* [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct)
+* [DeepSeek-R1-Distill-Qwen-1.5B](https://github.com/microsoft/olive-recipes/blob/main/deepseek-ai-DeepSeek-R1-Distill-Qwen-1.5B/olive/README.md)
+* [Llama-3.2-1B-Instruct](https://github.com/microsoft/olive-recipes/blob/main/meta-llama-Llama-3.2-1B-Instruct/olive/README-mixed.md)
+* [Phi-3.5-mini-instruct](https://github.com/microsoft/olive-recipes/blob/main/microsoft-Phi-3.5-mini-instruct/olive/README.md)
+* [Phi-4-mini-instruct](https://github.com/microsoft/olive-recipes/blob/main/microsoft-Phi-4-mini-instruct/olive/README.md)
+* [Qwen2.5-1.5B-Instruct](https://github.com/microsoft/olive-recipes/tree/main/Qwen-Qwen2.5-1.5B-Instruct/olive)
 
 ---
 
@@ -88,8 +88,6 @@ Olive simplifies and accelerates experimentation with quantization and deploymen
 Its modular pipeline design and integration with ONNX Runtime allow users to efficiently test, benchmark, and deploy optimized models across hardware backends.
 
 Each quantization dimension, such as block size, symmetry, mixed precision, or QuaRot, is exposed as a configurable parameter in Olive’s JSON configuration, enabling structured exploration and reproducibility. Olive’s built-in sweep capability helps users systematically explore a range of quantization settings and identify configurations that achieve a strong balance between model size, latency, and accuracy.
-
-Here’s a concise and stylistically consistent **Summary and What’s Next** section you can add at the end of your blog. It follows the Olive documentation tone: clear, factual, and focused on insight and forward work.
 
 ---
 

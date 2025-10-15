@@ -451,15 +451,15 @@ Results were compared against:</p>
 </ul>
 </section>
 <hr class="docutils" />
-<section id="models-evaluated">
-<h2>Models Evaluated<a class="headerlink" href="#models-evaluated" title="Link to this heading">#</a></h2>
-<p>We ran the sweeps on the following SLMs:</p>
+<section id="recipes">
+<h2>Recipes<a class="headerlink" href="#recipes" title="Link to this heading">#</a></h2>
+<p>We ran the sweeps on the following SLMs using these recipes:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B">DeepSeek-R1-Distill-Qwen-1.5B</a></p></li>
-<li><p><a class="reference external" href="https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct">Llama-3.2-1B-Instruct</a></p></li>
-<li><p><a class="reference external" href="https://huggingface.co/microsoft/Phi-3.5-mini-instruct">Phi-3.5-mini-instruct</a></p></li>
-<li><p><a class="reference external" href="https://huggingface.co/microsoft/Phi-4-mini-instruct">Phi-4-mini-instruct</a></p></li>
-<li><p><a class="reference external" href="https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct">Qwen2.5-1.5B-Instruct</a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/deepseek-ai-DeepSeek-R1-Distill-Qwen-1.5B/olive/README.md">DeepSeek-R1-Distill-Qwen-1.5B</a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/meta-llama-Llama-3.2-1B-Instruct/olive/README-mixed.md">Llama-3.2-1B-Instruct</a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/microsoft-Phi-3.5-mini-instruct/olive/README.md">Phi-3.5-mini-instruct</a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/microsoft-Phi-4-mini-instruct/olive/README.md">Phi-4-mini-instruct</a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/tree/main/Qwen-Qwen2.5-1.5B-Instruct/olive">Qwen2.5-1.5B-Instruct</a></p></li>
 </ul>
 </section>
 <hr class="docutils" />
@@ -538,7 +538,6 @@ Results were compared against:</p>
 <p>Olive simplifies and accelerates experimentation with quantization and deployment optimizations.
 Its modular pipeline design and integration with ONNX Runtime allow users to efficiently test, benchmark, and deploy optimized models across hardware backends.</p>
 <p>Each quantization dimension, such as block size, symmetry, mixed precision, or QuaRot, is exposed as a configurable parameter in Olive’s JSON configuration, enabling structured exploration and reproducibility. Olive’s built-in sweep capability helps users systematically explore a range of quantization settings and identify configurations that achieve a strong balance between model size, latency, and accuracy.</p>
-<p>Here’s a concise and stylistically consistent <strong>Summary and What’s Next</strong> section you can add at the end of your blog. It follows the Olive documentation tone: clear, factual, and focused on insight and forward work.</p>
 </section>
 <hr class="docutils" />
 <section id="summary-and-whats-next">
@@ -588,7 +587,7 @@ Its modular pipeline design and integration with ONNX Runtime allow users to eff
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiment-overview">Experiment Overview</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiment-setup">Experiment Setup</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#models-evaluated">Models Evaluated</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recipes">Recipes</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#results">Results</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-takeaways">Key Takeaways</a></li>
 </ul>
