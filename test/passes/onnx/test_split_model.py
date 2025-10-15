@@ -188,7 +188,14 @@ def test_split_model_split_assignments(split_assignments, split_mid_io, tmp_path
 
     dummy_input = torch.randn(1, 2)
     input_model_path = tmp_path / "input_model.onnx"
-    torch.onnx.export(CustomModel(), dummy_input, input_model_path, input_names=["input"], output_names=["output"])
+    torch.onnx.export(
+        CustomModel(),
+        dummy_input,
+        input_model_path,
+        input_names=["input"],
+        output_names=["output"],
+        dynamo=False,
+    )
     input_model = ONNXModelHandler(input_model_path)
 
     out = p.run(input_model, str(tmp_path))

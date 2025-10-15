@@ -34,6 +34,7 @@ def get_onnx_matmul_model(model_path, model_attributes=None):
         input_names=["input"],
         output_names=["output"],
         opset_version=13,
+        dynamo=False,
     )
     return ONNXModelHandler(model_path, model_attributes=model_attributes)
 
