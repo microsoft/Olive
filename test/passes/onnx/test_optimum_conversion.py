@@ -17,7 +17,7 @@ from test.utils import get_hf_model
 
 @pytest.mark.skipif(
     version.parse(torch.__version__) >= version.parse("2.9.0"),
-    "torch.onnx.export uses dynamo by default in torch 2.9.0+",
+    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
 )
 @pytest.mark.parametrize("extra_args", [{"atol": 0.1}, {"atol": None}])
 def test_optimum_conversion_pass(extra_args, tmp_path):
@@ -35,7 +35,7 @@ def test_optimum_conversion_pass(extra_args, tmp_path):
 
 @pytest.mark.skipif(
     version.parse(torch.__version__) >= version.parse("2.9.0"),
-    "torch.onnx.export uses dynamo by default in torch 2.9.0+",
+    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
 )
 @pytest.mark.parametrize(
     ("components", "extra_args", "expected_components"),
@@ -83,7 +83,7 @@ def test_optimum_conversion_pass_with_components(components, extra_args, expecte
 
 @pytest.mark.skipif(
     version.parse(torch.__version__) >= version.parse("2.9.0"),
-    "torch.onnx.export uses dynamo by default in torch 2.9.0+",
+    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
 )
 @pytest.mark.parametrize(
     ("config", "is_valid"),

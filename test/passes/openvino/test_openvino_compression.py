@@ -93,7 +93,7 @@ def test_openvino_weight_compression_hf_to_openvino(tmp_path):
 
 @pytest.mark.skipif(
     version.parse(torch.__version__) >= version.parse("2.9.0"),
-    "torch.onnx.export uses dynamo by default in torch 2.9.0+",
+    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
 )
 def test_openvino_weight_compression_hf_to_onnx(tmp_path):
     from nncf.parameters import CompressWeightsMode
@@ -134,7 +134,7 @@ def test_openvino_weight_compression_hf_to_onnx(tmp_path):
 
 @pytest.mark.skipif(
     version.parse(torch.__version__) >= version.parse("2.9.0"),
-    "torch.onnx.export uses dynamo by default in torch 2.9.0+",
+    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
 )
 def test_openvino_weight_compression_onnx_to_onnx(tmp_path):
     from nncf.parameters import CompressWeightsMode
