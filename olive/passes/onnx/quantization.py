@@ -5,6 +5,7 @@
 import inspect
 import logging
 import tempfile
+from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from typing import Union
@@ -252,6 +253,76 @@ _param_extra_options_mapping = {
 }
 
 
+@contextmanager
+def patch_min_max_calibrater():
+    """Patch MinMaxCalibrator to save memory by removing unused outputs from the graph
+    and only storing intermediate outputs needed for calibration.
+    """
+    from onnxruntime.quantization.calibrate import MinMaxCalibrater, TensorsData
+
+    from olive.passes.onnx.onnx_dag import OnnxDAG
+
+    original_augment_graph = MinMaxCalibrater.augment_graph
+    original_collect_data = MinMaxCalibrater.collect_data
+
+    def patched_augment_graph(self):
+        original_augment_graph(self)
+
+        dag = OnnxDAG(onnx.load(self.augmented_model_path, load_external_data=False))
+        for o_name in list(self.model_original_outputs):
+            # remove the output since we don't need it for calibration
+            print(f"Removing unused output {o_name} from the graph")
+            dag.remove_output(o_name)
+            self.model_original_outputs.remove(o_name)
+            self.num_model_outputs -= 1
+
+            # if the producer has no consumers, remove it
+            producer = dag.get_producer(o_name)
+            if len(dag.get_consumers(producer)) == 0:
+                print(f"Removing unused output node {producer} from the graph")
+                # remove the producer if it has no consumers
+                dag.remove_node(producer)
+
+        dag.update()
+        onnx.save(dag.model, self.augmented_model_path)
+
+    def collect_data(self, data_reader):
+        while True:
+            inputs = data_reader.get_next()
+            if not inputs:
+                break
+            self.intermediate_outputs.append(
+                [
+                    value if sess_o.name not in self.model_original_outputs else None
+                    for sess_o, value in zip(self.infer_session.get_outputs(), self.infer_session.run(None, inputs))
+                ]
+            )
+            if (
+                self.max_intermediate_outputs is not None
+                and len(self.intermediate_outputs) == self.max_intermediate_outputs
+            ):
+                self.clear_collected_data()
+
+        if len(self.intermediate_outputs) == 0 and self.calibrate_tensors_range is None:
+            raise ValueError("No data is collected.")
+
+        t = self.compute_data()
+        if not isinstance(t, TensorsData):
+            raise TypeError(f"compute_data must return a TensorsData not {type(t)}.")
+        self.clear_collected_data()
+
+    print("patching MinMaxCalibrater")
+    logger.debug("patching MinMaxCalibrater")
+    MinMaxCalibrater.augment_graph = patched_augment_graph
+    MinMaxCalibrater.collect_data = collect_data
+
+    yield
+    print("unpatching MinMaxCalibrater")
+    logger.debug("unpatching MinMaxCalibrater")
+    MinMaxCalibrater.augment_graph = original_augment_graph
+    MinMaxCalibrater.collect_data = original_collect_data
+
+
 class OnnxQuantization(Pass):
     """Quantize ONNX model with static/dynamic quantization techniques."""
 
@@ -459,11 +530,12 @@ class OnnxQuantization(Pass):
         if is_static:
             run_config = self.get_static_run_config(model, config, run_config, ort_less_than_1_21)
             try:
-                quantize_static(
-                    model_input=model.model_path,
-                    model_output=tmp_model_path,
-                    **run_config,
-                )
+                with patch_min_max_calibrater():
+                    quantize_static(
+                        model_input=model.model_path,
+                        model_output=tmp_model_path,
+                        **run_config,
+                    )
             except (AttributeError, ValueError) as e:
                 raise OlivePassError("quantize_static failed.") from e
         else:
