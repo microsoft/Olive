@@ -91,7 +91,7 @@ class Gptq(Pass):
                 description=(
                     "Optional dictionary to specify overrides for specific modules. The keys are module names and the"
                     " values are dictionaries with any of the following keys: 'bits', 'symmetric', 'group_size'. If the"
-                    " same values are overriden by the model's mixed precision info, the mixed precision info takes"
+                    " same values are overridden by the model's mixed precision info, the mixed precision info takes"
                     " precedence."
                 ),
             ),
