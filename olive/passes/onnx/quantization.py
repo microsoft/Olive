@@ -307,7 +307,7 @@ def patch_min_max_calibrater():
         self.clear_collected_data()
 
     logger.debug("patching MinMaxCalibrater")
-    MinMaxCalibrater.augment_graph = patched_augment_graph
+    # MinMaxCalibrater.augment_graph = patched_augment_graph
     MinMaxCalibrater.collect_data = collect_data
 
     yield

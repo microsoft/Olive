@@ -334,10 +334,10 @@ class ModelBuilder(Pass):
     # TODO(jambayk): Remove this once version 0.9.1 with olive quant changes is released
     @staticmethod
     def maybe_patch_quant():
-        """Patch onnxruntime-genai olive quant model to disable offset handling for qzeros in version 0.9.0."""
+        """Patch onnxruntime-genai olive quant model to disable offset handling for qzeros in version 0.9.0+."""
         from onnxruntime_genai import __version__ as genai_version
 
-        if version.parse(genai_version) != version.parse("0.9.0"):
+        if version.parse(genai_version) < version.parse("0.9.0"):
             return
 
         from onnxruntime_genai.models.quantized_model import OliveModel
