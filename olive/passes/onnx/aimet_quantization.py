@@ -97,6 +97,18 @@ def _exclude_op_types(sim, op_types_to_exclude: list[str]):
         _disable_quantizer(sim, product.name)
 
 
+def _apply_precision_overrides(sim, tensor_precision_overrides: dict[str, Precision]):
+    for name, precision in tensor_precision_overrides.items():
+        qtype = precision_to_qtype(precision)
+        quantizer = sim.qc_quantize_op_dict.get(name)
+        if not quantizer:
+            raise RuntimeError(f"No quantizer found for tensor {name}")
+
+        data_type, bits = qtype.to_legacy_repr()
+        quantizer.data_type = data_type
+        quantizer.set_bitwidth(bits)
+
+
 SUPPORTED_TECHNIQUES: dict[str, "_AimetTechnique"] = {}
 
 
@@ -252,6 +264,12 @@ class AimetQuantization(Pass):
                 required=False,
                 description="List of techniques to apply in order, each with its name and parameters",
             ),
+            "tensor_precision_overrides": PassConfigParam(
+                type_=dict[str, Precision],
+                default_value={},
+                required=False,
+                description="Dictionary of tensor name to quantization precision.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -289,6 +307,11 @@ class AimetQuantization(Pass):
                 return False
 
             if not technique_cls.validate_args(**{key: value for key, value in technique.items() if key != "name"}):
+                return False
+
+        for name, precision in config.tensor_precision_overrides.items():
+            if not precision_to_qtype(precision):
+                logger.warning("Unsupported precision %s for tensor %s", precision, name)
                 return False
 
         return True
@@ -339,6 +362,8 @@ class AimetQuantization(Pass):
                 providers=run_config.get("calibration_providers"),
                 path=tmp_dir,
             )
+
+            _apply_precision_overrides(sim, run_config["tensor_precision_overrides"])
 
             op_types_to_exclude = run_config["op_types_to_exclude"]
             if op_types_to_exclude:

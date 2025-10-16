@@ -1318,7 +1318,7 @@ class ReplaceAttentionMaskValue(ProtoSurgeon):
     This surgery is useful if the default mask value does not quantize well due to numerical instability.
     """
 
-    ALLOWED_CONSUMER_OPS: ClassVar[set[str]] = {"Add", "Mul", "Expand", "Where"}
+    ALLOWED_CONSUMER_OPS: ClassVar[set[str]] = {"Add", "Mul", "Expand", "Where", "Shape"}
 
     def __init__(self, threshold: float = -3e30, replacement: float = -1e4):
         self.threshold = threshold

@@ -177,6 +177,32 @@ def test_aimet_quantization_uses_provided_precisions(tmp_path, precisions):
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
 @pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+def test_aimet_quantization_applies_precision_overrides(tmp_path):
+    input_model = dummy_onnx_model(tmp_path / "dummy_model.onnx")
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
+        ),
+        "tensor_precision_overrides": {"output": Precision.UINT16},
+    }
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+
+    out = p.run(input_model, tmp_path)
+
+    model = onnx.load(out.model_path)
+
+    initializer_dict = {tensor.name: tensor for tensor in model.graph.initializer}
+    tensor_to_quantizer = {
+        node.output[0]: node for node in model.graph.node if node.op_type in ("QuantizeLinear", "DequantizeLinear")
+    }
+    output_offset = onnx.numpy_helper.to_array(initializer_dict[tensor_to_quantizer["output"].input[2]])
+    assert output_offset.dtype == np.dtype("uint16")
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_adheres_to_custom_config(tmp_path):
     input_model = dummy_onnx_model(tmp_path / "dummy_model.onnx")
     quantsim_config = {
