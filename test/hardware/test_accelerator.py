@@ -78,6 +78,14 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
         ),
         (
             {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "gpu"}]},
+            },
+            [("gpu", ExecutionProvider.CUDAExecutionProvider)],
+            [ExecutionProvider.CUDAExecutionProvider],
+        ),
+        (
+            {
                 "type": "PythonEnvironment",
                 "config": {"accelerators": [{"device": "gpu"}], "python_environment_path": Path(sys.executable).parent},
             },
@@ -145,7 +153,7 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
         ),
     ],
 )
-@patch("onnxruntime.get_available_providers")
+@patch("olive.systems.local.get_ort_available_providers")
 def test_create_accelerators(get_available_providers_mock, system_config, expected_acc_specs, available_providers):
     system_config = validate_config(system_config, SystemConfig)
     python_mock = None
@@ -539,7 +547,7 @@ def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
         ),
     ],
 )
-@patch("onnxruntime.get_available_providers")
+@patch("olive.systems.local.get_ort_available_providers")
 def test_create_accelerator_with_error(
     get_available_providers_mock, system_config, available_providers, exception, error_message
 ):
