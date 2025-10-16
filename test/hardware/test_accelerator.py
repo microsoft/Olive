@@ -35,6 +35,8 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
     assert actual_rls == expected_accelerators
 
 
+# NOTE: Use PythonEnvironmentSystem test cases when using EPs that are not CPU EP
+# The @patch("onnxruntime.get_available_providers") doesn't seem to work on Windows in CI
 @pytest.mark.parametrize(
     ("system_config", "expected_acc_specs", "available_providers"),
     [
@@ -97,8 +99,11 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
         # for qnn, if only EP provided, we map it to npu device
         (
             {
-                "type": "LocalSystem",
-                "config": {"accelerators": [{"execution_providers": [ExecutionProvider.QNNExecutionProvider]}]},
+                "type": "PythonEnvironment",
+                "config": {
+                    "accelerators": [{"execution_providers": [ExecutionProvider.QNNExecutionProvider]}],
+                    "python_environment_path": Path(sys.executable).parent,
+                },
             },
             [("npu", ExecutionProvider.QNNExecutionProvider)],
             [ExecutionProvider.QNNExecutionProvider],
