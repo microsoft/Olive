@@ -255,9 +255,6 @@ _param_extra_options_mapping = {
 
 @contextmanager
 def patch_min_max_calibrater():
-    """Patch MinMaxCalibrator to save memory by removing unused outputs from the graph
-    and only storing intermediate outputs needed for calibration.
-    """
     from onnxruntime.quantization.calibrate import MinMaxCalibrater, TensorsData
 
     from olive.passes.onnx.onnx_dag import OnnxDAG
@@ -271,7 +268,6 @@ def patch_min_max_calibrater():
         dag = OnnxDAG(onnx.load(self.augmented_model_path, load_external_data=False))
         for o_name in list(self.model_original_outputs):
             # remove the output since we don't need it for calibration
-            print(f"Removing unused output {o_name} from the graph")
             dag.remove_output(o_name)
             self.model_original_outputs.remove(o_name)
             self.num_model_outputs -= 1
@@ -279,7 +275,6 @@ def patch_min_max_calibrater():
             # if the producer has no consumers, remove it
             producer = dag.get_producer(o_name)
             if len(dag.get_consumers(producer)) == 0:
-                print(f"Removing unused output node {producer} from the graph")
                 # remove the producer if it has no consumers
                 dag.remove_node(producer)
 
@@ -311,13 +306,11 @@ def patch_min_max_calibrater():
             raise TypeError(f"compute_data must return a TensorsData not {type(t)}.")
         self.clear_collected_data()
 
-    print("patching MinMaxCalibrater")
     logger.debug("patching MinMaxCalibrater")
     MinMaxCalibrater.augment_graph = patched_augment_graph
     MinMaxCalibrater.collect_data = collect_data
 
     yield
-    print("unpatching MinMaxCalibrater")
     logger.debug("unpatching MinMaxCalibrater")
     MinMaxCalibrater.augment_graph = original_augment_graph
     MinMaxCalibrater.collect_data = original_collect_data
