@@ -34,7 +34,7 @@ def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_s
         input_model = HfModelHandler(model_path=model_path)
     p = create_pass_from_dict(
         Gptq,
-        {"group_size": group_size, "lm_head": lm_head},
+        {"group_size": group_size, "lm_head": lm_head, "overrides": {"model.layers.0.self_attn.o_proj": {"bits": 8}}},
         disable_search=True,
         accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider"),
     )
@@ -54,5 +54,7 @@ def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_s
     assert loaded_model.config.quantization_config.group_size == group_size
     assert not any(isinstance(m, torch.nn.Linear) for m in loaded_model.model.layers.modules())
     assert isinstance(loaded_model.model.layers[0].self_attn.o_proj, QuantLinear)
+    assert loaded_model.model.layers[0].self_attn.o_proj.quantizer.bits == 8
+    assert loaded_model.model.layers[0].mlp.down_proj.quantizer.bits == 4
     assert loaded_model.config.quantization_config.lm_head == lm_head
     assert isinstance(loaded_model.lm_head, QuantLinear) == lm_head

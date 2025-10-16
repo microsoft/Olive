@@ -85,6 +85,16 @@ class Gptq(Pass):
                 default_value=False,
                 description="Whether to quantize the language model head. Default value is False.",
             ),
+            "overrides": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                description=(
+                    "Optional dictionary to specify overrides for specific modules. The keys are module names and the"
+                    " values are dictionaries with any of the following keys: 'bits', 'symmetric', 'group_size'. If the"
+                    " same values are overridden by the model's mixed precision info, the mixed precision info takes"
+                    " precedence."
+                ),
+            ),
         }
 
     @classmethod
@@ -197,13 +207,18 @@ class Gptq(Pass):
             "symmetric": config.sym,
             "group_size": config.group_size,
             "lm_head": config.lm_head,
+            "overrides": config.overrides or {},
         }
         if mp_info := (model.model_attributes or {}).get("mixed_precision_info"):
             for k, v in quant_config.items():
                 if mp_info["default"].get(k) is not None and v != mp_info["default"][k]:
                     logger.debug("Overriding %s with mixed precision info: %s", k, mp_info["default"][k])
                     quant_config[k] = mp_info["default"][k]
-            quant_config["overrides"] = mp_info.get("overrides")
+            # merge overrides
+            for name, override in mp_info.get("overrides", {}).items():
+                merged = quant_config["overrides"].get(name, {}).copy()
+                merged.update({k: v for k, v in override.items() if v is not None})
+                quant_config["overrides"][name] = merged
         return OliveHfQuantizationConfig(**quant_config)
 
     def prepare_model(self, wrapper: ModelWrapper, quant_config: OliveHfQuantizationConfig) -> None:
