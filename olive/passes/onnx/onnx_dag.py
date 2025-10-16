@@ -395,7 +395,7 @@ class OnnxDAG:
             output is already present as an one. If False, it will raise an error.
         """
         node_name = node_proto.name
-        if not node_name or node_name in self.nodes:
+        if not node_name or node_name in self.nodes or node_name in self.ios:
             node_name = f"{node_proto.op_type}_{self.unique_node_counter}"
             self.unique_node_counter += 1
         self._process_node(
