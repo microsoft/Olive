@@ -229,9 +229,9 @@ class QuantLinearNbit(torch.nn.Module):
         )
         self.register_buffer(
             "qzeros",
-            torch.zeros(out_features * math.ceil(n_blocks_per_col * self.bits / 8), dtype=torch.uint8),
+            torch.zeros(out_features, math.ceil(n_blocks_per_col * self.bits / 8), dtype=torch.uint8),
         )
-        self.register_buffer("scales", torch.zeros((out_features * n_blocks_per_col), dtype=dtype))
+        self.register_buffer("scales", torch.zeros((out_features, n_blocks_per_col), dtype=dtype))
         if g_idx:
             self.register_buffer(
                 "g_idx", torch.tensor([i // self.group_size for i in range(in_features)], dtype=torch.int32)
@@ -289,11 +289,11 @@ class QuantLinearNbit(torch.nn.Module):
         # pack the zeros
         if bits == 4:
             izeros = (izeros[:, 0::2] & 0xF) | ((izeros[:, 1::2] & 0xF) << 4)
-        self.qzeros = izeros.flatten().contiguous()
+        self.qzeros = izeros.contiguous()
 
-        self.scales = scales.flatten().contiguous()
+        self.scales = scales.contiguous()
 
-        self.g_idx = g_idx
+        self.g_idx = g_idx.contiguous() if g_idx is not None else None
 
     @classmethod
     def from_tensors(

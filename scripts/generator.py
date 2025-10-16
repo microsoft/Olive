@@ -258,6 +258,7 @@ class ORTGenerator:
         # if adapter mode is inputs, the adapter input is dictionary of adapter weights
         session, template, adapter_inputs = self.get_adapter(adapter, use_io_binding)
         io_binding = session.io_binding() if use_io_binding else None
+        output_order = [o.name for o in session.get_outputs()]
 
         # get the inputs for prompt processing
         inputs, cache = self.get_initial_inputs(
@@ -298,9 +299,12 @@ class ORTGenerator:
 
                 outputs = io_binding.get_outputs()
                 logits = outputs[0].numpy()
+                kv_outputs = outputs[1:]
             else:
                 outputs = session.run(None, {**used_inputs, **cache.get_kv_inputs()})
-                logits = outputs[0]
+                outputs = {o_name: outputs[idx] for idx, o_name in enumerate(output_order)}
+                logits = outputs["logits"]
+                kv_outputs = [outputs[name] for name in self.cache_info["present_names"]]
 
             # Decide the next token using your preferred sampling strategy.
             # Sample with argmax (greedy search)
@@ -396,7 +400,7 @@ class ORTGenerator:
                     inputs["total_seq_len"] = total_seq_len
 
             # update cache
-            cache.update(outputs[1:])
+            cache.update(kv_outputs)
         if use_io_binding:
             io_binding.clear_binding_inputs()
             io_binding.clear_binding_outputs()
