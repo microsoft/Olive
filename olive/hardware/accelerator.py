@@ -163,6 +163,8 @@ class AcceleratorLookup:
 
         if execution_providers == [ExecutionProvider.CPUExecutionProvider]:
             inferred_devices = ["cpu"]
+        elif execution_providers == [ExecutionProvider.QNNExecutionProvider]:
+            inferred_devices = ["npu"]
         else:
             inferred_devices = AcceleratorLookup.infer_devices_from_execution_providers(execution_providers)
             assert inferred_devices, (
