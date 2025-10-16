@@ -340,12 +340,26 @@ class ModelBuilder(Pass):
         if version.parse(genai_version) < version.parse("0.9.0"):
             return
 
-        from onnxruntime_genai.models.quantized_model import OliveModel
+        from onnxruntime_genai.models.quantized_model import OliveModel, QuantizedModel
 
-        if getattr(OliveModel.handle_qzeros, "__name__", "") == "_noop_handle_qzeros":
-            return
+        if getattr(OliveModel.handle_qzeros, "__name__", "") != "_noop_handle_qzeros":
 
-        def _noop_handle_qzeros(self, module):
-            pass
+            def _noop_handle_qzeros(self, module):
+                pass
 
-        OliveModel.handle_qzeros = _noop_handle_qzeros
+            OliveModel.handle_qzeros = _noop_handle_qzeros
+
+        if getattr(QuantizedModel.pack_ort_format, "__name__", "") != "_reshaped_pack_ort_format":
+            original_pack_ort_format = QuantizedModel.pack_ort_format
+
+            def _reshaped_pack_ort_format(self, module, intweight):
+                num_feats = intweight.shape[1]
+                # call the original method to do the packing
+                original_pack_ort_format(self, module, intweight)
+
+                # reshape scales and zero points to 2D
+                module.scales = module.scales.reshape(num_feats, -1).contiguous()
+                if module.qzeros.dtype != module.scales.dtype:
+                    module.qzeros = module.qzeros.reshape(num_feats, -1).contiguous()
+
+            QuantizedModel.pack_ort_format = _reshaped_pack_ort_format
