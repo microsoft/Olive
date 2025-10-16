@@ -15,7 +15,11 @@ from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.onnx.common import get_context_bin_file_names, process_llm_pipeline
+from olive.passes.onnx.common import (
+    get_context_bin_file_names,
+    process_llm_pipeline,
+    update_llm_pipeline_genai_config_gpu_ctxbin,
+)
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -237,10 +241,14 @@ class EPContextBinaryGenerator(Pass):
         # prepare provider options
         provider_options = provider_options or {}
         if execution_provider == ExecutionProvider.QNNExecutionProvider:
-            if version.parse(OrtVersion).release < version.parse("1.22.0").release:
-                provider_options["backend_path"] = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
-            if share_ep_contexts:
-                provider_options["enable_htp_weight_sharing"] = "1"
+            if str(device).lower() == "gpu":
+                provider_options["backend_path"] = "libQnnGpu.so" if platform.system() == "Linux" else "QnnGpu.dll"
+                update_llm_pipeline_genai_config_gpu_ctxbin(model_path)
+            else:
+                if version.parse(OrtVersion).release < version.parse("1.22.0").release:
+                    provider_options["backend_path"] = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
+                    if share_ep_contexts:
+                        provider_options["enable_htp_weight_sharing"] = "1"
 
         # prepare session options
         session_options = session_options or {}

@@ -713,3 +713,100 @@ def update_llm_pipeline_genai_config(
     additional_files.append(str(new_genai_config_path))
 
     return model
+
+
+def update_llm_pipeline_genai_config_gpu(
+    model: ONNXModelHandler,
+    output_model_dir: Union[str, Path],
+    input_model_path: Union[str, Path],
+    decoder_config_extra: Optional[dict[str, Any]] = None,
+) -> ONNXModelHandler:
+    """Update the LLM pipeline in the model's genai_config.json file.
+
+    :param model: The  model to update.
+    :param decoder_config_extra: Extra configuration for the decoder.
+    """
+    output_model_dir = Path(output_model_dir)
+
+    # update genai_config if it exists
+    genai_config_path = None
+    genai_config_path = Path(input_model_path).parent / "genai_config.json"
+
+    if genai_config_path.exists():
+        genai_config_path = str(genai_config_path.resolve())
+    else:
+        return model
+
+    with open(genai_config_path) as f:
+        genai_config = json.load(f)
+
+    # update model_type
+    genai_config["model"]["type"] = "decoder-pipeline"
+
+    # Update the provider_options list
+    provider_option = {"qnn": {"backend_type": "gpu"}}
+    genai_config["model"]["decoder"]["session_options"]["provider_options"] = [provider_option]
+
+    # update decoder config
+    decoder_config = genai_config["model"]["decoder"]
+    decoder_config.get("sliding_window", {}).pop("slide_inputs", None)
+    for key, value in (decoder_config_extra or {}).items():
+        exisiting_value = decoder_config.get(key)
+        if isinstance(exisiting_value, dict):
+            exisiting_value.update(value)
+        elif isinstance(exisiting_value, list):
+            exisiting_value.extend(value)
+        else:
+            decoder_config[key] = value
+
+    pipeline_config = {}
+    component_io_config = model.io_config
+    pipeline_config["model_onnx"] = {
+        "filename": Path(model.model_path).name,
+        "inputs": component_io_config["input_names"],
+        "outputs": component_io_config["output_names"],
+    }
+
+    decoder_config["pipeline"] = [pipeline_config]
+
+    # save the updated genai_config
+    new_genai_config_path = output_model_dir / "genai_config.json"
+    with new_genai_config_path.open("w") as f:
+        json.dump(genai_config, f, indent=4)
+
+    return model
+
+
+def update_llm_pipeline_genai_config_gpu_ctxbin(
+    model_path: Union[str, Path],
+) -> None:
+    """Update the filename fields in the model's genai_config.json file from 'model' to 'model_ctx'.
+
+    The genai_config.json file is updated in place in the model's directory.
+    :param model_path: Path to the model file.
+    """
+    # Find genai_config in the model's directory
+    model_dir = Path(model_path).parent
+    genai_config_path = model_dir / "genai_config.json"
+
+    if not genai_config_path.exists():
+        return
+
+    with open(genai_config_path) as f:
+        genai_config = json.load(f)
+
+    # Update decoder filename to 'model_ctx'
+    if "decoder" in genai_config.get("model", {}):
+        if "filename" in genai_config["model"]["decoder"]:
+            genai_config["model"]["decoder"]["filename"] = "model/model_ctx.onnx"
+
+        # Update filename in pipeline configuration
+        decoder_config = genai_config["model"]["decoder"]
+        if "pipeline" in decoder_config and isinstance(decoder_config["pipeline"], list):
+            for pipeline_item in decoder_config["pipeline"]:
+                if "model_onnx" in pipeline_item and "filename" in pipeline_item["model_onnx"]:
+                    pipeline_item["model_onnx"]["filename"] = "model/model_ctx.onnx"
+
+    # Save the updated genai_config back to the same location
+    with genai_config_path.open("w") as f:
+        json.dump(genai_config, f, indent=4)
