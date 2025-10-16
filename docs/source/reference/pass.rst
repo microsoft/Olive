@@ -194,6 +194,13 @@ ModelBuilder
 ------------
 .. autoconfigclass:: olive.passes.ModelBuilder
 
+.. _aimet_quantization:
+
+AimetQuantization
+-----------------
+
+.. autoconfigclass:: olive.passes.AimetQuantization
+
 Pytorch
 =================================
 

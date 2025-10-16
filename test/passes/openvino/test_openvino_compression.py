@@ -5,6 +5,10 @@
 import shutil
 from pathlib import Path
 
+import pytest
+import torch
+from packaging import version
+
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.hardware import AcceleratorSpec
@@ -87,6 +91,10 @@ def test_openvino_weight_compression_hf_to_openvino(tmp_path):
         shutil.rmtree(hf_to_ov_model.model_path)
 
 
+@pytest.mark.skipif(
+    version.parse(torch.__version__) >= version.parse("2.9.0"),
+    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
+)
 def test_openvino_weight_compression_hf_to_onnx(tmp_path):
     from nncf.parameters import CompressWeightsMode
 
@@ -124,6 +132,10 @@ def test_openvino_weight_compression_hf_to_onnx(tmp_path):
     shutil.rmtree(q_dir)
 
 
+@pytest.mark.skipif(
+    version.parse(torch.__version__) >= version.parse("2.9.0"),
+    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
+)
 def test_openvino_weight_compression_onnx_to_onnx(tmp_path):
     from nncf.parameters import CompressWeightsMode
 

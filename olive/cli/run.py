@@ -43,7 +43,10 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         from olive.common.config_utils import load_config_file
         from olive.workflows import run as olive_run
 
-        run_config = load_config_file(self.args.run_config)
+        # allow the run_config to be a dict already (for api use)
+        run_config = self.args.run_config
+        if not isinstance(run_config, dict):
+            run_config = load_config_file(run_config)
         if input_model_config := get_input_model_config(self.args, required=False):
             print("Replacing input model config in run config")
             run_config["input_model"] = input_model_config
@@ -65,9 +68,5 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
         if self.args.list_required_packages is True:
             print("Required packages listed!")
-        elif workflow_output.has_output_model():
-            print(f"Model is saved at {self.args.output_path}")
-        else:
-            print("No output model produced. Please check the log for details.")
 
         return workflow_output
