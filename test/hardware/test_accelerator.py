@@ -26,7 +26,7 @@ from olive.systems.system_config import SystemConfig
         ([ExecutionProvider.CUDAExecutionProvider], ["gpu"]),
         ([ExecutionProvider.CPUExecutionProvider, ExecutionProvider.CUDAExecutionProvider], ["gpu"]),
         ([ExecutionProvider.DmlExecutionProvider, ExecutionProvider.CUDAExecutionProvider], None),
-        ([ExecutionProvider.QNNExecutionProvider, ExecutionProvider.CUDAExecutionProvider], ["npu", "gpu"]),
+        ([ExecutionProvider.VitisAIExecutionProvider, ExecutionProvider.CUDAExecutionProvider], ["npu", "gpu"]),
     ],
 )
 def test_infer_accelerators_from_execution_provider(execution_providers_test):
@@ -93,6 +93,15 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
             },
             [("cpu", ExecutionProvider.CPUExecutionProvider)],
             [ExecutionProvider.CPUExecutionProvider],
+        ),
+        # for qnn, if only EP provided, we map it to npu device
+        (
+            {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"execution_providers": [ExecutionProvider.QNNExecutionProvider]}]},
+            },
+            [("npu", ExecutionProvider.QNNExecutionProvider)],
+            [ExecutionProvider.QNNExecutionProvider],
         ),
         # both device and EP provided
         (
@@ -509,7 +518,7 @@ def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
                     "accelerators": [
                         {
                             "execution_providers": [
-                                ExecutionProvider.QNNExecutionProvider,
+                                ExecutionProvider.VitisAIExecutionProvider,
                                 ExecutionProvider.CUDAExecutionProvider,
                             ]
                         }
@@ -520,7 +529,7 @@ def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
             AssertionError,
             (
                 "Cannot infer the devices from the execution providers "
-                "['QNNExecutionProvider', 'CUDAExecutionProvider']. Multiple devices are inferred: ['npu', 'gpu']."
+                "['VitisAIExecutionProvider', 'CUDAExecutionProvider']. Multiple devices are inferred: ['npu', 'gpu']."
             ),
         ),
     ],

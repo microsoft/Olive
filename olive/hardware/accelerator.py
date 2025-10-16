@@ -123,12 +123,12 @@ class AcceleratorLookup:
                 # cannot infer device for CPUExecutionProvider since all ORT EP supports CPU
                 continue
 
-            inferered_devices = []
+            inferred_devices = []
             for device, eps in DEVICE_TO_EXECUTION_PROVIDERS.items():
                 if ep in eps:
-                    inferered_devices.append(device)
-            if inferered_devices:
-                ep_to_devices[ep] = inferered_devices
+                    inferred_devices.append(device)
+            if inferred_devices:
+                ep_to_devices[ep] = inferred_devices
             else:
                 ep_to_devices[ep] = None
 
