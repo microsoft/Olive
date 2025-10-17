@@ -15,7 +15,7 @@ from transformers import AutoModelForCausalLM
 from olive.common.utils import WeightsFileFormat, load_weights
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.common import PATTERN_MAP, AdapterType, model_has_adapters
+from olive.passes.onnx.common import PATTERN_MAP_DYNAMO, AdapterType, model_has_adapters
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.extract_adapters import ExtractAdapters
 from olive.passes.onnx.rtn_quantization import OnnxBlockWiseRtnQuantization
@@ -113,7 +113,7 @@ def test_convert_adapters_command(tmp_path, adapter_format, quantize_int4, input
     assert Path(exported_adapters_path).is_file()
 
     # Get the appropriate patterns for the adapter type
-    expected_patterns = PATTERN_MAP[adapter_type]
+    expected_patterns = PATTERN_MAP_DYNAMO[adapter_type]
 
     # Check that loaded weights contain expected patterns
     loaded_weights = load_weights(exported_adapters_path)
@@ -136,7 +136,7 @@ def test_extract_adapters(tmp_path, model_type, input_model_info):
     assert Path(extracted_model.model_path).is_file()
     assert Path(extracted_model.external_initializers_path).is_file()
 
-    expected_patterns = PATTERN_MAP[adapter_type]
+    expected_patterns = PATTERN_MAP_DYNAMO[adapter_type]
 
     # Check that extracted weights contain expected patterns
     extracted_weights = set(extracted_model.model_attributes["external_initializers"])
@@ -178,7 +178,7 @@ def test_extract_adapters_as_inputs(tmp_path, save_format, model_type, input_mod
     assert Path(extracted_model.constant_inputs_path).is_file()
 
     # Get the appropriate patterns for the adapter type
-    expected_patterns = PATTERN_MAP[adapter_type]
+    expected_patterns = PATTERN_MAP_DYNAMO[adapter_type]
 
     # Check that extracted weights contain expected patterns
     extracted_weights = set(extracted_model.model_attributes["constant_inputs"])
