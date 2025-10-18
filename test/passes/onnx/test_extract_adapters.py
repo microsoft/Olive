@@ -140,11 +140,6 @@ def input_model_info_torchscript_fixture(tmp_path_factory, request):
     rtn_quantizer = create_pass_from_dict(OnnxBlockWiseRtnQuantization, {}, disable_search=True)
     olive_int4_onnx_model = rtn_quantizer.run(olive_onnx_model, str(tmp_path / "int4-onnx"))
 
-    # For torchscript export, extract the actual weights from the exported model
-    # because some adapters (like DORA A/B) may be constant-folded during export
-    from olive.common.utils import WeightsFileFormat
-    from olive.passes.onnx.extract_adapters import ExtractAdapters
-
     float_pass = create_pass_from_dict(
         ExtractAdapters,
         {"make_inputs": False, "save_format": WeightsFileFormat.NUMPY, "adapter_type": adapter_type},
