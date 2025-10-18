@@ -12,10 +12,10 @@ import numpy as np
 import onnx_ir as ir
 
 from olive.common.utils import WeightsFileFormat, save_weights
+from olive.constants import OpType
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
-from Olive.olive.constants import OpType
 from olive.passes import Pass
 from olive.passes.onnx.common import (
     DORA_NAME_PATTERNS_DYNAMO,
@@ -230,6 +230,7 @@ class ExtractAdapters(Pass):
         self, ir_model: ir.Model, config: type[BasePassConfig], adapter_type: AdapterType = AdapterType.LORA
     ):
         """Extract adapter weights for either LoRA or Dora from an ONNX model.
+
         LoRA:
         output + default (lora_A) -> MatMul -> ...
         output + default_1 (lora_B) -> MatMul -> ...
@@ -272,11 +273,11 @@ class ExtractAdapters(Pass):
             new_quantized_names = [new_weight_name.replace(".weight", suffix) for suffix in quantized_suffices]
 
             if op_type == "Div":
-                self._process_div_node(ir_model, node_name, weights, new_weight_name, float_modules)
+                self._process_div_node(ir_model, node, weights, new_weight_name, float_modules)
             elif op_type == "MatMul":
                 self._process_matmul_node(
                     ir_model,
-                    node_name,
+                    node,
                     weights,
                     new_weight_name,
                     float_modules,
@@ -366,20 +367,20 @@ class ExtractAdapters(Pass):
     def _process_div_node(
         self,
         ir_model: ir.Model,
-        node_name: str,
+        node: ir.Node,
         weights: dict[str, "NDArray"],
         new_weight_name: str,
         float_modules: set[str],
     ):
-        old_weight_name = ir_model.graph[node_name].inputs[0].name
-        self._externalize_initializer(ir_model, weights, old_weight_name, new_weight_name)
+        old_weight = node.inputs[0]
+        self._externalize_initializer(ir_model, weights, old_weight, new_weight_name)
         # add the module to the float modules
         float_modules.add(new_weight_name.replace(".weight", ""))
 
     def _process_matmul_node(
         self,
         ir_model: ir.Model,
-        node_name: str,
+        node: ir.Node,
         weights: dict[str, "NDArray"],
         new_weight_name: str,
         float_modules: set[str],
@@ -389,18 +390,18 @@ class ExtractAdapters(Pass):
     ):
         # float or QDQ quantized
         # original weight name
-        old_weight: ir.Value = ir_model.graph[node_name].inputs[1]
+        old_weight: ir.Value = node.inputs[1]
         if old_weight.is_graph_input():
             # nothing to do here
             return
         if old_weight.is_initializer():
-            self._externalize_initializer(ir_model, weights, old_weight.name, new_weight_name)
+            self._externalize_initializer(ir_model, weights, old_weight, new_weight_name)
 
             # add the module to the float modules
             float_modules.add(new_weight_name.replace(".weight", ""))
         elif old_weight.producer().op_type == OpType.DequantizeLinear:
             self._process_dequantizelinear(
-                ir_model, node_name, weights, old_weight, new_weight_name, new_quantized_names, nodes_to_remove
+                ir_model, node.name, weights, old_weight, new_weight_name, new_quantized_names, nodes_to_remove
             )
 
             # add the module to the quant modules
@@ -473,6 +474,7 @@ class ExtractAdapters(Pass):
     @staticmethod
     def _create_new_weight_name(old_name: str, adapter_type: AdapterType = AdapterType.LORA) -> str:
         """Create new weight name based on old name.
+
         LORA: the new weight name is of the form model.layers.0.self_attn.q_proj.lora_A.quant.weight
         DORA: the new weight name is of the form model.layers.0.self_attn.q_proj.dora_A.weight for MatMul and
                 model.layers.0.self_attn.q_proj.dora_M.weight for Mul
@@ -549,6 +551,10 @@ class ExtractAdapters(Pass):
         """Make the input dynamic and optional."""
         if "lora_magnitude_vector" in name:
             # magnitude vector's shape is independent of lora_r, so we do nothing
+            return
+
+        # Skip quantization parameters (scale, zero_point) - they should not be made dynamic
+        if ".quant.scale" in name or ".quant.zero_point" in name:
             return
 
         # Determine which dimension should be made dynamic based on pattern in name

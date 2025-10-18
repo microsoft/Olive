@@ -16,7 +16,7 @@ from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
 
 from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
-from Olive.olive.passes.onnx.onnx_dag import OnnxDAG
+from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile, LocalFolder
 
@@ -521,6 +521,7 @@ def model_has_adapters_from_torchscript(
     model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA
 ) -> bool:
     """Check if the model has adapters.
+
     :param model_path: The path to the model.
     :return: True if the model has adapters, False otherwise.
     """
