@@ -105,7 +105,7 @@ Also, based on `TransformersDummyDataContainer`, Olive provides templates for tr
 
 ## Using Local Data with HuggingfaceContainer
 
-The `HuggingfaceContainer` supports loading datasets from **both remote (Hugging Face Hub) and local files**. Olive uses HuggingFace's `load_dataset()` function, which can automatically handle various local file formats.
+The `HuggingfaceContainer` supports loading datasets from both remote (Hugging Face Hub) and local files.
 
 ### Supported Local File Formats
 
@@ -116,7 +116,6 @@ Olive supports the following file formats through HuggingFace's `load_dataset()`
 - **JSON Lines** (`.jsonl`) - Newline-delimited JSON 
 - **Parquet** (`.parquet`) - Columnar format
 
-Refer to [HuggingFace's loading documentation](https://huggingface.co/docs/datasets/en/loading#local-and-remote-files) for more details.
 
 ### Parameters for Local Data
 
@@ -133,7 +132,7 @@ When loading local data, you need to specify:
 - Single file: `--data_files ./my_data.csv`
 - Multiple files (comma-separated): `--data_files file1.csv,file2.csv,file3.csv`
 
-Mapping to splits (e.g., `{"train": "...", "test": "..."}`) is **only supported in config files**, not in the CLI.
+Mapping to splits (e.g., `{"train": "...", "test": "..."}`) is only supported in config files, not in the CLI.
 ```
 
 ### How to Prepare Local Data
@@ -297,7 +296,7 @@ olive finetune \
     --output_path models/finetuned
 ```
 
-**Important Notes**
+**Notes**
 
 - Multiple files must be **comma-separated without spaces**: `file1.csv,file2.csv`
 - Mapping files to specific splits (e.g., `{"train": "train.csv", "test": "test.csv"}`) is **only supported in config files**, not in CLI
