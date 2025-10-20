@@ -175,7 +175,7 @@ Define NLP,Natural Language Processing...,1
 
 **File structure**
 
-```jsonl
+```json
 {"text": "Sample text 1", "label": 0}
 {"text": "Sample text 2", "label": 1}
 {"text": "Sample text 3", "label": 0}
