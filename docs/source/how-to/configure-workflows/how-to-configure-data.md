@@ -105,7 +105,7 @@ Also, based on `TransformersDummyDataContainer`, Olive provides templates for tr
 
 ## Using Local Data with HuggingfaceContainer
 
-The `HuggingfaceContainer` supports loading datasets from both remote (Hugging Face Hub) and local files.
+The `HuggingfaceContainer` supports loading datasets from both Hugging Face Hub and local files.
 
 ### Supported Local File Formats
 
