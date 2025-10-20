@@ -6,7 +6,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datasets import Dataset as HFDataset
+from datasets import Dataset
 
 from olive.data.component.pre_process_data import feature_extraction_pre_process, huggingface_pre_process
 
@@ -20,8 +20,7 @@ class TestPreProcessData:
             "sentence2": ["This is also a test.", "Testing again.", "Final example."],
             "label": [0, 1, 0],
         }
-        dataset = HFDataset.from_dict(data)
-        return dataset
+        return Dataset.from_dict(data)
 
     @patch("olive.data.component.pre_process_data.get_tokenizer")
     def test_feature_extraction_pre_process(self, mock_get_tokenizer, mock_dataset):
@@ -29,8 +28,8 @@ class TestPreProcessData:
         # setup
         mock_tokenizer = MagicMock()
         mock_tokenizer.return_value = {
-            "input_ids": [[101, 2023, 102], [101, 2178, 102], [101, 2028, 102]],
-            "attention_mask": [[1, 1, 1], [1, 1, 1], [1, 1, 1]],
+            "input_ids": [[101, 2023, 102], [101, 2178, 102]],
+            "attention_mask": [[1, 1, 1], [1, 1, 1]],
         }
         mock_get_tokenizer.return_value = mock_tokenizer
 
@@ -54,8 +53,8 @@ class TestPreProcessData:
         # setup
         mock_tokenizer = MagicMock()
         mock_tokenizer.return_value = {
-            "input_ids": [[101, 2023, 102], [101, 2178, 102], [101, 2028, 102]],
-            "attention_mask": [[1, 1, 1], [1, 1, 1], [1, 1, 1]],
+            "input_ids": [[101, 2023, 102], [101, 2178, 102]],
+            "attention_mask": [[1, 1, 1], [1, 1, 1]],
         }
         mock_get_tokenizer.return_value = mock_tokenizer
 
