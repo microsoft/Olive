@@ -118,7 +118,7 @@ If no data config template can meet the requirement, we can also define the (dat
     | Components | Available component type |
     |------------|--------------------------|
     |[`load_dataset`](https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py) | local_dataset(default), simple_dataset, huggingface_dataset, raw_dataset |
-    |[`pre_process_data`](https://github.com/microsoft/Olive/blob/main/olive/data/component/pre_process_data.py) | pre_process(default), huggingface_pre_process, ner_huggingface_preprocess, text_generation_huggingface_pre_process |
+    |[`pre_process_data`](https://github.com/microsoft/Olive/blob/main/olive/data/component/pre_process_data.py) | pre_process(default), huggingface_pre_process, feature_extraction_pre_process, ner_huggingface_preprocess, text_generation_huggingface_pre_process |
     |[`post_process_data`](https://github.com/microsoft/Olive/blob/main/olive/data/component/post_process_data.py) | post_process(default), text_classification_post_process, ner_post_process, text_generation_post_process |
     |[`dataloader`](https://github.com/microsoft/Olive/blob/main/olive/data/component/dataloader.py) | default_dataloader(default), no_auto_batch_dataloader |
 

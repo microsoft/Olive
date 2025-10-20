@@ -49,3 +49,16 @@ class TestDataset:
         # max_samples > length
         dataset = get_dict_dataset(max_samples=300)
         assert len(dataset) == 256
+
+    def test_base_dataset_without_label(self):
+        input_names = ["input_1", "input_2"]
+        data = []
+        for i in range(256):
+            data.append({input_names[0]: [i, i], input_names[1]: [i, i, i]})  # noqa: PERF401
+        dataset = BaseDataset(data, label_col=None, max_samples=None)
+
+        assert len(dataset) == 256
+        result = dataset[0]
+        assert isinstance(result, dict)
+        assert result == {"input_1": [0, 0], "input_2": [0, 0, 0]}
+        assert "label" not in result

@@ -39,8 +39,10 @@ class BaseDataset(TorchDataset):
 
     def __getitem__(self, index):
         data = {k: v for k, v in self.data[index].items() if k != self.label_col}
-        label = self.data[index][self.label_col]
-        return data, label
+        if self.label_col is not None:
+            label = self.data[index][self.label_col]
+            return data, label
+        return data
 
 
 class DummyDataset(BaseDataset):
