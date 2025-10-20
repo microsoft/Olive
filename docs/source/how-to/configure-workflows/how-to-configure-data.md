@@ -113,7 +113,7 @@ Olive supports the following file formats through HuggingFace's `load_dataset()`
 
 - **CSV** (`.csv`) - Comma-separated values
 - **JSON** (`.json`) - Standard JSON format
-- **JSON Lines** (`.jsonl`) - Newline-delimited JSON 
+- **JSON Lines** (`.jsonl`) - Newline-delimited JSON
 - **Parquet** (`.parquet`) - Columnar format
 
 
@@ -141,7 +141,7 @@ Mapping to splits (e.g., `{"train": "...", "test": "..."}`) is only supported in
 
 **File structure** (`my_data.csv`)
 
-```csv
+```
 question,answer,label
 What is AI?,Artificial Intelligence is...,1
 Explain ML,Machine Learning is...,1
