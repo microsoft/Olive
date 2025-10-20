@@ -103,6 +103,206 @@ Also, based on `TransformersDummyDataContainer`, Olive provides templates for tr
 - `TransformersTokenDummyDataContainer` where `seq_len == 1` and `past_seq_len >= 1` (default 8).
 
 
+## Using Local Data with HuggingfaceContainer
+
+The `HuggingfaceContainer` supports loading datasets from **both remote (Hugging Face Hub) and local files**. Olive uses HuggingFace's `load_dataset()` function, which can automatically handle various local file formats.
+
+### Supported Local File Formats
+
+Olive supports the following file formats through HuggingFace's `load_dataset()`:
+
+- **CSV** (`.csv`) - Comma-separated values
+- **JSON** (`.json`) - Standard JSON format
+- **JSON Lines** (`.jsonl`) - Newline-delimited JSON 
+- **Parquet** (`.parquet`) - Columnar format
+
+Refer to [HuggingFace's loading documentation](https://huggingface.co/docs/datasets/en/loading#local-and-remote-files) for more details.
+
+### Parameters for Local Data
+
+When loading local data, you need to specify:
+
+- `data_name`: The **file format identifier** (e.g., `"csv"`, `"json"`, `"parquet"`)
+- `data_files`: The **path(s) to your local file(s)**
+  - Single file: `"path/to/file.csv"`
+  - Multiple files (list): `["file1.csv", "file2.csv"]`
+  - Mapping to splits (dict): `{"train": "train.csv", "test": "test.csv"}`
+
+```{note}
+**CLI Limitation**: The CLI `--data_files` parameter currently only supports:
+- Single file: `--data_files ./my_data.csv`
+- Multiple files (comma-separated): `--data_files file1.csv,file2.csv,file3.csv`
+
+Mapping to splits (e.g., `{"train": "...", "test": "..."}`) is **only supported in config files**, not in the CLI.
+```
+
+### How to Prepare Local Data
+
+#### 1. CSV Format
+
+**File structure** (`my_data.csv`)
+
+```csv
+question,answer,label
+What is AI?,Artificial Intelligence is...,1
+Explain ML,Machine Learning is...,1
+Define NLP,Natural Language Processing...,1
+```
+
+**Config for CSV**
+
+```json
+{
+    "name": "local_csv_data",
+    "type": "HuggingfaceContainer",
+    "load_dataset_config": {
+        "data_name": "csv",
+        "data_files": "path/to/my_data.csv",
+        "split": "train"
+    },
+    "pre_process_data_config": {
+        "type": "huggingface_pre_process",
+        "model_name": "Intel/bert-base-uncased-mrpc",
+        "input_cols": ["question"],
+        "label_col": "label"
+    },
+    "dataloader_config": {
+        "batch_size": 1
+    }
+}
+```
+
+#### 2. JSON Lines Format
+
+**File structure**
+
+```jsonl
+{"text": "Sample text 1", "label": 0}
+{"text": "Sample text 2", "label": 1}
+{"text": "Sample text 3", "label": 0}
+```
+
+**Config for JSONL**
+
+```json
+{
+    "name": "local_jsonl_data",
+    "type": "HuggingfaceContainer",
+    "load_dataset_config": {
+        "data_name": "json",
+        "data_files": "path/to/my_data.jsonl",
+        "split": "train"
+    },
+    "pre_process_data_config": {
+        "type": "text_generation_huggingface_pre_process",
+        "model_name": "meta-llama/Llama-3.2-1B-Instruct",
+        "text_cols": "text"
+    },
+    "dataloader_config": {
+        "batch_size": 1
+    }
+}
+```
+
+#### 3. JSON Format
+
+**File structure**
+
+```json
+{
+    "version": "1.0",
+    "data": [
+        {"prompt": "Question 1", "response": "Answer 1"},
+        {"prompt": "Question 2", "response": "Answer 2"},
+        {"prompt": "Question 3", "response": "Answer 3"}
+    ]
+}
+```
+
+**Config for JSON**
+
+```json
+{
+    "name": "local_json_data",
+    "type": "HuggingfaceContainer",
+    "load_dataset_config": {
+        "data_name": "json",
+        "data_files": "path/to/my_data.json",
+        "field": "data",
+        "split": "train"
+    },
+    "pre_process_data_config": {
+        "type": "text_generation_huggingface_pre_process",
+        "model_name": "meta-llama/Llama-3.2-1B-Instruct",
+        "text_template": "### Question: {prompt}\n### Answer: {response}"
+    },
+    "dataloader_config": {
+        "batch_size": 1
+    }
+}
+```
+
+#### 4. Parquet Format
+
+**File structure**: Binary Parquet file (`my_data.parquet`)
+
+**Config for Parquet**
+
+```json
+{
+    "name": "local_parquet_data",
+    "type": "HuggingfaceContainer",
+    "load_dataset_config": {
+        "data_name": "parquet",
+        "data_files": "path/to/my_data.parquet",
+        "split": "train"
+    },
+    "dataloader_config": {
+        "batch_size": 1
+    }
+}
+```
+
+### CLI Usage with Local Data
+
+When using Olive CLI commands like `olive finetune` or `olive quantize`, you can load local data:
+
+```bash
+# Single file
+olive finetune \
+    --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \
+    --data_name json \
+    --data_files ./my_training_data.jsonl \
+    --train_split train \
+    --text_field "text" \
+    --output_path models/finetuned
+
+# Multiple files (comma-separated, no spaces)
+olive finetune \
+    --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \
+    --data_name json \
+    --data_files file1.jsonl,file2.jsonl,file3.jsonl \
+    --train_split train \
+    --text_field "text" \
+    --output_path models/finetuned
+
+# Using split slicing to create train/eval splits from single file
+olive finetune \
+    --model_name_or_path meta-llama/Llama-3.2-1B-Instruct \
+    --data_name json \
+    --data_files ./my_data.jsonl \
+    --train_split "train[:80%]" \
+    --eval_split "train[80%:]" \
+    --text_field "text" \
+    --output_path models/finetuned
+```
+
+**Important Notes**
+
+- Multiple files must be **comma-separated without spaces**: `file1.csv,file2.csv`
+- Mapping files to specific splits (e.g., `{"train": "train.csv", "test": "test.csv"}`) is **only supported in config files**, not in CLI
+- For CLI, use `--train_split` and `--eval_split` to slice a single dataset
+
 ### Generic Data Config
 
 If no data config template can meet the requirement, we can also define the (data config)[https://github.com/microsoft/Olive/blob/main/olive/data/config.py#L35] directly. The data config is defined as a dictionary which includes the following fields:
