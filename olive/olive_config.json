@@ -465,13 +465,23 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "QairtGenAIBuilder": {
+            "module_path": "olive.passes.qairt.gen_ai_builder.QairtGenAIBuilder",
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "qairt-dev" ]
+        },
         "QairtMHA2SHA": {
             "module_path": "olive.passes.onnx.qairt.mha2sha.QairtMHA2SHA",
             "supported_providers": [ "QNNExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "qairt-dev" ]
         },
         "QLoRA": {
             "module_path": "olive.passes.pytorch.lora.QLoRA",
@@ -653,6 +663,7 @@
             "onnxruntime-openvino"
         ],
         "optimum": [ "optimum" ],
+        "qairt": [ "qairt-dev" ],
         "qnn": [ "onnxruntime-qnn" ],
         "tf": [ "tensorflow==1.15.0" ],
         "torch-tensorrt": [ "torch-tensorrt" ],
