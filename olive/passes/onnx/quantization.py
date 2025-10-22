@@ -5,6 +5,7 @@
 import inspect
 import logging
 import tempfile
+from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from typing import Union
@@ -252,6 +253,44 @@ _param_extra_options_mapping = {
 }
 
 
+@contextmanager
+def patch_min_max_calibrater():
+    from onnxruntime import __version__ as OrtVersion
+
+    if version.parse(OrtVersion).release >= version.parse("1.24.0").release:
+        # no need to patch for onnxruntime<1.24.0
+        yield
+        return
+
+    from onnxruntime.quantization.calibrate import MinMaxCalibrater
+
+    from olive.passes.onnx.onnx_dag import OnnxDAG
+
+    original_augment_graph = MinMaxCalibrater.augment_graph
+
+    def patched_augment_graph(self):
+        original_augment_graph(self)
+
+        dag = OnnxDAG(onnx.load(self.augmented_model_path, load_external_data=False))
+        for o_name in list(self.model_original_outputs):
+            # remove the output since we don't need it for calibration
+            dag.remove_output(o_name)
+            self.model_original_outputs.remove(o_name)
+            self.num_model_outputs -= 1
+
+            # if the producer has no consumers, remove it
+            producer = dag.get_producer(o_name)
+            if len(dag.get_consumers(producer)) == 0:
+                # remove the producer if it has no consumers
+                dag.remove_node(producer)
+        dag.update()
+        onnx.save(dag.model, self.augmented_model_path)
+
+    MinMaxCalibrater.augment_graph = patched_augment_graph
+    yield
+    MinMaxCalibrater.augment_graph = original_augment_graph
+
+
 class OnnxQuantization(Pass):
     """Quantize ONNX model with static/dynamic quantization techniques."""
 
@@ -459,11 +498,12 @@ class OnnxQuantization(Pass):
         if is_static:
             run_config = self.get_static_run_config(model, config, run_config, ort_less_than_1_21)
             try:
-                quantize_static(
-                    model_input=model.model_path,
-                    model_output=tmp_model_path,
-                    **run_config,
-                )
+                with patch_min_max_calibrater():
+                    quantize_static(
+                        model_input=model.model_path,
+                        model_output=tmp_model_path,
+                        **run_config,
+                    )
             except (AttributeError, ValueError) as e:
                 raise OlivePassError("quantize_static failed.") from e
         else:
