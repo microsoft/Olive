@@ -12,6 +12,7 @@ from typing import Any, Callable, Optional, Union
 import onnx
 from onnx import external_data_helper
 from onnxscript import ir
+from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
 
 from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -447,14 +448,16 @@ def resave_model(
     return True
 
 
-LORA_NAME_PATTERNS = [
+LORA_NAME_PATTERNS_TORCHSCRIPT = [
     f".*[./]{name}[./]{matmul}$"
     for name in ["default_0", "default_0_1", "default", "default_1", "lora_A", "lora_B"]
     for matmul in ["MatMul", "MatMul_Q4"]
 ]
-LOHA_NAME_PATTERNS = [f".*[./]{name}[./]default" for name in ["hada_w1_a", "hada_w1_b", "hada_w2_a", "hada_w2_b"]]
+LOHA_NAME_PATTERNS_TORCHSCRIPT = [
+    f".*[./]{name}[./]default" for name in ["hada_w1_a", "hada_w1_b", "hada_w2_a", "hada_w2_b"]
+]
 
-DORA_NAME_PATTERNS = [
+DORA_NAME_PATTERNS_TORCHSCRIPT = [
     f".*{pattern}$"
     for pattern in [
         "default/Div",
@@ -465,9 +468,58 @@ DORA_NAME_PATTERNS = [
     ]
 ]
 
+LORA_NAME_PATTERNS_DYNAMO = ["lora_A", "lora_B"]
+LOHA_NAME_PATTERNS_DYNAMO = ["hada_w1_a", "hada_w1_b", "hada_w2_a", "hada_w2_b"]
+DORA_NAME_PATTERNS_DYNAMO = ["lora_A", "lora_B", "lora_magnitude_vector"]
+PATTERN_MAP_DYNAMO = {
+    AdapterType.LORA: LORA_NAME_PATTERNS_DYNAMO,
+    AdapterType.DORA: DORA_NAME_PATTERNS_DYNAMO,
+    AdapterType.LOHA: LOHA_NAME_PATTERNS_DYNAMO,
+}
+
+
+def model_has_adapters_from_dynamo(model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA) -> bool:
+    """Check if the model has adapters.
+
+    :param model_path: The path to the model.
+    :return: True if the model has adapters, False otherwise.
+    """
+    ir_model = ir.load(model_path)
+    return any(
+        get_adapter_name(initializer, PATTERN_MAP_DYNAMO.get(adapter_type, []))
+        for initializer in ir_model.graph.initializers.values()
+    )
+
+
+def get_adapter_name(initializer, patterns) -> str:
+    """Get the adapter name from the initializer.
+
+    If the model is exported by torch dynamo, the LORA adapter may be folded into a single tensor.
+    In this case, the adapter name is stored in the metadata_props of the initializer.
+    We look for the adapter name in both the initializer name and the metadata_props.
+    If not found, return None.
+
+    :param initializer: The initializer to check.
+    :param patterns: The patterns to look for.
+    :return: The adapter name if found, None otherwise.
+    """
+    adapter_name = None
+
+    if any(x in initializer.name for x in patterns):
+        adapter_name = initializer.name
+    elif FOLDED_FROM_KEY in initializer.metadata_props:
+        import ast
+
+        folded_from_str = initializer.metadata_props[FOLDED_FROM_KEY]
+        folded_from = set(ast.literal_eval(folded_from_str))
+        adapter_name = next((s for s in folded_from if any(x in s for x in patterns)), None)
+    return adapter_name
+
 
 # TODO(jambayk): considering matching by subgraph pattern, more involved but more reliable
-def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA) -> bool:
+def model_has_adapters_from_torchscript(
+    model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA
+) -> bool:
     """Check if the model has adapters.
 
     :param model_path: The path to the model.
@@ -488,20 +540,28 @@ def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType =
 
 def is_dora_node(op_type: str, node_name: str) -> bool:
     return op_type in {"MatMul", "MatMulNBits", "Div"} and any(
-        re.match(pattern, node_name) for pattern in DORA_NAME_PATTERNS
+        re.match(pattern, node_name) for pattern in DORA_NAME_PATTERNS_TORCHSCRIPT
     )
 
 
 def is_lora_node(op_type: str, node_name: str) -> bool:
-    return op_type in {"MatMul", "MatMulNBits"} and any(re.match(pattern, node_name) for pattern in LORA_NAME_PATTERNS)
+    return op_type in {"MatMul", "MatMulNBits"} and any(
+        re.match(pattern, node_name) for pattern in LORA_NAME_PATTERNS_TORCHSCRIPT
+    )
 
 
 def is_loha_model(dag: OnnxDAG) -> bool:
     for graph in dag.graphs:
         for initializer in graph.initializer:
-            if any(re.match(pattern, initializer.name) for pattern in LOHA_NAME_PATTERNS):
+            if any(re.match(pattern, initializer.name) for pattern in LOHA_NAME_PATTERNS_TORCHSCRIPT):
                 return True
     return False
+
+
+def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA) -> bool:
+    return model_has_adapters_from_dynamo(model_path, adapter_type) or model_has_adapters_from_torchscript(
+        model_path, adapter_type
+    )
 
 
 def _fix_output_shapes(model_proto: onnx.ModelProto):
