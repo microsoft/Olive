@@ -5,7 +5,6 @@
 import inspect
 import logging
 import tempfile
-from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from typing import Union
@@ -253,16 +252,17 @@ _param_extra_options_mapping = {
 }
 
 
-@contextmanager
-def patch_min_max_calibrater():
+def maybe_patch_min_max_calibrater():
     from onnxruntime import __version__ as OrtVersion
 
     if version.parse(OrtVersion).release >= version.parse("1.24.0").release:
         # no need to patch for onnxruntime<1.24.0
-        yield
         return
 
     from onnxruntime.quantization.calibrate import MinMaxCalibrater
+
+    if getattr(MinMaxCalibrater.augment_graph, "__name__", "") == "patched_augment_graph":
+        return
 
     from olive.passes.onnx.onnx_dag import OnnxDAG
 
@@ -287,8 +287,6 @@ def patch_min_max_calibrater():
         onnx.save(dag.model, self.augmented_model_path)
 
     MinMaxCalibrater.augment_graph = patched_augment_graph
-    yield
-    MinMaxCalibrater.augment_graph = original_augment_graph
 
 
 class OnnxQuantization(Pass):
@@ -497,13 +495,13 @@ class OnnxQuantization(Pass):
 
         if is_static:
             run_config = self.get_static_run_config(model, config, run_config, ort_less_than_1_21)
+            maybe_patch_min_max_calibrater()
             try:
-                with patch_min_max_calibrater():
-                    quantize_static(
-                        model_input=model.model_path,
-                        model_output=tmp_model_path,
-                        **run_config,
-                    )
+                quantize_static(
+                    model_input=model.model_path,
+                    model_output=tmp_model_path,
+                    **run_config,
+                )
             except (AttributeError, ValueError) as e:
                 raise OlivePassError("quantize_static failed.") from e
         else:
