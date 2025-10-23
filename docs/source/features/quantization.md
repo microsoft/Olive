@@ -72,7 +72,7 @@ This pass supports ONNX models and can quantize `MatMul` and `Gather` nodes to 4
 ```
 
 ## HQQ
-`HQQ (Half-Quadratic Quantization)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, [HQQ](https://mobiusml.github.io/hqq_blog/) uses half-quadratic splitting to minimize weight quantization error efficiently.
+`HQQ (Half-Quadratic Quantization)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, [HQQ](https://dropbox.github.io/hqq_blog/) uses half-quadratic splitting to minimize weight quantization error efficiently.
 
 This pass only supports ONNX models, and will only quantize `MatMul` nodes to 4 bits.
 
