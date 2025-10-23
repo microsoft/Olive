@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import onnx
@@ -336,23 +337,26 @@ def test_expose_quantized_output(tmp_path):
     assert quantized_output_name in exposed_outputs, "Quantized output not exposed."
     assert "output1" not in exposed_outputs, "Original output should be removed."
 
-    # Construct expected node and initializer names for scale and zero_point
+    # Construct expected node names for scale and zero_point
     output_name = "output1"
     scale_node_name = f"{output_name}_exposed_scale"
-    scale_initializer_name = f"{scale_node_name}_value"
-
     zero_point_node_name = f"{output_name}_exposed_zero_point"
-    zero_point_initializer_name = f"{zero_point_node_name}_value"
 
     # Validate that the scale node and its initializer exist in the modified model
-    assert any(node.name == scale_node_name for node in output_model.graph.node), "Scale node not added."
+    scale_node = next((node for node in output_model.graph.node if node.name == scale_node_name), None)
+    assert scale_node is not None, "Scale node not added."
+    # After deduplication, the node may reference the original initializer, so get the actual input name
+    scale_initializer_name = scale_node.input[0]
     scale_initializer = next(init for init in output_model.graph.initializer if init.name == scale_initializer_name)
     assert np.allclose(numpy_helper.to_array(scale_initializer), np.array([original_scale_value], dtype=np.float32)), (
         "Scale value mismatch."
     )
 
     # Validate that the zero_point node and its initializer exist in the modified model
-    assert any(node.name == zero_point_node_name for node in output_model.graph.node), "Zero point node not added."
+    zero_point_node = next((node for node in output_model.graph.node if node.name == zero_point_node_name), None)
+    assert zero_point_node is not None, "Zero point node not added."
+    # After deduplication, the node may reference the original initializer, so get the actual input name
+    zero_point_initializer_name = zero_point_node.input[0]
     zero_point_initializer = next(
         init for init in output_model.graph.initializer if init.name == zero_point_initializer_name
     )
@@ -1846,3 +1850,30 @@ def test_decompose_rotary_embedding(tmp_path):
 
     # Verify outputs match
     np.testing.assert_allclose(actual_output, expected_output, rtol=1e-5, atol=1e-6)
+
+
+@patch("olive.passes.onnx.graph_surgeries.DeduplicateHashedInitializersPass")
+def test_deduplicate_hashed_initializers_pass_called(mock_dedup_pass, tmp_path):
+    # setup
+    input_model = get_onnx_model(tmp_path / "model.onnx")
+    output_folder = str(tmp_path / "onnx")
+
+    # Create a pass with a simple surgery
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RenameInputs", "old_names": ["input1"], "new_names": ["renamed_input"]}]},
+        disable_search=True,
+    )
+
+    ir_model = input_model.load_ir_model()
+    mock_result = MagicMock()
+    mock_result.model = ir_model
+    mock_instance = MagicMock(return_value=mock_result)
+    mock_dedup_pass.return_value = mock_instance
+
+    # execute
+    p.run(input_model, output_folder)
+
+    # assert
+    mock_dedup_pass.assert_called_once()
+    mock_instance.assert_called_once()

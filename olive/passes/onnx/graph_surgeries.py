@@ -16,6 +16,7 @@ import numpy as np
 import onnx
 from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
+from onnx_ir.passes.common import DeduplicateHashedInitializersPass
 from onnxscript import ir, rewriter
 from onnxscript.rewriter import pattern
 
@@ -1784,7 +1785,8 @@ class GraphSurgeries(Pass):
             surgeon_instance = self.init_surgeon_instance(surgery)
             onnx_model = surgeon_instance(onnx_model)
 
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+        deduped_model = DeduplicateHashedInitializersPass()(ir.from_proto(onnx_model)).model
+        return model_proto_to_olive_model(ir.to_proto(deduped_model), output_model_path, config)
 
     def init_surgeon_instance(self, surgery):
         surgeon_name = surgery.get("surgeon").lower()
