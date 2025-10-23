@@ -603,7 +603,7 @@ class OnnxQuantization(Pass):
                 get_qdq_config_kwargs[qdq_key] = extra_options[key]
                 # remove the key from extra_options
                 extra_options.pop(key, None)
-        if extra_options:
+        if extra_options and not is_qnn_ep:
             get_qdq_config_kwargs["extra_options"] = extra_options
         # tensor_quant_overrides is init_overrides in qnn
         if is_qnn_ep:
@@ -617,6 +617,11 @@ class OnnxQuantization(Pass):
 
         # get the qdq config
         qdq_config = get_qdq_config(**get_qdq_config_kwargs)
+
+        # allow user's extra_options to override the qdq_config extra_options
+        # same as the non-qnn path
+        if is_qnn_ep and extra_options:
+            qdq_config.extra_options.update(extra_options)
 
         # override the run_config with qdq_config
         new_run_config = {k: v for k, v in inspect.getmembers(qdq_config) if not k.startswith("_")}
@@ -634,6 +639,7 @@ class OnnxQuantization(Pass):
                     set(new_run_config["op_types_to_quantize"]) - set(config.op_types_to_exclude)
                 )
 
+        logger.debug("QDQ quantization run config: %s", new_run_config)
         return new_run_config
 
 
