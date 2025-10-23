@@ -261,12 +261,11 @@ def maybe_patch_min_max_calibrater():
 
     from onnxruntime.quantization.calibrate import MinMaxCalibrater
 
-    if getattr(MinMaxCalibrater.augment_graph, "__name__", "") == "patched_augment_graph":
+    original_augment_graph = MinMaxCalibrater.augment_graph
+    if original_augment_graph.__name__ == "patched_augment_graph":
         return
 
     from olive.passes.onnx.onnx_dag import OnnxDAG
-
-    original_augment_graph = MinMaxCalibrater.augment_graph
 
     def patched_augment_graph(self):
         original_augment_graph(self)
