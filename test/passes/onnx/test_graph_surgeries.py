@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import onnx
@@ -1846,3 +1847,30 @@ def test_decompose_rotary_embedding(tmp_path):
 
     # Verify outputs match
     np.testing.assert_allclose(actual_output, expected_output, rtol=1e-5, atol=1e-6)
+
+
+@patch("olive.passes.onnx.graph_surgeries.DeduplicateHashedInitializersPass")
+def test_deduplicate_hashed_initializers_pass_called(mock_dedup_pass, tmp_path):
+    # setup
+    input_model = get_onnx_model(tmp_path / "model.onnx")
+    output_folder = str(tmp_path / "onnx")
+
+    # Create a pass with a simple surgery
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RenameInputs", "old_names": ["input1"], "new_names": ["renamed_input"]}]},
+        disable_search=True,
+    )
+
+    ir_model = input_model.load_ir_model()
+    mock_result = MagicMock()
+    mock_result.model = ir_model
+    mock_instance = MagicMock(return_value=mock_result)
+    mock_dedup_pass.return_value = mock_instance
+
+    # execute
+    p.run(input_model, output_folder)
+
+    # assert
+    mock_dedup_pass.assert_called_once()
+    mock_instance.assert_called_once()
