@@ -20,6 +20,9 @@ class HuggingfaceContainer(DataContainer):
 
     task_type_components_map: ClassVar[dict] = {
         # TODO(trajep): use enumerate update task type
+        "feature-extraction": {
+            DataComponentType.PRE_PROCESS_DATA.value: "feature_extraction_pre_process",
+        },
         "text-classification": {
             DataComponentType.POST_PROCESS_DATA.value: "text_classification_post_process",
         },
