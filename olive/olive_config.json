@@ -44,6 +44,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "CustomizedModelBuilder": {
+            "module_path": "olive.passes.onnx.customized_model_builder.CustomizedModelBuilder",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "fp16", "fp32" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "DoRA": {
             "module_path": "olive.passes.pytorch.lora.DoRA",
             "supported_providers": [ "*" ],

@@ -194,6 +194,12 @@ ModelBuilder
 ------------
 .. autoconfigclass:: olive.passes.ModelBuilder
 
+.. _customized_model_builder:
+
+CustomizedModelBuilder
+-----------------------
+.. autoconfigclass:: olive.passes.CustomizedModelBuilder
+
 .. _aimet_quantization:
 
 AimetQuantization

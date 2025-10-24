@@ -18,42 +18,34 @@ from packaging import version
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
-from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
+from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler 
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
-from olive.passes.onnx.customized_model_builder import CustomizedModelBuilder
 from olive.passes.pass_config import BasePassConfig
 
 logger = logging.getLogger(__name__)
 
+def precision_to_string(p: Precision):
+    """Convert precision to string."""
+    precision_mapping = {
+        Precision.INT4: "int4",
+        Precision.INT8: "int8",
+        Precision.FP16: "fp16",
+        Precision.FP32: "fp32",
+    }
+    return precision_mapping.get(p)
 
-class ModelBuilder(Pass):
-    """Converts a Huggingface generative PyTorch model to ONNX model using the Generative AI builder.
 
-    See https://github.com/microsoft/onnxruntime-genai
+class CustomizedModelBuilder(Pass):
+    """Converts a Huggingface generative PyTorch model to ONNX model using the customized ONNX conversion.
+
+    See whisper for example, https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/transformers/models/whisper/README.md
     """
-
-    class BlockSize(IntEnum):
-        B16 = 16
-        B32 = 32
-        B64 = 64
-        B128 = 128
-        B256 = 256
-
-    class AccuracyLevel(IntEnum):
-        fp32 = 1
-        fp16 = 2
-        bf16 = 3
-        int8 = 4
 
     EP_MAP: ClassVar[dict[ExecutionProvider, str]] = {
         ExecutionProvider.CPUExecutionProvider: "cpu",
         ExecutionProvider.CUDAExecutionProvider: "cuda",
-        ExecutionProvider.DmlExecutionProvider: "dml",
-        ExecutionProvider.WebGpuExecutionProvider: "webgpu",
-        ExecutionProvider.JsExecutionProvider: "web",
-        ExecutionProvider.NvTensorRTRTXExecutionProvider: "NvTensorRtRtx",
     }
 
     @classmethod
@@ -74,76 +66,15 @@ class ModelBuilder(Pass):
             "search": PassConfigParam(
                 type_=dict[str, Any], required=False, description="Search options to use for generate loop."
             ),
-            "int4_accuracy_level": PassConfigParam(
-                type_=ModelBuilder.AccuracyLevel,
-                required=False,
-                description="Specify the minimum accuracy level for activation of MatMul in int4 quantization.",
-            ),
-            "int4_block_size": PassConfigParam(
-                type_=ModelBuilder.BlockSize,
-                required=False,
-                description="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
-            ),
             "int4_is_symmetric": PassConfigParam(
                 type_=bool,
                 required=False,
                 description="Specify whether symmetric or asymmetric INT4 quantization needs to be used.",
             ),
-            "int4_op_types_to_quantize": PassConfigParam(
-                type_=list[str],
-                required=False,
-                description=(
-                    'Specify the op types to quantize for int4 quantization. Default is None (= [ "MatMul" ]). Example:'
-                    ' ["MatMul", "Gemm"]'
-                ),
-            ),
-            "int4_nodes_to_exclude": PassConfigParam(
-                type_=list[str],
-                required=False,
-                description="Specify when you want to exclude certain nodes from int4 quantization.",
-            ),
-            "int4_algo_config": PassConfigParam(
-                type_=str,
-                required=False,
-                description="Specify the INT4 quantization algorithm to use in GenAI Model Builder",
-            ),
-            "use_qdq": PassConfigParam(
-                type_=bool,
-                required=False,
-                description=(
-                    "Use this option when you want to use quantize-dequantize ops. "
-                    "For example, you will have a quantized MatMul op instead of the MatMulNBits op."
-                ),
-            ),
-            "use_8bits_moe": PassConfigParam(
-                type_=bool,
-                required=False,
-                description="Specify whether the QMoE op will use 8-bit quantization.",
-            ),
-            "use_webgpu_fp32": PassConfigParam(
-                type_=bool,
-                required=False,
-                description="Specify whether to use this option to enable GPUs that do not support FP16 on WebGPU.",
-            ),
-            "use_cuda_bf16": PassConfigParam(
-                type_=bool,
-                required=False,
-                description="Specify whether to use BF16 I/O for quantized models on CUDA EP.",
-            ),
             "include_hidden_states": PassConfigParam(
                 type_=bool,
                 required=False,
                 description="Specify whether to have the hidden states as an output from your ONNX model.",
-            ),
-            "exclude_embeds": PassConfigParam(
-                type_=bool,
-                required=False,
-                description="Remove embedding layer from your ONNX model.",
-            ),
-            "exclude_lm_head": PassConfigParam(
-                type_=bool,
-                required=False,
-                description="Remove language modeling head from your ONNX model.",
             ),
             "enable_cuda_graph": PassConfigParam(
                 type_=bool,
@@ -198,18 +129,13 @@ class ModelBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
-        # Delegate to CustomizedModelBuilder for whisper models
-        if "whisper" in model.model_name_or_path:
-            customized_model_builder = CustomizedModelBuilder(self.accelerator_spec, self.config)
-            return customized_model_builder._run_for_config(model, config, output_model_path)
-
         try:
-            from onnxruntime_genai.models.builder import create_model
+            from onnxruntime.transformers.models.whisper.convert_to_onnx import main as run_whisper
         except ImportError:
             raise ImportError(
-                "onnxruntime-genai package is required to run ModelBuilder pass. Please install the package"
-                " corresponding to your onnxruntime installation using pip. cpu: onnxruntime-genai, cuda:"
-                " onnxruntime-genai-cuda, directml: onnxruntime-genai-directml"
+                "onnxruntime package is required to run CustomizedModelBuilder pass. Please install the package"
+                " corresponding to your onnxruntime installation using pip. cpu: onnxruntime, cuda:"
+                " onnxruntime-gpu"
             ) from None
         self.maybe_patch_quant()
 
@@ -256,33 +182,34 @@ class ModelBuilder(Pass):
             extra_args.update(config.extra_options)
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
+        print(f"model_attributes={model_attributes}")
 
         try:
             logger.debug("Building model with the following args: %s", extra_args)
-            create_model(
-                model_name=model_path,
-                input_path=input_path,
-                output_dir=str(output_model_filepath.parent),
-                precision=precision,
-                execution_provider=target_execution_provider,
-                # model builder uses the cache_dir both as hf cache and also to store intermediate files
-                # not ideal, but we can't change this without changing the model builder
-                cache_dir=transformers.utils.TRANSFORMERS_CACHE,
-                **extra_args,
-            )
+            print(f"Building model with the following args: {extra_args}")
+            model_name = model_path
+            output_dir = str(output_model_filepath.parent)
+            arguments = [
+                "-m",
+                model_name,
+                "--output",
+                output_dir,
+                "--precision",
+                precision_to_string(precision),
+                "--provider",
+                target_execution_provider,
+                "--use_external_data_format",
+                "--optimize_onnx",
+                "--no_beam_search_op",
+                "--output_cross_qk",
+            ]
+            if target_execution_provider == "cuda":
+                arguments += ["--use_gpu"]
+            if "int" in precision_to_string(precision):
+                arguments += ["--quantize_symmetric"]
 
-            # add split information if present
-            split_assignments = model_attributes.get("split_assignments")
-            if not metadata_only and split_assignments:
-                # NOTE: currently the model builder renames modules to it's own naming convention
-                # so the assignments for the renamed modules won't match
-                split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
-
-                # load the model and set the split_assignments as model properties
-                # without the external data so that they can be used as is with the resaved model
-                model_proto = onnx.load(output_model_filepath, load_external_data=False)
-                onnx.helper.set_model_props(model_proto, {"split_assignments": split_assignment_str})
-                onnx.save(model_proto, output_model_filepath)
+            print(f"output_model_filepath={output_model_filepath}", flush=True)
+            run_whisper(arguments)
         except Exception:
             # if model building fails, clean up the intermediate files in the cache_dir
             cache_dir = Path(transformers.utils.TRANSFORMERS_CACHE)
@@ -292,49 +219,27 @@ class ModelBuilder(Pass):
                         file.unlink()
             raise
 
-        # Override default search options with ones from user config
-        genai_config_filepath = str(output_model_filepath.parent / "genai_config.json")
-        with open(genai_config_filepath) as istrm:
-            genai_config = json.load(istrm)
-
-        genai_config["search"] = {**(genai_config.get("search") or {}), **(config.search or {})}
-
-        with open(genai_config_filepath, "w") as ostrm:
-            json.dump(genai_config, ostrm, indent=4)
-
-        # Save HfModel config
-        if isinstance(model, HfModelHandler):
-            # saves the config.json and module files in the output directory
-            # tokenizer and generation configs are skipped since they are already saved by the model builder
-            model.save_metadata(output_model_filepath.parent)
-
-        # add additional files generated by model builder to model_attributes
-        additional_files = model_attributes.get("additional_files") or []
-        if metadata_only:
-            # add genai_config.json to additional_files since the model_builder creates copy of the other files
-            # in the output directory leading to duplicate files in the additional_files list
-            model_attributes["additional_files"] = [
-                *additional_files,
-                str(output_model_filepath.parent / "genai_config.json"),
-            ]
-        else:
-            model_attributes["additional_files"] = sorted(
-                set(additional_files)
-                # all files in the output directory except the model and model.data files
-                | {str(fp) for fp in output_model_filepath.parent.iterdir()}
-                - {str(output_model_filepath), str(output_model_filepath) + ".data"}
-            )
-
         if metadata_only:
             output_model = copy.copy(model)
             output_model.model_attributes = model_attributes
         else:
-            output_model = ONNXModelHandler(
-                output_model_filepath.parent,
-                onnx_file_name=output_model_filepath.name,
+            onnx_files = list(output_model_filepath.parent.glob("*.onnx"))
+            onnx_file_names = [f.name for f in onnx_files]
+            component_models = []
+            component_names = []
+            for name in onnx_file_names:
+                component_models.append(ONNXModelHandler(
+                    output_model_filepath.parent,
+                    onnx_file_name=name,
+                    model_attributes=model_attributes,
+                ))
+                component_names.append(name)
+            output_model = CompositeModelHandler(
+                component_models,
+                component_names,
+                model_path=output_model_filepath.parent,                
                 model_attributes=model_attributes,
             )
-
         return output_model
 
     # TODO(jambayk): Remove this once version 0.9.1 with olive quant changes is released
