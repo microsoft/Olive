@@ -185,15 +185,30 @@ The TensorRT Model Optimizer-Windows is engineered to deliver advanced model com
 
 The primary objective of the TensorRT Model Optimizer-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard.
 
-Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ algorithm.
+Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ and RTN algorithms.
 
 ### Example Configuration
+
+#### Pure INT4 Quantization
 ```json
 "quantization": {
     "type": "NVModelOptQuantization",
     "algorithm": "awq",
     "tokenizer_dir": "microsoft/Phi-3-mini-4k-instruct",
-    "calibration": "awq_lite"
+    "calibration_method": "awq_lite"
+}
+```
+
+#### Mixed Precision Quantization
+For better accuracy while maintaining model compression, you can enable mixed precision quantization using the `enable_mixed_quant` parameter. This allows higher precision levels for important layer of the model:
+
+```json
+"quantization": {
+    "type": "NVModelOptQuantization",
+    "algorithm": "rtn",
+    "tokenizer_dir": "meta-llama/Llama-3.1-8B-Instruct",
+    "calibration_method": "rtn_dq",
+    "enable_mixed_quant": true
 }
 ```
 

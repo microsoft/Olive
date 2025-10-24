@@ -113,6 +113,15 @@ class NVModelOptQuantization(Pass):
                 in quantization.
                 """,
             ),
+            "enable_mixed_quant": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="""
+                Enable mixed precision quantization. When enabled, allows different precision
+                levels for different parts of the model. This can help preserve accuracy while
+                still achieving significant model compression.
+                """,
+            ),
         }
 
     @classmethod
@@ -270,6 +279,7 @@ class NVModelOptQuantization(Pass):
         logger.debug("add_position_ids=%s", self.get_calibration_param(config.calibration_params, "add_position_ids"))
         logger.debug("calibration_eps=%s", ep_list)
         logger.debug("nodes-to-exclude=%s", config.nodes_to_exclude)
+        logger.debug("enable_mixed_quant=%s", config.enable_mixed_quant)
         logger.debug("input_shapes_profile is None? = %s", input_shapes_profile is None)
         logger.debug("=============================")
 
@@ -284,6 +294,7 @@ class NVModelOptQuantization(Pass):
             "int4_block_size": config.int4_block_size,
             "nodes_to_exclude": config.nodes_to_exclude,
             "input_shapes_profile": input_shapes_profile,
+            "enable_mixed_quant": config.enable_mixed_quant,
         }
 
     def make_model_input(
@@ -483,6 +494,7 @@ class NVModelOptQuantization(Pass):
             block_size=quant_config["int4_block_size"],
             nodes_to_exclude=quant_config["nodes_to_exclude"],
             input_shapes_profile=quant_config["input_shapes_profile"],
+            enable_mixed_quant=quant_config["enable_mixed_quant"],
         )
 
         logger.debug("Completed nvidia_awq quantization.")
