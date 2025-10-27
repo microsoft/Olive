@@ -44,8 +44,7 @@ class TestPreProcessData:
 
         # verify
         mock_get_tokenizer.assert_called_with("bert-base-uncased", trust_remote_code=None)
-        assert result.label_col is None
-        assert result.max_samples == 2
+        assert result.effective_len == 2
 
     @patch("olive.data.component.pre_process_data.get_tokenizer")
     def test_huggingface_pre_process_with_label(self, mock_get_tokenizer, mock_dataset):
@@ -71,4 +70,4 @@ class TestPreProcessData:
         # verify
         mock_get_tokenizer.assert_called_with("bert-base-uncased", trust_remote_code=None)
         assert result.label_col == "label"
-        assert result.max_samples == 2
+        assert result.effective_len == 2
