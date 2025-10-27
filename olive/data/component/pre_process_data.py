@@ -8,7 +8,7 @@ from copy import deepcopy
 from typing import Any, Optional
 
 from olive.common.hf.utils import get_model_config, get_tokenizer
-from olive.data.component.dataset import BaseDataset, TokenizedDataset
+from olive.data.component.dataset import BaseDataset, ClassificationDataset
 from olive.data.component.text_generation import text_gen_pre_process
 from olive.data.registry import Registry
 
@@ -123,7 +123,7 @@ def huggingface_pre_process(
 
     tokenized_datasets = _huggingface_pre_process_helper(dataset, tokenize_func, max_samples, **kwargs)
     # label_col is "label" since we added label_col as "label" to tokenized_inputs
-    return BaseDataset(tokenized_datasets, label_col="label", max_samples=max_samples)
+    return ClassificationDataset(tokenized_datasets, label_col="label", max_samples=max_samples)
 
 
 @Registry.register_pre_process()
@@ -149,7 +149,7 @@ def tokenizer_pre_process(dataset, model_name, input_cols, max_samples=None, tru
     )
 
     tokenized_datasets = _huggingface_pre_process_helper(dataset, tokenize_func, max_samples, **kwargs)
-    return TokenizedDataset(tokenized_datasets, max_samples=max_samples)
+    return BaseDataset(tokenized_datasets, max_samples=max_samples)
 
 
 @Registry.register_pre_process()
@@ -198,7 +198,7 @@ def ner_huggingface_preprocess(
         return tokenized_inputs
 
     tokenized_datasets = _huggingface_pre_process_helper(dataset, _tokenizer_and_align_labels, max_samples, **kwargs)
-    return BaseDataset(tokenized_datasets, label_col="label", max_samples=max_samples)
+    return ClassificationDataset(tokenized_datasets, label_col="label", max_samples=max_samples)
 
 
 @Registry.register_pre_process()
@@ -290,4 +290,4 @@ def audio_classification_pre_process(
         return tokenized_inputs
 
     tokenized_datasets = _huggingface_pre_process_helper(dataset, _tokenizer_and_align_labels, max_samples, **kwargs)
-    return BaseDataset(tokenized_datasets, label_col="label", max_samples=max_samples)
+    return ClassificationDataset(tokenized_datasets, label_col="label", max_samples=max_samples)

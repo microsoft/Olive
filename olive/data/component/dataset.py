@@ -18,6 +18,27 @@ from olive.constants import Framework
 class BaseDataset(TorchDataset):
     """Define the Olive dataset which should return the data with following format.
 
+    [data] for unsupervised learning
+    The data should be a list or dict of numpy arrays or torch tensors
+    """
+
+    def __init__(self, data, max_samples=None, **kwargs):
+        """Initialize the dataset."""
+        self.data = data
+        self.effective_len = len(data) if max_samples is None else min(len(data), max_samples)
+
+    def __len__(self):
+        """Return the length of the dataset."""
+        return self.effective_len
+
+    def __getitem__(self, index):
+        item = self.data[index]
+        return dict(item) if hasattr(item, "items") else item
+
+
+class ClassificationDataset(TorchDataset):
+    """Define the Olive dataset which should return the data with following format.
+
     1. [data, label] for supervised learning
     2. [data] for unsupervised learning
     The data should be a list or dict of numpy arrays or torch tensors
@@ -39,28 +60,7 @@ class BaseDataset(TorchDataset):
         return data, label
 
 
-class TokenizedDataset(TorchDataset):
-    """Define the Olive dataset which should return the data with following format.
-
-    [data] for unsupervised learning
-    The data should be a list or dict of numpy arrays or torch tensors
-    """
-
-    def __init__(self, data, max_samples=None, **kwargs):
-        """Initialize the dataset."""
-        self.data = data
-        self.effective_len = len(data) if max_samples is None else min(len(data), max_samples)
-
-    def __len__(self):
-        """Return the length of the dataset."""
-        return self.effective_len
-
-    def __getitem__(self, index):
-        item = self.data[index]
-        return dict(item) if hasattr(item, "items") else item
-
-
-class DummyDataset(BaseDataset):
+class DummyDataset(TorchDataset):
     def __init__(
         self,
         input_shapes,
@@ -106,7 +106,7 @@ class DummyDataset(BaseDataset):
         return self.dummy_data
 
 
-class RawDataset(BaseDataset):
+class RawDataset(TorchDataset):
     def __init__(
         self,
         data_dir: Union[str, Path],
@@ -191,7 +191,7 @@ class RawDataset(BaseDataset):
         return data, label
 
 
-class TransformersDummyDataset(BaseDataset):
+class TransformersDummyDataset(TorchDataset):
     def __init__(
         self,
         model_name: str,

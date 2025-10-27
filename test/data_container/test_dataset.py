@@ -5,7 +5,7 @@
 
 from datasets import Dataset as HFDataset
 
-from olive.data.component.dataset import BaseDataset, DummyDataset
+from olive.data.component.dataset import BaseDataset, ClassificationDataset, DummyDataset
 
 
 def get_dict_dataset(length=256, max_samples=None):
@@ -14,7 +14,7 @@ def get_dict_dataset(length=256, max_samples=None):
     data = []
     for i in range(length):
         data.append({input_names[0]: [i, i], input_names[1]: [i, i, i], label_name: i})  # noqa: PERF401
-    return BaseDataset(data, "original_label", max_samples)
+    return ClassificationDataset(data, "original_label", max_samples)
 
 
 def get_dummy_dataset(length=256):
@@ -32,7 +32,7 @@ def get_hf_dataset():
         data["original_label"].append(i)
     hf_dataset = HFDataset.from_dict(data)
     hf_dataset.set_format(type="torch", output_all_columns=True)
-    return BaseDataset(hf_dataset, "original_label", max_samples=256)
+    return ClassificationDataset(hf_dataset, "original_label", max_samples=256)
 
 
 class TestDataset:
@@ -50,7 +50,7 @@ class TestDataset:
         dataset = get_dict_dataset(max_samples=300)
         assert len(dataset) == 256
 
-    def test_base_dataset_without_label(self):
+    def test_tokenized_dataset(self):
         input_names = ["input_1", "input_2"]
         data = []
         for i in range(256):
@@ -61,4 +61,3 @@ class TestDataset:
         result = dataset[0]
         assert isinstance(result, dict)
         assert result == {"input_1": [0, 0], "input_2": [0, 0, 0]}
-        assert "label" not in result
