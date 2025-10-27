@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from datasets import Dataset
 
-from olive.data.component.pre_process_data import tokenizer_pre_process, huggingface_pre_process
+from olive.data.component.pre_process_data import huggingface_pre_process, tokenizer_pre_process
 
 
 class TestPreProcessData:
