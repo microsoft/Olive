@@ -8,7 +8,7 @@ from copy import deepcopy
 from typing import Any, Optional
 
 from olive.common.hf.utils import get_model_config, get_tokenizer
-from olive.data.component.dataset import BaseDataset, FeatureExtractionDataset
+from olive.data.component.dataset import BaseDataset, TokenizedDataset
 from olive.data.component.text_generation import text_gen_pre_process
 from olive.data.registry import Registry
 
@@ -127,7 +127,7 @@ def huggingface_pre_process(
 
 
 @Registry.register_pre_process()
-def feature_extraction_pre_process(dataset, model_name, input_cols, max_samples=None, trust_remote_code=None, **kwargs):
+def tokenizer_pre_process(dataset, model_name, input_cols, max_samples=None, trust_remote_code=None, **kwargs):
     """Pre-process data for feature extraction task (no label processing).
 
     Args:
@@ -149,7 +149,7 @@ def feature_extraction_pre_process(dataset, model_name, input_cols, max_samples=
     )
 
     tokenized_datasets = _huggingface_pre_process_helper(dataset, tokenize_func, max_samples, **kwargs)
-    return FeatureExtractionDataset(tokenized_datasets, max_samples=max_samples)
+    return TokenizedDataset(tokenized_datasets, max_samples=max_samples)
 
 
 @Registry.register_pre_process()

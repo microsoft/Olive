@@ -27,15 +27,11 @@ class BaseDataset(TorchDataset):
         """Initialize the dataset."""
         self.data = data
         self.label_col = label_col
-        self.max_samples = max_samples
+        self.effective_len = len(data) if max_samples is None else min(len(data), max_samples)
 
     def __len__(self):
         """Return the length of the dataset."""
-        num_samples = len(self.data)
-        if self.max_samples is not None:
-            # if max_samples is not None, return the min of num_samples and max_samples
-            num_samples = min(num_samples, self.max_samples)
-        return num_samples
+        return self.effective_len
 
     def __getitem__(self, index):
         data = {k: v for k, v in self.data[index].items() if k != self.label_col}
@@ -43,29 +39,25 @@ class BaseDataset(TorchDataset):
         return data, label
 
 
-class FeatureExtractionDataset(TorchDataset):
+class TokenizedDataset(TorchDataset):
     """Define the Olive dataset which should return the data with following format.
 
-    1. [data, label] for supervised learning
-    2. [data] for unsupervised learning
+    [data] for unsupervised learning
     The data should be a list or dict of numpy arrays or torch tensors
     """
 
     def __init__(self, data, max_samples=None, **kwargs):
         """Initialize the dataset."""
         self.data = data
-        self.max_samples = max_samples
+        self.effective_len = len(data) if max_samples is None else min(len(data), max_samples)
 
     def __len__(self):
         """Return the length of the dataset."""
-        num_samples = len(self.data)
-        if self.max_samples is not None:
-            # if max_samples is not None, return the min of num_samples and max_samples
-            num_samples = min(num_samples, self.max_samples)
-        return num_samples
+        return self.effective_len
 
     def __getitem__(self, index):
-        return self.data[index].items()
+        item = self.data[index]
+        return dict(item) if hasattr(item, "items") else item
 
 
 class DummyDataset(BaseDataset):
