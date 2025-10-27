@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from datasets import Dataset
 
-from olive.data.component.pre_process_data import feature_extraction_pre_process, huggingface_pre_process
+from olive.data.component.pre_process_data import tokenizer_pre_process, huggingface_pre_process
 
 
 class TestPreProcessData:
@@ -23,8 +23,8 @@ class TestPreProcessData:
         return Dataset.from_dict(data)
 
     @patch("olive.data.component.pre_process_data.get_tokenizer")
-    def test_feature_extraction_pre_process(self, mock_get_tokenizer, mock_dataset):
-        """Test feature_extraction_pre_process function with no label processing."""
+    def test_tokenizer_pre_process(self, mock_get_tokenizer, mock_dataset):
+        """Test tokenizer_pre_process function with no label processing."""
         # setup
         mock_tokenizer = MagicMock()
         mock_tokenizer.return_value = {
@@ -34,7 +34,7 @@ class TestPreProcessData:
         mock_get_tokenizer.return_value = mock_tokenizer
 
         # execute
-        result = feature_extraction_pre_process(
+        result = tokenizer_pre_process(
             dataset=mock_dataset,
             model_name="bert-base-uncased",
             input_cols=["sentence1", "sentence2"],
