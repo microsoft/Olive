@@ -119,6 +119,7 @@ def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected, is_qnn)
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
             dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
         ),
+        "extra_options": {"CalibStrideMinMax": 1},
         **kwargs,
     }
     accelerator_spec = (
@@ -146,3 +147,4 @@ def test_nodes_and_ops(mock_quantize_static, tmp_path, kwargs, expected, is_qnn)
     assert extra_options.get("MinimumRealRange") == (1e-4 if is_qnn else 5e-4)
     assert extra_options.get("WeightSymmetric") is True
     assert extra_options.get("ActivationSymmetric") is True
+    assert extra_options.get("CalibStrideMinMax") == 1
