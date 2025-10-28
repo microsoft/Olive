@@ -189,7 +189,8 @@ Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into
 
 ### Example Configuration
 
-a. Pure 4 bit Quantization
+#### a. Pure 4 bit Quantization
+
 ```json
 "quantization": {
     "type": "NVModelOptQuantization",
@@ -199,46 +200,49 @@ a. Pure 4 bit Quantization
 }
 ```
 
-b. Mixed Precision Quantization
+#### b. Mixed Precision Quantization
+
 For better accuracy while maintaining model compression, you can enable mixed precision quantization using the `enable_mixed_quant` parameter. This allows higher precision levels (8 bit) for important layers of the model while using 4 bits for others:
 
-1.  Default Mixed Precision Strategy
-    ```json
-    "quantization": {
-        "type": "NVModelOptQuantization",
-        "algorithm": "awq",
-        "tokenizer_dir": "meta-llama/Llama-3.1-8B-Instruct",
-        "calibration_method": "awq_lite",
-        "enable_mixed_quant": true
-    }
-    ```
+**1. Default Mixed Precision Strategy**
 
-    Configuration:
+```json
+"quantization": {
+    "type": "NVModelOptQuantization",
+    "algorithm": "awq",
+    "tokenizer_dir": "meta-llama/Llama-3.1-8B-Instruct",
+    "calibration_method": "awq_lite",
+    "enable_mixed_quant": true
+}
+```
 
-    - `enable_mixed_quant` is set to `true`, the default mixed precision strategy quantizes:
-    - **8 bit layer**: Important layer are quantized 8-bits per-channel
-    - **4 bit layer**: All other layers
+Configuration:
 
-2.  Custom Layer Selection with layers_8bit
-    For fine-grained control over which specific layers should use INT8 quantization, use the `layers_8bit` parameter with a comma-separated list of layer name patterns:
+- `enable_mixed_quant` is set to `true`, the default mixed precision strategy quantizes:
+- **8 bit layer**: Important layer are quantized 8-bits per-channel
+- **4 bit layer**: All other layers
 
-    ```json
-    "quantization": {
-        "type": "NVModelOptQuantization",
-        "algorithm": "awq",
-        "tokenizer_dir": "meta-llama/Llama-3.1-8B-Instruct",
-        "calibration_method": "awq_lite",
-        "layers_8bit": "model.layers.0,model.layers.1,lm_head"
-    }
-    ```
+**2. Custom Layer Selection with layers_8bit**
 
-    Configurations:
+For fine-grained control over which specific layers should use INT8 quantization, use the `layers_8bit` parameter with a comma-separated list of layer name patterns:
 
-    - `layers_8bit` accepts comma-separated layer name patterns (e.g., `"model.layers.0,lm_head"`)
-    - Matching layers are quantized to 8 bit for better accuracy, they are quantized per-channel
-    - Non-matching layers are quantized to 4 bit for efficiency
-    - When `layers_8bit` is specified, mixed precision is automatically enabled
-    - Overrides the default `enable_mixed_quant` strategy
+```json
+"quantization": {
+    "type": "NVModelOptQuantization",
+    "algorithm": "awq",
+    "tokenizer_dir": "meta-llama/Llama-3.1-8B-Instruct",
+    "calibration_method": "awq_lite",
+    "layers_8bit": "model.layers.0,model.layers.1,lm_head"
+}
+```
+
+Configurations:
+
+- `layers_8bit` accepts comma-separated layer name patterns (e.g., `"model.layers.0,lm_head"`)
+- Matching layers are quantized to 8 bit for better accuracy, they are quantized per-channel
+- Non-matching layers are quantized to 4 bit for efficiency
+- When `layers_8bit` is specified, mixed precision is automatically enabled
+- Overrides the default `enable_mixed_quant` strategy
 
 Please refer to [Phi3.5 example](https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3.5-mini-instruct/NvTensorRtRtx) for usability and setup details.
 
