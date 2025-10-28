@@ -209,7 +209,6 @@ For better accuracy while maintaining model compression, you can enable mixed pr
         "algorithm": "awq",
         "tokenizer_dir": "meta-llama/Llama-3.1-8B-Instruct",
         "calibration_method": "awq_lite",
-        // set enable_mixed_quant to True
         "enable_mixed_quant": true
     }
     ```
@@ -229,7 +228,6 @@ For better accuracy while maintaining model compression, you can enable mixed pr
         "algorithm": "awq",
         "tokenizer_dir": "meta-llama/Llama-3.1-8B-Instruct",
         "calibration_method": "awq_lite",
-        // select the higher precision layers
         "layers_8bit": "model.layers.0,model.layers.1,lm_head"
     }
     ```
