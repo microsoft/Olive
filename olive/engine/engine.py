@@ -329,7 +329,7 @@ class Engine:
                 json.dump(signal.to_json(), f, indent=4)
             logger.info("Saved evaluation results of output model to %s", results_path)
 
-        self.footprint.output_model_ids = [model_ids[-1]]
+        self.footprint.set_output_model_ids([model_ids[-1]])
         if not self.skip_saving_artifacts:
             self.footprint.to_file(output_dir / "output_footprint.json")
 

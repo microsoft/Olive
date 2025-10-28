@@ -20,9 +20,9 @@ class TestFootprint:
         self.input_node = {k: v for k, v in self.fp.nodes.items() if v.parent_model_id is None}
 
     def test_create_from_model_ids(self):
-        self.fp.set_output_model_ids(self.fp.nodes.keys())
+        self.fp.set_output_model_ids(list(self.fp.nodes.keys()))
         assert len(self.fp.output_model_ids) == len(self.fp.nodes)
-        assert self.fp.output_model_ids == self.fp.nodes.keys()
+        assert self.fp.output_model_ids == list(self.fp.nodes.keys())
 
     def test_file_dump(self, tmp_path):
         self.fp.to_file(tmp_path / "footprint.json")

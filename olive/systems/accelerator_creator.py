@@ -5,7 +5,7 @@
 import logging
 from typing import TYPE_CHECKING
 
-from olive.hardware.accelerator import DEVICE_TO_EXECUTION_PROVIDERS, AcceleratorLookup, AcceleratorSpec, Device
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
 from olive.systems.common import SystemType
 
 if TYPE_CHECKING:
@@ -183,21 +183,14 @@ def create_accelerator(
     device = Device(accelerator.device.lower())
 
     # Create the AcceleratorSpec from the accelerator configuration
-    if accelerator.execution_providers:
-        # Use the first execution provider
-        eps = accelerator.get_ep_strs()
-        ep = eps[0]
+    # After normalize(), device is always set. execution_providers may or may not be set depending on is_ep_required
+    eps = accelerator.get_ep_strs()
+    if eps:
+        ep = eps[0]  # Use the first (and only) execution provider
         accelerator_spec = AcceleratorSpec(device, ep, memory=accelerator.memory)
     else:
-        # No execution provider specified, create without ep
+        # No EP configured (is_ep_required=False)
         accelerator_spec = AcceleratorSpec(device, memory=accelerator.memory)
 
-    assert accelerator_spec, (
-        "No valid accelerator specified for target system. "
-        "Please specify the accelerators in the target system or provide valid execution providers. "
-        f"Given execution providers: {device_to_eps.values()}. "
-        f"Current accelerators: {device_to_eps.keys()}."
-        f"Supported execution providers: {DEVICE_TO_EXECUTION_PROVIDERS}."
-    )
     logger.info("Running workflow on accelerator spec: %s", accelerator_spec)
     return accelerator_spec
