@@ -11,7 +11,7 @@ from olive.common.utils import set_tempdir
 from olive.hardware.constants import ExecutionProvider
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
-from olive.systems.accelerator_creator import create_accelerators
+from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
 from olive.workflows.run.config import RunConfig
 
@@ -128,7 +128,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     )
 
     is_ep_required = is_execution_provider_required(run_config, package_config)
-    accelerator_specs = create_accelerators(
+    accelerator_spec = create_accelerator(
         engine.target_config, skip_supported_eps_check=target_not_used, is_ep_required=is_ep_required
     )
 
@@ -138,7 +138,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
     # run
     return engine.run(
         run_config.input_model,
-        accelerator_specs,
+        accelerator_spec,
         run_config.engine.packaging_config,
         run_config.engine.output_dir,
         run_config.engine.evaluate_input_model,

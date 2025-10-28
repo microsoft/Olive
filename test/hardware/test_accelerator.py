@@ -12,7 +12,7 @@ import pytest
 from olive.common.config_utils import validate_config
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.hardware.constants import ExecutionProvider
-from olive.systems.accelerator_creator import AcceleratorNormalizer, create_accelerators
+from olive.systems.accelerator_creator import AcceleratorNormalizer, create_accelerator
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.python_environment.python_environment_system import PythonEnvironmentSystem
 from olive.systems.system_config import SystemConfig
@@ -174,7 +174,7 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
         for acc_spec in expected_acc_specs
     ]
 
-    accelerators = create_accelerators(system_config, skip_supported_eps_check=False)
+    accelerators = create_accelerator(system_config, skip_supported_eps_check=False)
     assert accelerators == expected_accelerator_specs
     if python_mock:
         python_mock.stop()
@@ -555,7 +555,7 @@ def test_create_accelerator_with_error(
     get_available_providers_mock.return_value = available_providers
 
     with pytest.raises(exception) as exp:
-        create_accelerators(system_config)
+        create_accelerator(system_config)
     if error_message:
         assert error_message in str(exp.value)
 
@@ -624,7 +624,7 @@ def test_create_accelerator_without_ep(system_config, expected_acc_specs):
         )
         for acc_spec in expected_acc_specs
     ]
-    accelerators = create_accelerators(system_config, skip_supported_eps_check=False, is_ep_required=False)
+    accelerators = create_accelerator(system_config, skip_supported_eps_check=False, is_ep_required=False)
     assert accelerators == expected_accelerator_specs
 
 

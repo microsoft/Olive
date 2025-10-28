@@ -66,7 +66,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     # execute
     engine.run(
         input_model_config=input_model_config,
-        accelerator_specs=[DEFAULT_CPU_ACCELERATOR],
+        accelerator_spec=DEFAULT_CPU_ACCELERATOR,
         packaging_config=packaging_config,
         output_dir=output_dir,
     )
@@ -124,7 +124,7 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
     # execute
     engine.run(
         input_model_config=input_model_config,
-        accelerator_specs=[DEFAULT_CPU_ACCELERATOR],
+        accelerator_spec=DEFAULT_CPU_ACCELERATOR,
         packaging_config=packaging_config,
         output_dir=output_dir,
         evaluate_input_model=False,
@@ -161,14 +161,14 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
     packaging_config = PackagingConfig()
     packaging_config.type = PackagingType.Zipfile
     packaging_config.name = "OutputModels"
-    packaging_config.config.export_in_mlflow_format = True
+    packaging_config.export_in_mlflow_format = True
 
     output_dir = tmp_path / "outputs"
 
     # execute
     engine.run(
         input_model_config=input_model_config,
-        accelerator_specs=[DEFAULT_CPU_ACCELERATOR],
+        accelerator_spec=DEFAULT_CPU_ACCELERATOR,
         packaging_config=packaging_config,
         output_dir=output_dir,
         evaluate_input_model=False,

@@ -33,6 +33,8 @@ class AcceleratorConfig(ConfigBase):
         if not v and values.get("device") is None:
             # checking for not v since v could be an empty list
             raise ValueError("Either device or execution_providers must be provided")
+        if v and len(v) > 1:
+            raise ValueError("Only one execution provider is supported per accelerator")
         return v
 
     @validator("execution_providers", pre=True, each_item=True)
