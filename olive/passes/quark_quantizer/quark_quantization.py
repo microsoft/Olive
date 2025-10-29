@@ -9,12 +9,20 @@ import platform
 import tempfile
 from argparse import Namespace
 from pathlib import Path
+from typing import Optional, Union
 
+import onnx
 import torch
 
-from olive.model import HfModelHandler
+from olive.common.config_utils import validate_config
+from olive.common.utils import exclude_keys
+from olive.data.config import DataConfig
+from olive.model import HfModelHandler, ONNXModelHandler
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.search.search_parameter import Categorical
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +53,90 @@ class QuarkQuantization(Pass):
             "quant_config": PassConfigParam(
                 type_=dict, default_value=None, description="Embedded quant configuration dictionary"
             ),
+
+            "quant_mode": PassConfigParam(
+                type_=str, default_value="static", search_defaults=Categorical(["dynamic", "static"]),
+                description="Onnx Quantization mode. 'dynamic' for dynamic quantization, 'static' for static quantization. Default is 'static'",
+            ),
+            "quant_format": PassConfigParam(
+                type_=str, default_value="QDQ", search_defaults=Categorical(["QOperator", "QDQ"]),
+                description="Onnx Quantization format. 'QOperator' for quantizing models using QOperators, 'QDQ' for using Q/DQ. Default is 'QDQ'",
+            ),
+            "data_config": PassConfigParam(
+                type_=Optional[Union[DataConfig, dict]], default_value=None, description="Data config for calibration.",
+            ),
+            "global_config": PassConfigParam(
+                type_=dict, default_value=None, description="Global quantization configuration applied to all layers unless overridden."
+            ),
+            "exclude": PassConfigParam(
+                type_=dict, default_value=None, description="List of nodes or subgraphs excluded from quantization. Default is None."
+            ),
+            "algo_config": PassConfigParam(
+                type_=list, default_value=None, description="Algorithm configuration, can be a list of algorithm configurations. Default is None."
+            ),
+            "extra_options": PassConfigParam(
+                type_=dict, default_value=None, description="Extra options for quantization. Default is {}."
+            ),
+            **get_external_data_config(),
         }
 
-    def _run_for_config(self, model: HfModelHandler, config: BasePassConfig, output_model_path: str) -> HfModelHandler:
-        logger.info("[INFO] Running QuarkQuantization with config: %s", config)
+    def _run_for_config(self, model: Union[HfModelHandler, ONNXModelHandler], config: BasePassConfig,
+            output_model_path: str) -> Union[HfModelHandler, ONNXModelHandler]:
+        if isinstance(model, ONNXModelHandler):
+            logger.info("[INFO] Running QuarkQuantization using Quark-Torch API with config: %s", config)
+            return self._run_quark_onnx(model, config, output_model_path)
+        else:
+            logger.info("[INFO] Running QuarkQuantization using Quark-Torch API with config: %s", config)
+            return self._run_quark_torch(model, config, output_model_path)
 
+    def _run_quark_onnx(self, model: ONNXModelHandler, config: BasePassConfig, output_model_path: str) -> ONNXModelHandler:
+        from olive.passes.quark_quantizer.onnx.quantize_quark import run_quark_quantization
+
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+
+        # to be safe, run the quantizer with use_external_data_format set to `True` and
+        # `model_output` to a temporary directory
+        # reload the model and save to output_model_path using the external data config
+        new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+        tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
+
+        data_reader = None
+        if config.data_config:
+            data_config = validate_config(config.data_config, DataConfig)
+            data_reader = data_config.to_data_container().create_calibration_dataloader()
+
+        run_config = config.dict()
+        if config.extra_options is None:
+            run_config["extra_options"] = {}
+        if data_reader is None:
+            run_config["extra_options"]["UseRandomData"] = True
+
+        to_delete = [
+            "data_config",
+            "quant_preprocess",
+        ]
+        to_delete += list(get_external_data_config().keys())
+        run_config = exclude_keys(run_config, to_delete)
+
+        args = Namespace(
+            model_input=model.model_path,
+            model_output=tmp_model_path,
+            calibration_data_reader=data_reader,
+            **run_config,
+        )
+
+        run_quark_quantization(args)
+        logger.info("[INFO] Quark quantized model saved to: %s", tmp_model_path)
+
+        # load the model
+        onnx_model = onnx.load(tmp_model_path)
+        # the model is loaded into memory, so it's safe to delete previously exported files
+        new_tmp_dir.cleanup()
+
+        # save the model to the output path and return the model
+        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+
+    def _run_quark_torch(self, model: HfModelHandler, config: BasePassConfig, output_model_path: str) -> HfModelHandler:
         from olive.passes.quark_quantizer.torch.language_modeling.llm_ptq.quantize_quark import run_quark_quantization
 
         output_dir = Path(output_model_path)
