@@ -185,7 +185,8 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
 
     # clean up
     shutil.rmtree(output_dir)
-    shutil.rmtree("mlruns")
+    if Path("mlruns").exists():
+        shutil.rmtree("mlruns")
 
 
 def test_generate_zipfile_artifacts_no_output_models(tmp_path):
