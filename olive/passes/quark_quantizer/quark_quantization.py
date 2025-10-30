@@ -84,7 +84,7 @@ class QuarkQuantization(Pass):
     def _run_for_config(self, model: Union[HfModelHandler, ONNXModelHandler], config: BasePassConfig,
             output_model_path: str) -> Union[HfModelHandler, ONNXModelHandler]:
         if isinstance(model, ONNXModelHandler):
-            logger.info("[INFO] Running QuarkQuantization using Quark-Torch API with config: %s", config)
+            logger.info("[INFO] Running QuarkQuantization using Quark-ONNX API with config: %s", config)
             return self._run_quark_onnx(model, config, output_model_path)
         else:
             logger.info("[INFO] Running QuarkQuantization using Quark-Torch API with config: %s", config)
