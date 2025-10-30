@@ -65,8 +65,10 @@ def catch_layer_inputs(model_wrapper, dataloader, device, num_samples=None):
     """Get the layers from model based on model type."""
     num_samples = num_samples or len(dataloader.dataset)
     first_batch = next(iter(dataloader))
+    # extract input data, ignoring labels if present
+    first_data = first_batch[0] if isinstance(first_batch, (tuple, list)) and len(first_batch) == 2 else first_batch
     # sequence length
-    seqlen = first_batch[0]["input_ids"].shape[1]
+    seqlen = first_data["input_ids"].shape[1]
     # embedding dimension
     hidden_size = model_wrapper.hidden_size
     # data type
@@ -108,7 +110,9 @@ def catch_layer_inputs(model_wrapper, dataloader, device, num_samples=None):
     layers[0] = FirstLayer(layers[0])
 
     # run the model on the data
-    for data, _ in dataloader:
+    for batch in dataloader:
+        # extract input data, ignoring labels if present
+        data = batch[0] if isinstance(batch, (tuple, list)) and len(batch) == 2 else batch
         input_ids = data["input_ids"].to(device)
         try:
             model_wrapper.model(input_ids)
