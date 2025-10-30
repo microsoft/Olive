@@ -193,7 +193,10 @@ class Engine:
             self.initialize(log_to_file, log_severity_level)
 
         output_dir: Path = (Path(output_dir) if output_dir else Path.cwd()).resolve()
-        output_dir.mkdir(parents=True, exist_ok=True)
+        if output_dir.suffix:
+            output_dir.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            output_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info("Running Olive on accelerator: %s", accelerator_spec)
         with self._create_system():

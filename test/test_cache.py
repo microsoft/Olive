@@ -296,13 +296,45 @@ class TestCache:
         shutil.rmtree(output_dir, ignore_errors=True)
         output_json = cache.save_model(model_id, output_dir, True)
 
-        expected_output_path = output_dir / ("model" if model_path == "model_folder" else "model.onnx")
+        expected_output_path = output_dir / "model.onnx"
         expected_output_path = str(expected_output_path.resolve())
 
         # assert
         assert output_json["config"]["model_path"] == expected_output_path
 
         output_json_path = output_dir / "model_config.json"
+        assert output_json_path.exists()
+        with open(output_json_path) as f:
+            assert expected_output_path == json.load(f)["config"]["model_path"]
+
+    def test_save_model_with_custom_onnx_filename(self, tmp_path):
+        # setup
+        model_id = "model"
+        cache = CacheConfig(cache_dir=tmp_path / "cache").create_cache()
+
+        model_parent = tmp_path / "model_parent"
+        model_parent.mkdir(parents=True, exist_ok=True)
+
+        model_p = str(model_parent / "source.onnx")
+        Path(model_p).touch()
+
+        model_cache_file_path = cache.get_model_json_path(model_id)
+        model_json = {"type": "onnxmodel", "config": {"model_path": model_p}}
+        with open(model_cache_file_path, "w") as f:
+            json.dump(model_json, f)
+
+        output_models_dir = tmp_path / "output"
+        output_models_dir.mkdir(parents=True, exist_ok=True)
+        output_file_path = output_models_dir / "custom.onnx"
+        output_json = cache.save_model(model_id, output_file_path, True)
+
+        expected_output_path = str(output_file_path.resolve())
+
+        # assert
+        assert output_json["config"]["model_path"] == expected_output_path
+        assert output_file_path.exists()
+
+        output_json_path = output_models_dir / "model_config.json"
         assert output_json_path.exists()
         with open(output_json_path) as f:
             assert expected_output_path == json.load(f)["config"]["model_path"]
