@@ -49,12 +49,12 @@ def precision_to_qtype(p: Precision):
     return precision_mapping.get(p)
 
 
-def _get_dataloader(data_config, model_path, io_config, providers):
+def _get_dataloader(data_config, model_path, io_config):
     # Note: bool(_CalibrationDataReader) is not implemented, convert to generator to avoid error
     return (
         x
         for x in data_config.to_data_container().create_calibration_dataloader(
-            model_path=model_path, io_config=io_config, calibration_providers=providers
+            model_path=model_path, io_config=io_config
         )
     )
 
@@ -233,7 +233,9 @@ class AimetQuantization(Pass):
                 type_=QuantScheme,
                 default_value="min_max",
                 search_defaults=Categorical(["min_max", "tf_enhanced"]),
-                description="Quantization scheme to use for calibration. Current methods supported are min_max and tfe.",
+                description=(
+                    "Quantization scheme to use for calibration. Current methods supported are min_max and tfe."
+                ),
             ),
             "config_file": PassConfigParam(
                 type_=Optional[str],
@@ -376,16 +378,12 @@ class AimetQuantization(Pass):
                     # If no data_config provided for technique, use calibration data
                     data_config = technique.get("data_config", None) or config.data_config
                     data_config = validate_config(data_config, DataConfig)
-                    technique["data_config"] = _get_dataloader(
-                        data_config, model.model_path, model.io_config, run_config["calibration_providers"]
-                    )
+                    technique["data_config"] = _get_dataloader(data_config, model.model_path, model.io_config)
 
                 sim = technique_impl.apply(sim, **technique)
 
             data_config = validate_config(config.data_config, DataConfig)
-            calib_dataloader = _get_dataloader(
-                data_config, model.model_path, model.io_config, run_config["calibration_providers"]
-            )
+            calib_dataloader = _get_dataloader(data_config, model.model_path, model.io_config)
 
             sim.compute_encodings(calib_dataloader)
             qdq_model = sim.to_onnx_qdq(prequantize_constants=True)

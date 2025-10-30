@@ -40,7 +40,7 @@ def test_llm_augmented_dataloader(tmp_path, use_gqa):
         io_config=onnx_model.io_config,
     )
 
-    assert len(augmented_dataloader) == 1 if use_gqa else 2
+    assert len(augmented_dataloader) == 1
 
     for idx, (batch, _) in enumerate(augmented_dataloader):
         assert isinstance(batch, dict)
