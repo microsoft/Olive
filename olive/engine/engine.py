@@ -4,9 +4,8 @@
 # --------------------------------------------------------------------------
 import json
 import logging
-import shutil
 import time
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -83,7 +82,7 @@ class Engine:
 
         self.input_passes_configs: dict[str, list[RunPassConfig]] = OrderedDict()
         self.computed_passes_configs: dict[str, RunPassConfig] = OrderedDict()
-        self.footprints: dict[AcceleratorSpec, Footprint] = defaultdict(Footprint)
+        self.footprint: Footprint = Footprint()
 
         self._initialized = False
 
@@ -152,7 +151,7 @@ class Engine:
     def run(
         self,
         input_model_config: ModelConfig,
-        accelerator_specs: list["AcceleratorSpec"],
+        accelerator_spec: "AcceleratorSpec",
         packaging_config: Optional[Union["PackagingConfig", list["PackagingConfig"]]] = None,
         output_dir: str = None,
         evaluate_input_model: bool = True,
@@ -163,7 +162,7 @@ class Engine:
 
         Args:
             input_model_config: input Olive model configuration
-            accelerator_specs: list of accelerator specs
+            accelerator_spec: accelerator spec
             packaging_config: packaging configuration, if packaging_config is provided, the output
                 model will be packaged into a zip file.
             output_dir: output directory for the output model
@@ -173,35 +172,21 @@ class Engine:
 
         Return:
             Search mode:
-                1. One accelerator spec:
-                    output_dir/footprints.json: footprint of the run
-                    output_dir/pareto_frontier_footprints.json: pareto frontier footprints
-                    output_dir/run_history.txt: run history
-                    output_dir/input_model_metrics.json: evaluation results of the input model
-                    output_dir/...: output model files
-
-                2. Multiple accelerator specs:
-                    output_dir/{accelerator_spec}/...: Same as 1 but for each accelerator spec
-                    output_dir/...: output model files
+                output_dir/footprint.json: footprint of the run
+                output_dir/pareto_frontier_footprint.json: pareto frontier footprint
+                output_dir/run_history.txt: run history
+                output_dir/input_model_metrics.json: evaluation results of the input model
+                output_dir/...: output model files
 
             No search mode:
-                1. One accelerator spec
-                    output_dir/footprints.json: footprint of the run
-                    output_dir/run_history.txt: run history
-                    output_dir/input_model_metrics.json: evaluation results of the input model
-                    output_dir/output_footprints.json: footprint of the output models
-                    output_dir/...: output model files
-
-                    A. One pass flow:
-                        output_dir/metrics.json: evaluation results of the output model
-                        output_dir/...: output model files
-
-                2. Multiple accelerator specs
-                    output_dir/{accelerator_spec}/...: Same as 1 but for each accelerator spec
-                    output_dir/...: output model files
+                output_dir/footprint.json: footprint of the run
+                output_dir/run_history.txt: run history
+                output_dir/input_model_metrics.json: evaluation results of the input model
+                output_dir/output_footprint.json: footprint of the output models
+                output_dir/...: output model files
 
         """
-        if not accelerator_specs:
+        if not accelerator_spec:
             raise ValueError("No accelerator specified")
 
         if not self._initialized:
@@ -210,33 +195,20 @@ class Engine:
         output_dir: Path = (Path(output_dir) if output_dir else Path.cwd()).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        outputs = {}
-        output_subdirs = {}
-        accelerator_output_dir_list = []
-        for accelerator_spec in accelerator_specs:
-            logger.info("Running Olive on accelerator: %s", accelerator_spec)
-            output_subdirs[accelerator_spec] = accelerator_output_dir = (
-                output_dir / str(accelerator_spec) if len(accelerator_specs) > 1 else output_dir
+        logger.info("Running Olive on accelerator: %s", accelerator_spec)
+        with self._create_system():
+            self.run_accelerator(
+                input_model_config,
+                output_dir,
+                evaluate_input_model,
+                accelerator_spec,
             )
-            accelerator_output_dir.mkdir(parents=True, exist_ok=True)
-            accelerator_output_dir_list.append(accelerator_output_dir)
-            with self._create_system():
-                run_result = self.run_accelerator(
-                    input_model_config,
-                    accelerator_output_dir,
-                    evaluate_input_model,
-                    accelerator_spec,
-                )
 
-                if run_result:
-                    outputs[accelerator_spec] = run_result
+        logger.info("Run history for %s:", accelerator_spec)
+        run_history = self.footprint.summarize_run_history()
+        self._dump_run_history(run_history, output_dir / "run_history.txt")
 
-        for accelerator_spec in self.footprints:
-            logger.info("Run history for %s:", accelerator_spec)
-            run_history = self.footprints[accelerator_spec].summarize_run_history()
-            self.dump_run_history(run_history, output_subdirs[accelerator_spec] / "run_history.txt")
-
-        workflow_output = WorkflowOutput(outputs, self.footprints)
+        workflow_output = WorkflowOutput(accelerator_spec, self.footprint)
         if self.input_passes_configs and workflow_output.has_output_model():
             if packaging_config:
                 # TODO(trajep): should we support packaging pytorch model?
@@ -253,8 +225,6 @@ class Engine:
             model_json = self.cache.save_model(model_id=best_node.model_id, output_dir=output_dir, overwrite=True)
             best_node._update_with_model_config(model_json)  # pylint: disable=W0212
             logger.info("Saved output model to %s", output_dir)
-            if len(accelerator_output_dir_list) > 1 and self.skip_saving_artifacts:
-                [shutil.rmtree(folder) for folder in accelerator_output_dir_list if folder.exists()]
         else:
             logger.warning("No output model produced. Please check the log for details.")
 
@@ -273,7 +243,7 @@ class Engine:
             logger.warning("Input model has callable attributes, shared cache is disabled.")
             self.cache.disable_shared_cache()
 
-        self.footprints[accelerator_spec].record(is_input_model=True, model_id=input_model_id)
+        self.footprint.record(is_input_model=True, model_id=input_model_id)
 
         # create the output directory
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -295,27 +265,26 @@ class Engine:
                     logger.info("Saved evaluation results of input model to %s", results_path)
 
                 if not self.input_passes_configs:
-                    logger.debug("No passes registered, return empty footprint.")
-                    return Footprint.create_empty_footprint()
+                    logger.debug("No passes registered.")
+                    return
 
             if self.search_strategy:
                 logger.debug("Running Olive in search mode ...")
-                output_footprint = self._run_search(input_model_config, input_model_id, accelerator_spec, output_dir)
+                self._run_search(input_model_config, input_model_id, accelerator_spec, output_dir)
             else:
                 logger.debug("Running Olive in no-search mode ...")
-                output_footprint = self._run_no_search(input_model_config, input_model_id, accelerator_spec, output_dir)
+                self._run_no_search(input_model_config, input_model_id, accelerator_spec, output_dir)
         except EXCEPTIONS_TO_RAISE:
             raise
         except Exception:
             logger.warning("Failed to run Olive on %s.", accelerator_spec, exc_info=True)
-            return None
+            return
 
         if not self.skip_saving_artifacts:
-            output_fp_path = output_dir / "footprints.json"
+            output_fp_path = output_dir / "footprint.json"
             logger.info("Save footprint to %s.", output_fp_path)
-            self.footprints[accelerator_spec].to_file(output_fp_path)
+            self.footprint.to_file(output_fp_path)
         logger.debug("run_accelerator done")
-        return output_footprint
 
     def get_host_device(self):
         # for host device, we will always use the first accelerator device
@@ -352,7 +321,7 @@ class Engine:
         if should_prune:
             failed_pass = pass_flow[len(model_ids)]
             logger.warning("Flow %s is pruned due to failed or invalid config for pass '%s'", pass_flow, failed_pass)
-            return Footprint()
+            return
 
         if signal is not None and not self.skip_saving_artifacts:
             results_path = output_model_dir / "metrics.json"
@@ -360,10 +329,9 @@ class Engine:
                 json.dump(signal.to_json(), f, indent=4)
             logger.info("Saved evaluation results of output model to %s", results_path)
 
-        output_footprints = self.footprints[accelerator_spec].create_footprints_by_model_ids([model_ids[-1]])
+        self.footprint.set_output_model_ids([model_ids[-1]])
         if not self.skip_saving_artifacts:
-            output_footprints.to_file(output_dir / "output_footprints.json")
-        return output_footprints
+            self.footprint.to_file(output_dir / "output_footprint.json")
 
     def _get_search_space_config(self, accelerator_spec: "AcceleratorSpec"):
         space_config: dict[str, list[dict[str, SearchParameter]]] = OrderedDict()
@@ -404,7 +372,7 @@ class Engine:
         accelerator_objectives: dict[str, Any] = {}
         for objectives in objectives_by_evaluator_name.values():
             accelerator_objectives.update(objectives)
-        self.footprints[accelerator_spec].record_objective_dict(accelerator_objectives)
+        self.footprint.record_objective_dict(accelerator_objectives)
         return objectives_by_pass_name
 
     def _compute_search_pass_configs(self, accelerator_spec: "AcceleratorSpec", sample: SearchSample):
@@ -471,23 +439,16 @@ class Engine:
             # record feedback signal
             self.search_strategy.record_feedback_signal(sample.search_point.index, signal, model_ids, should_prune)
 
-        return self.create_pareto_frontier_footprints(accelerator_spec, None, output_dir)
+        self._create_pareto_frontier_footprint(output_dir)
 
-    def create_pareto_frontier_footprints(
-        self, accelerator_spec: "AcceleratorSpec", output_model_num: int, output_dir: Path
-    ):
-        pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier(output_model_num)
-        if not pf_footprints:
-            return None
-        if not self.skip_saving_artifacts:
-            pf_footprints.to_file(output_dir / "pareto_frontier_footprints.json")
-
+    def _create_pareto_frontier_footprint(self, output_dir: Path):
+        self.footprint.create_pareto_frontier()
+        if not self.footprint.output_model_ids:
+            return
         if self.plot_pareto_frontier:
-            pf_footprints.plot_pareto_frontier_to_html(save_path=output_dir / "pareto_frontier_footprints_chart.html")
+            self.footprint.plot_pareto_frontier_to_html(save_path=output_dir / "pareto_frontier_footprint_chart.html")
 
-        return pf_footprints
-
-    def dump_run_history(self, run_history, output_path: Path):
+    def _dump_run_history(self, run_history, output_path: Path):
         if not run_history:
             logger.info("No run history to dump!")
             return
@@ -708,7 +669,7 @@ class Engine:
             output_model_config = self._load_model(output_model_id)
             if output_model_config is not None:
                 # footprint model and run
-                self.footprints[accelerator_spec].record(
+                self.footprint.record(
                     model_id=output_model_id,
                     model_config=(
                         output_model_config.to_json() if output_model_config != FAILED_CONFIG else {"is_pruned": True}
@@ -759,7 +720,7 @@ class Engine:
         self.cache.cache_run(pass_type_name, pass_config, input_model_id, output_model_id, run_accel)
 
         # footprint model and run
-        self.footprints[accelerator_spec].record(
+        self.footprint.record(
             model_id=output_model_id,
             model_config=output_model_config.to_json() if output_model_config != FAILED_CONFIG else {"is_pruned": True},
             parent_model_id=input_model_id,
@@ -816,7 +777,7 @@ class Engine:
         if signal is not None:
             logger.debug("Loading evaluation from cache ...")
             # footprint evaluation
-            self.footprints[accelerator_spec].record(
+            self.footprint.record(
                 model_id=model_id,
                 metrics=FootprintNodeMetric(
                     value=signal,
@@ -833,7 +794,7 @@ class Engine:
         self._cache_evaluation(model_id_with_accelerator, signal)
 
         # footprint evaluation
-        self.footprints[accelerator_spec].record(
+        self.footprint.record(
             model_id=model_id,
             metrics=FootprintNodeMetric(
                 value=signal,

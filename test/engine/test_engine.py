@@ -20,7 +20,7 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.optimum_conversion import OptimumConversion
 from olive.passes.onnx.quantization import OnnxDynamicQuantization, OnnxStaticQuantization
-from olive.systems.accelerator_creator import create_accelerators
+from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
 from test.utils import (
@@ -96,7 +96,7 @@ class TestEngine:
         engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13})
         outputs: WorkflowOutput = engine.run(
             model_config,
-            [DEFAULT_CPU_ACCELERATOR],
+            DEFAULT_CPU_ACCELERATOR,
             output_dir=tmpdir,
         )
 
@@ -176,11 +176,10 @@ class TestEngine:
 
         # execute
         output_dir = Path(tmp_path)
-        workflow_output: WorkflowOutput = engine.run(model_config, [DEFAULT_CPU_ACCELERATOR], output_dir=output_dir)
+        workflow_output: WorkflowOutput = engine.run(model_config, DEFAULT_CPU_ACCELERATOR, output_dir=output_dir)
 
         # make sure the input model always be in engine.footprints
-        footprint = engine.footprints[DEFAULT_CPU_ACCELERATOR]
-        assert input_model_id in footprint.nodes
+        assert input_model_id in engine.footprint.nodes
         # make sure the input model always not in engine's pareto frontier
         assert input_model_id not in workflow_output.get_output_models()
 
@@ -226,7 +225,7 @@ class TestEngine:
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         workflow_output: WorkflowOutput = engine.run(
             model_config,
-            [accelerator_spec],
+            accelerator_spec,
             output_dir=output_dir,
         )
 
@@ -288,7 +287,7 @@ class TestEngine:
         # execute
         workflow_output: WorkflowOutput = engine.run(
             model_config,
-            [DEFAULT_CPU_ACCELERATOR],
+            DEFAULT_CPU_ACCELERATOR,
             output_dir=output_dir,
         )
 
@@ -341,7 +340,7 @@ class TestEngine:
         # execute
         engine.run(
             model_config,
-            [accelerator_spec],
+            accelerator_spec,
             output_dir=output_dir,
         )
 
@@ -377,7 +376,7 @@ class TestEngine:
             output_dir = Path(tmpdir)
             engine.run(
                 model_config,
-                [DEFAULT_CPU_ACCELERATOR],
+                DEFAULT_CPU_ACCELERATOR,
                 output_dir=output_dir,
             )
 
@@ -424,7 +423,7 @@ class TestEngine:
         # execute
         workflow_output: WorkflowOutput = engine.run(
             model_config,
-            [DEFAULT_CPU_ACCELERATOR],
+            DEFAULT_CPU_ACCELERATOR,
             output_dir=output_dir,
             evaluate_input_model=True,
         )
@@ -473,7 +472,7 @@ class TestEngine:
         # execute
         workflow_output: WorkflowOutput = engine.run(
             model_config,
-            [DEFAULT_CPU_ACCELERATOR],
+            DEFAULT_CPU_ACCELERATOR,
             output_dir=output_dir,
             evaluate_input_model=True,
         )
@@ -504,10 +503,9 @@ class TestEngine:
         mock_local_system = MagicMock()
         mock_local_system.system_type = SystemType.Local
         mock_local_system.get_supported_execution_providers.return_value = [
-            "CUDAExecutionProvider",
             "CPUExecutionProvider",
         ]
-        mock_get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        mock_get_available_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.run_pass.return_value = get_onnx_model_config()
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {
@@ -524,10 +522,10 @@ class TestEngine:
         system_config = SystemConfig(
             type=SystemType.Local,
             config=LocalTargetUserConfig(
-                accelerators=[{"device": "GPU"}, {"device": "CPU", "execution_providers": None}],
+                accelerators=[{"device": "CPU", "execution_providers": None}],
             ),
         )
-        accelerator_specs = create_accelerators(system_config)
+        accelerator_spec = create_accelerator(system_config)
         engine.register(OnnxConversion)
 
         model_config = get_pytorch_model_config()
@@ -539,10 +537,10 @@ class TestEngine:
             is_accelerator_agnostic_mock.return_value = False
             _ = engine.run(
                 model_config,
-                accelerator_specs,
+                accelerator_spec,
                 output_dir=output_dir,
             )
-            assert mock_local_system.run_pass.call_count == 2
+            assert mock_local_system.run_pass.call_count == 1
 
     def test_pass_value_error(self, caplog, tmpdir):
         # Need explicitly set the propagate to allow the message to be logged into caplog
@@ -568,7 +566,7 @@ class TestEngine:
             with pytest.raises(ValueError):  # noqa: PT011
                 engine.run(
                     model_config,
-                    [DEFAULT_CPU_ACCELERATOR],
+                    DEFAULT_CPU_ACCELERATOR,
                     output_dir=output_dir,
                 )
 
@@ -618,7 +616,7 @@ class TestEngine:
                 mock_quantize_static.side_effect = AttributeError("test")
                 workflow_output: WorkflowOutput = engine.run(
                     onnx_model_config,
-                    [DEFAULT_CPU_ACCELERATOR],
+                    DEFAULT_CPU_ACCELERATOR,
                     output_dir=output_dir,
                 )
                 assert not workflow_output.has_output_model(), "Expect no output model when quantization fails"
@@ -636,7 +634,7 @@ class TestEngine:
                 mock_quantize_dynamic.side_effect = AttributeError("test")
                 workflow_output: WorkflowOutput = engine.run(
                     onnx_model_config,
-                    [DEFAULT_CPU_ACCELERATOR],
+                    DEFAULT_CPU_ACCELERATOR,
                     output_dir=output_dir,
                     evaluate_input_model=False,
                 )

@@ -5,7 +5,7 @@
 import logging
 from typing import TYPE_CHECKING
 
-from olive.hardware.accelerator import DEVICE_TO_EXECUTION_PROVIDERS, AcceleratorLookup, AcceleratorSpec, Device
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
 from olive.systems.common import SystemType
 
 if TYPE_CHECKING:
@@ -167,9 +167,9 @@ class AcceleratorNormalizer:
             )
 
 
-def create_accelerators(
+def create_accelerator(
     system_config: "SystemConfig", skip_supported_eps_check: bool = True, is_ep_required=True
-) -> list[AcceleratorSpec]:
+) -> AcceleratorSpec:
     normalizer = AcceleratorNormalizer(system_config, skip_supported_eps_check, is_ep_required)
     system_config = normalizer.normalize()
 
@@ -178,28 +178,19 @@ def create_accelerators(
     }
     logger.debug("Initial accelerators and execution providers: %s", device_to_eps)
 
-    # Flatten the accelerators to list of AcceleratorSpec
-    accelerator_specs: list[AcceleratorSpec] = []
-    is_cpu_available = "cpu" in [accelerator.lower() for accelerator in device_to_eps]
-    for accelerator in system_config.config.accelerators:
-        device = Device(accelerator.device.lower())
-        if accelerator.execution_providers:
-            for ep in accelerator.get_ep_strs():
-                if ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
-                    logger.warning(
-                        "Ignore the CPUExecutionProvider for non-cpu device since cpu accelerator is also present."
-                    )
-                else:
-                    accelerator_specs.append(AcceleratorSpec(device, ep, memory=accelerator.memory))
-        else:
-            accelerator_specs.append(AcceleratorSpec(device, memory=accelerator.memory))
+    # Get the single accelerator (only one accelerator is supported currently)
+    accelerator = system_config.config.accelerators[0]
+    device = Device(accelerator.device.lower())
 
-    assert accelerator_specs, (
-        "No valid accelerator specified for target system. "
-        "Please specify the accelerators in the target system or provide valid execution providers. "
-        f"Given execution providers: {device_to_eps.values()}. "
-        f"Current accelerators: {device_to_eps.keys()}."
-        f"Supported execution providers: {DEVICE_TO_EXECUTION_PROVIDERS}."
-    )
-    logger.info("Running workflow on accelerator specs: %s", ",".join([str(spec) for spec in accelerator_specs]))
-    return accelerator_specs
+    # Create the AcceleratorSpec from the accelerator configuration
+    # After normalize(), device is always set. execution_providers may or may not be set depending on is_ep_required
+    eps = accelerator.get_ep_strs()
+    if eps:
+        ep = eps[0]  # Use the first (and only) execution provider
+        accelerator_spec = AcceleratorSpec(device, ep, memory=accelerator.memory)
+    else:
+        # No EP configured (is_ep_required=False)
+        accelerator_spec = AcceleratorSpec(device, memory=accelerator.memory)
+
+    logger.info("Running workflow on accelerator spec: %s", accelerator_spec)
+    return accelerator_spec

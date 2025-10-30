@@ -5,8 +5,7 @@
 
 import logging
 from collections import OrderedDict, defaultdict
-from copy import deepcopy
-from typing import TYPE_CHECKING, NamedTuple, Optional
+from typing import TYPE_CHECKING, NamedTuple
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric_result import MetricResult
@@ -75,6 +74,7 @@ class Footprint:
         is_marked_pareto_frontier: bool = False,
     ):
         self.nodes: dict[str, FootprintNode] = nodes or OrderedDict()
+        self.output_model_ids: list[str] = []
         self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
         self.input_model_id = None
@@ -99,22 +99,12 @@ class Footprint:
             self.nodes[_model_id] = FootprintNode(**kwargs)
         self._resolve_metrics()
 
-    def create_footprints_by_model_ids(self, model_ids) -> "Footprint":
-        nodes = OrderedDict()
-        for model_id in model_ids:
-            # if model_id is not in self.nodes, KeyError will be raised
-            nodes[model_id] = deepcopy(self.nodes[model_id])
-        return Footprint(nodes=nodes, objective_dict=deepcopy(self.objective_dict))
+    def set_output_model_ids(self, model_ids: list[str]):
+        self.output_model_ids = model_ids
 
-    def create_pareto_frontier(self, output_model_num: int = None) -> Optional["Footprint"]:
+    def create_pareto_frontier(self):
         self._mark_pareto_frontier()
-        if output_model_num is None or len(self.nodes) <= output_model_num:
-            logger.info("Output all %d models", len(self.nodes))
-            return self._create_pareto_frontier_from_nodes(self.nodes)
-        else:
-            topk_nodes = self.get_top_ranked_nodes(output_model_num)
-            logger.info("Output top ranked %d models based on metric priorities", len(topk_nodes))
-            return self._create_pareto_frontier_from_nodes(topk_nodes)
+        self._create_pareto_frontier_from_nodes(self.nodes)
 
     def plot_pareto_frontier_to_html(self, index=None, save_path=None, is_show=False):
         self._plot_pareto_frontier(index, save_path, is_show, "html")
@@ -122,18 +112,14 @@ class Footprint:
     def plot_pareto_frontier_to_image(self, index=None, save_path=None, is_show=False):
         self._plot_pareto_frontier(index, save_path, is_show, "image")
 
-    def _create_pareto_frontier_from_nodes(self, nodes: dict) -> Optional["Footprint"]:
-        rls = {k: v for k, v in nodes.items() if v.is_pareto_frontier}
-        if not rls:
+    def _create_pareto_frontier_from_nodes(self, nodes: dict):
+        pf_model_ids = [k for k, v in nodes.items() if v.is_pareto_frontier]
+        if not pf_model_ids:
             logger.warning("There is no pareto frontier points.")
-            return None
-        for v in rls.values():
-            logger.info("pareto frontier points: %s \n%s", v.model_id, v.metrics.value)
+            return
 
-        # restructure the pareto frontier points to instance of Footprints node for further analysis
-        return Footprint(
-            nodes=deepcopy(rls), objective_dict=deepcopy(self.objective_dict), is_marked_pareto_frontier=True
-        )
+        self.output_model_ids = pf_model_ids
+        self.is_marked_pareto_frontier = True
 
     def summarize_run_history(self) -> list[RunHistory]:
         """Summarize the run history of a model.
@@ -314,22 +300,6 @@ class Footprint:
                 cmp_flag &= not _against_pareto_frontier_check
             self.nodes[k].is_pareto_frontier = cmp_flag
         self.is_marked_pareto_frontier = True
-
-    def get_top_ranked_nodes(self, k: int) -> list[FootprintNode]:
-        footprint_node_list = self.nodes.values()
-        sorted_footprint_node_list = sorted(
-            footprint_node_list,
-            key=lambda x: tuple(
-                (
-                    x.metrics.value[metric].value
-                    if x.metrics.cmp_direction[metric] == 1
-                    else -x.metrics.value[metric].value
-                )
-                for metric in self.objective_dict
-            ),
-            reverse=True,
-        )
-        return sorted_footprint_node_list[:k]
 
     def _get_metrics_name_by_indices(self, indices) -> list[str]:
         """Get the first available metrics names by index."""

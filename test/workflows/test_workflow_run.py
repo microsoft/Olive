@@ -68,8 +68,7 @@ def test_run_without_ep(mock_model_to_json, mock_model_from_json, mock_run, conf
     mock_model_from_json.return_value = get_pytorch_model_config()
     mock_model_to_json.return_value = {"type": "PyTorchModel", "config": {"io_config": {}}}
     workflow_output = olive_run(config)
-    assert len(workflow_output.get_available_devices()) == 1
-    assert workflow_output.get_available_devices()[0] == "cpu"
+    assert workflow_output.from_device() == "cpu"
 
 
 ONNX_INPUT_CONFIG = {"type": "ONNXModel", "model_path": "model.onnx"}
@@ -100,9 +99,9 @@ ONNX_INPUT_CONFIG = {"type": "ONNXModel", "model_path": "model.onnx"}
 )
 @patch("olive.engine.engine.Engine.run")
 def test_create_accelerator_only_eval(mock_run, config_test, is_ep_required):
-    with patch.object(sys.modules[olive_run.__module__], "create_accelerators") as mock_create_accelerators:
+    with patch.object(sys.modules[olive_run.__module__], "create_accelerator") as mock_create_accelerator:
         olive_run(config_test)
-        assert mock_create_accelerators.call_args.kwargs["is_ep_required"] == is_ep_required
+        assert mock_create_accelerator.call_args.kwargs["is_ep_required"] == is_ep_required
 
 
 def test_run_packages():

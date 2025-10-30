@@ -23,7 +23,6 @@ from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes.onnx.conversion import OnnxConversion
 from test.utils import get_accuracy_metric, get_pytorch_model_config
 
@@ -66,7 +65,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     # execute
     engine.run(
         input_model_config=input_model_config,
-        accelerator_specs=[DEFAULT_CPU_ACCELERATOR],
+        accelerator_spec=DEFAULT_CPU_ACCELERATOR,
         packaging_config=packaging_config,
         output_dir=output_dir,
     )
@@ -124,7 +123,7 @@ def test_generate_zipfile_artifacts_no_search(tmp_path):
     # execute
     engine.run(
         input_model_config=input_model_config,
-        accelerator_specs=[DEFAULT_CPU_ACCELERATOR],
+        accelerator_spec=DEFAULT_CPU_ACCELERATOR,
         packaging_config=packaging_config,
         output_dir=output_dir,
         evaluate_input_model=False,
@@ -168,7 +167,7 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
     # execute
     engine.run(
         input_model_config=input_model_config,
-        accelerator_specs=[DEFAULT_CPU_ACCELERATOR],
+        accelerator_spec=DEFAULT_CPU_ACCELERATOR,
         packaging_config=packaging_config,
         output_dir=output_dir,
         evaluate_input_model=False,
@@ -186,39 +185,22 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
 
     # clean up
     shutil.rmtree(output_dir)
+    if Path("mlruns").exists():
+        shutil.rmtree("mlruns")
 
 
-def test_generate_zipfile_artifacts_none_nodes(tmp_path):
+def test_generate_zipfile_artifacts_no_output_models(tmp_path):
     # setup
     packaging_config = PackagingConfig()
     packaging_config.type = PackagingType.Zipfile
     packaging_config.name = "OutputModels"
 
-    foot_print = Footprint()
-    pf_footprint = Footprint()
-    pf_footprint.nodes = None
+    model_id = "model_id"
+    model_path = "fake_model_file"
+    footprint = get_footprint(model_id, model_path)
+    footprint.output_model_ids = []  # No output models
     output_dir = tmp_path / "outputs"
-    workflow_output = WorkflowOutput({DEFAULT_CPU_ACCELERATOR: pf_footprint}, {DEFAULT_CPU_ACCELERATOR: foot_print})
-
-    # execute
-    generate_output_artifacts(packaging_config, workflow_output, output_dir)
-
-    # assert
-    artifacts_path = output_dir / "OutputModels.zip"
-    assert not artifacts_path.exists()
-
-
-def test_generate_zipfile_artifacts_zero_len_nodes(tmp_path):
-    # setup
-    packaging_config = PackagingConfig()
-    packaging_config.type = PackagingType.Zipfile
-    packaging_config.name = "OutputModels"
-
-    foot_print = Footprint()
-    pf_footprint = Footprint()
-    pf_footprint.nodes = {}
-    output_dir = tmp_path / "outputs"
-    workflow_output = WorkflowOutput({DEFAULT_CPU_ACCELERATOR: pf_footprint}, {DEFAULT_CPU_ACCELERATOR: foot_print})
+    workflow_output = WorkflowOutput(DEFAULT_CPU_ACCELERATOR, footprint)
 
     # execute
     generate_output_artifacts(packaging_config, workflow_output, output_dir)
@@ -232,11 +214,11 @@ def test__package_dockerfile(tmp_path):
     # setup
     model_id = "model_id"
     model_path = "fake_model_file"
-    footprints = get_footprints(model_id, model_path)
+    footprint = get_footprint(model_id, model_path)
     output_dir = tmp_path / "outputs"
 
     packaging_config = PackagingConfig(type=PackagingType.Dockerfile)
-    workflow_output = WorkflowOutput(footprints, footprints)
+    workflow_output = WorkflowOutput(DEFAULT_CPU_ACCELERATOR, footprint)
 
     # execute
     generate_output_artifacts(packaging_config, workflow_output, output_dir)
@@ -246,13 +228,13 @@ def test__package_dockerfile(tmp_path):
     assert dockerfile_path.exists()
 
 
-def get_footprints(model_id, model_path):
-    acc_spec = AcceleratorSpec(accelerator_type="cpu", execution_provider="CPUExecutionProvider")
+def get_footprint(model_id, model_path):
     model_config = {"config": {"model_path": model_path}, "type": "ONNXModel"}
     footprint_node = FootprintNode(model_id=model_id, is_pareto_frontier=True, model_config=model_config)
     footprint = Footprint(nodes={model_id: footprint_node}, is_marked_pareto_frontier=True)
     footprint.input_model_id = model_id
-    return {acc_spec: footprint}
+    footprint.output_model_ids = [model_id]  # Mark this as output model
+    return footprint
 
 
 def verify_output_artifacts(output_dir):

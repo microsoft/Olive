@@ -139,18 +139,18 @@ class SessionParamsTuningCommand(BaseOliveCLICommand):
         workflow_output = self._run_workflow()
 
         output_path = Path(self.args.output_path).resolve()
-        for device in workflow_output.get_available_devices():
-            if len(workflow_output.get_output_models_by_device(device)) < 1:
-                print(f"Tuning for {device} failed. Please set the log_level to 1 for more detailed logs.")
-                continue
-
-            for model_output in workflow_output.get_output_models_by_device(device):
+        output_models = workflow_output.get_output_models()
+        if len(output_models) < 1:
+            device = workflow_output.from_device()
+            print(f"Tuning for {device} failed. Please set the log_level to 1 for more detailed logs.")
+        else:
+            for model_output in output_models:
                 acc_ep = f"{model_output.from_device().lower()}-{model_output.from_execution_provider()[:-17].lower()}"
                 infer_setting_output_path = output_path / f"{acc_ep}.json"
                 infer_settings = model_output.get_inference_config()
                 with infer_setting_output_path.open("w") as f:
                     json.dump(infer_settings, f, indent=4)
-        print(f"Inference session parameters are saved to {output_path}.")
+            print(f"Inference session parameters are saved to {output_path}.")
         return workflow_output
 
 

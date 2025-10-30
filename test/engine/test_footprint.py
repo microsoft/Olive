@@ -20,12 +20,9 @@ class TestFootprint:
         self.input_node = {k: v for k, v in self.fp.nodes.items() if v.parent_model_id is None}
 
     def test_create_from_model_ids(self):
-        new_fp = self.fp.create_footprints_by_model_ids(self.fp.nodes.keys())
-        assert len(new_fp.nodes) == len(self.fp.nodes)
-        assert new_fp.nodes == self.fp.nodes
-        assert new_fp.nodes is not self.fp.nodes
-        assert new_fp.objective_dict == self.fp.objective_dict
-        assert new_fp.objective_dict is not self.fp.objective_dict
+        self.fp.set_output_model_ids(list(self.fp.nodes.keys()))
+        assert len(self.fp.output_model_ids) == len(self.fp.nodes)
+        assert self.fp.output_model_ids == list(self.fp.nodes.keys())
 
     def test_file_dump(self, tmp_path):
         self.fp.to_file(tmp_path / "footprint.json")
@@ -38,10 +35,9 @@ class TestFootprint:
         assert len(fp2.nodes) == 3
 
     def test_pareto_frontier(self):
-        pareto_frontier_fp = self.fp.create_pareto_frontier()
-        assert isinstance(pareto_frontier_fp, Footprint)
-        assert len(pareto_frontier_fp.nodes) == 2
-        assert all(v.is_pareto_frontier for v in pareto_frontier_fp.nodes.values())
+        self.fp.create_pareto_frontier()
+        assert len(self.fp.output_model_ids) == 2
+        assert all(self.fp.nodes[model_id].is_pareto_frontier for model_id in self.fp.output_model_ids)
 
     def test_empty_pareto_frontier(self):
         # set all `is_goals_met` as false
@@ -49,7 +45,8 @@ class TestFootprint:
         for v in unmet_goals_nodes.values():
             v.metrics.if_goals_met = False
         new_fp = Footprint(nodes=unmet_goals_nodes)
-        assert new_fp.create_pareto_frontier() is None
+        new_fp.create_pareto_frontier()
+        assert len(new_fp.output_model_ids) == 0
 
     def test_trace_back_run_history(self):
         for model_id in self.fp.nodes:
