@@ -3671,8 +3671,8 @@
         - context: list of context model names
         - iterator: list of iterator model names
         - lm_head: name of the lm_head model</p>
-<p><strong>Input:</strong> handler.composite.CompositeModelHandler</p>
-<p><strong>Output:</strong> handler.composite.CompositeModelHandler</p>
+<p><strong>Input:</strong> inspect._empty</p>
+<p><strong>Output:</strong> inspect._empty</p>
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-batch_size">
 <span class="sig-name descname"><span class="pre">batch_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-batch_size" title="Link to this definition">#</a></dt>
@@ -4187,6 +4187,15 @@
 <dd><p>List of techniques to apply in order, each with its name and parameters</p>
 <p><strong>type:</strong> list[dict[str, Any]]</p>
 <p><strong>default_value:</strong> []</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-tensor_precision_overrides">
+<span class="sig-name descname"><span class="pre">tensor_precision_overrides</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-tensor_precision_overrides" title="Link to this definition">#</a></dt>
+<dd><p>Dictionary of tensor name to quantization precision.</p>
+<p><strong>type:</strong> dict[str, olive.constants.Precision]</p>
+<p><strong>default_value:</strong> {}</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 
@@ -5594,6 +5603,15 @@
 <dd><p>Whether to quantize the language model head. Default value is False.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
+<p><strong>search_defaults:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-overrides">
+<span class="sig-name descname"><span class="pre">overrides</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-overrides" title="Link to this definition">#</a></dt>
+<dd><p>Optional dictionary to specify overrides for specific modules. The keys are module names and the values are dictionaries with any of the following keys: ‘bits’, ‘symmetric’, ‘group_size’. If the same values are overridden by the model’s mixed precision info, the mixed precision info takes precedence.</p>
+<p><strong>type:</strong> dict</p>
+<p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
 </dd></dl>
 

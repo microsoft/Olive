@@ -483,7 +483,7 @@
 </section>
 <section id="hqq">
 <h2>HQQ<a class="headerlink" href="#hqq" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">HQQ</span> <span class="pre">(Half-Quadratic</span> <span class="pre">Quantization)</span></code> is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, <a class="reference external" href="https://mobiusml.github.io/hqq_blog/">HQQ</a> uses half-quadratic splitting to minimize weight quantization error efficiently.</p>
+<p><code class="docutils literal notranslate"><span class="pre">HQQ</span> <span class="pre">(Half-Quadratic</span> <span class="pre">Quantization)</span></code> is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, <a class="reference external" href="https://dropbox.github.io/hqq_blog/">HQQ</a> uses half-quadratic splitting to minimize weight quantization error efficiently.</p>
 <p>This pass only supports ONNX models, and will only quantize <code class="docutils literal notranslate"><span class="pre">MatMul</span></code> nodes to 4 bits.</p>
 <section id="id5">
 <h3>Example Configuration<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
