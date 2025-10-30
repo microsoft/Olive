@@ -56,7 +56,7 @@ class OliveEvaluator(ABC):
         super().__init__()
 
     @staticmethod
-    def _unpack_batch_for_accuracy(batch):
+    def unpack_batch_for_accuracy(batch):
         """Unpack batch for accuracy evaluation. Requires (data, label) format."""
         if not isinstance(batch, (tuple, list)) or len(batch) != 2:
             raise ValueError(
@@ -66,7 +66,7 @@ class OliveEvaluator(ABC):
         return batch[0], batch[1]
 
     @staticmethod
-    def _extract_input_data(batch):
+    def extract_input_data(batch):
         """Extract input data from batch, ignoring labels if present."""
         return batch[0] if isinstance(batch, (tuple, list)) and len(batch) == 2 else batch
 
@@ -390,7 +390,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         input_feed = None
         if io_bind and shared_kv_buffer and use_fp16:
             batch = next(iter(dataloader))
-            input_data = OliveEvaluator._extract_input_data(batch)
+            input_data = OliveEvaluator.extract_input_data(batch)
             input_feed = format_data(input_data, io_config)
 
         # load constant inputs if any
@@ -433,7 +433,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         output_names = io_config["output_names"]
         is_single_tensor_output = len(output_names) == 1
         for batch in dataloader:
-            input_data, labels = OliveEvaluator._unpack_batch_for_accuracy(batch)
+            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
             input_feed = format_data(input_data, io_config)
             result = model.run_session(session, input_feed, **run_kwargs)
             if is_single_tensor_output:
@@ -490,7 +490,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         io_config = model.io_config
 
         batch = next(iter(dataloader))
-        input_data = OliveEvaluator._extract_input_data(batch)
+        input_data = OliveEvaluator.extract_input_data(batch)
         input_feed = format_data(input_data, io_config)
 
         latencies = session.time_run(
@@ -540,7 +540,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         logits = []
         output_names = io_config["output_names"]
         for batch in dataloader:
-            input_data, labels = OliveEvaluator._unpack_batch_for_accuracy(batch)
+            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
             input_dict = format_data(input_data, io_config)
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
             output = session.run(None, input_dict)
@@ -619,7 +619,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         io_config = model.io_config
 
         batch = next(iter(dataloader))
-        input_data = OliveEvaluator._extract_input_data(batch)
+        input_data = OliveEvaluator.extract_input_data(batch)
         input_feed = format_data(input_data, io_config)
         kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
 
@@ -736,7 +736,7 @@ class PyTorchEvaluator(_OliveEvaluator):
         run_kwargs = metric.get_run_kwargs()
         session.to(device)
         for batch in dataloader:
-            input_data_i, labels = OliveEvaluator._unpack_batch_for_accuracy(batch)
+            input_data_i, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
             input_data = tensor_data_to_device(input_data_i, device)
             result = model.run_session(session, input_data, **run_kwargs)
             outputs = post_func(result) if post_func else result
@@ -794,7 +794,7 @@ class PyTorchEvaluator(_OliveEvaluator):
         session = model.prepare_session(inference_settings=None, device=device)
 
         batch = next(iter(dataloader))
-        input_data = OliveEvaluator._extract_input_data(batch)
+        input_data = OliveEvaluator.extract_input_data(batch)
         torch_device = _OliveEvaluator.device_string_to_torch_device(device)
         run_kwargs = metric.get_run_kwargs()
 
@@ -861,7 +861,7 @@ class OpenVINOEvaluator(_OliveEvaluator):
         targets = []
         logits = []
         for batch in dataloader:
-            input_data, label = OliveEvaluator._unpack_batch_for_accuracy(batch)
+            input_data, label = OliveEvaluator.unpack_batch_for_accuracy(batch)
             model.run_session(session, {0: input_data}, **run_kwargs)
             result = session.get_output_tensor(0).data
             outputs = post_func(result) if post_func else result
@@ -898,7 +898,7 @@ class OpenVINOEvaluator(_OliveEvaluator):
 
         latencies = []
         for batch in dataloader:
-            input_data = OliveEvaluator._extract_input_data(batch)
+            input_data = OliveEvaluator.extract_input_data(batch)
             t = time.perf_counter()
             model.run_session(session, input_data, **run_kwargs)
             latencies.append(time.perf_counter() - t)
