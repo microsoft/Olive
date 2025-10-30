@@ -655,6 +655,7 @@ class OnnxOpVersionConversion(Pass):
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path)
         model_ir = model.load_ir_model()
+        ir.external_data.load_to_model(model_ir)
         version_converter.convert_version(model_ir, config.target_opset, fallback=True)
         return ir_model_to_olive_model(model_ir, output_model_path, config)
 
