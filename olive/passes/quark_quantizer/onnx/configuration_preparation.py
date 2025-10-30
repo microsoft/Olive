@@ -170,6 +170,10 @@ def update_algo_config(algo_config: AlgoConfig, config_dict: dict[str, Any]) -> 
         if "cle_total_layer_diff_threshold" in config_dict:
             algo_config.cle_total_layer_diff_threshold = config_dict["cle_total_layer_diff_threshold"]
 
+    elif isinstance(algo_config, SmoothQuantConfig):
+        if "alpha" in config_dict:
+            algo_config.alpha = config_dict["alpha"]
+
     else:
         # TODO: Configure the rest algorithms
         pass
