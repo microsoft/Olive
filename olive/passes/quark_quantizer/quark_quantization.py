@@ -10,6 +10,7 @@ import tempfile
 from argparse import Namespace
 from pathlib import Path
 from typing import Optional, Union
+from packaging import version
 
 import onnx
 import torch
@@ -90,6 +91,10 @@ class QuarkQuantization(Pass):
             return self._run_quark_torch(model, config, output_model_path)
 
     def _run_quark_onnx(self, model: ONNXModelHandler, config: BasePassConfig, output_model_path: str) -> ONNXModelHandler:
+        from quark import __version__ as QuarkVersion
+        if version.parse(QuarkVersion) < version.parse("0.10.0"):
+            raise ValueError("Onnx Quantization is only supported for quark>=0.10.0")
+
         from olive.passes.quark_quantizer.onnx.quantize_quark import run_quark_quantization
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
