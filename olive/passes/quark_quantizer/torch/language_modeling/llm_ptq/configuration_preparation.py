@@ -127,7 +127,7 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
 
         if model_type not in MODEL_NAME_KV_LAYERS_MAP:
             raise ValueError(
-                f"KV cache configuration of {model_type} could not be supported automaticly,"
+                f"KV cache configuration of {model_type} could not be supported automatically,"
                 "please add the KV layers in MODEL_NAME_KV_LAYERS_MAP"
             )
 
@@ -157,7 +157,7 @@ def get_config(args: argparse.Namespace, model_type: str) -> Config:
 
         if model_type not in MODEL_NAME_Q_LAYERS_MAP:
             raise ValueError(
-                f"Q_proj configuration of {model_type} could not be supported automaticly,"
+                f"Q_proj configuration of {model_type} could not be supported automatically,"
                 "please add the q_proj layers in MODEL_NAME_Q_LAYERS_MAP"
             )
 
@@ -331,7 +331,7 @@ def get_export_config(args: argparse.Namespace, model_type: str) -> ExporterConf
     if args.kv_cache_dtype is not None:
         if model_type not in MODEL_NAME_KV_LAYERS_MAP:
             raise ValueError(
-                f"KV cache configuration of {model_type} could not be supported automaticly,"
+                f"KV cache configuration of {model_type} could not be supported automatically,"
                 "please add the KV layers in MODEL_NAME_KV_LAYERS_MAP"
             )
         export_config.json_export_config.kv_cache_group = MODEL_NAME_KV_LAYERS_MAP[model_type]
