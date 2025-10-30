@@ -217,7 +217,7 @@ def model_proto_to_olive_model(
     ]
     if not isinstance(external_data_config, dict):
         external_data_config = external_data_config.dict()
-    has_external_data = model_proto_to_file(
+    model_proto_to_file(
         model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys if k in external_data_config}
     )
     # Only use LocalFolder if there are additional files besides external data
@@ -279,30 +279,18 @@ def ir_model_to_olive_model(
         logger.debug("Model is large (%s), saving as external data", initializer_size)
     save_as_external_data = save_as_external_data or is_large_model
 
-    # Ensure output_model_path has parent directory
-    output_model_path = Path(output_model_path)
-    output_model_path.parent.mkdir(parents=True, exist_ok=True)
-    output_model_path = str(output_model_path)
-
     if save_as_external_data:
         external_data_name = _get_external_data_name(
             Path(output_model_path), external_data_config.get("external_data_name")
         )
         ir.save(model, output_model_path, external_data=external_data_name)
-
         logger.debug("Model was saved with external data: %s", external_data_name)
-        # Return LocalFile instead of LocalFolder to avoid nested directories
-        model_path = LocalFile({"path": output_model_path})
-        onnx_file_name = None
-
     else:
         ir.save(model, output_model_path)
-
         logger.debug("Model was not saved with external data")
-        model_path = LocalFile({"path": output_model_path})
-        onnx_file_name = None
+    model_path = LocalFile({"path": output_model_path})
 
-    return ONNXModelHandler(model_path=model_path, onnx_file_name=onnx_file_name)
+    return ONNXModelHandler(model_path=model_path)
 
 
 def get_external_data_file_names(model_path: Union[str, Path]) -> list[str]:
