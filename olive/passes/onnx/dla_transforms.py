@@ -369,7 +369,7 @@ def transform_remove_qdq(model, keep_clip_after_inputs=False):
             # This node's ith input is from a DQ node.
             #
             # Please note that the following while loop is for handling the #4 case mentioned above where
-            # there could be multiple (ususally no more than 2) consecutive Q and DQ node pairs which are connected
+            # there could be multiple (usually no more than 2) consecutive Q and DQ node pairs which are connected
             # e.g. Node --> Q --> DQ --> Q --> DQ --> Node'
             if input_name in qdq_node_pair_output_to_input_map:
                 qdq_node_pair_output = input_name
