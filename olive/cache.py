@@ -484,8 +484,19 @@ class OliveCache:
                 output_file = output_dir / f"{model_file_name}.onnx"
 
             actual_output_dir.mkdir(parents=True, exist_ok=True)
-            resave_model(original_model_path, output_file, saved_external_files={})
-            model_json["config"]["model_path"] = str(output_file)
+            has_external_data = resave_model(original_model_path, output_file, saved_external_files={})
+
+            # Update model_json config based on whether model has external data
+            if has_external_data:
+                # Model has external data files, use folder + file_name structure
+                # This is needed for packaging system compatibility
+                model_json["config"]["model_path"] = str(actual_output_dir)
+                model_json["config"]["onnx_file_name"] = output_file.name
+            else:
+                # Model has no external data, use complete file path
+                model_json["config"]["model_path"] = str(output_file)
+                model_json["config"].pop("onnx_file_name", None)
+
             onnx_output_file = output_file
 
             # Remove model_path from local_resource_names as it's already handled

@@ -284,13 +284,18 @@ def ir_model_to_olive_model(
             Path(output_model_path), external_data_config.get("external_data_name")
         )
         ir.save(model, output_model_path, external_data=external_data_name)
+
         logger.debug("Model was saved with external data: %s", external_data_name)
+        model_path = LocalFolder({"path": Path(output_model_path).parent})
+        onnx_file_name = Path(output_model_path).name
     else:
         ir.save(model, output_model_path)
-        logger.debug("Model was not saved with external data")
-    model_path = LocalFile({"path": output_model_path})
 
-    return ONNXModelHandler(model_path=model_path)
+        logger.debug("Model was not saved with external data")
+        model_path = LocalFile({"path": output_model_path})
+        onnx_file_name = None
+
+    return ONNXModelHandler(model_path=model_path, onnx_file_name=onnx_file_name)
 
 
 def get_external_data_file_names(model_path: Union[str, Path]) -> list[str]:
