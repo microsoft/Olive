@@ -217,13 +217,12 @@ def model_proto_to_olive_model(
     ]
     if not isinstance(external_data_config, dict):
         external_data_config = external_data_config.dict()
-    model_proto_to_file(
+    has_external_data = model_proto_to_file(
         model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys if k in external_data_config}
     )
     # Only use LocalFolder if there are additional files besides external data
-    if external_initializers_file_name or constant_inputs_file_name or force_model_dir:
+    if has_external_data or external_initializers_file_name or constant_inputs_file_name or force_model_dir:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
-
         onnx_file_name = Path(output_model_path).name
     else:
         model_path = LocalFile({"path": output_model_path})

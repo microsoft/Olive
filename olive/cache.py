@@ -462,13 +462,15 @@ class OliveCache:
         onnx_output_file = None
 
         if model_json["type"].lower() == "onnxmodel" and "model_path" in local_resource_names:
-            from olive.model.utils.onnx_utils import get_onnx_file_path
-            from olive.passes.onnx.common import resave_model
+            import shutil
 
             # Get the original model path from LocalFile/LocalFolder object
             model_path_resource = model_json["config"]["model_path"]
+            source_path = Path(model_path_resource.get_path())
             onnx_file_name = model_json["config"].get("onnx_file_name")
-            original_model_path = get_onnx_file_path(model_path_resource.get_path(), onnx_file_name)
+
+            # Determine if source has external data or additional files
+            has_additional_files = bool(onnx_file_name)
 
             # Determine the output file path
             if output_dir.suffix == ".onnx":
@@ -484,16 +486,27 @@ class OliveCache:
                 output_file = output_dir / f"{model_file_name}.onnx"
 
             actual_output_dir.mkdir(parents=True, exist_ok=True)
-            has_external_data = resave_model(original_model_path, output_file, saved_external_files={})
 
-            # Update model_json config based on whether model has external data
-            if has_external_data:
-                # Model has external data files, use folder + file_name structure
-                # This is needed for packaging system compatibility
+            if has_additional_files:
+                # Source is a folder with external data or additional files, copy all files
+                for item in source_path.iterdir():
+                    dest_item = actual_output_dir / item.name
+                    if item.is_file():
+                        shutil.copy2(item, dest_item)
+                    else:
+                        shutil.copytree(item, dest_item, dirs_exist_ok=True)
+
+                # Rename the .onnx file if needed
+                source_onnx_name = onnx_file_name or "model.onnx"
+                source_onnx_path = actual_output_dir / source_onnx_name
+                if source_onnx_path != output_file and source_onnx_path.exists():
+                    shutil.move(str(source_onnx_path), str(output_file))
+
+                # Model has additional files, use folder + file_name structure
                 model_json["config"]["model_path"] = str(actual_output_dir)
                 model_json["config"]["onnx_file_name"] = output_file.name
             else:
-                # Model has no external data, use complete file path
+                shutil.copy2(source_path, output_file)
                 model_json["config"]["model_path"] = str(output_file)
                 model_json["config"].pop("onnx_file_name", None)
 
