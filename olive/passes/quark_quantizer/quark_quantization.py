@@ -117,7 +117,7 @@ class QuarkQuantization(Pass):
         # to be safe, run the quantizer with use_external_data_format set to `True` and
         # `model_output` to a temporary directory
         # reload the model and save to output_model_path using the external data config
-        new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+        new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")  # pylint: disable=R1732
         tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
 
         data_reader = None
