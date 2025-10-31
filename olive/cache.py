@@ -488,16 +488,11 @@ class OliveCache:
             actual_output_dir.mkdir(parents=True, exist_ok=True)
 
             if has_additional_files:
-                # Source is a folder with external data or additional files, copy all files
-                for item in source_path.iterdir():
-                    dest_item = actual_output_dir / item.name
-                    if item.is_file():
-                        shutil.copy2(item, dest_item)
-                    else:
-                        shutil.copytree(item, dest_item, dirs_exist_ok=True)
+                # Source is a folder with external data or additional files, flatten to output dir
+                model_path_resource.save_to_dir(actual_output_dir, name=None, overwrite=overwrite, flatten=True)
 
                 # Rename the .onnx file if needed
-                source_onnx_name = onnx_file_name or "model.onnx"
+                source_onnx_name = onnx_file_name
                 source_onnx_path = actual_output_dir / source_onnx_name
                 if source_onnx_path != output_file and source_onnx_path.exists():
                     shutil.move(str(source_onnx_path), str(output_file))
@@ -522,18 +517,16 @@ class OliveCache:
                 path_name = f"{path_prefix}_{path_name}"
             # TODO(anyone): consider using hardlink_copy_file/dir instead of copy
             # to avoid copying large files
+            # For model_path, flatten the folder structure to output_dir
+            flatten = resource_name == "model_path"
             model_json["config"][resource_name] = model_json["config"][resource_name].save_to_dir(
-                output_dir, path_name, overwrite
+                output_dir, path_name, overwrite, flatten=flatten
             )
 
         if onnx_output_file:
             additional_files_dir = actual_output_dir
         else:
-            # For non-ONNX models
-            model_path_name = "model"
-            if path_prefix:
-                model_path_name = f"{path_prefix}_{model_path_name}"
-            additional_files_dir = output_dir / model_path_name
+            additional_files_dir = output_dir
 
         return self._save_additional_files(model_json, additional_files_dir)
 

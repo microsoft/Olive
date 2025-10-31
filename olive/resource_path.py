@@ -225,7 +225,7 @@ class LocalResourcePath(ResourcePath):
     def get_path(self) -> str:
         return str(self.config.path)
 
-    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
+    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False, flatten: bool = False) -> str:
         # directory to save the resource to
         dir_path = Path(dir_path).resolve()
         dir_path.mkdir(parents=True, exist_ok=True)
@@ -235,7 +235,7 @@ class LocalResourcePath(ResourcePath):
             new_path_name = Path(name).with_suffix(self.config.path.suffix).name
         else:
             new_path_name = self.config.path.name
-        new_path = dir_path / new_path_name
+        new_path = dir_path if flatten else dir_path / new_path_name
         _overwrite_helper(new_path, overwrite)
 
         # is the resource a file or a folder
