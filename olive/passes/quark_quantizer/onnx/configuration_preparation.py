@@ -195,7 +195,7 @@ def update_algo_config(algo_config: AlgoConfig, config_dict: dict[str, Any]) -> 
             algo_config.alpha = config_dict["alpha"]
 
     else:
-        # TODO: Configure the rest algorithms
+        # TODO(Gengxin): Configure the rest algorithms
         pass
 
 
