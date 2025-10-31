@@ -462,8 +462,6 @@ class OliveCache:
         onnx_output_file = None
 
         if model_json["type"].lower() == "onnxmodel" and "model_path" in local_resource_names:
-            import shutil
-
             # Get the original model path from LocalFile/LocalFolder object
             model_path_resource = model_json["config"]["model_path"]
             source_path = Path(model_path_resource.get_path())
