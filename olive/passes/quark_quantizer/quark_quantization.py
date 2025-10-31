@@ -10,10 +10,10 @@ import tempfile
 from argparse import Namespace
 from pathlib import Path
 from typing import Optional, Union
-from packaging import version
 
 import onnx
 import torch
+from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import exclude_keys
@@ -21,8 +21,8 @@ from olive.data.config import DataConfig
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
-from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.search.search_parameter import Categorical
 
 logger = logging.getLogger(__name__)
@@ -54,26 +54,37 @@ class QuarkQuantization(Pass):
             "quant_config": PassConfigParam(
                 type_=dict, default_value=None, description="Embedded quant configuration dictionary"
             ),
-
             "quant_mode": PassConfigParam(
-                type_=str, default_value="static", search_defaults=Categorical(["dynamic", "static"]),
+                type_=str,
+                default_value="static",
+                search_defaults=Categorical(["dynamic", "static"]),
                 description="Onnx Quantization mode. 'dynamic' for dynamic quantization, 'static' for static quantization. Default is 'static'",
             ),
             "quant_format": PassConfigParam(
-                type_=str, default_value="QDQ", search_defaults=Categorical(["QOperator", "QDQ"]),
+                type_=str,
+                default_value="QDQ",
+                search_defaults=Categorical(["QOperator", "QDQ"]),
                 description="Onnx Quantization format. 'QOperator' for quantizing models using QOperators, 'QDQ' for using Q/DQ. Default is 'QDQ'",
             ),
             "data_config": PassConfigParam(
-                type_=Optional[Union[DataConfig, dict]], default_value=None, description="Data config for calibration.",
+                type_=Optional[Union[DataConfig, dict]],
+                default_value=None,
+                description="Data config for calibration.",
             ),
             "global_config": PassConfigParam(
-                type_=dict, default_value=None, description="Global quantization configuration applied to all layers unless overridden."
+                type_=dict,
+                default_value=None,
+                description="Global quantization configuration applied to all layers unless overridden.",
             ),
             "exclude": PassConfigParam(
-                type_=dict, default_value=None, description="List of nodes or subgraphs excluded from quantization. Default is None."
+                type_=dict,
+                default_value=None,
+                description="List of nodes or subgraphs excluded from quantization. Default is None.",
             ),
             "algo_config": PassConfigParam(
-                type_=list, default_value=None, description="Algorithm configuration, can be a list of algorithm configurations. Default is None."
+                type_=list,
+                default_value=None,
+                description="Algorithm configuration, can be a list of algorithm configurations. Default is None.",
             ),
             "extra_options": PassConfigParam(
                 type_=dict, default_value=None, description="Extra options for quantization. Default is {}."
@@ -81,8 +92,9 @@ class QuarkQuantization(Pass):
             **get_external_data_config(),
         }
 
-    def _run_for_config(self, model: Union[HfModelHandler, ONNXModelHandler], config: BasePassConfig,
-            output_model_path: str) -> Union[HfModelHandler, ONNXModelHandler]:
+    def _run_for_config(
+        self, model: Union[HfModelHandler, ONNXModelHandler], config: BasePassConfig, output_model_path: str
+    ) -> Union[HfModelHandler, ONNXModelHandler]:
         if isinstance(model, ONNXModelHandler):
             logger.info("[INFO] Running QuarkQuantization using Quark-ONNX API with config: %s", config)
             return self._run_quark_onnx(model, config, output_model_path)
@@ -90,8 +102,11 @@ class QuarkQuantization(Pass):
             logger.info("[INFO] Running QuarkQuantization using Quark-Torch API with config: %s", config)
             return self._run_quark_torch(model, config, output_model_path)
 
-    def _run_quark_onnx(self, model: ONNXModelHandler, config: BasePassConfig, output_model_path: str) -> ONNXModelHandler:
+    def _run_quark_onnx(
+        self, model: ONNXModelHandler, config: BasePassConfig, output_model_path: str
+    ) -> ONNXModelHandler:
         from quark import __version__ as QuarkVersion
+
         if version.parse(QuarkVersion) < version.parse("0.10.0"):
             raise ValueError("Onnx Quantization is only supported for quark>=0.10.0")
 

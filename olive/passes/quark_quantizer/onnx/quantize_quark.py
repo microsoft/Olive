@@ -5,7 +5,7 @@
 
 from argparse import Namespace
 
-from quark.onnx import ModelQuantizer 
+from quark.onnx import ModelQuantizer
 from quark.onnx.quantization.config.config import QConfig
 
 from olive.passes.quark_quantizer.onnx.configuration_preparation import (

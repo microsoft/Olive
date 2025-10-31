@@ -4,14 +4,34 @@
 #
 
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any
 
-from quark.onnx.quantization.config.algorithm import (AlgoConfig, AdaQuantConfig, AdaRoundConfig,
-                                                      AutoMixprecisionConfig, BiasCorrectionConfig,
-                                                      CLEConfig, GPTQConfig, QuarotConfig, SmoothQuantConfig,)
-from quark.onnx.quantization.config.spec import (BFloat16Spec, BFP16Spec, CalibMethod, Int8Spec, Int16Spec,
-                                                 Int32Spec, QLayerConfig, QuantGranularity, ScaleType,
-                                                 UInt8Spec, UInt16Spec, UInt32Spec, XInt8Spec,)
+from quark.onnx.quantization.config.algorithm import (
+    AdaQuantConfig,
+    AdaRoundConfig,
+    AlgoConfig,
+    AutoMixprecisionConfig,
+    BiasCorrectionConfig,
+    CLEConfig,
+    GPTQConfig,
+    QuarotConfig,
+    SmoothQuantConfig,
+)
+from quark.onnx.quantization.config.spec import (
+    BFloat16Spec,
+    BFP16Spec,
+    CalibMethod,
+    Int8Spec,
+    Int16Spec,
+    Int32Spec,
+    QLayerConfig,
+    QuantGranularity,
+    ScaleType,
+    UInt8Spec,
+    UInt16Spec,
+    UInt32Spec,
+    XInt8Spec,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +124,7 @@ algorithm_mapping = {
 
 
 def update_algo_config(algo_config: AlgoConfig, config_dict: dict[str, Any]) -> None:
-    if isinstance(algo_config, AdaRoundConfig) or isinstance(algo_config, AdaRoundConfig):
+    if isinstance(algo_config, (AdaRoundConfig, AdaQuantConfig)):
         if "optim_device" in config_dict:
             algo_config.optim_device = config_dict["optim_device"]
         if "infer_device" in config_dict:
