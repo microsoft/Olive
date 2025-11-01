@@ -223,11 +223,10 @@ class Engine:
                 )
             else:
                 logger.debug("No packaging config provided, skip packaging artifacts")
-
-            best_node = workflow_output.get_best_candidate()
-            model_json = self.cache.save_model(model_id=best_node.model_id, output_dir=output_dir, overwrite=True)
-            best_node._update_with_model_config(model_json)  # pylint: disable=W0212
-            logger.info("Saved output model to %s", output_dir)
+                best_node = workflow_output.get_best_candidate()
+                model_json = self.cache.save_model(model_id=best_node.model_id, output_dir=output_dir, overwrite=True)
+                best_node._update_with_model_config(model_json)  # pylint: disable=W0212
+                logger.info("Saved output model to %s", output_dir)
         else:
             logger.warning("No output model produced. Please check the log for details.")
 
