@@ -193,7 +193,10 @@ class Engine:
             self.initialize(log_to_file, log_severity_level)
 
         output_dir: Path = (Path(output_dir) if output_dir else Path.cwd()).resolve()
-        output_dir.mkdir(parents=True, exist_ok=True)
+        if output_dir.suffix:
+            output_dir.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            output_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info("Running Olive on accelerator: %s", accelerator_spec)
         with self._create_system():
@@ -220,11 +223,10 @@ class Engine:
                 )
             else:
                 logger.debug("No packaging config provided, skip packaging artifacts")
-
-            best_node = workflow_output.get_best_candidate()
-            model_json = self.cache.save_model(model_id=best_node.model_id, output_dir=output_dir, overwrite=True)
-            best_node._update_with_model_config(model_json)  # pylint: disable=W0212
-            logger.info("Saved output model to %s", output_dir)
+                best_node = workflow_output.get_best_candidate()
+                model_json = self.cache.save_model(model_id=best_node.model_id, output_dir=output_dir, overwrite=True)
+                best_node._update_with_model_config(model_json)  # pylint: disable=W0212
+                logger.info("Saved output model to %s", output_dir)
         else:
             logger.warning("No output model produced. Please check the log for details.")
 

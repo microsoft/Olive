@@ -121,10 +121,16 @@ def model_proto_to_file(
 
     :return: True if the model has external data, False otherwise.
     """
+    import shutil
+
     output_path = Path(output_path)
     if output_path.exists():
-        logger.debug("Deleting existing onnx file: %s", output_path)
-        output_path.unlink()
+        if output_path.is_dir():
+            logger.debug("Deleting existing directory: %s", output_path)
+            shutil.rmtree(output_path)
+        else:
+            logger.debug("Deleting existing onnx file: %s", output_path)
+            output_path.unlink()
 
     # parent directory of .onnx file
     output_dir = output_path.parent
@@ -216,7 +222,6 @@ def model_proto_to_olive_model(
     )
     if has_external_data or external_initializers_file_name or constant_inputs_file_name or force_model_dir:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
-
         onnx_file_name = Path(output_model_path).name
     else:
         model_path = LocalFile({"path": output_model_path})
@@ -281,7 +286,6 @@ def ir_model_to_olive_model(
         logger.debug("Model was saved with external data: %s", external_data_name)
         model_path = LocalFolder({"path": Path(output_model_path).parent})
         onnx_file_name = Path(output_model_path).name
-
     else:
         ir.save(model, output_model_path)
 
