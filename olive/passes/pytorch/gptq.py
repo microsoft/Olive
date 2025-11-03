@@ -98,6 +98,8 @@ class Gptq(Pass):
         from tqdm.auto import tqdm
 
         wrapper, qcfg, _ = prepare_model(model, config)
+        original_use_cache = wrapper.model.config.use_cache
+        wrapper.model.config.use_cache = False
 
         # get the inputs for the first layer
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -137,6 +139,8 @@ class Gptq(Pass):
             handle.remove()
 
             self.process_module(lm_head, percdamp=config.damp_percent, actorder=config.desc_act)
+
+        wrapper.model.config.use_cache = original_use_cache
 
         return finalize(model, output_model_path, wrapper, qcfg, device)
 

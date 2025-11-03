@@ -79,14 +79,13 @@ def get_quantizer_config(allow_embeds: bool = False) -> dict[str, PassConfigPara
 
 
 def prepare_model(
-    model: HfModelHandler, config: type[BasePassConfig], allow_embeds: bool = False, allow_quantized: bool = False
+    model: HfModelHandler, config: type[BasePassConfig], allow_quantized: bool = False
 ) -> tuple[ModelWrapper, OliveHfQuantizationConfig, bool]:
     """Prepare the model for quantization by adding quant_info to linear layers.
 
     Args:
         model: The HuggingFace model to prepare.
         config: Configuration object containing quantization parameters.
-        allow_embeds: Whether to allow quantization of embedding layers.
         allow_quantized: Whether to allow already (partially) quantized models.
 
     Returns:
@@ -96,12 +95,13 @@ def prepare_model(
     if existing_qcfg := getattr(model.get_hf_model_config(), "quantization_config", None):
         if not allow_quantized:
             raise ValueError("Model is already quantized. Cannot quantize again using this pass.")
-        if getattr(existing_qcfg, "quant_method", None) != OliveHfQuantizationMethod.OLIVE:
+        if not isinstance(existing_qcfg, dict):
+            existing_qcfg = existing_qcfg.to_dict()
+        if existing_qcfg.get("quant_method", None) != OliveHfQuantizationMethod.OLIVE:
             raise ValueError("Model has an existing quantization configuration that is not compatible with this pass.")
 
     wrapper = ModelWrapper.from_model(load_hf_base_model(model, torch_dtype="auto"))
     wrapper.model.eval()
-    wrapper.model.config.use_cache = False
 
     qcfg = get_quant_config(model, config)
 
@@ -110,13 +110,13 @@ def prepare_model(
         wrapper.maybe_untie_word_embeddings()
 
     lm_head_name = wrapper.get_lm_head()[1]
-    embeds_name = wrapper.get_embeds()[1]
+    embeds_name = wrapper.get_embeds()[1][0]
     new_qargs: dict[str, dict[str, int | bool]] = {}
 
     def should_quantize(module: torch.nn.Module, name: str) -> bool:
         if isinstance(module, torch.nn.Linear):
             return name != lm_head_name or qcfg.lm_head
-        if allow_embeds and isinstance(module, torch.nn.Embedding):
+        if qcfg.embeds and isinstance(module, torch.nn.Embedding):
             return name == embeds_name
         return False
 
@@ -136,8 +136,8 @@ def prepare_model(
 
     # merge the new_quant_settings into the existing quant_config
     if existing_qcfg:
-        merged_qcfg_dict = existing_qcfg.to_dict()
-        merged_qcfg_dict["overrides"] = existing_qcfg.overrides or {}
+        merged_qcfg_dict = existing_qcfg
+        merged_qcfg_dict["overrides"] = existing_qcfg.get("overrides") or {}
         for name, qargs in new_qargs.items():
             override = {k: v for k, v in qargs.items() if merged_qcfg_dict[k] != v}
             if override:
@@ -257,8 +257,7 @@ def finalize(
 
     if retie_word_embeddings:
         tie_quant_word_embeddings(wrapper.model)
-        wrapper.config.tie_word_embeddings = True
-        wrapper.model.config.tie_word_embeddings = True
+        quant_config.tie_word_embeddings = True
 
     wrapper.model.quantization_method = quant_config.quant_method
     wrapper.model.config.quantization_config = quant_config

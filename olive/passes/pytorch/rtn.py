@@ -43,7 +43,7 @@ class Rtn(Pass):
             HfModelHandler for the quantized model.
 
         """
-        wrapper, qcfg, retie_word_embeddings = prepare_model(model, config, allow_embeds=True, allow_quantized=True)
+        wrapper, qcfg, retie_word_embeddings = prepare_model(model, config, allow_quantized=True)
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
 

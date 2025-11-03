@@ -599,4 +599,4 @@ class QuantEmbeddingFunction(torch.autograd.Function):
                 shape=[*x.shape, embedding_dim],
                 version=1,
             )
-        return torch.zeros((*x.shape, embedding_dim), dtype=x.dtype, device=x.device)
+        return torch.zeros((*x.shape, embedding_dim), dtype=scales.dtype, device=x.device)

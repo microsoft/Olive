@@ -71,6 +71,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         embeds: bool = False,
         modules_to_not_convert: list | None = None,
         overrides: dict | None = None,
+        tie_word_embeddings: bool = False,
         **kwargs,
     ):
         # pylint: disable=W0231
@@ -86,6 +87,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
             module_name: OliveHfQuantizationOverrideConfig(**override)
             for module_name, override in (overrides or {}).items()
         }
+        self.tie_word_embeddings = tie_word_embeddings
         self.post_init()
 
     def post_init(self):
@@ -181,10 +183,14 @@ class OliveHfQuantizer(HfQuantizer):
 
         replace_matching_submodules(model, should_quantize, create_quantized_module)
 
-        if self.config.lm_head and self.config.embeds and model.config.tie_word_embeddings:
+        if self.quantization_config.tie_word_embeddings:
+            # doing first time so that the weight load doesn't complain about missing weights
             tie_quant_word_embeddings(model)
 
     def _process_model_after_weight_loading(self, model: PreTrainedModel, **kwargs):
+        if self.quantization_config.tie_word_embeddings:
+            # doing again to ensure buffers are tied after loading weights
+            tie_quant_word_embeddings(model)
         return model
 
     def is_serializable(self, safe_serialization=None) -> bool:
@@ -247,6 +253,38 @@ def replace_matching_submodules(
     return module
 
 
+def _repoint_buffer(src: nn.Module, dst: nn.Module, name: str):
+    """Repoint a buffer from src to dst.
+
+    Args:
+        src: Source module.
+        dst: Destination module.
+        name: Name of the buffer to repoint.
+
+    """
+    src_buf = getattr(src, name, None)
+
+    # ensure both are None or both exist
+    if src_buf is None:
+        assert getattr(dst, name, None) is None, f"Output embedding has {name} but input does not."
+        return
+
+    # ensure both have the buffer shapes and types match
+    dst_buf = getattr(dst, name, None)
+    assert src_buf.shape == dst_buf.shape, (
+        f"Cannot tie embeddings: input embedding {name} shape {src_buf.shape} "
+        f"does not match output embedding shape {dst_buf.shape}."
+    )
+    assert src_buf.dtype == dst_buf.dtype, (
+        f"Cannot tie embeddings: input embedding {name} dtype {src_buf.dtype} "
+        f"does not match output embedding dtype {dst_buf.dtype}."
+    )
+
+    # tie the buffers
+    dst._buffers[name] = src_buf
+    dst._non_persistent_buffers_set.add(name)
+
+
 def tie_quant_word_embeddings(model: PreTrainedModel):
     """Tie the word embeddings and output embeddings if they have the same shape.
 
@@ -257,25 +295,5 @@ def tie_quant_word_embeddings(model: PreTrainedModel):
     input_embeds = model.get_input_embeddings()
     output_embeds = model.get_output_embeddings()
 
-    for name in ("qweight", "scales", "qzeros"):
-        input_buf = getattr(input_embeds, name, None)
-
-        # ensure both are None or both exist
-        if input_buf is None:
-            assert getattr(output_embeds, name, None) is None, f"Output embedding has {name} but input does not."
-            continue
-
-        # ensure both have the buffer shapes and types match
-        output_buf = getattr(output_embeds, name, None)
-        assert input_buf.shape == output_buf.shape, (
-            f"Cannot tie embeddings: input embedding {name} shape {input_buf.shape} "
-            f"does not match output embedding shape {output_buf.shape}."
-        )
-        assert input_buf.dtype == output_buf.dtype, (
-            f"Cannot tie embeddings: input embedding {name} dtype {input_buf.dtype} "
-            f"does not match output embedding dtype {output_buf.dtype}."
-        )
-
-        # tie the buffers
-        output_embeds._buffers[name] = input_buf
-        output_embeds._non_persistent_buffers_set.add(name)
+    for name in ["qweight", "scales", "qzeros"]:
+        _repoint_buffer(input_embeds, output_embeds, name)
