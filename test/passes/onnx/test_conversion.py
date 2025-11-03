@@ -19,7 +19,7 @@ from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 from olive.passes.pytorch.autogptq import GptqQuantizer
-from olive.passes.pytorch.gptq import Gptq
+from olive.passes.pytorch.rtn import Rtn
 from test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
 
 
@@ -50,8 +50,12 @@ def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter: b
     assert Path(onnx_model.model_path).exists()
 
 
-@pytest.mark.parametrize("quantizer_pass", [Gptq, GptqQuantizer])
-def test_onnx_conversion_pass_quant_model(quantizer_pass, tmp_path):
+@pytest.mark.parametrize("quantizer_pass", [Rtn, GptqQuantizer])
+@pytest.mark.parametrize("use_dynamo_exporter", [False, True])
+def test_onnx_conversion_pass_quant_model(quantizer_pass, use_dynamo_exporter: bool, tmp_path):
+    if use_dynamo_exporter and platform.system() == "Windows":
+        pytest.skip("FIXME: torch ops fails on Windows")
+
     if quantizer_pass == GptqQuantizer and not torch.cuda.is_available():
         pytest.skip("GptqQuantizer requires CUDA")
 
@@ -59,7 +63,11 @@ def test_onnx_conversion_pass_quant_model(quantizer_pass, tmp_path):
     base_model = HfModelHandler(
         model_path="katuni4ka/tiny-random-phi3", load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
     )
-    quantizer_pass = create_pass_from_dict(quantizer_pass, {"group_size": 16}, disable_search=True)
+    pass_config = {"group_size": 16, "use_dynamo_exporter": use_dynamo_exporter}
+    if quantizer_pass == Rtn:
+        pass_config["lm_head"] = True
+        pass_config["embeds"] = True
+    quantizer_pass = create_pass_from_dict(quantizer_pass, pass_config, disable_search=True)
     quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
 
     p = create_pass_from_dict(OnnxConversion, {"torch_dtype": "float32"}, disable_search=True)
@@ -73,42 +81,14 @@ def test_onnx_conversion_pass_quant_model(quantizer_pass, tmp_path):
     model_ir = ir.load(onnx_model.model_path)
     num_mnb = sum(node.op_type == "MatMulNBits" for node in model_ir.graph)
     # 2 layers X 1 qkv, 1 o, 1 gate_up, 1 down
-    assert num_mnb == 2 * 4
+    expected_num_mnb = 2 * 4
+    if pass_config.get("lm_head", False):
+        expected_num_mnb += 1
+    assert num_mnb == expected_num_mnb
 
-
-# @pytest.mark.skipif(
-#     version.parse(torch.__version__) != version.parse("2.8.0"),
-#     reason="Dynamo export requires 2.8+. FIXME: 2.9 has issues.",
-# )
-@pytest.mark.skipif(platform.system() == "Windows", reason="FIXME: torch ops fails on Windows")
-@pytest.mark.parametrize("quantizer_pass", [Gptq, GptqQuantizer])
-def test_onnx_conversion_pass_quant_model_with_torch_ops(quantizer_pass, tmp_path):
-    if quantizer_pass == GptqQuantizer and not torch.cuda.is_available():
-        pytest.skip("GptqQuantizer requires CUDA")
-
-    # setup
-    base_model = HfModelHandler(
-        model_path="katuni4ka/tiny-random-phi3", load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
-    )
-    # awq has minimum hidden size of 64 or 64 multiples so this model is not compatible
-    # only testing with gptq quantized model
-    quantizer_pass = create_pass_from_dict(quantizer_pass, {"group_size": 16}, disable_search=True)
-    quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
-
-    p = create_pass_from_dict(
-        OnnxConversion, {"torch_dtype": "float32", "use_dynamo_exporter": True}, disable_search=True
-    )
-    output_folder = str(tmp_path / "onnx")
-
-    # run
-    onnx_model = p.run(quantized_model, output_folder)
-
-    # assert
-    assert Path(onnx_model.model_path).exists()
-    model_ir = ir.load(onnx_model.model_path)
-    num_mnb = sum(node.op_type == "MatMulNBits" for node in model_ir.graph)
-    # 2 layers X 1 qkv, 1 o, 1 gate_up, 1 down
-    assert num_mnb == 2 * 4
+    num_gbq = sum(node.op_type == "GatherBlockQuantized" for node in model_ir.graph)
+    expected_num_gbq = 1 if pass_config.get("embeds", False) else 0
+    assert num_gbq == expected_num_gbq
 
 
 @pytest.mark.parametrize("target_opset", [9, 10, 16])

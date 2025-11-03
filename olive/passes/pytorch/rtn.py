@@ -44,7 +44,5 @@ class Rtn(Pass):
 
         """
         wrapper, qcfg, retie_word_embeddings = prepare_model(model, config, allow_quantized=True)
-
         device = "cuda" if torch.cuda.is_available() else "cpu"
-
         return finalize(model, output_model_path, wrapper, qcfg, device, retie_word_embeddings=retie_word_embeddings)
