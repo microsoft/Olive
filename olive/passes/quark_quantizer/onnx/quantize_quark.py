@@ -22,7 +22,12 @@ def run_quark_quantization(args: Namespace) -> None:
     global_config = get_global_config(args.global_config)
     algo_config = get_algo_config(args.algo_config)
     quant_config = QConfig(
-        global_config=global_config, algo_config=algo_config, exclude=args.exclude, **args.extra_options
+        global_config=global_config,
+        specific_layer_config=args.specific_layer_config,
+        layer_type_config=args.layer_type_config,
+        exclude=args.exclude,
+        algo_config=algo_config,
+        **args.extra_options,
     )
 
     quantizer = ModelQuantizer(quant_config)
