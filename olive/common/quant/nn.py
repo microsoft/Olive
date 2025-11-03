@@ -471,7 +471,7 @@ class QuantEmbedding(QuantModule):
             symmetric=symmetric,
             group_size=group_size,
             device=device,
-            dtype=dtype
+            dtype=dtype,
         )
         self.padding_idx = padding_idx
 
