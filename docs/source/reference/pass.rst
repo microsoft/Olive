@@ -307,6 +307,12 @@ AutoAWQQuantizer
 ----------------
 .. autoconfigclass:: olive.passes.AutoAWQQuantizer
 
+.. _rtn:
+
+Rtn
+----------------
+.. autoconfigclass:: olive.passes.Rtn
+
 .. _torch_trt_conversion:
 
 TorchTRTConversion
