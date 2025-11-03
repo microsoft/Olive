@@ -281,6 +281,7 @@ def _repoint_buffer(src: nn.Module, dst: nn.Module, name: str):
     )
 
     # tie the buffers
+    # pylint: disable=W0212
     dst._buffers[name] = src_buf
     dst._non_persistent_buffers_set.add(name)
 
