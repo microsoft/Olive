@@ -181,6 +181,9 @@ class OliveHfQuantizer(HfQuantizer):
 
         replace_matching_submodules(model, should_quantize, create_quantized_module)
 
+        if self.config.lm_head and self.config.embeds and model.config.tie_word_embeddings:
+            tie_quant_word_embeddings(model)
+
     def _process_model_after_weight_loading(self, model: PreTrainedModel, **kwargs):
         return model
 
@@ -242,3 +245,37 @@ def replace_matching_submodules(
         pbar.close()
 
     return module
+
+
+def tie_quant_word_embeddings(model: PreTrainedModel):
+    """Tie the word embeddings and output embeddings if they have the same shape.
+
+    Args:
+        model: The HuggingFace model to tie embeddings for.
+
+    """
+    input_embeds = model.get_input_embeddings()
+    output_embeds = model.get_output_embeddings()
+
+    for name in ("qweight", "scales", "qzeros"):
+        input_buf = getattr(input_embeds, name, None)
+
+        # ensure both are None or both exist
+        if input_buf is None:
+            assert getattr(output_embeds, name, None) is None, f"Output embedding has {name} but input does not."
+            continue
+
+        # ensure both have the buffer shapes and types match
+        output_buf = getattr(output_embeds, name, None)
+        assert input_buf.shape == output_buf.shape, (
+            f"Cannot tie embeddings: input embedding {name} shape {input_buf.shape} "
+            f"does not match output embedding shape {output_buf.shape}."
+        )
+        assert input_buf.dtype == output_buf.dtype, (
+            f"Cannot tie embeddings: input embedding {name} dtype {input_buf.dtype} "
+            f"does not match output embedding dtype {output_buf.dtype}."
+        )
+
+        # tie the buffers
+        output_embeds._buffers[name] = input_buf
+        output_embeds._non_persistent_buffers_set.add(name)
