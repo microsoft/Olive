@@ -37,6 +37,7 @@ class QuantModule(nn.Module):
         group_size: int = -1,
         device: torch.device | None = None,
         dtype: torch.dtype = torch.float32,
+        keep_sym_zeros: bool = False,
     ):
         """Initialize QuantLinear layer.
 
@@ -48,6 +49,7 @@ class QuantModule(nn.Module):
             group_size: Quantization group size (-1: per-channel, >0: groupwise)
             device: Device to place tensors on
             dtype: Data type for scales and bias
+            keep_sym_zeros: Whether to keep zero points buffer for symmetric quantization.
 
         """
         super().__init__()
@@ -61,6 +63,9 @@ class QuantModule(nn.Module):
         self.quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
         self.device = device
         self.dtype = dtype
+        # don't want to keep zero points buffer for symmetric quantization by default to save memory
+        # but CUDA implementation of GatherBlockQuantized has a bug which requires zero points to be provided
+        self.keep_sym_zeros = keep_sym_zeros
         self.packing_factor = 8 // bits
 
         # using the same layout and packing as auto-gptq
@@ -79,7 +84,7 @@ class QuantModule(nn.Module):
             "scales",
             torch.zeros(scale_shape, dtype=dtype, device=device),
         )
-        if symmetric:
+        if symmetric and not keep_sym_zeros:
             self.qzeros = None
         else:
             self.register_buffer(
@@ -119,6 +124,7 @@ class QuantModule(nn.Module):
             A QuantModule instance with quantized weight
 
         """
+        # pylint: disable=W0201
         if quantized:
             if scales is None or zero_points is None:
                 raise ValueError("scales and/or zero_points missing for quantized weight")
@@ -136,10 +142,7 @@ class QuantModule(nn.Module):
             # quantize weights
             qweight = quantizer.quantize(weight, scales, zero_points)
 
-        rows, cols = qweight.shape
         qmodule = cls(
-            rows,
-            cols,
             bits=bits,
             symmetric=symmetric,
             group_size=group_size,
@@ -148,12 +151,17 @@ class QuantModule(nn.Module):
             **kwargs,
         )
         qmodule.qweight = qmodule._pack(qweight.to(torch.int32)).contiguous()
-        scale_shape = qmodule.quantizer.get_qparam_shape((rows, cols))
+        scale_shape = qmodule.quantizer.get_qparam_shape(qweight.shape)
         qmodule.scales = scales.reshape(scale_shape)
-        if not symmetric:
+        qmodule.qzeros = qmodule._pack(zero_points.to(torch.int32).reshape(scale_shape)).contiguous()
+
+        # enforce symmetric quantization constraints
+        if symmetric and not torch.all(zero_points == qmodule.quantizer.midq):
+            raise ValueError("Zero points must be equal to midq for symmetric quantization")
+
+        if qmodule.keep_sym_zeros or not symmetric:
             qmodule.qzeros = qmodule._pack(zero_points.to(torch.int32).reshape(scale_shape)).contiguous()
-        elif zero_points is not None and not torch.all(zero_points == qmodule.quantizer.midq):
-            raise ValueError("Zero points must be None or equal to midq for symmetric quantization")
+
         return qmodule
 
     @torch.no_grad()
@@ -317,6 +325,8 @@ class QuantLinear(QuantModule):
 
         """
         qlinear = cls.from_tensors(
+            in_features=linear.in_features,
+            out_features=linear.out_features,
             weight=linear.weight,
             bits=bits,
             symmetric=symmetric,
@@ -344,11 +354,11 @@ class QuantLinear(QuantModule):
         if torch.onnx.is_in_onnx_export():
             out = QuantLinearFunction.apply(
                 x,
-                self.qweight,
+                self.qweight.reshape([*self.scales.shape, self.qweight.shape[-1] // self.scales.shape[-1]]),
                 self.scales,
                 self.qzeros,
                 self.quantizer.bits,
-                self.quantizer.group_size,
+                self.quantizer.group_size if self.quantizer.group_size > 0 else self.cols,
                 self.cols,
                 self.rows,
             )
@@ -358,7 +368,7 @@ class QuantLinear(QuantModule):
 
         # unpack weights and zero points
         weight = self.unpack_and_dequantize(self.qweight, self.scales, self.qzeros)
-        return nn.functional.linear(x, weight, bias=self.bias).to(x_dtype)
+        return nn.functional.linear(x, weight, bias=self.bias).to(x_dtype)  # pylint: disable=not-callable
 
     def extra_repr(self) -> str:
         return (
@@ -411,7 +421,7 @@ class QuantLinearFunction(torch.autograd.Function):
     ):
         # there is no clean way to differentiate between torchscript and dynamo export
         # using FakeTensor as a proxy for dynamo export
-        if hasattr(torch.onnx, "ops") and isinstance(x, torch._subclasses.FakeTensor):
+        if hasattr(torch.onnx, "ops") and isinstance(x, torch._subclasses.FakeTensor):  # pylint: disable=W0212
             tensor_args = [x, qweight, scales]
             if qzeros is not None:
                 tensor_args.append(qzeros)
@@ -430,7 +440,7 @@ class QuantLinearFunction(torch.autograd.Function):
                 shape=[*x.shape[:-1], out_features],
                 version=1,
             )
-        return torch.zeros(x.shape[:-1] + (out_features,), dtype=x.dtype, device=x.device)
+        return torch.zeros([*x.shape[:-1], out_features], dtype=x.dtype, device=x.device)
 
 
 class QuantEmbedding(QuantModule):
@@ -468,6 +478,7 @@ class QuantEmbedding(QuantModule):
             group_size=group_size,
             device=device,
             dtype=dtype,
+            keep_sym_zeros=True,
         )
         self.padding_idx = padding_idx
 
@@ -496,6 +507,8 @@ class QuantEmbedding(QuantModule):
 
         """
         return cls.from_tensors(
+            num_embeddings=embedding.num_embeddings,
+            embedding_dim=embedding.embedding_dim,
             weight=embedding.weight,
             bits=bits,
             symmetric=symmetric,
@@ -519,17 +532,24 @@ class QuantEmbedding(QuantModule):
                 self.scales,
                 self.qzeros,
                 self.quantizer.bits,
-                self.quantizer.group_size,
+                self.quantizer.group_size if self.quantizer.group_size > 0 else self.cols,
                 self.cols,
             )
 
+        # reshape input to 1D so that look up results are 2D
+        x_shape = x.shape
+        x = x.reshape(-1)
+
+        # look up quantized weights and qparams
         qweight = nn.functional.embedding(x, self.qweight, padding_idx=self.padding_idx)
         scales = nn.functional.embedding(x, self.scales, padding_idx=self.padding_idx)
-        if not self.quantizer.symmetric:
+        if self.qzeros is not None:
             qzeros = nn.functional.embedding(x, self.qzeros, padding_idx=self.padding_idx)
         else:
             qzeros = None
-        return self.unpack_and_dequantize(qweight, scales, qzeros)
+
+        # unpack and dequantize
+        return self.unpack_and_dequantize(qweight, scales, qzeros).reshape(*x_shape, -1)
 
     def extra_repr(self) -> str:
         return (
@@ -547,11 +567,7 @@ class QuantEmbeddingFunction(torch.autograd.Function):
         tensor_args = [qweight, x, scales]
         if qzeros is not None:
             tensor_args.append(qzeros)
-        attrs = {
-            "bits_i": bits,
-            "block_size_i": group_size,
-            "accuracy_level_i": 4,
-        }
+        attrs = {"bits_i": bits, "block_size_i": group_size}
 
         output = g.op(
             "com.microsoft::GatherBlockQuantized",
@@ -561,7 +577,7 @@ class QuantEmbeddingFunction(torch.autograd.Function):
         )
         input_shape = x.type().varyingSizes()
         if input_shape is not None and hasattr(x.type(), "with_sizes"):
-            output_type = x.type().with_sizes(input_shape + [embedding_dim])
+            output_type = scales.type().with_sizes([*input_shape, embedding_dim])
             output.setType(output_type)
 
         return output
@@ -577,17 +593,17 @@ class QuantEmbeddingFunction(torch.autograd.Function):
         group_size: int,
         embedding_dim: int,
     ):
-        if hasattr(torch.onnx, "ops") and isinstance(x, torch._subclasses.FakeTensor):
+        if hasattr(torch.onnx, "ops") and isinstance(x, torch._subclasses.FakeTensor):  # pylint: disable=W0212
             tensor_args = [qweight, x, scales]
             if qzeros is not None:
                 tensor_args.append(qzeros)
             attrs = {"bits": bits, "block_size": group_size}
             return torch.onnx.ops.symbolic(
-                "com.microsoft::MatMulNBits",
+                "com.microsoft::GatherBlockQuantized",
                 tensor_args,
                 attrs=attrs,
-                dtype=x.dtype,
+                dtype=scales.dtype,
                 shape=[*x.shape, embedding_dim],
                 version=1,
             )
-        return torch.zeros(x.shape + (embedding_dim,), dtype=x.dtype, device=x.device)
+        return torch.zeros((*x.shape, embedding_dim), dtype=x.dtype, device=x.device)
