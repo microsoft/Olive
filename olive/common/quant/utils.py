@@ -34,6 +34,7 @@ class WeightQuantizer:
         else:
             self.minq = 0
             self.maxq = (1 << self.bits) - 1
+        self.midq = (self.maxq + self.minq + 1) // 2
 
     def get_num_groups(self, shape: tuple[int, int]) -> int:
         """Get the number of groups for quantization based on the input shape and group_size.
@@ -51,12 +52,11 @@ class WeightQuantizer:
         assert shape[1] % group_size == 0, f"in_features {shape[1]} must be divisible by group_size {group_size}"
         return shape[1] // group_size
 
-    def get_qparam_shape(self, shape: tuple[int, int], transpose_out: bool = False) -> tuple[int, ...]:
+    def get_qparam_shape(self, shape: tuple[int, int]) -> tuple[int, ...]:
         """Get the shapes for quantization parameters based on the input shape and group_size.
 
         Args:
             shape: The shape (out_features, in_features) of the tensor to quantize
-            transpose_out: Whether the output is transposed
 
         Returns:
             A tuple of shapes for scales and zero points
@@ -64,7 +64,7 @@ class WeightQuantizer:
         """
         if self.group_size == 0:
             return (1, 1)
-        return (shape[0], self.get_num_groups(shape)) if not transpose_out else (self.get_num_groups(shape), shape[0])
+        return (shape[0], self.get_num_groups(shape))
 
     @torch.no_grad()
     def find_qparams(self, tensor: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -96,7 +96,7 @@ class WeightQuantizer:
 
         scales = (max_val - min_val) / (self.maxq - self.minq)
         if self.symmetric:
-            zero_points = torch.full_like(scales, (self.maxq + self.minq + 1) / 2)
+            zero_points = torch.full_like(scales, self.midq)
         else:
             zero_points = torch.round(self.minq - min_val / scales)
         zero_points = zero_points.clamp(self.minq, self.maxq).to(torch.int32)

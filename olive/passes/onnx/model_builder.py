@@ -5,13 +5,16 @@
 # Export a PyTorch model using the onnxruntime-genai package.
 # --------------------------------------------------------------------------
 import copy
+import importlib
 import json
 import logging
+import re
 from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, Union
 
 import onnx
+import torch
 import transformers
 from packaging import version
 
@@ -331,21 +334,181 @@ class ModelBuilder(Pass):
 
         return output_model
 
-    # TODO(jambayk): Remove this once version 0.9.1 with olive quant changes is released
     @staticmethod
     def maybe_patch_quant():
-        """Patch onnxruntime-genai olive quant model to disable offset handling for qzeros in version 0.9.0+."""
         from onnxruntime_genai import __version__ as genai_version
 
         if version.parse(genai_version) < version.parse("0.9.0"):
             return
 
-        from onnxruntime_genai.models.quantized_model import OliveModel
+        quantized_model = importlib.import_module("onnxruntime_genai.models.quantized_model")
+        quantized_model.OliveModel.__init__ = OliveQuantizedModel.__init__
+        quantized_model.OliveModel.get_layer_bits = OliveQuantizedModel.get_layer_bits
+        quantized_model.OliveModel.get_layer_group_size = OliveQuantizedModel.get_layer_group_size
 
-        if getattr(OliveModel.handle_qzeros, "__name__", "") == "_noop_handle_qzeros":
-            return
+        builder = importlib.import_module("onnxruntime_genai.models.builder")
+        builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
 
-        def _noop_handle_qzeros(self, module):
-            pass
 
-        OliveModel.handle_qzeros = _noop_handle_qzeros
+class OliveQuantizedModel:
+    def __init__(self, quant_type, input_path, quant_attrs, q_size, kv_size, intermediate_size, num_layers):
+        logger.debug("Using OliveQuantizedModel for quantized model loading.")
+
+        from onnxruntime_genai.models.quantized_model import QuantizedDecoderLayer, QuantizedTensorModule, TensorModule
+        from safetensors.torch import load_file
+
+        self.quant_type = quant_type
+        self.embedding = TensorModule()
+        self.final_norm = TensorModule()
+        self.lm_head = TensorModule()
+        self.layers = {}
+        self.num_layers = num_layers
+
+        if quant_attrs["config"]["embeds"] is True:
+            raise NotImplementedError("Embedding layer quantization is not supported yet.")
+
+        self.global_group_size = quant_attrs["config"]["group_size"]
+        self.global_bits = quant_attrs["config"]["bits"]
+        self.overrides = quant_attrs["config"]["overrides"] or {}
+
+        for weight_file in Path(input_path).iterdir():
+            if weight_file.suffix == ".safetensors":
+                weights = load_file(weight_file)
+
+                # Map weights to modules
+                for name, tensor in weights.items():
+                    # Per-layer quantization support
+                    local_bits = self.get_layer_bits(name)
+                    local_group_size = self.get_layer_group_size(name)
+
+                    if name == "model.embed_tokens.weight":
+                        self.embedding.weight = tensor
+                    elif name == "model.norm.weight":
+                        self.final_norm.weight = tensor
+                    elif name == "model.norm.bias":
+                        self.final_norm.bias = tensor
+                    elif name == "lm_head.weight":
+                        self.lm_head.weight = tensor
+                    elif name == "lm_head.bias":
+                        self.lm_head.bias = tensor
+                    elif name == "lm_head.qweight":
+                        self._initialize_quantized_lm_head(local_bits, local_group_size)
+                        self.lm_head.qweight = tensor
+                    elif name == "lm_head.qzeros":
+                        self._initialize_quantized_lm_head(local_bits, local_group_size)
+                        self.lm_head.qzeros = tensor
+                    elif name == "lm_head.scales":
+                        self._initialize_quantized_lm_head(local_bits, local_group_size)
+                        self.lm_head.scales = tensor
+                    else:
+                        layer_id = int(name.split(".")[2])
+                        module = self.layers.setdefault(layer_id, QuantizedDecoderLayer(layer_id))
+
+                        if bool(re.match(r"^model.layers\.\d+\.self_attn.rotary_emb\.inv_freq$", name)):
+                            # Skip rotary embedding weights since they can be re-calculated when looping through the model
+                            continue
+
+                        tensor_name = (
+                            name.replace(f"model.layers.{layer_id}.", "")
+                            .replace("self_attention.", "self_attn.")
+                            .replace("dense_4h_to_h.", "down_proj.")
+                            .replace("dense_h_to_4h.", "gate_up_proj.")
+                            .replace("query_key_value.", "qkv_proj.")
+                        )
+                        tensor_map = {}
+                        if "qkv_proj" in tensor_name:
+                            tensor_map[tensor_name.replace("qkv_proj.", "q_proj.")] = tensor[:q_size, :]
+                            tensor_map[tensor_name.replace("qkv_proj.", "k_proj.")] = tensor[
+                                q_size : q_size + kv_size, :
+                            ]
+                            tensor_map[tensor_name.replace("qkv_proj.", "v_proj.")] = tensor[q_size + kv_size :, :]
+                        elif "gate_up_proj" in tensor_name:
+                            tensor_map[tensor_name.replace("gate_up_proj.", "gate_proj.")] = tensor[
+                                :intermediate_size, :
+                            ]
+                            tensor_map[tensor_name.replace("gate_up_proj.", "up_proj.")] = tensor[intermediate_size:, :]
+                        else:
+                            tensor_map[tensor_name] = tensor
+
+                        for tensor_name, tensor_value in tensor_map.items():
+                            submodule = module
+                            for sub_name in tensor_name.split(".")[:-1]:
+                                submodule = getattr(submodule, sub_name)
+                            if isinstance(submodule, QuantizedTensorModule):
+                                for q_attr, q_value in [("bits", local_bits), ("_group_size", local_group_size)]:
+                                    if getattr(submodule, q_attr) is not None and getattr(submodule, q_attr) != q_value:
+                                        raise ValueError(
+                                            f"Quantization {q_attr} mismatch for {name}: expected {getattr(submodule, q_attr)}, got {q_value}."
+                                        )
+                                    setattr(submodule, q_attr, q_value)
+                            setattr(submodule, tensor_name.split(".")[-1], tensor_value)
+
+        # Set LM head weights + biases if not already set
+        if isinstance(self.lm_head, TensorModule) and self.lm_head.weight is None:
+            # Embedding and LM head share same weights + biases (lm_head.weight == embedding.weight and lm_head.bias == embedding.bias)
+            self.lm_head.weight = self.embedding.weight
+            if self.lm_head.bias is not None:
+                self.lm_head.bias = self.embedding.bias
+
+        # Sort list of layers by layer id
+        self.layers = list(self.layers.values())
+        self.layers.sort(key=lambda m: m.layer_id)
+
+        def finalize_qmodule(qmodule):
+            qmodule.out_features = qmodule.qweight.shape[0]
+            qmodule.in_features = qmodule.scales.shape[1] * qmodule.group_size
+            qmodule.qweight = qmodule.qweight.reshape(qmodule.out_features, qmodule.scales.shape[1], -1)
+
+        if isinstance(self.lm_head, QuantizedTensorModule):
+            finalize_qmodule(self.lm_head)
+
+        for module in self.layers:
+            for tensormodule_name in [
+                "self_attn.q_proj",
+                "self_attn.k_proj",
+                "self_attn.v_proj",
+                "self_attn.o_proj",
+                "mlp.gate_proj",
+                "mlp.up_proj",
+                "mlp.down_proj",
+            ]:
+                submodule = module
+                for sub_name in tensormodule_name.split("."):
+                    submodule = getattr(submodule, sub_name)
+                finalize_qmodule(submodule)
+
+    def get_layer_bits(self, layer_name):
+        name = ".".join(layer_name.split(".")[:-1])
+        return self.overrides.get(name, {}).get("bits", self.global_bits)
+
+    def get_layer_group_size(self, layer_name):
+        name = ".".join(layer_name.split(".")[:-1])
+        return self.overrides.get(name, {}).get("group_size", self.global_group_size)
+
+
+def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename, root_input, **kwargs):
+    if not hasattr(q_matmul, "qweight"):
+        return self.make_packed_matmul_float(q_matmul, k_matmul, v_matmul, basename, root_input, **kwargs)
+
+    class PackedMatMul:
+        def __init__(self):
+            if q_matmul.bits != k_matmul.bits or q_matmul.bits != v_matmul.bits:
+                raise ValueError("All MatMuls must have the same bits for packed MatMul.")
+            if q_matmul.group_size != k_matmul.group_size or q_matmul.group_size != v_matmul.group_size:
+                raise ValueError("All MatMuls must have the same group size for packed MatMul.")
+            self.qweight = torch.cat([q_matmul.qweight, k_matmul.qweight, v_matmul.qweight], dim=0)
+            self.scales = torch.cat([q_matmul.scales, k_matmul.scales, v_matmul.scales], dim=0)
+            self.qzeros = (
+                torch.cat([q_matmul.qzeros, k_matmul.qzeros, v_matmul.qzeros], dim=0)
+                if q_matmul.qzeros is not None
+                else None
+            )
+            self.g_idx = q_matmul.g_idx
+
+            self.in_features = q_matmul.in_features
+            self.out_features = q_matmul.out_features + k_matmul.out_features + v_matmul.out_features
+            self.bits = q_matmul.bits
+            self.group_size = q_matmul.group_size
+
+    matmul = PackedMatMul()
+    return self.make_matmul_int4(matmul, basename, root_input, **kwargs)

@@ -534,6 +534,14 @@
             "supported_quantization_encodings": [  ],
             "dataset": "dataset_optional"
         },
+        "Rtn": {
+            "module_path": "olive.passes.pytorch.rtn.Rtn",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
+            "supported_algorithms": [ "rtn" ],
+            "supported_quantization_encodings": [  ]
+        },
         "SelectiveMixedPrecision": {
             "module_path": "olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision",
             "supported_providers": [ "*" ],
