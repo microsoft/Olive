@@ -8,36 +8,25 @@ import pytest
 import torch
 
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
-from olive.common.quant.nn import QuantLinear
+from olive.common.quant.nn import QuantEmbedding, QuantLinear
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.pytorch.gptq import Gptq
-from test.utils import make_local_tiny_llama
+from olive.passes.pytorch.rtn import Rtn
 
 
-# running on CPU takes time so will only run a subset of tests when GPU is not available
-@pytest.mark.parametrize(
-    ("model_path", "expected_model_type"),
-    [
-        ("katuni4ka/tiny-random-phi3", "Phi3ForCausalLM"),
-        ("tiny-llama", "LlamaForCausalLM"),
-    ],
-)
-@pytest.mark.parametrize("group_size", [-1, 16] if torch.cuda.is_available() else [16])
-@pytest.mark.parametrize("lm_head", [True, False] if torch.cuda.is_available() else [False])
-@pytest.mark.parametrize("sym", [True, False] if torch.cuda.is_available() else [False])
-def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_size: int, lm_head: bool, sym: bool):
+@pytest.mark.parametrize("group_size", [-1, 16])
+@pytest.mark.parametrize("sym", [True, False])
+@pytest.mark.parametrize("lm_head", [True, False])
+def test_gptq(tmp_path: Path, group_size: int, sym: bool, lm_head: bool):
     # setup
-    if model_path == "tiny-llama":
-        input_model = make_local_tiny_llama(tmp_path / "input_model")
-    else:
-        input_model = HfModelHandler(
-            model_path=model_path, load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
-        )
+    input_model = HfModelHandler(
+        model_path="katuni4ka/tiny-random-phi3", load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
+    )
     p = create_pass_from_dict(
-        Gptq,
+        Rtn,
         {
+            "bits": 4,
             "group_size": group_size,
             "lm_head": lm_head,
             "sym": sym,
@@ -54,7 +43,7 @@ def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_s
     # assert
     assert isinstance(out, HfModelHandler)
     loaded_model = out.load_model()
-    assert loaded_model.__class__.__name__ == expected_model_type
+    assert loaded_model.__class__.__name__ == "Phi3ForCausalLM"
     assert hasattr(loaded_model, "quantization_method")
     assert loaded_model.quantization_method == "olive"
     assert hasattr(loaded_model.config, "quantization_config")
@@ -66,3 +55,30 @@ def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_s
     assert loaded_model.model.layers[0].mlp.down_proj.quantizer.bits == 4
     assert loaded_model.config.quantization_config.lm_head == lm_head
     assert isinstance(loaded_model.lm_head, QuantLinear) == lm_head
+    assert isinstance(loaded_model.model.embed_tokens, torch.nn.Embedding)
+
+    # compose another rtn pass on top of the partially quantized model
+    p2 = create_pass_from_dict(
+        Rtn,
+        {
+            "bits": 8,
+            "group_size": group_size,
+            "lm_head": True,
+            "embeds": True,
+            "sym": sym,
+        },
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider"),
+    )
+    gptq_out_folder_2 = str(tmp_path / "gptq2")
+    out2 = p2.run(out, gptq_out_folder_2)
+
+    # assert
+    assert isinstance(out2, HfModelHandler)
+    loaded_model_2 = out2.load_model()
+    # check that the embed tokens layer is quantized to 8 bits
+    assert isinstance(loaded_model_2.model.embed_tokens, QuantEmbedding)
+    assert loaded_model_2.model.embed_tokens.quantizer.bits == 8
+    # check that the lm head is quantized to 8 bits if it was not quantized before
+    assert isinstance(loaded_model_2.lm_head, QuantLinear)
+    assert loaded_model_2.lm_head.quantizer.bits == 4 if lm_head else 8

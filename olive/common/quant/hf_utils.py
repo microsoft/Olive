@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
 import torch.nn as nn
-from transformers.integrations import get_keys_to_not_convert
 from transformers.quantizers.base import HfQuantizer
 from transformers.utils.quantization_config import QuantizationConfigMixin
 
@@ -54,8 +53,9 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         bits: Default bit width for quantization (e.g. 4, 8).
         symmetric: Whether to use symmetric quantization.
         group_size: Quantization group size.
-            -1 = per-channel, 0 = per-tensor, >0 = groupwise.
+            -1 = per-channel, >0 = groupwise.
         lm_head: Whether to quantize the language model head.
+        embeds: Whether to quantize the input embeddings.
         modules_to_not_convert : List of module names to exclude from quantization.
         overrides: Per-module overrides for quantization parameters.
 
@@ -68,8 +68,10 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         symmetric: bool,
         group_size: int,
         lm_head: bool = False,
+        embeds: bool = False,
         modules_to_not_convert: list | None = None,
         overrides: dict | None = None,
+        tie_word_embeddings: bool = False,
         **kwargs,
     ):
         # pylint: disable=W0231
@@ -79,11 +81,13 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         self.symmetric = symmetric
         self.group_size = group_size
         self.lm_head = lm_head
+        self.embeds = embeds
         self.modules_to_not_convert = modules_to_not_convert
         self.overrides = {
             module_name: OliveHfQuantizationOverrideConfig(**override)
             for module_name, override in (overrides or {}).items()
         }
+        self.tie_word_embeddings = tie_word_embeddings
         self.post_init()
 
     def post_init(self):
@@ -135,11 +139,16 @@ class OliveHfQuantizer(HfQuantizer):
     def _process_model_before_weight_loading(
         self, model: PreTrainedModel, keep_in_fp32_modules: list[str] | None = None, **kwargs
     ):
-        from olive.common.quant.linear import QuantLinear
+        from olive.common.quant.nn import QuantEmbedding, QuantLinear
 
-        # this helps skip modules such as lm_head which is generally not quantized
-        # TODO(jambayk): maybe get the lm_head module name ourselves instead of `get_keys_to_not_convert` from transformers
-        self.modules_to_not_convert = [] if self.quantization_config.lm_head else get_keys_to_not_convert(model)
+        ids_to_skip = []
+        if not self.quantization_config.lm_head:
+            ids_to_skip.append(id(model.get_output_embeddings()))
+        if not self.quantization_config.embeds:
+            ids_to_skip.append(id(model.get_input_embeddings()))
+        self.modules_to_not_convert = (
+            [name for name, module in model.named_modules() if id(module) in ids_to_skip] if ids_to_skip else []
+        )
         if self.quantization_config.modules_to_not_convert:
             self.modules_to_not_convert.extend(self.quantization_config.modules_to_not_convert)
         if keep_in_fp32_modules:
@@ -147,22 +156,41 @@ class OliveHfQuantizer(HfQuantizer):
 
         def should_quantize(module: nn.Module, name: str) -> bool:
             """Check if a module should be quantized."""
-            return isinstance(module, nn.Linear) and not any(key in name for key in self.modules_to_not_convert)
+            return isinstance(module, (nn.Linear, nn.Embedding)) and not any(
+                key in name for key in self.modules_to_not_convert
+            )
 
-        def create_quantized_module(module: nn.Linear, name: str) -> QuantLinear:
+        def create_quantized_module(module: nn.Linear | nn.Embedding, name: str) -> QuantLinear | QuantEmbedding:
             """Create a quantized version of a module."""
+            common_kwargs = {
+                **self.quantization_config.get_qlinear_init_args(name),
+                "device": module.weight.device,
+                "dtype": module.weight.dtype,
+            }
+            if isinstance(module, nn.Embedding):
+                return QuantEmbedding(
+                    num_embeddings=module.num_embeddings,
+                    embedding_dim=module.embedding_dim,
+                    padding_idx=module.padding_idx,
+                    **common_kwargs,
+                )
             return QuantLinear(
                 in_features=module.in_features,
                 out_features=module.out_features,
-                **self.quantization_config.get_qlinear_init_args(name),
                 bias=module.bias is not None,
-                device=module.weight.device,
-                dtype=module.weight.dtype,
+                **common_kwargs,
             )
 
         replace_matching_submodules(model, should_quantize, create_quantized_module)
 
+        if self.quantization_config.tie_word_embeddings:
+            # doing first time so that the weight load doesn't complain about missing weights
+            tie_quant_word_embeddings(model)
+
     def _process_model_after_weight_loading(self, model: PreTrainedModel, **kwargs):
+        if self.quantization_config.tie_word_embeddings:
+            # doing again to ensure buffers are tied after loading weights
+            tie_quant_word_embeddings(model)
         return model
 
     def is_serializable(self, safe_serialization=None) -> bool:
@@ -223,3 +251,49 @@ def replace_matching_submodules(
         pbar.close()
 
     return module
+
+
+def _repoint_buffer(src: nn.Module, dst: nn.Module, name: str):
+    """Repoint a buffer from src to dst.
+
+    Args:
+        src: Source module.
+        dst: Destination module.
+        name: Name of the buffer to repoint.
+
+    """
+    src_buf = getattr(src, name, None)
+
+    # ensure both are None or both exist
+    if src_buf is None:
+        assert getattr(dst, name, None) is None, f"Output embedding has {name} but input does not."
+        return
+
+    # ensure both have the buffer shapes and types match
+    dst_buf = getattr(dst, name, None)
+    assert src_buf.shape == dst_buf.shape, (
+        f"Cannot tie embeddings: input embedding {name} shape {src_buf.shape} "
+        f"does not match output embedding shape {dst_buf.shape}."
+    )
+    assert src_buf.dtype == dst_buf.dtype, (
+        f"Cannot tie embeddings: input embedding {name} dtype {src_buf.dtype} "
+        f"does not match output embedding dtype {dst_buf.dtype}."
+    )
+
+    # tie the buffers
+    dst._buffers[name] = src_buf
+    dst._non_persistent_buffers_set.add(name)
+
+
+def tie_quant_word_embeddings(model: PreTrainedModel):
+    """Tie the word embeddings and output embeddings if they have the same shape.
+
+    Args:
+        model: The HuggingFace model to tie embeddings for.
+
+    """
+    input_embeds = model.get_input_embeddings()
+    output_embeds = model.get_output_embeddings()
+
+    for name in ["qweight", "scales", "qzeros"]:
+        _repoint_buffer(input_embeds, output_embeds, name)
