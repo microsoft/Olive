@@ -302,7 +302,7 @@ class TestCache:
         # Expected output depends on whether model has external data
         if model_path == "model_folder":
             # Model has external data → folder + onnx_file_name
-            expected_output_path = str((output_dir).resolve())
+            expected_output_path = str(output_dir.resolve())
             assert output_json["config"]["model_path"] == expected_output_path
             assert output_json["config"]["onnx_file_name"] == "model.onnx"
             assert (output_dir / "model.onnx").exists()
