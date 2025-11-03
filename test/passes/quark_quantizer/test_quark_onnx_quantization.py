@@ -2,17 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from unittest.mock import patch
 
-import onnx
-import pytest
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.quark_quantizer.quark_quantization import QuarkQuantization
-
 from test.utils import get_onnx_model, get_pytorch_model_dummy_input
 
 
@@ -50,22 +46,20 @@ def test_static_qdq_u8s8_quantization(tmp_path):
                 "symmetric": False,
                 "calibration_method": "MinMax",
                 "quant_granularity": "Tensor",
-                "data_type": "UInt8"
+                "data_type": "UInt8",
             },
             "weight": {
                 "symmetric": True,
                 "calibration_method": "MinMax",
                 "quant_granularity": "Tensor",
-                "data_type": "Int8"
-            }
+                "data_type": "Int8",
+            },
         },
-        "exclude": [],
-        "algo_config": [],
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),
             dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
-        )
+        ),
     }
     p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
     out = p.run(input_model, tmp_path)

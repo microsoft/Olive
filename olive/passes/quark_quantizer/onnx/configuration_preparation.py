@@ -199,8 +199,11 @@ def update_algo_config(algo_config: AlgoConfig, config_dict: dict[str, Any]) -> 
         pass
 
 
-def get_algo_config(algo_config_list: list[dict[str, Any]]) -> list[AlgoConfig]:
+def get_algo_config(algo_config_list: list[dict[str, Any]] | None) -> list[AlgoConfig]:
     algo_configs: list[AlgoConfig] = []
+
+    if algo_config_list is None:
+        return algo_configs
 
     for config_dict in algo_config_list:
         if "name" not in config_dict:
