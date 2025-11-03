@@ -37,7 +37,6 @@ class QuantModule(nn.Module):
         group_size: int = -1,
         device: torch.device | None = None,
         dtype: torch.dtype = torch.float32,
-        keep_sym_zeros: bool = False,
     ):
         """Initialize QuantLinear layer.
 
@@ -49,7 +48,6 @@ class QuantModule(nn.Module):
             group_size: Quantization group size (-1: per-channel, >0: groupwise)
             device: Device to place tensors on
             dtype: Data type for scales and bias
-            keep_sym_zeros: Whether to keep zero points buffer for symmetric quantization.
 
         """
         super().__init__()
@@ -63,9 +61,6 @@ class QuantModule(nn.Module):
         self.quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
         self.device = device
         self.dtype = dtype
-        # don't want to keep zero points buffer for symmetric quantization by default to save memory
-        # but CUDA implementation of GatherBlockQuantized has a bug which requires zero points to be provided
-        self.keep_sym_zeros = keep_sym_zeros
         self.packing_factor = 8 // bits
 
         # using the same layout and packing as auto-gptq
@@ -84,7 +79,7 @@ class QuantModule(nn.Module):
             "scales",
             torch.zeros(scale_shape, dtype=dtype, device=device),
         )
-        if symmetric and not keep_sym_zeros:
+        if symmetric:
             self.qzeros = None
         else:
             self.register_buffer(
@@ -153,13 +148,12 @@ class QuantModule(nn.Module):
         qmodule.qweight = qmodule._pack(qweight.to(torch.int32)).contiguous()
         scale_shape = qmodule.quantizer.get_qparam_shape(qweight.shape)
         qmodule.scales = scales.reshape(scale_shape)
-        qmodule.qzeros = qmodule._pack(zero_points.to(torch.int32).reshape(scale_shape)).contiguous()
 
         # enforce symmetric quantization constraints
         if symmetric and not torch.all(zero_points == qmodule.quantizer.midq):
             raise ValueError("Zero points must be equal to midq for symmetric quantization")
 
-        if qmodule.keep_sym_zeros or not symmetric:
+        if not symmetric:
             qmodule.qzeros = qmodule._pack(zero_points.to(torch.int32).reshape(scale_shape)).contiguous()
 
         return qmodule
@@ -477,8 +471,7 @@ class QuantEmbedding(QuantModule):
             symmetric=symmetric,
             group_size=group_size,
             device=device,
-            dtype=dtype,
-            keep_sym_zeros=True,
+            dtype=dtype
         )
         self.padding_idx = padding_idx
 
