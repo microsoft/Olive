@@ -515,10 +515,8 @@ class OliveCache:
                 path_name = f"{path_prefix}_{path_name}"
             # TODO(anyone): consider using hardlink_copy_file/dir instead of copy
             # to avoid copying large files
-            # For model_path, flatten the folder structure to output_dir
-            flatten = resource_name == "model_path"
             model_json["config"][resource_name] = model_json["config"][resource_name].save_to_dir(
-                output_dir, path_name, overwrite, flatten=flatten
+                output_dir, path_name, overwrite, flatten=False
             )
 
         if onnx_output_file:
