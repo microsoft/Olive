@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
 import torch.nn as nn
-from transformers.integrations import get_keys_to_not_convert
 from transformers.quantizers.base import HfQuantizer
 from transformers.utils.quantization_config import QuantizationConfigMixin
 
@@ -54,8 +53,9 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         bits: Default bit width for quantization (e.g. 4, 8).
         symmetric: Whether to use symmetric quantization.
         group_size: Quantization group size.
-            -1 = per-channel, 0 = per-tensor, >0 = groupwise.
+            -1 = per-channel, >0 = groupwise.
         lm_head: Whether to quantize the language model head.
+        embeds: Whether to quantize the input embeddings.
         modules_to_not_convert : List of module names to exclude from quantization.
         overrides: Per-module overrides for quantization parameters.
 
@@ -68,6 +68,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         symmetric: bool,
         group_size: int,
         lm_head: bool = False,
+        embeds: bool = False,
         modules_to_not_convert: list | None = None,
         overrides: dict | None = None,
         **kwargs,
@@ -79,6 +80,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         self.symmetric = symmetric
         self.group_size = group_size
         self.lm_head = lm_head
+        self.embeds = embeds
         self.modules_to_not_convert = modules_to_not_convert
         self.overrides = {
             module_name: OliveHfQuantizationOverrideConfig(**override)
@@ -135,11 +137,16 @@ class OliveHfQuantizer(HfQuantizer):
     def _process_model_before_weight_loading(
         self, model: PreTrainedModel, keep_in_fp32_modules: list[str] | None = None, **kwargs
     ):
-        from olive.common.quant.linear import QuantLinear
+        from olive.common.quant.nn import QuantEmbedding, QuantLinear
 
-        # this helps skip modules such as lm_head which is generally not quantized
-        # TODO(jambayk): maybe get the lm_head module name ourselves instead of `get_keys_to_not_convert` from transformers
-        self.modules_to_not_convert = [] if self.quantization_config.lm_head else get_keys_to_not_convert(model)
+        ids_to_skip = []
+        if not self.quantization_config.lm_head:
+            ids_to_skip.append(id(model.get_output_embeddings()))
+        if not self.quantization_config.embeds:
+            ids_to_skip.append(id(model.get_input_embeddings()))
+        self.modules_to_not_convert = (
+            [name for name, module in model.named_modules() if id(module) in ids_to_skip] if ids_to_skip else []
+        )
         if self.quantization_config.modules_to_not_convert:
             self.modules_to_not_convert.extend(self.quantization_config.modules_to_not_convert)
         if keep_in_fp32_modules:
@@ -147,17 +154,29 @@ class OliveHfQuantizer(HfQuantizer):
 
         def should_quantize(module: nn.Module, name: str) -> bool:
             """Check if a module should be quantized."""
-            return isinstance(module, nn.Linear) and not any(key in name for key in self.modules_to_not_convert)
+            return isinstance(module, (nn.Linear, nn.Embedding)) and not any(
+                key in name for key in self.modules_to_not_convert
+            )
 
-        def create_quantized_module(module: nn.Linear, name: str) -> QuantLinear:
+        def create_quantized_module(module: nn.Linear | nn.Embedding, name: str) -> QuantLinear | QuantEmbedding:
             """Create a quantized version of a module."""
+            common_kwargs = {
+                **self.quantization_config.get_qlinear_init_args(name),
+                "device": module.weight.device,
+                "dtype": module.weight.dtype,
+            }
+            if isinstance(module, nn.Embedding):
+                return QuantEmbedding(
+                    num_embeddings=module.num_embeddings,
+                    embedding_dim=module.embedding_dim,
+                    padding_idx=module.padding_idx,
+                    **common_kwargs,
+                )
             return QuantLinear(
                 in_features=module.in_features,
                 out_features=module.out_features,
-                **self.quantization_config.get_qlinear_init_args(name),
                 bias=module.bias is not None,
-                device=module.weight.device,
-                dtype=module.weight.dtype,
+                **common_kwargs,
             )
 
         replace_matching_submodules(model, should_quantize, create_quantized_module)

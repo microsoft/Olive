@@ -101,7 +101,7 @@ class QuantModule(nn.Module):
         scales: torch.device | None = None,
         zero_points: torch.device | None = None,
         quantized: bool = False,
-        kwargs: dict | None = None,
+        **kwargs,
     ) -> QuantModule:
         """Create a QuantLinear layer from an existing nn.Linear layer.
 
@@ -138,14 +138,14 @@ class QuantModule(nn.Module):
 
         rows, cols = qweight.shape
         qmodule = cls(
-            rows=rows,
-            cols=cols,
+            rows,
+            cols,
             bits=bits,
             symmetric=symmetric,
             group_size=group_size,
             device=qweight.device,
             dtype=scales.dtype,
-            **(kwargs or {}),
+            **kwargs,
         )
         qmodule.qweight = qmodule._pack(qweight.to(torch.int32)).contiguous()
         scale_shape = qmodule.quantizer.get_qparam_shape((rows, cols))
@@ -157,23 +157,25 @@ class QuantModule(nn.Module):
         return qmodule
 
     @torch.no_grad()
-    def get_dequantized_weight(self) -> torch.Tensor:
+    def unpack_and_dequantize(
+        self, qweight: torch.Tensor, scales: torch.Tensor, zero_points: torch.Tensor | None
+    ) -> torch.Tensor:
         """Unpack and dequantize the given quantized weight tensor.
 
         Returns:
             The dequantized weight tensor.
 
         """
-        qweight = self._unpack(self.qweight, (self.rows, self.cols))
-        if not self.quantizer.symmetric:
-            zero_points = self._unpack(self.qzeros, self.scales.shape)
+        qweight = self._unpack(qweight, (qweight.shape[0], self.cols))
+        if zero_points is not None:
+            zero_points = self._unpack(zero_points, scales.shape)
         else:
             zero_points = torch.full_like(
-                self.scales,
+                scales,
                 self.quantizer.midq,
                 dtype=torch.int32,
             )
-        return self.quantizer.dequantize(qweight, self.scales, zero_points)
+        return self.quantizer.dequantize(qweight, scales, zero_points)
 
     @torch.no_grad()
     def _pack(self, tensor: torch.Tensor) -> torch.Tensor:
@@ -291,7 +293,7 @@ class QuantLinear(QuantModule):
             self.bias = None
 
     @classmethod
-    def from_linear(
+    def from_module(
         cls,
         linear: nn.Linear,
         bits: int = 4,
@@ -341,7 +343,7 @@ class QuantLinear(QuantModule):
         x_dtype = x.dtype
 
         # unpack weights and zero points
-        weight = self.get_dequantized_weight()
+        weight = self.unpack_and_dequantize(self.qweight, self.scales, self.qzeros)
         return nn.functional.linear(x, weight, bias=self.bias).to(x_dtype)
 
     def extra_repr(self) -> str:
@@ -359,12 +361,12 @@ class QuantEmbedding(QuantModule):
         self,
         num_embeddings: int,
         embedding_dim: int,
-        padding_idx: int | None = None,
         bits: int = 4,
         symmetric: bool = True,
         group_size: int = -1,
         device: torch.device | None = None,
         dtype: torch.dtype = torch.float32,
+        padding_idx: int | None = None,
     ):
         """Initialize QuantEmbedding layer.
 
@@ -390,6 +392,40 @@ class QuantEmbedding(QuantModule):
         )
         self.padding_idx = padding_idx
 
+    @classmethod
+    def from_module(
+        cls,
+        embedding: nn.Embedding,
+        bits: int = 4,
+        symmetric: bool = True,
+        group_size: int = -1,
+        scales: torch.device | None = None,
+        zero_points: torch.device | None = None,
+    ) -> QuantEmbedding:
+        """Create a QuantEmbedding layer from an existing nn.Embedding layer.
+
+        Args:
+            embedding: The nn.Embedding layer to convert
+            bits: Number of bits for quantization (4 or 8)
+            symmetric: Whether to use symmetric quantization
+            group_size: Quantization group size (-1: per-channel, >0: groupwise)
+            scales: Optional precomputed scales for quantization
+            zero_points: Optional precomputed zero points for quantization (unsigned, in range [0, 2^bits - 1]).
+
+        Returns:
+            A QuantEmbedding instance with quantized weights and scales
+
+        """
+        return cls.from_tensors(
+            weight=embedding.weight,
+            bits=bits,
+            symmetric=symmetric,
+            group_size=group_size,
+            scales=scales,
+            zero_points=zero_points,
+            padding_idx=embedding.padding_idx,
+        )
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass for the quantized embedding layer.
 
@@ -397,7 +433,17 @@ class QuantEmbedding(QuantModule):
             x: Input tensor of shape (...,)
 
         """
-        # we could gather the qweight + params first and then dequantize, but for simplicity we dequantize the full weight here
-        # otherwise have to manage the padding index
-        weight = self.get_dequantized_weight()
-        return nn.functional.embedding(x, weight, padding_idx=self.padding_idx)
+        qweight = nn.functional.embedding(x, self.qweight, padding_idx=self.padding_idx)
+        scales = nn.functional.embedding(x, self.scales, padding_idx=self.padding_idx)
+        if not self.quantizer.symmetric:
+            qzeros = nn.functional.embedding(x, self.qzeros, padding_idx=self.padding_idx)
+        else:
+            qzeros = None
+        return self.unpack_and_dequantize(qweight, scales, qzeros)
+
+    def extra_repr(self) -> str:
+        return (
+            f"{self.rows}, {self.cols}, bits={self.quantizer.bits},"
+            f" symmetric={self.quantizer.symmetric}, group_size={self.quantizer.group_size},"
+            f" padding_idx={self.padding_idx}"
+        )

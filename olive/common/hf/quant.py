@@ -69,13 +69,6 @@ def get_auto_gptq_qlinear_cls(quantization_config):
     return None
 
 
-def get_olive_qlinear_cls(quantization_config):
-    """Get the right OliveQuantLinear class based on the quantization config."""
-    from olive.common.quant.linear import QuantLinear
-
-    return QuantLinear
-
-
 @torch.no_grad()
 def _replace_qlinear_modules(
     model: torch.nn.Module, dynamo: bool, mapping: dict[str, tuple[Callable, Callable]], desc: str
@@ -372,21 +365,10 @@ def make_auto_gptq_qlinearnbit(qlinear, dynamo):
     )
 
 
-def make_olive_qlinearnbit(qlinear, dynamo):
-    return QuantLinearNbit.from_tensors(
-        *qlinear.get_unpacked_params(),
-        group_size=qlinear.quantizer.group_size,
-        bits=qlinear.quantizer.bits,
-        bias=qlinear.bias,
-        dynamo=dynamo,
-    )
-
-
 # TODO(jambayk): maybe support bitsandbytes too. Need to consider dtype compatibility
 EXPORT_QLINEAR_MAPPING = {
     "awq": (get_auto_awq_qlinear_cls, make_auto_awq_qlinearnbit),
     "gptq": (get_auto_gptq_qlinear_cls, make_auto_gptq_qlinearnbit),
-    "olive": (get_olive_qlinear_cls, make_olive_qlinearnbit),
 }
 
 

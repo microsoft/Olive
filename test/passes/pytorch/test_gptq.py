@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
-from olive.common.quant.linear import QuantLinear
+from olive.common.quant.nn import QuantLinear
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -26,15 +26,23 @@ from test.utils import make_local_tiny_llama
 )
 @pytest.mark.parametrize("group_size", [-1, 16] if torch.cuda.is_available() else [16])
 @pytest.mark.parametrize("lm_head", [True, False] if torch.cuda.is_available() else [False])
-def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_size: int, lm_head: bool):
+@pytest.mark.parametrize("sym", [True, False] if torch.cuda.is_available() else [False])
+def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_size: int, lm_head: bool, sym: bool):
     # setup
     if model_path == "tiny-llama":
         input_model = make_local_tiny_llama(tmp_path / "input_model")
     else:
-        input_model = HfModelHandler(model_path=model_path)
+        input_model = HfModelHandler(
+            model_path=model_path, load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
+        )
     p = create_pass_from_dict(
         Gptq,
-        {"group_size": group_size, "lm_head": lm_head, "overrides": {"model.layers.0.self_attn.o_proj": {"bits": 8}}},
+        {
+            "group_size": group_size,
+            "lm_head": lm_head,
+            "sym": sym,
+            "overrides": {"model.layers.0.self_attn.o_proj": {"bits": 8}},
+        },
         disable_search=True,
         accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider"),
     )

@@ -14,7 +14,7 @@ import torch
 from olive.common.config_utils import validate_config
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig, replace_matching_submodules
-from olive.common.quant.linear import QuantLinear
+from olive.common.quant.nn import QuantLinear
 from olive.common.quant.utils import WeightQuantizer
 from olive.common.utils import tensor_data_to_device
 from olive.constants import PrecisionBits
@@ -493,7 +493,7 @@ class Gptq(Pass):
 
         def quantize_and_pack(module: torch.nn.Module, _: str) -> QuantLinear:
             module.to(device)
-            return QuantLinear.from_linear(
+            return QuantLinear.from_module(
                 module.to(device),
                 bits=module.quant_info.quantizer.bits,
                 symmetric=module.quant_info.quantizer.symmetric,
