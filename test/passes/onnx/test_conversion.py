@@ -56,7 +56,9 @@ def test_onnx_conversion_pass_quant_model(quantizer_pass, tmp_path):
         pytest.skip("GptqQuantizer requires CUDA")
 
     # setup
-    base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
+    base_model = HfModelHandler(
+        model_path="katuni4ka/tiny-random-phi3", load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
+    )
     quantizer_pass = create_pass_from_dict(quantizer_pass, {"group_size": 16}, disable_search=True)
     quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
 
@@ -74,10 +76,10 @@ def test_onnx_conversion_pass_quant_model(quantizer_pass, tmp_path):
     assert num_mnb == 2 * 4
 
 
-@pytest.mark.skipif(
-    version.parse(torch.__version__) != version.parse("2.8.0"),
-    reason="Dynamo export requires 2.8+. FIXME: 2.9 has issues.",
-)
+# @pytest.mark.skipif(
+#     version.parse(torch.__version__) != version.parse("2.8.0"),
+#     reason="Dynamo export requires 2.8+. FIXME: 2.9 has issues.",
+# )
 @pytest.mark.skipif(platform.system() == "Windows", reason="FIXME: torch ops fails on Windows")
 @pytest.mark.parametrize("quantizer_pass", [Gptq, GptqQuantizer])
 def test_onnx_conversion_pass_quant_model_with_torch_ops(quantizer_pass, tmp_path):
@@ -85,10 +87,12 @@ def test_onnx_conversion_pass_quant_model_with_torch_ops(quantizer_pass, tmp_pat
         pytest.skip("GptqQuantizer requires CUDA")
 
     # setup
-    base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
+    base_model = HfModelHandler(
+        model_path="katuni4ka/tiny-random-phi3", load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
+    )
     # awq has minimum hidden size of 64 or 64 multiples so this model is not compatible
     # only testing with gptq quantized model
-    quantizer_pass = create_pass_from_dict(Gptq, {"group_size": 16}, disable_search=True)
+    quantizer_pass = create_pass_from_dict(quantizer_pass, {"group_size": 16}, disable_search=True)
     quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
 
     p = create_pass_from_dict(

@@ -340,6 +340,20 @@ class QuantLinear(QuantModule):
 
         """
         assert x.shape[-1] == self.cols, f"Input shape {x.shape} does not match in_features {self.cols}"
+
+        if torch.onnx.is_in_onnx_export():
+            out = QuantLinearFunction.apply(
+                x,
+                self.qweight,
+                self.scales,
+                self.qzeros,
+                self.quantizer.bits,
+                self.quantizer.group_size,
+                self.cols,
+                self.rows,
+            )
+            return out + self.bias if self.bias is not None else out
+
         x_dtype = x.dtype
 
         # unpack weights and zero points
@@ -352,6 +366,71 @@ class QuantLinear(QuantModule):
             f" symmetric={self.quantizer.symmetric}, group_size={self.quantizer.group_size},"
             f" bias={self.bias is not None}"
         )
+
+
+# this is required for torchscript onnx export
+class QuantLinearFunction(torch.autograd.Function):
+    # pylint: disable=W0223,W0221
+    @staticmethod
+    def symbolic(g, x, qweight, scales, qzeros, bits, group_size, in_features, out_features):
+        tensor_args = [x, qweight, scales]
+        if qzeros is not None:
+            tensor_args.append(qzeros)
+        attrs = {
+            "K_i": in_features,
+            "N_i": out_features,
+            "bits_i": bits,
+            "block_size_i": group_size,
+            "accuracy_level_i": 4,
+        }
+
+        output = g.op(
+            "com.microsoft::MatMulNBits",
+            *tensor_args,
+            outputs=1,
+            **attrs,
+        )
+        input_shape = x.type().varyingSizes()
+        if input_shape is not None and hasattr(x.type(), "with_sizes"):
+            output_type = x.type().with_sizes(input_shape[:-1] + [out_features])
+            output.setType(output_type)
+
+        return output
+
+    @staticmethod
+    def forward(
+        ctx,
+        x: torch.Tensor,
+        qweight: torch.Tensor,
+        scales: torch.Tensor,
+        qzeros: torch.Tensor,
+        bits: int,
+        group_size: int,
+        in_features: int,
+        out_features: int,
+    ):
+        # there is no clean way to differentiate between torchscript and dynamo export
+        # using FakeTensor as a proxy for dynamo export
+        if hasattr(torch.onnx, "ops") and isinstance(x, torch._subclasses.FakeTensor):
+            tensor_args = [x, qweight, scales]
+            if qzeros is not None:
+                tensor_args.append(qzeros)
+            attrs = {
+                "K": in_features,
+                "N": out_features,
+                "bits": bits,
+                "block_size": group_size,
+                "accuracy_level": 4,
+            }
+            return torch.onnx.ops.symbolic(
+                "com.microsoft::MatMulNBits",
+                tensor_args,
+                attrs=attrs,
+                dtype=x.dtype,
+                shape=[*x.shape[:-1], out_features],
+                version=1,
+            )
+        return torch.zeros(x.shape[:-1] + (out_features,), dtype=x.dtype, device=x.device)
 
 
 class QuantEmbedding(QuantModule):
@@ -433,6 +512,17 @@ class QuantEmbedding(QuantModule):
             x: Input tensor of shape (...,)
 
         """
+        if torch.onnx.is_in_onnx_export():
+            return QuantEmbeddingFunction.apply(
+                x,
+                self.qweight,
+                self.scales,
+                self.qzeros,
+                self.quantizer.bits,
+                self.quantizer.group_size,
+                self.cols,
+            )
+
         qweight = nn.functional.embedding(x, self.qweight, padding_idx=self.padding_idx)
         scales = nn.functional.embedding(x, self.scales, padding_idx=self.padding_idx)
         if not self.quantizer.symmetric:
@@ -447,3 +537,57 @@ class QuantEmbedding(QuantModule):
             f" symmetric={self.quantizer.symmetric}, group_size={self.quantizer.group_size},"
             f" padding_idx={self.padding_idx}"
         )
+
+
+# this is required for torchscript onnx export
+class QuantEmbeddingFunction(torch.autograd.Function):
+    # pylint: disable=W0223,W0221
+    @staticmethod
+    def symbolic(g, x, qweight, scales, qzeros, bits, group_size, embedding_dim):
+        tensor_args = [qweight, x, scales]
+        if qzeros is not None:
+            tensor_args.append(qzeros)
+        attrs = {
+            "bits_i": bits,
+            "block_size_i": group_size,
+            "accuracy_level_i": 4,
+        }
+
+        output = g.op(
+            "com.microsoft::GatherBlockQuantized",
+            *tensor_args,
+            outputs=1,
+            **attrs,
+        )
+        input_shape = x.type().varyingSizes()
+        if input_shape is not None and hasattr(x.type(), "with_sizes"):
+            output_type = x.type().with_sizes(input_shape[:-1] + [embedding_dim])
+            output.setType(output_type)
+
+        return output
+
+    @staticmethod
+    def forward(
+        ctx,
+        x: torch.Tensor,
+        qweight: torch.Tensor,
+        scales: torch.Tensor,
+        qzeros: torch.Tensor,
+        bits: int,
+        group_size: int,
+        embedding_dim: int,
+    ):
+        if hasattr(torch.onnx, "ops"):
+            tensor_args = [qweight, x, scales]
+            if qzeros is not None:
+                tensor_args.append(qzeros)
+            attrs = {"bits": bits, "block_size": group_size}
+            return torch.onnx.ops.symbolic(
+                "com.microsoft::MatMulNBits",
+                tensor_args,
+                attrs=attrs,
+                dtype=x.dtype,
+                shape=[*x.shape[:-1], embedding_dim],
+                version=1,
+            )
+        return torch.zeros(x.shape[:-1] + (embedding_dim,), dtype=x.dtype, device=x.device)
