@@ -561,7 +561,7 @@ class QuantEmbeddingFunction(torch.autograd.Function):
         )
         input_shape = x.type().varyingSizes()
         if input_shape is not None and hasattr(x.type(), "with_sizes"):
-            output_type = x.type().with_sizes(input_shape[:-1] + [embedding_dim])
+            output_type = x.type().with_sizes(input_shape + [embedding_dim])
             output.setType(output_type)
 
         return output
@@ -577,7 +577,7 @@ class QuantEmbeddingFunction(torch.autograd.Function):
         group_size: int,
         embedding_dim: int,
     ):
-        if hasattr(torch.onnx, "ops"):
+        if hasattr(torch.onnx, "ops") and isinstance(x, torch._subclasses.FakeTensor):
             tensor_args = [qweight, x, scales]
             if qzeros is not None:
                 tensor_args.append(qzeros)
@@ -587,7 +587,7 @@ class QuantEmbeddingFunction(torch.autograd.Function):
                 tensor_args,
                 attrs=attrs,
                 dtype=x.dtype,
-                shape=[*x.shape[:-1], embedding_dim],
+                shape=[*x.shape, embedding_dim],
                 version=1,
             )
-        return torch.zeros(x.shape[:-1] + (embedding_dim,), dtype=x.dtype, device=x.device)
+        return torch.zeros(x.shape + (embedding_dim,), dtype=x.dtype, device=x.device)
