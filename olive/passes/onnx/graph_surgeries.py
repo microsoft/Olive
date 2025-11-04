@@ -1765,26 +1765,26 @@ class TieWordEmbeddings(ProtoSurgeon):
         dag = OnnxDAG(model)
 
         if not dag.is_input("input_ids") or not dag.is_output("logits"):
-            return None
+            return dag.model
 
         embed_name, embed_op_type = self.get_name_op_type(
             dag, dag.get_consumers("input_ids"), ["Gather", "GatherBlockQuantized"], 0
         )
         if embed_name is None:
-            return None
+            return dag.model
 
         lm_head_name, lm_head_op_type = self.get_name_op_type(
             dag, [dag.get_producer("logits")], ["MatMul", "MatMulNBits"], 1
         )
         if lm_head_name is None:
-            return None
+            return dag.model
 
         # skip if one is quantized and the other is not
         if (embed_op_type, lm_head_op_type) not in [
             ("Gather", "MatMul"),
             ("GatherBlockQuantized", "MatMulNBits"),
         ]:
-            return None
+            return dag.model
 
         if embed_op_type == "Gather":
             return self.handle_unquantized(dag, embed_name, lm_head_name)
@@ -1813,7 +1813,7 @@ class TieWordEmbeddings(ProtoSurgeon):
             transpose=True,
         ):
             logger.debug("Weights are not the same, cannot tie them")
-            return None
+            return dag.model
 
         logger.debug("Tying weights")
         out_feat, in_feat = dag.get_io_shape(embed_weight_name)
@@ -1933,7 +1933,7 @@ class TieWordEmbeddings(ProtoSurgeon):
         lm_head_inputs = dag.get_node_inputs(lm_head_name)
         if len(embed_inputs) != len(lm_head_inputs):
             logger.debug("Different number of inputs. Cannot tie embeddings.")
-            return None
+            return dag.model
 
         graph_idx = dag.get_graph_idx(lm_head_name)
 
@@ -1944,7 +1944,7 @@ class TieWordEmbeddings(ProtoSurgeon):
             # won't support old gatherblockquantized which uses uint4 data, it has different packing
             if not self.equal_weights(dag, embed_init, lm_head_init):
                 logger.debug("Initializer %s and %s are not equal. Cannot tie embeddings.", embed_init, lm_head_init)
-                return None
+                return dag.model
 
         logger.debug("Tying quantized weights")
 
