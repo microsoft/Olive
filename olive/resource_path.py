@@ -237,16 +237,15 @@ class LocalResourcePath(ResourcePath):
             new_path_name = Path(name).with_suffix(self.config.path.suffix).name
         else:
             new_path_name = self.config.path.name
-        new_path = dir_path if flatten else dir_path / new_path_name
+        new_path = dir_path / new_path_name
         _overwrite_helper(new_path, overwrite)
-
         # is the resource a file or a folder
         is_file = Path(self.config.path).is_file()
         # copy the resource to the new path
         if is_file:
             shutil.copy(self.config.path, new_path)
         else:
-            copy_dir(self.config.path, new_path)
+            copy_dir(self.config.path, dir_path if flatten else new_path)
 
         return str(new_path)
 

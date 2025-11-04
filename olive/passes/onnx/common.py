@@ -121,16 +121,10 @@ def model_proto_to_file(
 
     :return: True if the model has external data, False otherwise.
     """
-    import shutil
-
     output_path = Path(output_path)
     if output_path.exists():
-        if output_path.is_dir():
-            logger.debug("Deleting existing directory: %s", output_path)
-            shutil.rmtree(output_path)
-        else:
-            logger.debug("Deleting existing onnx file: %s", output_path)
-            output_path.unlink()
+        logger.debug("Deleting existing onnx file: %s", output_path)
+        output_path.unlink()
 
     # parent directory of .onnx file
     output_dir = output_path.parent
