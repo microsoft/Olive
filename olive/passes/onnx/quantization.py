@@ -250,7 +250,7 @@ _param_extra_options_mapping = {
 }
 
 
-def maybe_patch_min_max_calibrater():
+def patch_min_max_calibrater():
     from onnxruntime.quantization.calibrate import MinMaxCalibrater
 
     original_augment_graph = MinMaxCalibrater.augment_graph
@@ -486,7 +486,7 @@ class OnnxQuantization(Pass):
 
         if is_static:
             run_config = self.get_static_run_config(model, config, run_config, ort_less_than_1_21)
-            maybe_patch_min_max_calibrater()
+            patch_min_max_calibrater()
             try:
                 quantize_static(
                     model_input=model.model_path,
