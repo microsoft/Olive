@@ -193,7 +193,15 @@ class Engine:
             self.initialize(log_to_file, log_severity_level)
 
         output_dir: Path = (Path(output_dir) if output_dir else Path.cwd()).resolve()
-        output_dir.mkdir(parents=True, exist_ok=True)
+        if output_dir.suffix:
+            output_dir.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Determine the directory for artifacts (run_history, etc.)
+        # If output_dir is a file path (has suffix), use parent directory
+        # Otherwise use output_dir itself
+        artifacts_dir = output_dir.parent if output_dir.suffix else output_dir
 
         logger.info("Running Olive on accelerator: %s", accelerator_spec)
         with self._create_system():
@@ -206,7 +214,7 @@ class Engine:
 
         logger.info("Run history for %s:", accelerator_spec)
         run_history = self.footprint.summarize_run_history()
-        self._dump_run_history(run_history, output_dir / "run_history.txt")
+        self._dump_run_history(run_history, artifacts_dir / "run_history.txt")
 
         workflow_output = WorkflowOutput(accelerator_spec, self.footprint)
         if self.input_passes_configs and workflow_output.has_output_model():
@@ -220,11 +228,10 @@ class Engine:
                 )
             else:
                 logger.debug("No packaging config provided, skip packaging artifacts")
-
-            best_node = workflow_output.get_best_candidate()
-            model_json = self.cache.save_model(model_id=best_node.model_id, output_dir=output_dir, overwrite=True)
-            best_node._update_with_model_config(model_json)  # pylint: disable=W0212
-            logger.info("Saved output model to %s", output_dir)
+                best_node = workflow_output.get_best_candidate()
+                model_json = self.cache.save_model(model_id=best_node.model_id, output_dir=output_dir, overwrite=True)
+                best_node._update_with_model_config(model_json)  # pylint: disable=W0212
+                logger.info("Saved output model to %s", output_dir)
         else:
             logger.warning("No output model produced. Please check the log for details.")
 
@@ -245,8 +252,10 @@ class Engine:
 
         self.footprint.record(is_input_model=True, model_id=input_model_id)
 
-        # create the output directory
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Determine the directory for artifacts
+        # If output_dir is a file path (has suffix like .onnx), use parent directory
+        # Otherwise use output_dir itself
+        artifacts_dir = output_dir.parent if output_dir.suffix else output_dir
 
         try:
             if evaluate_input_model and not self.evaluator_config:
@@ -259,7 +268,7 @@ class Engine:
                 logger.info("Input model evaluation results: %s", results)
 
                 if not self.skip_saving_artifacts:
-                    results_path = output_dir / "input_model_metrics.json"
+                    results_path = artifacts_dir / "input_model_metrics.json"
                     with results_path.open("w") as f:
                         json.dump(results.to_json(), f, indent=4)
                     logger.info("Saved evaluation results of input model to %s", results_path)
@@ -270,10 +279,10 @@ class Engine:
 
             if self.search_strategy:
                 logger.debug("Running Olive in search mode ...")
-                self._run_search(input_model_config, input_model_id, accelerator_spec, output_dir)
+                self._run_search(input_model_config, input_model_id, accelerator_spec, artifacts_dir)
             else:
                 logger.debug("Running Olive in no-search mode ...")
-                self._run_no_search(input_model_config, input_model_id, accelerator_spec, output_dir)
+                self._run_no_search(input_model_config, input_model_id, accelerator_spec, artifacts_dir)
         except EXCEPTIONS_TO_RAISE:
             raise
         except Exception:
@@ -281,7 +290,7 @@ class Engine:
             return
 
         if not self.skip_saving_artifacts:
-            output_fp_path = output_dir / "footprint.json"
+            output_fp_path = artifacts_dir / "footprint.json"
             logger.info("Save footprint to %s.", output_fp_path)
             self.footprint.to_file(output_fp_path)
         logger.debug("run_accelerator done")
@@ -304,10 +313,9 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
-        output_dir: Path,
+        artifacts_dir: Path,
     ):
         """Run all the registered Olive pass flows in no-search mode."""
-        output_model_dir = Path(output_dir)
         self._get_search_space_objectives(input_model_config, input_model_id, accelerator_spec)
 
         # Compute pas configs
@@ -324,14 +332,14 @@ class Engine:
             return
 
         if signal is not None and not self.skip_saving_artifacts:
-            results_path = output_model_dir / "metrics.json"
+            results_path = artifacts_dir / "metrics.json"
             with open(results_path, "w") as f:
                 json.dump(signal.to_json(), f, indent=4)
             logger.info("Saved evaluation results of output model to %s", results_path)
 
         self.footprint.set_output_model_ids([model_ids[-1]])
         if not self.skip_saving_artifacts:
-            self.footprint.to_file(output_dir / "output_footprint.json")
+            self.footprint.to_file(artifacts_dir / "output_footprint.json")
 
     def _get_search_space_config(self, accelerator_spec: "AcceleratorSpec"):
         space_config: dict[str, list[dict[str, SearchParameter]]] = OrderedDict()
@@ -402,7 +410,7 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         accelerator_spec: "AcceleratorSpec",
-        output_dir: Path,
+        artifacts_dir: Path,
     ):
         """Run all the registered Olive passes in search model where search strategy is not None."""
         # initialize the search strategy
@@ -439,14 +447,16 @@ class Engine:
             # record feedback signal
             self.search_strategy.record_feedback_signal(sample.search_point.index, signal, model_ids, should_prune)
 
-        self._create_pareto_frontier_footprint(output_dir)
+        self._create_pareto_frontier_footprint(artifacts_dir)
 
-    def _create_pareto_frontier_footprint(self, output_dir: Path):
+    def _create_pareto_frontier_footprint(self, artifacts_dir: Path):
         self.footprint.create_pareto_frontier()
         if not self.footprint.output_model_ids:
             return
         if self.plot_pareto_frontier:
-            self.footprint.plot_pareto_frontier_to_html(save_path=output_dir / "pareto_frontier_footprint_chart.html")
+            self.footprint.plot_pareto_frontier_to_html(
+                save_path=artifacts_dir / "pareto_frontier_footprint_chart.html"
+            )
 
     def _dump_run_history(self, run_history, output_path: Path):
         if not run_history:
