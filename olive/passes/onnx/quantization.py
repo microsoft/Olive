@@ -251,12 +251,6 @@ _param_extra_options_mapping = {
 
 
 def maybe_patch_min_max_calibrater():
-    from onnxruntime import __version__ as OrtVersion
-
-    if version.parse(OrtVersion).release >= version.parse("1.24.0").release:
-        # no need to patch for onnxruntime<1.24.0
-        return
-
     from onnxruntime.quantization.calibrate import MinMaxCalibrater
 
     original_augment_graph = MinMaxCalibrater.augment_graph
