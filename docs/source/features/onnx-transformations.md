@@ -2062,6 +2062,28 @@ Transformed pattern:
     reducemax_output
 ```
 
+### `TieWordEmbeddings`
+
+#### Description
+
+Tie the weights of word embedding and output projection layers.
+Two cases are supported:
+  - Both are unquantized: lm head MatMul is replaced with a Gemm with transB set to True. input activation is reshaped to 2D and the output is reshaped back to original rank. For CPU and CUDA atleast, reshape on activation is just a metadata change so there is no overhead. This option was chosen over adding a transpose node on the shared weight since ORT constant folds the transpose and duplicates the initializer during session init.
+  - Both are quantized with MatMulNBits and GatherBlockQuantized. A reshape node is added on the MatMulNBits qweight. This only saves disk space but not device memory because ORT constant folds the reshape and duplicates the initializer.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "TieWordEmbeddings"
+        }
+    ]
+}
+```
+
 
 ## ORT Performance Tuning
 

@@ -1970,7 +1970,7 @@ class TieWordEmbeddings(ProtoSurgeon):
         dag.update()
         return dag.model
 
-    def equal_weights(self, dag: OnnxDAG, init0: str, init1: str, transpose: bool) -> bool:
+    def equal_weights(self, dag: OnnxDAG, init0: str, init1: str, transpose: bool = False) -> bool:
         shape0, shape1 = dag.get_io_shape(init0), dag.get_io_shape(init1)
         if np.prod(shape0) != np.prod(shape1):
             # this will fail if GatherBlockQuantized uses uint4 packing, our quantizer doesn't use that

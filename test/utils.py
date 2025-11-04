@@ -365,6 +365,12 @@ def make_local_tiny_llama(save_path, model_type="hf"):
     )
 
 
+def get_tiny_phi3():
+    return HfModelHandler(
+        model_path="katuni4ka/tiny-random-phi3", load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
+    )
+
+
 def get_wikitext_data_config(
     model_name_or_path, max_seq_len=1024, max_samples=1, strategy="join-random", pad_to_max_len=True
 ):

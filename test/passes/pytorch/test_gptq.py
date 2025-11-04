@@ -13,14 +13,14 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.gptq import Gptq
-from test.utils import make_local_tiny_llama
+from test.utils import get_tiny_phi3, make_local_tiny_llama
 
 
 # running on CPU takes time so will only run a subset of tests when GPU is not available
 @pytest.mark.parametrize(
     ("model_path", "expected_model_type"),
     [
-        ("katuni4ka/tiny-random-phi3", "Phi3ForCausalLM"),
+        ("tiny-phi3", "Phi3ForCausalLM"),
         ("tiny-llama", "LlamaForCausalLM"),
     ],
 )
@@ -32,9 +32,7 @@ def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_s
     if model_path == "tiny-llama":
         input_model = make_local_tiny_llama(tmp_path / "input_model")
     else:
-        input_model = HfModelHandler(
-            model_path=model_path, load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
-        )
+        input_model = get_tiny_phi3()
     p = create_pass_from_dict(
         Gptq,
         {

@@ -13,6 +13,7 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.rtn import Rtn
+from test.utils import get_tiny_phi3
 
 
 @pytest.mark.parametrize("group_size", [-1, 16])
@@ -20,9 +21,7 @@ from olive.passes.pytorch.rtn import Rtn
 @pytest.mark.parametrize("lm_head", [True, False])
 def test_gptq(tmp_path: Path, group_size: int, sym: bool, lm_head: bool):
     # setup
-    input_model = HfModelHandler(
-        model_path="katuni4ka/tiny-random-phi3", load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
-    )
+    input_model = get_tiny_phi3()
     p = create_pass_from_dict(
         Rtn,
         {
