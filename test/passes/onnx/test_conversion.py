@@ -14,13 +14,20 @@ from onnxscript import ir
 from packaging import version
 
 from olive.common.config_utils import validate_config
-from olive.model import HfModelHandler, PyTorchModelHandler
+from olive.model import PyTorchModelHandler
 from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 from olive.passes.pytorch.autogptq import GptqQuantizer
 from olive.passes.pytorch.rtn import Rtn
-from test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
+from test.utils import (
+    ONNX_MODEL_PATH,
+    get_hf_model,
+    get_onnx_model,
+    get_pytorch_model,
+    get_tiny_phi3,
+    pytorch_model_loader,
+)
 
 
 def _torch_is_older_than(version_str: str) -> bool:
@@ -59,18 +66,21 @@ def test_onnx_conversion_pass_quant_model(quantizer_pass, use_dynamo_exporter: b
     if quantizer_pass == GptqQuantizer and not torch.cuda.is_available():
         pytest.skip("GptqQuantizer requires CUDA")
 
+    if use_dynamo_exporter and version.parse(torch.__version__) != version.parse("2.8.0"):
+        pytest.skip("Dynamo export requires 2.8. 2.9+ has issues with older transformers versions.")
+
     # setup
-    base_model = HfModelHandler(
-        model_path="katuni4ka/tiny-random-phi3", load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
-    )
-    pass_config = {"group_size": 16, "use_dynamo_exporter": use_dynamo_exporter}
+    base_model = get_tiny_phi3()
+    pass_config = {"group_size": 16}
     if quantizer_pass == Rtn:
         pass_config["lm_head"] = True
         pass_config["embeds"] = True
     quantizer_pass = create_pass_from_dict(quantizer_pass, pass_config, disable_search=True)
     quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
 
-    p = create_pass_from_dict(OnnxConversion, {"torch_dtype": "float32"}, disable_search=True)
+    p = create_pass_from_dict(
+        OnnxConversion, {"torch_dtype": "float32", "use_dynamo_exporter": use_dynamo_exporter}, disable_search=True
+    )
     output_folder = str(tmp_path / "onnx")
 
     # run

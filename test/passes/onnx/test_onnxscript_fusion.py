@@ -11,10 +11,10 @@ import torch
 from onnxscript import ir
 from packaging import version
 
-from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.onnxscript_fusion import OnnxScriptFusion
+from test.utils import get_tiny_phi3
 
 
 # TODO(anyone): Remove the skip conditions once the issues are resolved
@@ -23,7 +23,7 @@ from olive.passes.onnx.onnxscript_fusion import OnnxScriptFusion
     version.parse(torch.__version__) != version.parse("2.8.0"), reason="Dynamo export requires 2.8+. 2.9 has issues."
 )
 def test_onnxscript_fusion_pass_works(tmp_path):
-    base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
+    base_model = get_tiny_phi3()
     conversion_pass = create_pass_from_dict(
         OnnxConversion, {"torch_dtype": "float32", "use_dynamo_exporter": True}, disable_search=True
     )

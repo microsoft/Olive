@@ -5,12 +5,13 @@
 #
 # Modifications Copyright(C) 2025 Advanced Micro Devices, Inc. All rights reserved.
 #
+from __future__ import annotations
+
 import inspect
 import logging
 import math
-from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, Optional
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 import onnx
@@ -21,13 +22,18 @@ from onnxscript import ir, rewriter
 from onnxscript.rewriter import pattern
 
 from olive.constants import MSFT_DOMAIN
-from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from olive.hardware.accelerator import AcceleratorSpec
+    from olive.model import ONNXModelHandler
+
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +47,7 @@ class Surgeon:
     # Refer to https://microsoft.github.io/onnxscript/intermediate_representation/ir_api.html#onnxscript.ir.Model
     # for the IR model API.
 
-    registry: ClassVar[dict[str, type["Surgeon"]]] = {}
+    registry: ClassVar[dict[str, type[Surgeon]]] = {}
 
     @classmethod
     def __init_subclass__(cls, **kwargs):
@@ -102,7 +108,57 @@ class ProtoSurgeon(Surgeon):
     def create_new_name(name: str, old_op: str, new_op: str) -> str:
         return name.replace(old_op, new_op) if old_op in name else f"{name}_{new_op}"
 
+    @staticmethod
+    def add_reshape_node(
+        dag: OnnxDAG,
+        graph_idx: int,
+        node_name: str,
+        input_name: str,
+        target_shape: str | list[int],
+        output_elem_type: int | None = None,
+    ) -> str:
+        """Add a reshape node to the graph.
 
+        :param dag: The OnnxDAG object.
+        :param graph_idx: The index of the graph.
+        :param node_name: The name of the node.
+        :param input_name: The name of the input tensor.
+        :param target_shape: The target shape for the reshape operation. Can be a string for an existing io or a list of integers.
+        :param output_elem_type: The element type of the output tensor. If None, value info will not be added.
+        :return: The name of the output tensor after reshaping.
+        """
+        # need to reshape the first input to 2D
+        if isinstance(target_shape, str):
+            reshape_shape_name = target_shape
+        else:
+            reshape_shape_name = f"{node_name}_shape"
+            dag.add_initializer(
+                onnx.numpy_helper.from_array(np.array(target_shape, dtype=np.int64), reshape_shape_name), graph_idx
+            )
+        reshape_output_name = f"{node_name}_output"
+
+        dag.add_node(
+            onnx.helper.make_node(
+                "Reshape",
+                [input_name, reshape_shape_name],
+                [reshape_output_name],
+                name=node_name,
+            ),
+            graph_idx,
+        )
+        if not isinstance(target_shape, str) and output_elem_type is not None:
+            dag.add_value_info(
+                onnx.helper.make_tensor_value_info(
+                    reshape_output_name,
+                    output_elem_type,
+                    target_shape,
+                ),
+                graph_idx,
+            )
+        return reshape_output_name
+
+
+# TODO(anyone): This is incorrect, remove or fix
 class RenameInputs(Surgeon):
     def __init__(self, old_names: list[str], new_names: list[str]):
         self.old_names = old_names
@@ -116,6 +172,7 @@ class RenameInputs(Surgeon):
         return model
 
 
+# TODO(anyone): This is incorrect, remove or fix
 class RenameOutputs(Surgeon):
     def __init__(self, old_names: list[str], new_names: list[str]):
         self.old_names = old_names
@@ -770,7 +827,7 @@ class RMSNormToL2Norm(ProtoSurgeon):
         return dag.model
 
     @staticmethod
-    def get_rmsnorm_nodes(pow_node: str, dag: OnnxDAG) -> Optional[list[str]]:
+    def get_rmsnorm_nodes(pow_node: str, dag: OnnxDAG) -> list[str] | None:
         # Two possible patterns:
         # x / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div
         # x * 1 / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div -> Mul
@@ -1152,45 +1209,6 @@ class MatMulAddToGemm(ProtoSurgeon):
         dag.update()
         return dag.model
 
-    @staticmethod
-    def add_reshape_node(
-        dag: OnnxDAG, graph_idx: int, node_name: str, input_name: str, target_shape: list[int], output_elem_type: int
-    ) -> str:
-        """Add a reshape node to the graph.
-
-        :param dag: The OnnxDAG object.
-        :param graph_idx: The index of the graph.
-        :param node_name: The name of the node.
-        :param input_name: The name of the input tensor.
-        :param target_shape: The target shape for the reshape operation.
-        :param output_elem_type: The element type of the output tensor.
-        :return: The name of the output tensor after reshaping.
-        """
-        # need to reshape the first input to 2D
-        reshape_shape_name = f"{node_name}_shape"
-        reshape_output_name = f"{node_name}_output"
-        dag.add_initializer(
-            onnx.numpy_helper.from_array(np.array(target_shape, dtype=np.int64), reshape_shape_name), graph_idx
-        )
-        dag.add_node(
-            onnx.helper.make_node(
-                "Reshape",
-                [input_name, reshape_shape_name],
-                [reshape_output_name],
-                name=node_name,
-            ),
-            graph_idx,
-        )
-        dag.add_value_info(
-            onnx.helper.make_tensor_value_info(
-                reshape_output_name,
-                output_elem_type,
-                target_shape,
-            ),
-            graph_idx,
-        )
-        return reshape_output_name
-
 
 class RemoveRopeMultiCache(ProtoSurgeon):
     """Remove the multi rope cache from the model."""
@@ -1378,7 +1396,7 @@ class ReplaceAttentionMaskValue(ProtoSurgeon):
                 return False
         return True
 
-    def new_tensor_value(self, tensor_value: np.ndarray) -> Optional[np.ndarray]:
+    def new_tensor_value(self, tensor_value: np.ndarray) -> np.ndarray | None:
         """Replace values below the threshold with the replacement value."""
         if np.any(tensor_value < self.threshold):
             tensor_value_new = tensor_value.copy()
@@ -1734,6 +1752,237 @@ class ReduceMax(ProtoSurgeon):
 
         transform_reducemax(model)
         return model
+
+
+class TieWordEmbeddings(ProtoSurgeon):
+    """Tie word embeddings.
+
+    Only supports when the embeddings are not quantized or when both are quantized
+    using GatherBlockQuantized and MatMulNBits
+    """
+
+    def __call__(self, model: onnx.ModelProto):
+        dag = OnnxDAG(model)
+
+        if not dag.is_input("input_ids") or not dag.is_output("logits"):
+            return None
+
+        embed_name, embed_op_type = self.get_name_op_type(
+            dag, dag.get_consumers("input_ids"), ["Gather", "GatherBlockQuantized"], 0
+        )
+        if embed_name is None:
+            return None
+
+        lm_head_name, lm_head_op_type = self.get_name_op_type(
+            dag, [dag.get_producer("logits")], ["MatMul", "MatMulNBits"], 1
+        )
+        if lm_head_name is None:
+            return None
+
+        # skip if one is quantized and the other is not
+        if (embed_op_type, lm_head_op_type) not in [
+            ("Gather", "MatMul"),
+            ("GatherBlockQuantized", "MatMulNBits"),
+        ]:
+            return None
+
+        if embed_op_type == "Gather":
+            return self.handle_unquantized(dag, embed_name, lm_head_name)
+        return self.handle_quantized(dag, embed_name, lm_head_name)
+
+    def get_name_op_type(
+        self, dag: OnnxDAG, candidates: list[str], supported_ops: list[str], input_idx: int
+    ) -> tuple[str | None, str | None]:
+        for candidate in candidates:
+            op_type = dag.get_node_op_type(candidate)
+            if op_type not in supported_ops:
+                continue
+            if not dag.is_initializer(dag.get_node_inputs(candidate)[input_idx]):
+                continue
+            return candidate, op_type
+        return None, None
+
+    def handle_unquantized(self, dag: OnnxDAG, embed_name: str, lm_head_name: str):
+        embed_weight_name = dag.get_node_inputs(embed_name)[0]
+        lm_head_weight_name = dag.get_node_inputs(lm_head_name)[1]
+
+        if not self.equal_weights(
+            dag,
+            embed_weight_name,
+            lm_head_weight_name,
+            transpose=True,
+        ):
+            logger.debug("Weights are not the same, cannot tie them")
+            return None
+
+        logger.debug("Tying weights")
+        out_feat, in_feat = dag.get_io_shape(embed_weight_name)
+
+        graph_idx = dag.get_graph_idx(lm_head_name)
+
+        lm_head_output_name = dag.get_node_outputs(lm_head_name)[0]
+        lm_head_input_name = dag.get_node_inputs(lm_head_name)[0]
+
+        # add a reshape before the lm head to make the input 2D
+        prereshape_name = self.create_new_name(lm_head_name, "MatMul", "Reshape_pre")
+        prereshape_output_name = self.add_reshape_node(
+            dag, graph_idx, prereshape_name, lm_head_input_name, [-1, in_feat]
+        )
+
+        # add gemm node to replace matmul
+        gemm_name = lm_head_name.replace("MatMul", "Gemm")
+        gemm_output_name = f"{gemm_name}_output"
+        dag.add_node(
+            onnx.helper.make_node(
+                "Gemm",
+                [prereshape_output_name, embed_weight_name],
+                [gemm_output_name],
+                name=gemm_name,
+                alpha=1.0,
+                beta=1.0,
+                transA=0,
+                transB=1,
+            ),
+            graph_idx,
+        )
+
+        # need to get the original input shape to reshape back
+        input_shape_name = lm_head_name.replace("MatMul", "Shape")
+        input_shape_output_name = f"{input_shape_name}_output"
+        dag.add_node(
+            onnx.helper.make_node(
+                "Shape",
+                [lm_head_input_name],
+                [input_shape_output_name],
+                name=input_shape_name,
+            ),
+            graph_idx,
+        )
+
+        # get all but the last dimension from the input shape
+        slice_name = self.create_new_name(lm_head_name, "MatMul", "Slice")
+        slice_output_name = f"{slice_name}_output"
+        slice_input_names = [input_shape_output_name]
+        for key, value in {
+            "start": np.array([0], dtype=np.int64),
+            "ends": np.array([-1], dtype=np.int64),
+            "axes": np.array([0], dtype=np.int64),
+            "steps": np.array([1], dtype=np.int64),
+        }.items():
+            initializer_name = f"{slice_name}_{key}"
+            dag.add_initializer(onnx.numpy_helper.from_array(value, initializer_name), graph_idx)
+            slice_input_names.append(initializer_name)
+        dag.add_node(
+            onnx.helper.make_node(
+                "Slice",
+                slice_input_names,
+                [slice_output_name],
+                name=slice_name,
+            ),
+            graph_idx,
+        )
+
+        # output shape is concat of sliced shape and out_feat
+        concat_name = self.create_new_name(lm_head_name, "MatMul", "Concat")
+        concat_output_name = f"{concat_name}_output"
+        out_feat_init_name = f"{concat_name}_out_feat"
+        dag.add_initializer(
+            onnx.numpy_helper.from_array(np.array([out_feat], dtype=np.int64), out_feat_init_name), graph_idx
+        )
+        dag.add_node(
+            onnx.helper.make_node(
+                "Concat",
+                [slice_output_name, out_feat_init_name],
+                [concat_output_name],
+                name=concat_name,
+                axis=0,
+            ),
+            graph_idx,
+        )
+
+        # add reshape after gemm to restore original shape
+        post_reshape_name = self.create_new_name(lm_head_name, "MatMul", "Reshape_post")
+        post_reshape_output_name = self.add_reshape_node(
+            dag,
+            graph_idx,
+            post_reshape_name,
+            gemm_output_name,
+            concat_output_name,
+        )
+        post_reshape_output_vi = onnx.ValueInfoProto()
+        post_reshape_output_vi.CopyFrom(dag.get_value_info_proto(lm_head_output_name))
+        post_reshape_output_vi.name = post_reshape_output_name
+        dag.add_value_info(post_reshape_output_vi, graph_idx)
+
+        # redirect consumers of lm head output to post reshape output
+        for consumer in dag.get_consumers(lm_head_name):
+            dag.replace_node_input(consumer, lm_head_output_name, post_reshape_output_name)
+
+        # remove logits output and lm head node
+        dag.remove_output(lm_head_output_name)
+        dag.remove_node(lm_head_name)
+        # rename post reshape output to logits and make it output again
+        dag.rename_node_output(post_reshape_name, post_reshape_output_name, lm_head_output_name)
+        dag.make_output(lm_head_output_name)
+
+        dag.update()
+        return dag.model
+
+    def handle_quantized(self, dag: OnnxDAG, embed_name: str, lm_head_name: str):
+        embed_inputs = dag.get_node_inputs(embed_name)
+        lm_head_inputs = dag.get_node_inputs(lm_head_name)
+        if len(embed_inputs) != len(lm_head_inputs):
+            logger.debug("Different number of inputs. Cannot tie embeddings.")
+            return None
+
+        graph_idx = dag.get_graph_idx(lm_head_name)
+
+        embed_inputs = embed_inputs[0:1] + embed_inputs[2:]
+        lm_head_inputs = lm_head_inputs[1:]
+
+        for embed_init, lm_head_init in zip(embed_inputs, lm_head_inputs):
+            # won't support old gatherblockquantized which uses uint4 data, it has different packing
+            if not self.equal_weights(dag, embed_init, lm_head_init):
+                logger.debug("Initializer %s and %s are not equal. Cannot tie embeddings.", embed_init, lm_head_init)
+                return None
+
+        logger.debug("Tying quantized weights")
+
+        # point both to the same scales and zero points, use the embedding ones since it has 2D shapes
+        # some matmulnbits quantizers still use old 1D scales/zero points
+        for embed_init, lm_head_init in zip(embed_inputs[1:], lm_head_inputs[1:]):
+            if embed_init == lm_head_init:
+                continue
+            dag.replace_node_input(lm_head_name, lm_head_init, embed_init)
+
+        # need a reshape for the qweight, MatNBits expects 3D weights but GatherBlockQuantized uses 2D weights
+        # doesn't matter which one since ORT constant folds the reshape and duplicates the initializer during session creation
+        reshape_output = self.add_reshape_node(
+            dag,
+            graph_idx,
+            self.create_new_name(lm_head_name, "MatMulNBits", "Reshape_tied"),
+            embed_inputs[0],
+            dag.get_io_shape(lm_head_inputs[0]),
+            dag.get_io_elem_type(lm_head_inputs[0]),
+        )
+        dag.replace_node_input(lm_head_name, lm_head_inputs[0], reshape_output)
+
+        dag.update()
+        return dag.model
+
+    def equal_weights(self, dag: OnnxDAG, init0: str, init1: str, transpose: bool = False) -> bool:
+        shape0, shape1 = dag.get_io_shape(init0), dag.get_io_shape(init1)
+        if np.prod(shape0) != np.prod(shape1):
+            # this will fail if GatherBlockQuantized uses uint4 packing, our quantizer doesn't use that
+            # only case is the onnx default mnb quantizer but it uses different algos for gather vs matmul
+            # so weight don't match anyway
+            return False
+
+        arr0 = dag.get_initializer_np_array(init0)
+        arr1 = dag.get_initializer_np_array(init1)
+        if transpose:
+            arr0 = arr0.T
+        return np.array_equal(arr0.ravel(), arr1.ravel())
 
 
 class GraphSurgeries(Pass):

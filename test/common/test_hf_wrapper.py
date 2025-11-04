@@ -4,16 +4,19 @@
 # --------------------------------------------------------------------------
 import pytest
 from torch import nn
-from transformers import AutoConfig, AutoModelForCausalLM
 
 from olive.common.hf.wrapper import ModelWrapper
+from test.utils import get_tiny_phi3, make_local_tiny_llama
 
 
-@pytest.mark.parametrize(
-    "model_path", ["katuni4ka/tiny-random-phi3", "hf-internal-testing/tiny-random-LlamaForCausalLM"]
-)
-def test_hf_wrapper(model_path):
-    model_wrapper = ModelWrapper(AutoConfig.from_pretrained(model_path))
+@pytest.mark.parametrize("model_path", ["tiny-phi3", "tiny-llama"])
+def test_hf_wrapper(model_path, tmp_path):
+    if model_path == "tiny-llama":
+        input_model = make_local_tiny_llama(tmp_path / "model")
+    else:
+        input_model = get_tiny_phi3()
+
+    model_wrapper = ModelWrapper(input_model.get_hf_model_config())
 
     # check for the model attributes
     for key in ["model_type", "hidden_size", "num_attention_heads", "num_key_value_heads", "head_dim", "head_dim"]:
@@ -24,7 +27,7 @@ def test_hf_wrapper(model_path):
         _ = model_wrapper.model
 
     # load the model
-    loaded_model = AutoModelForCausalLM.from_pretrained(model_path)
+    loaded_model = input_model.load_model()
     model_wrapper.set_model(loaded_model)
     assert model_wrapper.model is loaded_model
 

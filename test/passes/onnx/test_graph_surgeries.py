@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+from collections import Counter
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,10 +17,12 @@ from onnxruntime import InferenceSession
 from olive.constants import MSFT_DOMAIN, OpType
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
+from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.graph_surgeries import GraphSurgeries
 from olive.passes.onnx.model_builder import ModelBuilder
 from olive.passes.onnx.onnx_dag import OnnxDAG
-from test.utils import make_local_tiny_llama
+from olive.passes.pytorch.rtn import Rtn
+from test.utils import get_tiny_phi3, make_local_tiny_llama
 
 
 def get_onnx_model(model_path):
@@ -586,7 +589,7 @@ def test_simplifiedlayernorm_to_l2norm_skip(tmp_path, all_ones, output_skip_sum)
 @pytest.mark.parametrize("use_large_cache", [True, False])
 def test_remove_rope_multi_cache(tmp_path, use_large_cache):
     # setup
-    tiny_model = HfModelHandler("katuni4ka/tiny-random-phi3")
+    tiny_model = get_tiny_phi3()
     local_tiny_path = tmp_path / "input_model"
     tiny_model.load_model().save_pretrained(local_tiny_path)
     tiny_model.save_metadata(local_tiny_path)
@@ -1877,3 +1880,59 @@ def test_deduplicate_hashed_initializers_pass_called(mock_dedup_pass, tmp_path):
     # assert
     mock_dedup_pass.assert_called_once()
     mock_instance.assert_called_once()
+
+
+@pytest.mark.parametrize("quantized", [True, False])
+def test_tie_word_embeddings(tmp_path, quantized):
+    # setup
+    tiny_model = get_tiny_phi3()
+    local_tiny_path = tmp_path / "input_model"
+    tiny_model_loaded = tiny_model.load_model()
+    tiny_model_loaded.tie_weights()
+    tiny_model_loaded.config.tie_word_embeddings = True
+    tiny_model_loaded.save_pretrained(local_tiny_path)
+    tiny_model.save_metadata(local_tiny_path)
+    input_model = HfModelHandler(local_tiny_path)
+
+    if quantized:
+        input_model = create_pass_from_dict(
+            Rtn,
+            {"bits": 4, "group_size": 16, "sym": False, "lm_head": True, "embeds": True},
+            disable_search=True,
+        ).run(input_model, str(tmp_path / "quantized_model"))
+    input_model = create_pass_from_dict(
+        OnnxConversion,
+        {"torch_dtype": "float32", "use_dynamo_exporter": False},
+        disable_search=True,
+    ).run(input_model, str(tmp_path / "onnx"))
+
+    output_folder = str(tmp_path / "output")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "TieWordEmbeddings"}]},
+        disable_search=True,
+    )
+
+    # execute
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    original_counts = Counter()
+    original_dag = OnnxDAG.from_model_path(input_model.model_path)
+    for node in original_dag.get_node_names():
+        original_counts[original_dag.get_node_op_type(node)] += 1
+    new_counts = Counter()
+    new_dag = OnnxDAG.from_model_path(output_model.model_path)
+    for node in new_dag.get_node_names():
+        new_counts[new_dag.get_node_op_type(node)] += 1
+    if not quantized:
+        assert original_counts["MatMul"] == new_counts["MatMul"] + 1
+        assert original_counts["Reshape"] == new_counts["Reshape"] - 2
+        assert original_counts["Gemm"] == new_counts["Gemm"] - 1
+        assert new_dag.get_node_op_type(new_dag.get_producer("logits")) == "Reshape"
+    else:
+        assert original_counts["Reshape"] == new_counts["Reshape"] - 1
+        assert (
+            new_dag.get_node_op_type(new_dag.get_producer(new_dag.get_node_inputs(new_dag.get_producer("logits"))[1]))
+            == "Reshape"
+        )
