@@ -1788,7 +1788,7 @@ class TieWordEmbeddings(ProtoSurgeon):
 
         if embed_op_type == "Gather":
             return self.handle_unquantized(dag, embed_name, lm_head_name)
-        raise NotImplementedError("Quantized tie embeddings not implemented yet")
+        return self.handle_quantized(dag, embed_name, lm_head_name)
 
     def get_name_op_type(
         self, dag: OnnxDAG, candidates: list[str], supported_ops: list[str], input_idx: int
@@ -1928,9 +1928,54 @@ class TieWordEmbeddings(ProtoSurgeon):
         dag.update()
         return dag.model
 
+    def handle_quantized(self, dag: OnnxDAG, embed_name: str, lm_head_name: str):
+        embed_inputs = dag.get_node_inputs(embed_name)
+        lm_head_inputs = dag.get_node_inputs(lm_head_name)
+        if len(embed_inputs) != len(lm_head_inputs):
+            logger.debug("Different number of inputs. Cannot tie embeddings.")
+            return None
+
+        graph_idx = dag.get_graph_idx(lm_head_name)
+
+        embed_inputs = embed_inputs[0:1] + embed_inputs[2:]
+        lm_head_inputs = lm_head_inputs[1:]
+
+        for embed_init, lm_head_init in zip(embed_inputs, lm_head_inputs):
+            # won't support old gatherblockquantized which uses uint4 data, it has different packing
+            if not self.equal_weights(dag, embed_init, lm_head_init):
+                logger.debug("Initializer %s and %s are not equal. Cannot tie embeddings.", embed_init, lm_head_init)
+                return None
+
+        logger.debug("Tying quantized weights")
+
+        # point both to the same scales and zero points, use the embedding ones since it has 2D shapes
+        # some matmulnbits quantizers still use old 1D scales/zero points
+        for embed_init, lm_head_init in zip(embed_inputs[1:], lm_head_inputs[1:]):
+            if embed_init == lm_head_init:
+                continue
+            dag.replace_node_input(lm_head_name, lm_head_init, embed_init)
+
+        # need a reshape for the qweight, MatNBits expects 3D weights but GatherBlockQuantized uses 2D weights
+        # doesn't matter which one since ORT constant folds the reshape and duplicates the initializer during session creation
+        reshape_output = self.add_reshape_node(
+            dag,
+            graph_idx,
+            self.create_new_name(lm_head_name, "MatMulNBits", "Reshape_tied"),
+            embed_inputs[0],
+            dag.get_io_shape(lm_head_inputs[0]),
+            dag.get_io_elem_type(lm_head_inputs[0]),
+        )
+        dag.replace_node_input(lm_head_name, lm_head_inputs[0], reshape_output)
+
+        dag.update()
+        return dag.model
+
     def equal_weights(self, dag: OnnxDAG, init0: str, init1: str, transpose: bool) -> bool:
         shape0, shape1 = dag.get_io_shape(init0), dag.get_io_shape(init1)
         if np.prod(shape0) != np.prod(shape1):
+            # this will fail if GatherBlockQuantized uses uint4 packing, our quantizer doesn't use that
+            # only case is the onnx default mnb quantizer but it uses different algos for gather vs matmul
+            # so weight don't match anyway
             return False
 
         arr0 = dag.get_initializer_np_array(init0)
