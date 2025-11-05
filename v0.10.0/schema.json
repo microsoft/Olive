@@ -1,0 +1,831 @@
+{
+  "title": "RunConfig",
+  "description": "Run configuration for Olive workflow.\n\nThis is the top-level configuration. It includes configurations for input model, systems, data,\nevaluators, engine, passes, and auto optimizer.",
+  "type": "object",
+  "properties": {
+    "workflow_id": {
+      "title": "Workflow Id",
+      "description": "Workflow ID. If not provided, use the default ID 'default_workflow'.",
+      "default": "default_workflow",
+      "type": "string"
+    },
+    "input_model": {
+      "title": "Input Model",
+      "description": "Input model configuration.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/ModelConfig"
+        }
+      ]
+    },
+    "systems": {
+      "title": "Systems",
+      "description": "System configurations. Other fields such as engine and passes can refer to these systems by name.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/SystemConfig"
+      }
+    },
+    "data_configs": {
+      "title": "Data Configs",
+      "description": "Data configurations. Each data config must have a unique name. Other fields such as engine, passes and evaluators can refer to these data configs by name. In auto-optimizer mode, only one data config is allowed.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/DataConfig"
+      }
+    },
+    "evaluators": {
+      "title": "Evaluators",
+      "description": "Evaluator configurations. Other fields such as engine and passes can refer to these evaluators by name.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/OliveEvaluatorConfig"
+      }
+    },
+    "engine": {
+      "title": "Engine",
+      "description": "Engine configuration. If not provided, the workflow uses the default engine configuration which runs in no-search or auto-optimizer mode based on whether passes field is provided.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/RunEngineConfig"
+        }
+      ]
+    },
+    "passes": {
+      "title": "Passes",
+      "description": "Pass configurations.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/RunPassConfig"
+        }
+      }
+    }
+  },
+  "required": [
+    "input_model"
+  ],
+  "definitions": {
+    "ModelConfig": {
+      "title": "ModelConfig",
+      "description": "Input model config which will be used to create the model handler.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "title": "Type",
+          "description": "The type of the model handler.",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "description": "The config for the model handler. Used to initialize the model handler.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type",
+        "config"
+      ]
+    },
+    "SystemType": {
+      "title": "SystemType",
+      "description": "An enumeration.",
+      "enum": [
+        "Docker",
+        "LocalSystem",
+        "PythonEnvironment"
+      ],
+      "type": "string"
+    },
+    "Device": {
+      "title": "Device",
+      "description": "An enumeration.",
+      "enum": [
+        "cpu",
+        "cpu_spr",
+        "gpu",
+        "npu",
+        "vpu",
+        "intel_myriad",
+        "any"
+      ],
+      "type": "string"
+    },
+    "AcceleratorConfig": {
+      "title": "AcceleratorConfig",
+      "type": "object",
+      "properties": {
+        "device": {
+          "title": "Device",
+          "description": "Device to use for the accelerator",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/definitions/Device"
+            }
+          ]
+        },
+        "execution_providers": {
+          "title": "Execution Providers",
+          "description": "Execution providers for the accelerator. Each must end with ExecutionProvider. If a tuple, the second element is the path to the EP library. Tuple is only supported for Local System.",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "memory": {
+          "title": "Memory",
+          "description": "Memory size of accelerator in bytes. Can also be provided in string format like 1GB.",
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "TargetUserConfig": {
+      "title": "TargetUserConfig",
+      "type": "object",
+      "properties": {
+        "accelerators": {
+          "title": "Accelerators",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AcceleratorConfig"
+          }
+        },
+        "hf_token": {
+          "title": "Hf Token",
+          "type": "boolean"
+        }
+      }
+    },
+    "SystemConfig": {
+      "title": "SystemConfig",
+      "description": "Config class that automatically gathers all values.\n\nThe values are defined in the class fields and inserted into a dict Field called described by `_nested_field_name`.\nGenerally used for configs that have a nested structure like:\n    {\n        \"type\": \"object\",\n        \"config\": {\n            \"key1\": \"value1\",\n            \"key2\": \"value2\"\n        }\n    }\nMust ensure that there are no fields inside the `_nested_field_name` dict/class that are also defined as fields in\nthis class. The fields of this class take precedence over the fields in the nested class.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/SystemType"
+        },
+        "config": {
+          "$ref": "#/definitions/TargetUserConfig"
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "DataComponentConfig": {
+      "title": "DataComponentConfig",
+      "description": "Config class that automatically gathers all values.\n\nThe values are defined in the class fields and inserted into a dict Field called described by `_nested_field_name`.\nGenerally used for configs that have a nested structure like:\n    {\n        \"type\": \"object\",\n        \"config\": {\n            \"key1\": \"value1\",\n            \"key2\": \"value2\"\n        }\n    }\nMust ensure that there are no fields inside the `_nested_field_name` dict/class that are also defined as fields in\nthis class. The fields of this class take precedence over the fields in the nested class.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "params": {
+          "title": "Params",
+          "type": "object"
+        }
+      }
+    },
+    "DataConfig": {
+      "title": "DataConfig",
+      "type": "object",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "default": "DataContainer",
+          "type": "string"
+        },
+        "user_script": {
+          "title": "User Script",
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "path"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "script_dir": {
+          "title": "Script Dir",
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "path"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "load_dataset_config": {
+          "$ref": "#/definitions/DataComponentConfig"
+        },
+        "pre_process_data_config": {
+          "$ref": "#/definitions/DataComponentConfig"
+        },
+        "post_process_data_config": {
+          "$ref": "#/definitions/DataComponentConfig"
+        },
+        "dataloader_config": {
+          "$ref": "#/definitions/DataComponentConfig"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "MetricType": {
+      "title": "MetricType",
+      "description": "An enumeration.",
+      "enum": [
+        "accuracy",
+        "latency",
+        "throughput",
+        "custom"
+      ],
+      "type": "string"
+    },
+    "AccuracySubType": {
+      "title": "AccuracySubType",
+      "description": "An enumeration.",
+      "enum": [
+        "accuracy_score",
+        "f1_score",
+        "precision",
+        "recall",
+        "auroc",
+        "perplexity"
+      ],
+      "type": "string"
+    },
+    "LatencyMetricConfig": {
+      "title": "LatencyMetricConfig",
+      "type": "object",
+      "properties": {
+        "warmup_num": {
+          "title": "Warmup Num",
+          "default": 10,
+          "type": "integer"
+        },
+        "repeat_test_num": {
+          "title": "Repeat Test Num",
+          "default": 20,
+          "type": "integer"
+        },
+        "sleep_num": {
+          "title": "Sleep Num",
+          "default": 0,
+          "type": "integer"
+        }
+      }
+    },
+    "ConfigBase": {
+      "title": "ConfigBase",
+      "type": "object",
+      "properties": {}
+    },
+    "MetricGoal": {
+      "title": "MetricGoal",
+      "type": "object",
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "type",
+        "value"
+      ]
+    },
+    "SubMetric": {
+      "title": "SubMetric",
+      "type": "object",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AccuracySubType"
+            },
+            {
+              "$ref": "#/definitions/LatencyMetricConfig"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "metric_config": {
+          "$ref": "#/definitions/ConfigBase"
+        },
+        "priority": {
+          "title": "Priority",
+          "default": -1,
+          "type": "integer"
+        },
+        "higher_is_better": {
+          "title": "Higher Is Better",
+          "default": false,
+          "type": "boolean"
+        },
+        "goal": {
+          "$ref": "#/definitions/MetricGoal"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "Metric": {
+      "title": "Metric",
+      "description": "Config class that automatically gathers all values.\n\nThe values are defined in the class fields and inserted into a dict Field called described by `_nested_field_name`.\nGenerally used for configs that have a nested structure like:\n    {\n        \"type\": \"object\",\n        \"config\": {\n            \"key1\": \"value1\",\n            \"key2\": \"value2\"\n        }\n    }\nMust ensure that there are no fields inside the `_nested_field_name` dict/class that are also defined as fields in\nthis class. The fields of this class take precedence over the fields in the nested class.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/MetricType"
+        },
+        "backend": {
+          "title": "Backend",
+          "default": "torch_metrics",
+          "type": "string"
+        },
+        "sub_types": {
+          "title": "Sub Types",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SubMetric"
+          }
+        },
+        "user_config": {
+          "$ref": "#/definitions/ConfigBase"
+        },
+        "data_config": {
+          "$ref": "#/definitions/DataConfig"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "sub_types"
+      ]
+    },
+    "OliveEvaluatorConfig": {
+      "title": "OliveEvaluatorConfig",
+      "description": "Config class that automatically gathers all values.\n\nThe values are defined in the class fields and inserted into a dict Field called described by `_nested_field_name`.\nGenerally used for configs that have a nested structure like:\n    {\n        \"type\": \"object\",\n        \"config\": {\n            \"key1\": \"value1\",\n            \"key2\": \"value2\"\n        }\n    }\nMust ensure that there are no fields inside the `_nested_field_name` dict/class that are also defined as fields in\nthis class. The fields of this class take precedence over the fields in the nested class.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "type_args": {
+          "title": "Type Args",
+          "type": "object"
+        },
+        "user_script": {
+          "title": "User Script",
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "path"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "script_dir": {
+          "title": "Script Dir",
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "path"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "metrics": {
+          "title": "Metrics",
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Metric"
+          }
+        }
+      }
+    },
+    "SearchStrategyExecutionOrder": {
+      "title": "SearchStrategyExecutionOrder",
+      "description": "An enumeration.",
+      "enum": [
+        "joint",
+        "pass-by-pass"
+      ],
+      "type": "string"
+    },
+    "SearchStrategyConfig": {
+      "title": "SearchStrategyConfig",
+      "description": "Config class that automatically gathers all values.\n\nThe values are defined in the class fields and inserted into a dict Field called described by `_nested_field_name`.\nGenerally used for configs that have a nested structure like:\n    {\n        \"type\": \"object\",\n        \"config\": {\n            \"key1\": \"value1\",\n            \"key2\": \"value2\"\n        }\n    }\nMust ensure that there are no fields inside the `_nested_field_name` dict/class that are also defined as fields in\nthis class. The fields of this class take precedence over the fields in the nested class.",
+      "type": "object",
+      "properties": {
+        "execution_order": {
+          "title": "Execution Order",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/definitions/SearchStrategyExecutionOrder"
+            }
+          ]
+        },
+        "sampler": {
+          "title": "Sampler",
+          "type": "string"
+        },
+        "sampler_config": {
+          "$ref": "#/definitions/ConfigBase"
+        },
+        "output_model_num": {
+          "title": "Output Model Num",
+          "type": "integer"
+        },
+        "stop_when_goals_met": {
+          "title": "Stop When Goals Met",
+          "default": false,
+          "type": "boolean"
+        },
+        "max_iter": {
+          "title": "Max Iter",
+          "type": "integer"
+        },
+        "max_time": {
+          "title": "Max Time",
+          "type": "integer"
+        },
+        "include_pass_params": {
+          "title": "Include Pass Params",
+          "default": true,
+          "type": "boolean"
+        }
+      }
+    },
+    "PackagingType": {
+      "title": "PackagingType",
+      "description": "Output Artifacts type.",
+      "enum": [
+        "Zipfile",
+        "Dockerfile"
+      ],
+      "type": "string"
+    },
+    "CommonPackagingConfig": {
+      "title": "CommonPackagingConfig",
+      "type": "object",
+      "properties": {
+        "export_in_mlflow_format": {
+          "title": "Export In Mlflow Format",
+          "default": false,
+          "type": "boolean"
+        }
+      }
+    },
+    "PackagingConfig": {
+      "title": "PackagingConfig",
+      "description": "Olive output artifacts generation config.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "default": "Zipfile",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PackagingType"
+            }
+          ]
+        },
+        "name": {
+          "title": "Name",
+          "default": "OutputModels",
+          "type": "string"
+        },
+        "config": {
+          "$ref": "#/definitions/CommonPackagingConfig"
+        }
+      }
+    },
+    "CacheConfig": {
+      "title": "CacheConfig",
+      "type": "object",
+      "properties": {
+        "cache_dir": {
+          "title": "Cache Dir",
+          "default": ".olive-cache",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "clean_cache": {
+          "title": "Clean Cache",
+          "default": false,
+          "type": "boolean"
+        },
+        "clean_evaluation_cache": {
+          "title": "Clean Evaluation Cache",
+          "default": false,
+          "type": "boolean"
+        },
+        "account_name": {
+          "title": "Account Name",
+          "type": "string"
+        },
+        "container_name": {
+          "title": "Container Name",
+          "type": "string"
+        },
+        "enable_shared_cache": {
+          "title": "Enable Shared Cache",
+          "default": false,
+          "type": "boolean"
+        },
+        "update_shared_cache": {
+          "title": "Update Shared Cache",
+          "default": true,
+          "type": "boolean"
+        }
+      }
+    },
+    "RunEngineConfig": {
+      "title": "RunEngineConfig",
+      "type": "object",
+      "properties": {
+        "search_strategy": {
+          "title": "Search Strategy",
+          "description": "Search strategy configuration to use to auto optimize the input model.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SearchStrategyConfig"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        },
+        "host": {
+          "title": "Host",
+          "description": "The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SystemConfig"
+            }
+          ]
+        },
+        "target": {
+          "title": "Target",
+          "description": "The target to run model evaluations on. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`. If it is a dictionary, it contains the system information. If not specified, it is the local system.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SystemConfig"
+            }
+          ]
+        },
+        "evaluator": {
+          "title": "Evaluator",
+          "description": "The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator in `evaluators`. If it is a dictionary, it contains the evaluator information. This evaluator will be used to evaluate the input model if needed. It is also used to evaluate the output models of passes that don't have their own evaluators. If it is None, skip the evaluation for input model and any output models.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/OliveEvaluatorConfig"
+            }
+          ]
+        },
+        "plot_pareto_frontier": {
+          "title": "Plot Pareto Frontier",
+          "description": "This decides whether to plot the pareto frontier of the search results.",
+          "default": false,
+          "type": "boolean"
+        },
+        "no_artifacts": {
+          "title": "No Artifacts",
+          "description": "Set to false to skip generated output artifacts.",
+          "default": false,
+          "type": "boolean"
+        },
+        "evaluate_input_model": {
+          "title": "Evaluate Input Model",
+          "description": "When true, input model will be evaluated using the engine's evaluator. Set this to false to skip.",
+          "default": true,
+          "type": "boolean"
+        },
+        "output_dir": {
+          "title": "Output Dir",
+          "description": "Path where final output get saved.",
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "path"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "packaging_config": {
+          "title": "Packaging Config",
+          "description": "Artifacts packaging configuration.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PackagingConfig"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PackagingConfig"
+              }
+            }
+          ]
+        },
+        "cache_config": {
+          "title": "Cache Config",
+          "description": "Cache configuration to speed up workflow runs.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CacheConfig"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "cache_dir": {
+          "title": "Cache Dir",
+          "description": "Path where intermediate results get saved.  Default is .olive-cache in the current working directory.",
+          "default": ".olive-cache",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string",
+              "format": "path"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "clean_cache": {
+          "title": "Clean Cache",
+          "description": "Set this to true to force clean the cache on next run.",
+          "default": false,
+          "type": "boolean"
+        },
+        "clean_evaluation_cache": {
+          "title": "Clean Evaluation Cache",
+          "description": "Set this to true to limit cache clean to generated evaluation results only.",
+          "default": false,
+          "type": "boolean"
+        },
+        "enable_shared_cache": {
+          "title": "Enable Shared Cache",
+          "description": "Set this to true to enable shared cache.",
+          "default": false,
+          "type": "boolean"
+        },
+        "log_severity_level": {
+          "title": "Log Severity Level",
+          "description": "Logging level. Default is 3. Available options: 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL",
+          "default": 1,
+          "type": "integer"
+        },
+        "ort_log_severity_level": {
+          "title": "Ort Log Severity Level",
+          "description": "Log severity level for ONNX Runtime C++ logs. Default is 3. Available options: 0: VERBOSE, 1: INFO, 2: WARNING, 3: ERROR, 4: FATAL",
+          "default": 3,
+          "type": "integer"
+        },
+        "ort_py_log_severity_level": {
+          "title": "Ort Py Log Severity Level",
+          "description": "Log severity level for ONNX Runtime Python logs. Available options: 0: VERBOSE, 1: INFO, 2: WARNING, 3: ERROR, 4: FATAL",
+          "default": 3,
+          "type": "integer"
+        },
+        "log_to_file": {
+          "title": "Log To File",
+          "description": "Set this to true to reroute logs to a file instead of the console. If `true`, the log will be stored in a olive-<timestamp>.log file under the current working directory.",
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunPassConfig": {
+      "title": "RunPassConfig",
+      "description": "Pass configuration for Olive workflow.\n\nThis is the configuration for a single pass in Olive workflow. It includes configurations for pass type, config,\netc.\n\nExample:\n.. code-block:: json\n\n    {\n        \"type\": \"OlivePass\",\n        \"config\": {\n            \"param1\": \"value1\",\n            \"param2\": \"value2\"\n        }\n    }",
+      "type": "object",
+      "properties": {
+        "type": {
+          "title": "Type",
+          "description": "The type of the pass.",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "description": "The configuration of the pass. Values for required parameters must be provided. For optional parameters, default values or searchable values (if available and search is not disabled) will be used if not provided.",
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {}
+          ]
+        },
+        "host": {
+          "title": "Host",
+          "description": "Host system for the pass. If it is a string, must refer to a system config under `systems` section. If not provided, use the engine's host system.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SystemConfig"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "evaluator": {
+          "title": "Evaluator",
+          "description": "Evaluator for the pass. If it is a string, must refer to an evaluator config under `evaluators` section. If not provided, use the engine's evaluator.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/OliveEvaluatorConfig"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "type"
+      ]
+    }
+  }
+}
