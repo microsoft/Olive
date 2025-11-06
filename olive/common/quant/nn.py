@@ -521,7 +521,8 @@ class QuantEmbedding(QuantModule):
         if torch.onnx.is_in_onnx_export():
             return QuantEmbeddingFunction.apply(
                 x,
-                self.qweight,
+                # self.qweight,
+                self.qweight.reshape([*self.scales.shape, self.qweight.shape[-1] // self.scales.shape[-1]]),
                 self.scales,
                 self.qzeros,
                 self.quantizer.bits,
