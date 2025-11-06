@@ -171,7 +171,7 @@ class QuarkQuantization(Pass):
 
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
-        if platform.system().lower() == "linux" and torch.cuda.is_available():
+        if torch.cuda.is_available():
             device = "cuda"
         else:
             device = "cpu"
