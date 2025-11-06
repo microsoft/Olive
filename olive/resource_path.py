@@ -225,9 +225,7 @@ class LocalResourcePath(ResourcePath):
     def get_path(self) -> str:
         return str(self.config.path)
 
-    def save_to_dir(
-        self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False, flatten: bool = False
-    ) -> str:
+    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
         # directory to save the resource to
         dir_path = Path(dir_path).resolve()
         dir_path.mkdir(parents=True, exist_ok=True)
@@ -238,34 +236,15 @@ class LocalResourcePath(ResourcePath):
         else:
             new_path_name = self.config.path.name
         new_path = dir_path / new_path_name
+        _overwrite_helper(new_path, overwrite)
 
         # is the resource a file or a folder
         is_file = Path(self.config.path).is_file()
-
-        # Handle overwrite logic based on actual destination
-        if is_file or not flatten:
-            # Actual destination is new_path
-            _overwrite_helper(new_path, overwrite)
-        else:
-            # flatten=True and is folder: destination is dir_path
-            # Check for conflicts with individual files in source
-            if overwrite:
-                for item in Path(self.config.path).iterdir():
-                    target = dir_path / item.name
-                    if target.exists():
-                        if target.is_file():
-                            target.unlink()
-                        else:
-                            shutil.rmtree(target)
-
         # copy the resource to the new path
         if is_file:
             shutil.copy(self.config.path, new_path)
         else:
-            if flatten:
-                copy_dir(self.config.path, dir_path, dirs_exist_ok=True)
-            else:
-                copy_dir(self.config.path, new_path)
+            copy_dir(self.config.path, new_path)
 
         return str(new_path)
 

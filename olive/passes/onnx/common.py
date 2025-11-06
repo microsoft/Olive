@@ -216,6 +216,7 @@ def model_proto_to_olive_model(
     )
     if has_external_data or external_initializers_file_name or constant_inputs_file_name or force_model_dir:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
+
         onnx_file_name = Path(output_model_path).name
     else:
         model_path = LocalFile({"path": output_model_path})
@@ -280,6 +281,7 @@ def ir_model_to_olive_model(
         logger.debug("Model was saved with external data: %s", external_data_name)
         model_path = LocalFolder({"path": Path(output_model_path).parent})
         onnx_file_name = Path(output_model_path).name
+
     else:
         ir.save(model, output_model_path)
 
