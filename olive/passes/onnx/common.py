@@ -11,7 +11,7 @@ from typing import Any, Callable, Optional, Union
 
 import onnx
 from onnx import external_data_helper
-from onnx_ir.passes.common import LiftSubgraphInitializersToMainGraphPass
+from onnx_ir.passes.common import LiftSubgraphInitializersToMainGraphPass, LiftConstantsToInitializersPass
 from onnxscript import ir
 from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
 
@@ -266,8 +266,10 @@ def ir_model_to_olive_model(
     save_as_external_data = external_data_config.get("save_as_external_data")
     # Save as external data if requested or if the model is large
     # Since we do not have a true estimate of the model architecture size for IR Model,
-    # we count the size of all initializers and limit that to 1.5GB
     model = LiftSubgraphInitializersToMainGraphPass()(model).model
+    model = LiftConstantsToInitializersPass()(model).model
+
+    # we count the size of all initializers and limit that to 1.5GB
     initializer_size = _count_initializer_size(model.graph)
     is_large_model = initializer_size > _LARGE_IR_MODEL_THRESHOLD
     if is_large_model:
