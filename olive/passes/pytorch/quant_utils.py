@@ -100,7 +100,7 @@ def prepare_model(
         if existing_qcfg.get("quant_method", None) != OliveHfQuantizationMethod.OLIVE:
             raise ValueError("Model has an existing quantization configuration that is not compatible with this pass.")
 
-    wrapper = ModelWrapper.from_model(load_hf_base_model(model, torch_dtype="auto"))
+    wrapper = ModelWrapper.from_model(load_hf_base_model(model))
     wrapper.model.eval()
 
     qcfg = get_quant_config(model, config)

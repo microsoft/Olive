@@ -91,6 +91,7 @@ def load_hf_base_model(
 
     :param model_handler: The input model handler.
     :param torch_dtype: The torch dtype to load the model with.
+        If None, will use the dtype from model_handler's load_kwargs if set, else will use "auto".
     :param device_map: The device map to load the model with.
     :param kwargs: Additional arguments to update load_kwargs with.
     :return: The new loaded pytorch model
@@ -112,7 +113,9 @@ def load_hf_base_model(
     load_kwargs = new_model_handler.load_kwargs.dict() if new_model_handler.load_kwargs else {}
     load_kwargs.update(
         {
-            "torch_dtype": torch_dtype,
+            # use "auto" as default to use the dtype from the model config
+            # with new transformers versions, None doesn't use the model config dtype and instead uses float32
+            "torch_dtype": torch_dtype or new_model_handler.get_load_kwargs().get("torch_dtype") or "auto"
         }
     )
     # Not all models support device_map. The default value of device_map is "auto".
