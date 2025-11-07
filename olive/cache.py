@@ -469,7 +469,6 @@ class OliveCache:
 
             # Determine if source has external data or additional files
             has_additional_files = bool(onnx_file_name)
-
             # Determine the output file path
             if output_dir.suffix == ".onnx":
                 # If output_dir ends with .onnx, use it as the file path
@@ -499,8 +498,13 @@ class OliveCache:
                 model_json["config"]["model_path"] = str(actual_output_dir)
                 model_json["config"]["onnx_file_name"] = output_file.name
             else:
-                shutil.copy2(source_path, output_file)
-                model_json["config"]["model_path"] = str(output_file)
+                for item in source_path.iterdir():
+                    if item.is_dir():
+                        dst_dir = actual_output_dir / item.name
+                        shutil.copytree(item, dst_dir, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(item, actual_output_dir)
+                model_json["config"]["model_path"] = str(actual_output_dir)
                 model_json["config"].pop("onnx_file_name", None)
 
             onnx_output_file = output_file
