@@ -70,9 +70,8 @@ def get_quantizer_config(allow_embeds: bool = False) -> dict[str, PassConfigPara
             default_value=None,
             description=(
                 "Optional dictionary to specify overrides for specific modules. The keys are module names and the"
-                " values are dictionaries with any of the following keys: 'bits', 'symmetric', 'group_size'. If the"
-                " same values are overridden by the model's mixed precision info, the mixed precision info takes"
-                " precedence."
+                " values are dictionaries with any of the following keys: 'bits', 'symmetric', 'group_size'. These"
+                " overrides take precedence over the overrides provided in the mixed precision info."
             ),
         ),
     }
@@ -100,7 +99,7 @@ def prepare_model(
         if existing_qcfg.get("quant_method", None) != OliveHfQuantizationMethod.OLIVE:
             raise ValueError("Model has an existing quantization configuration that is not compatible with this pass.")
 
-    wrapper = ModelWrapper.from_model(load_hf_base_model(model, torch_dtype="auto"))
+    wrapper = ModelWrapper.from_model(load_hf_base_model(model))
     wrapper.model.eval()
 
     qcfg = get_quant_config(model, config)
@@ -133,6 +132,11 @@ def prepare_model(
         add_quant_info,
         description="Preparing model for quantization",
     )
+
+    # remove overrides for modules not being quantized
+    for name in list(qcfg.overrides or {}):
+        if name not in new_qargs:
+            qcfg.overrides.pop(name)
 
     # merge the new_quant_settings into the existing quant_config
     if existing_qcfg:
@@ -180,10 +184,10 @@ def get_quant_config(model: HfModelHandler, config: type[BasePassConfig]) -> Oli
             if mp_info["default"].get(k) is not None and v != mp_info["default"][k]:
                 logger.debug("Overriding %s with mixed precision info: %s", k, mp_info["default"][k])
                 quant_config[k] = mp_info["default"][k]
-        # merge overrides
+        # merge overrides, user provided overrides take precedence
         for name, override in mp_info.get("overrides", {}).items():
-            merged = quant_config["overrides"].get(name, {}).copy()
-            merged.update({k: v for k, v in override.items() if v is not None})
+            merged = override.copy()
+            merged.update({k: v for k, v in quant_config["overrides"].get(name, {}).items() if v is not None})
             quant_config["overrides"][name] = merged
     return OliveHfQuantizationConfig(**quant_config)
 
