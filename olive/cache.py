@@ -424,17 +424,17 @@ class OliveCache:
 
                             resave_model(
                                 ModelConfig.parse_obj(component_model_json).create_model().model_path,
-                                actual_output_dir / "model" / f"{component_name}.onnx",
+                                actual_output_dir / f"{component_name}.onnx",
                                 saved_external_files=saved_external_files,
                             )
-                            component_model_json["config"][resource_name] = str(actual_output_dir / "model")
+                            component_model_json["config"][resource_name] = str(actual_output_dir)
                             component_model_json["config"]["onnx_file_name"] = f"{component_name}.onnx"
 
                     copied_components.append(component_model_json)
 
             model_json_config["model_components"] = copied_components
             # save additional files
-            model_json = self._save_additional_files(model_json, actual_output_dir / "model")
+            model_json = self._save_additional_files(model_json, actual_output_dir)
         else:
             model_json = self._save_model(model_json, output_dir, overwrite)
 
