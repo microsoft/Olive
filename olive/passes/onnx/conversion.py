@@ -259,10 +259,11 @@ def _export_pytorch_model(
                 dynamic_axes=io_config.dynamic_axes,
                 **dynamo_args,
             )
-            model = ir.load(tmp_model_path)
             # After the line below, the model is loaded into memory, so it's safe to
             # delete previously exported file(s)
-            ir.external_data.load_to_model(model)
+            # loading using onnx for now since ir.external_data.load_to_model doesn't load constants from external files
+            # it's also faster this way
+            model = ir.serde.deserialize_model(onnx.load(tmp_model_path))
 
             # Workaround as described under IoConfig.string_to_int_dim_params: change numeric dim_param to dim_value
             if io_config.string_to_int_dim_params:
