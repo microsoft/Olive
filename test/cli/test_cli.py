@@ -534,3 +534,40 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         pass_list = [k[1]["type"] for k in passes.items()]
 
         assert pass_list == [item.strip() for item in t[2].split(",")]
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_benchmark_command(_, mock_run, tmp_path):
+    # setup
+    output_dir = tmp_path / "output_dir"
+    model_id = "dummy-model-id"
+    command_args = [
+        "benchmark",
+        "-m",
+        model_id,
+        "-o",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "helloswag",
+        "--device",
+        "gpu",
+        "--batch_size",
+        "8",
+        "--max_length",
+        "1024",
+        "--limit",
+        "16",
+    ]
+
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == model_id
+    assert config["evaluators"]["evaluator"]["tasks"] == ["arc_easy", "helloswag"]
+    assert config["evaluators"]["evaluator"]["batch_size"] == 8
+    assert config["evaluators"]["evaluator"]["max_length"] == 1024
+    assert config["evaluators"]["evaluator"]["limit"] == 16
+    assert mock_run.call_count == 1
