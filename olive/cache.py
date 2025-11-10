@@ -498,14 +498,22 @@ class OliveCache:
                 model_json["config"]["model_path"] = str(actual_output_dir)
                 model_json["config"]["onnx_file_name"] = output_file.name
             else:
-                for item in source_path.iterdir():
-                    if item.is_dir():
-                        dst_dir = actual_output_dir / item.name
-                        shutil.copytree(item, dst_dir, dirs_exist_ok=True)
-                    else:
-                        shutil.copy2(item, actual_output_dir)
-                model_json["config"]["model_path"] = str(actual_output_dir)
-                model_json["config"].pop("onnx_file_name", None)
+                if source_path.is_file():
+                    # Source is a single ONNX file, copy to output file
+                    shutil.copy2(source_path, output_file)
+                    model_json["config"]["model_path"] = str(output_file)
+                else:
+                    # There are 2 cases here:
+                    # 1. the onnx file has no external data, but config files are in the same folder
+                    # 2. the output model is openvino format from OpenVINOEncapsulation pass which has multiple files
+                    for item in source_path.iterdir():
+                        if item.is_dir():
+                            dst_dir = actual_output_dir / item.name
+                            shutil.copytree(item, dst_dir, dirs_exist_ok=True)
+                        else:
+                            shutil.copy2(item, actual_output_dir)
+                    model_json["config"]["model_path"] = str(actual_output_dir)
+                    model_json["config"].pop("onnx_file_name", None)
 
             onnx_output_file = output_file
 
