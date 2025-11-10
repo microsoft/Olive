@@ -19,7 +19,7 @@ sys.path.append(os.path.abspath("exts"))
 
 project = "Olive"
 copyright = "2023-2025, Olive Dev team"
-version = "0.10.0"
+version = "0.10.1"
 release = version
 
 # -- General configuration ---------------------------------------------------
