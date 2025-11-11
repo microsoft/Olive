@@ -1027,6 +1027,8 @@ class MatMulAddToGemm(ProtoSurgeon):
     Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor.
     If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm
     node and reshaped back to the original shape after the Gemm node.
+    If a Relu is present after the Add operation and reshaping is required, the post-reshape will be added
+    after the Relu operation.
     """
 
     def __call__(self, model: ModelProto):
@@ -1053,6 +1055,7 @@ class MatMulAddToGemm(ProtoSurgeon):
             add_name = matmul_consumers[0]
 
             out = dag.get_node_outputs(add_name)[0]
+            out_consumers = dag.get_consumers(add_name)
             if dag.is_output(out):
                 continue
 
@@ -1073,14 +1076,18 @@ class MatMulAddToGemm(ProtoSurgeon):
                     break
             if bias_input is None or len(dag.get_io_shape(bias_input)) != 1:
                 continue
-            add_output = dag.get_node_outputs(add_name)[0]
 
             gemm_name = self.create_new_name(matmul_name, "MatMul", "Gemm")
             gemm_inputs = [*matmul_inputs, bias_input]
 
+            # check if there's a Relu after the Add
+            has_relu = len(out_consumers) == 1 and dag.get_node_op_type(out_consumers[0]) == "Relu"
+            relu_name = out_consumers[0] if has_relu else None
+
             matmul_a_shape = matmul_input_shapes[0]
             gemm_output_shape = matmul_output_shape
-            if len(matmul_a_shape) != 2:
+            reshape_needed = len(matmul_a_shape) != 2
+            if reshape_needed:
                 # need to reshape the first input to 2D
                 # only support static shapes for now, otherwise we need to add shape related ops
                 if any(
@@ -1123,21 +1130,36 @@ class MatMulAddToGemm(ProtoSurgeon):
             )
             final_output_name = gemm_output_name
 
-            if len(matmul_a_shape) != 2:
+            if reshape_needed:
+                if has_relu:
+                    out = dag.get_node_outputs(relu_name)[0]
+                    out_consumers = dag.get_consumers(relu_name)
+                    # Connect Gemm output to Relu input
+                    dag.replace_node_input(relu_name, dag.get_node_inputs(relu_name)[0], gemm_output_name)
+                    # Update Relu output value info
+                    relu_output = dag.get_node_outputs(relu_name)[0]
+                    new_relu_vi = onnx.helper.make_tensor_value_info(
+                        relu_output,
+                        elem_type,
+                        gemm_output_shape,
+                    )
+                    dag.add_value_info(new_relu_vi, graph_idx, overwrite=True)
+                    final_output_name = dag.get_node_outputs(relu_name)[0]
+
                 # need to reshape the output to original shape
                 post_reshape_name = self.create_new_name(gemm_name, "Gemm", "Reshape_post")
                 final_output_name = self.add_reshape_node(
                     dag,
                     graph_idx,
                     post_reshape_name,
-                    gemm_output_name,
+                    final_output_name,
                     matmul_output_shape,
                     elem_type,
                 )
 
-            # point all of the consumers of the original add to the final output
-            for consumer in dag.get_consumers(add_name):
-                dag.replace_node_input(consumer, add_output, final_output_name)
+            # point all of the consumers of the original add/relu to the final output
+            for consumer in out_consumers:
+                dag.replace_node_input(consumer, out, final_output_name)
 
             # remove the original add and matmul nodes
             for to_remove in [add_name, matmul_name]:
