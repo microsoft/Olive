@@ -1,0 +1,649 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Exploring Optimal Quantization Settings for Small Language Models with Olive &#8212; Olive 0.10.1 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../_static/documentation_options.js?v=261ea15a"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'blogs/quant-slms';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.10.1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            true;
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Blogs" href="index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.10.1" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Olive 0.10.1 documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How Tos
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../features/index.html">
+    Features
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class=" current active">
+  <a class="nav-link dropdown-item nav-internal" href="index.html">
+    Blogs
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How Tos
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Blogs
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Blogs</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Exploring Optimal Quantization Settings for Small Language Models with Olive</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="exploring-optimal-quantization-settings-for-small-language-models-with-olive">
+<h1>Exploring Optimal Quantization Settings for Small Language Models with Olive<a class="headerlink" href="#exploring-optimal-quantization-settings-for-small-language-models-with-olive" title="Link to this heading">#</a></h1>
+<p>The rapid advancement of small language models (SLMs) has made it possible to deploy AI applications directly on edge devices such as smartphones and IoT hardware. However, running these models efficiently under tight memory and compute constraints requires careful optimization.</p>
+<p>Quantization is one of the most effective optimization techniques for reducing model size and computation by converting weights and activations from floating-point to lower-precision formats such as INT8 or INT4. While quantization can drastically shrink memory and latency footprints, it often comes with trade-offs in accuracy and stability.</p>
+<p>Olive provides a unified and extensible framework to explore these trade-offs efficiently. It enables users to apply and evaluate multiple quantization strategies, including <a class="reference external" href="https://arxiv.org/abs/2210.17323">GPTQ</a> and post-training quantization (PTQ), and to benchmark results against standardized evaluation suites such as <a class="reference external" href="https://github.com/EleutherAI/lm-evaluation-harness">lm-evaluation-harness</a>.</p>
+<hr class="docutils" />
+<section id="experiment-overview">
+<h2>Experiment Overview<a class="headerlink" href="#experiment-overview" title="Link to this heading">#</a></h2>
+<p>In this experiment, we used Olive to find the best weight-only quantization settings across several key model families. The sweep focused on the following dimensions:</p>
+<ul class="simple">
+<li><p><strong>QuaRot</strong>: whether to apply weight rotation using <a class="reference external" href="https://arxiv.org/abs/2404.00456">QuaRot</a></p></li>
+<li><p><strong>Mixed precision</strong>: selectively using higher precision (e.g., INT8) for certain layers</p></li>
+<li><p><strong>GPTQ configuration:</strong></p>
+<ul>
+<li><p>symmetric vs asymmetric quantization</p></li>
+<li><p>group size (block size): 32 or 128</p></li>
+</ul>
+</li>
+</ul>
+<p>Among these, <strong>mixed precision</strong> was of particular interest. Full INT4 quantization can lead to large accuracy drops, while selectively keeping sensitive layers (e.g., LM head, MLP down-projection) in INT8 often helps preserve quality—with moderate increases in size and inference time.</p>
+<p>Olive provides simple configuration options for these strategies:</p>
+<ul class="simple">
+<li><p><strong>No mixed precision:</strong> all layers in INT4</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">k_quant_down</span></code>:</strong> LM head in INT8</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">k_quant_down</span></code> (extended):</strong> LM head + MLP down-projection for first 1/8, last 1/8, and every third middle layer in INT8</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">k_quant_mixed</span></code>:</strong> LM head + MLP down and attention QKV projections for first 1/8, last 1/8, and every third middle layer in INT8</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="experiment-setup">
+<h2>Experiment Setup<a class="headerlink" href="#experiment-setup" title="Link to this heading">#</a></h2>
+<p>We used Olive to evaluate combinations of the above settings through the following pipeline:</p>
+<ol class="arabic simple">
+<li><p>(Optional) QuaRot weight rotation</p></li>
+<li><p>GPTQ weight quantization</p></li>
+<li><p>Model export to ONNX</p></li>
+<li><p>Evaluation via <code class="docutils literal notranslate"><span class="pre">lm-evaluation-harness</span></code> (optionally accelerated using ONNX Runtime IO-Binding on GPU)</p></li>
+</ol>
+<p>The evaluation covered a range of reasoning and commonsense tasks, including <strong>ARC-Easy</strong>, <strong>ARC-Challenge</strong>, <strong>MMLU</strong>, <strong>MMLU-STEM</strong>, <strong>HellaSwag</strong>, and <strong>OpenBookQA</strong>.
+Results were compared against:</p>
+<ul class="simple">
+<li><p>The <strong>original float16 models</strong>, and</p></li>
+<li><p>The <strong>baseline quantized models</strong> available through <a class="reference external" href="https://github.com/microsoft/Foundry-Local">FoundryLocal</a>.</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="recipes">
+<h2>Recipes<a class="headerlink" href="#recipes" title="Link to this heading">#</a></h2>
+<p>We ran the sweeps on the following SLMs using these recipes:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/deepseek-ai-DeepSeek-R1-Distill-Qwen-1.5B/olive/README.md">DeepSeek-R1-Distill-Qwen-1.5B</a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/meta-llama-Llama-3.2-1B-Instruct/olive/README-mixed.md">Llama-3.2-1B-Instruct</a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/microsoft-Phi-3.5-mini-instruct/olive/README.md">Phi-3.5-mini-instruct</a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/blob/main/microsoft-Phi-4-mini-instruct/olive/README.md">Phi-4-mini-instruct</a></p></li>
+<li><p><a class="reference external" href="https://github.com/microsoft/olive-recipes/tree/main/Qwen-Qwen2.5-1.5B-Instruct/olive">Qwen2.5-1.5B-Instruct</a></p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="results">
+<h2>Results<a class="headerlink" href="#results" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Base model</p></th>
+<th class="head"><p>Best schema</p></th>
+<th class="head text-right"><p>Δ mean quality vs Original (%)</p></th>
+<th class="head text-right"><p>Δ mean quality vs Baseline (%)</p></th>
+<th class="head text-right"><p>Size (GB)</p></th>
+<th class="head text-right"><p>Size vs Original (%)</p></th>
+<th class="head text-right"><p>Size vs Baseline (%)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B</p></td>
+<td><p>block=128, symmetric=False, smp=k_quant_mixed, quarot=False</p></td>
+<td class="text-right"><p>+2.724</p></td>
+<td class="text-right"><p>+7.624</p></td>
+<td class="text-right"><p>1.434</p></td>
+<td class="text-right"><p>−57.087</p></td>
+<td class="text-right"><p>+0.005</p></td>
+</tr>
+<tr class="row-odd"><td><p>meta-llama/Llama-3.2-1B-Instruct</p></td>
+<td><p>block=32, symmetric=False, smp=k_quant_down, quarot=True</p></td>
+<td class="text-right"><p>−0.096</p></td>
+<td class="text-right"><p>+7.342</p></td>
+<td class="text-right"><p>1.361</p></td>
+<td class="text-right"><p>−51.505</p></td>
+<td class="text-right"><p>+18.112</p></td>
+</tr>
+<tr class="row-even"><td><p>microsoft/Phi-3.5-mini-instruct</p></td>
+<td><p>block=32, symmetric=False, smp=k_quant_down, quarot=False</p></td>
+<td class="text-right"><p>+0.924</p></td>
+<td class="text-right"><p>+1.042</p></td>
+<td class="text-right"><p>2.453</p></td>
+<td class="text-right"><p>−65.650</p></td>
+<td class="text-right"><p>+13.666</p></td>
+</tr>
+<tr class="row-odd"><td><p>microsoft/Phi-4-mini-instruct</p></td>
+<td><p>block=32, symmetric=False, smp=k_quant_mixed, quarot=True</p></td>
+<td class="text-right"><p>−0.348</p></td>
+<td class="text-right"><p>+0.929</p></td>
+<td class="text-right"><p>3.884</p></td>
+<td class="text-right"><p>−53.762</p></td>
+<td class="text-right"><p>+6.169</p></td>
+</tr>
+<tr class="row-even"><td><p>Qwen/Qwen2.5-1.5B-Instruct</p></td>
+<td><p>block=32, symmetric=True, smp=k_quant_down, quarot=False</p></td>
+<td class="text-right"><p>+0.547</p></td>
+<td class="text-right"><p>+1.636</p></td>
+<td class="text-right"><p>1.479</p></td>
+<td class="text-right"><p>−55.432</p></td>
+<td class="text-right"><p>+18.155</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr class="docutils" />
+<section id="key-takeaways">
+<h3>Key Takeaways<a class="headerlink" href="#key-takeaways" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Block size:</strong> Smaller block sizes (32) consistently yielded better results than larger ones (128), likely due to finer granularity during quantization.</p></li>
+<li><p><strong>Mixed precision:</strong> The <code class="docutils literal notranslate"><span class="pre">k_quant_down</span></code> configuration provided the best trade-off between quality and model size, performing strongly across most models.</p></li>
+<li><p><strong>Symmetric vs asymmetric:</strong> Asymmetric quantization (<code class="docutils literal notranslate"><span class="pre">symmetric=False</span></code>) performed better for most models, as it captures asymmetric weight distributions more effectively.</p></li>
+<li><p><strong>QuaRot:</strong> The QuaRot pass benefited certain models (e.g., Llama-1B, Phi-4-mini) but not others, indicating model-specific sensitivity.</p></li>
+</ul>
+<p>Overall, Olive discovered quantization settings that significantly improved over baseline quantized models, and in some cases even surpassed the original float16 versions in task accuracy.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="why-olive">
+<h2>Why Olive?<a class="headerlink" href="#why-olive" title="Link to this heading">#</a></h2>
+<p>Olive simplifies and accelerates experimentation with quantization and deployment optimizations.
+Its modular pipeline design and integration with ONNX Runtime allow users to efficiently test, benchmark, and deploy optimized models across hardware backends.</p>
+<p>Each quantization dimension, such as block size, symmetry, mixed precision, or QuaRot, is exposed as a configurable parameter in Olive’s JSON configuration, enabling structured exploration and reproducibility. Olive’s built-in sweep capability helps users systematically explore a range of quantization settings and identify configurations that achieve a strong balance between model size, latency, and accuracy.</p>
+</section>
+<hr class="docutils" />
+<section id="summary-and-whats-next">
+<h2>Summary and What’s Next<a class="headerlink" href="#summary-and-whats-next" title="Link to this heading">#</a></h2>
+<p>This experiment showed that Olive can be used to explore and compare different quantization strategies efficiently. Across several small language models, we observed that mixed precision configurations can preserve most of the model quality while significantly reducing size and compute requirements. The choice of block size and symmetry type also plays an important role in overall performance.</p>
+<p>Next, we are extending Olive’s quantization capabilities to include smarter mixed precision strategies. These will automatically analyze layer sensitivity to determine which layers benefit most from higher precision. This approach will reduce the need for manual configuration while maintaining accuracy and efficiency across a wider range of models.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Blogs</p>
+      </div>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiment-overview">Experiment Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiment-setup">Experiment Setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recipes">Recipes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#results">Results</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-takeaways">Key Takeaways</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-olive">Why Olive?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary-and-whats-next">Summary and What’s Next</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2025, Olive Dev team.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
