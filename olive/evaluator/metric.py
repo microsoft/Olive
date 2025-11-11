@@ -10,7 +10,13 @@ from olive.common.pydantic_v1 import validator
 from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
 from olive.evaluator.accuracy import AccuracyBase
-from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, ThroughputMetricConfig, get_user_config_class
+from olive.evaluator.metric_config import (
+    LatencyMetricConfig,
+    MetricGoal,
+    SizeOnDiskMetricConfig,
+    ThroughputMetricConfig,
+    get_user_config_class,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +26,7 @@ class MetricType(StrEnumBase):
     ACCURACY = "accuracy"
     LATENCY = "latency"
     THROUGHPUT = "throughput"
+    SIZE_ON_DISK = "size_on_disk"
     CUSTOM = "custom"
 
 
@@ -56,6 +63,10 @@ class ThroughputSubType(StrEnumBase):
     P95 = "p95"
     P99 = "p99"
     P999 = "p999"
+
+
+class SizeOnDiskSubType(StrEnumBase):
+    BYTES = "bytes"
 
 
 class SubMetric(ConfigBase):
@@ -158,6 +169,8 @@ class Metric(NestedConfig):
                     sub_metric_type_cls = LatencySubType
                 elif values["type"] == MetricType.THROUGHPUT:
                     sub_metric_type_cls = ThroughputSubType
+                elif values["type"] == MetricType.SIZE_ON_DISK:
+                    sub_metric_type_cls = SizeOnDiskSubType
                 # if not exist, will raise ValueError
                 v["name"] = sub_metric_type_cls(v["name"])
             except ValueError:
@@ -182,6 +195,9 @@ class Metric(NestedConfig):
         elif values["type"] == MetricType.THROUGHPUT:
             v["higher_is_better"] = v.get("higher_is_better", True)
             metric_config_cls = ThroughputMetricConfig
+        elif values["type"] == MetricType.SIZE_ON_DISK:
+            v["higher_is_better"] = False
+            metric_config_cls = SizeOnDiskMetricConfig
         v["metric_config"] = validate_config(v.get("metric_config", {}), metric_config_cls)
 
         return v

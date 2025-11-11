@@ -459,21 +459,29 @@ class Engine:
             )
 
     def _dump_run_history(self, run_history, output_path: Path):
-        if not run_history:
-            logger.info("No run history to dump!")
-            return
-        headers = run_history[0]._fields
-        try:
-            from tabulate import tabulate
+        from olive.logging import get_verbosity, set_verbosity
 
-            formatted_rls = tabulate([tuple(rh) for rh in run_history], headers=headers, tablefmt="grid")
-            logger.info("run history:\n%s", formatted_rls)
-        except ImportError:
-            logger.info("Please install tabulate for better run history output")
-            formatted_rls = run_history
-        if not self.skip_saving_artifacts:
-            with Path(output_path).open("w") as f:
-                f.write(f"{formatted_rls}")
+        def _dump_run_history_internal():
+            if not run_history:
+                logger.info("No run history to dump!")
+                return
+            headers = run_history[0]._fields
+            try:
+                from tabulate import tabulate
+
+                formatted_rls = tabulate([tuple(rh) for rh in run_history], headers=headers, tablefmt="grid")
+                logger.info("run history:\n%s", formatted_rls)
+            except ImportError:
+                logger.info("Please install tabulate for better run history output")
+                formatted_rls = run_history
+            if not self.skip_saving_artifacts:
+                with Path(output_path).open("w") as f:
+                    f.write(f"{formatted_rls}")
+
+        verbosity = get_verbosity()
+        set_verbosity(logging.INFO)
+        _dump_run_history_internal()
+        set_verbosity(verbosity)
 
     def resolve_objectives(
         self,

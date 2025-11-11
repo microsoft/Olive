@@ -61,6 +61,11 @@ class OpenVINOModelHandler(OliveModelHandler):
         core = ov.Core()
         return core.read_model(self.model_config["model"])
 
+    @property
+    def size_on_disk(self) -> int:
+        """Compute size of the model on disk."""
+        raise NotImplementedError
+
     def prepare_session(
         self,
         inference_settings: Optional[dict[str, Any]] = None,

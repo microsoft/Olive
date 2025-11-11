@@ -25,7 +25,14 @@ from olive.constants import Framework
 from olive.data.config import DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.template import dummy_data_config_template
-from olive.evaluator.metric import LatencySubType, Metric, MetricType, ThroughputSubType, get_latency_config_from_metric
+from olive.evaluator.metric import (
+    LatencySubType,
+    Metric,
+    MetricType,
+    SizeOnDiskSubType,
+    ThroughputSubType,
+    get_latency_config_from_metric,
+)
 from olive.evaluator.metric_backend import MetricBackend
 from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten_metric_result, joint_metric_key
 from olive.evaluator.registry import Registry
@@ -276,6 +283,19 @@ class _OliveEvaluator(OliveEvaluator):
         latencies = self._evaluate_raw_latency(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_throughput(metric, latencies)
 
+    def _evaluate_size_on_disk(
+        self,
+        model: "OliveModelHandler",
+        metric: Metric,
+        dataloader: "DataLoader",
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, list[str]] = None,
+    ) -> MetricResult:
+        return MetricResult.parse_obj(
+            {SizeOnDiskSubType.BYTES.value: {"value": model.size_on_disk, "priority": -1, "higher_is_better": False}}
+        )
+
     def _evaluate_custom(
         self,
         model: "OliveModelHandler",
@@ -333,6 +353,10 @@ class _OliveEvaluator(OliveEvaluator):
                 )
             elif metric.type == MetricType.THROUGHPUT:
                 metrics_res[metric.name] = self._evaluate_throughput(
+                    model, metric, dataloader, post_func, device, execution_providers
+                )
+            elif metric.type == MetricType.SIZE_ON_DISK:
+                metrics_res[metric.name] = self._evaluate_size_on_disk(
                     model, metric, dataloader, post_func, device, execution_providers
                 )
             elif metric.type == MetricType.CUSTOM:
@@ -1056,30 +1080,44 @@ class LMEvaluator(OliveEvaluator):
             self.model_class,
             {k: v for k, v in init_args.items() if k in ["device", "ep", "ep_options"]},
         )
-        lmmodel = get_model(self.model_class)(**init_args, batch_size=self.batch_size, max_length=self.max_length)
-
-        results = simple_evaluate(
-            model=lmmodel,
-            tasks=self.tasks,
-            task_manager=TaskManager(),
-            log_samples=False,
-            batch_size=self.batch_size,
-            device=device,
-            limit=self.limit,
-        )
 
         metrics = {}
-        for task_name in sorted(results["results"].keys()):
-            metric_items = sorted(results["results"][task_name].items())
+        if MetricType.SIZE_ON_DISK.value in self.tasks:
+            self.tasks.remove(MetricType.SIZE_ON_DISK.value)
+            metrics[MetricType.SIZE_ON_DISK.value] = MetricResult.parse_obj(
+                {
+                    SizeOnDiskSubType.BYTES.value: {
+                        "value": model.size_on_disk,
+                        "priority": -1,
+                        "higher_is_better": False,
+                    }
+                }
+            )
 
-            task_metrics = {}
-            for mf, v in metric_items:
-                if mf != "alias":
-                    m, _ = mf.split(",", 1)
-                    if not m.endswith("_stderr"):
-                        task_metrics[m] = SubMetricResult(value=v, priority=-1, higher_is_better=True)
+        if self.tasks:
+            lmmodel = get_model(self.model_class)(**init_args, batch_size=self.batch_size, max_length=self.max_length)
 
-            metrics[task_name] = MetricResult.parse_obj(task_metrics)
+            results = simple_evaluate(
+                model=lmmodel,
+                tasks=self.tasks,
+                task_manager=TaskManager(),
+                log_samples=False,
+                batch_size=self.batch_size,
+                device=device,
+                limit=self.limit,
+            )
+
+            for task_name in sorted(results["results"].keys()):
+                metric_items = sorted(results["results"][task_name].items())
+
+                task_metrics = {}
+                for mf, v in metric_items:
+                    if mf != "alias":
+                        m, _ = mf.split(",", 1)
+                        if not m.endswith("_stderr"):
+                            task_metrics[m] = SubMetricResult(value=v, priority=-1, higher_is_better=True)
+
+                metrics[task_name] = MetricResult.parse_obj(task_metrics)
 
         return flatten_metric_result(metrics)
 

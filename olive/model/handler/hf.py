@@ -188,6 +188,15 @@ class DistributedHfModelHandler(OliveModelHandler):
             model_attributes=self.model_attributes,
         )
 
+    @property
+    def size_on_disk(self) -> int:
+        """Compute size of the model on disk."""
+        nbytes = 0
+        for rank in range(self.num_ranks):
+            model = self.load_model(rank, cache_model=False)
+            nbytes += model.size_on_disk
+        return nbytes
+
     def prepare_session(
         self,
         inference_settings: Optional[dict[str, Any]] = None,
