@@ -136,11 +136,6 @@ class QuarkQuantization(Pass):
             data_reader = data_config.to_data_container().create_calibration_dataloader()
 
         run_config = config.dict()
-        if config.extra_options is None:
-            run_config["extra_options"] = {}
-        if data_reader is None:
-            run_config["extra_options"]["UseRandomData"] = True
-
         to_delete = [
             "data_config",
             "quant_preprocess",

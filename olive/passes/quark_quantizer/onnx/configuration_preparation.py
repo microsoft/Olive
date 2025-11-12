@@ -6,6 +6,7 @@
 import logging
 from typing import Any
 
+from quark.onnx import ExtendedQuantType, QuantType
 from quark.onnx.quantization.config.algorithm import (
     AdaQuantConfig,
     AdaRoundConfig,
@@ -219,3 +220,40 @@ def get_algo_config(algo_config_list: list[dict[str, Any]] | None) -> list[AlgoC
         algo_configs.append(algo_config)
 
     return algo_configs
+
+
+quant_type_mapping = {
+    "Int8": QuantType.QInt8,
+    "UInt8": QuantType.QUInt8,
+    "Int16": QuantType.QInt16,
+    "UInt16": QuantType.QUInt16,
+    "Int32": ExtendedQuantType.QInt32,
+    "UInt32": ExtendedQuantType.QUInt32,
+    "Float16": ExtendedQuantType.QFloat16,
+    "BFloat16": ExtendedQuantType.QBFloat16,
+    "BFP": ExtendedQuantType.QBFP,
+    "MX": ExtendedQuantType.QMX,
+}
+
+
+def get_extra_options(extra_options_dict: dict[str, Any] | None) -> dict[str, Any]:
+    extra_options: dict[str, Any] = {}
+
+    if extra_options_dict is None:
+        return extra_options
+
+    for key, value in extra_options_dict.items():
+        if key == "MixedPrecisionTensor":
+            if not isinstance(value, dict):
+                logger.warning("The value for extra option 'MixedPrecisionTensor' should be a dict.")
+                continue
+
+            mixed_precision_tensor = {}
+            for k, v in value.items():
+                quant_type = quant_type_mapping[k]
+                mixed_precision_tensor[quant_type] = v
+            extra_options[key] = mixed_precision_tensor
+        else:
+            extra_options[key] = value
+
+    return extra_options
