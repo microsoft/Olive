@@ -231,6 +231,7 @@ quant_type_mapping = {
     "UInt32": ExtendedQuantType.QUInt32,
     "Float16": ExtendedQuantType.QFloat16,
     "BFloat16": ExtendedQuantType.QBFloat16,
+    "BFP16": ExtendedQuantType.QBFP,
     "BFP": ExtendedQuantType.QBFP,
     "MX": ExtendedQuantType.QMX,
 }
