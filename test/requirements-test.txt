@@ -1,5 +1,7 @@
 accelerate
 amd-quark==0.10
+azure-identity
+azure-storage-blob
 coverage
 cppimport
 cupy-cuda12x
