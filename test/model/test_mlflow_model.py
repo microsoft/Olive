@@ -29,18 +29,23 @@ def setup_model(request, tmp_path):
     model = get_tiny_phi3()
 
     if mode == "mlflow":
-        from mlflow.transformers import save_model
-
-        # Save model using mlflow
-        save_model(
-            transformers_model={
-                "model": model.load_model(),
-                "tokenizer": model.get_hf_tokenizer(),
-            },
-            path=model_path,
-            task="text-generation",
-            pip_requirements=["transformers"],
-        )
+        mlmodel = {
+            "flavors": {
+                "transformers": {
+                    "code": None,
+                    "components": ["tokenizer"],
+                    "framework": "pt",
+                    "instance_type": "TextGenerationPipeline",
+                    "model_binary": "model",
+                    "pipeline_model_type": "Phi3ForCausalLM",
+                    "task": "text-generation",
+                    "tokenizer_type": "LlamaTokenizerFast",
+                }
+            }
+        }
+        model_dir = model_path / "model"
+        config_dir = model_path / "model"
+        tokenizer_dir = model_path / "components" / "tokenizer"
     else:
         mlmodel = {
             "flavors": {
@@ -54,15 +59,16 @@ def setup_model(request, tmp_path):
                 }
             }
         }
-        with (model_path / "MLmodel").open("w") as m:
-            yaml.dump(mlmodel, m)
+        model_dir = model_path / "data" / "model"
+        config_dir = model_path / "data" / "config"
+        tokenizer_dir = model_path / "data" / "tokenizer"
 
-        data_dir = model_path / "data"
-        data_dir.mkdir(parents=True, exist_ok=True)
+    with (model_path / "MLmodel").open("w") as m:
+        yaml.dump(mlmodel, m)
 
-        model.load_model().save_pretrained(data_dir / "model")
-        model.get_hf_model_config().save_pretrained(data_dir / "config")
-        model.get_hf_tokenizer().save_pretrained(data_dir / "tokenizer")
+    model.load_model().save_pretrained(model_dir)
+    model.get_hf_model_config().save_pretrained(config_dir)
+    model.get_hf_tokenizer().save_pretrained(tokenizer_dir)
 
     yield model_path, model
 
