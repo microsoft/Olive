@@ -8,6 +8,7 @@ docker>=7.1.0
 evaluate
 marshmallow
 ml_dtypes
+mlflow
 neural-compressor<2.4
 nncf>=2.18.0
 numpy<2.0.0
@@ -21,7 +22,7 @@ onnxruntime_extensions
 onnxscript>=0.2.4
 onnxsim
 openvino>=2025.3.0
-optimum[openvino]>=1.17.0, <=1.24
+optimum-intel[openvino]>=1.17.0, <=1.24
 optuna
 pandas
 peft
@@ -35,4 +36,3 @@ sentencepiece
 soundfile
 tabulate
 torchvision
-transformers>=4.52.3
