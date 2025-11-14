@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 import torch
+from transformers import AutoModelForCausalLM, Phi3ForCausalLM
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
@@ -20,10 +21,20 @@ from test.utils import get_tiny_phi3
 )
 def test_awq(tmp_path: Path):
     # setup
-    input_model = get_tiny_phi3()
+    tiny_phi3 = get_tiny_phi3()
+    # autoawq requires sizes to be multiple of 64
+    input_model_path = tmp_path / "input_model"
+    config = tiny_phi3.get_hf_model_config()
+    config.hidden_size = 64
+    config.intermediate_size = 128
+    AutoModelForCausalLM.from_config(config).save_pretrained(input_model_path)
+    tiny_phi3.save_metadata(input_model_path)
+
+    input_model = HfModelHandler(input_model_path)
 
     p = create_pass_from_dict(
         AutoAWQQuantizer,
+        {"q_group_size": 32},
         disable_search=True,
         accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider"),
     )
@@ -34,7 +45,4 @@ def test_awq(tmp_path: Path):
 
     # assert
     assert isinstance(out, HfModelHandler)
-
-    from transformers import PhiForCausalLM
-
-    assert isinstance(out.load_model(), PhiForCausalLM)
+    assert isinstance(out.load_model(), Phi3ForCausalLM)
