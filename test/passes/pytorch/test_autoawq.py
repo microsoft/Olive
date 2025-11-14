@@ -11,6 +11,7 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.autoawq import AutoAWQQuantizer
+from test.utils import get_tiny_phi3
 
 
 @pytest.mark.skipif(
@@ -19,7 +20,7 @@ from olive.passes.pytorch.autoawq import AutoAWQQuantizer
 )
 def test_awq(tmp_path: Path):
     # setup
-    input_model = HfModelHandler(model_path="facebook/opt-125m", load_kwargs={"use_safetensors": False})
+    input_model = get_tiny_phi3()
 
     p = create_pass_from_dict(
         AutoAWQQuantizer,
@@ -34,6 +35,6 @@ def test_awq(tmp_path: Path):
     # assert
     assert isinstance(out, HfModelHandler)
 
-    from transformers import OPTForCausalLM
+    from transformers import PhiForCausalLM
 
-    assert isinstance(out.load_model(), OPTForCausalLM)
+    assert isinstance(out.load_model(), PhiForCausalLM)
