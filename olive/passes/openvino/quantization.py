@@ -134,20 +134,22 @@ class OpenVINOQuantizationBase(Pass):
                 description="Defines quantization scheme for the model. Supported values: 'PERFORMANCE', 'MIXED'.",
             ),
             "ignored_scope": PassConfigParam(
-                type_=Union[str, list[str]],
+                type_=Union[list[str], list[list[str]]],
                 required=False,
                 default_value=None,
                 description=(
-                    "This parameter can be used to exclude some layers "
+                    "This parameter can be used to exclude some layers based on their names, types, and/or patterns "
                     "from the quantization process to preserve the model accuracy. Please refer to "
                     "https://docs.openvino.ai/2023.3/basic_quantization_flow.html#tune-quantization-parameters."
+                    "If multiple ignored_scope_types are provided, ignored_scope should be a list of lists, "
+                    "where each inner list corresponds to a specific ignored_scope_type in the same order."
                 ),
             ),
             "ignored_scope_type": PassConfigParam(
-                type_=IgnoreScopeTypeEnum,
+                type_=Union[IgnoreScopeTypeEnum, list[IgnoreScopeTypeEnum]],
                 required=False,
                 default_value=None,
-                description="Defines the type of the ignored scope. Supported values: 'names', 'types', 'patterns'.",
+                description="Defines the type(s) of the ignored scope. Supported values: 'names', 'types', 'patterns'.",
             ),
             "target_device": PassConfigParam(
                 type_=Device,
@@ -265,8 +267,33 @@ class OpenVINOQuantizationBase(Pass):
         )
         extra_params["target_device"] = device_map.get(config.target_device, nncf.TargetDevice.ANY)
 
-        if config.ignored_scope:
-            kwargs = {config.ignored_scope_type: config.ignored_scope}
+        if (config.ignored_scope and not config.ignored_scope_type) or (
+            config.ignored_scope_type and not config.ignored_scope
+        ):
+            raise ValueError(
+                "Both 'ignored_scope' and 'ignored_scope_type' must be provided together for ignored scope configuration."
+            )
+        if config.ignored_scope and config.ignored_scope_type:
+            # Handle list of ignored_scope_types by zipping with ignored_scope.
+            # Ensure ignored_scope is a list of lists if ignored_scope_type is a list
+            # with number of elements in ignored_scope equalling number of elements in ignored_scope_type.
+            if isinstance(config.ignored_scope_type, list):
+                if isinstance(config.ignored_scope, list) and all(
+                    isinstance(item, list) for item in config.ignored_scope
+                ):
+                    if len(set(config.ignored_scope_type)) != len(config.ignored_scope_type):
+                        raise ValueError(
+                            "All values in ignored_scope_type must be unique to avoid overwriting in the ignored_scope dictionary."
+                        )
+                    if len(config.ignored_scope) != len(config.ignored_scope_type):
+                        raise ValueError(
+                            "Length of ignored_scope must match length of ignored_scope_type when both are lists."
+                        )
+                    kwargs = dict(zip(config.ignored_scope_type, config.ignored_scope))
+                else:
+                    raise ValueError("When ignored_scope_type is a list, ignored_scope must be a list of lists.")
+            else:
+                kwargs = {config.ignored_scope_type: config.ignored_scope}
             extra_params["ignored_scope"] = nncf.IgnoredScope(**kwargs)
 
         return extra_params

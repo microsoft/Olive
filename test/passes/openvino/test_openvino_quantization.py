@@ -30,7 +30,7 @@ def cifar10_dataset(data_dir, **kwargs):
     # define the full CIFAR10 test set
     full_test_set = CIFAR10(root=data_dir, train=False, transform=ToTensor(), download=True)
 
-    # randomply sample n_test_samples from the full test set
+    # randomly sample n_test_samples from the full test set
     n_test_samples = 5
     random_indices = random.sample(range(len(full_test_set)), n_test_samples)
     return Subset(full_test_set, random_indices)
@@ -47,6 +47,41 @@ def test_openvino_quantization(tmp_path):
             load_dataset_config=DataComponentConfig(type="cifar10_dataset", params={"data_dir": str(data_dir)}),
             dataloader_config=DataComponentConfig(params={"shuffle": True}),
         )
+    }
+    p = create_pass_from_dict(
+        OpenVINOQuantization,
+        config,
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
+    )
+    output_folder = str(tmp_path / "quantized")
+
+    # execute
+    quantized_model = p.run(ov_model, output_folder)
+
+    # assert
+    assert Path(quantized_model.model_path).exists()
+    assert (Path(quantized_model.model_path) / "ov_model_quant.bin").is_file()
+    assert (Path(quantized_model.model_path) / "ov_model_quant.xml").is_file()
+
+    # cleanup
+    shutil.rmtree(quantized_model.model_path)
+    shutil.rmtree(data_dir)
+
+
+def test_openvino_quantization_multi_ignore_scope(tmp_path):
+    # setup
+    ov_model = get_openvino_model(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(exist_ok=True)
+    config = {
+        "data_config": DataConfig(
+            name="test_dc_config",
+            load_dataset_config=DataComponentConfig(type="cifar10_dataset", params={"data_dir": str(data_dir)}),
+            dataloader_config=DataComponentConfig(params={"shuffle": True}),
+        ),
+        "ignored_scope": [["Add", "MatMul"], [".*Mul.*"]],
+        "ignored_scope_type": ["types", "patterns"],
     }
     p = create_pass_from_dict(
         OpenVINOQuantization,
@@ -111,6 +146,50 @@ def test_openvino_quantization_onnx_input(tmp_path):
     shutil.rmtree(q_dir)
 
 
+def test_openvino_quantization_onnx_input_multi_ignore_scope(tmp_path):
+    # setup
+    onnx_model = get_cifar10_mv2_onnx_model(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(exist_ok=True)
+
+    def transform_to_np(data_item):
+        image, _ = data_item
+        return {"input": image.numpy()}
+
+    config = {
+        "data_config": DataConfig(
+            name="test_dc_config",
+            load_dataset_config=DataComponentConfig(type="cifar10_dataset", params={"data_dir": str(data_dir)}),
+            dataloader_config=DataComponentConfig(params={"shuffle": True}),
+        ),
+        "transform_fn": transform_to_np,
+        "ignored_scope": [["Add"], [".*Add.*"]],
+        "ignored_scope_type": ["types", "patterns"],
+    }
+    p = create_pass_from_dict(
+        OpenVINOQuantization,
+        config,
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
+    )
+    output_folder = str(tmp_path / "quantized")
+
+    # execute
+    quantized_model = p.run(onnx_model, output_folder)
+
+    # assert
+    assert Path(quantized_model.model_path).exists()
+    assert Path(quantized_model.model_path).is_file()
+
+    # cleanup
+    shutil.rmtree(data_dir)
+    if Path(quantized_model.model_path).is_file():
+        q_dir = Path(quantized_model.model_path).parent
+    else:
+        q_dir = Path(quantized_model.model_path)
+    shutil.rmtree(q_dir)
+
+
 def test_openvino_quantization_with_accuracy(tmp_path):
     # setup
     ov_model = get_openvino_model(tmp_path)
@@ -122,6 +201,41 @@ def test_openvino_quantization_with_accuracy(tmp_path):
             load_dataset_config=DataComponentConfig(type="cifar10_dataset", params={"data_dir": str(data_dir)}),
             dataloader_config=DataComponentConfig(params={"shuffle": True}),
         )
+    }
+    p = create_pass_from_dict(
+        OpenVINOQuantizationWithAccuracy,
+        config,
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
+    )
+    output_folder = str(tmp_path / "quantized")
+
+    # execute
+    quantized_model = p.run(ov_model, output_folder)
+
+    # assert
+    assert Path(quantized_model.model_path).exists()
+    assert (Path(quantized_model.model_path) / "ov_model_quant.bin").is_file()
+    assert (Path(quantized_model.model_path) / "ov_model_quant.xml").is_file()
+
+    # cleanup
+    shutil.rmtree(quantized_model.model_path)
+    shutil.rmtree(data_dir)
+
+
+def test_openvino_quantization_with_accuracy_multi_ignore_scope(tmp_path):
+    # setup
+    ov_model = get_openvino_model(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(exist_ok=True)
+    config = {
+        "data_config": DataConfig(
+            name="test_dc_config",
+            load_dataset_config=DataComponentConfig(type="cifar10_dataset", params={"data_dir": str(data_dir)}),
+            dataloader_config=DataComponentConfig(params={"shuffle": True}),
+        ),
+        "ignored_scope": [["Add", "MatMul"], [".*Mul.*"]],
+        "ignored_scope_type": ["types", "patterns"],
     }
     p = create_pass_from_dict(
         OpenVINOQuantizationWithAccuracy,
@@ -164,6 +278,54 @@ def test_openvino_quantization_with_accuracy_onnx_input(tmp_path):
         ),
         "transform_fn": transform_to_np,
         "max_drop": np.inf,
+    }
+
+    p = create_pass_from_dict(
+        OpenVINOQuantizationWithAccuracy,
+        config,
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
+    )
+    output_folder = str(tmp_path / "quantized")
+
+    # execute
+    quantized_model = p.run(onnx_model, output_folder)
+
+    # assert
+    assert Path(quantized_model.model_path).exists()
+    assert Path(quantized_model.model_path).is_file()
+
+    # cleanup
+    shutil.rmtree(data_dir)
+    if Path(quantized_model.model_path).is_file():
+        q_dir = Path(quantized_model.model_path).parent
+    else:
+        q_dir = Path(quantized_model.model_path)
+    shutil.rmtree(q_dir)
+
+
+def test_openvino_quantization_with_accuracy_onnx_input_multi_ignore_scope(tmp_path):
+    import numpy as np
+
+    # setup
+    onnx_model = get_cifar10_mv2_onnx_model(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(exist_ok=True)
+
+    def transform_to_np(data_item):
+        image, _ = data_item
+        return {"input": image.numpy()}
+
+    config = {
+        "data_config": DataConfig(
+            name="test_dc_config",
+            load_dataset_config=DataComponentConfig(type="cifar10_dataset", params={"data_dir": str(data_dir)}),
+            dataloader_config=DataComponentConfig(params={"shuffle": True}),
+        ),
+        "transform_fn": transform_to_np,
+        "max_drop": np.inf,
+        "ignored_scope": [["Add"], [".*Add.*"]],
+        "ignored_scope_type": ["types", "patterns"],
     }
 
     p = create_pass_from_dict(
