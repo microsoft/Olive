@@ -1,8 +1,5 @@
 accelerate
 amd-quark==0.10
-azureml-evaluate-mlflow>=0.0.60
-# Pin azureml-metrics[all] greater than 0.0.26 to avoid breaking change in azureml-evaluate-mlflow
-azureml-metrics[all]>=0.0.26
 coverage
 cppimport
 cupy-cuda12x
@@ -11,7 +8,7 @@ docker>=7.1.0
 evaluate
 marshmallow
 ml_dtypes
-mlflow>=2.4.0, <2.20.0
+mlflow
 neural-compressor<2.4
 nncf>=2.18.0
 numpy<2.0.0

@@ -7,54 +7,64 @@ import os
 import pytest
 import torch
 import transformers
-from azureml.evaluate import mlflow as aml_mlflow
+import yaml
 
 from olive.common.utils import dict_diff
 from olive.model.handler.hf import HfModelHandler
+from test.utils import get_tiny_phi3
 
 
 @pytest.fixture(params=["aml_mlflow", "mlflow"], name="setup")
 def setup_model(request, tmp_path):
-    save_method = request.param
+    mode = request.param
+
     root_dir = tmp_path
-    model_path = str(root_dir.resolve() / "mlflow_test")
-    task = "text-classification"
-    model_name = "hf-internal-testing/tiny-random-BertForSequenceClassification"
+    model_path = root_dir.resolve() / "mlflow_test"
+    model_path.mkdir(parents=True, exist_ok=True)
 
     # Cache dir where the MLflow transformers model is saved
     original_cache_dir = os.environ.get("OLIVE_CACHE_DIR", None)
     os.environ["OLIVE_CACHE_DIR"] = str(root_dir / "cache")
 
-    # Initialize model and tokenizer
-    original_model = transformers.BertForSequenceClassification.from_pretrained(model_name)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
+    model = get_tiny_phi3()
 
-    # Save model using the specified method (aml_mlflow or mlflow)
-    if save_method == "aml_mlflow":
-        aml_mlflow.hftransformers.save_model(
-            original_model,
-            model_path,
-            tokenizer=tokenizer,
-            config=original_model.config,
-            hf_conf={
-                "task_type": task,
-            },
-            pip_requirements=["transformers"],
-        )
-    elif save_method == "mlflow":
+    if mode == "mlflow":
         from mlflow.transformers import save_model
 
+        # Save model using mlflow
         save_model(
             transformers_model={
-                "model": original_model,
-                "tokenizer": tokenizer,
+                "model": model.load_model(),
+                "tokenizer": model.get_hf_tokenizer(),
             },
             path=model_path,
-            task=task,
+            task="text-generation",
             pip_requirements=["transformers"],
         )
+    else:
+        mlmodel = {
+            "flavors": {
+                "hftransformersv2": {
+                    "code": None,
+                    "hf_config_class": "AutoConfig",
+                    "hf_pretrained_class": "AutoModelForCausalLM",
+                    "hf_tokenizer_class": "AutoTokenizer",
+                    "model_data": "data",
+                    "task_type": "text-generation",
+                }
+            }
+        }
+        with (model_path / "MLmodel").open("w") as m:
+            yaml.dump(mlmodel, m)
 
-    yield model_path, task, model_name
+        data_dir = model_path / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+
+        model.load_model().save_pretrained(data_dir / "model")
+        model.get_hf_model_config().save_pretrained(data_dir / "config")
+        model.get_hf_tokenizer().save_pretrained(data_dir / "tokenizer")
+
+    yield model_path, model
 
     # Cleanup: restore the original cache directory environment variable
     if original_cache_dir:
@@ -63,23 +73,21 @@ def setup_model(request, tmp_path):
         os.environ.pop("OLIVE_CACHE_DIR", None)
 
 
-@pytest.mark.parametrize("dtype", [None, "float16"])
-def test_load_model_with_kwargs(setup, dtype):
-    model_path, task, _ = setup
-    load_kwargs = {"torch_dtype": dtype} if dtype else {}
+@pytest.mark.parametrize("load_kwargs", [None, {}, {"torch_dtype": torch.float16}])
+def test_load_model(setup, load_kwargs):
+    model_path, _ = setup
 
-    olive_model = HfModelHandler(model_path=model_path, task=task, load_kwargs=load_kwargs).load_model()
+    olive_model = HfModelHandler(model_path=model_path, load_kwargs=load_kwargs).load_model()
 
-    assert isinstance(olive_model, transformers.BertForSequenceClassification)
-    if dtype:
+    assert isinstance(olive_model, transformers.Phi3ForCausalLM)
+    if load_kwargs and "torch_dtype" in load_kwargs:
         assert olive_model.dtype == torch.float16
 
 
 def test_mlflow_model_hfconfig_function(setup):
-    model_path, task, model_name = setup
+    model_path, hf_model = setup
 
-    hf_model = HfModelHandler(model_path=model_name, task=task)
-    mlflow_olive_model = HfModelHandler(model_path=model_path, task=task)
+    mlflow_olive_model = HfModelHandler(model_path=model_path)
 
     # Ensure the MLflow model has the same IO config and dummy inputs as the HF model
     assert mlflow_olive_model.get_hf_io_config() == hf_model.get_hf_io_config()
@@ -87,9 +95,9 @@ def test_mlflow_model_hfconfig_function(setup):
 
 
 def test_hf_model_attributes(setup):
-    model_path, task, model_name = setup
-    olive_model = HfModelHandler(model_path=model_path, task=task)
-    original_hf_model_config = transformers.AutoConfig.from_pretrained(model_name).to_dict()
+    model_path, hf_model = setup
+    olive_model = HfModelHandler(model_path=model_path)
+    original_hf_model_config = hf_model.get_hf_model_config().to_dict()
 
     # "_name_or_path" is expected to be different since it points to where the config was loaded from
     assert olive_model.model_attributes.keys() == original_hf_model_config.keys()
@@ -98,14 +106,9 @@ def test_hf_model_attributes(setup):
     assert "_name_or_path" in difference
 
 
-def test_load_model(setup):
-    model_path, task, _ = setup
-    olive_model = HfModelHandler(model_path=model_path, task=task).load_model()
-
-    assert isinstance(olive_model, transformers.BertForSequenceClassification)
-
-
 def test_model_name_or_path(setup):
-    model_path, task, _ = setup
-    olive_model = HfModelHandler(model_path=model_path, task=task)
+    model_path, _ = setup
+    olive_model = HfModelHandler(
+        model_path=model_path,
+    )
     assert olive_model.model_name_or_path.startswith(os.environ["OLIVE_CACHE_DIR"])
