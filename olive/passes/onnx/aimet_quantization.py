@@ -13,6 +13,7 @@ import onnx
 from packaging import version
 
 from olive.common.config_utils import ParamCategory, validate_config
+from olive.common.onnx_io import get_kv_info
 from olive.common.utils import StrEnumBase
 from olive.constants import Precision
 from olive.data.config import DataConfig
@@ -107,6 +108,17 @@ def _apply_precision_overrides(sim, tensor_precision_overrides: dict[str, Precis
         data_type, bits = qtype.to_legacy_repr()
         quantizer.data_type = data_type
         quantizer.set_bitwidth(bits)
+
+
+def _tie_quantizers(sim, src_name_to_dest_name: dict[str, str]):
+    """Set the quantizers of the destination tensors to be the same as the source tensors."""
+    quantizer_mapping = {}
+    for source, dest in src_name_to_dest_name.items():
+        quantizer = sim.qc_quantize_op_dict.get(source, None)
+        if quantizer:
+            quantizer_mapping[dest] = quantizer
+
+    sim.set_quantizers(quantizer_mapping)
 
 
 SUPPORTED_TECHNIQUES: dict[str, "_AimetTechnique"] = {}
@@ -270,6 +282,12 @@ class AimetQuantization(Pass):
                 required=False,
                 description="Dictionary of tensor name to quantization precision.",
             ),
+            "tie_kv_cache_io": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                required=False,
+                description="Whether to tie the quantization parameters of the key/value cache input and output tensors if present.",
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -368,6 +386,10 @@ class AimetQuantization(Pass):
             op_types_to_exclude = run_config["op_types_to_exclude"]
             if op_types_to_exclude:
                 _exclude_op_types(sim, op_types_to_exclude)
+
+            kv_info = get_kv_info(model.io_config)
+            if config.tie_kv_cache_io and kv_info and kv_info["present_to_past"]:
+                _tie_quantizers(sim, kv_info["present_to_past"])
 
             techniques = run_config["techniques"]
             for technique in techniques:
