@@ -44,6 +44,11 @@ class RotateBase(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
+            "device": PassConfigParam(
+                type_=str,
+                default_value="cpu",
+                description="Whether to run rotation on cpu or gpu. Accepted values are 'cpu' and 'cuda'.",
+            ),
             "seed": PassConfigParam(
                 type_=int,
                 default_value=0,
@@ -60,6 +65,7 @@ class RotateBase(Pass):
     def rotate_model(
         self,
         model: HfModelHandler,
+        device: str,
         rotate_mode: str,
         seed: int,
         training_args: Optional[BaseHFTrainingArguments] = None,
@@ -157,10 +163,13 @@ class RotateBase(Pass):
                 count_trainable_parameters(model_wrapper.model),
             )
 
+        if device == "cuda" and not torch.cuda.is_available():
+            raise ValueError("Please install CUDA to rotate with it.")
+
         return (
             model_wrapper,
             rotation_params,
-            [((RotateEmbed, RotateLinear), lambda x: x.create_merged("cuda" if torch.cuda.is_available() else "cpu"))],
+            [((RotateEmbed, RotateLinear), lambda x: x.create_merged(device))],
         )
 
     @classmethod
@@ -246,7 +255,7 @@ class QuaRot(RotateBase):
     def _run_for_config(
         self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> HfModelHandler:
-        model_wrapper, _, save_replacements = self.rotate_model(model, config.rotate_mode, config.seed)
+        model_wrapper, _, save_replacements = self.rotate_model(model, config.device, config.rotate_mode, config.seed)
 
         # save the model
         model_wrapper.save_model(output_model_path, replacements=save_replacements)
