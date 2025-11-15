@@ -87,7 +87,7 @@ class QuarkQuantization(Pass):
                 description="Dictionary mapping layer types (e.g., Conv, Gemm) to quantization configurations. Default is None.",
             ),
             "exclude": PassConfigParam(
-                type_=dict,
+                type_=list,
                 default_value=None,
                 description="List of nodes or subgraphs excluded from quantization. Default is None.",
             ),
