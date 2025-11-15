@@ -14,6 +14,7 @@ import torch
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 
 from olive.common.constants import OS
+from olive.common.onnx_io import get_kv_info
 from olive.constants import Precision
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
@@ -21,6 +22,8 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.aimet_quantization import AimetQuantization
+from olive.passes.onnx.conversion import OnnxConversion
+from test.utils import make_local_tiny_llama
 
 IS_LINUX = platform.system() == OS.LINUX
 CUDA_AVAILABLE = torch.cuda.is_available()
@@ -45,6 +48,21 @@ class DummyCalibrationDataReader(CalibrationDataReader):
             return item
         except Exception:
             return None
+
+
+class DummyDataGenerator(CalibrationDataReader):
+    # pylint: disable=W0223
+    def __init__(self, model):
+        super().__init__()
+        self.sample_counter = 1
+        self.model = model
+
+    def get_next(self) -> dict:
+        if self.sample_counter <= 0:
+            return None
+
+        self.sample_counter -= 1
+        return self.model.get_dummy_inputs()
 
 
 @Registry.register_dataloader()
@@ -476,3 +494,47 @@ def test_validate_config_returns_false_for_unsupported_configurations(pass_confi
 
     config = AimetQuantization.generate_config(accelerator_spec, pass_config, disable_search=True)
     assert not AimetQuantization.validate_config(config, accelerator_spec)
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+def test_aimet_quantization_ties_kv_io_quantizers(tmp_path):
+    model = make_local_tiny_llama(tmp_path / "input_model")
+    onnx_model = create_pass_from_dict(OnnxConversion, {}, disable_search=True).run(model, tmp_path / "onnx_model")
+
+    @Registry.register_dataloader()
+    def _test_quant_dataloader_llm(*args, **kwargs):
+        return DummyDataGenerator(model)
+
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader_llm"),
+        ),
+    }
+
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+    out = p.run(onnx_model, tmp_path)
+
+    output_model = onnx.load(out.model_path)
+
+    # Map from tensor name to its quantization scale tensor name
+    tensor_to_scale_offset = {}
+    for node in output_model.graph.node:
+        if node.op_type in ("QuantizeLinear", "DequantizeLinear"):
+            scale = node.input[1]
+            offset = node.input[2] if len(node.input) > 2 else None
+            tensor_to_scale_offset[node.input[0]] = (scale, offset)
+            tensor_to_scale_offset[node.output[0]] = (scale, offset)
+
+    initializer_dict = {init.name: onnx.numpy_helper.to_array(init) for init in output_model.graph.initializer}
+
+    kv_info = get_kv_info(out.io_config)
+    # Verify that all present key/value quantization scales are equal
+    for present, past in kv_info["present_to_past"].items():
+        present_scale, present_offset = tensor_to_scale_offset[present]
+        past_scale, past_offset = tensor_to_scale_offset[past]
+        assert np.array_equal(initializer_dict[present_scale], initializer_dict[past_scale])
+        if present_offset:
+            assert np.array_equal(initializer_dict[present_offset], initializer_dict[past_offset])
