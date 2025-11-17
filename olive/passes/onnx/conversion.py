@@ -122,7 +122,7 @@ def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
 
         outputs = orig_forward(*args, **kwargs)
 
-        if isinstance(outputs.get("past_key_values"), (DynamicCache, EncoderDecoderCache)):
+        if isinstance(outputs, dict) and isinstance(outputs.get("past_key_values"), (DynamicCache, EncoderDecoderCache)):
             outputs["past_key_values"] = outputs["past_key_values"].to_legacy_cache()
 
         return outputs
