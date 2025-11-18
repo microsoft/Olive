@@ -34,6 +34,18 @@ class SelectiveMixedPrecision(Pass):
     This pass is used to annotate the model with mixed precision information, which can be used by other passes
     to quantize the model. The pass will add a model attribute `mixed_precision_info` that contains
     information about the default precision along with overrides for specific layers.
+
+    The supported algorithms are:
+    - Layer id based heuristic:
+        - k_quant_last: LM head in high precision.
+        - k_quant_down: LM head + Down projection from first 1/8 and last 1/8 layers, and every 3rd layer in between in high precision.
+        - k_quant_mixed: LM head + QKV and Down projection from first 1/8 and last 1/8 layers, and every 3rd layer in between in high precision.
+    - Sensitivity score based:
+        - snr: Signal-to-Noise Ratio based selection.
+        - snr_relative: Relative SNR (between low and high precision) based selection.
+        - iqe: Inverse of Integer Quantization Error based selection.
+        - iqe_relative: Relative IQE (between low and high precision) based selection.
+        - kld_gradient: KL Divergence gradient based selection.
     """
 
     class Algorithm(StrEnumBase):
@@ -171,6 +183,7 @@ class SelectiveMixedPrecision(Pass):
         bits: PrecisionBits,
         high_bits: PrecisionBits,
     ) -> tuple[dict, dict[str, dict]]:
+        """Get mixed precision config for k-quant algorithms."""
         override_config = {"bits": high_bits}
         overrides = {model_wrapper.get_lm_head()[1]: override_config}
 
@@ -209,6 +222,7 @@ class SelectiveMixedPrecision(Pass):
         high_symmetric: bool,
         ratio: float,
     ):
+        """Get mixed precision config based on sensitivity scores."""
         quantizer = WeightQuantizer(bits=bits, group_size=group_size, symmetric=symmetric)
         high_quantizer = WeightQuantizer(
             bits=high_bits,
@@ -260,8 +274,9 @@ class SelectiveMixedPrecision(Pass):
         high_quantizer: WeightQuantizer,
         device: str,
     ) -> tuple[dict[str, int], dict[str, float]]:
+        """Compute SNR or IQE based sensitivity scores."""
         score_func = (
-            SelectiveMixedPrecision.compute_sqnr if algorithm.startswith("snr") else SelectiveMixedPrecision.compute_iqe
+            SelectiveMixedPrecision.compute_snr if algorithm.startswith("snr") else SelectiveMixedPrecision.compute_iqe
         )
 
         module_numels = {}
@@ -299,6 +314,11 @@ class SelectiveMixedPrecision(Pass):
         high_quantizer: WeightQuantizer,
         device: str,
     ) -> tuple[dict[str, int], dict[str, float]]:
+        """Compute KL Divergence gradient based sensitivity scores.
+
+        The gradients are computed using a calibration dataset and the KL Divergence loss between
+        the outputs of the original model and the fake quantized model.
+        """
         # based on mlx-lm implementation at https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/quant/dynamic_quant.py
         from tqdm.auto import tqdm
 
@@ -369,7 +389,18 @@ class SelectiveMixedPrecision(Pass):
         return module_numels, {name: -compute_sensitivity(name) for name in q_layers}
 
     @staticmethod
-    def compute_sqnr(x: torch.Tensor, y: torch.Tensor, eps: float = 1e-12) -> float:
+    def compute_snr(x: torch.Tensor, y: torch.Tensor, eps: float = 1e-12) -> float:
+        """Compute signal-to-noise ratio in dB.
+
+        Args:
+            x (torch.Tensor): Original tensor.
+            y (torch.Tensor): Quantized tensor.
+            eps (float): Small value to avoid division by zero.
+
+        Returns:
+            float: SNR value in dB.
+
+        """
         x = x.flatten().float()
         y = y.flatten().float()
         signal_norm = max(torch.norm(x).item(), eps)
@@ -378,5 +409,21 @@ class SelectiveMixedPrecision(Pass):
 
     @staticmethod
     def compute_iqe(x: torch.Tensor, y: torch.Tensor, eps: float = 1e-12) -> float:
+        """Compute the inverse of integer quantization error.
+
+        Error is computed as max(mean((x - y)^2)) over the last dimension.
+
+        Args:
+            x (torch.Tensor): Original tensor.
+            y (torch.Tensor): Quantized tensor.
+            eps (float): Small value to avoid division by zero.
+
+        Returns:
+            float: Inverse of IQE score.
+
+        """
+        # based on nncf implementation at
+        # https://github.com/openvinotoolkit/nncf/blob/develop/src/nncf/quantization/algorithms/weight_compression/weight_lowering.py
         iqe = torch.pow(x.float() - y.float(), 2).mean(-1).max().item()
+        # invert so that lower score means more sensitive
         return 1 / (iqe + eps)
