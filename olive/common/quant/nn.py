@@ -98,8 +98,8 @@ class QuantModule(nn.Module):
         bits: int = 4,
         symmetric: bool = True,
         group_size: int = -1,
-        scales: torch.device | None = None,
-        zero_points: torch.device | None = None,
+        scales: torch.Tensor | None = None,
+        zero_points: torch.Tensor | None = None,
         quantized: bool = False,
         **kwargs,
     ) -> QuantModule:
@@ -301,8 +301,8 @@ class QuantLinear(QuantModule):
         bits: int = 4,
         symmetric: bool = True,
         group_size: int = -1,
-        scales: torch.device | None = None,
-        zero_points: torch.device | None = None,
+        scales: torch.Tensor | None = None,
+        zero_points: torch.Tensor | None = None,
     ) -> QuantLinear:
         """Create a QuantLinear layer from an existing nn.Linear layer.
 
@@ -482,8 +482,8 @@ class QuantEmbedding(QuantModule):
         bits: int = 4,
         symmetric: bool = True,
         group_size: int = -1,
-        scales: torch.device | None = None,
-        zero_points: torch.device | None = None,
+        scales: torch.Tensor | None = None,
+        zero_points: torch.Tensor | None = None,
     ) -> QuantEmbedding:
         """Create a QuantEmbedding layer from an existing nn.Embedding layer.
 
