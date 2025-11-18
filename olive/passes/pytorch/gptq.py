@@ -10,14 +10,13 @@ from typing import TYPE_CHECKING, Any, Union
 
 import torch
 
-from olive.common.config_utils import validate_config
 from olive.common.quant.utils import WeightQuantizer
 from olive.common.utils import tensor_data_to_device
 from olive.data.config import DataConfig
-from olive.data.template import huggingface_data_config_template
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.quant_utils import finalize, get_quantizer_config, prepare_model
+from olive.passes.pytorch.train_utils import get_calibration_dataset
 
 if TYPE_CHECKING:
     from olive.common.hf.wrapper import ModelWrapper
@@ -181,7 +180,7 @@ class Gptq(Pass):
         first_layer = wrapper.get_layers(return_name=False)[0]
         hook = first_layer.register_forward_pre_hook(store_input_hook, with_kwargs=True)
 
-        for data in self.get_dataset(model, config):
+        for data in get_calibration_dataset(model, config.data_config):
             try:
                 wrapper.model(**tensor_data_to_device(data, device))
             except ValueError:
@@ -372,69 +371,3 @@ class Gptq(Pass):
         module.quant_info.data = None
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-
-    def get_dataset(self, model: HfModelHandler, config: type[BasePassConfig]) -> list[dict[str, Any]]:
-        """Get the dataset for quantization calibration.
-
-        Args:
-            model: The HuggingFace model to get dataset for.
-            config: Configuration object containing data settings.
-
-        Returns:
-            List of tokenized data dictionaries for calibration.
-
-        Raises:
-            ValueError: If the dataset format is invalid.
-
-        """
-        data_config = config.data_config or self.get_calibration_data_config(
-            model.model_name_or_path, trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None)
-        )
-        data_config = validate_config(data_config, DataConfig)
-        dataloader = data_config.to_data_container().create_dataloader()
-        # each batch consists of (input_data, labels)
-        dataset = [data[0] for data in dataloader]
-
-        if (
-            not dataset
-            or not isinstance(dataset, list)
-            or not isinstance(dataset[0], dict)
-            or ("input_ids" not in dataset[0] or "attention_mask" not in dataset[0])
-        ):
-            raise ValueError(
-                "Provided dataset is invalid. The returned datasets is a list of tokenized data "
-                "(e.g. [{ 'input_ids': [[ 1, 100, 15, ... ]],'attention_mask': [[ 1, 1, 1, ... ]]},...])"
-            )
-
-        return dataset
-
-    @staticmethod
-    def get_calibration_data_config(model_name_or_path: str, trust_remote_code: bool | None = None) -> DataConfig:
-        """Get default calibration data configuration for GPTQ quantization.
-
-        Args:
-            model_name_or_path: Name or path of the model.
-            trust_remote_code: Whether to trust remote code when loading data.
-
-        Returns:
-            DataConfig object for calibration data.
-
-        """
-        return huggingface_data_config_template(
-            model_name=model_name_or_path,
-            task="text-generation",
-            load_dataset_config={
-                "data_name": "wikitext",
-                "subset": "wikitext-2-raw-v1",
-                # only require 128 samples for calibration
-                "split": "train[:1000]",
-                "trust_remote_code": trust_remote_code,
-            },
-            pre_process_data_config={
-                # should we randomize the data?
-                "add_special_tokens": False,
-                "max_seq_len": 2048,
-                "max_samples": 128,
-                "trust_remote_code": trust_remote_code,
-            },
-        )

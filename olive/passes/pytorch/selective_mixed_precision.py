@@ -19,6 +19,7 @@ from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.pytorch.train_utils import load_hf_base_model
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
@@ -123,7 +124,9 @@ class SelectiveMixedPrecision(Pass):
         if not isinstance(model, HfModelHandler):
             raise ValueError("SelectiveMixedPrecision pass currently only supports HfModelHandler.")
 
-        model_wrapper = ModelWrapper.from_model(model.load_model(cache_model=False))
+        # clear cached model
+        model.model = None
+        model_wrapper = ModelWrapper.from_model(load_hf_base_model(model))
 
         if config.algorithm.startswith("k_quant"):
             default, overrides = self.get_k_quant_config(model_wrapper, config.algorithm, config.bits, config.high_bits)
