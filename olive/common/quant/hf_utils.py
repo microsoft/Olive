@@ -105,7 +105,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
                 cleaned_override = {k: v for k, v in override.__dict__.items() if v is not None and v != output[k]}
                 if cleaned_override:
                     overrides[module_name] = cleaned_override
-            output["overrides"] = overrides or None
+            output["overrides"] = sort_layers_by_name(overrides) or None
         else:
             output["overrides"] = None
         return output
@@ -128,6 +128,15 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         if override := self.overrides.get(module_name):
             init_args.update({k: v for k, v in override.__dict__.items() if v is not None})
         return init_args
+
+
+def sort_layers_by_name(layers_dict) -> dict:
+    """Sort layers dictionary by layer names in natural order."""
+
+    def sort_key(name: str) -> tuple:
+        return [int(part) if part.isdigit() else part for part in name.split(".")]
+
+    return dict(sorted(layers_dict.items(), key=lambda item: sort_key(item[0])))
 
 
 class OliveHfQuantizer(HfQuantizer):
