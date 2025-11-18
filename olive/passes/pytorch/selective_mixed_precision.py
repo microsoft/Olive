@@ -14,12 +14,12 @@ import torch
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.hf_utils import replace_matching_submodules, sort_layers_by_name
 from olive.common.quant.utils import WeightQuantizer
-from olive.common.utils import StrEnumBase
+from olive.common.utils import StrEnumBase, get_attr
 from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.passes.pytorch.train_utils import load_hf_base_model
+from olive.passes.pytorch.train_utils import get_calibration_dataset, kl_div_loss, load_hf_base_model
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
@@ -39,14 +39,14 @@ class SelectiveMixedPrecision(Pass):
     class Algorithm(StrEnumBase):
         """The algorithm to use for mixed precision."""
 
+        IQE = "iqe"
+        IQE_RELATIVE = "iqe_relative"
         K_QUANT_DOWN = "k_quant_down"
         K_QUANT_MIXED = "k_quant_mixed"
         K_QUANT_LAST = "k_quant_last"
+        KLD_GRADIENT = "kld_gradient"
         SNR = "snr"
         SNR_RELATIVE = "snr_relative"
-        IQE = "iqe"
-        IQE_RELATIVE = "iqe_relative"
-        # TODO(jambayk): add other heuristic/algorithms
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -64,12 +64,15 @@ class SelectiveMixedPrecision(Pass):
             "group_size": PassConfigParam(
                 type_=int,
                 default_value=128,
-                description="The default group size. Only used for snr and iqe algorithms.",
+                description="The default group size. Only used for snr, iqe and kld_gradient algorithms.",
             ),
-            "symmetric": PassConfigParam(
+            "sym": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Whether to use symmetric quantization by default. Only used for snr and iqe algorithms.",
+                description=(
+                    "Whether to use symmetric quantization by default. Only used for snr, iqe and kld_gradient"
+                    " algorithms."
+                ),
             ),
             "high_bits": PassConfigParam(
                 type_=PrecisionBits,
@@ -80,24 +83,24 @@ class SelectiveMixedPrecision(Pass):
                 type_=int,
                 default_value=None,
                 description=(
-                    "The group size for high precision layers. Only used for snr and iqe algorithms. If None, use"
-                    " group_size."
+                    "The group size for high precision layers. Only used for snr, iqe and kld_gradient algorithms. If"
+                    " None, use group_size."
                 ),
             ),
-            "high_symmetric": PassConfigParam(
+            "high_sym": PassConfigParam(
                 type_=bool,
                 default_value=None,
                 description=(
-                    "Whether to use symmetric quantization for high precision layers. Only used for snr and iqe"
-                    " algorithms. If None, use symmetric."
+                    "Whether to use symmetric quantization for high precision layers. Only used for snr, iqe and"
+                    " kld_gradient algorithms. If None, use sym."
                 ),
             ),
             "ratio": PassConfigParam(
                 type_=float,
                 default_value=None,
                 description=(
-                    "The ratio of default precision parameters to total parameters. Only used for snr and iqe"
-                    " algorithms. Must be provided when using these algorithms."
+                    "The ratio of default precision parameters to total parameters. Only used for snr, iqe and"
+                    " kld_gradient algorithms. Must be provided when using these algorithms."
                 ),
             ),
         }
@@ -131,15 +134,16 @@ class SelectiveMixedPrecision(Pass):
         if config.algorithm.startswith("k_quant"):
             default, overrides = self.get_k_quant_config(model_wrapper, config.algorithm, config.bits, config.high_bits)
         else:
-            default, overrides = self.get_snr_iqe_config(
+            default, overrides = self.get_scored_config(
+                model,
                 model_wrapper,
                 config.algorithm,
                 config.bits,
                 config.group_size,
-                config.symmetric,
+                config.sym,
                 config.high_bits,
                 config.high_group_size if config.high_group_size is not None else config.group_size,
-                config.high_symmetric if config.high_symmetric is not None else config.symmetric,
+                config.high_sym if config.high_sym is not None else config.sym,
                 config.ratio,
             )
 
@@ -193,7 +197,8 @@ class SelectiveMixedPrecision(Pass):
         return {"bits": bits}, overrides
 
     @staticmethod
-    def get_snr_iqe_config(
+    def get_scored_config(
+        handler: HfModelHandler,
         model_wrapper: ModelWrapper,
         algorithm: SelectiveMixedPrecision.Algorithm,
         bits: PrecisionBits,
@@ -205,19 +210,61 @@ class SelectiveMixedPrecision(Pass):
         ratio: float,
     ):
         quantizer = WeightQuantizer(bits=bits, group_size=group_size, symmetric=symmetric)
+        high_quantizer = WeightQuantizer(
+            bits=high_bits,
+            group_size=high_group_size,
+            symmetric=high_symmetric,
+        )
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        algo_func = (
+            SelectiveMixedPrecision.get_kld_scores
+            if algorithm == SelectiveMixedPrecision.Algorithm.KLD_GRADIENT
+            else SelectiveMixedPrecision.get_snr_iqe_scores
+        )
+        module_numels, module_scores = algo_func(
+            handler,
+            model_wrapper.model,
+            algorithm,
+            quantizer,
+            high_quantizer,
+            device,
+        )
+
+        threshold = sum(module_numels.values()) * (1 - ratio)
+        # ascending order, lower score means more sensitive and should be in higher precision
+        sorted_modules = sorted(module_scores, key=lambda item: module_scores[item], reverse=False)
+        overrides = {}
+        high_override_config = {"bits": high_bits, "group_size": high_group_size, "symmetric": high_symmetric}
+        total = 0
+        for module_name in sorted_modules:
+            total += module_numels[module_name]
+            overrides[module_name] = high_override_config
+            if total >= threshold:
+                break
+        logger.info(
+            "Selected %d modules for high precision out of %d modules. Ratio of low precision: %.4f",
+            len(overrides),
+            len(module_numels),
+            1 - total / sum(module_numels.values()),
+        )
+
+        return {"bits": bits, "group_size": group_size, "symmetric": symmetric}, overrides
+
+    @staticmethod
+    def get_snr_iqe_scores(
+        handler: HfModelHandler,
+        model: torch.nn.Module,
+        algorithm: SelectiveMixedPrecision.Algorithm,
+        quantizer: WeightQuantizer,
+        high_quantizer: WeightQuantizer,
+        device: str,
+    ) -> tuple[dict[str, int], dict[str, float]]:
         score_func = (
             SelectiveMixedPrecision.compute_sqnr if algorithm.startswith("snr") else SelectiveMixedPrecision.compute_iqe
         )
-        use_relative = algorithm.endswith("_relative")
-        if use_relative:
-            high_quantizer = WeightQuantizer(
-                bits=high_bits,
-                group_size=high_group_size,
-                symmetric=high_symmetric,
-            )
-        device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        module_numel = {}
+        module_numels = {}
         module_scores = {}
 
         def should_include(module, _):
@@ -225,11 +272,11 @@ class SelectiveMixedPrecision(Pass):
 
         @torch.no_grad()
         def process_module(module, module_name):
-            module_numel[module_name] = module.weight.numel()
+            module_numels[module_name] = module.weight.numel()
             module.to(device)
 
             score = score_func(module.weight, quantizer.fake_quantize(module.weight))
-            if use_relative:
+            if algorithm.endswith("_relative"):
                 high_score = score_func(module.weight, high_quantizer.fake_quantize(module.weight))
                 if algorithm.startswith("snr"):
                     # SNR is in dB, so we subtract
@@ -238,31 +285,88 @@ class SelectiveMixedPrecision(Pass):
                     # IQE is inverted, so we divide
                     score /= high_score
             module_scores[module_name] = score
-            module.cpu()
+            return module.cpu()
+
+        replace_matching_submodules(model, should_include, process_module, description="Computing SNR/IQE scores")
+        return module_numels, module_scores
+
+    @staticmethod
+    def get_kld_scores(
+        handler: HfModelHandler,
+        model: torch.nn.Module,
+        algorithm: SelectiveMixedPrecision.Algorithm,
+        quantizer: WeightQuantizer,
+        high_quantizer: WeightQuantizer,
+        device: str,
+    ) -> tuple[dict[str, int], dict[str, float]]:
+        # based on mlx-lm implementation at https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/quant/dynamic_quant.py
+        from tqdm.auto import tqdm
+
+        # TODO(jambayk): make data_config configurable
+        data = get_calibration_dataset(handler, max_seq_len=512, max_samples=256)
+
+        model.to(device).eval()
+        q_model = deepcopy(model).to(device).eval()
+
+        # freeze all parameters
+        for param in q_model.parameters():
+            param.requires_grad = False
+        # enable gradient checkpointing
+        q_model.gradient_checkpointing_enable()
+
+        # replace the weights in qmodel with low-bit quantized weights
+        module_numels = {}
+        q_layers: dict[str, torch.nn.Module] = {}
+        grad_accum: dict[str, torch.Tensor] = {}
+
+        def should_include(module, _):
+            return isinstance(module, torch.nn.Linear)
+
+        @torch.no_grad()
+        def process_module(module, module_name):
+            module_numels[module_name] = module.weight.numel()
+            low_w = quantizer.fake_quantize(module.weight.data)
+            module.weight.data = low_w
+            module.weight.requires_grad = True
+            q_layers[module_name] = module
+            grad_accum[module_name] = torch.zeros_like(module.weight.data, dtype=torch.float32)
+            return module
 
         replace_matching_submodules(
-            model_wrapper.model, should_include, process_module, description="Computing SNR/IQE scores"
+            q_model, should_include, process_module, description="Preparing for sensitivity estimation"
         )
 
-        threshold = sum(module_numel.values()) * (1 - ratio)
-        # ascending order, lower score means more sensitive and should be in higher precision
-        sorted_modules = sorted(module_scores, key=lambda item: module_scores[item], reverse=False)
-        overrides = {}
-        high_override_config = {"bits": high_bits, "group_size": high_group_size, "symmetric": high_symmetric}
-        total = 0
-        for module_name in sorted_modules:
-            total += module_numel[module_name]
-            overrides[module_name] = high_override_config
-            if total >= threshold:
-                break
-        logger.info(
-            "Selected %d modules for high precision out of %d modules. Ratio of low precision: %.4f",
-            len(overrides),
-            len(module_numel),
-            1 - total / sum(module_numel.values()),
-        )
+        for batch in tqdm(data, desc="Estimating sensitivities"):
+            inputs = {k: v.to(device) for k, v in batch.items()}
 
-        return {"bits": bits, "group_size": group_size, "symmetric": symmetric}, overrides
+            with torch.no_grad():
+                teacher_logits = model(**inputs).logits
+
+            student_logits = q_model(**inputs).logits
+            loss = kl_div_loss(student_logits, teacher_logits).mean()
+            loss.backward()
+
+            # accumulate gradients
+            for name, layer in q_layers.items():
+                grad_accum[name] += layer.weight.grad.data.detach().float()
+
+            # zero grads
+            q_model.zero_grad()
+
+        @torch.no_grad()
+        def compute_sensitivity(module_name: str) -> torch.Tensor:
+            grad = grad_accum[module_name] / len(data)  # average gradient
+
+            # high-precision quantization baseline
+            high_w = high_quantizer.fake_quantize(get_attr(model, module_name).weight.data)
+
+            # get sensitivity
+            param_size_m = module_numels[module_name] / 1e6
+            alignment = (grad * (q_layers[module_name].weight.data - high_w)).sum().item()
+            return alignment / param_size_m
+
+        # negative sensitivity because lower is more sensitive
+        return module_numels, {name: -compute_sensitivity(name) for name in q_layers}
 
     @staticmethod
     def compute_sqnr(x: torch.Tensor, y: torch.Tensor, eps: float = 1e-12) -> float:

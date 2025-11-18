@@ -7,6 +7,7 @@ import logging
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Optional, Union
 
+import torch
 import transformers
 from packaging import version
 from transformers import __version__ as transformers_version
@@ -23,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    import torch
     from transformers import PreTrainedModel
 
 
@@ -247,6 +247,7 @@ def get_calibration_dataset(
     model: HfModelHandler | PyTorchModelHandler,
     data_config: DataConfig | dict | None = None,
     split: str = "train[:1000]",
+    batch_size: int = 1,
     max_seq_len: int = 2048,
     max_samples: int = 128,
 ) -> list[dict[str, Any]]:
@@ -256,6 +257,7 @@ def get_calibration_dataset(
         model: The HuggingFace or PyTorch model to get dataset for.
         data_config: Configuration object or dictionary containing data settings.
         split: The dataset split to use for default data config. Default is 'train[:1000]'.
+        batch_size: The batch size to use for default data config. Default is 1.
         max_seq_len: Maximum sequence length for default data config. Default is 2048.
         max_samples: Maximum number of samples for default data config. Default is 128.
 
@@ -271,6 +273,7 @@ def get_calibration_dataset(
             model.model_name_or_path,
             trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None),
             split=split,
+            batch_size=batch_size,
             max_seq_len=max_seq_len,
             max_samples=max_samples,
         )
@@ -299,6 +302,7 @@ def get_calibration_data_config(
     model_name_or_path: str,
     trust_remote_code: bool | None = None,
     split: str = "train[:1000]",
+    batch_size: int = 1,
     max_seq_len: int = 2048,
     max_samples: int = 128,
 ) -> DataConfig:
@@ -308,6 +312,7 @@ def get_calibration_data_config(
         model_name_or_path: Name or path of the model.
         trust_remote_code: Whether to trust remote code when loading data.
         split: The dataset split to use. Default is 'train[:1000]'.
+        batch_size: The batch size to use. Default is 1.
         max_seq_len: Maximum sequence length. Default is 2048.
         max_samples: Maximum number of samples. Default is 128.
 
@@ -331,4 +336,13 @@ def get_calibration_data_config(
             "max_samples": max_samples,
             "trust_remote_code": trust_remote_code,
         },
+        dataloader_config={"batch_size": batch_size},
     )
+
+
+def kl_div_loss(student_logits: torch.Tensor, teacher_logits: torch.Tensor) -> torch.Tensor:
+    """Compute the KL divergence loss between student and teacher logits."""
+    student_log_probs = torch.nn.functional.log_softmax(student_logits, dim=-1)
+    teacher_probs = torch.nn.functional.softmax(teacher_logits, dim=-1)
+    kl = torch.nn.functional.kl_div(student_log_probs, teacher_probs, reduction="none")
+    return kl.sum(-1)
