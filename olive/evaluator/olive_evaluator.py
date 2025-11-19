@@ -1051,6 +1051,11 @@ class LMEvaluator(OliveEvaluator):
         else:
             raise ValueError(f"Unknown model class: {self.model_class}")
 
+        logger.debug(
+            "Running LM evaluation with model class: %s and device/ep args: %s",
+            self.model_class,
+            {k: v for k, v in init_args.items() if k in ["device", "ep", "ep_options"]},
+        )
         lmmodel = get_model(self.model_class)(**init_args, batch_size=self.batch_size, max_length=self.max_length)
 
         results = simple_evaluate(

@@ -138,18 +138,22 @@ class WeightQuantizer:
         tensor = (q_tensor - zero_points.unsqueeze(-1)) * scales.unsqueeze(-1)
         return tensor.reshape(shape)
 
-    def fake_quantize(self, tensor: torch.Tensor, scales: torch.Tensor, zero_points: torch.Tensor) -> torch.Tensor:
+    def fake_quantize(
+        self, tensor: torch.Tensor, scales: torch.Tensor | None = None, zero_points: torch.Tensor | None = None
+    ) -> torch.Tensor:
         """Fake quantize the given tensor using the provided scales and zero points.
 
         Args:
             tensor: The tensor to quantize. Expected to be 2D with shape (out_features, in_features).
-            scales: The scales for quantization.
-            zero_points: The zero points for quantization.
+            scales: The scales for quantization. If None, scales will be computed from the tensor.
+            zero_points: The zero points for quantization. If None, zero points will be computed from the tensor.
 
         Returns:
             The fake quantized tensor.
 
         """
+        if scales is None or zero_points is None:
+            scales, zero_points = self.find_qparams(tensor)
         q_tensor = self.quantize(tensor, scales, zero_points)
         return self.dequantize(q_tensor, scales, zero_points)
 

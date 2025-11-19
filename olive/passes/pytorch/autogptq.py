@@ -2,31 +2,33 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from __future__ import annotations
+
 import json
 import logging
 from argparse import Namespace
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Union
 
 import torch
 from packaging import version
 from transformers import PreTrainedModel
 
-from olive.common.config_utils import validate_config
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.utils import get_attr
 from olive.constants import PrecisionBits
 from olive.data.config import DataConfig
-from olive.data.template import huggingface_data_config_template
-from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_pytorch
-from olive.passes.pytorch.train_utils import load_hf_base_model
+from olive.passes.pytorch.train_utils import get_calibration_dataset, load_hf_base_model
+
+if TYPE_CHECKING:
+    from olive.hardware.accelerator import AcceleratorSpec
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +108,7 @@ class GptqQuantizer(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: type[BasePassConfig], output_model_path: str
+        self, model: HfModelHandler | PyTorchModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> PyTorchModelHandler:
         from auto_gptq import BaseQuantizeConfig, __version__
         from auto_gptq.modeling import BaseGPTQForCausalLM
@@ -117,7 +119,7 @@ class GptqQuantizer(Pass):
             # will move each block(layer) to cuda before quantization and move back to cpu when finished.
             raise ValueError("Please use GPU to run gptq quantization.")
 
-        dataset = self.get_dataset(model, config)
+        dataset = get_calibration_dataset(model, config.data_config)
 
         adapter_path = None
         if isinstance(model, HfModelHandler) and model.adapter_path:
@@ -233,35 +235,6 @@ class GptqQuantizer(Pass):
             new_load_kwargs["extra_args"]["use_safetensors"] = True
         return inherit_hf_from_hf(model, output_model_path, adapter_path=adapter_path, load_kwargs=new_load_kwargs)
 
-    def get_dataset(
-        self, model: Union[HfModelHandler, PyTorchModelHandler], config: dict[str, Any]
-    ) -> list[dict[str, Any]]:
-        """Get the dataset for quantization."""
-        data_config = config.data_config
-        if not data_config and isinstance(model, HfModelHandler):
-            data_config = self.get_calibration_data_config(
-                model.model_name_or_path, trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None)
-            )
-        elif not data_config:
-            raise ValueError("Data config is required for PyTorch model.")
-        data_config = validate_config(data_config, DataConfig)
-        dataloader = data_config.to_data_container().create_dataloader()
-        # each batch consists of (input_data, labels)
-        dataset = [data[0] for data in dataloader]
-
-        if (
-            not dataset
-            or not isinstance(dataset, list)
-            or not isinstance(dataset[0], dict)
-            or ("input_ids" not in dataset[0] or "attention_mask" not in dataset[0])
-        ):
-            raise ValueError(
-                "Provided dataset is invalid. The returned datasets is a list of tokenized data "
-                "(e.g. [{ 'input_ids': [[ 1, 100, 15, ... ]],'attention_mask': [[ 1, 1, 1, ... ]]},...])"
-            )
-
-        return dataset
-
     @staticmethod
     def get_gptq_info(model_wrapper: ModelWrapper, name: str) -> list[str]:
         """Get the GPTQ info from the model wrapper."""
@@ -279,27 +252,6 @@ class GptqQuantizer(Pass):
             return model_wrapper.get_layers()[1]
 
         raise ValueError(f"Unknown key {name}")
-
-    @staticmethod
-    def get_calibration_data_config(model_name_or_path: str, trust_remote_code: Optional[bool] = None):
-        return huggingface_data_config_template(
-            model_name=model_name_or_path,
-            task="text-generation",
-            load_dataset_config={
-                "data_name": "wikitext",
-                "subset": "wikitext-2-raw-v1",
-                # only require 128 samples for calibration
-                "split": "train[:1000]",
-                "trust_remote_code": trust_remote_code,
-            },
-            pre_process_data_config={
-                # should we randomize the data?
-                "add_special_tokens": False,
-                "max_seq_len": 2048,
-                "max_samples": 128,
-                "trust_remote_code": trust_remote_code,
-            },
-        )
 
     @contextmanager
     def _maybe_patch_gptq_model(self, gptq_model):
