@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
@@ -18,7 +19,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTrainedModel":
+def load_model_from_task(
+    task: str,
+    model_name_or_path: str,
+    custom_task_class_name: str = None,
+    custom_task_class_module: str = None,
+    **kwargs,
+) -> "PreTrainedModel":
     """Load huggingface model from task and model_name_or_path."""
     from transformers.pipelines import check_task
 
@@ -55,7 +62,12 @@ def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTr
             AUTO_QUANTIZATION_CONFIG_MAPPING["olive"] = OliveHfQuantizationConfig
             AUTO_QUANTIZER_MAPPING["olive"] = OliveHfQuantizer
 
-    class_tuple = targeted_task["pt"] or (AutoModel,)
+    if custom_task_class_module is not None and custom_task_class_name is not None:
+        module = importlib.import_module(custom_task_class_module)
+        class_tuple = (getattr(module, custom_task_class_name),)
+    else:
+        class_tuple = targeted_task["pt"] or (AutoModel,)
+
     model = None
     for i, model_class in enumerate(class_tuple):
         try:
@@ -117,6 +129,10 @@ def get_model_config(model_name_or_path: str, **kwargs) -> "PretrainedConfig":
 def save_model_config(config: Union["PretrainedConfig", "GenerationConfig"], output_dir: str, **kwargs):
     """Save input HF Config to output directory."""
     config.save_pretrained(output_dir, **kwargs)
+
+
+def get_model_attributes_config(config: "PretrainedConfig", model_type: str):
+    return config.text_config if model_type == "gemma3" else config
 
 
 def save_module_files(

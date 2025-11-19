@@ -189,8 +189,18 @@ class GptqModel(Pass):
             raise ValueError("Data config is required for PyTorch model.")
         data_config = validate_config(data_config, DataConfig)
         dataloader = data_config.to_data_container().create_dataloader()
-        # each batch consists of (input_data, labels)
-        dataset = [data[0] for data in dataloader]
+        # each batch consists of (input_data, labels) or just input_data
+        dataset = []
+        for data in dataloader:
+            if isinstance(data, (tuple, list)) and len(data) > 0:
+                # Standard format: (input_data, labels)
+                dataset.append(data[0])
+            elif isinstance(data, dict):
+                # Data is already in the expected dictionary format
+                dataset.append(data)
+            else:
+                # Data is the input data directly
+                dataset.append(data)
         if (
             not dataset
             or not isinstance(dataset, list)

@@ -9,6 +9,7 @@ import torch
 from torch import nn
 from transformers import PretrainedConfig
 
+from olive.common.hf.utils import get_model_attributes_config
 from olive.common.utils import find_first_matched_value, get_attr, replace_submodules, set_attr
 
 if TYPE_CHECKING:
@@ -196,6 +197,7 @@ class ModelWrapper:
         "default": ["model.embed_tokens"],
         "bloom": ["transformer.word_embeddings", "transformer.word_embeddings_layernorm"],
         "falcon": ["transformer.word_embeddings"],
+        "gemma3": ["model.language_model.embed_tokens"],
         "gpt2": ["transformer.wte", "transformer.wpe"],
         "gpt_neox": ["gpt_neox.embed_in"],
         "gptj": ["transformer.wte"],
@@ -210,11 +212,17 @@ class ModelWrapper:
         "qwen": "transformer.rotary_emb",
     }
     LM_HEAD = {"default": "lm_head"}
-    PRE_HEAD_LAYERNORM = {"default": "model.norm", "gpt2": "transformer.ln_f", "qwen": "transformer.ln_f"}
+    PRE_HEAD_LAYERNORM = {
+        "default": "model.norm",
+        "gemma3": "model.language_model.norm",
+        "gpt2": "transformer.ln_f",
+        "qwen": "transformer.ln_f",
+    }
     LAYERS = {
         "default": "model.layers",
         "bloom": "transformer.h",
         "falcon": "transformer.h",
+        "gemma3": "model.language_model.layers",
         "gpt2": "transformer.h",
         "gpt_neox": "gpt_neox.layers",
         "gptj": "transformer.h",
@@ -226,17 +234,22 @@ class ModelWrapper:
         self.config = config if isinstance(config, PretrainedConfig) else PretrainedConfig.from_dict(config)
         self.model_type = find_first_matched_value(self.config, "model_type")
 
+        logger.error(self.config)
+
         # model attributes
-        self.hidden_size = find_first_matched_value(self.config, self.HIDDEN_SIZE_NAMES)
-        self.num_attention_heads = find_first_matched_value(self.config, self.NUM_ATTENTION_HEADS_NAMES)
+        model_attributes_config = get_model_attributes_config(self.config, self.model_type)
+        self.hidden_size = find_first_matched_value(model_attributes_config, self.HIDDEN_SIZE_NAMES)
+        self.num_attention_heads = find_first_matched_value(model_attributes_config, self.NUM_ATTENTION_HEADS_NAMES)
         self.num_key_value_heads = (
-            find_first_matched_value(self.config, self.NUM_KEY_VALUE_HEADS_NAMES) or self.num_attention_heads
+            find_first_matched_value(model_attributes_config, self.NUM_KEY_VALUE_HEADS_NAMES)
+            or self.num_attention_heads
         )
         self.head_dim = (
-            find_first_matched_value(self.config, self.HEAD_DIM_NAMES) or self.hidden_size // self.num_attention_heads
+            find_first_matched_value(model_attributes_config, self.HEAD_DIM_NAMES)
+            or self.hidden_size // self.num_attention_heads
         )
-        self.num_hidden_layers = find_first_matched_value(self.config, self.NUM_HIDDEN_LAYER_NAMES)
-        self.max_length = find_first_matched_value(self.config, self.MAX_LENGTH)
+        self.num_hidden_layers = find_first_matched_value(model_attributes_config, self.NUM_HIDDEN_LAYER_NAMES)
+        self.max_length = find_first_matched_value(model_attributes_config, self.MAX_LENGTH)
 
         self._model = None
         self._layer_wrappers = None
@@ -267,6 +280,7 @@ class ModelWrapper:
         return get_submodules(self.model, self.PRE_HEAD_LAYERNORM, self.model_type, return_name=return_name)
 
     def get_layers(self, return_name: bool = True):
+        logger.error(self.model)
         return get_submodules(self.model, self.LAYERS, self.model_type, return_name=return_name)
 
     def get_layer_wrappers(self):
