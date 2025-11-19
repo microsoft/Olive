@@ -8,7 +8,6 @@ import copy
 import importlib
 import json
 import logging
-import re
 from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, Union
@@ -343,8 +342,6 @@ class ModelBuilder(Pass):
 
         quantized_model = importlib.import_module("onnxruntime_genai.models.quantized_model")
         quantized_model.OliveModel.__init__ = OliveQuantizedModel.__init__
-        quantized_model.OliveModel.get_layer_bits = OliveQuantizedModel.get_layer_bits
-        quantized_model.OliveModel.get_layer_group_size = OliveQuantizedModel.get_layer_group_size
 
         builder = importlib.import_module("onnxruntime_genai.models.builder")
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
@@ -357,19 +354,56 @@ class OliveQuantizedModel:
         from onnxruntime_genai.models.quantized_model import QuantizedDecoderLayer, QuantizedTensorModule, TensorModule
         from safetensors.torch import load_file
 
+        config = quant_attrs["config"]
+
         self.quant_type = quant_type
-        self.embedding = TensorModule()
+        self.embedding = QuantizedTensorModule() if config["embeds"] else TensorModule()
         self.final_norm = TensorModule()
-        self.lm_head = TensorModule()
-        self.layers = {}
-        self.num_layers = num_layers
+        self.lm_head = (
+            self.embedding
+            if config["tie_word_embeddings"]
+            else QuantizedTensorModule()
+            if config["lm_head"]
+            else TensorModule()
+        )
+        self.layers = [QuantizedDecoderLayer(i) for i in range(num_layers)]
 
-        if quant_attrs["config"]["embeds"] is True:
-            raise NotImplementedError("Embedding layer quantization is not supported yet.")
+        module_map = {
+            "model.embed_tokens": self.embedding,
+            "model.norm": self.final_norm,
+            "lm_head": self.lm_head,
+            **{f"model.layers.{i}": layer for i, layer in enumerate(self.layers)},
+        }
 
-        self.global_group_size = quant_attrs["config"]["group_size"]
-        self.global_bits = quant_attrs["config"]["bits"]
-        self.overrides = quant_attrs["config"]["overrides"] or {}
+        overrides = config["overrides"] or {}
+
+        def get_layer_bits(layer_name):
+            name = ".".join(layer_name.split(".")[:-1])
+            return overrides.get(name, {}).get("bits", config["bits"])
+
+        def get_layer_group_size(layer_name):
+            name = ".".join(layer_name.split(".")[:-1])
+            return overrides.get(name, {}).get("group_size", config["group_size"])
+
+        def set_tensor(module, tensor_name, tensor_value, local_bits, local_group_size):
+            submodule = module
+            for sub_name in tensor_name.split(".")[:-1]:
+                if sub_name.isdigit():
+                    submodule = submodule[int(sub_name)]
+                else:
+                    submodule = getattr(submodule, sub_name)
+            if isinstance(submodule, QuantizedTensorModule):
+                for q_attr, q_value in [("bits", local_bits), ("_group_size", local_group_size)]:
+                    setattr(submodule, q_attr, q_value)
+                # in_features is always a multiple of group_size, group_size is a power of 2
+                if tensor_name.endswith("scales"):
+                    submodule.out_features = tensor_value.shape[0]
+                    submodule.in_features = tensor_value.shape[1] * local_group_size
+                elif tensor_name.endswith("qweight"):
+                    tensor_value = tensor_value.reshape(
+                        tensor_value.shape[0], (tensor_value.shape[1] * 8 // local_bits) // local_group_size, -1
+                    )
+            setattr(submodule, tensor_name.split(".")[-1], tensor_value)
 
         for weight_file in Path(input_path).iterdir():
             if weight_file.suffix == ".safetensors":
@@ -377,113 +411,40 @@ class OliveQuantizedModel:
 
                 # Map weights to modules
                 for name, tensor in weights.items():
+                    if name.endswith("inv_freq"):
+                        # Skip rotary embedding weights since they can be re-calculated when looping through the model
+                        continue
+
                     # Per-layer quantization support
-                    local_bits = self.get_layer_bits(name)
-                    local_group_size = self.get_layer_group_size(name)
+                    local_bits = get_layer_bits(name)
+                    local_group_size = get_layer_group_size(name)
 
-                    if name == "model.embed_tokens.weight":
-                        self.embedding.weight = tensor
-                    elif name == "model.norm.weight":
-                        self.final_norm.weight = tensor
-                    elif name == "model.norm.bias":
-                        self.final_norm.bias = tensor
-                    elif name == "lm_head.weight":
-                        self.lm_head.weight = tensor
-                    elif name == "lm_head.bias":
-                        self.lm_head.bias = tensor
-                    elif name == "lm_head.qweight":
-                        self._initialize_quantized_lm_head(local_bits, local_group_size)
-                        self.lm_head.qweight = tensor
-                    elif name == "lm_head.qzeros":
-                        self._initialize_quantized_lm_head(local_bits, local_group_size)
-                        self.lm_head.qzeros = tensor
-                    elif name == "lm_head.scales":
-                        self._initialize_quantized_lm_head(local_bits, local_group_size)
-                        self.lm_head.scales = tensor
+                    prefix = ".".join(name.split(".")[:-1][:3])
+
+                    tensor_name = (
+                        name.replace(f"{prefix}.", "")
+                        .replace("self_attention.", "self_attn.")
+                        .replace("dense_4h_to_h.", "down_proj.")
+                        .replace("dense_h_to_4h.", "gate_up_proj.")
+                        .replace("query_key_value.", "qkv_proj.")
+                    )
+                    tensor_map = {}
+                    if "qkv_proj" in tensor_name:
+                        tensor_map[tensor_name.replace("qkv_proj.", "q_proj.")] = tensor[:q_size, :]
+                        tensor_map[tensor_name.replace("qkv_proj.", "k_proj.")] = tensor[q_size : q_size + kv_size, :]
+                        tensor_map[tensor_name.replace("qkv_proj.", "v_proj.")] = tensor[q_size + kv_size :, :]
+                    elif "gate_up_proj" in tensor_name:
+                        tensor_map[tensor_name.replace("gate_up_proj.", "gate_proj.")] = tensor[:intermediate_size, :]
+                        tensor_map[tensor_name.replace("gate_up_proj.", "up_proj.")] = tensor[intermediate_size:, :]
                     else:
-                        layer_id = int(name.split(".")[2])
-                        module = self.layers.setdefault(layer_id, QuantizedDecoderLayer(layer_id))
+                        tensor_map[tensor_name] = tensor
 
-                        if bool(re.match(r"^model.layers\.\d+\.self_attn.rotary_emb\.inv_freq$", name)):
-                            # Skip rotary embedding weights since they can be re-calculated when looping through the model
-                            continue
+                    for tensor_name, tensor_value in tensor_map.items():
+                        set_tensor(module_map[prefix], tensor_name, tensor_value, local_bits, local_group_size)
 
-                        tensor_name = (
-                            name.replace(f"model.layers.{layer_id}.", "")
-                            .replace("self_attention.", "self_attn.")
-                            .replace("dense_4h_to_h.", "down_proj.")
-                            .replace("dense_h_to_4h.", "gate_up_proj.")
-                            .replace("query_key_value.", "qkv_proj.")
-                        )
-                        tensor_map = {}
-                        if "qkv_proj" in tensor_name:
-                            tensor_map[tensor_name.replace("qkv_proj.", "q_proj.")] = tensor[:q_size, :]
-                            tensor_map[tensor_name.replace("qkv_proj.", "k_proj.")] = tensor[
-                                q_size : q_size + kv_size, :
-                            ]
-                            tensor_map[tensor_name.replace("qkv_proj.", "v_proj.")] = tensor[q_size + kv_size :, :]
-                        elif "gate_up_proj" in tensor_name:
-                            tensor_map[tensor_name.replace("gate_up_proj.", "gate_proj.")] = tensor[
-                                :intermediate_size, :
-                            ]
-                            tensor_map[tensor_name.replace("gate_up_proj.", "up_proj.")] = tensor[intermediate_size:, :]
-                        else:
-                            tensor_map[tensor_name] = tensor
-
-                        for tensor_name, tensor_value in tensor_map.items():
-                            submodule = module
-                            for sub_name in tensor_name.split(".")[:-1]:
-                                submodule = getattr(submodule, sub_name)
-                            if isinstance(submodule, QuantizedTensorModule):
-                                for q_attr, q_value in [("bits", local_bits), ("_group_size", local_group_size)]:
-                                    if getattr(submodule, q_attr) is not None and getattr(submodule, q_attr) != q_value:
-                                        raise ValueError(
-                                            f"Quantization {q_attr} mismatch for {name}: expected {getattr(submodule, q_attr)}, got {q_value}."
-                                        )
-                                    setattr(submodule, q_attr, q_value)
-                            setattr(submodule, tensor_name.split(".")[-1], tensor_value)
-
-        # Set LM head weights + biases if not already set
+        # share weights between embedding and lm head
         if isinstance(self.lm_head, TensorModule) and self.lm_head.weight is None:
-            # Embedding and LM head share same weights + biases (lm_head.weight == embedding.weight and lm_head.bias == embedding.bias)
             self.lm_head.weight = self.embedding.weight
-            if self.lm_head.bias is not None:
-                self.lm_head.bias = self.embedding.bias
-
-        # Sort list of layers by layer id
-        self.layers = list(self.layers.values())
-        self.layers.sort(key=lambda m: m.layer_id)
-
-        def finalize_qmodule(qmodule):
-            qmodule.out_features = qmodule.qweight.shape[0]
-            qmodule.in_features = qmodule.scales.shape[1] * qmodule.group_size
-            qmodule.qweight = qmodule.qweight.reshape(qmodule.out_features, qmodule.scales.shape[1], -1)
-
-        if isinstance(self.lm_head, QuantizedTensorModule):
-            finalize_qmodule(self.lm_head)
-
-        for module in self.layers:
-            for tensormodule_name in [
-                "self_attn.q_proj",
-                "self_attn.k_proj",
-                "self_attn.v_proj",
-                "self_attn.o_proj",
-                "mlp.gate_proj",
-                "mlp.up_proj",
-                "mlp.down_proj",
-            ]:
-                submodule = module
-                for sub_name in tensormodule_name.split("."):
-                    submodule = getattr(submodule, sub_name)
-                finalize_qmodule(submodule)
-
-    def get_layer_bits(self, layer_name):
-        name = ".".join(layer_name.split(".")[:-1])
-        return self.overrides.get(name, {}).get("bits", self.global_bits)
-
-    def get_layer_group_size(self, layer_name):
-        name = ".".join(layer_name.split(".")[:-1])
-        return self.overrides.get(name, {}).get("group_size", self.global_group_size)
 
 
 def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename, root_input, **kwargs):
