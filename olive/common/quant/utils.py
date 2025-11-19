@@ -27,13 +27,7 @@ class WeightQuantizer:
         self.group_size = group_size
         self.signed = signed
 
-        if self.signed:
-            half = 1 << (self.bits - 1)
-            self.minq = -half
-            self.maxq = half - 1
-        else:
-            self.minq = 0
-            self.maxq = (1 << self.bits) - 1
+        self.maxq, self.minq = get_maxq_minq(self.bits, self.signed)
         self.midq = (self.maxq + self.minq + 1) // 2
 
     def get_num_groups(self, shape: tuple[int, int]) -> int:
@@ -103,7 +97,6 @@ class WeightQuantizer:
 
         return scales, zero_points
 
-    # TODO(jambayk): consider moving quantize and dequantize into generic helper functions
     @torch.no_grad()
     def quantize(self, tensor: torch.Tensor, scales: torch.Tensor, zero_points: torch.Tensor) -> torch.Tensor:
         """Quantize the given tensor using the provided scales and zero points.
@@ -176,3 +169,87 @@ class WeightQuantizer:
         else:
             tensor = tensor.reshape(shape[0], self.get_num_groups(shape), -1)
         return tensor, shape
+
+
+def get_maxq_minq(bits: int, signed: bool) -> tuple[int, int]:
+    """Get the maximum and minimum quantization values based on bits and signedness.
+
+    Args:
+        bits: Number of bits (4 or 8).
+        signed: Whether the quantization is signed or unsigned.
+
+    Returns:
+        A tuple of (maxq, minq).
+
+    """
+    if signed:
+        half = 1 << (bits - 1)
+        minq = -half
+        maxq = half - 1
+    else:
+        minq = 0
+        maxq = (1 << bits) - 1
+    return maxq, minq
+
+
+@torch.no_grad()
+def pack_to_uint8(tensor: torch.Tensor, bits: int) -> torch.Tensor:
+    """Pack 4/8 bit tensor into uint8 tensor on the last dimension.
+
+    Args:
+        tensor: The 2D input tensor. Values are expected to be unsigned in the range [0, 2^bits - 1]
+        bits: Number of bits (4 or 8)
+
+    Returns:
+        A tensor of uint8 values with packed data
+
+    """
+    assert bits in [4, 8], "Only 4-bit and 8-bit quantization supported"
+
+    maxq, minq = get_maxq_minq(bits, signed=False)
+    assert tensor.min() >= minq, "Input tensor values must not be less than min quantization value"
+    assert tensor.max() <= maxq, "Input tensor values must not exceed max quantization value"
+
+    packing_factor = 8 // bits
+
+    # padd if necessary to ensure tensor shape is divisible by packing_factor
+    num_padding = (-tensor.shape[-1]) % packing_factor
+    if num_padding > 0:
+        pad = (0, num_padding, 0, 0)
+        tensor = torch.nn.functional.pad(tensor, pad, mode="constant", value=0)
+    packed_size = tensor.shape[-1] // packing_factor
+    tensor = tensor.to(torch.uint8)
+
+    packed_tensor = torch.zeros(
+        (tensor.shape[0], packed_size),
+        dtype=torch.uint8,
+        device=tensor.device,
+    )
+    for i in range(packing_factor):
+        packed_tensor |= tensor[:, i::packing_factor] << bits * i
+    return packed_tensor
+
+
+@torch.no_grad()
+def unpack_from_uint8(packed_tensor: torch.Tensor, bits: int, shape: tuple[int, int]) -> torch.Tensor:
+    """Unpack uint8 tensor into 4/8 bit tensor on the last dimension.
+
+    Args:
+        packed_tensor: The 2D input tensor with packed uint8 values
+        bits: Number of bits (4 or 8)
+        shape: The original shape of the tensor before packing
+
+    Returns:
+        A tensor of int32 values with unpacked data
+
+    """
+    assert packed_tensor.dtype == torch.uint8, "Input tensor must be of dtype uint8"
+
+    maxq, _ = get_maxq_minq(bits, signed=False)
+
+    wf = torch.arange(0, 8, bits, device=packed_tensor.device, dtype=torch.uint8).unsqueeze(0)
+
+    unpacked_tensor = torch.bitwise_right_shift(packed_tensor.unsqueeze(2), wf.unsqueeze(0))
+    unpacked_tensor = unpacked_tensor.reshape(shape[0], -1)
+    unpacked_tensor = unpacked_tensor[:, : shape[1]]
+    return torch.bitwise_and(unpacked_tensor, maxq).to(torch.int32)
