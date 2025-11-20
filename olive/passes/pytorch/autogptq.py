@@ -133,7 +133,7 @@ class GptqQuantizer(Pass):
             model = deepcopy(model)
             model.set_resource("adapter_path", None)
 
-        pytorch_model = load_hf_base_model(model, torch_dtype="auto")
+        pytorch_model = load_hf_base_model(model)
         model_type = pytorch_model.config.model_type if hasattr(pytorch_model, "config") else ""
 
         # create model adapter if needed

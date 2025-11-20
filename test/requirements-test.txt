@@ -1,9 +1,7 @@
 accelerate
 amd-quark==0.10
-# azureml.evaluate.mlflow.hftransformers is deprecated in 0.0.66 and above
-azureml-evaluate-mlflow>=0.0.60, <0.0.66
-# Pin azureml-metrics[all] greater than 0.0.26 to avoid breaking change in azureml-evaluate-mlflow
-azureml-metrics[all]>=0.0.26
+azure-identity
+azure-storage-blob
 coverage
 cppimport
 cupy-cuda12x
@@ -12,7 +10,7 @@ docker>=7.1.0
 evaluate
 marshmallow
 ml_dtypes
-mlflow>=2.4.0, <2.20.0
+mlflow
 neural-compressor<2.4
 nncf>=2.18.0
 numpy<2.0.0
@@ -26,7 +24,7 @@ onnxruntime_extensions
 onnxscript>=0.2.4
 onnxsim
 openvino>=2025.3.0
-optimum[openvino]>=1.17.0, <=1.24
+optimum-intel[openvino]>=1.17.0, <=1.24
 optuna
 pandas
 peft

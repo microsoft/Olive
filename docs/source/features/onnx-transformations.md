@@ -1097,7 +1097,7 @@ Transformed model graph:
 
 Replace MatMul + Add with Gemm.
 
-Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor. If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm node and reshaped back to the original shape after the Gemm node.
+Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor. If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm node and reshaped back to the original shape after the Gemm node. If a Relu is present after the Add operation and reshaping is required, the post-reshape will be added after the Relu operation.
 
 #### Example
 
@@ -1115,6 +1115,12 @@ Static shaped input:
                  |             |
                  v             v
 [N-D Input] --> MatMul -----> Add
+
+Static shaped input and ReLU post Add:
+             [2D weight]    [1D bias]
+                 |             |
+                 v             v
+[N-D Input] --> MatMul -----> Add -----> Relu
 ```
 
 After applying:
@@ -1148,6 +1154,15 @@ Static shaped inputs:
                               |
                               v
 [N-D Input] --> Reshape --> Gemm (alpha=1.0, beta=1.0) --> Reshape
+                              ^
+                              |
+                          [1D bias]
+
+Static shaped inputs and ReLU post Add:
+                          [2D weight]
+                              |
+                              v
+[N-D Input] --> Reshape --> Gemm (alpha=1.0, beta=1.0) --> ReLU --> Reshape
                               ^
                               |
                           [1D bias]

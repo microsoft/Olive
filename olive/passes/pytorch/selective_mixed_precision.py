@@ -39,7 +39,12 @@ class SelectiveMixedPrecision(Pass):
                 type_=SelectiveMixedPrecision.Algorithm,
                 required=True,
                 description="The algorithm to use for mixed precision.",
-            )
+            ),
+            "keep_tied_word_embeddings": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Keep word embeddings in the same precision if they are tied.",
+            ),
         }
 
     def _run_for_config(
@@ -54,6 +59,8 @@ class SelectiveMixedPrecision(Pass):
         # TODO(jambayk): make this configurable
         override_config = {"bits": PrecisionBits.BITS8}
         overrides = {model_wrapper.get_lm_head()[1]: override_config}
+        if config.keep_tied_word_embeddings and model_wrapper.config.tie_word_embeddings:
+            overrides[model_wrapper.get_embeds()[1][0]] = override_config
 
         if config.algorithm != SelectiveMixedPrecision.Algorithm.K_QUANT_LAST:
             layer_prefix = model_wrapper.get_layers()[1]

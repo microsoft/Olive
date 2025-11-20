@@ -64,3 +64,36 @@ def test_static_qdq_u8s8_quantization(tmp_path):
     p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
     out = p.run(input_model, tmp_path)
     assert out is not None
+
+
+def test_static_qdq_u8s8_with_mp_quantization(tmp_path):
+    input_model = get_onnx_model()
+    config = {
+        "quant_mode": "static",
+        "quant_format": "QDQ",
+        "global_config": {
+            "activation": {
+                "symmetric": False,
+                "calibration_method": "MinMax",
+                "quant_granularity": "Tensor",
+                "data_type": "UInt8",
+            },
+            "weight": {
+                "symmetric": True,
+                "calibration_method": "MinMax",
+                "quant_granularity": "Tensor",
+                "data_type": "Int8",
+            },
+        },
+        "extra_options": {
+            "MixedPrecisionTensor": {"UInt16": ["/fc1/Gemm_output_0"]},
+        },
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
+        ),
+    }
+    p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
+    out = p.run(input_model, tmp_path)
+    assert out is not None

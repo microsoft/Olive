@@ -424,17 +424,17 @@ class OliveCache:
 
                             resave_model(
                                 ModelConfig.parse_obj(component_model_json).create_model().model_path,
-                                actual_output_dir / "model" / f"{component_name}.onnx",
+                                actual_output_dir / f"{component_name}.onnx",
                                 saved_external_files=saved_external_files,
                             )
-                            component_model_json["config"][resource_name] = str(actual_output_dir / "model")
+                            component_model_json["config"][resource_name] = str(actual_output_dir)
                             component_model_json["config"]["onnx_file_name"] = f"{component_name}.onnx"
 
                     copied_components.append(component_model_json)
 
             model_json_config["model_components"] = copied_components
             # save additional files
-            model_json = self._save_additional_files(model_json, actual_output_dir / "model")
+            model_json = self._save_additional_files(model_json, actual_output_dir)
         else:
             model_json = self._save_model(model_json, output_dir, overwrite)
 
@@ -469,7 +469,6 @@ class OliveCache:
 
             # Determine if source has external data or additional files
             has_additional_files = bool(onnx_file_name)
-
             # Determine the output file path
             if output_dir.suffix == ".onnx":
                 # If output_dir ends with .onnx, use it as the file path
@@ -499,9 +498,22 @@ class OliveCache:
                 model_json["config"]["model_path"] = str(actual_output_dir)
                 model_json["config"]["onnx_file_name"] = output_file.name
             else:
-                shutil.copy2(source_path, output_file)
-                model_json["config"]["model_path"] = str(output_file)
-                model_json["config"].pop("onnx_file_name", None)
+                if source_path.is_file():
+                    # Source is a single ONNX file, copy to output file
+                    shutil.copy2(source_path, output_file)
+                    model_json["config"]["model_path"] = str(output_file)
+                else:
+                    # There are 2 cases here:
+                    # 1. the onnx file has no external data, but config files are in the same folder
+                    # 2. the output model is openvino format from OpenVINOEncapsulation pass which has multiple files
+                    for item in source_path.iterdir():
+                        if item.is_dir():
+                            dst_dir = actual_output_dir / item.name
+                            shutil.copytree(item, dst_dir, dirs_exist_ok=True)
+                        else:
+                            shutil.copy2(item, actual_output_dir)
+                    model_json["config"]["model_path"] = str(actual_output_dir)
+                    model_json["config"].pop("onnx_file_name", None)
 
             onnx_output_file = output_file
 

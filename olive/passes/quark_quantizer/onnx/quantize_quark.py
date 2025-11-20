@@ -10,6 +10,7 @@ from quark.onnx.quantization.config.config import QConfig
 
 from olive.passes.quark_quantizer.onnx.configuration_preparation import (
     get_algo_config,
+    get_extra_options,
     get_global_config,
 )
 
@@ -21,13 +22,19 @@ def run_quark_quantization(args: Namespace) -> None:
 
     global_config = get_global_config(args.global_config)
     algo_config = get_algo_config(args.algo_config)
+    extra_options = get_extra_options(args.extra_options)
+
+    # If the JSON has no data config, use random data reader instead
+    if calibration_data_reader is None:
+        extra_options["UseRandomData"] = True
+
     quant_config = QConfig(
         global_config=global_config,
         specific_layer_config=args.specific_layer_config,
         layer_type_config=args.layer_type_config,
         exclude=args.exclude,
         algo_config=algo_config,
-        **args.extra_options,
+        **extra_options,
     )
 
     quantizer = ModelQuantizer(quant_config)

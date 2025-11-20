@@ -10,7 +10,7 @@ from abc import abstractmethod
 import torch
 import torch.nn as nn
 
-from olive.common.quant.utils import WeightQuantizer
+from olive.common.quant.utils import WeightQuantizer, pack_to_uint8, unpack_from_uint8
 
 
 class QuantModule(nn.Module):
@@ -61,7 +61,8 @@ class QuantModule(nn.Module):
         self.quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
         self.device = device
         self.dtype = dtype
-        self.packing_factor = 8 // bits
+
+        packing_factor = 8 // bits
 
         # using the same layout and packing as auto-gptq
         # TODO(jambayk): consider other packing schemes
@@ -69,7 +70,7 @@ class QuantModule(nn.Module):
             "qweight",
             torch.zeros(
                 # rows X cols, packed as uint8 along last dim
-                (self.rows, math.ceil(self.cols / self.packing_factor)),
+                (self.rows, math.ceil(self.cols / packing_factor)),
                 dtype=torch.uint8,
                 device=device,
             ),
@@ -85,7 +86,7 @@ class QuantModule(nn.Module):
             self.register_buffer(
                 "qzeros",
                 torch.zeros(
-                    (scale_shape[0], math.ceil(scale_shape[1] / self.packing_factor)),
+                    (scale_shape[0], math.ceil(scale_shape[1] / packing_factor)),
                     dtype=torch.uint8,
                     device=device,
                 ),
@@ -98,8 +99,8 @@ class QuantModule(nn.Module):
         bits: int = 4,
         symmetric: bool = True,
         group_size: int = -1,
-        scales: torch.device | None = None,
-        zero_points: torch.device | None = None,
+        scales: torch.Tensor | None = None,
+        zero_points: torch.Tensor | None = None,
         quantized: bool = False,
         **kwargs,
     ) -> QuantModule:
@@ -145,16 +146,16 @@ class QuantModule(nn.Module):
             dtype=scales.dtype,
             **kwargs,
         )
-        qmodule.qweight = qmodule._pack(qweight.to(torch.int32)).contiguous()
+        qmodule.qweight = pack_to_uint8(qweight, bits).contiguous()
         scale_shape = qmodule.quantizer.get_qparam_shape(qweight.shape)
-        qmodule.scales = scales.reshape(scale_shape)
+        qmodule.scales = scales.reshape(scale_shape).contiguous()
 
         # enforce symmetric quantization constraints
         if symmetric and not torch.all(zero_points == qmodule.quantizer.midq):
             raise ValueError("Zero points must be equal to midq for symmetric quantization")
 
         if not symmetric:
-            qmodule.qzeros = qmodule._pack(zero_points.to(torch.int32).reshape(scale_shape)).contiguous()
+            qmodule.qzeros = pack_to_uint8(zero_points.reshape(scale_shape), bits).contiguous()
 
         return qmodule
 
@@ -168,9 +169,9 @@ class QuantModule(nn.Module):
             The dequantized weight tensor.
 
         """
-        qweight = self._unpack(qweight, (qweight.shape[0], self.cols))
+        qweight = unpack_from_uint8(qweight, self.quantizer.bits, (qweight.shape[0], self.cols))
         if zero_points is not None:
-            zero_points = self._unpack(zero_points, scales.shape)
+            zero_points = unpack_from_uint8(zero_points, self.quantizer.bits, scales.shape)
         else:
             zero_points = torch.full_like(
                 scales,
@@ -178,63 +179,6 @@ class QuantModule(nn.Module):
                 dtype=torch.int32,
             )
         return self.quantizer.dequantize(qweight, scales, zero_points)
-
-    @torch.no_grad()
-    def _pack(self, tensor: torch.Tensor) -> torch.Tensor:
-        """Pack a tensor of quantized weights or zero points into uint8 values.
-
-        Values are expected to be unsigned in the range [0, 2^bits - 1] of dtype int32.
-
-        Args:
-            tensor: The tensor to pack. Will be packed along the last dimension
-            bits: Number of bits used for quantization (4 or 8)
-
-        Returns:
-            The packed tensor.
-
-        """
-        assert tensor.dtype == torch.int32, "Input tensor must be of dtype int32"
-        assert tensor.min() >= self.quantizer.minq, "Input tensor values must be non-negative for unsigned quantization"
-        assert tensor.max() <= self.quantizer.maxq, "Input tensor values must not exceed max quantization value"
-
-        # padd if necessary to ensure tensor shape is divisible by packing_factor
-        num_padding = (-tensor.shape[-1]) % self.packing_factor
-        if num_padding > 0:
-            pad = (0, num_padding, 0, 0)
-            tensor = torch.nn.functional.pad(tensor, pad, mode="constant", value=0)
-        packed_size = tensor.shape[-1] // self.packing_factor
-        tensor = tensor.to(torch.uint8)
-
-        packed_tensor = torch.zeros(
-            (tensor.shape[0], packed_size),
-            dtype=torch.uint8,
-            device=tensor.device,
-        )
-        for i in range(self.packing_factor):
-            packed_tensor |= tensor[:, i :: self.packing_factor] << self.quantizer.bits * i
-
-        return packed_tensor
-
-    @torch.no_grad()
-    def _unpack(self, packed_tensor: torch.Tensor, shape: tuple[int, int]) -> torch.Tensor:
-        """Unpack a tensor of packed uint8 values.
-
-        Args:
-            packed_tensor: The packed tensor to unpack. Will be unpacked along the last dimension.
-            shape: The original shape of the tensor before packing
-
-        Returns:
-            The unpacked tensor of dtype int32.
-
-        """
-        assert packed_tensor.dtype == torch.uint8, "Input tensor must be of dtype uint8"
-
-        wf = torch.arange(0, 8, self.quantizer.bits, device=packed_tensor.device, dtype=torch.uint8).unsqueeze(0)
-
-        unpacked_tensor = torch.bitwise_right_shift(packed_tensor.unsqueeze(2), wf.unsqueeze(0))
-        unpacked_tensor = unpacked_tensor.reshape(packed_tensor.shape[0], -1)
-        unpacked_tensor = unpacked_tensor[:, : shape[1]]
-        return torch.bitwise_and(unpacked_tensor, self.quantizer.maxq).to(torch.int32)
 
     @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -301,8 +245,8 @@ class QuantLinear(QuantModule):
         bits: int = 4,
         symmetric: bool = True,
         group_size: int = -1,
-        scales: torch.device | None = None,
-        zero_points: torch.device | None = None,
+        scales: torch.Tensor | None = None,
+        zero_points: torch.Tensor | None = None,
     ) -> QuantLinear:
         """Create a QuantLinear layer from an existing nn.Linear layer.
 
@@ -482,8 +426,8 @@ class QuantEmbedding(QuantModule):
         bits: int = 4,
         symmetric: bool = True,
         group_size: int = -1,
-        scales: torch.device | None = None,
-        zero_points: torch.device | None = None,
+        scales: torch.Tensor | None = None,
+        zero_points: torch.Tensor | None = None,
     ) -> QuantEmbedding:
         """Create a QuantEmbedding layer from an existing nn.Embedding layer.
 
