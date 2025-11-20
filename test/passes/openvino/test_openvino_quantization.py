@@ -379,6 +379,9 @@ def get_openvino_model(tmp_path, cifar10_mv2_model):
     )
     output_folder = str(tmp_path / "openvino")
 
+    # remove any cached loaded model
+    cifar10_mv2_model.model = None
+
     # execute
     return p.run(cifar10_mv2_model, output_folder)
 
@@ -392,4 +395,5 @@ def get_cifar10_mv2_onnx_model(tmp_path, cifar10_mv2_model):
         disable_search=True,
         accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
     )
+    cifar10_mv2_model.model = None
     return p.run(cifar10_mv2_model, str(onnx_model_path))
