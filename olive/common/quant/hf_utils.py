@@ -59,7 +59,9 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         lm_head: Whether to quantize the language model head.
         embeds: Whether to quantize the input embeddings.
         modules_to_not_convert : List of module names to exclude from quantization.
+        tie_word_embeddings: Whether to tie the word embeddings and output embeddings.
         overrides: Per-module overrides for quantization parameters.
+        packed: Whether to pack 4-bit weights into uint8 tensors.
 
     """
 
@@ -74,6 +76,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         modules_to_not_convert: list | None = None,
         overrides: dict | None = None,
         tie_word_embeddings: bool = False,
+        packed: bool = True,
         **kwargs,
     ):
         # pylint: disable=W0231
@@ -90,6 +93,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
             for module_name, override in (overrides or {}).items()
         }
         self.tie_word_embeddings = tie_word_embeddings
+        self.packed = packed
         self.post_init()
 
     def post_init(self):
@@ -126,6 +130,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
             "bits": self.bits,
             "symmetric": self.symmetric,
             "group_size": self.group_size,
+            "packed": self.packed,
         }
         if override := self.overrides.get(module_name):
             init_args.update({k: v for k, v in override.__dict__.items() if v is not None})

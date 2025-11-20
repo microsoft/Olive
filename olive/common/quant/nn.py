@@ -35,6 +35,7 @@ class QuantModule(nn.Module):
         bits: int = 4,
         symmetric: bool = True,
         group_size: int = -1,
+        packed: bool = True,
         device: torch.device | None = None,
         dtype: torch.dtype = torch.float32,
     ):
@@ -46,6 +47,7 @@ class QuantModule(nn.Module):
             bits: Number of bits for quantization (4 or 8)
             symmetric: Whether to use symmetric quantization
             group_size: Quantization group size (-1: per-channel, >0: groupwise)
+            packed: Whether to pack the quantized weights into uint8 tensors
             device: Device to place tensors on
             dtype: Data type for scales and bias
 
@@ -65,8 +67,9 @@ class QuantModule(nn.Module):
         self.quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
         self.device = device
         self.dtype = dtype
+        self.packed = packed
 
-        packing_factor = 8 // bits
+        packing_factor = 8 // bits if self.packed else 1
 
         # using the same layout and packing as auto-gptq
         # TODO(jambayk): consider other packing schemes
@@ -96,6 +99,17 @@ class QuantModule(nn.Module):
                 ),
             )
 
+    def pack(self) -> QuantModule:
+        """Pack the quantized weights and zero points into uint8 tensors."""
+        if self.packed:
+            return self
+
+        self.qweight = pack_to_uint8(self.qweight, self.quantizer.bits).contiguous()
+        if self.qzeros is not None:
+            self.qzeros = pack_to_uint8(self.qzeros, self.quantizer.bits).contiguous()
+        self.packed = True
+        return self
+
     @classmethod
     def from_tensors(
         cls,
@@ -106,6 +120,7 @@ class QuantModule(nn.Module):
         scales: torch.Tensor | None = None,
         zero_points: torch.Tensor | None = None,
         quantized: bool = False,
+        packed: bool = True,
         **kwargs,
     ) -> QuantModule:
         """Create a QuantLinear layer from an existing nn.Linear layer.
@@ -118,6 +133,7 @@ class QuantModule(nn.Module):
             scales: Optional precomputed scales for quantization
             zero_points: Optional precomputed zero points for quantization (unsigned, in range [0, 2^bits - 1]).
             quantized: Whether the provided weight is already quantized
+            packed: Whether to pack the quantized weights into uint8 tensors
             kwargs: Additional keyword arguments to pass to the QuantModule constructor
 
         Returns:
@@ -146,11 +162,12 @@ class QuantModule(nn.Module):
             bits=bits,
             symmetric=symmetric,
             group_size=group_size,
+            packed=packed,
             device=qweight.device,
             dtype=scales.dtype,
             **kwargs,
         )
-        qmodule.qweight = pack_to_uint8(qweight, bits).contiguous()
+        qmodule.qweight = pack_to_uint8(qweight, bits).contiguous() if packed else qweight.to(torch.uint8).contiguous()
         scale_shape = qmodule.quantizer.get_qparam_shape(qweight.shape)
         qmodule.scales = scales.reshape(scale_shape).contiguous()
 
@@ -159,12 +176,14 @@ class QuantModule(nn.Module):
             raise ValueError("Zero points must be equal to midq for symmetric quantization")
 
         if not symmetric:
-            qmodule.qzeros = pack_to_uint8(zero_points.reshape(scale_shape), bits).contiguous()
+            zero_points = zero_points.reshape(scale_shape)
+            qmodule.qzeros = (
+                pack_to_uint8(zero_points, bits).contiguous() if packed else zero_points.to(torch.uint8).contiguous()
+            )
 
         return qmodule
 
-    @torch.no_grad()
-    def unpack_and_dequantize(
+    def get_dequantized_weight(
         self, qweight: torch.Tensor, scales: torch.Tensor, zero_points: torch.Tensor | None
     ) -> torch.Tensor:
         """Unpack and dequantize the given quantized weight tensor.
@@ -173,15 +192,17 @@ class QuantModule(nn.Module):
             The dequantized weight tensor.
 
         """
-        qweight = unpack_from_uint8(qweight, self.quantizer.bits, (qweight.shape[0], self.cols))
-        if zero_points is not None:
-            zero_points = unpack_from_uint8(zero_points, self.quantizer.bits, scales.shape)
-        else:
+        if self.packed:
+            qweight = unpack_from_uint8(qweight, self.quantizer.bits, (qweight.shape[0], self.cols))
+        if zero_points is None:
             zero_points = torch.full_like(
                 scales,
                 self.quantizer.midq,
                 dtype=torch.int32,
             )
+        elif self.packed:
+            zero_points = unpack_from_uint8(zero_points, self.quantizer.bits, scales.shape)
+
         return self.quantizer.dequantize(qweight, scales, zero_points)
 
     @abstractmethod
@@ -294,6 +315,7 @@ class QuantLinear(QuantModule):
         assert x.shape[-1] == self.cols, f"Input shape {x.shape} does not match in_features {self.cols}"
 
         if torch.onnx.is_in_onnx_export():
+            assert self.packed, "Only packed weights are supported for ONNX export"
             out = QuantLinearFunction.apply(
                 x,
                 self.qweight.reshape([*self.scales.shape, self.qweight.shape[-1] // self.scales.shape[-1]]),
@@ -309,7 +331,7 @@ class QuantLinear(QuantModule):
         x_dtype = x.dtype
 
         # unpack weights and zero points
-        weight = self.unpack_and_dequantize(self.qweight, self.scales, self.qzeros)
+        weight = self.get_dequantized_weight(self.qweight, self.scales, self.qzeros)
         return nn.functional.linear(x, weight, bias=self.bias).to(x_dtype)  # pylint: disable=not-callable
 
     def extra_repr(self) -> str:
@@ -467,6 +489,7 @@ class QuantEmbedding(QuantModule):
 
         """
         if torch.onnx.is_in_onnx_export():
+            assert self.packed, "Only packed weights are supported for ONNX export"
             return QuantEmbeddingFunction.apply(
                 x,
                 self.qweight,
@@ -490,7 +513,7 @@ class QuantEmbedding(QuantModule):
             qzeros = None
 
         # unpack and dequantize
-        return self.unpack_and_dequantize(qweight, scales, qzeros).reshape(*x_shape, -1)
+        return self.get_dequantized_weight(qweight, scales, qzeros).reshape(*x_shape, -1)
 
     def extra_repr(self) -> str:
         return (

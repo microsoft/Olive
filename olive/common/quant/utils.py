@@ -118,7 +118,6 @@ class WeightQuantizer:
 
         return q_tensor.reshape(shape)
 
-    @torch.no_grad()
     def dequantize(self, q_tensor: torch.Tensor, scales: torch.Tensor, zero_points: torch.Tensor) -> torch.Tensor:
         """Dequantize the given quantized tensor using the provided scales and zero points.
 
@@ -134,8 +133,8 @@ class WeightQuantizer:
         q_tensor, shape = self._reshape_tensor(q_tensor)
 
         # apply dequantization
-        # both q_tensor and zero_points should be int32, so no need to worry about overflow
-        tensor = (q_tensor - zero_points.unsqueeze(-1)) * scales.unsqueeze(-1)
+        # upcast q_tensor to prevent potential overflow during subtraction
+        tensor = (q_tensor.to(torch.int32) - zero_points.unsqueeze(-1)) * scales.unsqueeze(-1)
         return tensor.reshape(shape)
 
     def fake_quantize(
