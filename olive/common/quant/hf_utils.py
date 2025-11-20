@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     from tqdm.auto import tqdm
     from transformers import PreTrainedModel
 
+    from olive.common.quant.nn import QuantModule
+
 
 # older transformers expects a StrEnum and accesses .value
 class OliveHfQuantizationMethod(StrEnumBase):
@@ -295,6 +297,18 @@ def _repoint_buffer(src: nn.Module, dst: nn.Module, name: str):
     dst._non_persistent_buffers_set.add(name)
 
 
+def tie_quant_modules(src: QuantModule, dst: QuantModule):
+    """Tie the quantization buffers of two QuantModules.
+
+    Args:
+        src: Source QuantModule.
+        dst: Destination QuantModule.
+
+    """
+    for name in ["qweight", "scales", "qzeros"]:
+        _repoint_buffer(src, dst, name)
+
+
 def tie_quant_word_embeddings(model: PreTrainedModel):
     """Tie the word embeddings and output embeddings if they have the same shape.
 
@@ -302,8 +316,4 @@ def tie_quant_word_embeddings(model: PreTrainedModel):
         model: The HuggingFace model to tie embeddings for.
 
     """
-    input_embeds = model.get_input_embeddings()
-    output_embeds = model.get_output_embeddings()
-
-    for name in ["qweight", "scales", "qzeros"]:
-        _repoint_buffer(input_embeds, output_embeds, name)
+    tie_quant_modules(model.get_input_embeddings(), model.get_output_embeddings())
