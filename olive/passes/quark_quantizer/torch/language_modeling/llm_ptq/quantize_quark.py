@@ -6,7 +6,6 @@
 
 import argparse
 import logging
-import platform
 import warnings
 from pathlib import Path
 

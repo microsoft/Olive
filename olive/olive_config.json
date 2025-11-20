@@ -519,7 +519,7 @@
             "module_path": "olive.passes.quark_quantizer.quark_quantization.QuarkQuantization",
             "supported_providers": [ "CPUExecutionProvider", "ROCMExecutionProvider", "CUDAExecutionProvider" ],
             "supported_accelerators": [ "cpu", "gpu" ],
-            "supported_precisions": [ "fp16", "fp32" ],
+            "supported_precisions": [ "fp16", "fp32", "bf16" ],
             "supported_algorithms": [ "awq" ],
             "supported_quantization_encodings": [  ],
             "run_on_target": true,

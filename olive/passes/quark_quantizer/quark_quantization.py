@@ -5,7 +5,6 @@
 
 import json
 import logging
-import platform
 import tempfile
 from argparse import Namespace
 from pathlib import Path
@@ -39,7 +38,7 @@ class QuarkQuantization(Pass):
             "dataset": PassConfigParam(
                 type_=str, default_value="pileval_for_awq_benchmark", description="Calibration dataset to use."
             ),
-            "data_type": PassConfigParam(type_=str, default_value="float32", description="Data type for model."),
+            "data_type": PassConfigParam(type_=str, default_value="bfloat16", description="Data type for model."),
             "num_calib_data": PassConfigParam(
                 type_=int, default_value=128, description="Number of calibration samples."
             ),
