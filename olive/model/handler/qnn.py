@@ -77,6 +77,11 @@ class QNNModelHandler(OliveModelHandler):
     def load_model(self, rank: int = None, cache_model: bool = True):
         raise NotImplementedError("QNNModelHandler does not support load_model")
 
+    @property
+    def size_on_disk(self) -> int:
+        """Compute size of the model on disk."""
+        raise NotImplementedError("QNNModelHandler does not support size_on_disk")
+
     def prepare_session(
         self,
         inference_settings: Union[dict[str, Any], None] = None,

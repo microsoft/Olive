@@ -63,6 +63,12 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin):
         """Return local model path."""
         return self.get_resource("model_path")
 
+    @property
+    @abstractmethod
+    def size_on_disk(self) -> int:
+        """Compute size of the model on disk."""
+        raise NotImplementedError
+
     @abstractmethod
     def load_model(self, rank: int = None, cache_model: bool = True) -> object:
         """Load model from disk, return in-memory model object.

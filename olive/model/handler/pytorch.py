@@ -40,6 +40,26 @@ class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin, PytorchKvCach
             io_config=io_config,
         )
 
+    @property
+    def size_on_disk(self) -> int:
+        """Compute size of the model on disk."""
+        import torch
+
+        class ByteCounter:
+            def __init__(self):
+                self.nbytes = 0
+
+            def write(self, data):
+                self.nbytes += len(data)
+
+            def flush(self):
+                pass
+
+        counter = ByteCounter()
+        model = self.load_model()
+        torch.save(model.state_dict(), counter)
+        return counter.nbytes
+
     def prepare_session(
         self,
         inference_settings: Optional[dict[str, Any]] = None,

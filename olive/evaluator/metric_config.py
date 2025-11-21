@@ -59,6 +59,10 @@ class ThroughputMetricConfig(ConfigBase):
     sleep_num: int = SLEEP_NUM
 
 
+class SizeOnDiskMetricConfig(ConfigBase):
+    pass
+
+
 class MetricGoal(ConfigBase):
     type: str  # threshold , deviation, percent-deviation
     value: float
