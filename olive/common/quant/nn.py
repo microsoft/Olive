@@ -55,6 +55,10 @@ class QuantModule(nn.Module):
             raise ValueError(f"Only 4-bit and 8-bit quantization supported, got {bits}")
         if group_size != -1 and (group_size < 16 or (group_size & (group_size - 1)) != 0):
             raise ValueError("For blockwise quantization, group_size must be >= 16 and power of 2")
+        if group_size != -1 and cols % group_size != 0:
+            raise ValueError(
+                f"For blockwise quantization, cols ({cols}) must be divisible by group_size ({group_size})"
+            )
 
         self.rows = rows
         self.cols = cols
