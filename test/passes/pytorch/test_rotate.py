@@ -44,7 +44,7 @@ def test_quarot(tmp_path, model_path, rotate_mode):
     common_test_rotate(QuaRot, tmp_path, model_path, rotate_mode, 1e-5)
 
 
-def get_patched_data_config(model_name_or_path, trust_remote_code):
+def get_patched_data_config(model_name_or_path, trust_remote_code, **kwargs):
     return huggingface_data_config_template(
         model_name=model_name_or_path,
         task="text-generation",
@@ -66,7 +66,7 @@ def get_patched_data_config(model_name_or_path, trust_remote_code):
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="test requires a GPU")
 @pytest.mark.parametrize("model_path", ["tiny-phi3", "tiny-llama"])
 @pytest.mark.parametrize("rotate_mode", ["hadamard", "random"])
-@patch("olive.passes.pytorch.rotate.SpinQuant.get_train_data_config", side_effect=get_patched_data_config)
+@patch("olive.passes.pytorch.rotate.get_calibration_data_config", side_effect=get_patched_data_config)
 def test_spinquant(_, tmp_path, model_path, rotate_mode):
     common_test_rotate(
         SpinQuant,
