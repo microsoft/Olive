@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from onnxscript.rewriter import ort_fusions
+import onnx_ir as ir
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -30,7 +31,8 @@ class OnnxScriptFusion(Pass):
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
         model_ir = model.load_ir_model()
-
+        ir.external_data.load_to_model(model_ir)
+        
         # TODO(exporter team): Different fusions support different devices
         model_ir, function_stats = ort_fusions.optimize_for_ort(model_ir)
         logger.debug("Function stats: %s", function_stats)
