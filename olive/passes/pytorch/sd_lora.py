@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Optional, Union
 from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import HfModelHandler
+from olive.model import DiffusersModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pass_config import BasePassConfig
@@ -152,8 +152,8 @@ class SDLoRA(Pass):
         }
 
     def _run_for_config(
-        self, model: HfModelHandler, config: BasePassConfig, output_model_path: str
-    ) -> HfModelHandler:
+        self, model: DiffusersModelHandler, config: BasePassConfig, output_model_path: str
+    ) -> DiffusersModelHandler:
         """Run diffusion model LoRA training."""
         # Initialize training args
         if config.training_args is None:
@@ -175,12 +175,12 @@ class SDLoRA(Pass):
 
     def _train_sd(
         self,
-        model: HfModelHandler,
+        model: DiffusersModelHandler,
         config: BasePassConfig,
         training_args: DiffusionTrainingArguments,
         model_type: DiffusionModelType,
         output_model_path: str,
-    ) -> HfModelHandler:
+    ) -> DiffusersModelHandler:
         """Train LoRA for Stable Diffusion (SD1.5/SDXL)."""
         import torch
         import torch.nn.functional as F
@@ -434,11 +434,11 @@ class SDLoRA(Pass):
 
     def _train_flux(
         self,
-        model: HfModelHandler,
+        model: DiffusersModelHandler,
         config: BasePassConfig,
         training_args: DiffusionTrainingArguments,
         output_model_path: str,
-    ) -> HfModelHandler:
+    ) -> DiffusersModelHandler:
         """Train LoRA for Flux models."""
         import torch
         import torch.nn.functional as F
@@ -699,15 +699,24 @@ class SDLoRA(Pass):
         return output_model
 
     def _detect_model_type(
-        self, model: HfModelHandler, config: BasePassConfig
+        self, model: DiffusersModelHandler, config: BasePassConfig
     ) -> DiffusionModelType:
         """Detect the model type."""
         if config.model_type != DiffusionModelType.AUTO:
             return config.model_type
 
-        model_path = model.model_path.lower()
+        # Use DiffusersModelHandler's detection if model_type_hint was provided
+        detected = model.detected_model_type
+        if detected == "flux":
+            return DiffusionModelType.FLUX
+        elif detected == "sdxl":
+            return DiffusionModelType.SDXL
+        elif detected == "sd15":
+            return DiffusionModelType.SD15
 
-        # Check for Flux
+        # Fallback detection from model path
+        model_path = model.model_path.lower() if model.model_path else ""
+
         if "flux" in model_path:
             return DiffusionModelType.FLUX
 
@@ -729,7 +738,6 @@ class SDLoRA(Pass):
         except Exception:
             pass
 
-        # Check model name
         if "xl" in model_path or "sdxl" in model_path:
             return DiffusionModelType.SDXL
 
