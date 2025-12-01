@@ -171,17 +171,17 @@ class ChainPreProcessMixin:
             chain = self.default_chain_fn()
 
         # Enable specific steps
-        enable_steps = params.get("enable_steps", [])
+        enable_steps = params.get("enable_steps") or []
         for step_type in enable_steps:
             chain.enable_step(step_type)
 
         # Disable specific steps
-        disable_steps = params.get("disable_steps", [])
+        disable_steps = params.get("disable_steps") or []
         for step_type in disable_steps:
             chain.disable_step(step_type)
 
         # Override step params
-        step_params = params.get("step_params", {})
+        step_params = params.get("step_params") or {}
         for step in chain.steps:
             if step.type in step_params:
                 step.params.update(step_params[step.type])
@@ -270,15 +270,15 @@ class SDLoRADataContainer(ChainPreProcessMixin, DataContainer):
         chain = get_lora_default_chain(base_resolution, bucket_mode)
 
         # Apply the rest of the config
-        enable_steps = params.get("enable_steps", [])
+        enable_steps = params.get("enable_steps") or []
         for step_type in enable_steps:
             chain.enable_step(step_type)
 
-        disable_steps = params.get("disable_steps", [])
+        disable_steps = params.get("disable_steps") or []
         for step_type in disable_steps:
             chain.disable_step(step_type)
 
-        step_params = params.get("step_params", {})
+        step_params = params.get("step_params") or {}
         for step in chain.steps:
             if step.type in step_params:
                 step.params.update(step_params[step.type])
@@ -353,15 +353,15 @@ class DreamBoothDataContainer(ChainPreProcessMixin, DataContainer):
         chain = get_dreambooth_default_chain(target_resolution)
 
         # Apply the rest of the config
-        enable_steps = params.get("enable_steps", [])
+        enable_steps = params.get("enable_steps") or []
         for step_type in enable_steps:
             chain.enable_step(step_type)
 
-        disable_steps = params.get("disable_steps", [])
+        disable_steps = params.get("disable_steps") or []
         for step_type in disable_steps:
             chain.disable_step(step_type)
 
-        step_params = params.get("step_params", {})
+        step_params = params.get("step_params") or {}
         for step in chain.steps:
             if step.type in step_params:
                 step.params.update(step_params[step.type])
