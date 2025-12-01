@@ -483,6 +483,16 @@
             "supported_quantization_encodings": [  ],
             "dataset": "dataset"
         },
+        "SDLoRA": {
+            "module_path": "olive.passes.pytorch.sd_lora.SDLoRA",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "gpu" ],
+            "supported_precisions": [ "*" ],
+            "extra_dependencies": [ "sd-lora" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_required"
+        },
         "QNNContextBinaryGenerator": {
             "module_path": "olive.passes.qnn.context_binary_generator.QNNContextBinaryGenerator",
             "supported_providers": [ "*" ],
@@ -633,6 +643,7 @@
         "gpu": [ "onnxruntime-gpu" ],
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
+        "sd-lora": [ "accelerate>=0.30.0", "peft", "diffusers>=0.25.0", "transformers>=4.30.0" ],
         "nvmo": [ "nvidia-modelopt[onnx]" ],
         "openvino": [
             "openvino>=2025.3.0",

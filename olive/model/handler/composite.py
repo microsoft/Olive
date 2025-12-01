@@ -36,18 +36,27 @@ class CompositeModelHandler(OliveModelHandler):
         model_component_names: list[str],
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[dict[str, Any]] = None,
+        framework: Optional[Framework] = None,
     ):
-        super().__init__(
-            model_path=model_path,
-            framework=Framework.ONNX,
-            model_file_format=ModelFileFormat.COMPOSITE_MODEL,
-            model_attributes=model_attributes,
-        )
         self._model_components = [
             validate_config(m, ModelConfig).create_model() if isinstance(m, dict) else m for m in model_components
         ]
         assert all(isinstance(m, OliveModelHandler) for m in self._model_components), (
             "All components must be OliveModelHandler or dict"
+        )
+
+        # Infer framework from components if not specified
+        if framework is None:
+            if self._model_components:
+                framework = self._model_components[0].framework
+            else:
+                framework = Framework.ONNX
+
+        super().__init__(
+            model_path=model_path,
+            framework=framework,
+            model_file_format=ModelFileFormat.COMPOSITE_MODEL,
+            model_attributes=model_attributes,
         )
 
         assert len(self._model_components) == len(model_component_names), "Number of components and names must match"
