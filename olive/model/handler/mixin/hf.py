@@ -103,11 +103,8 @@ class HfMixin:
             saved_filepaths.append(str(generation_config_file_path))
 
         # save tokenizer, skip if it already exists
-        try:
-            get_tokenizer(output_dir)
-        except (OSError, TypeError):
+        if not (output_dir / "tokenizer_config.json").exists():
             # there is no tokenizer in the output_dir, save the tokenizer
-            # "TypeError: not a string" happens with transformers 4.52+
             tokenizer_filepaths = save_tokenizer(self.get_hf_tokenizer(), output_dir, **kwargs)
             saved_filepaths.extend([fp for fp in tokenizer_filepaths if Path(fp).exists()])
 

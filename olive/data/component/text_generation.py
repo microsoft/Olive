@@ -13,7 +13,7 @@ from olive.common.config_utils import ConfigBase, validate_config, validate_obje
 from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import StrEnumBase
-from olive.data.component.dataset import BaseDataset
+from olive.data.component.dataset import ClassificationDataset
 from olive.data.constants import IGNORE_INDEX
 
 
@@ -358,8 +358,8 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
     hf_dataset = HFDataset.from_dict(tokenized_inputs)
     hf_dataset.set_format("torch", output_all_columns=True)
 
-    # return BaseDataset
-    return BaseDataset(hf_dataset, "labels", max_samples=args.max_samples)
+    # return ClassificationDataset
+    return ClassificationDataset(hf_dataset, "labels", max_samples=args.max_samples)
 
 
 def get_text(

@@ -13,6 +13,7 @@ import onnx
 from packaging import version
 
 from olive.common.config_utils import ParamCategory, validate_config
+from olive.common.onnx_io import get_kv_info
 from olive.common.utils import StrEnumBase
 from olive.constants import Precision
 from olive.data.config import DataConfig
@@ -49,12 +50,12 @@ def precision_to_qtype(p: Precision):
     return precision_mapping.get(p)
 
 
-def _get_dataloader(data_config, model_path, io_config, providers):
+def _get_dataloader(data_config, model_path, io_config):
     # Note: bool(_CalibrationDataReader) is not implemented, convert to generator to avoid error
     return (
         x
         for x in data_config.to_data_container().create_calibration_dataloader(
-            model_path=model_path, io_config=io_config, calibration_providers=providers
+            model_path=model_path, io_config=io_config
         )
     )
 
@@ -95,6 +96,29 @@ def _exclude_op_types(sim, op_types_to_exclude: list[str]):
             continue
 
         _disable_quantizer(sim, product.name)
+
+
+def _apply_precision_overrides(sim, tensor_precision_overrides: dict[str, Precision]):
+    for name, precision in tensor_precision_overrides.items():
+        qtype = precision_to_qtype(precision)
+        quantizer = sim.qc_quantize_op_dict.get(name)
+        if not quantizer:
+            raise RuntimeError(f"No quantizer found for tensor {name}")
+
+        data_type, bits = qtype.to_legacy_repr()
+        quantizer.data_type = data_type
+        quantizer.set_bitwidth(bits)
+
+
+def _tie_quantizers(sim, src_name_to_dest_name: dict[str, str]):
+    """Set the quantizers of the destination tensors to be the same as the source tensors."""
+    quantizer_mapping = {}
+    for source, dest in src_name_to_dest_name.items():
+        quantizer = sim.qc_quantize_op_dict.get(source, None)
+        if quantizer:
+            quantizer_mapping[dest] = quantizer
+
+    sim.set_quantizers(quantizer_mapping)
 
 
 SUPPORTED_TECHNIQUES: dict[str, "_AimetTechnique"] = {}
@@ -221,7 +245,9 @@ class AimetQuantization(Pass):
                 type_=QuantScheme,
                 default_value="min_max",
                 search_defaults=Categorical(["min_max", "tf_enhanced"]),
-                description="Quantization scheme to use for calibration. Current methods supported are min_max and tfe.",
+                description=(
+                    "Quantization scheme to use for calibration. Current methods supported are min_max and tfe."
+                ),
             ),
             "config_file": PassConfigParam(
                 type_=Optional[str],
@@ -249,6 +275,18 @@ class AimetQuantization(Pass):
                 default_value=[],
                 required=False,
                 description="List of techniques to apply in order, each with its name and parameters",
+            ),
+            "tensor_precision_overrides": PassConfigParam(
+                type_=dict[str, Precision],
+                default_value={},
+                required=False,
+                description="Dictionary of tensor name to quantization precision.",
+            ),
+            "tie_kv_cache_io": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                required=False,
+                description="Whether to tie the quantization parameters of the key/value cache input and output tensors if present.",
             ),
         }
         config.update(get_external_data_config())
@@ -287,6 +325,11 @@ class AimetQuantization(Pass):
                 return False
 
             if not technique_cls.validate_args(**{key: value for key, value in technique.items() if key != "name"}):
+                return False
+
+        for name, precision in config.tensor_precision_overrides.items():
+            if not precision_to_qtype(precision):
+                logger.warning("Unsupported precision %s for tensor %s", precision, name)
                 return False
 
         return True
@@ -338,9 +381,15 @@ class AimetQuantization(Pass):
                 path=tmp_dir,
             )
 
+            _apply_precision_overrides(sim, run_config["tensor_precision_overrides"])
+
             op_types_to_exclude = run_config["op_types_to_exclude"]
             if op_types_to_exclude:
                 _exclude_op_types(sim, op_types_to_exclude)
+
+            kv_info = get_kv_info(model.io_config)
+            if config.tie_kv_cache_io and kv_info and kv_info["present_to_past"]:
+                _tie_quantizers(sim, kv_info["present_to_past"])
 
             techniques = run_config["techniques"]
             for technique in techniques:
@@ -351,16 +400,12 @@ class AimetQuantization(Pass):
                     # If no data_config provided for technique, use calibration data
                     data_config = technique.get("data_config", None) or config.data_config
                     data_config = validate_config(data_config, DataConfig)
-                    technique["data_config"] = _get_dataloader(
-                        data_config, model.model_path, model.io_config, run_config["calibration_providers"]
-                    )
+                    technique["data_config"] = _get_dataloader(data_config, model.model_path, model.io_config)
 
                 sim = technique_impl.apply(sim, **technique)
 
             data_config = validate_config(config.data_config, DataConfig)
-            calib_dataloader = _get_dataloader(
-                data_config, model.model_path, model.io_config, run_config["calibration_providers"]
-            )
+            calib_dataloader = _get_dataloader(data_config, model.model_path, model.io_config)
 
             sim.compute_encodings(calib_dataloader)
             qdq_model = sim.to_onnx_qdq(prequantize_constants=True)

@@ -12,7 +12,7 @@ import pytest
 from olive.common.config_utils import validate_config
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.hardware.constants import ExecutionProvider
-from olive.systems.accelerator_creator import AcceleratorNormalizer, create_accelerators
+from olive.systems.accelerator_creator import AcceleratorNormalizer, create_accelerator
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.python_environment.python_environment_system import PythonEnvironmentSystem
 from olive.systems.system_config import SystemConfig
@@ -26,7 +26,7 @@ from olive.systems.system_config import SystemConfig
         ([ExecutionProvider.CUDAExecutionProvider], ["gpu"]),
         ([ExecutionProvider.CPUExecutionProvider, ExecutionProvider.CUDAExecutionProvider], ["gpu"]),
         ([ExecutionProvider.DmlExecutionProvider, ExecutionProvider.CUDAExecutionProvider], None),
-        ([ExecutionProvider.QNNExecutionProvider, ExecutionProvider.CUDAExecutionProvider], ["npu", "gpu"]),
+        ([ExecutionProvider.VitisAIExecutionProvider, ExecutionProvider.CUDAExecutionProvider], ["npu", "gpu"]),
     ],
 )
 def test_infer_accelerators_from_execution_provider(execution_providers_test):
@@ -35,6 +35,8 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
     assert actual_rls == expected_accelerators
 
 
+# NOTE: Use PythonEnvironmentSystem test cases when using EPs that are not CPU EP
+# The @patch("onnxruntime.get_available_providers") doesn't seem to work on Windows in CI
 @pytest.mark.parametrize(
     ("system_config", "expected_acc_specs", "available_providers"),
     [
@@ -76,6 +78,14 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
         ),
         (
             {
+                "type": "LocalSystem",
+                "config": {"accelerators": [{"device": "gpu"}]},
+            },
+            [("gpu", ExecutionProvider.CUDAExecutionProvider)],
+            [ExecutionProvider.CUDAExecutionProvider],
+        ),
+        (
+            {
                 "type": "PythonEnvironment",
                 "config": {"accelerators": [{"device": "gpu"}], "python_environment_path": Path(sys.executable).parent},
             },
@@ -93,6 +103,18 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
             },
             [("cpu", ExecutionProvider.CPUExecutionProvider)],
             [ExecutionProvider.CPUExecutionProvider],
+        ),
+        # for qnn, if only EP provided, we map it to npu device
+        (
+            {
+                "type": "PythonEnvironment",
+                "config": {
+                    "accelerators": [{"execution_providers": [ExecutionProvider.QNNExecutionProvider]}],
+                    "python_environment_path": Path(sys.executable).parent,
+                },
+            },
+            [("npu", ExecutionProvider.QNNExecutionProvider)],
+            [ExecutionProvider.QNNExecutionProvider],
         ),
         # both device and EP provided
         (
@@ -131,7 +153,7 @@ def test_infer_accelerators_from_execution_provider(execution_providers_test):
         ),
     ],
 )
-@patch("onnxruntime.get_available_providers")
+@patch("olive.systems.local.get_ort_available_providers")
 def test_create_accelerators(get_available_providers_mock, system_config, expected_acc_specs, available_providers):
     system_config = validate_config(system_config, SystemConfig)
     python_mock = None
@@ -143,17 +165,15 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
         )
         python_mock.start()
 
-    expected_accelerator_specs = [
-        AcceleratorSpec(
-            accelerator_type=acc_spec[0].lower(),
-            execution_provider=acc_spec[1],
-            memory=acc_spec[2] if len(acc_spec) == 3 else None,
-        )
-        for acc_spec in expected_acc_specs
-    ]
+    # Only expect one accelerator spec (single accelerator is supported)
+    expected_accelerator_spec = AcceleratorSpec(
+        accelerator_type=expected_acc_specs[0][0].lower(),
+        execution_provider=expected_acc_specs[0][1],
+        memory=expected_acc_specs[0][2] if len(expected_acc_specs[0]) == 3 else None,
+    )
 
-    accelerators = create_accelerators(system_config, skip_supported_eps_check=False)
-    assert accelerators == expected_accelerator_specs
+    accelerator = create_accelerator(system_config, skip_supported_eps_check=False)
+    assert accelerator == expected_accelerator_spec
     if python_mock:
         python_mock.stop()
 
@@ -228,7 +248,6 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                         {
                             "execution_providers": [
                                 ExecutionProvider.CUDAExecutionProvider,
-                                ExecutionProvider.CPUExecutionProvider,
                             ]
                         }
                     ]
@@ -239,7 +258,6 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
                     "device": "gpu",
                     "execution_providers": [
                         ExecutionProvider.CUDAExecutionProvider,
-                        ExecutionProvider.CPUExecutionProvider,
                     ],
                 }
             ],
@@ -310,62 +328,6 @@ def test_create_accelerators(get_available_providers_mock, system_config, expect
             ],
             ["The accelerator device and execution providers are specified, skipping deduce"],
             [ExecutionProvider.OpenVINOExecutionProvider, ExecutionProvider.CPUExecutionProvider],
-        ),
-        (
-            # user specify invalid EPs.
-            {
-                "type": "LocalSystem",
-                "config": {
-                    "accelerators": [
-                        {
-                            "execution_providers": [
-                                ExecutionProvider.ROCMExecutionProvider,
-                                ExecutionProvider.CUDAExecutionProvider,
-                                ExecutionProvider.CPUExecutionProvider,
-                            ]
-                        }
-                    ]
-                },
-            },
-            [
-                {
-                    "device": "gpu",
-                    "execution_providers": [
-                        ExecutionProvider.CUDAExecutionProvider,
-                        ExecutionProvider.CPUExecutionProvider,
-                    ],
-                }
-            ],
-            ["The following execution providers are not supported: 'ROCMExecutionProvider'"],
-            [ExecutionProvider.CUDAExecutionProvider, ExecutionProvider.CPUExecutionProvider],
-        ),
-        (
-            {
-                "type": "LocalSystem",
-                "config": {
-                    "accelerators": [
-                        {
-                            "device": "gpu",
-                            "execution_providers": [
-                                ExecutionProvider.ROCMExecutionProvider,
-                                ExecutionProvider.CUDAExecutionProvider,
-                                ExecutionProvider.CPUExecutionProvider,
-                            ],
-                        }
-                    ]
-                },
-            },
-            [
-                {
-                    "device": "gpu",
-                    "execution_providers": [
-                        ExecutionProvider.CUDAExecutionProvider,
-                        ExecutionProvider.CPUExecutionProvider,
-                    ],
-                }
-            ],
-            ["The following execution providers are not supported: 'ROCMExecutionProvider'"],
-            [ExecutionProvider.CUDAExecutionProvider, ExecutionProvider.CPUExecutionProvider],
         ),
         (
             # fill the EPs. memory is provided.
@@ -489,7 +451,6 @@ def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
                         {
                             "execution_providers": [
                                 ExecutionProvider.OpenVINOExecutionProvider,
-                                ExecutionProvider.CPUExecutionProvider,
                             ]
                         }
                     ]
@@ -497,35 +458,11 @@ def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
             },
             [ExecutionProvider.CPUExecutionProvider],
             AssertionError,
-            (
-                "Cannot infer the devices from the execution providers "
-                "['OpenVINOExecutionProvider', 'CPUExecutionProvider']."
-            ),
-        ),
-        (
-            {
-                "type": "LocalSystem",
-                "config": {
-                    "accelerators": [
-                        {
-                            "execution_providers": [
-                                ExecutionProvider.QNNExecutionProvider,
-                                ExecutionProvider.CUDAExecutionProvider,
-                            ]
-                        }
-                    ]
-                },
-            },
-            [ExecutionProvider.CPUExecutionProvider],
-            AssertionError,
-            (
-                "Cannot infer the devices from the execution providers "
-                "['QNNExecutionProvider', 'CUDAExecutionProvider']. Multiple devices are inferred: ['npu', 'gpu']."
-            ),
+            ("Cannot infer the devices from the execution providers ['OpenVINOExecutionProvider']"),
         ),
     ],
 )
-@patch("onnxruntime.get_available_providers")
+@patch("olive.systems.local.get_ort_available_providers")
 def test_create_accelerator_with_error(
     get_available_providers_mock, system_config, available_providers, exception, error_message
 ):
@@ -533,7 +470,7 @@ def test_create_accelerator_with_error(
     get_available_providers_mock.return_value = available_providers
 
     with pytest.raises(exception) as exp:
-        create_accelerators(system_config)
+        create_accelerator(system_config)
     if error_message:
         assert error_message in str(exp.value)
 
@@ -594,16 +531,14 @@ def test_create_accelerator_with_error(
 )
 def test_create_accelerator_without_ep(system_config, expected_acc_specs):
     system_config = validate_config(system_config, SystemConfig)
-    expected_accelerator_specs = [
-        AcceleratorSpec(
-            accelerator_type=acc_spec[0].lower(),
-            execution_provider=acc_spec[1],
-            memory=acc_spec[2] if len(acc_spec) == 3 else None,
-        )
-        for acc_spec in expected_acc_specs
-    ]
-    accelerators = create_accelerators(system_config, skip_supported_eps_check=False, is_ep_required=False)
-    assert accelerators == expected_accelerator_specs
+    # Only expect one accelerator spec (single accelerator is supported)
+    expected_accelerator_spec = AcceleratorSpec(
+        accelerator_type=expected_acc_specs[0][0].lower(),
+        execution_provider=expected_acc_specs[0][1],
+        memory=expected_acc_specs[0][2] if len(expected_acc_specs[0]) == 3 else None,
+    )
+    accelerator = create_accelerator(system_config, skip_supported_eps_check=False, is_ep_required=False)
+    assert accelerator == expected_accelerator_spec
 
 
 def test_accelerator_config():

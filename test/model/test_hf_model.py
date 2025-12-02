@@ -72,7 +72,8 @@ class TestHFModel:
         if tokenizer_exists:
             olive_model.get_hf_tokenizer().save_pretrained(tmp_path)
         saved_filepaths = olive_model.save_metadata(tmp_path)
-        assert len(saved_filepaths) == (4 if tokenizer_exists else 9)
+        # transformers>=4.53.x
+        assert len(saved_filepaths) == (4 if tokenizer_exists else 10)
         assert all(Path(fp).exists() for fp in saved_filepaths)
         assert isinstance(transformers.AutoConfig.from_pretrained(tmp_path), transformers.Phi3Config)
         assert isinstance(transformers.AutoTokenizer.from_pretrained(tmp_path), transformers.LlamaTokenizerFast)
@@ -92,8 +93,8 @@ class TestHFModel:
         loaded_model.save_pretrained(tmp_path)
 
         saved_filepaths = olive_model.save_metadata(tmp_path)
-        # generation config is also saved
-        assert len(saved_filepaths) == 8
+        # generation config is also saved, transformers>=4.53.x
+        assert len(saved_filepaths) == 9
 
         with open(tmp_path / "config.json") as f:
             config = json.load(f)

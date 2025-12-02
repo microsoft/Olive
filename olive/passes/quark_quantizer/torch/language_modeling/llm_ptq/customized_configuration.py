@@ -227,7 +227,7 @@ FP4_PER_GROUP_SYM_DYNAMIC_GS16_SPEC = FP4PerGroupSpec(
     ch_axis=-1, group_size=16, is_dynamic=True, scale_format="e8m0", scale_calculation_mode="even"
 ).to_quantization_spec()
 
-OCP_MX_SEPERATED_FP4_PER_GROUP_DIFFS_SPEC = OCP_MXFP4DiffsSpec(ch_axis=-1, is_dynamic=False).to_quantization_spec()
+OCP_MX_SEPARATED_FP4_PER_GROUP_DIFFS_SPEC = OCP_MXFP4DiffsSpec(ch_axis=-1, is_dynamic=False).to_quantization_spec()
 
 # Two stage configurations
 # This configuration specifies that the first stage is a per-group FP4 quantization, and the second stage is a per-tensor FP8 quantization.
@@ -422,7 +422,7 @@ W_INT4_PER_CHANNEL_ASYM_CONFIG = QuantizationConfig(weight=INT4_PER_CHANNEL_ASYM
 W_INT4_PER_GROUP_ASYM_CONFIG = QuantizationConfig(weight=INT4_PER_GROUP_ASYM_SPEC)
 W_MXINT8_CONFIG = QuantizationConfig(weight=ocp_mxint8_spec(is_dynamic=False))
 W_BFP16_PER_GROUP_SYM_CONFIG = QuantizationConfig(weight=BFP16_PER_GROUP_SYM_SPEC)
-W_MXFP4_DIFFS_SYM_CONFIG = QuantizationConfig(weight=OCP_MX_SEPERATED_FP4_PER_GROUP_DIFFS_SPEC)
+W_MXFP4_DIFFS_SYM_CONFIG = QuantizationConfig(weight=OCP_MX_SEPARATED_FP4_PER_GROUP_DIFFS_SPEC)
 
 # Two stage config
 W_FP4_SCALE_FP8_CONFIG = QuantizationConfig(weight=FP4_PER_GROUP_FP8_PER_TENSOR_SCALE_SPEC)

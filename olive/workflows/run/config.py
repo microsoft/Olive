@@ -80,7 +80,6 @@ class RunEngineConfig(EngineConfig):
             v = Path.cwd().resolve()
         else:
             v = Path(v).resolve()
-        v.mkdir(parents=True, exist_ok=True)
         return v
 
     def create_engine(self, olive_config, workflow_id):

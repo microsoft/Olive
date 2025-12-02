@@ -15,7 +15,6 @@ from torch import nn
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.pydantic_v1 import Field
 from olive.common.utils import StrEnumBase, cleanup_memory, replace_submodules, set_attr
-from olive.data.template import huggingface_data_config_template
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
 from olive.passes import Pass
@@ -24,6 +23,7 @@ from olive.passes.pytorch.common import inherit_hf_from_hf
 from olive.passes.pytorch.train_utils import (
     BaseHFTrainingArguments,
     count_trainable_parameters,
+    get_calibration_data_config,
     get_training_dataset,
     load_hf_base_model,
     prepare_model_for_finetuning,
@@ -353,8 +353,12 @@ class SpinQuant(RotateBase):
 
             # training data
             train_dataset = get_training_dataset(
-                self.get_train_data_config(
-                    model.model_name_or_path, trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None)
+                get_calibration_data_config(
+                    model.model_name_or_path,
+                    trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None),
+                    split="train",
+                    max_seq_len=2048,
+                    max_samples=800,
                 )
             )
 
@@ -385,25 +389,6 @@ class SpinQuant(RotateBase):
         model.save_metadata(output_model_path)
 
         return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
-
-    @staticmethod
-    def get_train_data_config(model_name_or_path: str, trust_remote_code: Optional[bool] = None):
-        return huggingface_data_config_template(
-            model_name=model_name_or_path,
-            task="text-generation",
-            load_dataset_config={
-                "data_name": "wikitext",
-                "subset": "wikitext-2-raw-v1",
-                "split": "train",
-                "trust_remote_code": trust_remote_code,
-            },
-            pre_process_data_config={
-                "add_special_tokens": False,
-                "max_seq_len": 2048,
-                "max_samples": 800,
-                "trust_remote_code": trust_remote_code,
-            },
-        )
 
 
 # Rotated Embedding and Linear Modules

@@ -65,6 +65,7 @@ def create_mnb_model_fixture(request, tmp_path):
         input_names=["input"],
         output_names=["output"],
         dynamic_axes={"input": {0: "batch", 1: "seq"}, "output": {0: "batch", 1: "seq"}},
+        dynamo=False,
     )
 
     # quantized model

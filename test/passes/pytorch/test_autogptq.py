@@ -12,7 +12,7 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.autogptq import GptqQuantizer
-from test.utils import make_local_tiny_llama
+from test.utils import get_tiny_phi3, make_local_tiny_llama
 
 test_gptq_dc_config = DataConfig(
     name="test_gptq_dc_config",
@@ -38,8 +38,8 @@ test_gptq_dc_config = DataConfig(
 @pytest.mark.parametrize(
     ("model_path", "expected_model_type", "data_config"),
     [
-        ("katuni4ka/tiny-random-phi3", "Phi3ForCausalLM", None),
-        ("katuni4ka/tiny-random-phi3", "Phi3ForCausalLM", test_gptq_dc_config),
+        ("tiny-phi3", "Phi3ForCausalLM", None),
+        ("tiny-phi3", "Phi3ForCausalLM", test_gptq_dc_config),
         ("tiny-llama", "LlamaForCausalLM", None),
     ],
 )
@@ -48,7 +48,7 @@ def test_gptq_default(tmp_path: Path, model_path: str, expected_model_type: str,
     if model_path == "tiny-llama":
         input_model = make_local_tiny_llama(tmp_path / "input_model")
     else:
-        input_model = HfModelHandler(model_path=model_path)
+        input_model = get_tiny_phi3()
     p = create_pass_from_dict(
         GptqQuantizer,
         {"data_config": data_config},

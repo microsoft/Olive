@@ -528,7 +528,7 @@
             "module_path": "olive.passes.quark_quantizer.quark_quantization.QuarkQuantization",
             "supported_providers": [ "CPUExecutionProvider", "ROCMExecutionProvider", "CUDAExecutionProvider" ],
             "supported_accelerators": [ "cpu", "gpu" ],
-            "supported_precisions": [ "fp16", "fp32" ],
+            "supported_precisions": [ "fp16", "fp32", "bf16" ],
             "supported_algorithms": [ "awq" ],
             "supported_quantization_encodings": [  ],
             "run_on_target": true,
@@ -542,6 +542,14 @@
             "supported_algorithms": [ "quarot" ],
             "supported_quantization_encodings": [  ],
             "dataset": "dataset_optional"
+        },
+        "Rtn": {
+            "module_path": "olive.passes.pytorch.rtn.Rtn",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
+            "supported_algorithms": [ "rtn" ],
+            "supported_quantization_encodings": [  ]
         },
         "SelectiveMixedPrecision": {
             "module_path": "olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision",

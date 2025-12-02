@@ -16,7 +16,8 @@ Given a model and targeted hardware, Olive (abbreviation of **O**nnx **LIVE**) c
 ## 📰 News Highlights
 Here are some recent videos, blog articles and labs that highlight Olive:
 
-- [ Sep 2025 ] [Olive examples are relocated to new Olive-recipes repository]((https://github.com/microsoft/olive-recipes)
+- [ Oct 2025 ] [Exploring Optimal Quantization Settings for Small Language Models with Olive](https://microsoft.github.io/Olive/blogs/quant-slms.html)
+- [ Sep 2025 ] [Olive examples are relocated to new Olive-recipes repository](https://github.com/microsoft/olive-recipes)
 - [ Aug 2025 ] [Olive 0.9.2 is released with new quantization algorithms](https://github.com/microsoft/Olive/releases/tag/v0.9.2)
 - [ May 2025 ] [Olive 0.9.0 is released with support for NPUs](https://github.com/microsoft/Olive/releases/tag/v0.9.0)
 - [ Mar 2025 ] [Olive 0.8.0 is released with new quantization techniques](https://github.com/microsoft/Olive/releases/tag/v0.8.0)
@@ -90,7 +91,7 @@ The sample chat app to run is found as [model-chat.py](https://github.com/micros
 ## 🎓 Learn more
 
 - [Documentation](https://microsoft.github.io/Olive)
-- [Recipes](https//github.com/microsoft/olive-recipes)
+- [Recipes](https://github.com/microsoft/olive-recipes)
 
 ## 🤝 Contributions and Feedback
 - We welcome contributions! Please read the [contribution guidelines](./CONTRIBUTING.md) for more details on how to contribute to the Olive project.

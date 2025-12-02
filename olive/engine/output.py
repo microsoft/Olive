@@ -44,21 +44,21 @@ class ModelOutput:
         self._model_path = self._model_config.get("model_path", None)
 
     @property
-    def metrics(self) -> dict[str, Any]:
+    def metrics(self) -> Optional[dict[str, Any]]:
         """Get the model metrics dictionary."""
         if self._model_node.metrics:
             return self._model_node.metrics.to_json()
         return None
 
     @property
-    def metrics_value(self) -> dict[str, Any]:
+    def metrics_value(self) -> Optional[dict[str, Any]]:
         """Get the model metrics value."""
         if self._model_node.metrics:
             return self._model_node.metrics.value.to_json()
         return None
 
     @property
-    def model_path(self) -> str:
+    def model_path(self) -> Optional[str]:
         """Get the path to the model file."""
         return self._model_path
 
@@ -73,7 +73,7 @@ class ModelOutput:
         return self._olive_model_config
 
     @property
-    def model_type(self) -> str:
+    def model_type(self) -> Optional[str]:
         """Get the model type."""
         return self._olive_model_config.get("type", None)
 
@@ -82,7 +82,7 @@ class ModelOutput:
         """Get the model configuration."""
         return self._model_config
 
-    def from_device(self) -> Device:
+    def from_device(self) -> str:
         """Get the device used for this model."""
         return str(self._device)
 
@@ -158,94 +158,6 @@ class BaseRankedOutput:
             return items
 
 
-class DeviceOutput(BaseRankedOutput):
-    """Groups model outputs for a specific accelerator device.
-
-    Contains model outputs for different execution providers on the same
-    hardware accelerator type, with methods to retrieve and compare them.
-    """
-
-    def __init__(
-        self,
-        device: Union[Device, str],
-        ep_footprint_map: dict[str, Footprint],
-        objective_dict: dict[str, Any],
-    ):
-        """Initialize a DeviceOutput instance.
-
-        Args:
-            device: The hardware device for these outputs
-            ep_footprint_map: Dictionary mapping execution providers to their Footprint
-            objective_dict: Dictionary of objectives with their priorities
-
-        """
-        self._device = device
-        self._ep_model_map: dict[str, ModelOutput] = {}
-        self._objective_dict = objective_dict
-
-        for ep, footprint in ep_footprint_map.items():
-            if ep not in self._ep_model_map:
-                self._ep_model_map[ep] = []
-            if not footprint.check_empty_nodes():
-                for node in footprint.nodes.values():
-                    self._ep_model_map[ep].append(ModelOutput(device, ep, node))
-
-        self._best_candidate = self._get_best_candidate()
-
-    @property
-    def device(self) -> str:
-        """Get the device type for this accelerator output."""
-        return str(self._device)
-
-    def has_output_model(self) -> bool:
-        """Check if any model outputs are available."""
-        return any(self._ep_model_map.values())
-
-    def get_output_models(self) -> list[ModelOutput]:
-        """Get all model outputs for this accelerator output."""
-        return [model for models in self._ep_model_map.values() for model in models]
-
-    def get_best_candidate(self) -> Optional[ModelOutput]:
-        """Get the best model output for this accelerator based on metrics."""
-        return self._best_candidate
-
-    def get_best_candidate_by_execution_provider(
-        self, execution_provider: Union[ExecutionProvider, str]
-    ) -> Optional[ModelOutput]:
-        """Get the best model output for this accelerator based on metrics."""
-        model_outputs = self._ep_model_map.get(execution_provider)
-        return self._sort_by_metrics(model_outputs, self._objective_dict)[0] if model_outputs else None
-
-    def __getitem__(self, key: str) -> list[ModelOutput]:
-        """Get model outputs by execution provider name.
-
-        Args:
-            key: The execution provider to retrieve
-
-        Returns:
-            The ModelOutput for the specified execution provider or None if not found
-
-        """
-        return self._ep_model_map.get(key)
-
-    def _get_best_candidate(self) -> Optional[ModelOutput]:
-        """Find the best model output for this accelerator based on metrics.
-
-        Returns:
-            The best ModelOutput or None if no outputs are available
-
-        """
-        if not self._ep_model_map:
-            return None
-
-        model_outputs = []
-        for outputs in self._ep_model_map.values():
-            model_outputs.extend(outputs)
-
-        sorted_outputs = self._sort_by_metrics(model_outputs, self._objective_dict)
-        return sorted_outputs[0] if sorted_outputs else None
-
-
 class WorkflowOutput(BaseRankedOutput):
     """Organized output from an Olive workflow with device-specific results.
 
@@ -253,94 +165,45 @@ class WorkflowOutput(BaseRankedOutput):
     different hardware devices and execution providers.
     """
 
-    def __init__(
-        self,
-        output_acc_footprint_map: dict[AcceleratorSpec, Footprint],
-        all_footprints: dict[AcceleratorSpec, Footprint],
-    ):
+    def __init__(self, accelerator_spec: AcceleratorSpec, footprint: Footprint):
         """Initialize a WorkflowOutput instance.
 
         Args:
-            output_acc_footprint_map: Dictionary mapping accelerator specs to their Footprint
-            all_footprints: All footprints in the workflow
+            accelerator_spec: The accelerator specification used in the workflow
+            footprint: The Footprint object containing all workflow results
 
         """
-        self._device_outputs: dict[str, DeviceOutput] = {}
-        self._all_footprints = all_footprints
-        self._input_model_id = all_footprints[
-            AcceleratorSpec(Device.CPU, ExecutionProvider.CPUExecutionProvider)
-        ].input_model_id
+        self.accelerator_spec = accelerator_spec
+        self.footprint = footprint
+        self._input_model_id = footprint.input_model_id
+        self.output_models = (
+            [
+                ModelOutput(
+                    accelerator_spec.accelerator_type,
+                    accelerator_spec.execution_provider,
+                    footprint.nodes[model_id],
+                )
+                for model_id in self.footprint.output_model_ids
+            ]
+            if self.footprint.output_model_ids
+            else []
+        )
 
-        if not output_acc_footprint_map:
-            self._objective_dict = {}
-            return
-
-        # Store objective dict for ranking
-        no_search_footprint = next(iter(output_acc_footprint_map.values()))
-        self._objective_dict = no_search_footprint.objective_dict if output_acc_footprint_map else {}
-
-        # Group outputs by device type
-        for acc_spec, footprint in output_acc_footprint_map.items():
-            device_type = str(acc_spec.accelerator_type).lower()
-            if device_type not in self._device_outputs:
-                self._device_outputs[device_type] = {}
-            self._device_outputs[device_type][acc_spec.execution_provider] = footprint
-
-        # Create DeviceOutput objects for each device type
-        for device_type in list(self._device_outputs.keys()):
-            self._device_outputs[device_type] = DeviceOutput(
-                device_type, self._device_outputs[device_type], self._objective_dict
-            )
-
-        # Set device attributes for easy access
-        for device in Device:
-            setattr(self, device.value, self._device_outputs.get(device.value))
-
+        self._objective_dict = footprint.objective_dict
         self._best_candidate = self._get_best_candidate()
 
-    def _get_device_output_case_insensitive(self, name: str) -> Optional[DeviceOutput]:
-        if name in self._device_outputs:
-            return self._device_outputs[name]
+    def from_device(self) -> str:
+        """Get the device used for this model."""
+        return str(self.accelerator_spec.accelerator_type)
 
-        for device_name, device_output in self._device_outputs.items():
-            if device_name.lower() == name.lower():
-                return device_output
+    def from_execution_provider(self) -> str:
+        """Get the execution provider used for this model."""
+        return str(self.accelerator_spec.execution_provider)
 
-        return None
-
-    def __getattr__(self, name):
-        """Handle case-insensitive device attribute access (e.g., .CPU or .cpu)."""
-        return self._get_device_output_case_insensitive(name)
-
-    def __getitem__(self, key: str) -> Optional[DeviceOutput]:
-        """Get accelerator output by device type.
-
-        Args:
-            key: The device type to retrieve (case-insensitive)
-
-        Returns:
-            The DeviceOutput for the specified device or None if not found
-
-        """
-        return self._get_device_output_case_insensitive(key)
-
-    def get_input_model_metrics(
-        self, device: Union[Device, str] = None, execution_provider: Union[ExecutionProvider, str] = None
-    ) -> dict[str, Any]:
+    def get_input_model_metrics(self) -> Optional[dict[str, Any]]:
         """Get the metrics for the input model."""
-        device = device or Device.CPU
-        execution_provider = execution_provider or ExecutionProvider.CPUExecutionProvider
-        input_node = self._all_footprints[AcceleratorSpec(device, execution_provider)].nodes[self._input_model_id]
+        input_node = self.footprint.nodes[self._input_model_id]
         return input_node.metrics.value.to_json() if input_node.metrics else None
-
-    def get_available_devices(self) -> list[str]:
-        """Get a list of available device types in this workflow output.
-
-        Returns:
-            List of device type strings
-
-        """
-        return list(self._device_outputs.keys())
 
     def has_output_model(self) -> bool:
         """Check if any model outputs are available.
@@ -349,19 +212,7 @@ class WorkflowOutput(BaseRankedOutput):
             True if there are any model outputs, False otherwise
 
         """
-        return any(self.get_output_models())
-
-    def get_output_models_by_device(self, device: Union[Device, str]) -> Optional[list[ModelOutput]]:
-        """Get the output model for a specific device.
-
-        Args:
-            device: The device to retrieve the output model for
-
-        """
-        device_type = str(device).lower()
-        if device_type not in self._device_outputs:
-            return None
-        return self._device_outputs.get(device_type).get_output_models()
+        return len(self.output_models) > 0
 
     def get_output_model_by_id(self, model_id: str) -> Optional[ModelOutput]:
         """Get the output model by its ID.
@@ -382,20 +233,7 @@ class WorkflowOutput(BaseRankedOutput):
             List of ModelOutput objects
 
         """
-        output_models = [
-            model for acc_output in self._device_outputs.values() for model in acc_output.get_output_models()
-        ]
-        return self._sort_by_metrics(output_models, self._objective_dict)
-
-    def get_best_candidate_by_device(self, device: Union[Device, str]) -> Optional[ModelOutput]:
-        """Get the best candidate for a specific device.
-
-        Args:
-            device: The device to retrieve the best candidate for
-
-        """
-        device_type = str(device).lower()
-        return self._device_outputs.get(device_type).get_best_candidate()
+        return self._sort_by_metrics(self.output_models, self._objective_dict)
 
     def get_best_candidate(self) -> Optional[ModelOutput]:
         """Get the best candidate across all devices based on metrics."""
@@ -406,9 +244,7 @@ class WorkflowOutput(BaseRankedOutput):
         model_output = self.get_output_model_by_id(model_id)
         if not model_output:
             return {}
-        device = model_output.from_device()
-        execution_provider = model_output.from_execution_provider()
-        return self._all_footprints[AcceleratorSpec(device, execution_provider)].trace_back_run_history(model_id)
+        return self.footprint.trace_back_run_history(model_id)
 
     def _get_best_candidate(self) -> Optional[ModelOutput]:
         """Get the best candidate across all devices based on metrics.
@@ -417,17 +253,5 @@ class WorkflowOutput(BaseRankedOutput):
             The best ModelOutput across all devices or None if no outputs available
 
         """
-        if not self._device_outputs:
-            return None
-
-        model_outputs = [
-            acc_output.get_best_candidate()
-            for acc_output in self._device_outputs.values()
-            if acc_output and acc_output.get_best_candidate()
-        ]
-
-        if not model_outputs:
-            return None
-
-        sorted_outputs = self._sort_by_metrics(model_outputs, self._objective_dict)
+        sorted_outputs = self._sort_by_metrics(self.output_models, self._objective_dict)
         return sorted_outputs[0] if sorted_outputs else None

@@ -20,6 +20,8 @@ jobs:
     PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
     HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
     PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
+    PYTHONIOENCODING: utf-8
+    PYTHONUTF8: 1
 
   steps:
   - template: olive-setup-template.yaml

@@ -11,7 +11,7 @@ from test.utils import get_hf_model
 
 def test_openvino_optimum_conversion_pass_convert_with_tokenizers(tmp_path):
     # setup
-    input_hf_model = get_hf_model()
+    input_hf_model = get_hf_model("hf-internal-testing/tiny-random-PhiForCausalLM")
     openvino_optimum_conversion_config = {}
 
     p = create_pass_from_dict(OpenVINOOptimumConversion, openvino_optimum_conversion_config, disable_search=True)
@@ -35,7 +35,7 @@ def test_openvino_optimum_conversion_pass_convert_with_tokenizers(tmp_path):
 
 def test_openvino_optimum_conversion_pass_convert_without_tokenizers(tmp_path):
     # setup
-    input_hf_model = get_hf_model()
+    input_hf_model = get_hf_model("hf-internal-testing/tiny-random-PhiForCausalLM")
     openvino_optimum_conversion_config = {"extra_args": {"disable_convert_tokenizer": True}}
 
     p = create_pass_from_dict(OpenVINOOptimumConversion, openvino_optimum_conversion_config, disable_search=True)

@@ -105,3 +105,5 @@ Once the automatic optimizer has successfully completed, you'll have:
 
 1. The base model in an optimized ONNX format.
 2. The adapter weights in a format for ONNX Runtime.
+
+Find more details about how to configure data [here](../configure-workflows/how-to-configure-data.md).

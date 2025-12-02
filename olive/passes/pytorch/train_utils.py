@@ -7,22 +7,23 @@ import logging
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Optional, Union
 
+import torch
 import transformers
 from packaging import version
 from transformers import __version__ as transformers_version
 
-from olive.common.config_utils import NestedConfig
+from olive.common.config_utils import NestedConfig, validate_config
 from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import cleanup_memory
 from olive.data.config import DataConfig
-from olive.model import HfModelHandler
+from olive.data.template import huggingface_data_config_template
+from olive.model import HfModelHandler, PyTorchModelHandler
 from olive.model.config.hf_config import HfLoadKwargs
 
 logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    import torch
     from transformers import PreTrainedModel
 
 
@@ -91,6 +92,7 @@ def load_hf_base_model(
 
     :param model_handler: The input model handler.
     :param torch_dtype: The torch dtype to load the model with.
+        If None, will use the dtype from model_handler's load_kwargs if set, else will use "auto".
     :param device_map: The device map to load the model with.
     :param kwargs: Additional arguments to update load_kwargs with.
     :return: The new loaded pytorch model
@@ -112,7 +114,9 @@ def load_hf_base_model(
     load_kwargs = new_model_handler.load_kwargs.dict() if new_model_handler.load_kwargs else {}
     load_kwargs.update(
         {
-            "torch_dtype": torch_dtype,
+            # use "auto" as default to use the dtype from the model config
+            # with new transformers versions, None doesn't use the model config dtype and instead uses float32
+            "torch_dtype": torch_dtype or new_model_handler.get_load_kwargs().get("torch_dtype") or "auto"
         }
     )
     # Not all models support device_map. The default value of device_map is "auto".
@@ -237,3 +241,108 @@ DEFAULT_DEEPSPEED_CONFIG = {
     "gradient_accumulation_steps": "auto",
     "gradient_clipping": "auto",
 }
+
+
+def get_calibration_dataset(
+    model: HfModelHandler | PyTorchModelHandler,
+    data_config: DataConfig | dict | None = None,
+    split: str = "train[:1000]",
+    batch_size: int = 1,
+    max_seq_len: int = 2048,
+    max_samples: int = 128,
+) -> list[dict[str, Any]]:
+    """Get the dataset for quantization calibration.
+
+    Args:
+        model: The HuggingFace or PyTorch model to get dataset for.
+        data_config: Configuration object or dictionary containing data settings.
+        split: The dataset split to use for default data config. Default is 'train[:1000]'.
+        batch_size: The batch size to use for default data config. Default is 1.
+        max_seq_len: Maximum sequence length for default data config. Default is 2048.
+        max_samples: Maximum number of samples for default data config. Default is 128.
+
+    Returns:
+        List of tokenized data dictionaries for calibration.
+
+    Raises:
+        ValueError: If the dataset format is invalid.
+
+    """
+    if not data_config and isinstance(model, HfModelHandler):
+        data_config = get_calibration_data_config(
+            model.model_name_or_path,
+            trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None),
+            split=split,
+            batch_size=batch_size,
+            max_seq_len=max_seq_len,
+            max_samples=max_samples,
+        )
+    elif not data_config:
+        raise ValueError("Data config is required for PyTorch model.")
+    data_config = validate_config(data_config, DataConfig)
+    dataloader = data_config.to_data_container().create_dataloader()
+    # each batch consists of (input_data, labels)
+    dataset = [data[0] for data in dataloader]
+
+    if (
+        not dataset
+        or not isinstance(dataset, list)
+        or not isinstance(dataset[0], dict)
+        or ("input_ids" not in dataset[0] or "attention_mask" not in dataset[0])
+    ):
+        raise ValueError(
+            "Provided dataset is invalid. The returned datasets is a list of tokenized data "
+            "(e.g. [{ 'input_ids': [[ 1, 100, 15, ... ]],'attention_mask': [[ 1, 1, 1, ... ]]},...])"
+        )
+
+    return dataset
+
+
+def get_calibration_data_config(
+    model_name_or_path: str,
+    trust_remote_code: bool | None = None,
+    split: str = "train[:1000]",
+    batch_size: int = 1,
+    max_seq_len: int = 2048,
+    max_samples: int = 128,
+) -> DataConfig:
+    """Get default calibration data configuration for GPTQ quantization.
+
+    Args:
+        model_name_or_path: Name or path of the model.
+        trust_remote_code: Whether to trust remote code when loading data.
+        split: The dataset split to use. Default is 'train[:1000]'.
+        batch_size: The batch size to use. Default is 1.
+        max_seq_len: Maximum sequence length. Default is 2048.
+        max_samples: Maximum number of samples. Default is 128.
+
+    Returns:
+        DataConfig object for calibration data.
+
+    """
+    return huggingface_data_config_template(
+        model_name=model_name_or_path,
+        task="text-generation",
+        load_dataset_config={
+            "data_name": "wikitext",
+            "subset": "wikitext-2-raw-v1",
+            "split": split,
+            "trust_remote_code": trust_remote_code,
+        },
+        pre_process_data_config={
+            # should we randomize the data?
+            "add_special_tokens": False,
+            "max_seq_len": max_seq_len,
+            "max_samples": max_samples,
+            "trust_remote_code": trust_remote_code,
+        },
+        dataloader_config={"batch_size": batch_size},
+    )
+
+
+def kl_div_loss(student_logits: torch.Tensor, teacher_logits: torch.Tensor) -> torch.Tensor:
+    """Compute the KL divergence loss between student and teacher logits."""
+    student_log_probs = torch.nn.functional.log_softmax(student_logits, dim=-1)
+    teacher_probs = torch.nn.functional.softmax(teacher_logits, dim=-1)
+    kl = torch.nn.functional.kl_div(student_log_probs, teacher_probs, reduction="none")
+    return kl.sum(-1)

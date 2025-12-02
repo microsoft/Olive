@@ -122,7 +122,9 @@ def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
 
         outputs = orig_forward(*args, **kwargs)
 
-        if isinstance(outputs.get("past_key_values"), (DynamicCache, EncoderDecoderCache)):
+        if isinstance(outputs, dict) and isinstance(
+            outputs.get("past_key_values"), (DynamicCache, EncoderDecoderCache)
+        ):
             outputs["past_key_values"] = outputs["past_key_values"].to_legacy_cache()
 
         return outputs
@@ -243,6 +245,11 @@ def _export_pytorch_model(
             # can be removed.
             ir.external_data.load_to_model(model)
         else:
+            dynamo_args = {}
+            if not _torch_is_older_than("2.9.0"):
+                # default is True in 2.9.0 and later
+                dynamo_args["dynamo"] = False
+
             torch.onnx.export(
                 pytorch_model,
                 dummy_inputs,
@@ -252,11 +259,13 @@ def _export_pytorch_model(
                 input_names=io_config.input_names,
                 output_names=io_config.output_names,
                 dynamic_axes=io_config.dynamic_axes,
+                **dynamo_args,
             )
-            model = ir.load(tmp_model_path)
             # After the line below, the model is loaded into memory, so it's safe to
             # delete previously exported file(s)
-            ir.external_data.load_to_model(model)
+            # loading using onnx for now since ir.external_data.load_to_model doesn't load constants from external files
+            # it's also faster this way
+            model = ir.serde.deserialize_model(onnx.load(tmp_model_path))
 
             # Workaround as described under IoConfig.string_to_int_dim_params: change numeric dim_param to dim_value
             if io_config.string_to_int_dim_params:

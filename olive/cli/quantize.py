@@ -246,6 +246,7 @@ PT_QUANT_IMPLEMENTATION_MAPPING = [
     {"impl_name": ImplName.AWQ, "pass_type": "AutoAWQQuantizer"},
     {"impl_name": ImplName.OLIVE, "pass_type": "Gptq"},
     {"impl_name": ImplName.AUTOGPTQ, "pass_type": "GptqQuantizer"},
+    {"impl_name": ImplName.OLIVE, "pass_type": "Rtn"},
 ]
 
 # Pass order in this mapping is important. More than one passes could be selected from this mapping.

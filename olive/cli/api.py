@@ -6,6 +6,7 @@ import inspect
 from argparse import ArgumentParser, Namespace
 from typing import Any
 
+from olive.cli.benchmark import BenchmarkCommand
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand
 from olive.cli.convert_adapters import ConvertAdaptersCommand
 from olive.cli.extract_adapters import ExtractAdaptersCommand
@@ -236,7 +237,7 @@ def tune_session_params(model_name_or_path: str, **kwargs) -> WorkflowOutput:
     return _run_unified_command(SessionParamsTuningCommand, **kwargs)
 
 
-def generate_cost_model(model_name_or_path: str, **kwargs) -> None:
+def generate_cost_model(model_name_or_path: str, **kwargs) -> WorkflowOutput:
     """Generate a cost model for model splitting (HuggingFace models only).
 
     Args:
@@ -244,34 +245,58 @@ def generate_cost_model(model_name_or_path: str, **kwargs) -> None:
         **kwargs: All other CLI arguments supported by generate-cost-model command.
                   Includes `output_path` (defaults to "cost-model.csv").
 
+    Returns:
+        WorkflowOutput: Contains tuning results
+
     """
     kwargs["model_name_or_path"] = model_name_or_path
-    _run_unified_command(GenerateCostModelCommand, **kwargs)
+    return _run_unified_command(GenerateCostModelCommand, **kwargs)
 
 
 # Utility functions that don't necessarily produce model outputs
-def convert_adapters(adapter_path: str, **kwargs) -> None:
+def convert_adapters(adapter_path: str, **kwargs) -> WorkflowOutput:
     """Convert LoRA adapter weights to a format consumable by ONNX models.
 
     Args:
         adapter_path: Path to adapter weights (local folder or HuggingFace ID)
         **kwargs: All other CLI arguments supported by convert-adapters command
 
+    Returns:
+        WorkflowOutput: Contains tuning results
+
     """
     kwargs["adapter_path"] = adapter_path
-    _run_unified_command(ConvertAdaptersCommand, **kwargs)
+    return _run_unified_command(ConvertAdaptersCommand, **kwargs)
 
 
-def extract_adapters(model_name_or_path: str, **kwargs) -> None:
+def extract_adapters(model_name_or_path: str, **kwargs) -> WorkflowOutput:
     """Extract LoRA adapters from PyTorch model to separate files.
 
     Args:
         model_name_or_path: Path to PyTorch model (local folder or HuggingFace ID)
         **kwargs: All other CLI arguments supported by extract-adapters command
 
+    Returns:
+        WorkflowOutput: Contains tuning results
+
     """
     kwargs["model_name_or_path"] = model_name_or_path
-    _run_unified_command(ExtractAdaptersCommand, **kwargs)
+    return _run_unified_command(ExtractAdaptersCommand, **kwargs)
+
+
+def benchmark(model_name_or_path: str, **kwargs) -> WorkflowOutput:
+    """Benchmark input model.
+
+    Args:
+        model_name_or_path: Path to PyTorch model (local folder or HuggingFace ID)
+        **kwargs: All other CLI arguments supported by benchmark command
+
+    Returns:
+        WorkflowOutput: Contains tuning results
+
+    """
+    kwargs["model_name_or_path"] = model_name_or_path
+    return _run_unified_command(BenchmarkCommand, **kwargs)
 
 
 def run(run_config: str, **kwargs) -> WorkflowOutput:
@@ -280,6 +305,9 @@ def run(run_config: str, **kwargs) -> WorkflowOutput:
     Args:
         run_config: Path to Olive workflow config
         **kwargs: All other CLI arguments supported by extract-adapters command
+
+    Returns:
+        WorkflowOutput: Contains tuning results
 
     """
     kwargs["run_config"] = run_config

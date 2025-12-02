@@ -113,6 +113,25 @@ class NVModelOptQuantization(Pass):
                 in quantization.
                 """,
             ),
+            "enable_mixed_quant": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="""
+                Enable mixed precision quantization. When enabled, allows some important
+                layers to be quantized to 8 bits per-channel for better accuracy, while other layers
+                are quantized to 4 bits for efficiency.
+                """,
+            ),
+            "layers_8bit": PassConfigParam(
+                type_=str,
+                default_value="",
+                description="""
+                Comma-separated list of layer patterns to quantize to 8 bits instead of 4 bits.
+                Overrides default mixed quant strategy. Example: 'layers.0,lm_head'.
+                When specified, automatically enables mixed precision quantization.
+                It will override the default mixed quant strategy.
+                """,
+            ),
         }
 
     @classmethod
@@ -270,6 +289,8 @@ class NVModelOptQuantization(Pass):
         logger.debug("add_position_ids=%s", self.get_calibration_param(config.calibration_params, "add_position_ids"))
         logger.debug("calibration_eps=%s", ep_list)
         logger.debug("nodes-to-exclude=%s", config.nodes_to_exclude)
+        logger.debug("enable_mixed_quant=%s", config.enable_mixed_quant)
+        logger.debug("layers_8bit=%s", config.layers_8bit)
         logger.debug("input_shapes_profile is None? = %s", input_shapes_profile is None)
         logger.debug("=============================")
 
@@ -284,6 +305,8 @@ class NVModelOptQuantization(Pass):
             "int4_block_size": config.int4_block_size,
             "nodes_to_exclude": config.nodes_to_exclude,
             "input_shapes_profile": input_shapes_profile,
+            "enable_mixed_quant": config.enable_mixed_quant,
+            "layers_8bit": config.layers_8bit,
         }
 
     def make_model_input(
@@ -483,6 +506,8 @@ class NVModelOptQuantization(Pass):
             block_size=quant_config["int4_block_size"],
             nodes_to_exclude=quant_config["nodes_to_exclude"],
             input_shapes_profile=quant_config["input_shapes_profile"],
+            enable_mixed_quant=quant_config["enable_mixed_quant"],
+            layers_8bit=quant_config["layers_8bit"],
         )
 
         logger.debug("Completed nvidia_awq quantization.")
