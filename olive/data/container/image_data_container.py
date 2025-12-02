@@ -87,9 +87,9 @@ def get_lora_default_chain(base_resolution: int = 512, bucket_mode: str = "auto"
 
     chain = PreProcessChain()
     chain.add_step("image_filtering", {"min_width": min_size, "min_height": min_size}, enabled=False)
-    chain.add_step("auto_caption", {"model_type": "blip2", "caption_extension": ".caption"}, enabled=False)
+    chain.add_step("auto_caption", {"model_type": "blip2", "caption_extension": ".txt"}, enabled=False)
     chain.add_step("auto_tagging", {"model_type": "wd14", "tag_extension": ".tags"}, enabled=False)
-    chain.add_step("caption_tag_merge", {"caption_extension": ".caption", "tag_extension": ".tags"}, enabled=False)
+    chain.add_step("caption_tag_merge", {"caption_extension": ".txt", "tag_extension": ".tags"}, enabled=False)
     chain.add_step("image_resizing", {"target_resolution": base_resolution, "resize_mode": "bucket"}, enabled=False)
     chain.add_step("aspect_ratio_bucketing", {"base_resolution": base_resolution, "bucket_mode": bucket_mode}, enabled=True)
     return chain
