@@ -315,14 +315,6 @@ class SDLoRA(Pass):
                 desc="Training",
             )
 
-            # Debug: log first few samples to verify captions are loaded
-            if accelerator.is_main_process:
-                logger.info("Verifying dataset samples:")
-                for i in range(min(3, len(train_dataset))):
-                    sample = train_dataset[i]
-                    logger.info("  Sample %d: image=%s, caption='%s'",
-                               i, sample.get("image_path", "N/A")[-50:], sample.get("caption", "NO CAPTION")[:100])
-
             for epoch in range(num_train_epochs):
                 unet.train()
 
