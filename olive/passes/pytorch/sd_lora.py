@@ -419,11 +419,32 @@ class SDLoRA(Pass):
                     unet_merged.save_pretrained(unet_path)
                     logger.info("Saved merged UNet to %s", unet_path)
                 else:
-                    # Save only LoRA adapter
+                    # Save LoRA adapter in diffusers-compatible format
                     unet_unwrapped = accelerator.unwrap_model(unet)
-                    unet_lora_path = output_path / "unet_lora"
-                    unet_unwrapped.save_pretrained(unet_lora_path)
-                    logger.info("Saved UNet LoRA to %s", unet_lora_path)
+                    # Get the LoRA state dict and convert to diffusers format
+                    from peft import get_peft_model_state_dict
+
+                    lora_state_dict = get_peft_model_state_dict(unet_unwrapped)
+
+                    # Convert PEFT keys to diffusers format
+                    # PEFT format: base_model.model.down_blocks.0.attentions.0.transformer_blocks.0.attn1.to_q.lora_A.weight
+                    # Diffusers format: unet.down_blocks.0.attentions.0.transformer_blocks.0.attn1.to_q.lora_A.weight
+                    diffusers_state_dict = {}
+                    for key, value in lora_state_dict.items():
+                        # Remove 'base_model.model.' prefix if present
+                        new_key = key.replace("base_model.model.", "")
+                        # Add 'unet.' prefix for diffusers
+                        new_key = f"unet.{new_key}"
+                        diffusers_state_dict[new_key] = value
+
+                    # Save in safetensors format (same structure as lora.py: output_path/adapter/)
+                    from safetensors.torch import save_file
+
+                    adapter_path = output_path / "adapter"
+                    adapter_path.mkdir(parents=True, exist_ok=True)
+                    lora_path = adapter_path / "pytorch_lora_weights.safetensors"
+                    save_file(diffusers_state_dict, lora_path)
+                    logger.info("Saved UNet LoRA to %s", lora_path)
 
             accelerator.end_training()
 
@@ -685,11 +706,26 @@ class SDLoRA(Pass):
                     transformer_merged.save_pretrained(transformer_path)
                     logger.info("Saved merged Transformer to %s", transformer_path)
                 else:
-                    # Save only LoRA adapter
+                    # Save LoRA adapter in diffusers-compatible format
                     transformer_unwrapped = accelerator.unwrap_model(transformer)
-                    transformer_lora_path = output_path / "transformer_lora"
-                    transformer_unwrapped.save_pretrained(transformer_lora_path)
-                    logger.info("Saved Flux Transformer LoRA to %s", transformer_lora_path)
+                    from peft import get_peft_model_state_dict
+
+                    lora_state_dict = get_peft_model_state_dict(transformer_unwrapped)
+
+                    # Convert PEFT keys to diffusers format
+                    diffusers_state_dict = {}
+                    for key, value in lora_state_dict.items():
+                        new_key = key.replace("base_model.model.", "")
+                        new_key = f"transformer.{new_key}"
+                        diffusers_state_dict[new_key] = value
+
+                    from safetensors.torch import save_file
+
+                    adapter_path = output_path / "adapter"
+                    adapter_path.mkdir(parents=True, exist_ok=True)
+                    lora_path = adapter_path / "pytorch_lora_weights.safetensors"
+                    save_file(diffusers_state_dict, lora_path)
+                    logger.info("Saved Flux Transformer LoRA to %s", lora_path)
 
             accelerator.end_training()
 
