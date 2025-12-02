@@ -315,6 +315,14 @@ class SDLoRA(Pass):
                 desc="Training",
             )
 
+            # Debug: log first few samples to verify captions are loaded
+            if accelerator.is_main_process:
+                logger.info("Verifying dataset samples:")
+                for i in range(min(3, len(train_dataset))):
+                    sample = train_dataset[i]
+                    logger.info("  Sample %d: image=%s, caption='%s'",
+                               i, sample.get("image_path", "N/A")[-50:], sample.get("caption", "NO CAPTION")[:100])
+
             for epoch in range(num_train_epochs):
                 unet.train()
 
@@ -831,24 +839,26 @@ class SDLoRA(Pass):
             crops_coords = []
 
             for ex in examples:
-                # Load image
+                # Load image (should already be resized by preprocessing)
                 image_path = ex.get("image_path", "")
                 img = Image.open(image_path).convert("RGB")
-                img_array = np.array(img, dtype=np.float32) / 127.5 - 1.0  # Normalize to [-1, 1]
-                pixel_values.append(torch.from_numpy(img_array.transpose(2, 0, 1)))
-
-                captions.append(ex.get("caption", ""))
 
                 # Get size info from bucket_assignments
                 if image_path in bucket_assignments:
                     assignment = bucket_assignments[image_path]
                     original_sizes.append(assignment.get("original_size", img.size))
-                    target_sizes.append(assignment.get("bucket", img.size))
+                    bucket_size = assignment.get("bucket", img.size)
+                    target_sizes.append(bucket_size)
                     crops_coords.append(assignment.get("crops_coords_top_left", (0, 0)))
                 else:
                     original_sizes.append(img.size)
                     target_sizes.append(img.size)
                     crops_coords.append((0, 0))
+
+                img_array = np.array(img, dtype=np.float32) / 127.5 - 1.0  # Normalize to [-1, 1]
+                pixel_values.append(torch.from_numpy(img_array.transpose(2, 0, 1)))
+
+                captions.append(ex.get("caption", ""))
 
             result = {"pixel_values": torch.stack(pixel_values).to(memory_format=torch.contiguous_format).float()}
 
@@ -868,10 +878,20 @@ class SDLoRA(Pass):
 
             return result
 
-        return torch.utils.data.DataLoader(
+        # Use bucket batch sampler to ensure images in each batch have the same dimensions
+        from olive.data.component.sd_lora.dataloader import BucketBatchSampler
+
+        batch_sampler = BucketBatchSampler(
             dataset,
             batch_size=training_args.train_batch_size,
+            drop_last=False,
             shuffle=True,
+            seed=training_args.seed,
+        )
+
+        return torch.utils.data.DataLoader(
+            dataset,
+            batch_sampler=batch_sampler,
             collate_fn=collate_fn,
             num_workers=0,
             pin_memory=True,
@@ -879,7 +899,7 @@ class SDLoRA(Pass):
 
     def _encode_prompt_sd15(self, batch, text_encoder):
         """Encode prompts for SD 1.5 (frozen text encoder)."""
-        input_ids = batch["input_ids"]
+        input_ids = batch["input_ids"].to(text_encoder.device)
         encoder_hidden_states = text_encoder(input_ids)[0]
         return encoder_hidden_states
 
@@ -887,8 +907,8 @@ class SDLoRA(Pass):
         """Encode prompts for SDXL (frozen text encoders)."""
         import torch
 
-        input_ids_one = batch["input_ids_one"]
-        input_ids_two = batch["input_ids_two"]
+        input_ids_one = batch["input_ids_one"].to(text_encoder.device)
+        input_ids_two = batch["input_ids_two"].to(text_encoder_2.device)
 
         encoder_hidden_states = text_encoder(input_ids_one, output_hidden_states=True).hidden_states[-2]
         encoder_output_2 = text_encoder_2(input_ids_two, output_hidden_states=True)
@@ -902,8 +922,8 @@ class SDLoRA(Pass):
         """Encode prompts for Flux (frozen text encoders)."""
         import torch
 
-        input_ids_clip = batch["input_ids_one"]
-        input_ids_t5 = batch.get("input_ids_t5", batch.get("input_ids_two"))
+        input_ids_clip = batch["input_ids_one"].to(text_encoder.device)
+        input_ids_t5 = batch.get("input_ids_t5", batch.get("input_ids_two")).to(text_encoder_2.device)
 
         # CLIP encoder for pooled embeddings
         clip_output = text_encoder(input_ids_clip, output_hidden_states=True)

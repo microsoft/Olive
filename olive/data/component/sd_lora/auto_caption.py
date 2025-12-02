@@ -35,7 +35,7 @@ def auto_caption(
     max_new_tokens: int = 50,
     batch_size: int = 1,
     device: str = "cuda",
-    caption_extension: str = ".txt",
+    caption_extension: str = ".txt",  # Default to .txt to match dataset's default
     overwrite: bool = False,
     prefix: str = "",
     suffix: str = "",

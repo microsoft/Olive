@@ -205,14 +205,6 @@ def aspect_ratio_bucketing(
                     orig_w, orig_h, bucket_w, bucket_h, crop_to_bucket, crop_position
                 )
 
-                bucket_assignments[str(image_path)] = {
-                    "bucket": best_bucket,
-                    "original_size": (orig_w, orig_h),
-                    "aspect_ratio": orig_aspect,
-                    "crops_coords_top_left": crops_coords_top_left,
-                }
-                bucket_counts[best_bucket] += 1
-
                 # Resize image if requested
                 if resize_images:
                     if output_dir:
@@ -221,32 +213,45 @@ def aspect_ratio_bucketing(
                         out_path = image_path
 
                     if not overwrite and out_path.exists() and out_path != image_path:
-                        continue
+                        # Store assignment with the FINAL path that will be used
+                        final_path = str(out_path)
+                    else:
+                        # Convert to RGB if needed
+                        if img.mode in ("RGBA", "P"):
+                            img = img.convert("RGB")
+                        elif img.mode != "RGB":
+                            img = img.convert("RGB")
 
-                    # Convert to RGB if needed
-                    if img.mode in ("RGBA", "P"):
-                        img = img.convert("RGB")
-                    elif img.mode != "RGB":
-                        img = img.convert("RGB")
+                        # Resize to fit bucket
+                        resized = _resize_to_bucket(
+                            img,
+                            bucket_w,
+                            bucket_h,
+                            crop_to_bucket,
+                            crop_position,
+                            fill_color,
+                            upscale_filter,
+                            downscale_filter,
+                        )
 
-                    # Resize to fit bucket
-                    resized = _resize_to_bucket(
-                        img,
-                        bucket_w,
-                        bucket_h,
-                        crop_to_bucket,
-                        crop_position,
-                        fill_color,
-                        upscale_filter,
-                        downscale_filter,
-                    )
+                        # Save
+                        resized.save(out_path, quality=95)
+                        final_path = str(out_path)
 
-                    # Save
-                    resized.save(out_path, quality=95)
+                        # Update dataset path if changed
+                        if out_path != image_path:
+                            dataset.image_paths[i] = out_path
+                else:
+                    final_path = str(image_path)
 
-                    # Update dataset path if changed
-                    if out_path != image_path:
-                        dataset.image_paths[i] = out_path
+                # Store bucket assignment with the FINAL path (after any resizing)
+                bucket_assignments[final_path] = {
+                    "bucket": best_bucket,
+                    "original_size": (orig_w, orig_h),
+                    "aspect_ratio": orig_aspect,
+                    "crops_coords_top_left": crops_coords_top_left,
+                }
+                bucket_counts[best_bucket] += 1
 
         except Exception as e:
             logger.warning("Failed to process %s: %s", image_path, e)
