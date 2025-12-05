@@ -183,6 +183,17 @@ def aspect_ratio_bucketing(
     bucket_assignments = {}
     bucket_counts = defaultdict(int)
 
+    # Check if dataset supports file writing (local folder datasets have data_dir)
+    can_write_files = hasattr(dataset, "data_dir") and dataset.data_dir is not None
+
+    # Warn if resize is requested but no output location available
+    if resize_images and not output_dir and not can_write_files:
+        logger.warning(
+            "resize_images=True but no output_dir specified and dataset doesn't support in-place writing "
+            "(e.g., HuggingFace dataset). Images will NOT be pre-resized. "
+            "Specify output_dir to enable pre-resizing, or images will be resized on-the-fly during training."
+        )
+
     for i in range(len(dataset)):
         item = dataset[i]
         image_path = Path(item["image_path"])
@@ -201,15 +212,19 @@ def aspect_ratio_bucketing(
                     orig_w, orig_h, bucket_w, bucket_h, crop_to_bucket, crop_position
                 )
 
-                # Resize image if requested
-                if resize_images:
+                final_path = str(image_path)
+
+                # Resize image if requested and we have a place to save
+                if resize_images and (output_dir or can_write_files):
                     if output_dir:
-                        out_path = Path(output_dir) / image_path.name
+                        # Ensure output filename has extension
+                        out_name = image_path.name if image_path.suffix else f"{image_path.name}.jpg"
+                        out_path = Path(output_dir) / out_name
                     else:
                         out_path = image_path
 
                     if not overwrite and out_path.exists() and out_path != image_path:
-                        # Store assignment with the FINAL path that will be used
+                        # Use existing resized file
                         final_path = str(out_path)
                     else:
                         # Convert to RGB if needed
@@ -230,15 +245,16 @@ def aspect_ratio_bucketing(
                             downscale_filter,
                         )
 
-                        # Save
-                        resized.save(out_path, quality=95)
+                        # Save with explicit format if no extension
+                        if out_path.suffix:
+                            resized.save(out_path, quality=95)
+                        else:
+                            resized.save(out_path, format="JPEG", quality=95)
                         final_path = str(out_path)
 
                         # Update dataset path if changed
                         if out_path != image_path:
                             dataset.image_paths[i] = out_path
-                else:
-                    final_path = str(image_path)
 
                 # Store bucket assignment with the FINAL path (after any resizing)
                 bucket_assignments[final_path] = {
