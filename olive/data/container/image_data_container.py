@@ -246,10 +246,10 @@ class SDLoRADataContainer(ChainPreProcessMixin, DataContainer):
                 "type": "huggingface_dataset",
                 "params": {
                     "data_name": "linoyts/Tuxemon",
-                    "split": "train",
-                    "image_column": "image",
-                    "caption_column": "prompt"
-                }
+                    "split": "train"
+                },
+                "image_column": "image",
+                "caption_column": "prompt"
             },
             pre_process_data_config={
                 "type": "sd_lora_preprocess",
@@ -273,10 +273,10 @@ class SDLoRADataContainer(ChainPreProcessMixin, DataContainer):
                 "type": "huggingface_dataset",
                 "params": {
                     "data_name": "some/image-only-dataset",
-                    "split": "train",
-                    "image_column": "image"
-                    # caption_column not specified, use auto_caption
-                }
+                    "split": "train"
+                },
+                "image_column": "image"
+                # caption_column not specified, use auto_caption
             },
             pre_process_data_config={
                 "type": "sd_lora_preprocess",
@@ -328,10 +328,10 @@ class SDLoRADataContainer(ChainPreProcessMixin, DataContainer):
         """Run chained preprocessing with HuggingFace dataset support."""
         # Check if this is a HuggingFace dataset and convert if needed
         if self._is_huggingface_dataset():
-            # Get column mappings from load_dataset_config.params
-            load_params = self.config.load_dataset_config.params
-            image_column = load_params.get("image_column", "image")
-            caption_column = load_params.get("caption_column")  # None if not specified
+            # Get column mappings from load_dataset_config
+            load_config = self.config.load_dataset_config
+            image_column = load_config.image_column or "image"
+            caption_column = load_config.caption_column  # None if not specified
             logger.info(
                 "Converting HuggingFace dataset: image_column=%s, caption_column=%s",
                 image_column, caption_column

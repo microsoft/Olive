@@ -26,6 +26,10 @@ class DataComponentConfig(NestedConfig):
     type: str = None
     params: dict = Field(default_factory=dict)
 
+    # Column mapping for image datasets (used by SDLoRADataContainer)
+    image_column: str = None
+    caption_column: str = None
+
     @validator("type", pre=True)
     def validate_type(cls, v):
         return validate_lowercase(v)
