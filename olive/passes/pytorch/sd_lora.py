@@ -261,6 +261,11 @@ class SDLoRA(Pass):
             )
             unet.add_adapter(unet_lora_config)
 
+            # LoRA trainable parameters should be fp32 for stable training with mixed precision
+            for param in unet.parameters():
+                if param.requires_grad:
+                    param.data = param.data.to(torch.float32)
+
             # Log trainable parameters
             trainable_params = sum(p.numel() for p in unet.parameters() if p.requires_grad)
             total_params = sum(p.numel() for p in unet.parameters())
@@ -538,6 +543,11 @@ class SDLoRA(Pass):
                 target_modules=target_modules,
             )
             transformer.add_adapter(transformer_lora_config)
+
+            # LoRA trainable parameters should be fp32 for stable training with mixed precision
+            for param in transformer.parameters():
+                if param.requires_grad:
+                    param.data = param.data.to(torch.float32)
 
             # Log trainable parameters
             trainable_params = sum(p.numel() for p in transformer.parameters() if p.requires_grad)
