@@ -102,8 +102,6 @@ def aspect_ratio_bucketing(
     fill_color: tuple[int, int, int] = (255, 255, 255),
     output_dir: Optional[str] = None,
     overwrite: bool = False,
-    save_bucket_info: bool = True,
-    bucket_info_file: str = "bucket_info.json",
     **kwargs,
 ):
     """Organize images into aspect ratio buckets for efficient training.
@@ -135,8 +133,6 @@ def aspect_ratio_bucketing(
         fill_color: Fill color for padding if not cropping.
         output_dir: Directory for processed images (None for in-place).
         overwrite: Whether to overwrite existing processed images.
-        save_bucket_info: Whether to save bucket assignment info.
-        bucket_info_file: Filename for bucket info JSON.
         **kwargs: Additional arguments.
 
     Returns:
@@ -260,21 +256,6 @@ def aspect_ratio_bucketing(
     logger.info("Bucket distribution:")
     for bucket, count in sorted(bucket_counts.items(), key=lambda x: -x[1])[:10]:
         logger.info("  %dx%d: %d images", bucket[0], bucket[1], count)
-
-    # Save bucket info
-    if save_bucket_info:
-        import json
-
-        info_path = Path(output_dir or dataset.data_dir) / bucket_info_file
-        bucket_info = {
-            "buckets": [list(b) for b in buckets],
-            "assignments": {k: {"bucket": list(v["bucket"]), **{kk: vv for kk, vv in v.items() if kk != "bucket"}}
-                           for k, v in bucket_assignments.items()},
-            "bucket_counts": {f"{k[0]}x{k[1]}": v for k, v in bucket_counts.items()},
-        }
-        with open(info_path, "w") as f:
-            json.dump(bucket_info, f, indent=2)
-        logger.info("Saved bucket info to %s", info_path)
 
     # Store bucket assignments in dataset
     dataset.bucket_assignments = bucket_assignments
