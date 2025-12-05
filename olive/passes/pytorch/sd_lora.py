@@ -227,14 +227,28 @@ class SDLoRA(Pass):
             # Load noise scheduler
             noise_scheduler = DDPMScheduler.from_pretrained(model_path, subfolder="scheduler")
 
-            # Freeze all base models
+            # Set weight dtype
+            weight_dtype = torch.float32
+            if accelerator.mixed_precision == "fp16":
+                weight_dtype = torch.float16
+            elif accelerator.mixed_precision == "bf16":
+                weight_dtype = torch.bfloat16
+
+            # Freeze all base models and move to device
             vae.requires_grad_(False)
+            vae.to(accelerator.device, dtype=weight_dtype)
+
             text_encoder.requires_grad_(False)
+            text_encoder.to(accelerator.device, dtype=weight_dtype)
+
             if text_encoder_2:
                 text_encoder_2.requires_grad_(False)
-            unet.requires_grad_(False)
+                text_encoder_2.to(accelerator.device, dtype=weight_dtype)
 
-            # Setup LoRA for UNet only
+            unet.requires_grad_(False)
+            unet.to(accelerator.device, dtype=weight_dtype)
+
+            # Setup LoRA for UNet only (after moving to device)
             lora_alpha = config.alpha if config.alpha is not None else config.r
             target_modules = config.target_modules or ["to_k", "to_q", "to_v", "to_out.0"]
 
@@ -245,26 +259,13 @@ class SDLoRA(Pass):
                 init_lora_weights="gaussian",
                 target_modules=target_modules,
             )
-            unet = get_peft_model(unet, unet_lora_config)
+            unet.add_adapter(unet_lora_config)
             logger.info("UNet trainable parameters:")
             unet.print_trainable_parameters()
 
             # Enable gradient checkpointing
             if training_args.gradient_checkpointing:
                 unet.enable_gradient_checkpointing()
-
-            # Set weight dtype
-            weight_dtype = torch.float32
-            if accelerator.mixed_precision == "fp16":
-                weight_dtype = torch.float16
-            elif accelerator.mixed_precision == "bf16":
-                weight_dtype = torch.bfloat16
-
-            # Move frozen models to device
-            vae.to(accelerator.device, dtype=weight_dtype)
-            text_encoder.to(accelerator.device, dtype=weight_dtype)
-            if text_encoder_2:
-                text_encoder_2.to(accelerator.device, dtype=weight_dtype)
 
             # Load dataset
             train_dataset = self._load_dataset(config)
@@ -321,7 +322,7 @@ class SDLoRA(Pass):
                 for step, batch in enumerate(train_dataloader):
                     with accelerator.accumulate(unet):
                         # Encode images to latents
-                        pixel_values = batch["pixel_values"].to(dtype=weight_dtype)
+                        pixel_values = batch["pixel_values"].to(device=accelerator.device, dtype=weight_dtype)
                         latents = vae.encode(pixel_values).latent_dist.sample()
                         latents = latents * vae.config.scaling_factor
 
@@ -348,13 +349,18 @@ class SDLoRA(Pass):
                                 added_cond_kwargs = None
 
                         # UNet forward (with gradients for LoRA training)
+                        # Cast to weight_dtype to match UNet's expected input dtype
+                        noisy_latents = noisy_latents.to(dtype=weight_dtype)
+                        encoder_hidden_states = encoder_hidden_states.to(dtype=weight_dtype)
+
                         if model_type == DiffusionModelType.SDXL:
                             model_pred = unet(
                                 noisy_latents, timesteps, encoder_hidden_states,
-                                added_cond_kwargs=added_cond_kwargs
-                            ).sample
+                                added_cond_kwargs=added_cond_kwargs,
+                                return_dict=False,
+                            )[0]
                         else:
-                            model_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
+                            model_pred = unet(noisy_latents, timesteps, encoder_hidden_states, return_dict=False)[0]
 
                         # Compute loss target
                         if noise_scheduler.config.prediction_type == "epsilon":
@@ -421,30 +427,24 @@ class SDLoRA(Pass):
                 else:
                     # Save LoRA adapter in diffusers-compatible format
                     unet_unwrapped = accelerator.unwrap_model(unet)
-                    # Get the LoRA state dict and convert to diffusers format
+                    unet_unwrapped = unet_unwrapped.to(torch.float32)
+
+                    from diffusers import StableDiffusionPipeline
                     from peft import get_peft_model_state_dict
+                    from peft.utils import get_peft_model_state_dict
 
-                    lora_state_dict = get_peft_model_state_dict(unet_unwrapped)
+                    unet_lora_state_dict = get_peft_model_state_dict(unet_unwrapped)
 
-                    # Convert PEFT keys to diffusers format
-                    # PEFT format: base_model.model.down_blocks.0.attentions.0.transformer_blocks.0.attn1.to_q.lora_A.weight
-                    # Diffusers format: unet.down_blocks.0.attentions.0.transformer_blocks.0.attn1.to_q.lora_A.weight
-                    diffusers_state_dict = {}
-                    for key, value in lora_state_dict.items():
-                        # Remove 'base_model.model.' prefix if present
-                        new_key = key.replace("base_model.model.", "")
-                        # Add 'unet.' prefix for diffusers
-                        new_key = f"unet.{new_key}"
-                        diffusers_state_dict[new_key] = value
-
-                    # Save in safetensors format (same structure as lora.py: output_path/adapter/)
-                    from safetensors.torch import save_file
-
+                    # Use diffusers' built-in save function
                     adapter_path = output_path / "adapter"
                     adapter_path.mkdir(parents=True, exist_ok=True)
-                    lora_path = adapter_path / "pytorch_lora_weights.safetensors"
-                    save_file(diffusers_state_dict, lora_path)
-                    logger.info("Saved UNet LoRA to %s", lora_path)
+
+                    StableDiffusionPipeline.save_lora_weights(
+                        save_directory=str(adapter_path),
+                        unet_lora_layers=unet_lora_state_dict,
+                        safe_serialization=True,
+                    )
+                    logger.info("Saved UNet LoRA to %s", adapter_path)
 
             accelerator.end_training()
 
@@ -493,6 +493,9 @@ class SDLoRA(Pass):
             model_path = model.model_path
             logger.info("Loading Flux models from %s", model_path)
 
+            # Set weight dtype (Flux needs bfloat16)
+            weight_dtype = torch.bfloat16
+
             # Load text encoders (frozen, for encoding prompts only)
             text_encoder = CLIPTextModel.from_pretrained(model_path, subfolder="text_encoder")
             text_encoder_2 = T5EncoderModel.from_pretrained(model_path, subfolder="text_encoder_2")
@@ -501,13 +504,20 @@ class SDLoRA(Pass):
             vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae")
             transformer = FluxTransformer2DModel.from_pretrained(model_path, subfolder="transformer")
 
-            # Freeze all base models
+            # Freeze all base models and move to device
             vae.requires_grad_(False)
-            text_encoder.requires_grad_(False)
-            text_encoder_2.requires_grad_(False)
-            transformer.requires_grad_(False)
+            vae.to(accelerator.device, dtype=weight_dtype)
 
-            # Setup LoRA for transformer only
+            text_encoder.requires_grad_(False)
+            text_encoder.to(accelerator.device, dtype=weight_dtype)
+
+            text_encoder_2.requires_grad_(False)
+            text_encoder_2.to(accelerator.device, dtype=weight_dtype)
+
+            transformer.requires_grad_(False)
+            transformer.to(accelerator.device, dtype=weight_dtype)
+
+            # Setup LoRA for transformer only (after moving to device)
             lora_alpha = config.alpha if config.alpha is not None else config.r
             target_modules = config.target_modules or [
                 "to_k", "to_q", "to_v", "to_out.0",
@@ -521,21 +531,13 @@ class SDLoRA(Pass):
                 init_lora_weights="gaussian",
                 target_modules=target_modules,
             )
-            transformer = get_peft_model(transformer, transformer_lora_config)
+            transformer.add_adapter(transformer_lora_config)
             logger.info("Flux Transformer trainable parameters:")
             transformer.print_trainable_parameters()
 
             # Enable gradient checkpointing
             if training_args.gradient_checkpointing:
                 transformer.enable_gradient_checkpointing()
-
-            # Set weight dtype (Flux needs bfloat16)
-            weight_dtype = torch.bfloat16
-
-            # Move frozen models to device
-            vae.to(accelerator.device, dtype=weight_dtype)
-            text_encoder.to(accelerator.device, dtype=weight_dtype)
-            text_encoder_2.to(accelerator.device, dtype=weight_dtype)
 
             # Load dataset
             train_dataset = self._load_dataset(config)
@@ -616,7 +618,7 @@ class SDLoRA(Pass):
                 for step, batch in enumerate(train_dataloader):
                     with accelerator.accumulate(transformer):
                         # Encode images to latents
-                        pixel_values = batch["pixel_values"].to(dtype=weight_dtype)
+                        pixel_values = batch["pixel_values"].to(device=accelerator.device, dtype=weight_dtype)
                         latents = vae.encode(pixel_values).latent_dist.sample()
                         latents = (latents - vae.config.shift_factor) * vae.config.scaling_factor
 
@@ -708,24 +710,23 @@ class SDLoRA(Pass):
                 else:
                     # Save LoRA adapter in diffusers-compatible format
                     transformer_unwrapped = accelerator.unwrap_model(transformer)
+                    transformer_unwrapped = transformer_unwrapped.to(torch.float32)
+
+                    from diffusers import FluxPipeline
                     from peft import get_peft_model_state_dict
 
-                    lora_state_dict = get_peft_model_state_dict(transformer_unwrapped)
+                    transformer_lora_state_dict = get_peft_model_state_dict(transformer_unwrapped)
 
-                    # Convert PEFT keys to diffusers format
-                    diffusers_state_dict = {}
-                    for key, value in lora_state_dict.items():
-                        new_key = key.replace("base_model.model.", "")
-                        new_key = f"transformer.{new_key}"
-                        diffusers_state_dict[new_key] = value
-
-                    from safetensors.torch import save_file
-
+                    # Use diffusers' built-in save function
                     adapter_path = output_path / "adapter"
                     adapter_path.mkdir(parents=True, exist_ok=True)
-                    lora_path = adapter_path / "pytorch_lora_weights.safetensors"
-                    save_file(diffusers_state_dict, lora_path)
-                    logger.info("Saved Flux Transformer LoRA to %s", lora_path)
+
+                    FluxPipeline.save_lora_weights(
+                        save_directory=str(adapter_path),
+                        transformer_lora_layers=transformer_lora_state_dict,
+                        safe_serialization=True,
+                    )
+                    logger.info("Saved Flux Transformer LoRA to %s", adapter_path)
 
             accelerator.end_training()
 
@@ -892,7 +893,7 @@ class SDLoRA(Pass):
     def _encode_prompt_sd15(self, batch, text_encoder):
         """Encode prompts for SD 1.5 (frozen text encoder)."""
         input_ids = batch["input_ids"].to(text_encoder.device)
-        encoder_hidden_states = text_encoder(input_ids)[0]
+        encoder_hidden_states = text_encoder(input_ids, return_dict=False)[0]
         return encoder_hidden_states
 
     def _encode_prompt_sdxl(self, batch, text_encoder, text_encoder_2):

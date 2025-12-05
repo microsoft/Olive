@@ -32,6 +32,7 @@ Chain presets:
 
 # Dataset
 from olive.data.component.sd_lora.dataset import (
+    HuggingFaceImageDataset,
     ImageFolderDataset,
     SDLoRADataset,
     image_folder_dataset,
@@ -60,6 +61,7 @@ from olive.data.component.sd_lora.dataloader import (
 
 __all__ = [
     # Dataset
+    "HuggingFaceImageDataset",
     "ImageFolderDataset",
     "SDLoRADataset",
     "image_folder_dataset",

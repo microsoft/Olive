@@ -20,10 +20,36 @@ def _load_image(image_path: str):
     return Image.open(image_path).convert("RGB")
 
 
-def _save_caption(image_path: str, caption: str, caption_extension: str = ".txt") -> None:
-    """Save caption to a text file alongside the image."""
-    caption_path = Path(image_path).with_suffix(caption_extension)
-    caption_path.write_text(caption, encoding="utf-8")
+def _save_caption(
+    image_path: str,
+    caption: str,
+    caption_extension: str = ".txt",
+    dataset=None,
+    index: Optional[int] = None,
+) -> None:
+    """Save caption to file or in-memory storage.
+
+    For HuggingFaceImageDataset, captions are stored in memory.
+    For other datasets (local folders), captions are saved to text files.
+
+    Args:
+        image_path: Path to the image file.
+        caption: Caption text to save.
+        caption_extension: Extension for caption files (for file-based storage).
+        dataset: Dataset object (to check type and store in memory if HuggingFaceImageDataset).
+        index: Dataset index (for in-memory storage).
+    """
+    # Check if dataset supports in-memory caption storage
+    if dataset is not None and hasattr(dataset, "set_caption"):
+        # Store in memory (for HuggingFaceImageDataset)
+        if index is not None:
+            dataset.set_caption(index, caption)
+        else:
+            dataset.set_caption(image_path, caption)
+    else:
+        # Save to file (for local folder datasets)
+        caption_path = Path(image_path).with_suffix(caption_extension)
+        caption_path.write_text(caption, encoding="utf-8")
 
 
 @Registry.register_pre_process()
@@ -143,27 +169,40 @@ def blip2_caption(
     model = Blip2ForConditionalGeneration.from_pretrained(model_name, torch_dtype=dtype).to(device)
     model.eval()
 
+    # Check if dataset supports in-memory caption storage
+    use_memory_storage = hasattr(dataset, "set_caption")
+
     # Process images
     processed_count = 0
     skipped_count = 0
 
     for i in range(0, len(dataset), batch_size):
-        batch_items = [dataset[j] for j in range(i, min(i + batch_size, len(dataset)))]
+        batch_indices = list(range(i, min(i + batch_size, len(dataset))))
+        batch_items = [(j, dataset[j]) for j in batch_indices]
 
         # Check which images need captioning
         items_to_process = []
-        for item in batch_items:
-            caption_path = Path(item["image_path"]).with_suffix(caption_extension)
-            if not overwrite and caption_path.exists():
-                skipped_count += 1
-                continue
-            items_to_process.append(item)
+        for idx, item in batch_items:
+            if not overwrite:
+                if use_memory_storage:
+                    # For HuggingFaceImageDataset, check if caption already exists in memory or dataset
+                    existing_caption = dataset.get_caption(idx) if hasattr(dataset, "get_caption") else ""
+                    if existing_caption:
+                        skipped_count += 1
+                        continue
+                else:
+                    # For local folder datasets, check if caption file exists
+                    caption_path = Path(item["image_path"]).with_suffix(caption_extension)
+                    if caption_path.exists():
+                        skipped_count += 1
+                        continue
+            items_to_process.append((idx, item))
 
         if not items_to_process:
             continue
 
         # Load and process images
-        images = [_load_image(item["image_path"]) for item in items_to_process]
+        images = [_load_image(item["image_path"]) for idx, item in items_to_process]
 
         with torch.no_grad():
             if prompt:
@@ -179,13 +218,13 @@ def blip2_caption(
             captions = processor.batch_decode(generated_ids, skip_special_tokens=True)
 
         # Save captions
-        for item, caption in zip(items_to_process, captions):
+        for (idx, item), caption in zip(items_to_process, captions):
             caption = caption.strip()
             if prefix:
                 caption = f"{prefix} {caption}"
             if suffix:
                 caption = f"{caption} {suffix}"
-            _save_caption(item["image_path"], caption, caption_extension)
+            _save_caption(item["image_path"], caption, caption_extension, dataset=dataset, index=idx)
             processed_count += 1
 
     logger.info("Generated %d captions, skipped %d existing", processed_count, skipped_count)
@@ -250,27 +289,40 @@ def florence2_caption(
     model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=dtype, trust_remote_code=True).to(device)
     model.eval()
 
+    # Check if dataset supports in-memory caption storage
+    use_memory_storage = hasattr(dataset, "set_caption")
+
     processed_count = 0
     skipped_count = 0
 
     for i in range(0, len(dataset), batch_size):
-        batch_items = [dataset[j] for j in range(i, min(i + batch_size, len(dataset)))]
+        batch_indices = list(range(i, min(i + batch_size, len(dataset))))
+        batch_items = [(j, dataset[j]) for j in batch_indices]
 
         items_to_process = []
-        for item in batch_items:
-            caption_path = Path(item["image_path"]).with_suffix(caption_extension)
-            if not overwrite and caption_path.exists():
-                skipped_count += 1
-                continue
-            items_to_process.append(item)
+        for idx, item in batch_items:
+            if not overwrite:
+                if use_memory_storage:
+                    # For HuggingFaceImageDataset, check if caption already exists
+                    existing_caption = dataset.get_caption(idx) if hasattr(dataset, "get_caption") else ""
+                    if existing_caption:
+                        skipped_count += 1
+                        continue
+                else:
+                    # For local folder datasets, check if caption file exists
+                    caption_path = Path(item["image_path"]).with_suffix(caption_extension)
+                    if caption_path.exists():
+                        skipped_count += 1
+                        continue
+            items_to_process.append((idx, item))
 
         if not items_to_process:
             continue
 
-        images = [_load_image(item["image_path"]) for item in items_to_process]
+        images = [_load_image(item["image_path"]) for idx, item in items_to_process]
 
         with torch.no_grad():
-            for image, item in zip(images, items_to_process):
+            for image, (idx, item) in zip(images, items_to_process):
                 inputs = processor(text=task, images=image, return_tensors="pt").to(device, dtype)
 
                 generated_ids = model.generate(
@@ -290,7 +342,7 @@ def florence2_caption(
                     caption = f"{prefix} {caption}"
                 if suffix:
                     caption = f"{caption} {suffix}"
-                _save_caption(item["image_path"], caption, caption_extension)
+                _save_caption(item["image_path"], caption, caption_extension, dataset=dataset, index=idx)
                 processed_count += 1
 
     logger.info("Generated %d captions, skipped %d existing", processed_count, skipped_count)

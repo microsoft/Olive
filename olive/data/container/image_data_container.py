@@ -8,7 +8,7 @@ import logging
 from typing import ClassVar, Optional
 
 from olive.common.pydantic_v1 import BaseModel, Field
-from olive.data.constants import DataComponentType, DataContainerType
+from olive.data.constants import DataComponentType, DataContainerType, DatasetType
 from olive.data.container.data_container import DataContainer
 from olive.data.registry import Registry
 
@@ -209,6 +209,11 @@ class SDLoRADataContainer(ChainPreProcessMixin, DataContainer):
     - SD 1.5: base_resolution=512 (default)
     - SDXL: base_resolution=1024, bucket_mode="sdxl"
 
+    Supports both local image folders and HuggingFace datasets:
+    - Local: use load_dataset_config.type = "image_folder_dataset"
+    - HuggingFace: use load_dataset_config.type = "huggingface_dataset"
+      with image_column and caption_column in pre_process_data_config.params
+
     Default preprocessing chain:
     1. image_filtering (disabled) - Filter low quality images
     2. auto_caption (disabled) - Generate captions with BLIP-2/Florence-2
@@ -217,7 +222,7 @@ class SDLoRADataContainer(ChainPreProcessMixin, DataContainer):
     5. image_resizing (disabled) - Resize images
     6. aspect_ratio_bucketing (enabled) - Group by aspect ratio
 
-    Usage (SD 1.5):
+    Usage (Local folder):
         config = DataConfig(
             name="my_lora",
             type="SDLoRADataContainer",
@@ -233,16 +238,55 @@ class SDLoRADataContainer(ChainPreProcessMixin, DataContainer):
             }
         )
 
-    Usage (SDXL):
+    Usage (HuggingFace dataset with captions):
         config = DataConfig(
-            name="my_sdxl_lora",
+            name="my_lora",
             type="SDLoRADataContainer",
+            load_dataset_config={
+                "type": "huggingface_dataset",
+                "params": {
+                    "data_name": "linoyts/Tuxemon",
+                    "split": "train",
+                    "image_column": "image",
+                    "caption_column": "prompt"
+                }
+            },
             pre_process_data_config={
                 "type": "sd_lora_preprocess",
                 "params": {
-                    "base_resolution": 1024,
-                    "bucket_mode": "sdxl",
-                    "enable_steps": ["auto_caption"],
+                    "enable_steps": ["aspect_ratio_bucketing"],
+                    "step_params": {
+                        "aspect_ratio_bucketing": {
+                            "base_resolution": 512,
+                            "bucket_mode": "sd15"
+                        }
+                    }
+                }
+            }
+        )
+
+    Usage (HuggingFace dataset without captions, use auto_caption):
+        config = DataConfig(
+            name="my_lora",
+            type="SDLoRADataContainer",
+            load_dataset_config={
+                "type": "huggingface_dataset",
+                "params": {
+                    "data_name": "some/image-only-dataset",
+                    "split": "train",
+                    "image_column": "image"
+                    # caption_column not specified, use auto_caption
+                }
+            },
+            pre_process_data_config={
+                "type": "sd_lora_preprocess",
+                "params": {
+                    "enable_steps": ["auto_caption", "aspect_ratio_bucketing"],
+                    "step_params": {
+                        "auto_caption": {
+                            "model_type": "blip2"
+                        }
+                    }
                 }
             }
         )
@@ -256,6 +300,46 @@ class SDLoRADataContainer(ChainPreProcessMixin, DataContainer):
     }
 
     default_chain_fn: ClassVar = staticmethod(lambda: get_lora_default_chain(512, "auto"))
+
+    def _is_huggingface_dataset(self) -> bool:
+        """Check if the dataset is from HuggingFace."""
+        load_type = self.config.load_dataset_config.type
+        return load_type == DatasetType.HUGGINGFACE_DATASET
+
+    def _convert_hf_dataset(self, dataset, image_column: str, caption_column: Optional[str]):
+        """Convert HuggingFace dataset to SD LoRA format.
+
+        Converts a HuggingFace dataset with image/caption columns to the format
+        expected by SD LoRA preprocessing (image_path, caption).
+
+        Args:
+            dataset: HuggingFace dataset.
+            image_column: Column name containing PIL.Image objects.
+            caption_column: Column name containing caption text. None if no caption column.
+
+        Returns:
+            A wrapper dataset with image_path and caption fields.
+        """
+        from olive.data.component.sd_lora.dataset import HuggingFaceImageDataset
+
+        return HuggingFaceImageDataset(dataset, image_column, caption_column)
+
+    def pre_process(self, dataset):
+        """Run chained preprocessing with HuggingFace dataset support."""
+        # Check if this is a HuggingFace dataset and convert if needed
+        if self._is_huggingface_dataset():
+            # Get column mappings from load_dataset_config.params
+            load_params = self.config.load_dataset_config.params
+            image_column = load_params.get("image_column", "image")
+            caption_column = load_params.get("caption_column")  # None if not specified
+            logger.info(
+                "Converting HuggingFace dataset: image_column=%s, caption_column=%s",
+                image_column, caption_column
+            )
+            dataset = self._convert_hf_dataset(dataset, image_column, caption_column)
+
+        # Run the standard chain preprocessing
+        return super().pre_process(dataset)
 
     def _build_chain(self, params: dict) -> PreProcessChain:
         """Build chain with support for base_resolution and bucket_mode params."""

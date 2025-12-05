@@ -269,3 +269,163 @@ def sd_lora_image_dataset(
 
 # Alias for compatibility
 SDLoRADataset = ImageFolderDataset
+
+
+class HuggingFaceImageDataset(TorchDataset):
+    """Wrapper for HuggingFace datasets to work with SD LoRA preprocessing.
+
+    Converts HuggingFace datasets with image/caption columns to the format
+    expected by SD LoRA preprocessing (image_path, caption).
+
+    The image column should contain PIL.Image objects, which have a `filename`
+    attribute pointing to the cached file path.
+
+    Supports:
+    - Datasets with existing captions (via caption_column)
+    - Datasets without captions (caption_column=None, use auto_caption to generate)
+    - In-memory caption storage for generated captions
+
+    Example:
+        >>> from datasets import load_dataset
+        >>> hf_ds = load_dataset("linoyts/Tuxemon", split="train")
+        >>> ds = HuggingFaceImageDataset(hf_ds, image_column="image", caption_column="prompt")
+        >>> item = ds[0]
+        >>> print(item["image_path"])  # /home/user/.cache/huggingface/...
+        >>> print(item["caption"])     # "a tuxemon cartoon of..."
+    """
+
+    def __init__(
+        self,
+        hf_dataset,
+        image_column: str = "image",
+        caption_column: Optional[str] = "caption",
+    ):
+        """Initialize the HuggingFace dataset wrapper.
+
+        Args:
+            hf_dataset: HuggingFace dataset with image and caption columns.
+            image_column: Column name containing PIL.Image objects.
+            caption_column: Column name containing caption text. If None, captions
+                must be set via set_caption() or auto_caption preprocessing.
+        """
+        self.hf_dataset = hf_dataset
+        self.image_column = image_column
+        self.caption_column = caption_column
+
+        # Validate image column exists
+        if image_column not in hf_dataset.column_names:
+            raise ValueError(
+                f"Image column '{image_column}' not found in dataset. "
+                f"Available columns: {hf_dataset.column_names}"
+            )
+
+        # Validate caption column if specified
+        if caption_column is not None and caption_column not in hf_dataset.column_names:
+            raise ValueError(
+                f"Caption column '{caption_column}' not found in dataset. "
+                f"Available columns: {hf_dataset.column_names}"
+            )
+
+        # Cache for image paths (lazy loaded)
+        self._image_paths_cache: dict[int, str] = {}
+
+        # In-memory caption storage (for auto_caption or manual updates)
+        # Key: index or image_path, Value: caption string
+        self._captions_cache: dict[Union[int, str], str] = {}
+
+        logger.info(
+            "Loaded HuggingFace dataset with %d images (image_column=%s, caption_column=%s)",
+            len(hf_dataset), image_column, caption_column
+        )
+
+        # Metadata storage (populated by preprocessing steps)
+        self.bucket_assignments = {}
+        self.buckets = []
+
+    def _get_image_path(self, index: int) -> str:
+        """Get image path for an index, with caching."""
+        if index not in self._image_paths_cache:
+            item = self.hf_dataset[index]
+            img = item[self.image_column]
+            if hasattr(img, "filename") and img.filename:
+                self._image_paths_cache[index] = img.filename
+            else:
+                raise ValueError(
+                    f"Image at index {index} does not have a filename attribute. "
+                    "This may happen if the dataset is not cached locally."
+                )
+        return self._image_paths_cache[index]
+
+    @property
+    def image_paths(self) -> list[str]:
+        """Get all image paths. Builds cache if needed."""
+        if len(self._image_paths_cache) < len(self.hf_dataset):
+            logger.info("Building image paths cache for %d images...", len(self.hf_dataset))
+            for i in range(len(self.hf_dataset)):
+                self._get_image_path(i)
+        return [self._image_paths_cache[i] for i in range(len(self.hf_dataset))]
+
+    def set_caption(self, index_or_path: Union[int, str], caption: str) -> None:
+        """Set caption for an image in memory.
+
+        Args:
+            index_or_path: Dataset index or image path.
+            caption: Caption text to set.
+        """
+        self._captions_cache[index_or_path] = caption
+
+    def get_caption(self, index: int) -> str:
+        """Get caption for an image.
+
+        Priority:
+        1. In-memory cache (by index)
+        2. In-memory cache (by image_path)
+        3. HuggingFace dataset column
+        4. Empty string
+
+        Args:
+            index: Dataset index.
+
+        Returns:
+            Caption string.
+        """
+        # Check in-memory cache by index
+        if index in self._captions_cache:
+            return self._captions_cache[index]
+
+        # Check in-memory cache by image_path
+        image_path = self._get_image_path(index)
+        if image_path in self._captions_cache:
+            return self._captions_cache[image_path]
+
+        # Fall back to HuggingFace dataset column
+        if self.caption_column is not None:
+            item = self.hf_dataset[index]
+            return item.get(self.caption_column, "")
+
+        return ""
+
+    def __len__(self) -> int:
+        return len(self.hf_dataset)
+
+    def __getitem__(self, index: int) -> dict:
+        """Get an item from the dataset.
+
+        Returns:
+            dict with keys:
+                - image_path: Path to the cached image file
+                - caption: Caption text for the image
+                - index: Dataset index
+        """
+        image_path = self._get_image_path(index)
+        caption = self.get_caption(index)
+
+        return {
+            "image_path": image_path,
+            "caption": caption,
+            "index": index,
+        }
+
+    def get_all_image_paths(self) -> list[str]:
+        """Get all image paths as strings."""
+        return self.image_paths
