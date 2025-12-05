@@ -260,8 +260,14 @@ class SDLoRA(Pass):
                 target_modules=target_modules,
             )
             unet.add_adapter(unet_lora_config)
-            logger.info("UNet trainable parameters:")
-            unet.print_trainable_parameters()
+
+            # Log trainable parameters
+            trainable_params = sum(p.numel() for p in unet.parameters() if p.requires_grad)
+            total_params = sum(p.numel() for p in unet.parameters())
+            logger.info(
+                "UNet trainable parameters: %d / %d (%.2f%%)",
+                trainable_params, total_params, 100 * trainable_params / total_params
+            )
 
             # Enable gradient checkpointing
             if training_args.gradient_checkpointing:
@@ -532,8 +538,14 @@ class SDLoRA(Pass):
                 target_modules=target_modules,
             )
             transformer.add_adapter(transformer_lora_config)
-            logger.info("Flux Transformer trainable parameters:")
-            transformer.print_trainable_parameters()
+
+            # Log trainable parameters
+            trainable_params = sum(p.numel() for p in transformer.parameters() if p.requires_grad)
+            total_params = sum(p.numel() for p in transformer.parameters())
+            logger.info(
+                "Flux Transformer trainable parameters: %d / %d (%.2f%%)",
+                trainable_params, total_params, 100 * trainable_params / total_params
+            )
 
             # Enable gradient checkpointing
             if training_args.gradient_checkpointing:
