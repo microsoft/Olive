@@ -230,6 +230,11 @@ def aspect_ratio_bucketing(
                     if not overwrite and out_path.exists() and out_path != image_path:
                         # Use existing resized file
                         final_path = str(out_path)
+                        # Update dataset path to use existing resized file
+                        if hasattr(dataset, "set_image_path"):
+                            dataset.set_image_path(i, out_path)
+                        elif hasattr(dataset, "image_paths"):
+                            dataset.image_paths[i] = out_path
                     else:
                         # Convert to RGB if needed
                         if img.mode in ("RGBA", "P"):
