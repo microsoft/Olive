@@ -33,6 +33,64 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _resize_to_bucket(img, bucket_w: int, bucket_h: int, crop_position: str = "center"):
+    """Resize image to bucket dimensions using cover mode (resize + crop).
+
+    Args:
+        img: PIL Image to resize.
+        bucket_w: Target width.
+        bucket_h: Target height.
+        crop_position: Where to crop ("center", "top", "bottom", "left", "right").
+
+    Returns:
+        Resized and cropped PIL Image.
+    """
+    from PIL import Image
+
+    orig_w, orig_h = img.size
+    orig_aspect = orig_w / orig_h
+    bucket_aspect = bucket_w / bucket_h
+
+    # Cover mode: resize to cover bucket, then crop
+    if orig_aspect > bucket_aspect:
+        # Image is wider, resize by height
+        new_h = bucket_h
+        new_w = int(bucket_h * orig_aspect)
+    else:
+        # Image is taller, resize by width
+        new_w = bucket_w
+        new_h = int(bucket_w / orig_aspect)
+
+    # Resize
+    resized = img.resize((new_w, new_h), Image.LANCZOS)
+
+    # Crop to bucket size
+    w, h = resized.size
+    if crop_position == "center":
+        left = (w - bucket_w) // 2
+        top = (h - bucket_h) // 2
+    elif crop_position == "top":
+        left = (w - bucket_w) // 2
+        top = 0
+    elif crop_position == "bottom":
+        left = (w - bucket_w) // 2
+        top = h - bucket_h
+    elif crop_position == "left":
+        left = 0
+        top = (h - bucket_h) // 2
+    elif crop_position == "right":
+        left = w - bucket_w
+        top = (h - bucket_h) // 2
+    else:
+        left = (w - bucket_w) // 2
+        top = (h - bucket_h) // 2
+
+    left = max(0, left)
+    top = max(0, top)
+
+    return resized.crop((left, top, left + bucket_w, top + bucket_h))
+
+
 class DiffusionModelType(StrEnumBase):
     """Diffusion model type."""
 
@@ -854,20 +912,26 @@ class SDLoRA(Pass):
             crops_coords = []
 
             for ex in examples:
-                # Load image (should already be resized by preprocessing)
+                # Load image
                 image_path = ex.get("image_path", "")
                 img = Image.open(image_path).convert("RGB")
+                orig_w, orig_h = img.size
 
                 # Get size info from bucket_assignments
                 if image_path in bucket_assignments:
                     assignment = bucket_assignments[image_path]
-                    original_sizes.append(assignment.get("original_size", img.size))
-                    bucket_size = assignment.get("bucket", img.size)
+                    original_sizes.append(assignment.get("original_size", (orig_w, orig_h)))
+                    bucket_size = assignment.get("bucket", (orig_w, orig_h))
                     target_sizes.append(bucket_size)
                     crops_coords.append(assignment.get("crops_coords_top_left", (0, 0)))
+
+                    # Resize to bucket size if needed (on-the-fly for HF datasets)
+                    bucket_w, bucket_h = bucket_size
+                    if img.size != (bucket_w, bucket_h):
+                        img = _resize_to_bucket(img, bucket_w, bucket_h)
                 else:
-                    original_sizes.append(img.size)
-                    target_sizes.append(img.size)
+                    original_sizes.append((orig_w, orig_h))
+                    target_sizes.append((orig_w, orig_h))
                     crops_coords.append((0, 0))
 
                 img_array = np.array(img, dtype=np.float32) / 127.5 - 1.0  # Normalize to [-1, 1]

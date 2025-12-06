@@ -374,6 +374,15 @@ class HuggingFaceImageDataset(TorchDataset):
         """
         self._captions_cache[index_or_path] = caption
 
+    def set_image_path(self, index: int, new_path: Union[str, Path]) -> None:
+        """Update the image path for an index (after resizing to output_dir).
+
+        Args:
+            index: Dataset index.
+            new_path: New image path.
+        """
+        self._image_paths_cache[index] = str(new_path)
+
     def get_caption(self, index: int) -> str:
         """Get caption for an image.
 

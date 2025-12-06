@@ -217,8 +217,12 @@ def aspect_ratio_bucketing(
                 # Resize image if requested and we have a place to save
                 if resize_images and (output_dir or can_write_files):
                     if output_dir:
-                        # Ensure output filename has extension
-                        out_name = image_path.name if image_path.suffix else f"{image_path.name}.jpg"
+                        # Generate unique output filename
+                        # Use index to ensure uniqueness (HF cache filenames may not have extensions)
+                        if image_path.suffix:
+                            out_name = f"{i:06d}{image_path.suffix}"
+                        else:
+                            out_name = f"{i:06d}.jpg"
                         out_path = Path(output_dir) / out_name
                     else:
                         out_path = image_path
@@ -254,7 +258,10 @@ def aspect_ratio_bucketing(
 
                         # Update dataset path if changed
                         if out_path != image_path:
-                            dataset.image_paths[i] = out_path
+                            if hasattr(dataset, "set_image_path"):
+                                dataset.set_image_path(i, out_path)
+                            elif hasattr(dataset, "image_paths"):
+                                dataset.image_paths[i] = out_path
 
                 # Store bucket assignment with the FINAL path (after any resizing)
                 bucket_assignments[final_path] = {
