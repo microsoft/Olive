@@ -483,16 +483,18 @@ class SDLoRA(Pass):
             accelerator.wait_for_everyone()
             output_path = Path(output_model_path)
 
+            # Save adapter weights
+            adapter_path = output_path / "adapter"
+
             if accelerator.is_main_process:
-                output_path.mkdir(parents=True, exist_ok=True)
+                adapter_path.mkdir(parents=True, exist_ok=True)
 
                 if config.merge_lora:
                     # Merge LoRA and save full UNet
                     unet_unwrapped = accelerator.unwrap_model(unet)
                     unet_merged = unet_unwrapped.merge_and_unload()
-                    unet_path = output_path / "unet"
-                    unet_merged.save_pretrained(unet_path)
-                    logger.info("Saved merged UNet to %s", unet_path)
+                    unet_merged.save_pretrained(adapter_path)
+                    logger.info("Saved merged UNet to %s", adapter_path)
                 else:
                     # Save LoRA adapter in diffusers-compatible format
                     unet_unwrapped = accelerator.unwrap_model(unet)
@@ -500,13 +502,8 @@ class SDLoRA(Pass):
 
                     from diffusers import StableDiffusionPipeline
                     from peft import get_peft_model_state_dict
-                    from peft.utils import get_peft_model_state_dict
 
                     unet_lora_state_dict = get_peft_model_state_dict(unet_unwrapped)
-
-                    # Use diffusers' built-in save function
-                    adapter_path = output_path / "adapter"
-                    adapter_path.mkdir(parents=True, exist_ok=True)
 
                     StableDiffusionPipeline.save_lora_weights(
                         save_directory=str(adapter_path),
@@ -517,9 +514,14 @@ class SDLoRA(Pass):
 
             accelerator.end_training()
 
+        # Clean up
+        del unet
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         # Return model handler
         output_model = deepcopy(model)
-        output_model.set_resource("adapter_path", str(output_path))
+        output_model.set_resource("adapter_path", adapter_path)
         return output_model
 
     def _train_flux(
@@ -777,16 +779,18 @@ class SDLoRA(Pass):
             accelerator.wait_for_everyone()
             output_path = Path(output_model_path)
 
+            # Save adapter weights
+            adapter_path = output_path / "adapter"
+
             if accelerator.is_main_process:
-                output_path.mkdir(parents=True, exist_ok=True)
+                adapter_path.mkdir(parents=True, exist_ok=True)
 
                 if config.merge_lora:
                     # Merge LoRA and save full transformer
                     transformer_unwrapped = accelerator.unwrap_model(transformer)
                     transformer_merged = transformer_unwrapped.merge_and_unload()
-                    transformer_path = output_path / "transformer"
-                    transformer_merged.save_pretrained(transformer_path)
-                    logger.info("Saved merged Transformer to %s", transformer_path)
+                    transformer_merged.save_pretrained(adapter_path)
+                    logger.info("Saved merged Transformer to %s", adapter_path)
                 else:
                     # Save LoRA adapter in diffusers-compatible format
                     transformer_unwrapped = accelerator.unwrap_model(transformer)
@@ -797,10 +801,6 @@ class SDLoRA(Pass):
 
                     transformer_lora_state_dict = get_peft_model_state_dict(transformer_unwrapped)
 
-                    # Use diffusers' built-in save function
-                    adapter_path = output_path / "adapter"
-                    adapter_path.mkdir(parents=True, exist_ok=True)
-
                     FluxPipeline.save_lora_weights(
                         save_directory=str(adapter_path),
                         transformer_lora_layers=transformer_lora_state_dict,
@@ -810,9 +810,14 @@ class SDLoRA(Pass):
 
             accelerator.end_training()
 
+        # Clean up
+        del transformer
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         # Return model handler
         output_model = deepcopy(model)
-        output_model.set_resource("adapter_path", str(output_path))
+        output_model.set_resource("adapter_path", adapter_path)
         return output_model
 
     def _detect_model_type(
