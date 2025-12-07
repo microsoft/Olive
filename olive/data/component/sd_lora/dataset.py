@@ -342,6 +342,10 @@ class HuggingFaceImageDataset(TorchDataset):
         self.bucket_assignments = {}
         self.buckets = []
 
+        # DreamBooth class images (populated by attach_class_images preprocessing)
+        self.class_image_paths: list[str] = []
+        self.class_prompt: Optional[str] = None
+
     def _get_image_path(self, index: int) -> str:
         """Get image path for an index, with caching."""
         if index not in self._image_paths_cache:
@@ -425,15 +429,28 @@ class HuggingFaceImageDataset(TorchDataset):
                 - image_path: Path to the cached image file
                 - caption: Caption text for the image
                 - index: Dataset index
+                - class_image_path: (optional) Path to class image for DreamBooth
+                - class_caption: (optional) Caption for class image
         """
+        import random
+
         image_path = self._get_image_path(index)
         caption = self.get_caption(index)
 
-        return {
+        result = {
             "image_path": image_path,
             "caption": caption,
             "index": index,
         }
+
+        # Add class image info for DreamBooth (if attach_class_images was run)
+        if self.class_image_paths and self.class_prompt:
+            # Randomly select a class image for this sample
+            class_image_path = random.choice(self.class_image_paths)
+            result["class_image_path"] = class_image_path
+            result["class_caption"] = self.class_prompt
+
+        return result
 
     def get_all_image_paths(self) -> list[str]:
         """Get all image paths as strings."""

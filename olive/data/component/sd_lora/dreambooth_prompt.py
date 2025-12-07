@@ -201,3 +201,45 @@ def generate_class_images(
     logger.info("Class image generation complete: %d images in %s", generated_count, class_path)
 
     return dataset
+
+
+@Registry.register_pre_process()
+def attach_class_images(
+    dataset,
+    class_data_dir: str,
+    class_prompt: str = "a photo of dog",
+    **kwargs,
+):
+    """Attach class images to dataset samples for DreamBooth prior preservation.
+
+    This step adds class_image_path and class_caption fields to each sample,
+    which are used by the training loop for prior preservation loss.
+
+    Args:
+        dataset: The dataset to process.
+        class_data_dir: Directory containing class images.
+        class_prompt: Caption for class images.
+        **kwargs: Additional arguments (ignored).
+
+    Returns:
+        Dataset with class_image_path and class_caption attached to each sample.
+    """
+    class_path = Path(class_data_dir)
+    if not class_path.exists():
+        logger.warning("Class data directory does not exist: %s", class_path)
+        return dataset
+
+    # Find all class images
+    class_images = list(class_path.glob("*.png")) + list(class_path.glob("*.jpg"))
+    if not class_images:
+        logger.warning("No class images found in %s", class_path)
+        return dataset
+
+    class_images = sorted(class_images)
+    logger.info("Found %d class images in %s", len(class_images), class_path)
+
+    # Store class info in dataset
+    dataset.class_image_paths = [str(p) for p in class_images]
+    dataset.class_prompt = class_prompt
+
+    return dataset

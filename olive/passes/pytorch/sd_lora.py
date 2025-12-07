@@ -207,6 +207,21 @@ class SDLoRA(Pass):
                     "If False, only saves LoRA adapter weights."
                 ),
             ),
+            # DreamBooth config
+            "prior_preservation": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Enable prior preservation loss for DreamBooth training. "
+                    "Requires train_data_config to include class_data_dir and class_prompt "
+                    "in the dataset params (e.g., image_folder_dataset)."
+                ),
+            ),
+            "prior_loss_weight": PassConfigParam(
+                type_=float,
+                default_value=1.0,
+                description="Weight of the prior preservation loss.",
+            ),
         }
 
     def _run_for_config(
@@ -338,7 +353,10 @@ class SDLoRA(Pass):
 
             # Load dataset
             train_dataset = self._load_dataset(config)
-            train_dataloader = self._create_dataloader(train_dataset, training_args, model_path, model_type)
+            train_dataloader = self._create_dataloader(
+                train_dataset, training_args, model_path, model_type,
+                prior_preservation=config.prior_preservation
+            )
 
             # Calculate training steps
             num_update_steps_per_epoch = math.ceil(
@@ -377,6 +395,8 @@ class SDLoRA(Pass):
             logger.info("  Batch size = %d", training_args.train_batch_size)
             logger.info("  Gradient accumulation steps = %d", training_args.gradient_accumulation_steps)
             logger.info("  Total optimization steps = %d", training_args.max_train_steps)
+            if config.prior_preservation:
+                logger.info("  Prior preservation enabled with weight = %.2f", config.prior_loss_weight)
 
             global_step = 0
             progress_bar = tqdm(
@@ -439,20 +459,48 @@ class SDLoRA(Pass):
                         else:
                             raise ValueError(f"Unknown prediction type: {noise_scheduler.config.prediction_type}")
 
-                        # Compute loss with optional SNR weighting
-                        if training_args.snr_gamma is not None:
-                            snr = compute_snr(noise_scheduler, timesteps)
-                            mse_loss_weights = torch.stack(
-                                [snr, training_args.snr_gamma * torch.ones_like(timesteps)], dim=1
-                            ).min(dim=1)[0]
-                            if noise_scheduler.config.prediction_type == "v_prediction":
-                                mse_loss_weights = mse_loss_weights + 1
-                            mse_loss_weights = mse_loss_weights / snr
-                            loss = F.mse_loss(model_pred.float(), target.float(), reduction="none")
-                            loss = loss.mean(dim=list(range(1, len(loss.shape)))) * mse_loss_weights
-                            loss = loss.mean()
+                        # Batch is [instance_images, class_images] concatenated
+                        if config.prior_preservation:
+                            model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
+                            target, target_prior = torch.chunk(target, 2, dim=0)
+
+                            # Instance loss
+                            if training_args.snr_gamma is not None:
+                                # SNR weighting only on instance portion
+                                instance_timesteps = timesteps[:len(timesteps) // 2]
+                                snr = compute_snr(noise_scheduler, instance_timesteps)
+                                mse_loss_weights = torch.stack(
+                                    [snr, training_args.snr_gamma * torch.ones_like(instance_timesteps)], dim=1
+                                ).min(dim=1)[0]
+                                if noise_scheduler.config.prediction_type == "v_prediction":
+                                    mse_loss_weights = mse_loss_weights + 1
+                                mse_loss_weights = mse_loss_weights / snr
+                                instance_loss = F.mse_loss(model_pred.float(), target.float(), reduction="none")
+                                instance_loss = instance_loss.mean(dim=list(range(1, len(instance_loss.shape)))) * mse_loss_weights
+                                instance_loss = instance_loss.mean()
+                            else:
+                                instance_loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+
+                            # Prior loss
+                            prior_loss = F.mse_loss(model_pred_prior.float(), target_prior.float(), reduction="mean")
+
+                            # Combined loss
+                            loss = instance_loss + config.prior_loss_weight * prior_loss
                         else:
-                            loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                            # Standard LoRA training without prior preservation
+                            if training_args.snr_gamma is not None:
+                                snr = compute_snr(noise_scheduler, timesteps)
+                                mse_loss_weights = torch.stack(
+                                    [snr, training_args.snr_gamma * torch.ones_like(timesteps)], dim=1
+                                ).min(dim=1)[0]
+                                if noise_scheduler.config.prediction_type == "v_prediction":
+                                    mse_loss_weights = mse_loss_weights + 1
+                                mse_loss_weights = mse_loss_weights / snr
+                                loss = F.mse_loss(model_pred.float(), target.float(), reduction="none")
+                                loss = loss.mean(dim=list(range(1, len(loss.shape)))) * mse_loss_weights
+                                loss = loss.mean()
+                            else:
+                                loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
 
                         accelerator.backward(loss)
                         if accelerator.sync_gradients:
@@ -481,10 +529,9 @@ class SDLoRA(Pass):
 
             # Save final model
             accelerator.wait_for_everyone()
-            output_path = Path(output_model_path)
 
             # Save adapter weights
-            adapter_path = output_path / "adapter"
+            adapter_path = Path(output_model_path) / "adapter"
 
             if accelerator.is_main_process:
                 adapter_path.mkdir(parents=True, exist_ok=True)
@@ -624,7 +671,8 @@ class SDLoRA(Pass):
             # Load dataset
             train_dataset = self._load_dataset(config)
             train_dataloader = self._create_dataloader(
-                train_dataset, training_args, model_path, DiffusionModelType.FLUX
+                train_dataset, training_args, model_path, DiffusionModelType.FLUX,
+                prior_preservation=config.prior_preservation
             )
 
             # Calculate training steps
@@ -686,6 +734,8 @@ class SDLoRA(Pass):
             logger.info("  Batch size = %d", training_args.train_batch_size)
             logger.info("  Gradient accumulation steps = %d", training_args.gradient_accumulation_steps)
             logger.info("  Total optimization steps = %d", training_args.max_train_steps)
+            if config.prior_preservation:
+                logger.info("  Prior preservation enabled with weight = %.2f", config.prior_loss_weight)
 
             global_step = 0
             progress_bar = tqdm(
@@ -747,8 +797,22 @@ class SDLoRA(Pass):
                         # Flow matching target: velocity = noise - data
                         target = noise - latents
 
-                        # MSE loss
-                        loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                        # Prior preservation: split predictions and targets (official HuggingFace approach)
+                        if config.prior_preservation:
+                            model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
+                            target, target_prior = torch.chunk(target, 2, dim=0)
+
+                            # Instance loss
+                            instance_loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+
+                            # Prior loss
+                            prior_loss = F.mse_loss(model_pred_prior.float(), target_prior.float(), reduction="mean")
+
+                            # Combined loss
+                            loss = instance_loss + config.prior_loss_weight * prior_loss
+                        else:
+                            # Standard LoRA training
+                            loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
 
                         accelerator.backward(loss)
                         if accelerator.sync_gradients:
@@ -880,14 +944,16 @@ class SDLoRA(Pass):
 
         return dataset
 
-    def _create_dataloader(self, dataset, training_args, model_path, model_type):
+    def _create_dataloader(self, dataset, training_args, model_path, model_type, prior_preservation=False):
         """Create training dataloader with image loading and tokenization.
 
         Args:
             dataset: Dataset with image_path, caption, and bucket_assignments.
+                For DreamBooth, also expects class_image_path and class_caption.
             training_args: Training arguments.
             model_path: Path to the diffusion model for loading tokenizers.
             model_type: Type of diffusion model (SD15, SDXL, FLUX).
+            prior_preservation: Whether to include class images for prior preservation.
         """
         import torch
 
@@ -909,50 +975,101 @@ class SDLoRA(Pass):
         # Get bucket assignments from dataset if available
         bucket_assignments = getattr(dataset, "bucket_assignments", {})
 
+        # Default resolution for class images (no bucket assignment)
+        default_resolution = 1024 if model_type in (DiffusionModelType.SDXL, DiffusionModelType.FLUX) else 512
+
+        def process_image(image_path, bucket_assignments_dict):
+            """Load and process a single image."""
+            img = Image.open(image_path).convert("RGB")
+            orig_w, orig_h = img.size
+
+            if image_path in bucket_assignments_dict:
+                assignment = bucket_assignments_dict[image_path]
+                original_size = assignment.get("original_size", (orig_w, orig_h))
+                bucket_size = assignment.get("bucket", (orig_w, orig_h))
+                crops_coords = assignment.get("crops_coords_top_left", (0, 0))
+
+                bucket_w, bucket_h = bucket_size
+                if img.size != (bucket_w, bucket_h):
+                    img = _resize_to_bucket(img, bucket_w, bucket_h)
+            else:
+                # Use default resolution for images without bucket assignment (e.g., class images)
+                original_size = (orig_w, orig_h)
+                bucket_size = (default_resolution, default_resolution)
+                crops_coords = (0, 0)
+                if img.size != bucket_size:
+                    img = img.resize(bucket_size, Image.LANCZOS)
+
+            img_array = np.array(img, dtype=np.float32) / 127.5 - 1.0
+            pixel_tensor = torch.from_numpy(img_array.transpose(2, 0, 1))
+
+            return pixel_tensor, original_size, bucket_size, crops_coords
+
+        def tokenize_captions(captions_list):
+            """Tokenize a list of captions."""
+            result = {}
+            for name, tok in tokenizers.items():
+                max_len = 512 if name == "t5" else 77
+                tokens = tok(captions_list, padding="max_length", max_length=max_len, truncation=True, return_tensors="pt")
+                key_map = {"main": "input_ids", "one": "input_ids_one", "two": "input_ids_two",
+                           "clip": "input_ids_one", "t5": "input_ids_t5"}
+                result[key_map[name]] = tokens.input_ids
+            return result
+
         def collate_fn(examples):
+            # Instance images
             pixel_values = []
             captions = []
             original_sizes = []
             target_sizes = []
             crops_coords = []
 
+            # Track the bucket size of first instance image (all in same batch should match)
+            instance_bucket_size = None
+
             for ex in examples:
-                # Load image
+                # Process instance image
                 image_path = ex.get("image_path", "")
-                img = Image.open(image_path).convert("RGB")
-                orig_w, orig_h = img.size
-
-                # Get size info from bucket_assignments
-                if image_path in bucket_assignments:
-                    assignment = bucket_assignments[image_path]
-                    original_sizes.append(assignment.get("original_size", (orig_w, orig_h)))
-                    bucket_size = assignment.get("bucket", (orig_w, orig_h))
-                    target_sizes.append(bucket_size)
-                    crops_coords.append(assignment.get("crops_coords_top_left", (0, 0)))
-
-                    # Resize to bucket size if needed (on-the-fly for HF datasets)
-                    bucket_w, bucket_h = bucket_size
-                    if img.size != (bucket_w, bucket_h):
-                        img = _resize_to_bucket(img, bucket_w, bucket_h)
-                else:
-                    original_sizes.append((orig_w, orig_h))
-                    target_sizes.append((orig_w, orig_h))
-                    crops_coords.append((0, 0))
-
-                img_array = np.array(img, dtype=np.float32) / 127.5 - 1.0  # Normalize to [-1, 1]
-                pixel_values.append(torch.from_numpy(img_array.transpose(2, 0, 1)))
-
+                pixel_tensor, orig_size, tgt_size, crop_coords = process_image(image_path, bucket_assignments)
+                pixel_values.append(pixel_tensor)
+                original_sizes.append(orig_size)
+                target_sizes.append(tgt_size)
+                crops_coords.append(crop_coords)
                 captions.append(ex.get("caption", ""))
+
+                if instance_bucket_size is None:
+                    instance_bucket_size = tgt_size
+
+            # For DreamBooth with prior preservation: concatenate class images after instance images
+            # This follows the official HuggingFace approach - single forward pass, then torch.chunk
+            # Class images are resized to match instance bucket size so torch.stack works
+            if prior_preservation:
+                for ex in examples:
+                    class_image_path = ex.get("class_image_path", "")
+                    if class_image_path:
+                        # Load and resize class image to match instance bucket size
+                        class_img = Image.open(class_image_path).convert("RGB")
+                        class_orig_w, class_orig_h = class_img.size
+
+                        # Use instance bucket size for class images
+                        target_w, target_h = instance_bucket_size or (default_resolution, default_resolution)
+                        if class_img.size != (target_w, target_h):
+                            class_img = class_img.resize((target_w, target_h), Image.LANCZOS)
+
+                        class_img_array = np.array(class_img, dtype=np.float32) / 127.5 - 1.0
+                        class_pixel = torch.from_numpy(class_img_array.transpose(2, 0, 1))
+
+                        pixel_values.append(class_pixel)
+                        original_sizes.append((class_orig_w, class_orig_h))
+                        target_sizes.append((target_w, target_h))
+                        crops_coords.append((0, 0))
+                        captions.append(ex.get("class_caption", ""))
 
             result = {"pixel_values": torch.stack(pixel_values).to(memory_format=torch.contiguous_format).float()}
 
-            # Tokenize captions
-            for name, tok in tokenizers.items():
-                max_len = 512 if name == "t5" else 77
-                tokens = tok(captions, padding="max_length", max_length=max_len, truncation=True, return_tensors="pt")
-                key_map = {"main": "input_ids", "one": "input_ids_one", "two": "input_ids_two",
-                           "clip": "input_ids_one", "t5": "input_ids_t5"}
-                result[key_map[name]] = tokens.input_ids
+            # Tokenize all captions (instance + class)
+            tokens = tokenize_captions(captions)
+            result.update(tokens)
 
             # Add size info for SDXL
             if model_type == DiffusionModelType.SDXL:
