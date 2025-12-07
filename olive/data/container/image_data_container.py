@@ -81,7 +81,9 @@ def get_lora_default_chain(base_resolution: int = 512, bucket_mode: str = "auto"
     3. auto_tagging - Generate tags (disabled)
     4. caption_tag_merge - Merge captions and tags (disabled)
     5. image_resizing - Resize images (disabled, bucketing handles this)
-    6. aspect_ratio_bucketing - Group by aspect ratio (enabled)
+    6. generate_class_images - Generate class images for DreamBooth (disabled)
+    7. attach_class_images - Attach class images to samples for DreamBooth (disabled)
+    8. aspect_ratio_bucketing - Group by aspect ratio (enabled)
     """
     min_size = base_resolution // 2  # 256 for SD1.5, 512 for SDXL
 
@@ -91,6 +93,8 @@ def get_lora_default_chain(base_resolution: int = 512, bucket_mode: str = "auto"
     chain.add_step("auto_tagging", {"model_type": "wd14", "tag_extension": ".tags"}, enabled=False)
     chain.add_step("caption_tag_merge", {"caption_extension": ".txt", "tag_extension": ".tags"}, enabled=False)
     chain.add_step("image_resizing", {"target_resolution": base_resolution, "resize_mode": "bucket"}, enabled=False)
+    chain.add_step("generate_class_images", {}, enabled=False)
+    chain.add_step("attach_class_images", {}, enabled=False)
     chain.add_step("aspect_ratio_bucketing", {"base_resolution": base_resolution, "bucket_mode": bucket_mode}, enabled=True)
     return chain
 
