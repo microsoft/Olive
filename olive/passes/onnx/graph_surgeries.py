@@ -1427,6 +1427,39 @@ class ReplaceAttentionMaskValue(ProtoSurgeon):
         return None
 
 
+class RemoveGidxFromMatMulNBits(ProtoSurgeon):
+    def __call__(self, model: ModelProto):
+        nodes_to_modify = []
+        tensors_to_remove = []
+
+        # Identify MatMulNBits nodes with sorted g_idx initializers
+        for node in model.graph.node:
+            gidx_input = next((inp for inp in node.input if inp.endswith("g_idx")), None)
+            if not gidx_input:
+                continue
+
+            initializer = next((init for init in model.graph.initializer if init.name == gidx_input), None)
+            if not initializer:
+                continue
+
+            arr = onnx.numpy_helper.to_array(initializer)
+            if np.all(np.diff(arr.ravel()) >= 0):  # g_idx is sorted
+                nodes_to_modify.append(node.name)
+                tensors_to_remove.append(initializer)
+
+        # Remove identified g_idx tensors from initializers
+        for tensor in tensors_to_remove:
+            model.graph.initializer.remove(tensor)
+
+        # Update nodes to drop g_idx input
+        for node in model.graph.node:
+            if node.name in nodes_to_modify:
+                node.input[:] = [inp for inp in node.input if not inp.endswith("g_idx")]
+
+        logger.debug("Removed g_idx from %d MatMulNBits nodes", len(nodes_to_modify))
+        return model
+
+
 class RemoveQDQ(ProtoSurgeon):
     """Remove QuantizeLinear and DequantizeLinear node pairs from the graph.
 
