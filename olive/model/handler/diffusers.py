@@ -96,8 +96,8 @@ class DiffusersModelHandler(OliveModelHandler):
 
             FluxTransformer2DModel.load_config(self.model_path, subfolder="transformer")
             return DiffusersModelType.FLUX
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Error detecting Flux model type with FluxTransformer2DModel: %s", exc)
 
         try:
             from diffusers import UNet2DConditionModel
@@ -105,8 +105,8 @@ class DiffusersModelHandler(OliveModelHandler):
             unet_config = UNet2DConditionModel.load_config(self.model_path, subfolder="unet")
             if unet_config.get("cross_attention_dim", 768) >= 2048:
                 return DiffusersModelType.SDXL
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Error detecting SDXL model type with UNet2DConditionModel: %s", exc)
 
         # Check model name patterns
         if "xl" in model_path_lower or "sdxl" in model_path_lower:
