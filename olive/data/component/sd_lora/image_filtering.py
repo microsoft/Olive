@@ -74,13 +74,13 @@ def image_filtering(
             continue
 
         # Check for duplicates using perceptual hashing
-        if remove_duplicates and image_hashes is not None:
+        if remove_duplicates:
             img_hash = _compute_image_hash(image_path)
             if img_hash:
-                if img_hash in image_hashes:
+                if img_hash in image_hashes:  # type: ignore[operator]
                     filter_image(i, "duplicate")
                     continue
-                image_hashes.add(img_hash)
+                image_hashes.add(img_hash)  # type: ignore[union-attr]
 
         # Check blur level
         if blur_threshold is not None:
