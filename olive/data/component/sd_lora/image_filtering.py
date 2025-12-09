@@ -46,8 +46,7 @@ def image_filtering(
         filtered_indices.append(idx)
         reason_counts[reason] = reason_counts.get(reason, 0) + 1
 
-    for i in range(len(dataset)):
-        item = dataset[i]
+    for i, item in enumerate(dataset):
         image_path = Path(item["image_path"])
 
         # Check file existence
@@ -75,7 +74,7 @@ def image_filtering(
             continue
 
         # Check for duplicates using perceptual hashing
-        if remove_duplicates:
+        if remove_duplicates and image_hashes is not None:
             img_hash = _compute_image_hash(image_path)
             if img_hash:
                 if img_hash in image_hashes:

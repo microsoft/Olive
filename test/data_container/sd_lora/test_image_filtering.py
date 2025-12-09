@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# ruff: noqa: PLW0621
+# pylint: disable=redefined-outer-name
 import numpy as np
 import pytest
 from PIL import Image

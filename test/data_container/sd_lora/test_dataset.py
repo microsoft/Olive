@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# ruff: noqa: SLF001
+# pylint: disable=protected-access
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock

@@ -63,8 +63,7 @@ def image_resizing(
     processed_count = 0
     skipped_count = 0
 
-    for i in range(len(dataset)):
-        item = dataset[i]
+    for i, item in enumerate(dataset):
         image_path = Path(item["image_path"])
 
         # Determine output path

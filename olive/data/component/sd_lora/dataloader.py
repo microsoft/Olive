@@ -48,8 +48,7 @@ class BucketBatchSampler(Sampler):
             raise ValueError("Dataset must have bucket_assignments. Run aspect_ratio_bucketing first.")
 
         self.bucket_indices = defaultdict(list)
-        for i in range(len(dataset)):
-            item = dataset[i]
+        for i, item in enumerate(dataset):
             image_path = str(item.get("image_path", ""))
             bucket = tuple(dataset.bucket_assignments[image_path]["bucket"])
             self.bucket_indices[bucket].append(i)
@@ -91,8 +90,7 @@ class BucketBatchSampler(Sampler):
             else:
                 random.shuffle(all_batches)
 
-        for batch in all_batches:
-            yield batch
+        yield from all_batches
 
     def __len__(self):
         """Return the number of batches."""
