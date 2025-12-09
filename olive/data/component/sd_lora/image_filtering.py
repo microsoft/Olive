@@ -40,7 +40,7 @@ def image_filtering(
     reason_counts = {}
 
     # Track duplicates if enabled
-    image_hashes = set() if remove_duplicates else None
+    image_hashes: set[str] = set()
 
     def filter_image(idx, reason):
         filtered_indices.append(idx)
@@ -77,10 +77,10 @@ def image_filtering(
         if remove_duplicates:
             img_hash = _compute_image_hash(image_path)
             if img_hash:
-                if img_hash in image_hashes:  # type: ignore[operator]
+                if img_hash in image_hashes:
                     filter_image(i, "duplicate")
                     continue
-                image_hashes.add(img_hash)  # type: ignore[union-attr]
+                image_hashes.add(img_hash)
 
         # Check blur level
         if blur_threshold is not None:
