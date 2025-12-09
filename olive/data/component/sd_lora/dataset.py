@@ -215,8 +215,6 @@ def image_folder_dataset(
     )
 
 
-
-
 class HuggingFaceImageDataset(TorchDataset):
     """Wrapper for HuggingFace datasets to work with SD LoRA preprocessing.
 

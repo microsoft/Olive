@@ -5,8 +5,8 @@
 import pytest
 from PIL import Image
 
-from olive.data.component.sd_lora.image_resizing import image_resizing
 from olive.data.component.sd_lora.dataset import ImageFolderDataset
+from olive.data.component.sd_lora.image_resizing import image_resizing
 
 
 @pytest.fixture
@@ -43,9 +43,13 @@ def test_overwrite(temp_dataset, tmp_path):
     existing.save(output_dir / "test.jpg")
 
     # overwrite=False should skip
-    image_resizing(temp_dataset, target_resolution=512, resize_mode="contain", output_dir=str(output_dir), overwrite=False)
+    image_resizing(
+        temp_dataset, target_resolution=512, resize_mode="contain", output_dir=str(output_dir), overwrite=False
+    )
     assert Image.open(output_dir / "test.jpg").size == (100, 100)
 
     # overwrite=True should replace
-    image_resizing(temp_dataset, target_resolution=512, resize_mode="contain", output_dir=str(output_dir), overwrite=True)
+    image_resizing(
+        temp_dataset, target_resolution=512, resize_mode="contain", output_dir=str(output_dir), overwrite=True
+    )
     assert Image.open(output_dir / "test.jpg").size == (512, 512)

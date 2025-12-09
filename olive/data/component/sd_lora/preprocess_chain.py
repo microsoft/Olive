@@ -44,11 +44,7 @@ def image_lora_preprocess(
         dataset: The dataset to process.
         base_resolution: Base resolution (512 for SD1.5, 1024 for SDXL/Flux).
         steps: Steps to run with their parameters. If not provided, uses default.
-            Example:
-            {
-                "image_filtering": {"min_size": 256},
-                "auto_caption": {"model_type": "florence2"},
-            }
+            Example: {"image_filtering": {"min_size": 256}, "auto_caption": {"model_type": "florence2"}}
         output_dir: Output directory for processed images.
         device: Device for neural network operations.
         overwrite: Whether to overwrite existing files.
@@ -102,9 +98,8 @@ def image_lora_preprocess(
             # Add global params if function accepts them
             global_params = {"device": device, "overwrite": overwrite, "output_dir": output_dir}
             for k, v in global_params.items():
-                if k not in params and v is not None:
-                    if accepts_kwargs or k in fn_params:
-                        params[k] = v
+                if k not in params and v is not None and (accepts_kwargs or k in fn_params):
+                    params[k] = v
 
             dataset = preprocess_fn(dataset, **params)
         except KeyError:

@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from olive.data.component.sd_lora.image_filtering import image_filtering
 from olive.data.component.sd_lora.dataset import ImageFolderDataset
+from olive.data.component.sd_lora.image_filtering import image_filtering
 
 
 @pytest.fixture

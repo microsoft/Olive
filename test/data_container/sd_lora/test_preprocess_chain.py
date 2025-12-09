@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image
 
-from olive.data.component.sd_lora.preprocess_chain import image_lora_preprocess
 from olive.data.component.sd_lora.dataset import ImageFolderDataset
+from olive.data.component.sd_lora.preprocess_chain import image_lora_preprocess
 
 
 class TestImageLoraPreprocess:

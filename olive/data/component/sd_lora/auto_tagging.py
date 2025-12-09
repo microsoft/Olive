@@ -230,7 +230,7 @@ def wd14_tagging(
 
             # Prepend trigger word if specified
             if trigger_word:
-                final_tags = [trigger_word] + final_tags
+                final_tags = [trigger_word, *final_tags]
 
             # Save tags
             _save_tags(item["image_path"], final_tags)
