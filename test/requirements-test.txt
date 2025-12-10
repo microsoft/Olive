@@ -1,5 +1,6 @@
 accelerate
-amd-quark==0.10
+# package conflict with onnxruntime-genai
+# amd-quark==0.10
 azure-identity
 azure-storage-blob
 coverage
