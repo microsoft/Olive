@@ -2,5 +2,5 @@
 auto-gptq==0.7.1
 autoawq==0.2.9
 bitsandbytes
-onnxruntime-genai-cuda
+onnxruntime-genai-cuda==0.11.2
 triton
