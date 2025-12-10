@@ -1,5 +1,6 @@
 accelerate
-amd-quark==0.10
+# Pack conflicts with onnxruntime-genai https://github.com/microsoft/Olive/pull/2282
+# amd-quark==0.10
 azure-identity
 azure-storage-blob
 coverage
