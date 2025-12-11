@@ -33,6 +33,10 @@ def test_model_builder(tmp_path, metadata_only):
     assert Path(output_folder / "genai_config.json").exists()
 
 
+@pytest.mark.skip(
+    reason="Skip for now, need a fix in genai to support new Olive quant format "
+    "https://github.com/microsoft/onnxruntime-genai/pull/1916"
+)
 def test_model_builder_olive_quant(tmp_path):
     # set up quantized model
     input_model = create_pass_from_dict(
