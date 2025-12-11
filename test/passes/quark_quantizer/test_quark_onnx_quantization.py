@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import pytest
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 
 from olive.data.config import DataComponentConfig, DataConfig
@@ -36,6 +37,7 @@ def _test_quant_dataloader(dataset, batch_size, **kwargs):
     return DummyCalibrationDataReader(batch_size=batch_size)
 
 
+@pytest.mark.skip(reason="Quark Quantizer tests are skipped due to package conflicts with onnxruntime-genai.")
 def test_static_qdq_u8s8_quantization(tmp_path):
     input_model = get_onnx_model()
     config = {
@@ -66,6 +68,7 @@ def test_static_qdq_u8s8_quantization(tmp_path):
     assert out is not None
 
 
+@pytest.mark.skip(reason="Quark Quantizer tests are skipped due to package conflicts with onnxruntime-genai.")
 def test_static_qdq_u8s8_with_mp_quantization(tmp_path):
     input_model = get_onnx_model()
     config = {
