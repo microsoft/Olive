@@ -88,6 +88,7 @@ class DiffusersModelHandler(OliveModelHandler):
 
         # Check for Flux
         if "flux" in model_path_lower:
+            self.model_type = DiffusersModelType.FLUX
             return DiffusersModelType.FLUX
 
         # Try to detect from model config
@@ -95,6 +96,7 @@ class DiffusersModelHandler(OliveModelHandler):
             from diffusers import FluxTransformer2DModel
 
             FluxTransformer2DModel.load_config(self.model_path, subfolder="transformer")
+            self.model_type = DiffusersModelType.FLUX
             return DiffusersModelType.FLUX
         except Exception as exc:
             logger.debug("Error detecting Flux model type with FluxTransformer2DModel: %s", exc)
@@ -104,14 +106,17 @@ class DiffusersModelHandler(OliveModelHandler):
 
             unet_config = UNet2DConditionModel.load_config(self.model_path, subfolder="unet")
             if unet_config.get("cross_attention_dim", 768) >= 2048:
+                self.model_type = DiffusersModelType.SDXL
                 return DiffusersModelType.SDXL
         except Exception as exc:
             logger.debug("Error detecting SDXL model type with UNet2DConditionModel: %s", exc)
 
         # Check model name patterns
         if "xl" in model_path_lower or "sdxl" in model_path_lower:
+            self.model_type = DiffusersModelType.SDXL
             return DiffusersModelType.SDXL
         if "sd" in model_path_lower or "stable-diffusion" in model_path_lower:
+            self.model_type = DiffusersModelType.SD15
             return DiffusersModelType.SD15
 
         raise ValueError(
