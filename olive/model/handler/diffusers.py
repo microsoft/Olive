@@ -79,6 +79,35 @@ class DiffusersModelHandler(OliveModelHandler):
         return self.get_resource("adapter_path")
 
     @property
+    def size_on_disk(self) -> int:
+        """Compute size of the model on disk.
+
+        For diffusers models, this typically includes weights from multiple components.
+        Returns 0 if unable to compute (e.g., for HuggingFace Hub IDs).
+        """
+        try:
+            from pathlib import Path
+
+            model_path = Path(self.model_path)
+            if not model_path.exists():
+                # Remote model (HuggingFace Hub ID)
+                return 0
+
+            # Sum up all files in the model directory
+            total_size = sum(f.stat().st_size for f in model_path.rglob("*") if f.is_file())
+
+            # Add adapter size if present
+            if self.adapter_path:
+                adapter_path = Path(self.adapter_path)
+                if adapter_path.exists():
+                    total_size += sum(f.stat().st_size for f in adapter_path.rglob("*") if f.is_file())
+
+            return total_size
+        except Exception as exc:
+            logger.warning("Failed to compute model size on disk: %s", exc)
+            return 0
+
+    @property
     def detected_model_type(self) -> DiffusersModelType:
         """Detect the diffusion model type."""
         if self.model_type != DiffusersModelType.AUTO:
