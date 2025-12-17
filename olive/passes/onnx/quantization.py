@@ -381,6 +381,10 @@ class OnnxQuantization(Pass):
             logger.info("Model has adapters which should not be quantized. Returning the model without quantization.")
             return model
 
+        # Debug: Log model info and VRAM at the start
+        self._log_model_info(model.model_path, "OnnxQuantization input model")
+        self._log_vram_usage("OnnxQuantization start")
+
         from onnxruntime import __version__ as OrtVersion
 
         if version.parse(OrtVersion) < version.parse("1.18.0"):
@@ -487,6 +491,11 @@ class OnnxQuantization(Pass):
         if is_static:
             run_config = self.get_static_run_config(model, config, run_config, ort_less_than_1_21)
             patch_min_max_calibrater()
+
+            # Debug: Log VRAM before quantize_static
+            self._log_vram_usage("Before quantize_static")
+            logger.info("[DEBUG] calibration_providers: %s", run_config.get("calibration_providers"))
+
             try:
                 quantize_static(
                     model_input=model.model_path,
@@ -495,6 +504,9 @@ class OnnxQuantization(Pass):
                 )
             except (AttributeError, ValueError) as e:
                 raise OlivePassError("quantize_static failed.") from e
+
+            # Debug: Log VRAM after quantize_static
+            self._log_vram_usage("After quantize_static")
         else:
             try:
                 quantize_dynamic(
@@ -515,6 +527,55 @@ class OnnxQuantization(Pass):
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
+
+    def _log_vram_usage(self, stage: str):
+        """Log VRAM usage for debugging."""
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            for i, line in enumerate(result.stdout.strip().split("\n")):
+                used, total = line.split(", ")
+                logger.info("[DEBUG VRAM] %s - GPU %d: %s MB / %s MB", stage, i, used.strip(), total.strip())
+        except Exception as e:
+            logger.debug("[DEBUG VRAM] Failed to get VRAM usage: %s", e)
+
+    def _log_model_info(self, model_path: str, stage: str):
+        """Log model information for debugging."""
+        try:
+            model = onnx.load(model_path, load_external_data=False)
+            initializers = model.graph.initializer
+            total_size = 0
+            external_count = 0
+            inline_count = 0
+
+            for init in initializers:
+                size = 1
+                for dim in init.dims:
+                    size *= dim
+                dtype_size = {1: 4, 2: 1, 3: 1, 4: 2, 5: 2, 6: 4, 7: 8, 10: 2, 11: 8, 16: 2}.get(init.data_type, 4)
+                total_size += size * dtype_size
+
+                if init.data_location == onnx.TensorProto.EXTERNAL:
+                    external_count += 1
+                else:
+                    inline_count += 1
+
+            logger.info(
+                "[DEBUG MODEL] %s: %d initializers (external=%d, inline=%d), estimated_size=%.2f GB",
+                stage,
+                len(initializers),
+                external_count,
+                inline_count,
+                total_size / (1024 ** 3),
+            )
+        except Exception as e:
+            logger.debug("[DEBUG MODEL] Failed to get model info: %s", e)
 
     def _quant_preprocess(self, model: ONNXModelHandler, output_model_path: Union[str, Path]) -> ONNXModelHandler:
         from onnxruntime.quantization.preprocess import quant_pre_process

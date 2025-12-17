@@ -2041,6 +2041,11 @@ class GraphSurgeries(Pass):
                 required=True,
                 description="List of surgeries to apply, each with its type and parameters",
             ),
+            "enable_dedup": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Enable DeduplicateHashedInitializersPass after surgeries. Set to false for debugging.",
+            ),
             **get_external_data_config(),
         }
 
@@ -2051,13 +2056,63 @@ class GraphSurgeries(Pass):
 
         surgeries = config.surgeries
         onnx_model = model.load_model()
+
+        # Debug: Log initializer info before surgeries
+        self._log_initializer_info(onnx_model, "Before surgeries")
+
         for surgery in surgeries:
             logger.info("Applying surgery: %s", surgery)
             surgeon_instance = self.init_surgeon_instance(surgery)
             onnx_model = surgeon_instance(onnx_model)
 
-        deduped_model = DeduplicateHashedInitializersPass()(ir.from_proto(onnx_model)).model
-        return model_proto_to_olive_model(ir.to_proto(deduped_model), output_model_path, config)
+        # Debug: Log initializer info after surgeries
+        self._log_initializer_info(onnx_model, "After surgeries")
+
+        if config.enable_dedup:
+            logger.info("[DEBUG] DeduplicateHashedInitializersPass is ENABLED")
+            ir_model = ir.from_proto(onnx_model)
+            logger.info("[DEBUG] After ir.from_proto: %d initializers", len(ir_model.graph.initializers))
+
+            deduped_model = DeduplicateHashedInitializersPass()(ir_model).model
+            logger.info("[DEBUG] After DeduplicateHashedInitializersPass: %d initializers", len(deduped_model.graph.initializers))
+
+            proto_model = ir.to_proto(deduped_model)
+            self._log_initializer_info(proto_model, "After ir.to_proto (final)")
+
+            return model_proto_to_olive_model(proto_model, output_model_path, config)
+        else:
+            logger.info("[DEBUG] DeduplicateHashedInitializersPass is DISABLED")
+            self._log_initializer_info(onnx_model, "Final (no dedup)")
+            return model_proto_to_olive_model(onnx_model, output_model_path, config)
+
+    def _log_initializer_info(self, model: ModelProto, stage: str):
+        """Log detailed initializer information for debugging."""
+        initializers = model.graph.initializer
+        total_size = 0
+        external_count = 0
+        inline_count = 0
+
+        for init in initializers:
+            size = 1
+            for dim in init.dims:
+                size *= dim
+            # Estimate bytes based on data type
+            dtype_size = {1: 4, 2: 1, 3: 1, 4: 2, 5: 2, 6: 4, 7: 8, 10: 2, 11: 8, 16: 2}.get(init.data_type, 4)
+            total_size += size * dtype_size
+
+            if init.data_location == onnx.TensorProto.EXTERNAL:
+                external_count += 1
+            else:
+                inline_count += 1
+
+        logger.info(
+            "[DEBUG] %s: %d initializers (external=%d, inline=%d), total_size=%.2f GB",
+            stage,
+            len(initializers),
+            external_count,
+            inline_count,
+            total_size / (1024 ** 3),
+        )
 
     def init_surgeon_instance(self, surgery):
         surgeon_name = surgery.get("surgeon").lower()
