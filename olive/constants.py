@@ -31,7 +31,7 @@ class ModelFileFormat(StrEnumBase):
     PYTORCH_SLICE_GPT_MODEL = "PyTorch.SliceGPT"
     TENSORFLOW_PROTOBUF = "TensorFlow.Protobuf"
     TENSORFLOW_SAVED_MODEL = "TensorFlow.SavedModel"
-    QAIRT_CONTAINER = "QAIRT.Container"
+    QAIRT = "QAIRT"
     QAIRT_PREPARED = "QAIRT.Prepared"
     QNN_CPP = "QNN.CPP"
     QNN_LIB = "QNN.LIB"

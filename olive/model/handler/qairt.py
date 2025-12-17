@@ -34,6 +34,11 @@ class QairtPreparedModelHandler(OliveModelHandler):
             io_config=io_config,
         )
 
+    @property
+    def size_on_disk(self) -> int:
+        """Compute size of the model on disk."""
+        return 0
+
     def load_model(self, rank: int = None, cache_model: bool = True):
         raise NotImplementedError("QairtPreparedModelHandler does not support load_model")
 
@@ -55,8 +60,8 @@ class QairtPreparedModelHandler(OliveModelHandler):
         raise NotImplementedError("QairtPreparedModelHandler does not support prepare_session")
 
 
-@model_handler_registry("QairtContainerModel")
-class QairtContainerModelHandler(OliveModelHandler):
+@model_handler_registry("QairtModel")
+class QairtModelHandler(OliveModelHandler):
     json_config_keys: tuple[str, ...] = ("io_config", "model_file_format")
 
     def __init__(
@@ -64,7 +69,7 @@ class QairtContainerModelHandler(OliveModelHandler):
         model_path: str,
         model_attributes: Optional[dict[str, Any]] = None,
         io_config: Union[dict[str, Any], IoConfig, str, Callable] = None,
-        model_file_format: ModelFileFormat = ModelFileFormat.QAIRT_CONTAINER,
+        model_file_format: ModelFileFormat = ModelFileFormat.QAIRT,
     ):
         super().__init__(
             framework=Framework.QAIRT,
@@ -74,8 +79,13 @@ class QairtContainerModelHandler(OliveModelHandler):
             io_config=io_config,
         )
 
+    @property
+    def size_on_disk(self) -> int:
+        """Compute size of the model on disk."""
+        return 0
+
     def load_model(self, rank: int = None, cache_model: bool = True):
-        raise NotImplementedError("QairtContainerModelHandler does not support load_model")
+        raise NotImplementedError("QairtModelHandler does not support load_model")
 
     def prepare_session(
         self,
@@ -84,7 +94,7 @@ class QairtContainerModelHandler(OliveModelHandler):
         execution_providers: Union[str, list[str]] = None,
         rank: Union[int, None] = None,
     ):
-        raise NotImplementedError("QairtContainerModelHandler does not support prepare_session")
+        raise NotImplementedError("QairtModelHandler does not support prepare_session")
 
     def run_session(
         self,
@@ -92,4 +102,4 @@ class QairtContainerModelHandler(OliveModelHandler):
         inputs: Union[dict[str, Any], list[Any], tuple[Any, ...]] = None,
         **kwargs: dict[str, Any],
     ) -> Any:
-        raise NotImplementedError("QairtContainerModelHandler does not support prepare_session")
+        raise NotImplementedError("QairtModelHandler does not support prepare_session")

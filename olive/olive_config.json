@@ -465,6 +465,15 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "QairtEncapsulation": {
+            "module_path": "olive.passes.qairt.encapsulation.QairtEncapsulation",
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "qairt-dev" ]
+        },
         "QairtGenAIBuilder": {
             "module_path": "olive.passes.qairt.gen_ai_builder.QairtGenAIBuilder",
             "supported_providers": [ "QNNExecutionProvider" ],
