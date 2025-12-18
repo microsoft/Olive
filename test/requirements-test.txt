@@ -7,6 +7,7 @@ coverage
 cppimport
 cupy-cuda12x
 datasets
+diffusers
 docker>=7.1.0
 evaluate
 marshmallow
