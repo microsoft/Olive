@@ -199,14 +199,7 @@ class ModelBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        try:
-            from onnxruntime_genai.models.builder import create_model
-        except ImportError:
-            raise ImportError(
-                "onnxruntime-genai package is required to run ModelBuilder pass. Please install the package"
-                " corresponding to your onnxruntime installation using pip. cpu: onnxruntime-genai, cuda:"
-                " onnxruntime-genai-cuda, directml: onnxruntime-genai-directml"
-            ) from None
+        from onnxruntime_genai.models.builder import create_model
         self.maybe_patch_quant()
 
         precision = config.precision
@@ -343,6 +336,12 @@ class ModelBuilder(Pass):
         quantized_model = importlib.import_module("onnxruntime_genai.models.quantized_model")
         quantized_model.OliveModel.__init__ = OliveQuantizedModel.__init__
 
+        # base.py uses "from quantized_model import QuantModel" which resolves to a different module
+        # because builders/ directory is in sys.path when base.py runs.
+        # We need to ensure that "quantized_model" in sys.modules points to the same module we patched.
+        import sys
+        sys.modules["quantized_model"] = quantized_model
+
         builder = importlib.import_module("onnxruntime_genai.models.builder")
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
         builder.Model.make_embedding = patched_make_embedding
@@ -350,8 +349,6 @@ class ModelBuilder(Pass):
 
 class OliveQuantizedModel:
     def __init__(self, quant_type, input_path, quant_attrs, q_size, kv_size, intermediate_size, num_layers):
-        logger.debug("Using OliveQuantizedModel for quantized model loading.")
-
         from onnxruntime_genai.models.quantized_model import QuantizedDecoderLayer, QuantizedTensorModule, TensorModule
         from safetensors.torch import load_file
 
