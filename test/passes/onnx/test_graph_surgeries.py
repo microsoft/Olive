@@ -2007,3 +2007,108 @@ def test_tie_word_embeddings(tmp_path, quantized):
             new_dag.get_node_op_type(new_dag.get_producer(new_dag.get_node_inputs(new_dag.get_producer("logits"))[1]))
             == "Reshape"
         )
+
+
+def test_remove_gidx_from_matmulnbits(tmp_path):
+    # setup
+    a_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3])
+
+    b_tensor = numpy_helper.from_array(np.random.randint(0, 255, (3, 3), dtype=np.uint8), name="MatMulNBits.qweight")
+    g_idx_sorted = numpy_helper.from_array(np.array([0, 0, 1], dtype=np.int32), name="layers.1.MatMulNBits.g_idx")
+    g_idx_random = numpy_helper.from_array(np.array([2, 1, 0], dtype=np.int32), name="layers.2.MatMulNBits.g_idx")
+    scale = numpy_helper.from_array(np.array([0.1, 0.15, 0.26], dtype=np.float32), name="MatMulNBits.scales")
+    zero_point = numpy_helper.from_array(np.array([128, 128, 128], dtype=np.uint8), name="MatMulNBits.qzeros")
+
+    nodes = [
+        # case 1: no gidx provided
+        helper.make_node(
+            "MatMulNBits",
+            name="/layers.0/MatMulNBits",
+            inputs=["input", "MatMulNBits.qweight", "MatMulNBits.scales", "MatMulNBits.qzeros"],
+            outputs=["output_1"],
+            domain="com.microsoft",
+            bits=4,
+            accuracy_level=4,
+            block_size=32,
+            K=3,
+            N=3,
+        ),
+        # case 2: sorted gidx provided
+        helper.make_node(
+            "MatMulNBits",
+            name="/layers.1/MatMulNBits",
+            inputs=[
+                "output_1",
+                "MatMulNBits.qweight",
+                "MatMulNBits.scales",
+                "MatMulNBits.qzeros",
+                "layers.1.MatMulNBits.g_idx",
+            ],
+            outputs=["output_2"],
+            domain="com.microsoft",
+            bits=4,
+            accuracy_level=4,
+            block_size=32,
+            K=3,
+            N=3,
+        ),
+        # case 3: random gidx provided
+        helper.make_node(
+            "MatMulNBits",
+            name="/layers.2/MatMulNBits",
+            inputs=[
+                "output_2",
+                "MatMulNBits.qweight",
+                "MatMulNBits.scales",
+                "MatMulNBits.qzeros",
+                "layers.2.MatMulNBits.g_idx",
+            ],
+            outputs=["output"],
+            domain="com.microsoft",
+            bits=4,
+            accuracy_level=4,
+            block_size=32,
+            K=3,
+            N=3,
+        ),
+    ]
+
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=[a_tensor],
+        outputs=[output_tensor],
+        initializer=[b_tensor, scale, zero_point, g_idx_sorted, g_idx_random],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("com.microsoft", 1)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveGidxFromMatMulNBits"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+    case_1_ips, case_2_ips, case_3_ips = [node.input for node in output_model_def.graph.node]
+
+    # case 1: No gidx was provided
+    assert len(case_1_ips) == 4
+
+    # case 2: Sorted gidx was provided, so it must be removed from node
+    assert len(case_2_ips) == 4
+    assert "layers.1.MatMulNBits.g_idx" not in case_2_ips
+
+    # case 3: Random gidx was provided, so it should not be removed
+    assert len(case_3_ips) == 5
+    assert "layers.2.MatMulNBits.g_idx" in case_3_ips
