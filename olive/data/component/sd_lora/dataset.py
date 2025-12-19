@@ -96,16 +96,17 @@ class ImageFolderDataset(TorchDataset):
 
     def _find_images(self, directory: Path) -> list[Path]:
         """Find all image files in the directory."""
-        image_paths = []
+        # Use a set to avoid duplicates on case-insensitive file systems (Windows)
+        image_paths = set()
 
         if self.recursive:
             for ext in IMAGE_EXTENSIONS:
-                image_paths.extend(directory.rglob(f"*{ext}"))
-                image_paths.extend(directory.rglob(f"*{ext.upper()}"))
+                image_paths.update(directory.rglob(f"*{ext}"))
+                image_paths.update(directory.rglob(f"*{ext.upper()}"))
         else:
             for ext in IMAGE_EXTENSIONS:
-                image_paths.extend(directory.glob(f"*{ext}"))
-                image_paths.extend(directory.glob(f"*{ext.upper()}"))
+                image_paths.update(directory.glob(f"*{ext}"))
+                image_paths.update(directory.glob(f"*{ext.upper()}"))
 
         return sorted(image_paths)
 
