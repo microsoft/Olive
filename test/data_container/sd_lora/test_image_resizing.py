@@ -54,4 +54,5 @@ def test_overwrite(temp_dataset, tmp_path):
     image_resizing(
         temp_dataset, target_resolution=512, resize_mode="contain", output_dir=str(output_dir), overwrite=True
     )
-    assert Image.open(output_dir / "test.jpg").size == (512, 512)
+    size = Image.open(output_dir / "test.jpg").size
+    assert size == (512, 512)
