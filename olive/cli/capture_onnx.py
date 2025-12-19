@@ -179,7 +179,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         # whether model is in fp16 or bf16 (currently not supported by CPU EP)
         is_fp16_or_bf16 = (not self.args.use_model_builder and self.args.torch_dtype == "float16") or (
-            self.args.use_model_builder and self.args.precision in ('fp16', 'bf16')
+            self.args.use_model_builder and self.args.precision in ("fp16", "bf16")
         )
         to_replace = [
             ("input_model", input_model_config),
