@@ -108,7 +108,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--precision",
             type=str,
             default="fp16",
-            choices=["fp16", "fp32", "int4"],
+            choices=["fp16", "fp32", "int4", "bf16"],
             help="The precision of the ONNX model. This is used by Model Builder",
         )
         mb_group.add_argument(
