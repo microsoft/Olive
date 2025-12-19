@@ -14,7 +14,7 @@ from typing import Any, ClassVar, Union
 
 import onnx
 import torch
-import transformers
+from huggingface_hub.constants import HF_HUB_CACHE
 from packaging import version
 
 from olive.constants import Precision
@@ -263,7 +263,7 @@ class ModelBuilder(Pass):
                 execution_provider=target_execution_provider,
                 # model builder uses the cache_dir both as hf cache and also to store intermediate files
                 # not ideal, but we can't change this without changing the model builder
-                cache_dir=transformers.utils.TRANSFORMERS_CACHE,
+                cache_dir=HF_HUB_CACHE,
                 **extra_args,
             )
 
@@ -281,7 +281,7 @@ class ModelBuilder(Pass):
                 onnx.save(model_proto, output_model_filepath)
         except Exception:
             # if model building fails, clean up the intermediate files in the cache_dir
-            cache_dir = Path(transformers.utils.TRANSFORMERS_CACHE)
+            cache_dir = Path(HF_HUB_CACHE)
             if cache_dir.is_dir():
                 for file in cache_dir.iterdir():
                     if file.suffix == ".bin":
