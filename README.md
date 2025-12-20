@@ -45,6 +45,24 @@ pip install transformers onnxruntime-genai
 > [!NOTE]
 > Olive has optional dependencies that can be installed to enable additional features. Please refer to [Olive package config](./olive/olive_config.json) for the list of extras and their dependencies.
 
+> [!NOTE]
+> For Windows users: to avoid HF_HUB_DISABLE_SYMLINKS_WARNING
+> 
+> Olive depends on huggingface_hub library if you download models from there. On Windows you will get a warning like
+> 
+> ```
+> UserWarning: `huggingface_hub` cache-system uses symlinks by default to efficiently store duplicated files but your machine does not support them in C:\Users\name\.cache\huggingface\hub\model-name. 
+> Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.
+> ```
+> 
+> You can fix this warning using the 3 options below. Note that option 1+2 saves diskspace, while option3 only supresses the warning
+> 
+> 1. Enable Developer Mode on Windows (one-time setup) https://learn.microsoft.com/en-us/windows/advanced-settings/developer-mode
+> 2. Run Python as administrator when using Olive with the huggingface_hub library
+> 3. Keep using HF_HUB_DISABLE_SYMLINKS_WARNING=1 to suppress the warning and accept the extra disk usage
+> 
+> regarding the options, you should decide what is possible in your environment (e.g. company policiesy) and what fits best for you 
+
 #### 2. Automatic Optimizer
 
 In this quickstart you'll be optimizing [Qwen/Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct), which has many model files in the Hugging Face repo for different precisions that are not required by Olive.
@@ -108,3 +126,4 @@ Licensed under the [MIT](./LICENSE) License.
 
 [![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive%20CI?label=Olive-CI)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1240)
 [![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive-ORT-Nightly?label=Olive-ORT-Nightly)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1279)
+
