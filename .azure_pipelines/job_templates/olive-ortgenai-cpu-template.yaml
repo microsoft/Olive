@@ -37,7 +37,8 @@ jobs:
   - ${{ if eq(parameters.windows, false) }}:
     - script: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build
+        sudo apt-get install -y ninja-build
+        pip install "cmake>=3.26"
       displayName: Install build tools
 
   # Clone onnxruntime-genai
