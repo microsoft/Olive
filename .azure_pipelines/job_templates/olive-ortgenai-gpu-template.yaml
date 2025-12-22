@@ -1,0 +1,94 @@
+# Template for running Olive tests with a custom onnxruntime-genai build (GPU/CUDA)
+
+parameters:
+  name: ''
+  pool: ''
+  dockerfile: '.azure_pipelines/dockerfiles/linux-gpu.dockerfile'
+  docker_image: 'olive-ortgenai-pipeline:latest'
+  base_image: 'mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
+  trt_version: '10.5.0.18-1+cuda12.6'
+  python_version: '3.10'
+  ortgenai_branch: 'main'
+  onnxruntime: 'onnxruntime-gpu'
+  torch: 'torch'
+  requirements_file: 'requirements-test-gpu.txt'
+
+jobs:
+- job: ${{ parameters.name }}
+  timeoutInMinutes: 480
+  pool:
+    name: ${{ parameters.pool }}
+  variables:
+    PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
+    HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
+    ORTGENAI_BUILD_DIR: $(Pipeline.Workspace)/onnxruntime-genai
+
+  steps:
+  # Clone onnxruntime-genai
+  - script: |
+      set -e -x
+      git clone --branch ${{ parameters.ortgenai_branch }} --depth 1 --recurse-submodules https://github.com/microsoft/onnxruntime-genai.git $(ORTGENAI_BUILD_DIR)
+    displayName: Clone onnxruntime-genai (${{ parameters.ortgenai_branch }})
+
+  # Build Olive test Docker image
+  - template: build-docker-image-template.yaml
+    parameters:
+      python_version: ${{ parameters.python_version }}
+      dockerfile: ${{ parameters.dockerfile }}
+      docker_image: ${{ parameters.docker_image }}
+      base_image: ${{ parameters.base_image }}
+      trt_version: ${{ parameters.trt_version }}
+
+  # Build onnxruntime-genai in Docker (auto-downloads dependencies)
+  - script: |
+      set -e -x
+      docker run \
+        --gpus all \
+        --rm \
+        --volume $(ORTGENAI_BUILD_DIR):/ort_genai_src \
+        -w /ort_genai_src \
+        ${{ parameters.docker_image }} \
+        bash -c "python3 build.py --config Release --use_cuda --parallel"
+    displayName: Build onnxruntime-genai (CUDA)
+
+  # Run Olive tests in Docker with custom onnxruntime-genai
+  - script: |
+      set -e -x
+      docker run \
+        --shm-size=4g \
+        --gpus=all \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v $(Build.SourcesDirectory):/olive_src \
+        -v $(ORTGENAI_BUILD_DIR):/ort_genai_src \
+        -v $(Build.SourcesDirectory)/logs:/logs \
+        -e HF_TOKEN=$(hf_token) \
+        ${{ parameters.docker_image }} \
+        bash -c " \
+          set -e -x && \
+          pip install ${{ parameters.torch }} && \
+          pip install /ort_genai_src/build/Linux/Release/wheel/onnxruntime_genai*.whl && \
+          pip install /olive_src && \
+          pip install pytest && \
+          pip install -r /olive_src/test/${{ parameters.requirements_file }} && \
+          huggingface-cli login --token \$HF_TOKEN && \
+          pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING --junitxml=/logs/test-TestOlive.xml /olive_src/test"
+    displayName: Run Olive Tests with custom onnxruntime-genai
+
+  - task: CredScan@3
+    displayName: 'Run CredScan'
+    inputs:
+      debugMode: false
+    continueOnError: true
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: '**/*TestOlive*.xml'
+      testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
+      failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true
+    displayName: Upload pipeline run test results
+
+  - script: sudo git clean -dfX
+    condition: always()
+    displayName: Clean remaining artifacts

@@ -1,0 +1,112 @@
+# Template for running Olive tests with a custom onnxruntime-genai build (CPU)
+
+parameters:
+  name: ''
+  pool: ''
+  windows: False
+  python_version: '3.10'
+  ortgenai_branch: 'main'
+  onnxruntime: 'onnxruntime'
+  torch: 'torch'
+  requirements_file: 'requirements-test-cpu.txt'
+
+jobs:
+- job: ${{ parameters.name }}
+  timeoutInMinutes: 360
+  pool:
+    name: ${{ parameters.pool }}
+  variables:
+    WINDOWS: ${{ parameters.windows }}
+    python_version: ${{ parameters.python_version }}
+    requirements_file: ${{ parameters.requirements_file }}
+    PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
+    HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
+    PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
+    PYTHONIOENCODING: utf-8
+    PYTHONUTF8: 1
+    ORTGENAI_BUILD_DIR: $(Pipeline.Workspace)/onnxruntime-genai
+
+  steps:
+  # Setup Python
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: ${{ parameters.python_version }}
+    displayName: Use Python ${{ parameters.python_version }}
+
+  # Linux: Install build tools
+  - ${{ if eq(parameters.windows, false) }}:
+    - script: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build
+      displayName: Install build tools
+
+  # Clone onnxruntime-genai
+  - script: git clone --branch ${{ parameters.ortgenai_branch }} --depth 1 --recurse-submodules https://github.com/microsoft/onnxruntime-genai.git $(ORTGENAI_BUILD_DIR)
+    displayName: Clone onnxruntime-genai (${{ parameters.ortgenai_branch }})
+
+  # Build onnxruntime-genai
+  - script: python build.py --config Release --parallel
+    workingDirectory: $(ORTGENAI_BUILD_DIR)
+    displayName: Build onnxruntime-genai
+
+  # Linux: Install wheel
+  - ${{ if eq(parameters.windows, false) }}:
+    - script: pip install $(ORTGENAI_BUILD_DIR)/build/Linux/Release/wheel/onnxruntime_genai*.whl
+      displayName: Install onnxruntime-genai wheel
+
+  # Windows: Install wheel
+  - ${{ if eq(parameters.windows, true) }}:
+    - pwsh: |
+        $wheel = Get-ChildItem "$(ORTGENAI_BUILD_DIR)\build\Windows\Release\wheel\*.whl" | Select-Object -First 1
+        pip install $wheel.FullName
+      displayName: Install onnxruntime-genai wheel
+
+  # Install torch
+  - script: python -m pip install ${{ parameters.torch }}
+    displayName: Install torch
+
+  # Install Olive
+  - script: python -m pip install .
+    displayName: Install Olive
+
+  # Login to Hugging Face
+  - template: huggingface-login-template.yaml
+    parameters:
+      hf_token: $(hf_token)
+
+  # Run tests
+  - script: |
+      python -m pip install pytest
+      python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
+      coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test --basetemp $(PYTEST_BASETEMP)
+      coverage xml
+    displayName: Test Olive
+
+  - task: CredScan@3
+    displayName: 'Run CredScan'
+    inputs:
+      debugMode: false
+    continueOnError: true
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: '**/*TestOlive*.xml'
+      testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
+      failTaskOnFailedTests: true
+      failTaskOnMissingResultsFile: true
+    displayName: Upload pipeline run test results
+
+  - task: UseDotNet@2
+    displayName: 'Use .NET Core sdk 7.0.x'
+    inputs:
+      version: 7.0.x
+
+  - task: PublishCodeCoverageResults@2
+    inputs:
+      summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+    displayName: Publish code coverage results
+
+  - script: git clean -dfX
+    condition: always()
+    displayName: Clean remaining artifacts

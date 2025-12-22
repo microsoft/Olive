@@ -1,0 +1,55 @@
+# CI pipeline for testing Olive with a specific branch of onnxruntime-genai
+# This pipeline builds onnxruntime-genai from source and runs Olive tests with it
+
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    exclude:
+    - docs/*
+    - README.md
+    - CONTRIBUTING.md
+    - LICENSE
+    - .github/*
+
+pr:
+  branches:
+    include:
+    - main
+  paths:
+    exclude:
+    - docs/*
+    - README.md
+    - CONTRIBUTING.md
+    - LICENSE
+    - .github/*
+
+variables:
+  runCodesignValidationInjection: false
+  skipComponentGovernanceDetection: true
+  # Configure the onnxruntime-genai branch to use
+  ORTGENAI_BRANCH: 'main'
+
+jobs:
+# Linux CPU tests with custom onnxruntime-genai
+- template: job_templates/olive-ortgenai-cpu-template.yaml
+  parameters:
+    name: Linux_CPU_OrtGenAI_Test
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    ortgenai_branch: $(ORTGENAI_BRANCH)
+
+# Linux GPU tests with custom onnxruntime-genai
+- template: job_templates/olive-ortgenai-gpu-template.yaml
+  parameters:
+    name: Linux_GPU_OrtGenAI_Test
+    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    ortgenai_branch: $(ORTGENAI_BRANCH)
+
+# Windows CPU tests with custom onnxruntime-genai
+- template: job_templates/olive-ortgenai-cpu-template.yaml
+  parameters:
+    name: Windows_CPU_OrtGenAI_Test
+    pool: $(OLIVE_POOL_WIN2019)
+    windows: True
+    ortgenai_branch: $(ORTGENAI_BRANCH)
