@@ -44,6 +44,10 @@ jobs:
   - script: git clone --branch ${{ parameters.ortgenai_branch }} --depth 1 --recurse-submodules https://github.com/microsoft/onnxruntime-genai.git $(ORTGENAI_BUILD_DIR)
     displayName: Clone onnxruntime-genai (${{ parameters.ortgenai_branch }})
 
+  # Install build dependencies
+  - script: pip install requests
+    displayName: Install build dependencies
+
   # Build onnxruntime-genai
   - script: python build.py --config Release --parallel
     workingDirectory: $(ORTGENAI_BUILD_DIR)
