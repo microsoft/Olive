@@ -48,7 +48,7 @@ jobs:
         --volume $(ORTGENAI_BUILD_DIR):/ort_genai_src \
         -w /ort_genai_src \
         ${{ parameters.docker_image }} \
-        bash -c "pip install requests && python3 build.py --config Release --use_cuda --parallel"
+        bash -c "pip install requests 'cmake>=3.26' && python3 build.py --config Release --use_cuda --parallel"
     displayName: Build onnxruntime-genai (CUDA)
 
   # Run Olive tests in Docker with custom onnxruntime-genai

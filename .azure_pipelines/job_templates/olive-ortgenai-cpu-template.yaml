@@ -79,6 +79,10 @@ jobs:
     parameters:
       hf_token: $(hf_token)
 
+  # Verify installed packages
+  - script: pip list
+    displayName: Verify installed packages
+
   # Run tests
   - script: |
       python -m pip install pytest
