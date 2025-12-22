@@ -343,6 +343,13 @@ class ModelBuilder(Pass):
         quantized_model = importlib.import_module("onnxruntime_genai.models.quantized_model")
         quantized_model.OliveModel.__init__ = OliveQuantizedModel.__init__
 
+        # base.py uses "from quantized_model import QuantModel" which resolves to a different module
+        # because builders/ directory is in sys.path when base.py runs.
+        # We need to ensure that "quantized_model" in sys.modules points to the same module we patched.
+        import sys
+
+        sys.modules["quantized_model"] = quantized_model
+
         builder = importlib.import_module("onnxruntime_genai.models.builder")
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
 
