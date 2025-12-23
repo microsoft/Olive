@@ -28,8 +28,6 @@ pr:
 variables:
   runCodesignValidationInjection: false
   skipComponentGovernanceDetection: true
-  # Configure the onnxruntime-genai branch to use
-  ORTGENAI_BRANCH: 'main'
 
 jobs:
 # Linux CPU tests with custom onnxruntime-genai
