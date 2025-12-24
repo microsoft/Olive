@@ -2074,6 +2074,13 @@ class GraphSurgeries(Pass):
                 required=True,
                 description="List of surgeries to apply, each with its type and parameters",
             ),
+            "remove_duplicate_initializers": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="""
+                   Apply DeduplicateHashedInitializersPass after graph surgeries in case graph surgeries add duplicated initializers
+                """,
+            ),
             **get_external_data_config(),
         }
 
@@ -2089,8 +2096,10 @@ class GraphSurgeries(Pass):
             surgeon_instance = self.init_surgeon_instance(surgery)
             onnx_model = surgeon_instance(onnx_model)
 
-        deduped_model = DeduplicateHashedInitializersPass()(ir.from_proto(onnx_model)).model
-        return model_proto_to_olive_model(ir.to_proto(deduped_model), output_model_path, config)
+        if config.remove_duplicate_initializers:
+            deduped_model = DeduplicateHashedInitializersPass()(ir.from_proto(onnx_model)).model
+            return model_proto_to_olive_model(ir.to_proto(deduped_model), output_model_path, config)
+        return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
     def init_surgeon_instance(self, surgery):
         surgeon_name = surgery.get("surgeon").lower()
