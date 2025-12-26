@@ -1,3 +1,4 @@
+hf-xet
 numpy
 onnx
 onnx_ir>=0.1.2
