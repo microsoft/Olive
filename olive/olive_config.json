@@ -483,6 +483,16 @@
             "supported_quantization_encodings": [  ],
             "dataset": "dataset"
         },
+        "SDLoRA": {
+            "module_path": "olive.passes.diffusers.lora.SDLoRA",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "gpu" ],
+            "supported_precisions": [ "*" ],
+            "extra_dependencies": [ "sd-lora" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_required"
+        },
         "QNNContextBinaryGenerator": {
             "module_path": "olive.passes.qnn.context_binary_generator.QNNContextBinaryGenerator",
             "supported_providers": [ "*" ],
