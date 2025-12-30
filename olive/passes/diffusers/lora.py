@@ -10,6 +10,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Optional, Union
 
+from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import DiffusersModelHandler
@@ -19,6 +20,25 @@ from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pass_config import BasePassConfig
 
 logger = logging.getLogger(__name__)
+
+
+class MixedPrecision(StrEnumBase):
+    """Mixed precision training mode."""
+
+    NO = "no"
+    FP16 = "fp16"
+    BF16 = "bf16"
+
+
+class LRSchedulerType(StrEnumBase):
+    """Learning rate scheduler type."""
+
+    CONSTANT = "constant"
+    LINEAR = "linear"
+    COSINE = "cosine"
+    COSINE_WITH_RESTARTS = "cosine_with_restarts"
+    POLYNOMIAL = "polynomial"
+    CONSTANT_WITH_WARMUP = "constant_with_warmup"
 
 
 class DiffusionTrainingArguments:
@@ -31,8 +51,8 @@ class DiffusionTrainingArguments:
         train_batch_size: int = 1,
         gradient_accumulation_steps: int = 4,
         gradient_checkpointing: bool = True,
-        mixed_precision: str = "bf16",
-        lr_scheduler: str = "constant",
+        mixed_precision: Union[str, MixedPrecision] = MixedPrecision.BF16,
+        lr_scheduler: Union[str, LRSchedulerType] = LRSchedulerType.CONSTANT,
         lr_warmup_steps: int = 0,
         snr_gamma: Optional[float] = None,
         max_grad_norm: float = 1.0,
@@ -41,8 +61,6 @@ class DiffusionTrainingArguments:
         seed: Optional[int] = None,
         # Flux-specific
         guidance_scale: float = 3.5,
-        use_prodigy: bool = False,
-        prodigy_beta3: Optional[float] = None,
     ):
         self.learning_rate = learning_rate
         self.max_train_steps = max_train_steps
@@ -58,8 +76,6 @@ class DiffusionTrainingArguments:
         self.logging_steps = logging_steps
         self.seed = seed
         self.guidance_scale = guidance_scale
-        self.use_prodigy = use_prodigy
-        self.prodigy_beta3 = prodigy_beta3
 
 
 class SDLoRA(Pass):
@@ -628,35 +644,13 @@ class SDLoRA(Pass):
             # Setup optimizer (transformer only)
             params_to_optimize = list(filter(lambda p: p.requires_grad, transformer.parameters()))
 
-            if training_args.use_prodigy:
-                try:
-                    from prodigyopt import Prodigy
-
-                    optimizer = Prodigy(
-                        params_to_optimize,
-                        lr=1.0,
-                        weight_decay=0.01,
-                        safeguard_warmup=True,
-                        use_bias_correction=True,
-                        beta3=training_args.prodigy_beta3,
-                    )
-                except ImportError:
-                    logger.warning("prodigyopt not installed, falling back to AdamW")
-                    optimizer = torch.optim.AdamW(
-                        params_to_optimize,
-                        lr=training_args.learning_rate,
-                        betas=(0.9, 0.999),
-                        weight_decay=1e-2,
-                        eps=1e-8,
-                    )
-            else:
-                optimizer = torch.optim.AdamW(
-                    params_to_optimize,
-                    lr=training_args.learning_rate,
-                    betas=(0.9, 0.999),
-                    weight_decay=1e-2,
-                    eps=1e-8,
-                )
+            optimizer = torch.optim.AdamW(
+                params_to_optimize,
+                lr=training_args.learning_rate,
+                betas=(0.9, 0.999),
+                weight_decay=1e-2,
+                eps=1e-8,
+            )
 
             # Setup LR scheduler
             lr_scheduler = get_scheduler(
