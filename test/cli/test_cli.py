@@ -24,6 +24,7 @@ from olive.cli.launcher import main as cli_main
         "tune-session-params",
         "auto-opt",
         "optimize",
+        "diffusion-lora",
     ],
 )
 def test_valid_command(console_script, command):
@@ -186,6 +187,47 @@ def test_finetune_command(_, mock_run, tmp_path):
 
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_id
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("olive.model.handler.diffusers.DiffusersModelHandler.is_valid_model", return_value=True)
+def test_diffusion_lora_command(_, mock_run, tmp_path):
+    # setup
+    output_dir = tmp_path / "output_dir"
+    data_dir = tmp_path / "train_images"
+    data_dir.mkdir()
+
+    # Create dummy training images
+    from PIL import Image
+
+    for i in range(2):
+        img = Image.new("RGB", (64, 64), color=(i * 50, i * 50, i * 50))
+        img.save(data_dir / f"image_{i}.png")
+        (data_dir / f"image_{i}.txt").write_text(f"a test image {i}")
+
+    model_id = "runwayml/stable-diffusion-v1-5"
+    command_args = [
+        "diffusion-lora",
+        "-m",
+        model_id,
+        "-d",
+        str(data_dir),
+        "-o",
+        str(output_dir),
+        "--model_type",
+        "sd15",
+        "--max_train_steps",
+        "1",
+    ]
+
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == model_id
+    assert config["input_model"]["type"] == "DiffusersModel"
+    assert "sd_lora" in config["passes"]
     assert mock_run.call_count == 1
 
 
