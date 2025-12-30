@@ -31,7 +31,15 @@ def get_pass_config(data_dir, **kwargs):
     }
 
 
-def setup_sd_mocks(mock_unet, mock_vae, mock_clip, mock_scheduler, mock_get_peft_model, mock_torch_model, scaling_factor=SD15_SCALING_FACTOR):
+def setup_sd_mocks(
+    mock_unet,
+    mock_vae,
+    mock_clip,
+    mock_scheduler,
+    mock_get_peft_model,
+    mock_torch_model,
+    scaling_factor=SD15_SCALING_FACTOR,
+):
     # UNet
     mock_unet.from_pretrained.return_value = mock_torch_model
     mock_get_peft_model.return_value = mock_torch_model
@@ -182,7 +190,9 @@ def test_sd_lora_train_sdxl(
 ):
     mock_accelerator_cls.return_value = mock_accelerator
     mock_get_scheduler.return_value = MagicMock()
-    setup_sd_mocks(mock_unet, mock_vae, mock_clip, mock_scheduler, mock_get_peft_model, mock_torch_model, SDXL_SCALING_FACTOR)
+    setup_sd_mocks(
+        mock_unet, mock_vae, mock_clip, mock_scheduler, mock_get_peft_model, mock_torch_model, SDXL_SCALING_FACTOR
+    )
 
     # SDXL second text encoder
     mock_clip_proj_model = MagicMock()

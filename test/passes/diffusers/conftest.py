@@ -52,9 +52,7 @@ def mock_accelerator():
     mock_acc.wait_for_everyone = MagicMock()
     mock_acc.end_training = MagicMock()
     mock_acc.save_state = MagicMock()
-    mock_acc.accumulate = MagicMock(
-        return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock())
-    )
+    mock_acc.accumulate = MagicMock(return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()))
     return mock_acc
 
 
