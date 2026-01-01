@@ -14,7 +14,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
-from olive.model.handler.diffusers import DiffusersModelType
+from olive.model.handler.diffusers import DiffusersModelVariant
 from olive.passes.diffusers.lora import LRSchedulerType, MixedPrecision
 
 
@@ -46,10 +46,10 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
 
         # Model type
         sub_parser.add_argument(
-            "--model_type",
+            "--model_variant",
             type=str,
-            default=DiffusersModelType.AUTO,
-            choices=[t.value for t in DiffusersModelType],
+            default=DiffusersModelVariant.AUTO,
+            choices=[t.value for t in DiffusersModelVariant],
             help="Type of diffusion model. Default: auto-detect.",
         )
 
@@ -130,7 +130,7 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
             "--base_resolution",
             type=int,
             default=None,
-            help="Base resolution for training. Auto-detected if model_type is specified (SD1.5: 512, SDXL/Flux: 1024).",
+            help="Base resolution for training. Auto-detected if model_variant is specified (SD1.5: 512, SDXL/Flux: 1024).",
         )
 
         # Training options
@@ -244,12 +244,12 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
         base_resolution = self.args.base_resolution
         if base_resolution is None:
             # Auto-detect based on model type
-            model_type = self.args.model_type
-            if model_type in (DiffusersModelType.SDXL, DiffusersModelType.FLUX):
+            model_variant = self.args.model_variant
+            if model_variant in (DiffusersModelVariant.SDXL, DiffusersModelVariant.FLUX):
                 base_resolution = 1024
-            elif model_type == DiffusersModelType.SD15:
+            elif model_variant == DiffusersModelVariant.SD15:
                 base_resolution = 512
-            # If model_type is "auto", leave base_resolution as None and let preprocessing use its default
+            # If model_variant is "auto", leave base_resolution as None and let preprocessing use its default
 
         if base_resolution is not None:
             config["data_configs"][0]["pre_process_data_config"] = {
@@ -261,7 +261,7 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
         pass_key = ("passes", "sd_lora")
         to_replace = [
             ("input_model", input_model_config),
-            ((*pass_key, "model_type"), self.args.model_type),
+            ((*pass_key, "model_variant"), self.args.model_variant),
             ((*pass_key, "r"), self.args.lora_r),
             ((*pass_key, "alpha"), self.args.alpha),
             ((*pass_key, "lora_dropout"), self.args.lora_dropout),
