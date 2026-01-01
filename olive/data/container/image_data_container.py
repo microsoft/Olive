@@ -126,9 +126,18 @@ class ImageDataContainer(DataContainer):
         # So we need to resize them during preprocessing
         if self._is_huggingface_dataset():
             pre_process_params = self.config.pre_process_params
-            # Inject resize_images=True if not explicitly set
-            if "resize_images" not in pre_process_params:
-                pre_process_params["resize_images"] = True
-                logger.info("HuggingFace dataset detected, enabling resize_images=True")
+            # Get or create steps dict
+            steps = pre_process_params.get("steps")
+            if steps is None:
+                # Default steps will be used, create a dict to modify
+                steps = {"aspect_ratio_bucketing": {}}
+                pre_process_params["steps"] = steps
+
+            # Inject resize_images=True into aspect_ratio_bucketing if not explicitly set
+            if "aspect_ratio_bucketing" in steps:
+                bucket_params = steps["aspect_ratio_bucketing"]
+                if "resize_images" not in bucket_params:
+                    bucket_params["resize_images"] = True
+                    logger.info("HuggingFace dataset detected, enabling resize_images=True for aspect_ratio_bucketing")
 
         return super().pre_process(dataset)
