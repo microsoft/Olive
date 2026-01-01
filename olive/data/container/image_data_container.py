@@ -119,3 +119,16 @@ class ImageDataContainer(DataContainer):
             dataset = self._convert_hf_dataset(dataset, image_column, caption_column)
 
         return dataset
+
+    def pre_process(self, dataset):
+        """Run pre_process with auto resize_images for HuggingFace datasets."""
+        # For HuggingFace datasets, images are in cache and can't be pre-resized by user
+        # So we need to resize them during preprocessing
+        if self._is_huggingface_dataset():
+            pre_process_params = self.config.pre_process_params
+            # Inject resize_images=True if not explicitly set
+            if "resize_images" not in pre_process_params:
+                pre_process_params["resize_images"] = True
+                logger.info("HuggingFace dataset detected, enabling resize_images=True")
+
+        return super().pre_process(dataset)
