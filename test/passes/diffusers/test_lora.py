@@ -17,7 +17,6 @@ DEFAULT_TRAINING_ARGS = {"max_train_steps": 1, "train_batch_size": 1}
 
 
 def get_pass_config(data_dir, **kwargs):
-    """Get pass configuration for testing."""
     return {
         "train_data_config": {
             "name": "test_data",
@@ -29,6 +28,16 @@ def get_pass_config(data_dir, **kwargs):
         },
         **kwargs,
     }
+
+
+def setup_tokenizer_mock(mock_auto_tokenizer):
+    mock_tokenizer = MagicMock()
+    mock_tokenizer.model_max_length = 77
+    mock_token_output = MagicMock()
+    mock_token_output.input_ids = torch.ones(1, 77, dtype=torch.long)
+    mock_tokenizer.return_value = mock_token_output
+    mock_auto_tokenizer.from_pretrained.return_value = mock_tokenizer
+    return mock_tokenizer
 
 
 def setup_sd_mocks(
@@ -79,11 +88,13 @@ def setup_sd_mocks(
 @patch("diffusers.UNet2DConditionModel")
 @patch("diffusers.AutoencoderKL")
 @patch("transformers.CLIPTextModel")
+@patch("transformers.AutoTokenizer")
 @patch("accelerate.Accelerator")
 @patch("diffusers.optimization.get_scheduler")
 def test_sd_lora_train_sd15(
     mock_get_scheduler,
     mock_accelerator_cls,
+    mock_auto_tokenizer,
     mock_clip,
     mock_vae,
     mock_unet,
@@ -99,6 +110,7 @@ def test_sd_lora_train_sd15(
 ):
     mock_accelerator_cls.return_value = mock_accelerator
     mock_get_scheduler.return_value = MagicMock()
+    setup_tokenizer_mock(mock_auto_tokenizer)
     setup_sd_mocks(mock_unet, mock_vae, mock_clip, mock_scheduler, mock_get_peft_model, mock_torch_model)
 
     config = get_pass_config(
@@ -121,11 +133,13 @@ def test_sd_lora_train_sd15(
 @patch("diffusers.UNet2DConditionModel")
 @patch("diffusers.AutoencoderKL")
 @patch("transformers.CLIPTextModel")
+@patch("transformers.AutoTokenizer")
 @patch("accelerate.Accelerator")
 @patch("diffusers.optimization.get_scheduler")
 def test_sd_lora_merge_lora(
     mock_get_scheduler,
     mock_accelerator_cls,
+    mock_auto_tokenizer,
     mock_clip,
     mock_vae,
     mock_unet,
@@ -140,6 +154,7 @@ def test_sd_lora_merge_lora(
 ):
     mock_accelerator_cls.return_value = mock_accelerator
     mock_get_scheduler.return_value = MagicMock()
+    setup_tokenizer_mock(mock_auto_tokenizer)
 
     # Add merge-specific mocks
     mock_torch_model.merge_and_unload = MagicMock(return_value=mock_torch_model)
@@ -169,11 +184,13 @@ def test_sd_lora_merge_lora(
 @patch("diffusers.AutoencoderKL")
 @patch("transformers.CLIPTextModel")
 @patch("transformers.CLIPTextModelWithProjection")
+@patch("transformers.AutoTokenizer")
 @patch("accelerate.Accelerator")
 @patch("diffusers.optimization.get_scheduler")
 def test_sd_lora_train_sdxl(
     mock_get_scheduler,
     mock_accelerator_cls,
+    mock_auto_tokenizer,
     mock_clip_proj,
     mock_clip,
     mock_vae,
@@ -190,6 +207,7 @@ def test_sd_lora_train_sdxl(
 ):
     mock_accelerator_cls.return_value = mock_accelerator
     mock_get_scheduler.return_value = MagicMock()
+    setup_tokenizer_mock(mock_auto_tokenizer)
     setup_sd_mocks(
         mock_unet, mock_vae, mock_clip, mock_scheduler, mock_get_peft_model, mock_torch_model, SDXL_SCALING_FACTOR
     )
@@ -302,11 +320,13 @@ def test_sd_lora_train_flux(
 @patch("diffusers.UNet2DConditionModel")
 @patch("diffusers.AutoencoderKL")
 @patch("transformers.CLIPTextModel")
+@patch("transformers.AutoTokenizer")
 @patch("accelerate.Accelerator")
 @patch("diffusers.optimization.get_scheduler")
 def test_sd_lora_dreambooth_sd15(
     mock_get_scheduler,
     mock_accelerator_cls,
+    mock_auto_tokenizer,
     mock_clip,
     mock_vae,
     mock_unet,
@@ -322,6 +342,7 @@ def test_sd_lora_dreambooth_sd15(
 ):
     mock_accelerator_cls.return_value = mock_accelerator
     mock_get_scheduler.return_value = MagicMock()
+    setup_tokenizer_mock(mock_auto_tokenizer)
 
     # DreamBooth needs batch size 2 tensors
     mock_torch_model.return_value = (torch.randn(2, 4, 8, 8),)
