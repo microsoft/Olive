@@ -94,8 +94,8 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
 
     def post_init(self):
         """Safety checker that arguments are correct."""
-        if self.bits not in [4, 8]:
-            raise ValueError(f"Only 4-bit and 8-bit quantization supported, got {self.bits}")
+        if self.bits not in [2, 4, 8]:
+            raise ValueError(f"Only 2-bit, 4-bit and 8-bit quantization supported, got {self.bits}")
 
     def to_dict(self) -> dict:
         """Serialize this instance to a Python dictionary."""
