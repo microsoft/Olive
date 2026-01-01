@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from olive.common.utils import StrEnumBase
@@ -61,6 +62,9 @@ class DiffusersModelHandler(OliveModelHandler):
             model_attributes: Additional model attributes.
 
         """
+        if not self.is_valid_model(model_path):
+            raise ValueError(f"The provided model_path '{model_path}' is not a valid diffusion model.")
+
         super().__init__(
             framework=Framework.PYTORCH,
             model_file_format=ModelFileFormat.PYTORCH_ENTIRE_MODEL,
@@ -72,6 +76,33 @@ class DiffusersModelHandler(OliveModelHandler):
         self.model_type = DiffusersModelType(model_type)
         self.load_kwargs = load_kwargs or {}
         self._pipeline = None
+
+    @classmethod
+    def is_valid_model(cls, model_path: str) -> bool:
+        """Check if the path is a valid diffusion model.
+
+        Diffusion models are identified by the presence of a model_index.json file.
+
+        Args:
+            model_path: Local path or HuggingFace model ID.
+
+        Returns:
+            True if the path points to a valid diffusion model.
+
+        """
+        # Local path
+        path = Path(model_path)
+        if path.is_dir():
+            return (path / "model_index.json").exists()
+
+        # HuggingFace model ID - try to check if model_index.json exists
+        try:
+            from huggingface_hub import hf_hub_download
+
+            hf_hub_download(model_path, "model_index.json")
+            return True
+        except Exception:
+            return False
 
     @property
     def adapter_path(self) -> Optional[str]:
@@ -86,8 +117,6 @@ class DiffusersModelHandler(OliveModelHandler):
         Returns 0 if unable to compute (e.g., for HuggingFace Hub IDs).
         """
         try:
-            from pathlib import Path
-
             model_path = Path(self.model_path)
             if not model_path.exists():
                 # Remote model (HuggingFace Hub ID)
