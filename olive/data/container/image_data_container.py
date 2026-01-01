@@ -133,11 +133,22 @@ class ImageDataContainer(DataContainer):
                 steps = {"aspect_ratio_bucketing": {}}
                 pre_process_params["steps"] = steps
 
-            # Inject resize_images=True into aspect_ratio_bucketing if not explicitly set
+            # Inject resize_images=True and output_dir for aspect_ratio_bucketing if not explicitly set
             if "aspect_ratio_bucketing" in steps:
                 bucket_params = steps["aspect_ratio_bucketing"]
                 if "resize_images" not in bucket_params:
                     bucket_params["resize_images"] = True
                     logger.info("HuggingFace dataset detected, enabling resize_images=True for aspect_ratio_bucketing")
+
+                # HuggingFace datasets need an output_dir since images are in cache
+                if "output_dir" not in bucket_params and pre_process_params.get("output_dir") is None:
+                    from olive.cache import OliveCache
+
+                    # Use Olive's cache directory for resized images
+                    cache = OliveCache.from_cache_env()
+                    resized_dir = cache.get_cache_dir() / "resized_images" / self.config.name
+                    resized_dir.mkdir(parents=True, exist_ok=True)
+                    bucket_params["output_dir"] = str(resized_dir)
+                    logger.info("HuggingFace dataset detected, using cache output_dir: %s", resized_dir)
 
         return super().pre_process(dataset)
