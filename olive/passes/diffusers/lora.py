@@ -14,7 +14,7 @@ from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import DiffusersModelHandler
-from olive.model.handler.diffusers import DiffusersModelType
+from olive.model.handler.diffusers import DiffusersModelVariant
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pass_config import BasePassConfig
@@ -93,10 +93,10 @@ class SDLoRA(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             # Model config
-            "model_type": PassConfigParam(
-                type_=DiffusersModelType,
-                default_value=DiffusersModelType.AUTO,
-                description="Model type: 'sd15', 'sdxl', 'flux', or 'auto' to detect automatically.",
+            "model_variant": PassConfigParam(
+                type_=DiffusersModelVariant,
+                default_value=DiffusersModelVariant.AUTO,
+                description="Model variant: 'sd15', 'sdxl', 'flux', or 'auto' to detect automatically.",
             ),
             # LoRA config
             "r": PassConfigParam(
@@ -118,7 +118,7 @@ class SDLoRA(Pass):
                 type_=list[str],
                 default_value=None,
                 description=(
-                    "Target modules for LoRA. Defaults depend on model type:\n"
+                    "Target modules for LoRA. Defaults depend on model variant:\n"
                     "- SD/SDXL: ['to_k', 'to_q', 'to_v', 'to_out.0']\n"
                     "- Flux: ['to_k', 'to_q', 'to_v', 'to_out.0', 'add_k_proj', 'add_q_proj', 'add_v_proj']"
                 ),
@@ -173,22 +173,22 @@ class SDLoRA(Pass):
         else:
             training_args = config.training_args
 
-        # Detect model type
-        model_type = self._detect_model_type(model, config)
-        logger.info("Detected model type: %s", model_type)
+        # Detect model variant
+        model_variant = self._detect_model_variant(model, config)
+        logger.info("Detected model variant: %s", model_variant)
 
         # Route to appropriate training method
-        if model_type == DiffusersModelType.FLUX:
+        if model_variant == DiffusersModelVariant.FLUX:
             return self._train_flux(model, config, training_args, output_model_path)
         else:
-            return self._train_sd(model, config, training_args, model_type, output_model_path)
+            return self._train_sd(model, config, training_args, model_variant, output_model_path)
 
     def _train_sd(
         self,
         model: DiffusersModelHandler,
         config: BasePassConfig,
         training_args: DiffusionTrainingArguments,
-        model_type: DiffusersModelType,
+        model_variant: DiffusersModelVariant,
         output_model_path: str,
     ) -> DiffusersModelHandler:
         """Train LoRA for Stable Diffusion (SD1.5/SDXL)."""
@@ -225,7 +225,7 @@ class SDLoRA(Pass):
             # Load text encoders (frozen, for encoding prompts only)
             text_encoder = CLIPTextModel.from_pretrained(model_path, subfolder="text_encoder")
             text_encoder_2 = None
-            if model_type == DiffusersModelType.SDXL:
+            if model_variant == DiffusersModelVariant.SDXL:
                 text_encoder_2 = CLIPTextModelWithProjection.from_pretrained(model_path, subfolder="text_encoder_2")
 
             # Load VAE and UNet
@@ -291,7 +291,7 @@ class SDLoRA(Pass):
             # Load dataset
             train_dataset = self._load_dataset(config)
             train_dataloader = self._create_dataloader(
-                train_dataset, training_args, model_path, model_type, prior_preservation=config.dreambooth
+                train_dataset, training_args, model_path, model_variant, prior_preservation=config.dreambooth
             )
 
             # Calculate training steps
@@ -361,7 +361,7 @@ class SDLoRA(Pass):
 
                         # Get text embeddings (frozen)
                         with torch.no_grad():
-                            if model_type == DiffusersModelType.SDXL:
+                            if model_variant == DiffusersModelVariant.SDXL:
                                 encoder_hidden_states, pooled = self._encode_prompt_sdxl(
                                     batch, text_encoder, text_encoder_2
                                 )
@@ -376,7 +376,7 @@ class SDLoRA(Pass):
                         noisy_latents = noisy_latents.to(dtype=weight_dtype)
                         encoder_hidden_states = encoder_hidden_states.to(dtype=weight_dtype)
 
-                        if model_type == DiffusersModelType.SDXL:
+                        if model_variant == DiffusersModelVariant.SDXL:
                             model_pred = unet(
                                 noisy_latents,
                                 timesteps,
@@ -491,8 +491,8 @@ class SDLoRA(Pass):
 
                     unet_lora_state_dict = get_peft_model_state_dict(unet_unwrapped)
 
-                    # Use appropriate pipeline class based on model type
-                    if model_type == DiffusersModelType.SDXL:
+                    # Use appropriate pipeline class based on model variant
+                    if model_variant == DiffusersModelVariant.SDXL:
                         from diffusers import StableDiffusionXLPipeline
 
                         StableDiffusionXLPipeline.save_lora_weights(
@@ -633,7 +633,7 @@ class SDLoRA(Pass):
                 train_dataset,
                 training_args,
                 model_path,
-                DiffusersModelType.FLUX,
+                DiffusersModelVariant.FLUX,
                 prior_preservation=config.dreambooth,
             )
 
@@ -825,12 +825,12 @@ class SDLoRA(Pass):
         output_model.set_resource("adapter_path", str(adapter_path))
         return output_model
 
-    def _detect_model_type(self, model: DiffusersModelHandler, config: BasePassConfig) -> DiffusersModelType:
-        """Detect the model type."""
-        if config.model_type != DiffusersModelType.AUTO:
-            return config.model_type
+    def _detect_model_variant(self, model: DiffusersModelHandler, config: BasePassConfig) -> DiffusersModelVariant:
+        """Detect the model variant."""
+        if config.model_variant != DiffusersModelVariant.AUTO:
+            return config.model_variant
 
-        return model.detected_model_type
+        return model.detected_model_variant
 
     def _load_dataset(self, config):
         """Load training dataset.
@@ -845,7 +845,7 @@ class SDLoRA(Pass):
         data_container = data_config.to_data_container()
         return data_container.pre_process(data_container.load_dataset())
 
-    def _create_dataloader(self, dataset, training_args, model_path, model_type, prior_preservation=False):
+    def _create_dataloader(self, dataset, training_args, model_path, model_variant, prior_preservation=False):
         """Create training dataloader with image loading and tokenization.
 
         Args:
@@ -853,7 +853,7 @@ class SDLoRA(Pass):
                 For DreamBooth, also expects class_image_path and class_caption.
             training_args: Training arguments.
             model_path: Path to the diffusion model for loading tokenizers.
-            model_type: Type of diffusion model (SD15, SDXL, FLUX).
+            model_variant: Type of diffusion model (SD15, SDXL, FLUX).
             prior_preservation: Whether to include class images for prior preservation.
 
         Raises:
@@ -874,12 +874,12 @@ class SDLoRA(Pass):
                 "Example: {'pre_process_config': {'name': 'aspect_ratio_bucketing', 'params': {'base_resolution': 1024}}}"
             )
 
-        # Load tokenizers based on model type
+        # Load tokenizers based on model variant
         tokenizers = {}
-        if model_type == DiffusersModelType.FLUX:
+        if model_variant == DiffusersModelVariant.FLUX:
             tokenizers["clip"] = AutoTokenizer.from_pretrained(model_path, subfolder="tokenizer")
             tokenizers["t5"] = AutoTokenizer.from_pretrained(model_path, subfolder="tokenizer_2")
-        elif model_type == DiffusersModelType.SDXL:
+        elif model_variant == DiffusersModelVariant.SDXL:
             tokenizers["one"] = AutoTokenizer.from_pretrained(model_path, subfolder="tokenizer")
             tokenizers["two"] = AutoTokenizer.from_pretrained(model_path, subfolder="tokenizer_2")
         else:  # SD15
@@ -991,7 +991,7 @@ class SDLoRA(Pass):
             result.update(tokens)
 
             # Add size info for SDXL
-            if model_type == DiffusersModelType.SDXL:
+            if model_variant == DiffusersModelVariant.SDXL:
                 result["original_sizes"] = original_sizes
                 result["target_sizes"] = target_sizes
                 result["crops_coords_top_left"] = crops_coords

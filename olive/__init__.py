@@ -22,6 +22,7 @@ __version__ = "0.11.0.dev0"
 from olive.cli.api import (  # noqa: E402
     capture_onnx_graph,
     convert_adapters,
+    diffusion_lora,
     extract_adapters,
     finetune,
     generate_adapter,
@@ -38,6 +39,7 @@ __all__ = [
     # Python API functions
     "capture_onnx_graph",
     "convert_adapters",
+    "diffusion_lora",
     "extract_adapters",
     "finetune",
     "generate_adapter",

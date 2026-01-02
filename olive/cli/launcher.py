@@ -11,6 +11,7 @@ from olive.cli.benchmark import BenchmarkCommand
 from olive.cli.capture_onnx import CaptureOnnxGraphCommand
 from olive.cli.configure_qualcomm_sdk import ConfigureQualcommSDKCommand
 from olive.cli.convert_adapters import ConvertAdaptersCommand
+from olive.cli.diffusion_lora import DiffusionLoraCommand
 from olive.cli.extract_adapters import ExtractAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
@@ -40,6 +41,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     AutoOptCommand.register_subcommand(commands_parser)
     OptimizeCommand.register_subcommand(commands_parser)
     CaptureOnnxGraphCommand.register_subcommand(commands_parser)
+    DiffusionLoraCommand.register_subcommand(commands_parser)
     FineTuneCommand.register_subcommand(commands_parser)
     GenerateAdapterCommand.register_subcommand(commands_parser)
     ConvertAdaptersCommand.register_subcommand(commands_parser)

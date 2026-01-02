@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DiffusersModelType(StrEnumBase):
-    """Diffusion model types."""
+class DiffusersModelVariant(StrEnumBase):
+    """Diffusion model variants."""
 
     AUTO = "auto"
     SD15 = "sd15"
@@ -37,17 +37,17 @@ class DiffusersModelHandler(OliveModelHandler):
     Example usage:
         model = DiffusersModelHandler(
             model_path="runwayml/stable-diffusion-v1-5",
-            model_type="sd15",  # optional: sd15, sdxl, flux, or auto
+            model_variant="sd15",  # optional: sd15, sdxl, flux, or auto
         )
     """
 
     resource_keys: tuple[str, ...] = ("model_path", "adapter_path")
-    json_config_keys: tuple[str, ...] = ("model_type", "load_kwargs")
+    json_config_keys: tuple[str, ...] = ("model_variant", "load_kwargs")
 
     def __init__(
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS,
-        model_type: Union[str, DiffusersModelType] = DiffusersModelType.AUTO,
+        model_variant: Union[str, DiffusersModelVariant] = DiffusersModelVariant.AUTO,
         load_kwargs: Optional[dict[str, Any]] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[dict[str, Any]] = None,
@@ -56,7 +56,7 @@ class DiffusersModelHandler(OliveModelHandler):
 
         Args:
             model_path: Path to diffusion model (local path or HuggingFace model ID).
-            model_type: Model type: 'sd15', 'sdxl', 'flux', or 'auto' for auto-detection.
+            model_variant: Model variant: 'sd15', 'sdxl', 'flux', or 'auto' for auto-detection.
             load_kwargs: Additional kwargs for loading the model (e.g., torch_dtype, variant).
             adapter_path: Path to LoRA adapter weights.
             model_attributes: Additional model attributes.
@@ -73,7 +73,7 @@ class DiffusersModelHandler(OliveModelHandler):
         )
         self.add_resources(locals())
 
-        self.model_type = DiffusersModelType(model_type)
+        self.model_variant = DiffusersModelVariant(model_variant)
         self.load_kwargs = load_kwargs or {}
         self._pipeline = None
 
@@ -137,49 +137,49 @@ class DiffusersModelHandler(OliveModelHandler):
             return 0
 
     @property
-    def detected_model_type(self) -> DiffusersModelType:
-        """Detect the diffusion model type."""
-        if self.model_type != DiffusersModelType.AUTO:
-            return self.model_type
+    def detected_model_variant(self) -> DiffusersModelVariant:
+        """Detect the diffusion model variant."""
+        if self.model_variant != DiffusersModelVariant.AUTO:
+            return self.model_variant
 
         model_path_lower = self.model_path.lower() if self.model_path else ""
 
         # Check for Flux
         if "flux" in model_path_lower:
-            self.model_type = DiffusersModelType.FLUX
-            return DiffusersModelType.FLUX
+            self.model_variant = DiffusersModelVariant.FLUX
+            return DiffusersModelVariant.FLUX
 
         # Try to detect from model config
         try:
             from diffusers import FluxTransformer2DModel
 
             FluxTransformer2DModel.load_config(self.model_path, subfolder="transformer")
-            self.model_type = DiffusersModelType.FLUX
-            return DiffusersModelType.FLUX
+            self.model_variant = DiffusersModelVariant.FLUX
+            return DiffusersModelVariant.FLUX
         except Exception as exc:
-            logger.debug("Error detecting Flux model type with FluxTransformer2DModel: %s", exc)
+            logger.debug("Error detecting Flux model variant with FluxTransformer2DModel: %s", exc)
 
         try:
             from diffusers import UNet2DConditionModel
 
             unet_config = UNet2DConditionModel.load_config(self.model_path, subfolder="unet")
             if unet_config.get("cross_attention_dim", 768) >= 2048:
-                self.model_type = DiffusersModelType.SDXL
-                return DiffusersModelType.SDXL
+                self.model_variant = DiffusersModelVariant.SDXL
+                return DiffusersModelVariant.SDXL
         except Exception as exc:
-            logger.debug("Error detecting SDXL model type with UNet2DConditionModel: %s", exc)
+            logger.debug("Error detecting SDXL model variant with UNet2DConditionModel: %s", exc)
 
         # Check model name patterns
         if "xl" in model_path_lower or "sdxl" in model_path_lower:
-            self.model_type = DiffusersModelType.SDXL
-            return DiffusersModelType.SDXL
+            self.model_variant = DiffusersModelVariant.SDXL
+            return DiffusersModelVariant.SDXL
         if "sd" in model_path_lower or "stable-diffusion" in model_path_lower:
-            self.model_type = DiffusersModelType.SD15
-            return DiffusersModelType.SD15
+            self.model_variant = DiffusersModelVariant.SD15
+            return DiffusersModelVariant.SD15
 
         raise ValueError(
-            f"Cannot detect model type from '{self.model_path}'. "
-            "Please specify model_type explicitly: 'sd15', 'sdxl', or 'flux'."
+            f"Cannot detect model variant from '{self.model_path}'. "
+            "Please specify model_variant explicitly: 'sd15', 'sdxl', or 'flux'."
         )
 
     def load_model(self, rank: int = None, cache_model: bool = True) -> "DiffusionPipeline":
