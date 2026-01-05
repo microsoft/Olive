@@ -167,7 +167,13 @@ class ORTGenerator:
         if adapter_mode == AdapterMode.inputs:
             # there is only one session
             # TODO(jambayk): test and enable graph for cuda and dml
-            sessions["default"] = InferenceSession(model_path, providers=providers, provider_options=provider_options)
+            # print("not created session options")
+            session_options = SessionOptions()
+            use_lut_gemm = 1
+            session_options.add_session_config_entry("mlas.use_lut_gemm", str(use_lut_gemm))
+            sessions["default"] = InferenceSession(
+                model_path, providers=providers, provider_options=provider_options, sess_options=session_options
+            )
             for name, info in adapter_info.items():
                 adapters[name] = {
                     "session": "default",
