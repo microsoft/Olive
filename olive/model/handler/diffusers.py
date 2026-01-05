@@ -208,7 +208,13 @@ class DiffusersModelHandler(OliveModelHandler):
         # Load LoRA adapter if provided
         if self.adapter_path:
             logger.info("Loading LoRA adapter from %s", self.adapter_path)
-            pipeline.load_lora_weights(self.adapter_path)
+            # Use load_attn_procs for SD/SDXL for better compatibility with ExtractAdapters
+            # This ensures LoRA weights have proper naming (lora_A, lora_B) in exported ONNX
+            if hasattr(pipeline, "unet") and pipeline.unet is not None:
+                pipeline.unet.load_attn_procs(self.adapter_path)
+            else:
+                # Flux and other models use load_lora_weights (transformer doesn't have load_attn_procs)
+                pipeline.load_lora_weights(self.adapter_path)
 
         if cache_model:
             self._pipeline = pipeline

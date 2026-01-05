@@ -23,6 +23,8 @@ from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
 from olive.hardware import AcceleratorSpec
 from olive.model import (
+    CompositeModelHandler,
+    DiffusersModelHandler,
     DistributedHfModelHandler,
     DistributedOnnxModelHandler,
     HfModelHandler,
@@ -305,6 +307,101 @@ def _get_dummy_inputs(
     )
 
 
+def _get_diffusion_models_for_export(pipeline) -> dict[str, tuple[torch.nn.Module, Any]]:
+    """Extract all exportable components from a diffusion pipeline using optimum.
+
+    Args:
+        pipeline: A diffusers DiffusionPipeline instance.
+
+    Returns:
+        Dict mapping component name to (model, OnnxConfig) tuple.
+    """
+    from optimum.exporters.tasks import TasksManager
+
+    models_and_configs = {}
+
+    # Components to check and their corresponding tasks for OnnxConfig lookup
+    # The task is used by TasksManager to find the right OnnxConfig class
+    component_configs = [
+        ("text_encoder", "feature-extraction"),
+        ("text_encoder_2", "feature-extraction"),
+        ("text_encoder_3", "feature-extraction"),
+        ("unet", "semantic-segmentation"),
+        ("transformer", "semantic-segmentation"),
+    ]
+
+    for component_name, task in component_configs:
+        if not hasattr(pipeline, component_name):
+            continue
+
+        component = getattr(pipeline, component_name)
+        if component is None:
+            continue
+
+        try:
+            config_constructor = TasksManager.get_exporter_config_constructor(
+                exporter="onnx",
+                model=component,
+                task=task,
+                library_name="diffusers",
+            )
+            onnx_config = config_constructor(component.config)
+            models_and_configs[component_name] = (component, onnx_config)
+            logger.debug("Found exportable component: %s", component_name)
+        except Exception as e:
+            logger.warning("Failed to get OnnxConfig for %s: %s", component_name, e)
+
+    # Handle VAE separately - it needs to be split into encoder and decoder
+    if hasattr(pipeline, "vae") and pipeline.vae is not None:
+        vae = pipeline.vae
+        try:
+            # VAE encoder
+            encoder_config_constructor = TasksManager.get_exporter_config_constructor(
+                exporter="onnx",
+                model=vae,
+                task="semantic-segmentation",
+                library_name="diffusers",
+            )
+            encoder_onnx_config = encoder_config_constructor(vae.config, variant="encoder")
+            models_and_configs["vae_encoder"] = (vae, encoder_onnx_config)
+
+            # VAE decoder
+            decoder_onnx_config = encoder_config_constructor(vae.config, variant="decoder")
+            models_and_configs["vae_decoder"] = (vae, decoder_onnx_config)
+            logger.debug("Found exportable VAE encoder and decoder")
+        except Exception as e:
+            logger.warning("Failed to get OnnxConfig for VAE: %s", e)
+
+    return models_and_configs
+
+
+def _onnx_config_to_io_config(onnx_config) -> IoConfig:
+    """Convert optimum OnnxConfig to Olive IoConfig.
+
+    Args:
+        onnx_config: An optimum OnnxConfig instance.
+
+    Returns:
+        Olive IoConfig with input/output names and dynamic axes.
+    """
+    inputs = onnx_config.inputs  # Dict[str, Dict[int, str]]
+    outputs = onnx_config.outputs  # Dict[str, Dict[int, str]]
+
+    input_names = list(inputs.keys())
+    output_names = list(outputs.keys())
+
+    # Merge dynamic axes from inputs and outputs
+    dynamic_axes = {}
+    dynamic_axes.update(inputs)
+    dynamic_axes.update(outputs)
+
+    return IoConfig(
+        input_names=input_names,
+        output_names=output_names,
+        dynamic_axes=dynamic_axes,
+    )
+
+
 def _export_ranked_model(params):
     """Export one rank of a DistributedHfModel to ONNX and save the model to the output path.
 
@@ -497,10 +594,10 @@ class OnnxConversion(Pass):
 
     def _run_for_config(
         self,
-        model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
+        model: Union[DiffusersModelHandler, DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
         config: type[BasePassConfig],
         output_model_path: str,
-    ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
+    ) -> Union[CompositeModelHandler, DistributedOnnxModelHandler, ONNXModelHandler]:
         output_model = self._run_for_config_internal(model, config, output_model_path)
 
         if isinstance(model, HfModelHandler):
@@ -520,10 +617,10 @@ class OnnxConversion(Pass):
 
     def _run_for_config_internal(
         self,
-        model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
+        model: Union[DiffusersModelHandler, DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
         config: type[BasePassConfig],
         output_model_path: str,
-    ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
+    ) -> Union[CompositeModelHandler, DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
         # default to "cpu" for PyTorchModelHandler and "cuda" for DistributedHfModel
         device = config.device or "cpu"
@@ -540,6 +637,9 @@ class OnnxConversion(Pass):
             if not config.device:
                 device = "cuda"
             return self._convert_distributed_model_on_device(model, config, output_model_path, device, torch_dtype)
+
+        if isinstance(model, DiffusersModelHandler):
+            return self._convert_diffusers_model(model, config, output_model_path, device, torch_dtype)
 
         return self._convert_model_on_device(model, config, output_model_path, device, torch_dtype)
 
@@ -591,6 +691,94 @@ class OnnxConversion(Pass):
 
         output_model.model_attributes = model_attributes
         return output_model
+
+    def _convert_diffusers_model(
+        self,
+        model: DiffusersModelHandler,
+        config: type[BasePassConfig],
+        output_model_path: str,
+        device: str,
+        torch_dtype: Optional[torch.dtype] = None,
+    ) -> CompositeModelHandler:
+        """Convert a DiffusersModelHandler to ONNX models (one per component).
+
+        Diffusers models contain multiple components (text_encoder, unet, vae, etc.)
+        that need to be exported separately. This method uses optimum to discover
+        all components and their corresponding OnnxConfigs, then exports each one.
+
+        Args:
+            model: The DiffusersModelHandler to convert.
+            config: The pass configuration.
+            output_model_path: The output path for the ONNX models.
+            device: The device to use for conversion.
+            torch_dtype: The dtype to cast the model to before conversion.
+
+        Returns:
+            CompositeModelHandler containing ONNXModelHandler for each component.
+        """
+        # Load the diffusion pipeline
+        pipeline = model.load_model(cache_model=False)
+
+        # Get all exportable components and their OnnxConfigs
+        models_and_configs = _get_diffusion_models_for_export(pipeline)
+
+        if not models_and_configs:
+            raise ValueError(
+                f"No exportable components found in diffusers model at '{model.model_path}'. "
+                "Ensure the model is a valid diffusion pipeline with components like unet, vae, text_encoder."
+            )
+
+        # Create output directory
+        output_dir = Path(output_model_path).with_suffix("")
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        component_handlers = []
+        component_names = []
+        model_attributes = deepcopy(model.model_attributes or {})
+
+        for component_name, (component_model, onnx_config) in models_and_configs.items():
+            logger.info("Exporting diffusers component: %s", component_name)
+
+            component_model.eval()
+
+            # Generate dummy inputs from OnnxConfig
+            dummy_inputs = onnx_config.generate_dummy_inputs(framework="pt")
+
+            # Convert OnnxConfig to Olive IoConfig
+            io_config = _onnx_config_to_io_config(onnx_config)
+
+            # Component output path: output_dir/component_name/model.onnx
+            component_output_dir = output_dir / component_name
+            component_output_dir.mkdir(parents=True, exist_ok=True)
+            component_output_path = resolve_onnx_path(str(component_output_dir))
+
+            # Export this component
+            ir_model = _export_pytorch_model(
+                component_model,
+                dummy_inputs,
+                io_config=io_config,
+                config=config,
+                device=device,
+                dynamo=config.use_dynamo_exporter,
+                torch_dtype=torch_dtype,
+            )
+
+            # Save the ONNX model and create handler
+            output_model = ir_model_to_olive_model(ir_model, component_output_path, config)
+            component_handlers.append(output_model)
+            component_names.append(component_name)
+
+            logger.info("Exported %s to %s", component_name, component_output_path)
+
+        # Store model variant in attributes
+        model_attributes["model_variant"] = str(model.detected_model_variant)
+
+        return CompositeModelHandler(
+            model_components=component_handlers,
+            model_component_names=component_names,
+            model_path=str(output_dir),
+            model_attributes=model_attributes,
+        )
 
     def _convert_distributed_model_on_device(
         self,
