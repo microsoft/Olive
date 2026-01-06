@@ -18,6 +18,7 @@ class TestOlivePythonAPI:
         from olive import (
             capture_onnx_graph,
             convert_adapters,
+            diffusion_lora,
             extract_adapters,
             finetune,
             generate_adapter,
@@ -30,6 +31,7 @@ class TestOlivePythonAPI:
         api_functions = [
             capture_onnx_graph,
             convert_adapters,
+            diffusion_lora,
             extract_adapters,
             finetune,
             generate_adapter,
@@ -154,6 +156,21 @@ class TestOlivePythonAPI:
 
         mock_cmd_cls.assert_called_once()
         mock_cmd.run.assert_called_once()
+
+    @patch("olive.cli.api.DiffusionLoraCommand")
+    def test_diffusion_lora_basic(self, mock_cmd_cls):
+        from olive import diffusion_lora
+
+        mock_cmd = MagicMock()
+        mock_output = MagicMock()
+        mock_cmd.run.return_value = mock_output
+        mock_cmd_cls.return_value = mock_cmd
+
+        result = diffusion_lora("runwayml/stable-diffusion-v1-5", data_dir="/path/to/images")
+
+        mock_cmd_cls.assert_called_once()
+        mock_cmd.run.assert_called_once()
+        assert result is mock_output
 
     def test_capture_onnx_graph_integration(self, tmp_path):
         """Test capture_onnx_graph integration with a tiny model."""

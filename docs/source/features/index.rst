@@ -62,6 +62,14 @@ Features
 
    .. grid-item-card::
 
+      **Diffusion Model LoRA**
+
+      Train LoRA adapters for Stable Diffusion, SDXL, and Flux models.
+
+      :octicon:`arrow-right;1em;sd-text-info` `SD LoRA Training <sd-lora.html>`_
+
+   .. grid-item-card::
+
       **Quantization**
 
       Olive supports many model quantization techniques.
@@ -87,6 +95,7 @@ Features
    model-splitting
    onnx-transformations
    peft-adapters
+   sd-lora
    quantization
    shared-model-cache
 
