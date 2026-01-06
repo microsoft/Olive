@@ -91,7 +91,7 @@ class TestOliveHfQuantizationConfig:
 
     def test_invalid_bits(self):
         """Test that invalid bits raise ValueError."""
-        with pytest.raises(ValueError, match="Only 4-bit and 8-bit quantization supported"):
+        with pytest.raises(ValueError, match="Only 2-bit, 4-bit and 8-bit quantization supported"):
             OliveHfQuantizationConfig(bits=16, symmetric=True, group_size=128)
 
     def test_to_dict(self):
