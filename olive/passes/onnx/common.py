@@ -760,6 +760,8 @@ def update_llm_pipeline_genai_config(
                 pipeline_config[name]["session_options"] = group_session_options
             pipeline_config[name][f"run_on_{dont_run_on}"] = False
 
+    pipeline_config[llm_pipeline["lm_head"]]["is_lm_head"] = True
+
     decoder_config["pipeline"] = [pipeline_config]
 
     # save the updated genai_config

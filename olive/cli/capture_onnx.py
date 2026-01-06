@@ -177,18 +177,18 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "pytorchmodel",
         }, "Only HfModel and PyTorchModel are supported in capture-onnx-graph command."
 
-        # whether model is in fp16 (currently not supported by CPU EP)
-        is_fp16 = (not self.args.use_model_builder and self.args.torch_dtype == "float16") or (
-            self.args.use_model_builder and self.args.precision == "fp16"
+        # whether model is in fp16 or bf16 (currently not supported by CPU EP)
+        is_fp16_or_bf16 = (not self.args.use_model_builder and self.args.torch_dtype == "float16") or (
+            self.args.use_model_builder and self.args.precision in ("fp16", "bf16")
         )
         to_replace = [
             ("input_model", input_model_config),
             ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
-            (("systems", "local_system", "accelerators", 0, "device"), "gpu" if is_fp16 else "cpu"),
+            (("systems", "local_system", "accelerators", 0, "device"), "gpu" if is_fp16_or_bf16 else "cpu"),
             (
                 ("systems", "local_system", "accelerators", 0, "execution_providers"),
-                [("CUDAExecutionProvider" if is_fp16 else "CPUExecutionProvider")],
+                [("CUDAExecutionProvider" if is_fp16_or_bf16 else "CPUExecutionProvider")],
             ),
         ]
         if self.args.use_model_builder:
@@ -230,9 +230,14 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             if not self.args.use_ort_genai:
                 del config["passes"]["m"]
             else:
+                mb_precision = {
+                    "fp16": "fp16",
+                    "bf16": "bf16",
+                }.get(self.args.precision, "fp32")
+
                 to_replace.extend(
                     [
-                        (("passes", "m", "precision"), "fp16" if is_fp16 else "fp32"),
+                        (("passes", "m", "precision"), mb_precision),
                         (("passes", "m", "metadata_only"), True),
                     ]
                 )

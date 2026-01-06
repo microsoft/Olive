@@ -52,6 +52,9 @@ class TestDiffusersModelHandler:
         model = DiffusersModelHandler(model_path=self.model_path, model_type=model_type)
         assert model.detected_model_type == expected
 
+    @patch("olive.model.handler.diffusers.DiffusersModelHandler.is_valid_model", return_value=True)
+    @patch("diffusers.UNet2DConditionModel.load_config", side_effect=Exception("not found"))
+    @patch("diffusers.FluxTransformer2DModel.load_config", side_effect=Exception("not found"))
     @pytest.mark.parametrize(
         ("model_path", "expected"),
         [
@@ -63,15 +66,14 @@ class TestDiffusersModelHandler:
             ("my-custom-sd-model", DiffusersModelType.SD15),
         ],
     )
-    @patch("diffusers.UNet2DConditionModel.load_config", side_effect=Exception("not found"))
-    @patch("diffusers.FluxTransformer2DModel.load_config", side_effect=Exception("not found"))
-    def test_detected_model_type_auto_from_path(self, mock_flux, mock_unet, model_path, expected):
+    def test_detected_model_type_auto_from_path(self, mock_flux, mock_unet, mock_is_valid, model_path, expected):
         model = DiffusersModelHandler(model_path=model_path, model_type=DiffusersModelType.AUTO)
         assert model.detected_model_type == expected
 
+    @patch("olive.model.handler.diffusers.DiffusersModelHandler.is_valid_model", return_value=True)
     @patch("diffusers.UNet2DConditionModel.load_config", side_effect=Exception("not found"))
     @patch("diffusers.FluxTransformer2DModel.load_config", side_effect=Exception("not found"))
-    def test_detected_model_type_auto_raises_error(self, mock_flux, mock_unet):
+    def test_detected_model_type_auto_raises_error(self, mock_flux, mock_unet, mock_is_valid):
         model = DiffusersModelHandler(model_path="some-random-model", model_type=DiffusersModelType.AUTO)
         with pytest.raises(ValueError, match="Cannot detect model type"):
             _ = model.detected_model_type

@@ -15,13 +15,13 @@ class WeightQuantizer:
         """Initialize the quantizer with parameters.
 
         Args:
-            bits: Number of bits for quantization (4 or 8)
+            bits: Number of bits for quantization (2, 4 or 8)
             symmetric: Whether to use symmetric quantization
             group_size: Quantization group size (-1: per-channel, 0: per-tensor, >0: groupwise)
             signed: Whether to use signed quantization (default is False, meaning unsigned)
 
         """
-        assert bits in [4, 8], "Only 4-bit and 8-bit quantization supported"
+        assert bits in [2, 4, 8], "Only 4-bit and 8-bit quantization supported"
         self.bits = bits
         self.symmetric = symmetric
         self.group_size = group_size
@@ -198,17 +198,17 @@ def get_maxq_minq(bits: int, signed: bool) -> tuple[int, int]:
 
 @torch.no_grad()
 def pack_to_uint8(tensor: torch.Tensor, bits: int) -> torch.Tensor:
-    """Pack 4/8 bit tensor into uint8 tensor on the last dimension.
+    """Pack 2/4/8 bit tensor into uint8 tensor on the last dimension.
 
     Args:
         tensor: The 2D input tensor. Values are expected to be unsigned in the range [0, 2^bits - 1]
-        bits: Number of bits (4 or 8)
+        bits: Number of bits (2, 4 or 8)
 
     Returns:
         A tensor of uint8 values with packed data
 
     """
-    assert bits in [4, 8], "Only 4-bit and 8-bit quantization supported"
+    assert bits in [2, 4, 8], "Only 2-bit, 4-bit and 8-bit quantization supported"
 
     maxq, minq = get_maxq_minq(bits, signed=False)
     assert tensor.min() >= minq, "Input tensor values must not be less than min quantization value"
@@ -236,11 +236,11 @@ def pack_to_uint8(tensor: torch.Tensor, bits: int) -> torch.Tensor:
 
 @torch.no_grad()
 def unpack_from_uint8(packed_tensor: torch.Tensor, bits: int, shape: tuple[int, int]) -> torch.Tensor:
-    """Unpack uint8 tensor into 4/8 bit tensor on the last dimension.
+    """Unpack uint8 tensor into 2/4/8 bit tensor on the last dimension.
 
     Args:
         packed_tensor: The 2D input tensor with packed uint8 values
-        bits: Number of bits (4 or 8)
+        bits: Number of bits (2, 4 or 8)
         shape: The original shape of the tensor before packing
 
     Returns:

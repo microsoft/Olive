@@ -13,7 +13,7 @@ from olive.common.quant.utils import WeightQuantizer
 
 
 class TestQuantModule:
-    @pytest.mark.parametrize("bits", [4, 8])
+    @pytest.mark.parametrize("bits", [2, 4, 8])
     @pytest.mark.parametrize("symmetric", [True, False])
     @pytest.mark.parametrize("group_size", [-1, 16, 32])
     def test_initialization(self, bits, symmetric, group_size):
@@ -37,7 +37,7 @@ class TestQuantModule:
 
     def test_invalid_bits(self):
         """Test that invalid bits raise ValueError."""
-        with pytest.raises(ValueError, match="Only 4-bit and 8-bit quantization supported"):
+        with pytest.raises(ValueError, match="Only 2-bit, 4-bit and 8-bit quantization supported"):
             QuantLinear(10, 20, bits=16, symmetric=True, group_size=-1)
 
     def test_invalid_group_size(self):
@@ -155,7 +155,7 @@ class TestQuantLinear:
 
         assert torch.all(qlinear.bias == 0.5)
 
-    @pytest.mark.parametrize("bits", [4, 8])
+    @pytest.mark.parametrize("bits", [2, 4, 8])
     @pytest.mark.parametrize("symmetric", [True, False])
     def test_from_module_quantization_accuracy(self, bits, symmetric):
         """Test that quantization/dequantization is reasonably accurate."""
@@ -365,7 +365,7 @@ class TestQuantEmbedding:
 
         assert qembed.padding_idx == 0
 
-    @pytest.mark.parametrize("bits", [4, 8])
+    @pytest.mark.parametrize("bits", [2, 4, 8])
     @pytest.mark.parametrize("symmetric", [True, False])
     def test_from_module_quantization_accuracy(self, bits, symmetric):
         """Test that quantization/dequantization is reasonably accurate."""
