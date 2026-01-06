@@ -99,17 +99,23 @@ class ImageDataContainer(DataContainer):
 
         return HuggingFaceImageDataset(dataset, image_column, caption_column)
 
-    def pre_process(self, dataset):
-        """Run preprocessing with HuggingFace dataset support."""
-        # Check if this is a HuggingFace dataset and convert if needed
+    def load_dataset(self):
+        """Load dataset, extracting ImageDataContainer-specific params first."""
+        # Pop image_column and caption_column so they don't get passed to huggingface_dataset
+        params = self.config.load_dataset_config.params
+        image_column = params.pop("image_column", "image")
+        caption_column = params.pop("caption_column", None)
+
+        # Load the raw HuggingFace dataset
+        dataset = super().load_dataset()
+
+        # Convert to HuggingFaceImageDataset if needed
         if self._is_huggingface_dataset():
-            load_params = self.config.load_dataset_config.params
-            image_column = load_params.get("image_column", "image")
-            caption_column = load_params.get("caption_column")
             logger.info(
-                "Converting HuggingFace dataset: image_column=%s, caption_column=%s", image_column, caption_column
+                "Converting HuggingFace dataset: image_column=%s, caption_column=%s",
+                image_column,
+                caption_column,
             )
             dataset = self._convert_hf_dataset(dataset, image_column, caption_column)
 
-        # Run the standard preprocessing
-        return super().pre_process(dataset)
+        return dataset

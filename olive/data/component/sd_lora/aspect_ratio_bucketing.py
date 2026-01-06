@@ -256,6 +256,81 @@ def aspect_ratio_bucketing(
         except Exception as e:
             logger.warning("Failed to process %s: %s", image_path, e)
 
+    # Process class images for DreamBooth (if present)
+    if hasattr(dataset, "class_image_paths") and dataset.class_image_paths:
+        logger.info("Processing %d class images for DreamBooth", len(dataset.class_image_paths))
+
+        # Prepare class images output directory
+        class_output_dir = None
+        if output_dir:
+            class_output_dir = Path(output_dir) / "class_images"
+            class_output_dir.mkdir(parents=True, exist_ok=True)
+
+        for i, class_path in enumerate(dataset.class_image_paths):
+            class_path = Path(class_path)  # noqa: PLW2901
+            try:
+                with Image.open(class_path) as img:
+                    orig_w, orig_h = img.size
+                    orig_aspect = orig_w / orig_h
+
+                    # Find best matching bucket
+                    best_bucket = _find_best_bucket(orig_w, orig_h, buckets)
+                    bucket_w, bucket_h = best_bucket
+
+                    # Calculate crop coordinates
+                    crops_coords_top_left = _calculate_crop_coords(
+                        orig_w, orig_h, bucket_w, bucket_h, crop_to_bucket, crop_position
+                    )
+
+                    final_path = str(class_path)
+
+                    # Resize class image if requested
+                    if resize_images and class_output_dir:
+                        if class_path.suffix:
+                            out_name = f"class_{i:06d}{class_path.suffix}"
+                        else:
+                            out_name = f"class_{i:06d}.jpg"
+                        out_path = class_output_dir / out_name
+
+                        if not overwrite and out_path.exists():
+                            final_path = str(out_path)
+                        else:
+                            if img.mode != "RGB":
+                                img = img.convert("RGB")  # noqa: PLW2901
+
+                            resized = resize_image(
+                                img,
+                                bucket_w,
+                                bucket_h,
+                                resize_mode=resize_mode,
+                                crop_position=crop_position,
+                                fill_color=fill_color,
+                                resample_filter=resample_filter,
+                            )
+
+                            if out_path.suffix:
+                                resized.save(out_path, quality=95)
+                            else:
+                                resized.save(out_path, format="JPEG", quality=95)
+                            final_path = str(out_path)
+
+                        # Update class image path in dataset
+                        dataset.class_image_paths[i] = Path(final_path)
+
+                    # Store bucket assignment for class image
+                    bucket_assignments[final_path] = {
+                        "bucket": best_bucket,
+                        "original_size": (orig_w, orig_h),
+                        "aspect_ratio": orig_aspect,
+                        "crops_coords_top_left": crops_coords_top_left,
+                    }
+                    bucket_counts[best_bucket] += 1
+
+            except Exception as e:
+                logger.warning("Failed to process class image %s: %s", class_path, e)
+
+        logger.info("Processed %d class images", len(dataset.class_image_paths))
+
     # Log bucket distribution
     logger.info("Bucket distribution:")
     for bucket, count in sorted(bucket_counts.items(), key=lambda x: -x[1])[:10]:
