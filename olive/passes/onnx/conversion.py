@@ -23,6 +23,8 @@ from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
 from olive.hardware import AcceleratorSpec
 from olive.model import (
+    CompositeModelHandler,
+    DiffusersModelHandler,
     DistributedHfModelHandler,
     DistributedOnnxModelHandler,
     HfModelHandler,
@@ -520,10 +522,10 @@ class OnnxConversion(Pass):
 
     def _run_for_config_internal(
         self,
-        model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
+        model: Union[DiffusersModelHandler, DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
         config: type[BasePassConfig],
         output_model_path: str,
-    ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
+    ) -> Union[CompositeModelHandler, DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
         # default to "cpu" for PyTorchModelHandler and "cuda" for DistributedHfModel
         device = config.device or "cpu"
@@ -535,6 +537,9 @@ class OnnxConversion(Pass):
                 " is incorrect, try converting the model on GPU or convert in float32 and use"
                 " OrtTransformerOptimization/OnnxFloatToFloat16 pass after this pass."
             )
+
+        if isinstance(model, DiffusersModelHandler):
+            return self._convert_diffusers_model(model, config, output_model_path, device, torch_dtype)
 
         if isinstance(model, DistributedHfModelHandler):
             if not config.device:
@@ -591,6 +596,104 @@ class OnnxConversion(Pass):
 
         output_model.model_attributes = model_attributes
         return output_model
+
+    def _convert_diffusers_model(
+        self,
+        model: DiffusersModelHandler,
+        config: type[BasePassConfig],
+        output_model_path: str,
+        device: str,
+        torch_dtype: Optional[torch.dtype] = None,
+    ) -> CompositeModelHandler:
+        """Convert a DiffusersModelHandler to ONNX models.
+
+        Args:
+            model: The DiffusersModelHandler to convert.
+            config: The pass configuration.
+            output_model_path: The output path for the ONNX models.
+            device: The device to use for conversion.
+            torch_dtype: The dtype to cast the model to before conversion.
+
+        Returns:
+            CompositeModelHandler containing ONNXModelHandler for each component.
+
+        """
+        try:
+            from optimum.exporters.onnx import main_export
+        except ImportError as exc:
+            raise ImportError(
+                "Optimum is required for exporting diffusers models to ONNX. Please install optimum to use this feature."
+            ) from exc
+
+        output_dir = Path(output_model_path).with_suffix("")
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Determine dtype string for optimum
+        dtype_str = None
+        if torch_dtype == torch.float16:
+            dtype_str = "fp16"
+        elif torch_dtype == torch.bfloat16:
+            dtype_str = "bf16"
+
+        logger.info("Exporting diffusers model: %s", model.model_path)
+
+        main_export(
+            model_name_or_path=model.model_path,
+            output=str(output_dir),
+            device=device,
+            dtype=dtype_str,
+            opset=config.target_opset,
+            do_validation=False,
+        )
+
+        component_handlers = []
+        component_names = []
+
+        possible_components = [
+            "text_encoder",
+            "text_encoder_2",
+            "text_encoder_3",  # SD3
+            "unet",
+            "transformer",  # Flux, SD3
+            "vae_encoder",
+            "vae_decoder",
+            "safety_checker",
+        ]
+
+        for component_name in possible_components:
+            component_dir = output_dir / component_name
+            if not component_dir.exists():
+                continue
+
+            onnx_file = component_dir / "model.onnx"
+            if not onnx_file.exists():
+                logger.warning("ONNX file not found for component %s", component_name)
+                continue
+
+            component_handler = ONNXModelHandler(
+                model_path=str(component_dir),
+                onnx_file_name="model.onnx",
+            )
+            component_handlers.append(component_handler)
+            component_names.append(component_name)
+            logger.info("Exported %s to %s", component_name, onnx_file)
+
+        if not component_handlers:
+            raise ValueError(
+                f"No ONNX components found after export from '{model.model_path}'. "
+                "Ensure the model is a valid diffusion pipeline."
+            )
+
+        model_attributes = deepcopy(model.model_attributes or {})
+        model_attributes["model_variant"] = str(model.detected_model_variant)
+        model_attributes["no_flatten"] = True  # Preserve optimum directory structure for diffusers
+
+        return CompositeModelHandler(
+            model_components=component_handlers,
+            model_component_names=component_names,
+            model_path=str(output_dir),
+            model_attributes=model_attributes,
+        )
 
     def _convert_distributed_model_on_device(
         self,

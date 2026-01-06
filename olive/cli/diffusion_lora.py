@@ -89,6 +89,13 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
             help="Enable DreamBooth training for learning specific subjects.",
         )
         db_group.add_argument(
+            "--instance_prompt",
+            type=str,
+            default=None,
+            help="Fixed prompt for all images in DreamBooth mode. Required when --dreambooth is set. "
+            "Example: 'a photo of sks dog'.",
+        )
+        db_group.add_argument(
             "--prior_loss_weight",
             type=float,
             default=1.0,
@@ -266,6 +273,7 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
             ((*pass_key, "alpha"), self.args.alpha),
             ((*pass_key, "lora_dropout"), self.args.lora_dropout),
             ((*pass_key, "dreambooth"), self.args.dreambooth),
+            ((*pass_key, "instance_prompt"), self.args.instance_prompt),
             ((*pass_key, "prior_loss_weight"), self.args.prior_loss_weight),
             ((*pass_key, "merge_lora"), self.args.merge_lora),
             (

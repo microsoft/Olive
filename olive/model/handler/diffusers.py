@@ -11,6 +11,7 @@ from olive.constants import Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
+from olive.model.utils.diffusers_utils import is_valid_diffusers_model
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 if TYPE_CHECKING:
@@ -62,7 +63,7 @@ class DiffusersModelHandler(OliveModelHandler):
             model_attributes: Additional model attributes.
 
         """
-        if not self.is_valid_model(model_path):
+        if not is_valid_diffusers_model(model_path):
             raise ValueError(f"The provided model_path '{model_path}' is not a valid diffusion model.")
 
         super().__init__(
@@ -76,33 +77,6 @@ class DiffusersModelHandler(OliveModelHandler):
         self.model_variant = DiffusersModelVariant(model_variant)
         self.load_kwargs = load_kwargs or {}
         self._pipeline = None
-
-    @classmethod
-    def is_valid_model(cls, model_path: str) -> bool:
-        """Check if the path is a valid diffusion model.
-
-        Diffusion models are identified by the presence of a model_index.json file.
-
-        Args:
-            model_path: Local path or HuggingFace model ID.
-
-        Returns:
-            True if the path points to a valid diffusion model.
-
-        """
-        # Local path
-        path = Path(model_path)
-        if path.is_dir():
-            return (path / "model_index.json").exists()
-
-        # HuggingFace model ID - try to check if model_index.json exists
-        try:
-            from huggingface_hub import hf_hub_download
-
-            hf_hub_download(model_path, "model_index.json")
-            return True
-        except Exception:
-            return False
 
     @property
     def adapter_path(self) -> Optional[str]:

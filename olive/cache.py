@@ -389,52 +389,65 @@ class OliveCache:
         model_json = self.load_model(model_id)
         if model_json["type"].lower() == "compositemodel":
             model_json_config = model_json["config"]
-            copied_components = []
-            saved_external_files = {}
-            for component_name, component in zip(
-                model_json_config["model_component_names"], model_json_config["model_components"]
-            ):
-                if component["type"].lower() != "onnxmodel":
-                    # save each component with a prefix
-                    # e.g. "component_1" -> "component_1_{resource_name}"
-                    copied_components.append(
-                        self._save_model(
-                            component,
-                            output_dir=actual_output_dir,
-                            overwrite=overwrite,
-                            only_cache_files=only_cache_files,
-                            path_prefix=component_name,
-                        )
-                    )
-                else:
-                    # save all onnx files into the same directory
-                    component_model_json, component_local_resource_names = self._replace_with_local_resources(
-                        component, only_cache_files=only_cache_files
-                    )
+            model_attributes = model_json_config.get("model_attributes") or {}
 
-                    for resource_name in component_local_resource_names:
-                        if resource_name != "model_path":
-                            # this case does not exist in the current code
-                            # but we need to handle it for future use
-                            component_model_json["config"][resource_name] = component_model_json["config"][
-                                resource_name
-                            ].save_to_dir(actual_output_dir, resource_name, overwrite)
-                        else:
-                            from olive.passes.onnx.common import resave_model
+            if model_attributes.get("no_flatten"):
+                # Preserve directory structure (e.g., for diffusers models exported by optimum)
+                source_path = Path(model_json_config["model_path"])
+                if source_path.exists():
+                    shutil.copytree(source_path, actual_output_dir, dirs_exist_ok=overwrite)
 
-                            resave_model(
-                                ModelConfig.parse_obj(component_model_json).create_model().model_path,
-                                actual_output_dir / f"{component_name}.onnx",
-                                saved_external_files=saved_external_files,
+                # Update component paths to point to new location
+                for component in model_json_config["model_components"]:
+                    component["config"]["model_path"] = str(actual_output_dir)
+                model_json_config["model_path"] = str(actual_output_dir)
+            else:
+                copied_components = []
+                saved_external_files = {}
+                for component_name, component in zip(
+                    model_json_config["model_component_names"], model_json_config["model_components"]
+                ):
+                    if component["type"].lower() != "onnxmodel":
+                        # save each component with a prefix
+                        # e.g. "component_1" -> "component_1_{resource_name}"
+                        copied_components.append(
+                            self._save_model(
+                                component,
+                                output_dir=actual_output_dir,
+                                overwrite=overwrite,
+                                only_cache_files=only_cache_files,
+                                path_prefix=component_name,
                             )
-                            component_model_json["config"][resource_name] = str(actual_output_dir)
-                            component_model_json["config"]["onnx_file_name"] = f"{component_name}.onnx"
+                        )
+                    else:
+                        # save all onnx files into the same directory
+                        component_model_json, component_local_resource_names = self._replace_with_local_resources(
+                            component, only_cache_files=only_cache_files
+                        )
 
-                    copied_components.append(component_model_json)
+                        for resource_name in component_local_resource_names:
+                            if resource_name != "model_path":
+                                # this case does not exist in the current code
+                                # but we need to handle it for future use
+                                component_model_json["config"][resource_name] = component_model_json["config"][
+                                    resource_name
+                                ].save_to_dir(actual_output_dir, resource_name, overwrite)
+                            else:
+                                from olive.passes.onnx.common import resave_model
 
-            model_json_config["model_components"] = copied_components
-            # save additional files
-            model_json = self._save_additional_files(model_json, actual_output_dir)
+                                resave_model(
+                                    ModelConfig.parse_obj(component_model_json).create_model().model_path,
+                                    actual_output_dir / f"{component_name}.onnx",
+                                    saved_external_files=saved_external_files,
+                                )
+                                component_model_json["config"][resource_name] = str(actual_output_dir)
+                                component_model_json["config"]["onnx_file_name"] = f"{component_name}.onnx"
+
+                        copied_components.append(component_model_json)
+
+                model_json_config["model_components"] = copied_components
+                # save additional files
+                model_json = self._save_additional_files(model_json, actual_output_dir)
         else:
             model_json = self._save_model(model_json, output_dir, overwrite)
 

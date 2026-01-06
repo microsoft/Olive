@@ -149,9 +149,16 @@ class SDLoRA(Pass):
                 type_=bool,
                 default_value=False,
                 description=(
-                    "Enable DreamBooth training with prior preservation loss. "
-                    "Use this when training on a specific subject (e.g., your dog, your face). "
-                    "Requires dataset to include 'class_image_path' and 'class_caption' fields."
+                    "Enable DreamBooth training for learning specific subjects. "
+                    "When enabled, instance_prompt is required and will be used for all images."
+                ),
+            ),
+            "instance_prompt": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description=(
+                    "The prompt to use for all training images in DreamBooth mode. "
+                    "Required when dreambooth=True. Example: 'a photo of sks dog'."
                 ),
             ),
             "prior_loss_weight": PassConfigParam(
@@ -176,6 +183,10 @@ class SDLoRA(Pass):
         # Detect model variant
         model_variant = self._detect_model_variant(model, config)
         logger.info("Detected model variant: %s", model_variant)
+
+        # Validate DreamBooth config
+        if config.dreambooth and not config.instance_prompt:
+            raise ValueError("instance_prompt is required when dreambooth=True. Example: 'a photo of sks dog'")
 
         # Route to appropriate training method
         if model_variant == DiffusersModelVariant.FLUX:
@@ -291,7 +302,12 @@ class SDLoRA(Pass):
             # Load dataset
             train_dataset = self._load_dataset(config)
             train_dataloader = self._create_dataloader(
-                train_dataset, training_args, model_path, model_variant, prior_preservation=config.dreambooth
+                train_dataset,
+                training_args,
+                model_path,
+                model_variant,
+                prior_preservation=config.dreambooth,
+                instance_prompt=config.instance_prompt,
             )
 
             # Calculate training steps
@@ -635,6 +651,7 @@ class SDLoRA(Pass):
                 model_path,
                 DiffusersModelVariant.FLUX,
                 prior_preservation=config.dreambooth,
+                instance_prompt=config.instance_prompt,
             )
 
             # Calculate training steps
@@ -845,7 +862,9 @@ class SDLoRA(Pass):
         data_container = data_config.to_data_container()
         return data_container.pre_process(data_container.load_dataset())
 
-    def _create_dataloader(self, dataset, training_args, model_path, model_variant, prior_preservation=False):
+    def _create_dataloader(
+        self, dataset, training_args, model_path, model_variant, prior_preservation=False, instance_prompt=None
+    ):
         """Create training dataloader with image loading and tokenization.
 
         Args:
@@ -855,6 +874,7 @@ class SDLoRA(Pass):
             model_path: Path to the diffusion model for loading tokenizers.
             model_variant: Type of diffusion model (SD15, SDXL, FLUX).
             prior_preservation: Whether to include class images for prior preservation.
+            instance_prompt: Fixed prompt for all images (used in DreamBooth mode).
 
         Raises:
             ValueError: If dataset has not been preprocessed with aspect_ratio_bucketing or image_resizing.
@@ -953,7 +973,8 @@ class SDLoRA(Pass):
                 original_sizes.append(orig_size)
                 target_sizes.append(tgt_size)
                 crops_coords.append(crop_coords)
-                captions.append(ex.get("caption", ""))
+                # Use instance_prompt if provided (DreamBooth), otherwise use caption from dataset
+                captions.append(instance_prompt if instance_prompt else ex.get("caption", ""))
 
             # For DreamBooth with prior preservation: concatenate class images after instance images
             # This follows the official HuggingFace approach - single forward pass, then torch.chunk

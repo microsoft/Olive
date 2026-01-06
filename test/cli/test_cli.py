@@ -191,7 +191,7 @@ def test_finetune_command(_, mock_run, tmp_path):
 
 
 @patch("olive.workflows.run")
-@patch("olive.model.handler.diffusers.DiffusersModelHandler.is_valid_model", return_value=True)
+@patch("olive.model.utils.diffusers.is_valid_diffusers_model", return_value=True)
 def test_diffusion_lora_command(_, mock_run, tmp_path):
     # setup
     output_dir = tmp_path / "output_dir"
