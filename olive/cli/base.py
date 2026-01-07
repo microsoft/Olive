@@ -14,6 +14,7 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import hf_repo_exists, set_nested_dict_value, unescaped_str
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
+from olive.model.handler.diffusers import DiffusersModelVariant
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 
@@ -181,6 +182,24 @@ def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     return input_model_config
 
 
+def get_diffusers_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> dict:
+    """Get the input model config for Diffusers model.
+
+    args.adapter_path might not be present.
+    args.model_variant might not be present.
+    """
+    print(f"Loading Diffusers model from {model_path}")
+    input_model = {
+        "type": "DiffusersModel",
+        "model_path": model_path,
+    }
+    if getattr(args, "adapter_path", None):
+        input_model["adapter_path"] = args.adapter_path
+    if getattr(args, "model_variant", None):
+        input_model["model_variant"] = args.model_variant
+    return input_model
+
+
 def get_input_model_config(args: Namespace, required: bool = True) -> Optional[dict]:
     """Parse the model_name_or_path and return the input model config.
 
@@ -302,17 +321,21 @@ def add_input_model_options(
     enable_hf_adapter: bool = False,
     enable_pt: bool = False,
     enable_onnx: bool = False,
+    enable_diffusers: bool = False,
     default_output_path: Optional[str] = None,
     directory_output: bool = True,
     required: bool = True,
 ):
     """Add model options to the sub_parser.
 
-    Use enable_hf, enable_hf_adapter, enable_pt, enable_onnx to enable the corresponding model options.
+    Use enable_hf, enable_hf_adapter, enable_pt, enable_onnx, enable_diffusers
+    to enable the corresponding model options.
     If default_output_path is None, it is required to provide the output_path.
     If directory_output is True, the output_path is a directory and will be created if it doesn't exist.
     """
-    assert any([enable_hf, enable_hf_adapter, enable_pt, enable_onnx]), "At least one model option should be enabled."
+    assert any([enable_hf, enable_hf_adapter, enable_pt, enable_onnx, enable_diffusers]), (
+        "At least one model option should be enabled."
+    )
 
     model_group = sub_parser
 
@@ -346,6 +369,19 @@ def add_input_model_options(
             "--adapter_path",
             type=str,
             help="Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.",
+        )
+    if enable_diffusers:
+        model_group.add_argument(
+            "--model_variant",
+            type=DiffusersModelVariant,
+            choices=[
+                DiffusersModelVariant.AUTO,
+                DiffusersModelVariant.SD15,
+                DiffusersModelVariant.SDXL,
+                DiffusersModelVariant.FLUX,
+            ],
+            default=DiffusersModelVariant.AUTO,
+            help="Model variant: 'sd15', 'sdxl', 'flux', or 'auto' for auto-detection.",
         )
     if enable_pt:
         model_group.add_argument(
