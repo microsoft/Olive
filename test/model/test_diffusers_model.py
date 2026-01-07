@@ -52,7 +52,7 @@ class TestDiffusersModelHandler:
         model = DiffusersModelHandler(model_path=self.model_path, model_variant=model_variant)
         assert model.detected_model_variant == expected
 
-    @patch("olive.model.utils.diffusers_utils.is_valid_diffusers_model", return_value=True)
+    @patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
     @patch("diffusers.UNet2DConditionModel.load_config", side_effect=Exception("not found"))
     @patch("diffusers.FluxTransformer2DModel.load_config", side_effect=Exception("not found"))
     @pytest.mark.parametrize(
@@ -70,7 +70,7 @@ class TestDiffusersModelHandler:
         model = DiffusersModelHandler(model_path=model_path, model_variant=DiffusersModelVariant.AUTO)
         assert model.detected_model_variant == expected
 
-    @patch("olive.model.utils.diffusers_utils.is_valid_diffusers_model", return_value=True)
+    @patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
     @patch("diffusers.UNet2DConditionModel.load_config", side_effect=Exception("not found"))
     @patch("diffusers.FluxTransformer2DModel.load_config", side_effect=Exception("not found"))
     def test_detected_model_variant_auto_raises_error(self, mock_flux, mock_unet, mock_is_valid):
