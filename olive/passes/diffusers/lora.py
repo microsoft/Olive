@@ -540,11 +540,30 @@ class SDLoRA(Pass):
                 adapter_path.mkdir(parents=True, exist_ok=True)
 
                 if config.merge_lora:
-                    # Merge LoRA and save full UNet
+                    # Merge LoRA and save full pipeline
                     unet_unwrapped = accelerator.unwrap_model(unet)
                     unet_merged = unet_unwrapped.merge_and_unload()
-                    unet_merged.save_pretrained(adapter_path)
-                    logger.info("Saved merged UNet to %s", adapter_path)
+
+                    # Load full pipeline and replace unet with merged version
+                    if model_variant == DiffusersModelVariant.SDXL:
+                        from diffusers import StableDiffusionXLPipeline
+
+                        pipeline = StableDiffusionXLPipeline.from_pretrained(model_path, torch_dtype=torch.float32)
+                    else:
+                        from diffusers import StableDiffusionPipeline
+
+                        pipeline = StableDiffusionPipeline.from_pretrained(
+                            model_path,
+                            torch_dtype=torch.float32,
+                            safety_checker=None,
+                            requires_safety_checker=False,
+                        )
+                    pipeline.unet = unet_merged
+
+                    # Save full pipeline to output_model_path (not adapter_path)
+                    merged_path = Path(output_model_path)
+                    pipeline.save_pretrained(merged_path)
+                    logger.info("Saved merged pipeline to %s", merged_path)
                 else:
                     # Save LoRA adapter in diffusers-compatible format
                     unet_unwrapped = accelerator.unwrap_model(unet)
@@ -581,9 +600,17 @@ class SDLoRA(Pass):
             torch.cuda.empty_cache()
 
         # Return model handler
-        output_model = deepcopy(model)
-        output_model.set_resource("adapter_path", str(adapter_path))
-        return output_model
+        if config.merge_lora:
+            # Return merged model (full pipeline)
+            return DiffusersModelHandler(
+                model_path=output_model_path,
+                model_variant=model_variant,
+            )
+        else:
+            # Return original model with adapter path
+            output_model = deepcopy(model)
+            output_model.set_resource("adapter_path", str(adapter_path))
+            return output_model
 
     def _train_flux(
         self,
@@ -868,11 +895,20 @@ class SDLoRA(Pass):
                 adapter_path.mkdir(parents=True, exist_ok=True)
 
                 if config.merge_lora:
-                    # Merge LoRA and save full transformer
+                    # Merge LoRA and save full pipeline
                     transformer_unwrapped = accelerator.unwrap_model(transformer)
                     transformer_merged = transformer_unwrapped.merge_and_unload()
-                    transformer_merged.save_pretrained(adapter_path)
-                    logger.info("Saved merged Transformer to %s", adapter_path)
+
+                    # Load full pipeline and replace transformer with merged version
+                    from diffusers import FluxPipeline
+
+                    pipeline = FluxPipeline.from_pretrained(model_path, torch_dtype=torch.bfloat16)
+                    pipeline.transformer = transformer_merged
+
+                    # Save full pipeline to output_model_path
+                    merged_path = Path(output_model_path)
+                    pipeline.save_pretrained(merged_path)
+                    logger.info("Saved merged pipeline to %s", merged_path)
                 else:
                     # Save LoRA adapter in diffusers-compatible format
                     transformer_unwrapped = accelerator.unwrap_model(transformer)
@@ -898,9 +934,17 @@ class SDLoRA(Pass):
             torch.cuda.empty_cache()
 
         # Return model handler
-        output_model = deepcopy(model)
-        output_model.set_resource("adapter_path", str(adapter_path))
-        return output_model
+        if config.merge_lora:
+            # Return merged model (full pipeline)
+            return DiffusersModelHandler(
+                model_path=output_model_path,
+                model_variant=DiffusersModelVariant.FLUX,
+            )
+        else:
+            # Return original model with adapter path
+            output_model = deepcopy(model)
+            output_model.set_resource("adapter_path", str(adapter_path))
+            return output_model
 
     def _detect_model_variant(self, model: DiffusersModelHandler, config: BasePassConfig) -> DiffusersModelVariant:
         """Detect the model variant."""

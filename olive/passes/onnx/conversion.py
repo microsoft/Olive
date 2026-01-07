@@ -635,10 +635,15 @@ class OnnxConversion(Pass):
         elif torch_dtype == torch.bfloat16:
             dtype_str = "bf16"
 
-        logger.info("Exporting diffusers model: %s", model.model_path)
+        # Determine export path - fuse LoRA if adapter_path is provided
+        export_model_path = model.model_path
+        if model.adapter_path:
+            export_model_path = self._get_fused_model_path(model.model_path, model.adapter_path, torch_dtype)
+
+        logger.info("Exporting diffusers model: %s", export_model_path)
 
         main_export(
-            model_name_or_path=model.model_path,
+            model_name_or_path=export_model_path,
             output=str(output_dir),
             device=device,
             dtype=dtype_str,
@@ -694,6 +699,60 @@ class OnnxConversion(Pass):
             model_path=str(output_dir),
             model_attributes=model_attributes,
         )
+
+    def _get_fused_model_path(
+        self,
+        model_path: str,
+        adapter_path: str,
+        torch_dtype: Optional[torch.dtype] = None,
+    ) -> str:
+        """Fuse LoRA adapter into model and cache the result.
+
+        Args:
+            model_path: Path to the base diffusers model.
+            adapter_path: Path to the LoRA adapter.
+            torch_dtype: The dtype to use for loading the model.
+
+        Returns:
+            Path to the fused model in cache.
+
+        """
+        import hashlib
+
+        from diffusers import DiffusionPipeline
+
+        from olive.cache import OliveCache
+
+        # Compute cache key based on model_path and adapter_path
+        cache_key = hashlib.md5(f"{model_path}:{adapter_path}".encode()).hexdigest()[:12]
+
+        cache = OliveCache.from_cache_env()
+        fused_path = cache.get_cache_dir() / "fused_models" / cache_key
+
+        # Check if cached fused model exists
+        if (fused_path / "model_index.json").exists():
+            logger.info("Using cached fused model from %s", fused_path)
+            return str(fused_path)
+
+        # Load pipeline, fuse LoRA, and save to cache
+        logger.info("Fusing LoRA adapter from %s into %s", adapter_path, model_path)
+        pipeline = DiffusionPipeline.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype or torch.float32,
+        )
+        pipeline.load_lora_weights(adapter_path)
+        pipeline.fuse_lora()
+
+        fused_path.mkdir(parents=True, exist_ok=True)
+        pipeline.save_pretrained(fused_path)
+        logger.info("Cached fused model to %s", fused_path)
+
+        # Clean up to free memory
+        del pipeline
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        return str(fused_path)
 
     def _convert_distributed_model_on_device(
         self,

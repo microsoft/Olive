@@ -127,6 +127,8 @@ def test_sd_lora_train_sd15(
     mock_clip.from_pretrained.assert_called_once()
 
 
+@patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
+@patch("diffusers.StableDiffusionPipeline")
 @patch("peft.get_peft_model")
 @patch("peft.LoraConfig")
 @patch("diffusers.DDPMScheduler")
@@ -146,6 +148,8 @@ def test_sd_lora_merge_lora(
     mock_scheduler,
     mock_lora_config,
     mock_get_peft_model,
+    mock_sd_pipeline,
+    mock_is_valid,
     test_image_folder,
     output_folder,
     mock_accelerator,
@@ -160,6 +164,11 @@ def test_sd_lora_merge_lora(
     mock_torch_model.merge_and_unload = MagicMock(return_value=mock_torch_model)
     mock_torch_model.save_pretrained = MagicMock()
 
+    # Mock full pipeline for merge_lora
+    mock_pipeline = MagicMock()
+    mock_pipeline.save_pretrained = MagicMock()
+    mock_sd_pipeline.from_pretrained.return_value = mock_pipeline
+
     setup_sd_mocks(mock_unet, mock_vae, mock_clip, mock_scheduler, mock_get_peft_model, mock_torch_model)
 
     config = get_pass_config(
@@ -173,7 +182,8 @@ def test_sd_lora_merge_lora(
 
     assert result is not None
     mock_torch_model.merge_and_unload.assert_called_once()
-    mock_torch_model.save_pretrained.assert_called_once()
+    mock_sd_pipeline.from_pretrained.assert_called_once()
+    mock_pipeline.save_pretrained.assert_called_once()
 
 
 @patch("diffusers.StableDiffusionXLPipeline.save_lora_weights")
