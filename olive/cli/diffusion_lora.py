@@ -96,10 +96,35 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
             "Example: 'a photo of sks dog'.",
         )
         db_group.add_argument(
+            "--with_prior_preservation",
+            action="store_true",
+            help="Enable prior preservation to prevent language drift. Requires --class_prompt.",
+        )
+        db_group.add_argument(
+            "--class_prompt",
+            type=str,
+            default=None,
+            help="Prompt for class images in prior preservation. Required when --with_prior_preservation is set. "
+            "Example: 'a photo of a dog'.",
+        )
+        db_group.add_argument(
+            "--class_data_dir",
+            type=str,
+            default=None,
+            help="Directory containing class images. If not provided or has fewer than --num_class_images, "
+            "images will be auto-generated.",
+        )
+        db_group.add_argument(
+            "--num_class_images",
+            type=int,
+            default=200,
+            help="Number of class images for prior preservation. Default: 200.",
+        )
+        db_group.add_argument(
             "--prior_loss_weight",
             type=float,
             default=1.0,
-            help="Weight of prior preservation loss (only for DreamBooth). Default: 1.0.",
+            help="Weight of prior preservation loss. Default: 1.0.",
         )
 
         # Data options
@@ -274,6 +299,10 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
             ((*pass_key, "lora_dropout"), self.args.lora_dropout),
             ((*pass_key, "dreambooth"), self.args.dreambooth),
             ((*pass_key, "instance_prompt"), self.args.instance_prompt),
+            ((*pass_key, "with_prior_preservation"), self.args.with_prior_preservation),
+            ((*pass_key, "class_prompt"), self.args.class_prompt),
+            ((*pass_key, "class_data_dir"), self.args.class_data_dir),
+            ((*pass_key, "num_class_images"), self.args.num_class_images),
             ((*pass_key, "prior_loss_weight"), self.args.prior_loss_weight),
             ((*pass_key, "merge_lora"), self.args.merge_lora),
             (
