@@ -378,6 +378,7 @@ def test_sd_lora_dreambooth_sd15(
         test_image_folder,
         model_variant=DiffusersModelVariant.SD15,
         dreambooth=True,
+        instance_prompt="a photo of sks dog",
         prior_loss_weight=1.0,
         training_args=DEFAULT_TRAINING_ARGS,
     )
