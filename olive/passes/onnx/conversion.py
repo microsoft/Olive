@@ -738,6 +738,7 @@ class OnnxConversion(Pass):
         )
         pipeline.load_lora_weights(adapter_path)
         pipeline.fuse_lora()
+        pipeline.unload_lora_weights()  # Remove LoRA structure after fusing
 
         fused_path.mkdir(parents=True, exist_ok=True)
         pipeline.save_pretrained(fused_path)
