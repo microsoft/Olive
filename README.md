@@ -47,21 +47,21 @@ pip install transformers onnxruntime-genai
 
 > [!NOTE]
 > For Windows users: to avoid HF_HUB_DISABLE_SYMLINKS_WARNING
-> 
+>
 > Olive depends on huggingface_hub library if you download models from there. On Windows you will get a warning like
-> 
+>
 > ```
-> UserWarning: `huggingface_hub` cache-system uses symlinks by default to efficiently store duplicated files but your machine does not support them in C:\Users\name\.cache\huggingface\hub\model-name. 
+> UserWarning: `huggingface_hub` cache-system uses symlinks by default to efficiently store duplicated files but your machine does not support them in C:\Users\name\.cache\huggingface\hub\model-name.
 > Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.
 > ```
-> 
+>
 > You can fix this warning using one of the 4 options below. Note that option 1, 2 and 3 saves diskspace, while option 4 only supresses the warning
-> 
+>
 > 1. Enable Developer Mode on Windows (one-time setup) documented in the [Microsoft Developer Tools Docs](https://learn.microsoft.com/en-us/windows/advanced-settings/developer-mode).
 > 2. Run Python as administrator when using Olive with the huggingface_hub library.
 > 3. Reconfigure where the cache is stored. This restriction is not limited to storing the cache in the default location only.
 > 4. Keep using HF_HUB_DISABLE_SYMLINKS_WARNING=1 to suppress the warning and accept the extra disk usage.
-> 
+>
 > Regarding the options, you should decide what is possible in your environment (e.g. company policy) and what fits best for you.
 >
 > The limitation of the huggingface_hub library is also documentd in the [Hub Client Library Docs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache#limitations).
