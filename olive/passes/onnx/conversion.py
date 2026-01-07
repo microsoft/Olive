@@ -618,12 +618,7 @@ class OnnxConversion(Pass):
             CompositeModelHandler containing ONNXModelHandler for each component.
 
         """
-        try:
-            from optimum.exporters.onnx import main_export
-        except ImportError as exc:
-            raise ImportError(
-                "Optimum is required for exporting diffusers models to ONNX. Please install optimum to use this feature."
-            ) from exc
+        from optimum.exporters.onnx import main_export
 
         output_dir = Path(output_model_path).with_suffix("")
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -645,6 +640,7 @@ class OnnxConversion(Pass):
         main_export(
             model_name_or_path=export_model_path,
             output=str(output_dir),
+            task="text-to-image",
             device=device,
             dtype=dtype_str,
             opset=config.target_opset,

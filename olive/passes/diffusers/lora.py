@@ -540,15 +540,25 @@ class SDLoRA(Pass):
                 adapter_path.mkdir(parents=True, exist_ok=True)
 
                 if config.merge_lora:
-                    # Merge LoRA and save full pipeline
-                    unet_unwrapped = accelerator.unwrap_model(unet)
-                    unet_merged = unet_unwrapped.merge_and_unload()
+                    # Save LoRA weights first
+                    from peft import get_peft_model_state_dict
 
-                    # Load full pipeline and replace unet with merged version
+                    unet_unwrapped = accelerator.unwrap_model(unet)
+                    unet_unwrapped = unet_unwrapped.to(torch.float32)
+                    unet_lora_state_dict = get_peft_model_state_dict(unet_unwrapped)
+
+                    # Load full pipeline and save LoRA to temp dir, load, then fuse
                     if model_variant == DiffusersModelVariant.SDXL:
                         from diffusers import StableDiffusionXLPipeline
 
                         pipeline = StableDiffusionXLPipeline.from_pretrained(model_path, torch_dtype=torch.float32)
+                        with tempfile.TemporaryDirectory() as tmp_dir:
+                            StableDiffusionXLPipeline.save_lora_weights(
+                                save_directory=tmp_dir,
+                                unet_lora_layers=unet_lora_state_dict,
+                                safe_serialization=True,
+                            )
+                            pipeline.load_lora_weights(tmp_dir)
                     else:
                         from diffusers import StableDiffusionPipeline
 
@@ -558,9 +568,17 @@ class SDLoRA(Pass):
                             safety_checker=None,
                             requires_safety_checker=False,
                         )
-                    pipeline.unet = unet_merged
+                        with tempfile.TemporaryDirectory() as tmp_dir:
+                            StableDiffusionPipeline.save_lora_weights(
+                                save_directory=tmp_dir,
+                                unet_lora_layers=unet_lora_state_dict,
+                                safe_serialization=True,
+                            )
+                            pipeline.load_lora_weights(tmp_dir)
 
-                    # Save full pipeline to output_model_path (not adapter_path)
+                    pipeline.fuse_lora()
+
+                    # Save full pipeline to output_model_path
                     merged_path = Path(output_model_path)
                     pipeline.save_pretrained(merged_path)
                     logger.info("Saved merged pipeline to %s", merged_path)
@@ -895,15 +913,27 @@ class SDLoRA(Pass):
                 adapter_path.mkdir(parents=True, exist_ok=True)
 
                 if config.merge_lora:
-                    # Merge LoRA and save full pipeline
-                    transformer_unwrapped = accelerator.unwrap_model(transformer)
-                    transformer_merged = transformer_unwrapped.merge_and_unload()
-
-                    # Load full pipeline and replace transformer with merged version
+                    # Save LoRA weights first
                     from diffusers import FluxPipeline
+                    from peft import get_peft_model_state_dict
 
+                    transformer_unwrapped = accelerator.unwrap_model(transformer)
+                    transformer_unwrapped = transformer_unwrapped.to(torch.float32)
+                    transformer_lora_state_dict = get_peft_model_state_dict(transformer_unwrapped)
+
+                    # Load full pipeline
                     pipeline = FluxPipeline.from_pretrained(model_path, torch_dtype=torch.bfloat16)
-                    pipeline.transformer = transformer_merged
+
+                    # Save LoRA to temp dir, load into pipeline, then fuse
+                    with tempfile.TemporaryDirectory() as tmp_dir:
+                        FluxPipeline.save_lora_weights(
+                            save_directory=tmp_dir,
+                            transformer_lora_layers=transformer_lora_state_dict,
+                            safe_serialization=True,
+                        )
+                        pipeline.load_lora_weights(tmp_dir)
+
+                    pipeline.fuse_lora()
 
                     # Save full pipeline to output_model_path
                     merged_path = Path(output_model_path)

@@ -160,14 +160,13 @@ def test_sd_lora_merge_lora(
     mock_get_scheduler.return_value = MagicMock()
     setup_tokenizer_mock(mock_auto_tokenizer)
 
-    # Add merge-specific mocks
-    mock_torch_model.merge_and_unload = MagicMock(return_value=mock_torch_model)
-    mock_torch_model.save_pretrained = MagicMock()
-
     # Mock full pipeline for merge_lora
     mock_pipeline = MagicMock()
     mock_pipeline.save_pretrained = MagicMock()
+    mock_pipeline.load_lora_weights = MagicMock()
+    mock_pipeline.fuse_lora = MagicMock()
     mock_sd_pipeline.from_pretrained.return_value = mock_pipeline
+    mock_sd_pipeline.save_lora_weights = MagicMock()
 
     setup_sd_mocks(mock_unet, mock_vae, mock_clip, mock_scheduler, mock_get_peft_model, mock_torch_model)
 
@@ -181,8 +180,10 @@ def test_sd_lora_merge_lora(
     result = p.run(mock_input_model_sd15, output_folder)
 
     assert result is not None
-    mock_torch_model.merge_and_unload.assert_called_once()
     mock_sd_pipeline.from_pretrained.assert_called_once()
+    mock_sd_pipeline.save_lora_weights.assert_called_once()
+    mock_pipeline.load_lora_weights.assert_called_once()
+    mock_pipeline.fuse_lora.assert_called_once()
     mock_pipeline.save_pretrained.assert_called_once()
 
 
