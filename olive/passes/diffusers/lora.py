@@ -150,21 +150,50 @@ class SDLoRA(Pass):
                 default_value=False,
                 description=(
                     "Enable DreamBooth training for learning specific subjects. "
-                    "When enabled, instance_prompt is required and will be used for all images."
+                    "Use instance_prompt to specify a fixed prompt for all images."
                 ),
             ),
             "instance_prompt": PassConfigParam(
                 type_=str,
                 default_value=None,
                 description=(
-                    "The prompt to use for all training images in DreamBooth mode. "
+                    "Fixed prompt for all training images in DreamBooth mode. "
                     "Required when dreambooth=True. Example: 'a photo of sks dog'."
                 ),
+            ),
+            "with_prior_preservation": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Enable prior preservation to prevent language drift during DreamBooth training. "
+                    "Requires class_prompt to be set."
+                ),
+            ),
+            "class_prompt": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description=(
+                    "Prompt for generating class images in prior preservation. "
+                    "Required when with_prior_preservation=True. Example: 'a photo of a dog'."
+                ),
+            ),
+            "class_data_dir": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description=(
+                    "Directory containing class images for prior preservation. "
+                    "If not provided or has fewer than num_class_images, images will be auto-generated."
+                ),
+            ),
+            "num_class_images": PassConfigParam(
+                type_=int,
+                default_value=200,
+                description="Number of class images for prior preservation.",
             ),
             "prior_loss_weight": PassConfigParam(
                 type_=float,
                 default_value=1.0,
-                description="Weight of the prior preservation loss (only used when dreambooth=True).",
+                description="Weight of the prior preservation loss.",
             ),
         }
 
@@ -172,6 +201,15 @@ class SDLoRA(Pass):
         self, model: DiffusersModelHandler, config: BasePassConfig, output_model_path: str
     ) -> DiffusersModelHandler:
         """Run diffusion model LoRA training."""
+        # Validate DreamBooth config
+        if config.dreambooth and not config.instance_prompt:
+            raise ValueError("instance_prompt is required when dreambooth=True.")
+        if config.with_prior_preservation:
+            if not config.dreambooth:
+                raise ValueError("with_prior_preservation requires dreambooth=True.")
+            if not config.class_prompt:
+                raise ValueError("class_prompt is required when with_prior_preservation=True.")
+
         # Initialize training args
         if config.training_args is None:
             training_args = DiffusionTrainingArguments()
@@ -183,10 +221,6 @@ class SDLoRA(Pass):
         # Detect model variant
         model_variant = self._detect_model_variant(model, config)
         logger.info("Detected model variant: %s", model_variant)
-
-        # Validate DreamBooth config
-        if config.dreambooth and not config.instance_prompt:
-            raise ValueError("instance_prompt is required when dreambooth=True. Example: 'a photo of sks dog'")
 
         # Route to appropriate training method
         if model_variant == DiffusersModelVariant.FLUX:
@@ -299,6 +333,17 @@ class SDLoRA(Pass):
             if training_args.gradient_checkpointing:
                 unet.enable_gradient_checkpointing()
 
+            # Prepare class images for prior preservation
+            class_data_dir = None
+            if config.with_prior_preservation:
+                class_data_dir = self._prepare_class_images(
+                    model_path=model_path,
+                    class_prompt=config.class_prompt,
+                    class_data_dir=config.class_data_dir,
+                    num_class_images=config.num_class_images,
+                    model_variant=model_variant,
+                )
+
             # Load dataset
             train_dataset = self._load_dataset(config)
             train_dataloader = self._create_dataloader(
@@ -306,7 +351,9 @@ class SDLoRA(Pass):
                 training_args,
                 model_path,
                 model_variant,
-                prior_preservation=config.dreambooth,
+                prior_preservation=config.with_prior_preservation,
+                class_data_dir=class_data_dir,
+                class_prompt=config.class_prompt,
                 instance_prompt=config.instance_prompt,
             )
 
@@ -412,7 +459,7 @@ class SDLoRA(Pass):
                             raise ValueError(f"Unknown prediction type: {noise_scheduler.config.prediction_type}")
 
                         # Batch is [instance_images, class_images] concatenated
-                        if config.dreambooth:
+                        if config.with_prior_preservation:
                             model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
                             target, target_prior = torch.chunk(target, 2, dim=0)
 
@@ -643,6 +690,17 @@ class SDLoRA(Pass):
             if training_args.gradient_checkpointing:
                 transformer.enable_gradient_checkpointing()
 
+            # Prepare class images for prior preservation
+            class_data_dir = None
+            if config.with_prior_preservation:
+                class_data_dir = self._prepare_class_images(
+                    model_path=model_path,
+                    class_prompt=config.class_prompt,
+                    class_data_dir=config.class_data_dir,
+                    num_class_images=config.num_class_images,
+                    model_variant=DiffusersModelVariant.FLUX,
+                )
+
             # Load dataset
             train_dataset = self._load_dataset(config)
             train_dataloader = self._create_dataloader(
@@ -650,7 +708,9 @@ class SDLoRA(Pass):
                 training_args,
                 model_path,
                 DiffusersModelVariant.FLUX,
-                prior_preservation=config.dreambooth,
+                prior_preservation=config.with_prior_preservation,
+                class_data_dir=class_data_dir,
+                class_prompt=config.class_prompt,
                 instance_prompt=config.instance_prompt,
             )
 
@@ -754,7 +814,7 @@ class SDLoRA(Pass):
                         target = noise - latents
 
                         # Prior preservation: split predictions and targets (official HuggingFace approach)
-                        if config.dreambooth:
+                        if config.with_prior_preservation:
                             model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
                             target, target_prior = torch.chunk(target, 2, dim=0)
 
@@ -849,6 +909,97 @@ class SDLoRA(Pass):
 
         return model.detected_model_variant
 
+    def _prepare_class_images(
+        self,
+        model_path: str,
+        class_prompt: str,
+        class_data_dir: Optional[str],
+        num_class_images: int,
+        model_variant: "DiffusersModelVariant",
+    ) -> Path:
+        """Generate class images for prior preservation if needed.
+
+        Args:
+            model_path: Path to the pretrained diffusion model.
+            class_prompt: Prompt for generating class images.
+            class_data_dir: Directory to store class images. If None, uses Olive cache.
+            num_class_images: Target number of class images.
+            model_variant: Type of diffusion model.
+
+        Returns:
+            Path to directory containing class images.
+
+        """
+        import hashlib
+
+        import torch
+
+        from olive.cache import OliveCache
+
+        # Determine output directory
+        if class_data_dir:
+            output_dir = Path(class_data_dir)
+        else:
+            cache = OliveCache.from_cache_env()
+            prompt_hash = hashlib.md5(class_prompt.encode()).hexdigest()[:8]
+            output_dir = cache.get_cache_dir() / "class_images" / prompt_hash
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Count existing images
+        existing_images = list(output_dir.glob("*.png")) + list(output_dir.glob("*.jpg"))
+        num_existing = len(existing_images)
+
+        if num_existing >= num_class_images:
+            logger.info("Found %d existing class images in %s", num_existing, output_dir)
+            return output_dir
+
+        # Generate missing images
+        num_to_generate = num_class_images - num_existing
+        logger.info("Generating %d class images with prompt: '%s'", num_to_generate, class_prompt)
+
+        # Load appropriate pipeline
+        if model_variant == DiffusersModelVariant.FLUX:
+            from diffusers import FluxPipeline
+
+            pipeline = FluxPipeline.from_pretrained(model_path, torch_dtype=torch.bfloat16)
+        elif model_variant == DiffusersModelVariant.SDXL:
+            from diffusers import StableDiffusionXLPipeline
+
+            pipeline = StableDiffusionXLPipeline.from_pretrained(model_path, torch_dtype=torch.float16)
+        else:
+            from diffusers import StableDiffusionPipeline
+
+            pipeline = StableDiffusionPipeline.from_pretrained(
+                model_path,
+                torch_dtype=torch.float16,
+                safety_checker=None,
+                requires_safety_checker=False,
+            )
+
+        pipeline = pipeline.to("cuda")
+
+        # Generate images in batches
+        batch_size = 4
+        for i in range(0, num_to_generate, batch_size):
+            current_batch = min(batch_size, num_to_generate - i)
+            images = pipeline(
+                [class_prompt] * current_batch,
+                num_inference_steps=50,
+            ).images
+
+            for j, img in enumerate(images):
+                img_path = output_dir / f"class_{num_existing + i + j:04d}.png"
+                img.save(img_path)
+
+            logger.info("Generated %d/%d class images", min(i + batch_size, num_to_generate), num_to_generate)
+
+        # Clean up pipeline to free memory
+        del pipeline
+        torch.cuda.empty_cache()
+
+        return output_dir
+
     def _load_dataset(self, config):
         """Load training dataset.
 
@@ -863,18 +1014,27 @@ class SDLoRA(Pass):
         return data_container.pre_process(data_container.load_dataset())
 
     def _create_dataloader(
-        self, dataset, training_args, model_path, model_variant, prior_preservation=False, instance_prompt=None
+        self,
+        dataset,
+        training_args,
+        model_path,
+        model_variant,
+        prior_preservation=False,
+        class_data_dir=None,
+        class_prompt=None,
+        instance_prompt=None,
     ):
         """Create training dataloader with image loading and tokenization.
 
         Args:
             dataset: Dataset with image_path, caption, and bucket_assignments.
-                For DreamBooth, also expects class_image_path and class_caption.
             training_args: Training arguments.
             model_path: Path to the diffusion model for loading tokenizers.
             model_variant: Type of diffusion model (SD15, SDXL, FLUX).
             prior_preservation: Whether to include class images for prior preservation.
-            instance_prompt: Fixed prompt for all images (used in DreamBooth mode).
+            class_data_dir: Directory containing class images (for prior preservation).
+            class_prompt: Prompt for class images (for prior preservation).
+            instance_prompt: Fixed prompt for all instance images (for DreamBooth).
 
         Raises:
             ValueError: If dataset has not been preprocessed with aspect_ratio_bucketing or image_resizing.
@@ -957,6 +1117,16 @@ class SDLoRA(Pass):
                 result[key_map[name]] = tokens.input_ids
             return result
 
+        # Load class images list if prior preservation is enabled
+        class_images_list = []
+        if prior_preservation and class_data_dir:
+            class_data_path = Path(class_data_dir)
+            class_images_list = sorted(list(class_data_path.glob("*.png")) + list(class_data_path.glob("*.jpg")))
+            if not class_images_list:
+                raise ValueError(f"No class images found in {class_data_dir}")
+
+        class_image_idx = [0]  # Use list to allow mutation in closure
+
         def collate_fn(examples):
             # Instance images
             pixel_values = []
@@ -973,37 +1143,35 @@ class SDLoRA(Pass):
                 original_sizes.append(orig_size)
                 target_sizes.append(tgt_size)
                 crops_coords.append(crop_coords)
-                # Use instance_prompt if provided (DreamBooth), otherwise use caption from dataset
-                captions.append(instance_prompt if instance_prompt else ex.get("caption", ""))
+                # For DreamBooth: use instance_prompt for all images
+                # For standard LoRA: use dataset captions
+                if instance_prompt:
+                    captions.append(instance_prompt)
+                else:
+                    captions.append(ex.get("caption", ""))
 
             # For DreamBooth with prior preservation: concatenate class images after instance images
             # This follows the official HuggingFace approach - single forward pass, then torch.chunk
-            if prior_preservation:
-                class_image_count = 0
-                for ex in examples:
-                    class_image_path = ex.get("class_image_path", "")
-                    if class_image_path:
-                        class_image_count += 1
-                        # Process class image (must be in bucket_assignments after preprocessing)
-                        pixel_tensor, orig_size, tgt_size, crop_coords = process_image(class_image_path)
-                        pixel_values.append(pixel_tensor)
-                        original_sizes.append(orig_size)
-                        target_sizes.append(tgt_size)
-                        crops_coords.append(crop_coords)
-                        captions.append(ex.get("class_caption", ""))
+            if prior_preservation and class_images_list:
+                for _ in examples:
+                    # Get class image (cycle through available images)
+                    class_img_path = class_images_list[class_image_idx[0] % len(class_images_list)]
+                    class_image_idx[0] += 1
 
-                if class_image_count == 0:
-                    logger.warning(
-                        "prior_preservation is enabled but no class images found in batch. "
-                        "Ensure dataset includes 'class_image_path' and 'class_caption' fields."
-                    )
-                elif class_image_count != len(examples):
-                    logger.warning(
-                        "prior_preservation: only %d/%d examples have class images. "
-                        "All examples should have class images for proper prior preservation.",
-                        class_image_count,
-                        len(examples),
-                    )
+                    # Load and process class image to match instance image size
+                    img = Image.open(class_img_path).convert("RGB")
+                    # Resize to match the first instance image's target size
+                    target_w, target_h = target_sizes[0]
+                    img = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
+
+                    img_array = np.array(img, dtype=np.float32) / 127.5 - 1.0
+                    pixel_tensor = torch.from_numpy(img_array.transpose(2, 0, 1))
+
+                    pixel_values.append(pixel_tensor)
+                    original_sizes.append((img.width, img.height))
+                    target_sizes.append((target_w, target_h))
+                    crops_coords.append((0, 0))
+                    captions.append(class_prompt or "")
 
             result = {"pixel_values": torch.stack(pixel_values).to(memory_format=torch.contiguous_format).float()}
 
