@@ -2,47 +2,33 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from olive.common.hf.io_config.model_configs import (
     _ONNX_CONFIG_REGISTRY,
-    register_onnx_config,
+    BertOnnxConfig,
+    # Multimodal
+    DcaeDecoderOnnxConfig,
+    DcaeEncoderOnnxConfig,
+    DiffusersTextEncoderOnnxConfig,
+    DiffusersTextEncoderWithProjectionOnnxConfig,
+    DistilBertOnnxConfig,
+    FluxTransformerOnnxConfig,
+    GPT2OnnxConfig,
+    LlamaOnnxConfig,
+    SanaTransformerOnnxConfig,
+    SD3TransformerOnnxConfig,
+    # Seq2seq models
+    UNetOnnxConfig,
+    VaeDecoderOnnxConfig,
+    VaeEncoderOnnxConfig,
+    # Vision models
+    ViTOnnxConfig,
     get_onnx_config_class,
     get_supported_model_types,
     get_supported_tasks_for_model,
-    # Text encoder models
-    BertOnnxConfig,
-    DistilBertOnnxConfig,
-    RobertaOnnxConfig,
-    # Text decoder models
-    GPT2OnnxConfig,
-    LlamaOnnxConfig,
-    MistralOnnxConfig,
-    GemmaOnnxConfig,
-    # Seq2seq models
-    T5OnnxConfig,
-    BartOnnxConfig,
-    # Vision models
-    ViTOnnxConfig,
-    ResNetOnnxConfig,
-    # Audio models
-    WhisperOnnxConfig,
-    Wav2Vec2OnnxConfig,
-    # Multimodal
-    CLIPOnnxConfig,
-    # Diffusers models
-    DiffusersTextEncoderOnnxConfig,
-    DiffusersTextEncoderWithProjectionOnnxConfig,
-    DiffusersT5EncoderOnnxConfig,
-    UNetOnnxConfig,
-    VaeEncoderOnnxConfig,
-    VaeDecoderOnnxConfig,
-    SD3TransformerOnnxConfig,
-    FluxTransformerOnnxConfig,
-    SanaTransformerOnnxConfig,
-    DcaeEncoderOnnxConfig,
-    DcaeDecoderOnnxConfig,
 )
 from olive.common.hf.io_config.tasks import TaskType
 

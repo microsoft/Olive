@@ -2,26 +2,27 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from olive.common.hf.io_config.normalized_config import (
+    BartLikeNormalizedTextConfig,
+    GPT2LikeNormalizedTextConfig,
     NormalizedConfig,
     NormalizedConfigManager,
-    NormalizedTextConfig,
-    NormalizedTextConfigWithGQA,
-    NormalizedVisionConfig,
-    NormalizedSeq2SeqConfig,
-    NormalizedTextAndVisionConfig,
-    NormalizedSegformerConfig,
     NormalizedEncoderDecoderConfig,
-    NormalizedUNetConfig,
-    NormalizedVaeConfig,
-    NormalizedSD3TransformerConfig,
     NormalizedFluxTransformerConfig,
     NormalizedSanaTransformerConfig,
-    GPT2LikeNormalizedTextConfig,
-    BartLikeNormalizedTextConfig,
+    NormalizedSD3TransformerConfig,
+    NormalizedSegformerConfig,
+    NormalizedSeq2SeqConfig,
+    NormalizedTextAndVisionConfig,
+    NormalizedTextConfig,
+    NormalizedTextConfigWithGQA,
+    NormalizedUNetConfig,
+    NormalizedVaeConfig,
+    NormalizedVisionConfig,
     T5LikeNormalizedTextConfig,
 )
 
@@ -271,36 +272,46 @@ class TestNormalizedTextAndVisionConfig:
 class TestNormalizedEncoderDecoderConfig:
     """Test NormalizedEncoderDecoderConfig."""
 
-    def test_encoder_decoder_config_with_encoder_class(self):
-        """Test NormalizedEncoderDecoderConfig with ENCODER_NORMALIZED_CONFIG_CLASS."""
+    def test_encoder_decoder_config_fallback_to_base(self):
+        """Test NormalizedEncoderDecoderConfig falls back to base config."""
         mock_config = MagicMock()
         mock_config.hidden_size = 768
 
-        # Create a mock encoder config class
-        mock_encoder_config = MagicMock()
-        mock_encoder_config.hidden_size = 512
+        normalized = NormalizedEncoderDecoderConfig(mock_config)
+        # With no encoder/decoder class set, should fall back to base __getattr__
+        assert normalized.hidden_size == 768
+
+    def test_encoder_decoder_config_with_encoder_class(self):
+        """Test NormalizedEncoderDecoderConfig delegates to encoder config class."""
+        mock_config = MagicMock()
+        mock_config.hidden_size = 768
+        mock_config.vocab_size = 30000
+
+        # Create encoder config instance that has VOCAB_SIZE attribute
+        encoder_config = NormalizedTextConfig(mock_config)
 
         class TestConfig(NormalizedEncoderDecoderConfig):
-            ENCODER_NORMALIZED_CONFIG_CLASS = mock_encoder_config
+            ENCODER_NORMALIZED_CONFIG_CLASS = encoder_config
 
         normalized = TestConfig(mock_config)
-        # This should call through to encoder config
-        # The actual behavior depends on how the mock is set up
+        # vocab_size should delegate to encoder config
+        assert normalized.vocab_size == 30000
 
     def test_encoder_decoder_config_with_decoder_class(self):
-        """Test NormalizedEncoderDecoderConfig with DECODER_NORMALIZED_CONFIG_CLASS."""
+        """Test NormalizedEncoderDecoderConfig delegates to decoder config class."""
         mock_config = MagicMock()
         mock_config.hidden_size = 768
+        mock_config.num_hidden_layers = 12
 
-        # Create a mock decoder config class
-        mock_decoder_config = MagicMock()
-        mock_decoder_config.hidden_size = 512
+        # Create decoder config instance
+        decoder_config = NormalizedTextConfig(mock_config)
 
         class TestConfig(NormalizedEncoderDecoderConfig):
-            DECODER_NORMALIZED_CONFIG_CLASS = mock_decoder_config
+            DECODER_NORMALIZED_CONFIG_CLASS = decoder_config
 
         normalized = TestConfig(mock_config)
-        # This tests the decoder path
+        # num_layers should delegate to decoder config
+        assert normalized.num_layers == 12
 
 
 class TestPreConfiguredNormalizedConfigs:

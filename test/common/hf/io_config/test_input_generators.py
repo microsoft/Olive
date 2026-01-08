@@ -2,34 +2,33 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 import torch
 
 from olive.common.hf.io_config.input_generators import (
     DEFAULT_DUMMY_SHAPES,
     DtypeMapper,
-    DummyInputGenerator,
-    DummyTextInputGenerator,
-    DummyDecoderTextInputGenerator,
-    DummySeq2SeqDecoderTextInputGenerator,
-    DummyPastKeyValuesGenerator,
-    DummySeq2SeqPastKeyValuesGenerator,
-    DummyBboxInputGenerator,
-    DummyVisionInputGenerator,
     DummyAudioInputGenerator,
-    MistralDummyPastKeyValuesGenerator,
-    GemmaDummyPastKeyValuesGenerator,
-    FalconDummyPastKeyValuesGenerator,
-    GPTBigCodeDummyPastKeyValuesGenerator,
+    DummyBboxInputGenerator,
+    DummyFluxTransformerInputGenerator,
+    DummyInputGenerator,
+    DummyPastKeyValuesGenerator,
+    DummySanaTransformerInputGenerator,
+    DummySD3TransformerInputGenerator,
+    DummySeq2SeqDecoderTextInputGenerator,
+    DummySeq2SeqPastKeyValuesGenerator,
+    DummyTextInputGenerator,
     # Diffusers generators
     DummyTimestepInputGenerator,
     DummyUNetInputGenerator,
     DummyVaeInputGenerator,
-    DummySD3TransformerInputGenerator,
-    DummyFluxTransformerInputGenerator,
-    DummySanaTransformerInputGenerator,
+    DummyVisionInputGenerator,
+    FalconDummyPastKeyValuesGenerator,
+    GemmaDummyPastKeyValuesGenerator,
+    GPTBigCodeDummyPastKeyValuesGenerator,
+    MistralDummyPastKeyValuesGenerator,
 )
 from olive.common.hf.io_config.tasks import TaskType
 

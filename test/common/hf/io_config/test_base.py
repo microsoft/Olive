@@ -2,9 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
+from unittest.mock import MagicMock
+
 import pytest
-from collections import OrderedDict
-from unittest.mock import MagicMock, patch
 
 from olive.common.hf.io_config.base import OnnxConfig, OnnxConfigWithPast
 from olive.common.hf.io_config.input_generators import DummyTextInputGenerator
@@ -183,17 +183,13 @@ class TestOnnxConfigWithPast:
 
     def test_init_with_use_past(self, mock_config):
         """Test initialization with use_past."""
-        onnx_config = ConcreteOnnxConfigWithPast(
-            mock_config, use_past=True, use_past_in_inputs=True
-        )
+        onnx_config = ConcreteOnnxConfigWithPast(mock_config, use_past=True, use_past_in_inputs=True)
         assert onnx_config.use_past is True
         assert onnx_config.use_past_in_inputs is True
 
     def test_outputs_includes_present_when_use_past(self, mock_config):
         """Test outputs include present key values when use_past is True."""
-        onnx_config = ConcreteOnnxConfigWithPast(
-            mock_config, task=TaskType.TEXT_GENERATION, use_past=True
-        )
+        onnx_config = ConcreteOnnxConfigWithPast(mock_config, task=TaskType.TEXT_GENERATION, use_past=True)
         outputs = onnx_config.outputs
         # Should have present.*.key and present.*.value entries
         present_keys = [k for k in outputs if k.startswith("present")]

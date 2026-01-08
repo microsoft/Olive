@@ -2,12 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
-import pytest
 
 from olive.common.hf.io_config.tasks import (
-    COMMON_TEXT_TASKS,
-    COMMON_TEXT_GENERATION_TASKS,
     COMMON_TEXT2TEXT_GENERATION_TASKS,
+    COMMON_TEXT_GENERATION_TASKS,
+    COMMON_TEXT_TASKS,
     TaskType,
     map_task_synonym,
 )
@@ -25,7 +24,7 @@ class TestTaskType:
     def test_task_type_string_comparison(self):
         """Test that TaskType can be compared with strings."""
         assert TaskType.FEATURE_EXTRACTION == "feature-extraction"
-        assert "text-generation" == TaskType.TEXT_GENERATION
+        assert TaskType.TEXT_GENERATION == "text-generation"
 
 
 class TestTaskGroups:

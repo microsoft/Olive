@@ -2,33 +2,31 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from olive.common.hf.io_config import (
-    # Main API functions
-    get_onnx_config,
-    get_onnx_config_class,
-    get_supported_model_types,
-    get_supported_tasks_for_model,
-    is_model_supported,
-    is_task_supported,
-    # Diffusers API
-    get_diffusers_onnx_config,
-    get_supported_diffusers_pipelines,
-    get_supported_components_for_pipeline,
+    DEFAULT_DUMMY_SHAPES,
+    # Input generators
+    DummyInputGenerator,
+    # Normalized configs
+    NormalizedConfig,
+    NormalizedConfigManager,
     # Base classes
     OnnxConfig,
     OnnxConfigWithPast,
     # Task types
     TaskType,
+    # Diffusers API
+    get_diffusers_onnx_config,
+    # Main API functions
+    get_onnx_config,
+    get_supported_components_for_pipeline,
+    get_supported_diffusers_pipelines,
+    is_model_supported,
+    is_task_supported,
     map_task_synonym,
-    # Normalized configs
-    NormalizedConfig,
-    NormalizedConfigManager,
-    # Input generators
-    DummyInputGenerator,
-    DEFAULT_DUMMY_SHAPES,
 )
 from olive.common.hf.io_config.model_configs import BertOnnxConfig
 

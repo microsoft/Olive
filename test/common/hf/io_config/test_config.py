@@ -2,18 +2,19 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from olive.common.hf.io_config.config import (
-    TextEncoderOnnxConfig,
-    TextDecoderOnnxConfig,
-    TextDecoderWithPositionIdsOnnxConfig,
-    TextSeq2SeqOnnxConfig,
-    VisionOnnxConfig,
-    TextAndVisionOnnxConfig,
     AudioOnnxConfig,
     AudioToTextOnnxConfig,
+    TextAndVisionOnnxConfig,
+    TextDecoderOnnxConfig,
+    TextDecoderWithPositionIdsOnnxConfig,
+    TextEncoderOnnxConfig,
+    TextSeq2SeqOnnxConfig,
+    VisionOnnxConfig,
 )
 from olive.common.hf.io_config.tasks import TaskType
 
@@ -65,9 +66,7 @@ class TestTextDecoderOnnxConfig:
 
     def test_outputs_includes_present_when_use_past(self, mock_config):
         """Test outputs include present when use_past is True."""
-        onnx_config = TextDecoderOnnxConfig(
-            mock_config, task=TaskType.TEXT_GENERATION, use_past=True
-        )
+        onnx_config = TextDecoderOnnxConfig(mock_config, task=TaskType.TEXT_GENERATION, use_past=True)
         outputs = onnx_config.outputs
         assert any(k.startswith("present") for k in outputs)
 
@@ -84,17 +83,13 @@ class TestTextDecoderWithPositionIdsOnnxConfig:
 
     def test_inputs_includes_position_ids_for_text_generation(self, mock_config):
         """Test inputs include position_ids for text generation task."""
-        onnx_config = TextDecoderWithPositionIdsOnnxConfig(
-            mock_config, task=TaskType.TEXT_GENERATION
-        )
+        onnx_config = TextDecoderWithPositionIdsOnnxConfig(mock_config, task=TaskType.TEXT_GENERATION)
         inputs = onnx_config.inputs
         assert "position_ids" in inputs
 
     def test_inputs_includes_position_ids_for_feature_extraction(self, mock_config):
         """Test inputs include position_ids for feature extraction task."""
-        onnx_config = TextDecoderWithPositionIdsOnnxConfig(
-            mock_config, task=TaskType.FEATURE_EXTRACTION
-        )
+        onnx_config = TextDecoderWithPositionIdsOnnxConfig(mock_config, task=TaskType.FEATURE_EXTRACTION)
         inputs = onnx_config.inputs
         assert "position_ids" in inputs
 
