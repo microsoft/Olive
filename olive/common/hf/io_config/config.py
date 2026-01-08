@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from olive.common.hf.io_config.base import OnnxConfig, OnnxConfigWithPast
 from olive.common.hf.io_config.input_generators import (
@@ -39,7 +39,7 @@ class TextDecoderOnnxConfig(OnnxConfigWithPast):
 
     def __init__(
         self,
-        config: "PretrainedConfig",
+        config: PretrainedConfig,
         task: str = "feature-extraction",
         int_dtype: str = "int64",
         float_dtype: str = "fp32",
@@ -115,9 +115,7 @@ class TextSeq2SeqOnnxConfig(OnnxConfigWithPast):
         return common_inputs
 
     def _create_dummy_input_generator_classes(self, **kwargs) -> list[DummyInputGenerator]:
-        dummy_text_input_generator = self.DUMMY_INPUT_GENERATOR_CLASSES[0](
-            self.task, self._normalized_config, **kwargs
-        )
+        dummy_text_input_generator = self.DUMMY_INPUT_GENERATOR_CLASSES[0](self.task, self._normalized_config, **kwargs)
         dummy_decoder_text_input_generator = self.DUMMY_INPUT_GENERATOR_CLASSES[1](
             self.task,
             self._normalized_config,
@@ -129,16 +127,14 @@ class TextSeq2SeqOnnxConfig(OnnxConfigWithPast):
             encoder_sequence_length=dummy_text_input_generator.sequence_length,
             **kwargs,
         )
-        dummy_inputs_generators = [
+        return [
             dummy_text_input_generator,
             dummy_decoder_text_input_generator,
             dummy_seq2seq_past_key_values_generator,
         ]
 
-        return dummy_inputs_generators
-
     def add_past_key_values(self, inputs_or_outputs: dict[str, dict[int, str]], direction: str):
-        """Fills input_or_outputs mapping with past_key_values dynamic axes for seq2seq."""
+        """Fill input_or_outputs mapping with past_key_values dynamic axes for seq2seq."""
         if direction not in ["inputs", "outputs"]:
             raise ValueError(f'direction must either be "inputs" or "outputs", but {direction} was given')
 
@@ -199,7 +195,7 @@ class AudioToTextOnnxConfig(OnnxConfigWithPast):
         return common_inputs
 
     def add_past_key_values(self, inputs_or_outputs: dict[str, dict[int, str]], direction: str):
-        """Fills input_or_outputs mapping with past_key_values dynamic axes for audio-to-text."""
+        """Fill input_or_outputs mapping with past_key_values dynamic axes for audio-to-text."""
         if direction not in ["inputs", "outputs"]:
             raise ValueError(f'direction must either be "inputs" or "outputs", but {direction} was given')
 

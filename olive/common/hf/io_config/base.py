@@ -7,11 +7,11 @@ from __future__ import annotations
 import inspect
 import logging
 import re
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from olive.common.hf.io_config.input_generators import DEFAULT_DUMMY_SHAPES, DummyInputGenerator
+from olive.common.hf.io_config.input_generators import DummyInputGenerator
 from olive.common.hf.io_config.normalized_config import NormalizedConfig, NormalizedConfigManager
 from olive.common.hf.io_config.tasks import TaskType
 
@@ -28,7 +28,7 @@ class OnnxConfig(ABC):
     NORMALIZED_CONFIG_CLASS: ClassVar[type] = NormalizedConfig
     DUMMY_INPUT_GENERATOR_CLASSES: ClassVar[tuple] = ()
 
-    _TASK_TO_COMMON_OUTPUTS = {
+    _TASK_TO_COMMON_OUTPUTS: ClassVar[dict] = {
         TaskType.AUDIO_CLASSIFICATION: OrderedDict({"logits": {0: "batch_size"}}),
         TaskType.AUDIO_FRAME_CLASSIFICATION: OrderedDict({"logits": {0: "batch_size", 1: "sequence_length"}}),
         TaskType.AUTOMATIC_SPEECH_RECOGNITION: OrderedDict({"logits": {0: "batch_size", 1: "sequence_length"}}),
@@ -90,7 +90,7 @@ class OnnxConfig(ABC):
 
     def __init__(
         self,
-        config: "PretrainedConfig",
+        config: PretrainedConfig,
         task: str = "feature-extraction",
         int_dtype: str = "int64",
         float_dtype: str = "fp32",
@@ -113,18 +113,19 @@ class OnnxConfig(ABC):
                 self._normalized_config = NormalizedConfig(config)
 
     @property
+    @abstractmethod
     def inputs(self) -> dict[str, dict[int, str]]:
-        """Returns the inputs of the model."""
+        """Return the inputs of the model."""
         raise NotImplementedError
 
     @property
     def outputs(self) -> dict[str, dict[int, str]]:
-        """Returns the outputs of the model."""
+        """Return the outputs of the model."""
         # Return a copy to avoid mutating the shared _TASK_TO_COMMON_OUTPUTS
         return OrderedDict(self._TASK_TO_COMMON_OUTPUTS.get(self.task, OrderedDict()))
 
-    def ordered_inputs(self, model: "PreTrainedModel") -> dict[str, dict[int, str]]:
-        """Re-orders the inputs using the model forward pass signature."""
+    def ordered_inputs(self, model: PreTrainedModel) -> dict[str, dict[int, str]]:
+        """Re-order the inputs using the model forward pass signature."""
         inputs = self.inputs
 
         ordered_inputs = {}
@@ -135,15 +136,12 @@ class OnnxConfig(ABC):
 
         for param in sig.parameters:
             param_regex = re.compile(rf"{param}(\..*)?$")
-            to_insert = []
-            for name, dynamic_axes in inputs.items():
-                if re.match(param_regex, name):
-                    to_insert.append((name, dynamic_axes))
-            for name, dynamic_axes in to_insert:
-                ordered_inputs[name] = dynamic_axes
+            ordered_inputs.update(
+                {name: dynamic_axes for name, dynamic_axes in inputs.items() if re.match(param_regex, name)}
+            )
         return ordered_inputs
 
-    def get_io_config(self, model: "PreTrainedModel") -> dict[str, Any]:
+    def get_io_config(self, model: PreTrainedModel) -> dict[str, Any]:
         """Get complete IO config for ONNX export.
 
         Args:
@@ -151,6 +149,7 @@ class OnnxConfig(ABC):
 
         Returns:
             A dict containing input_names, output_names, dynamic_axes, and dynamic_shapes.
+
         """
         inputs = self.ordered_inputs(model)
         outputs = self.outputs
@@ -208,13 +207,11 @@ class OnnxConfig(ABC):
         return unflattened
 
     def _create_dummy_input_generator_classes(self, **kwargs) -> list[DummyInputGenerator]:
-        """Creates the dummy input generator instances."""
-        return [
-            cls(self.task, self._normalized_config, **kwargs) for cls in self.DUMMY_INPUT_GENERATOR_CLASSES if cls
-        ]
+        """Create the dummy input generator instances."""
+        return [cls(self.task, self._normalized_config, **kwargs) for cls in self.DUMMY_INPUT_GENERATOR_CLASSES if cls]
 
     def generate_dummy_inputs(self, framework: str = "pt", **kwargs) -> dict[str, Any]:
-        """Generates dummy inputs for tracing the model."""
+        """Generate dummy inputs for tracing the model."""
         dummy_inputs_generators = self._create_dummy_input_generator_classes(**kwargs)
 
         dummy_inputs = {}
@@ -246,7 +243,7 @@ class OnnxConfigWithPast(OnnxConfig, ABC):
 
     def __init__(
         self,
-        config: "PretrainedConfig",
+        config: PretrainedConfig,
         task: str = "feature-extraction",
         int_dtype: str = "int64",
         float_dtype: str = "fp32",
@@ -272,7 +269,7 @@ class OnnxConfigWithPast(OnnxConfig, ABC):
         return common_outputs
 
     def add_past_key_values(self, inputs_or_outputs: dict[str, dict[int, str]], direction: str):
-        """Fills input_or_outputs mapping with past_key_values dynamic axes."""
+        """Fill input_or_outputs mapping with past_key_values dynamic axes."""
         if direction not in ["inputs", "outputs"]:
             raise ValueError(f'direction must either be "inputs" or "outputs", but {direction} was given')
 
@@ -288,7 +285,7 @@ class OnnxConfigWithPast(OnnxConfig, ABC):
             inputs_or_outputs[f"{name}.{i}.value"] = {0: "batch_size", 2: decoder_sequence_name}
 
     def generate_dummy_inputs(self, framework: str = "pt", **kwargs) -> dict[str, Any]:
-        """Generates dummy inputs for tracing the model with past key values support."""
+        """Generate dummy inputs for tracing the model with past key values support."""
         dummy_inputs_generators = self._create_dummy_input_generator_classes(**kwargs)
 
         dummy_inputs = {}
@@ -333,7 +330,7 @@ class OnnxConfigWithPast(OnnxConfig, ABC):
     def overwrite_shape_and_generate_input(
         self, dummy_input_gen: DummyInputGenerator, input_name: str, framework: str, input_shapes: dict
     ):
-        """Overwrites some shapes and generates the dummy input."""
+        """Overwrite some shapes and generate the dummy input."""
         if (
             self.use_past
             and self.use_past_in_inputs

@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING
 
 from olive.common.hf.io_config.base import OnnxConfig, OnnxConfigWithPast
 from olive.common.hf.io_config.config import (
@@ -18,22 +18,22 @@ from olive.common.hf.io_config.config import (
 from olive.common.hf.io_config.input_generators import DEFAULT_DUMMY_SHAPES, DummyInputGenerator
 from olive.common.hf.io_config.model_configs import (
     _ONNX_CONFIG_REGISTRY,
-    get_onnx_config_class,
-    get_supported_model_types,
-    get_supported_tasks_for_model,
+    DcaeDecoderOnnxConfig,
+    DcaeEncoderOnnxConfig,
+    DiffusersGemma2TextEncoderOnnxConfig,
+    DiffusersT5EncoderOnnxConfig,
     # Diffusers OnnxConfig classes
     DiffusersTextEncoderOnnxConfig,
     DiffusersTextEncoderWithProjectionOnnxConfig,
-    DiffusersT5EncoderOnnxConfig,
-    DiffusersGemma2TextEncoderOnnxConfig,
-    UNetOnnxConfig,
-    VaeEncoderOnnxConfig,
-    VaeDecoderOnnxConfig,
-    SD3TransformerOnnxConfig,
     FluxTransformerOnnxConfig,
     SanaTransformerOnnxConfig,
-    DcaeEncoderOnnxConfig,
-    DcaeDecoderOnnxConfig,
+    SD3TransformerOnnxConfig,
+    UNetOnnxConfig,
+    VaeDecoderOnnxConfig,
+    VaeEncoderOnnxConfig,
+    get_onnx_config_class,
+    get_supported_model_types,
+    get_supported_tasks_for_model,
 )
 from olive.common.hf.io_config.normalized_config import (
     NormalizedConfig,
@@ -45,15 +45,15 @@ from olive.common.hf.io_config.normalized_config import (
     NormalizedVisionConfig,
 )
 from olive.common.hf.io_config.tasks import (
-    COMMON_TEXT_TASKS,
-    COMMON_TEXT_GENERATION_TASKS,
     COMMON_TEXT2TEXT_GENERATION_TASKS,
+    COMMON_TEXT_GENERATION_TASKS,
+    COMMON_TEXT_TASKS,
     TaskType,
     map_task_synonym,
 )
 
 if TYPE_CHECKING:
-    from transformers import PretrainedConfig, PreTrainedModel
+    from transformers import PretrainedConfig
 
 
 def get_onnx_config(
@@ -66,8 +66,7 @@ def get_onnx_config(
     use_past_in_inputs: bool = False,
     **kwargs,
 ) -> OnnxConfig:
-    """
-    Get an ONNX config instance for a model type and task.
+    """Get an ONNX config instance for a model type and task.
 
     Args:
         model_type: The model type (e.g., "bert", "llama", "gpt2").
@@ -84,6 +83,7 @@ def get_onnx_config(
 
     Raises:
         KeyError: If the model type or task is not supported.
+
     """
     config_class = get_onnx_config_class(model_type, task)
 
@@ -178,10 +178,11 @@ def get_diffusers_onnx_config(
 
     Raises:
         KeyError: If the pipeline type and component combination is not supported.
+
     """
     key = (pipeline_type.lower(), component_name.lower())
     if key not in _DIFFUSERS_CONFIG_REGISTRY:
-        supported = [f"{p}:{c}" for p, c in _DIFFUSERS_CONFIG_REGISTRY.keys()]
+        supported = [f"{p}:{c}" for p, c in _DIFFUSERS_CONFIG_REGISTRY]
         raise KeyError(
             f"Pipeline type '{pipeline_type}' with component '{component_name}' is not supported. "
             f"Supported combinations: {supported}"
@@ -198,68 +199,59 @@ def get_diffusers_onnx_config(
 
 def get_supported_diffusers_pipelines() -> list[str]:
     """Get list of supported diffusers pipeline types."""
-    return list(set(p for p, _ in _DIFFUSERS_CONFIG_REGISTRY.keys()))
+    return list({p for p, _ in _DIFFUSERS_CONFIG_REGISTRY})
 
 
 def get_supported_components_for_pipeline(pipeline_type: str) -> list[str]:
     """Get list of supported components for a diffusers pipeline type."""
     pipeline_type = pipeline_type.lower()
-    return [c for p, c in _DIFFUSERS_CONFIG_REGISTRY.keys() if p == pipeline_type]
+    return [c for p, c in _DIFFUSERS_CONFIG_REGISTRY if p == pipeline_type]
 
 
 __all__ = [
-    # Main API
+    "COMMON_TEXT2TEXT_GENERATION_TASKS",
+    "COMMON_TEXT_GENERATION_TASKS",
+    "COMMON_TEXT_TASKS",
+    "DEFAULT_DUMMY_SHAPES",
+    "AudioOnnxConfig",
+    "AudioToTextOnnxConfig",
+    "DcaeDecoderOnnxConfig",
+    "DcaeEncoderOnnxConfig",
+    "DiffusersGemma2TextEncoderOnnxConfig",
+    "DiffusersT5EncoderOnnxConfig",
+    "DiffusersTextEncoderOnnxConfig",
+    "DiffusersTextEncoderWithProjectionOnnxConfig",
+    "DummyInputGenerator",
+    "FluxTransformerOnnxConfig",
+    "NormalizedConfig",
+    "NormalizedConfigManager",
+    "NormalizedEncoderDecoderConfig",
+    "NormalizedSeq2SeqConfig",
+    "NormalizedTextConfig",
+    "NormalizedTextConfigWithGQA",
+    "NormalizedVisionConfig",
+    "OnnxConfig",
+    "OnnxConfigWithPast",
+    "SD3TransformerOnnxConfig",
+    "SanaTransformerOnnxConfig",
+    "TaskType",
+    "TextAndVisionOnnxConfig",
+    "TextDecoderOnnxConfig",
+    "TextDecoderWithPositionIdsOnnxConfig",
+    "TextEncoderOnnxConfig",
+    "TextSeq2SeqOnnxConfig",
+    "UNetOnnxConfig",
+    "VaeDecoderOnnxConfig",
+    "VaeEncoderOnnxConfig",
+    "VisionOnnxConfig",
+    "get_diffusers_onnx_config",
     "get_onnx_config",
     "get_onnx_config_class",
+    "get_supported_components_for_pipeline",
+    "get_supported_diffusers_pipelines",
     "get_supported_model_types",
     "get_supported_tasks_for_model",
     "is_model_supported",
     "is_task_supported",
-    # Diffusers API
-    "get_diffusers_onnx_config",
-    "get_supported_diffusers_pipelines",
-    "get_supported_components_for_pipeline",
-    # Constants
-    "DEFAULT_DUMMY_SHAPES",
-    # Task types
-    "TaskType",
-    "COMMON_TEXT_TASKS",
-    "COMMON_TEXT_GENERATION_TASKS",
-    "COMMON_TEXT2TEXT_GENERATION_TASKS",
     "map_task_synonym",
-    # Base classes
-    "OnnxConfig",
-    "OnnxConfigWithPast",
-    # Common config classes
-    "TextEncoderOnnxConfig",
-    "TextDecoderOnnxConfig",
-    "TextDecoderWithPositionIdsOnnxConfig",
-    "TextSeq2SeqOnnxConfig",
-    "VisionOnnxConfig",
-    "TextAndVisionOnnxConfig",
-    "AudioOnnxConfig",
-    "AudioToTextOnnxConfig",
-    # Diffusers config classes
-    "DiffusersTextEncoderOnnxConfig",
-    "DiffusersTextEncoderWithProjectionOnnxConfig",
-    "DiffusersT5EncoderOnnxConfig",
-    "DiffusersGemma2TextEncoderOnnxConfig",
-    "UNetOnnxConfig",
-    "VaeEncoderOnnxConfig",
-    "VaeDecoderOnnxConfig",
-    "SD3TransformerOnnxConfig",
-    "FluxTransformerOnnxConfig",
-    "SanaTransformerOnnxConfig",
-    "DcaeEncoderOnnxConfig",
-    "DcaeDecoderOnnxConfig",
-    # Normalized configs
-    "NormalizedConfig",
-    "NormalizedConfigManager",
-    "NormalizedTextConfig",
-    "NormalizedTextConfigWithGQA",
-    "NormalizedVisionConfig",
-    "NormalizedSeq2SeqConfig",
-    "NormalizedEncoderDecoderConfig",
-    # Input generators
-    "DummyInputGenerator",
 ]

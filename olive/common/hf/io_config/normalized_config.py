@@ -3,22 +3,22 @@
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
 import functools
-from typing import TYPE_CHECKING, Callable, Dict, Type, Union
+from typing import TYPE_CHECKING, Callable, ClassVar, Union
 
 if TYPE_CHECKING:
     from transformers import PretrainedConfig
 
 
 class NormalizedConfig:
-    """
-    Handles the normalization of PretrainedConfig attribute names, allowing to access attributes in a general way.
+    """Handles the normalization of PretrainedConfig attribute names, allowing to access attributes in a general way.
 
     Attributes:
         config (PretrainedConfig):
             The config to normalize.
+
     """
 
-    def __init__(self, config: Union["PretrainedConfig", Dict], allow_new: bool = False, **kwargs):
+    def __init__(self, config: Union["PretrainedConfig", dict], allow_new: bool = False, **kwargs):
         self.config = config
         for key, value in kwargs.items():
             if allow_new or hasattr(self, key.upper()):
@@ -60,7 +60,7 @@ class NormalizedConfig:
 
     def has_attribute(self, attr_name):
         try:
-            self.__getattr__(attr_name)
+            getattr(self, attr_name)
         except AttributeError:
             return False
         return True
@@ -245,12 +245,10 @@ NormalizedSanaTransformerConfig = NormalizedConfig.with_args(
 
 
 class NormalizedConfigManager:
-    """
-    A class that contains all the information needed by ONNX Runtime optimization for a given model type.
-    """
+    """Contains all info needed by ONNX Runtime optimization for a given model type."""
 
     # Contribution note: Please add new models in alphabetical order
-    _conf = {
+    _conf: ClassVar[dict[str, type]] = {
         "albert": NormalizedTextConfig,
         "bart": BartLikeNormalizedTextConfig,
         "bert": NormalizedTextConfig,
@@ -330,6 +328,6 @@ class NormalizedConfigManager:
             )
 
     @classmethod
-    def get_normalized_config_class(cls, model_type: str) -> Type:
+    def get_normalized_config_class(cls, model_type: str) -> type:
         cls.check_supported_model(model_type)
         return cls._conf[model_type]

@@ -4,8 +4,6 @@
 # -------------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from olive.common.hf.io_config.base import OnnxConfig
 from olive.common.hf.io_config.config import (
     AudioOnnxConfig,
@@ -18,50 +16,45 @@ from olive.common.hf.io_config.config import (
     VisionOnnxConfig,
 )
 from olive.common.hf.io_config.input_generators import (
-    DummyTextInputGenerator,
-    DummyVisionInputGenerator,
-    MistralDummyPastKeyValuesGenerator,
-    GemmaDummyPastKeyValuesGenerator,
     BloomDummyPastKeyValuesGenerator,
-    FalconDummyPastKeyValuesGenerator,
-    GPTBigCodeDummyPastKeyValuesGenerator,
+    DummyFluxTransformerInputGenerator,
+    DummySanaTransformerInputGenerator,
+    DummySD3TransformerInputGenerator,
+    DummyTextInputGenerator,
     # Diffusers input generators
     DummyTimestepInputGenerator,
     DummyUNetInputGenerator,
     DummyVaeInputGenerator,
-    DummySD3TransformerInputGenerator,
-    DummyFluxTransformerInputGenerator,
-    DummySanaTransformerInputGenerator,
+    DummyVisionInputGenerator,
+    FalconDummyPastKeyValuesGenerator,
+    GemmaDummyPastKeyValuesGenerator,
+    GPTBigCodeDummyPastKeyValuesGenerator,
+    MistralDummyPastKeyValuesGenerator,
 )
 from olive.common.hf.io_config.normalized_config import (
-    NormalizedConfig,
-    NormalizedTextConfig,
-    NormalizedTextConfigWithGQA,
-    NormalizedVisionConfig,
-    NormalizedSeq2SeqConfig,
+    BartLikeNormalizedTextConfig,
+    BloomNormalizedTextConfig,
     GPT2LikeNormalizedTextConfig,
     GPTBigCodeNormalizedTextConfig,
-    BloomNormalizedTextConfig,
-    T5LikeNormalizedTextConfig,
-    BartLikeNormalizedTextConfig,
-    WhisperLikeNormalizedTextConfig,
+    NormalizedConfig,
+    NormalizedFluxTransformerConfig,
+    NormalizedSanaTransformerConfig,
+    NormalizedSD3TransformerConfig,
+    NormalizedTextConfig,
+    NormalizedTextConfigWithGQA,
     # Diffusers normalized configs
     NormalizedUNetConfig,
     NormalizedVaeConfig,
-    NormalizedSD3TransformerConfig,
-    NormalizedFluxTransformerConfig,
-    NormalizedSanaTransformerConfig,
+    NormalizedVisionConfig,
+    T5LikeNormalizedTextConfig,
+    WhisperLikeNormalizedTextConfig,
 )
 from olive.common.hf.io_config.tasks import (
-    TaskType,
-    COMMON_TEXT_TASKS,
-    COMMON_TEXT_GENERATION_TASKS,
     COMMON_TEXT2TEXT_GENERATION_TASKS,
+    COMMON_TEXT_GENERATION_TASKS,
+    COMMON_TEXT_TASKS,
+    TaskType,
 )
-
-if TYPE_CHECKING:
-    from transformers import PretrainedConfig
-
 
 # ============================================================================
 # Registry for model configs
@@ -70,7 +63,7 @@ _ONNX_CONFIG_REGISTRY: dict[str, dict[str, type]] = {}
 
 
 def register_onnx_config(model_type: str, *tasks: str):
-    """Decorator to register an ONNX config class for a model type and tasks."""
+    """Register an ONNX config class for a model type and tasks."""
 
     def decorator(cls):
         _ONNX_CONFIG_REGISTRY.setdefault(model_type, {})
@@ -87,7 +80,9 @@ def get_onnx_config_class(model_type: str, task: str) -> type:
         raise KeyError(f"Model type '{model_type}' is not supported.")
     if task not in _ONNX_CONFIG_REGISTRY[model_type]:
         supported_tasks = list(_ONNX_CONFIG_REGISTRY[model_type].keys())
-        raise KeyError(f"Task '{task}' is not supported for model type '{model_type}'. Supported tasks: {supported_tasks}")
+        raise KeyError(
+            f"Task '{task}' is not supported for model type '{model_type}'. Supported tasks: {supported_tasks}"
+        )
     return _ONNX_CONFIG_REGISTRY[model_type][task]
 
 
@@ -216,7 +211,13 @@ class DistilBertOnnxConfig(BertOnnxConfig):
         return {"input_ids": dynamic_axis, "attention_mask": dynamic_axis}
 
 
-@register_onnx_config("modernbert", TaskType.FEATURE_EXTRACTION, TaskType.FILL_MASK, TaskType.TEXT_CLASSIFICATION, TaskType.TOKEN_CLASSIFICATION)
+@register_onnx_config(
+    "modernbert",
+    TaskType.FEATURE_EXTRACTION,
+    TaskType.FILL_MASK,
+    TaskType.TEXT_CLASSIFICATION,
+    TaskType.TOKEN_CLASSIFICATION,
+)
 class ModernBertOnnxConfig(DistilBertOnnxConfig):
     pass
 
@@ -251,7 +252,14 @@ class XLMRobertaOnnxConfig(DistilBertOnnxConfig):
     pass
 
 
-@register_onnx_config("deberta", TaskType.FEATURE_EXTRACTION, TaskType.FILL_MASK, TaskType.TEXT_CLASSIFICATION, TaskType.TOKEN_CLASSIFICATION, TaskType.QUESTION_ANSWERING)
+@register_onnx_config(
+    "deberta",
+    TaskType.FEATURE_EXTRACTION,
+    TaskType.FILL_MASK,
+    TaskType.TEXT_CLASSIFICATION,
+    TaskType.TOKEN_CLASSIFICATION,
+    TaskType.QUESTION_ANSWERING,
+)
 class DebertaOnnxConfig(BertOnnxConfig):
     @property
     def inputs(self) -> dict[str, dict[int, str]]:
@@ -266,7 +274,9 @@ class DebertaV2OnnxConfig(DebertaOnnxConfig):
     pass
 
 
-@register_onnx_config("esm", TaskType.FEATURE_EXTRACTION, TaskType.FILL_MASK, TaskType.TEXT_CLASSIFICATION, TaskType.TOKEN_CLASSIFICATION)
+@register_onnx_config(
+    "esm", TaskType.FEATURE_EXTRACTION, TaskType.FILL_MASK, TaskType.TEXT_CLASSIFICATION, TaskType.TOKEN_CLASSIFICATION
+)
 class EsmOnnxConfig(TextEncoderOnnxConfig):
     NORMALIZED_CONFIG_CLASS = NormalizedTextConfig
 
@@ -284,12 +294,16 @@ class EsmOnnxConfig(TextEncoderOnnxConfig):
 # ============================================================================
 
 
-@register_onnx_config("gpt2", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.TOKEN_CLASSIFICATION])
+@register_onnx_config(
+    "gpt2", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.TOKEN_CLASSIFICATION]
+)
 class GPT2OnnxConfig(TextDecoderWithPositionIdsOnnxConfig):
     NORMALIZED_CONFIG_CLASS = GPT2LikeNormalizedTextConfig
 
 
-@register_onnx_config("gptj", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.QUESTION_ANSWERING])
+@register_onnx_config(
+    "gptj", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.QUESTION_ANSWERING]
+)
 class GPTJOnnxConfig(GPT2OnnxConfig):
     pass
 
@@ -314,7 +328,9 @@ class GPTNeoXOnnxConfig(TextDecoderWithPositionIdsOnnxConfig):
     NORMALIZED_CONFIG_CLASS = NormalizedTextConfig
 
 
-@register_onnx_config("opt", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.QUESTION_ANSWERING])
+@register_onnx_config(
+    "opt", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.QUESTION_ANSWERING]
+)
 class OPTOnnxConfig(TextDecoderWithPositionIdsOnnxConfig):
     NORMALIZED_CONFIG_CLASS = NormalizedTextConfig
 
@@ -366,7 +382,9 @@ class Olmo2OnnxConfig(OlmoOnnxConfig):
     pass
 
 
-@register_onnx_config("qwen2", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.TOKEN_CLASSIFICATION])
+@register_onnx_config(
+    "qwen2", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.TOKEN_CLASSIFICATION]
+)
 class Qwen2OnnxConfig(LlamaOnnxConfig):
     NORMALIZED_CONFIG_CLASS = NormalizedTextConfigWithGQA
 
@@ -376,7 +394,9 @@ class Qwen3OnnxConfig(LlamaOnnxConfig):
     NORMALIZED_CONFIG_CLASS = NormalizedTextConfigWithGQA
 
 
-@register_onnx_config("qwen3_moe", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.TOKEN_CLASSIFICATION])
+@register_onnx_config(
+    "qwen3_moe", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.TOKEN_CLASSIFICATION]
+)
 class Qwen3MoeOnnxConfig(LlamaOnnxConfig):
     NORMALIZED_CONFIG_CLASS = NormalizedTextConfigWithGQA
 
@@ -430,7 +450,9 @@ class BloomOnnxConfig(TextDecoderOnnxConfig):
     NORMALIZED_CONFIG_CLASS = BloomNormalizedTextConfig
 
 
-@register_onnx_config("falcon", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.QUESTION_ANSWERING])
+@register_onnx_config(
+    "falcon", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.QUESTION_ANSWERING]
+)
 class FalconOnnxConfig(TextDecoderWithPositionIdsOnnxConfig):
     DUMMY_INPUT_GENERATOR_CLASSES = (DummyTextInputGenerator, FalconDummyPastKeyValuesGenerator)
     DUMMY_PKV_GENERATOR_CLASS = FalconDummyPastKeyValuesGenerator
@@ -476,7 +498,9 @@ class LongT5OnnxConfig(T5OnnxConfig):
     pass
 
 
-@register_onnx_config("bart", *[*COMMON_TEXT2TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.QUESTION_ANSWERING])
+@register_onnx_config(
+    "bart", *[*COMMON_TEXT2TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION, TaskType.QUESTION_ANSWERING]
+)
 class BartOnnxConfig(TextSeq2SeqOnnxConfig):
     NORMALIZED_CONFIG_CLASS = BartLikeNormalizedTextConfig
 
@@ -594,7 +618,9 @@ class LevitOnnxConfig(ViTOnnxConfig):
     pass
 
 
-@register_onnx_config("segformer", TaskType.FEATURE_EXTRACTION, TaskType.IMAGE_CLASSIFICATION, TaskType.SEMANTIC_SEGMENTATION)
+@register_onnx_config(
+    "segformer", TaskType.FEATURE_EXTRACTION, TaskType.IMAGE_CLASSIFICATION, TaskType.SEMANTIC_SEGMENTATION
+)
 class SegformerOnnxConfig(ViTOnnxConfig):
     pass
 
@@ -631,37 +657,65 @@ class WhisperOnnxConfig(AudioToTextOnnxConfig):
     NORMALIZED_CONFIG_CLASS = WhisperLikeNormalizedTextConfig
 
 
-@register_onnx_config("wav2vec2", TaskType.FEATURE_EXTRACTION, TaskType.AUTOMATIC_SPEECH_RECOGNITION, TaskType.AUDIO_CLASSIFICATION, TaskType.AUDIO_FRAME_CLASSIFICATION)
+@register_onnx_config(
+    "wav2vec2",
+    TaskType.FEATURE_EXTRACTION,
+    TaskType.AUTOMATIC_SPEECH_RECOGNITION,
+    TaskType.AUDIO_CLASSIFICATION,
+    TaskType.AUDIO_FRAME_CLASSIFICATION,
+)
 class Wav2Vec2OnnxConfig(AudioOnnxConfig):
     NORMALIZED_CONFIG_CLASS = NormalizedConfig
 
 
-@register_onnx_config("hubert", TaskType.FEATURE_EXTRACTION, TaskType.AUTOMATIC_SPEECH_RECOGNITION, TaskType.AUDIO_CLASSIFICATION)
+@register_onnx_config(
+    "hubert", TaskType.FEATURE_EXTRACTION, TaskType.AUTOMATIC_SPEECH_RECOGNITION, TaskType.AUDIO_CLASSIFICATION
+)
 class HubertOnnxConfig(Wav2Vec2OnnxConfig):
     pass
 
 
-@register_onnx_config("wavlm", TaskType.FEATURE_EXTRACTION, TaskType.AUTOMATIC_SPEECH_RECOGNITION, TaskType.AUDIO_CLASSIFICATION, TaskType.AUDIO_FRAME_CLASSIFICATION, TaskType.AUDIO_XVECTOR)
+@register_onnx_config(
+    "wavlm",
+    TaskType.FEATURE_EXTRACTION,
+    TaskType.AUTOMATIC_SPEECH_RECOGNITION,
+    TaskType.AUDIO_CLASSIFICATION,
+    TaskType.AUDIO_FRAME_CLASSIFICATION,
+    TaskType.AUDIO_XVECTOR,
+)
 class WavLMOnnxConfig(Wav2Vec2OnnxConfig):
     pass
 
 
-@register_onnx_config("sew", TaskType.FEATURE_EXTRACTION, TaskType.AUTOMATIC_SPEECH_RECOGNITION, TaskType.AUDIO_CLASSIFICATION)
+@register_onnx_config(
+    "sew", TaskType.FEATURE_EXTRACTION, TaskType.AUTOMATIC_SPEECH_RECOGNITION, TaskType.AUDIO_CLASSIFICATION
+)
 class SEWOnnxConfig(Wav2Vec2OnnxConfig):
     pass
 
 
-@register_onnx_config("sew_d", TaskType.FEATURE_EXTRACTION, TaskType.AUTOMATIC_SPEECH_RECOGNITION, TaskType.AUDIO_CLASSIFICATION)
+@register_onnx_config(
+    "sew_d", TaskType.FEATURE_EXTRACTION, TaskType.AUTOMATIC_SPEECH_RECOGNITION, TaskType.AUDIO_CLASSIFICATION
+)
 class SEWDOnnxConfig(Wav2Vec2OnnxConfig):
     pass
 
 
-@register_onnx_config("unispeech", TaskType.FEATURE_EXTRACTION, TaskType.AUTOMATIC_SPEECH_RECOGNITION, TaskType.AUDIO_CLASSIFICATION)
+@register_onnx_config(
+    "unispeech", TaskType.FEATURE_EXTRACTION, TaskType.AUTOMATIC_SPEECH_RECOGNITION, TaskType.AUDIO_CLASSIFICATION
+)
 class UniSpeechOnnxConfig(Wav2Vec2OnnxConfig):
     pass
 
 
-@register_onnx_config("unispeech_sat", TaskType.FEATURE_EXTRACTION, TaskType.AUTOMATIC_SPEECH_RECOGNITION, TaskType.AUDIO_CLASSIFICATION, TaskType.AUDIO_FRAME_CLASSIFICATION, TaskType.AUDIO_XVECTOR)
+@register_onnx_config(
+    "unispeech_sat",
+    TaskType.FEATURE_EXTRACTION,
+    TaskType.AUTOMATIC_SPEECH_RECOGNITION,
+    TaskType.AUDIO_CLASSIFICATION,
+    TaskType.AUDIO_FRAME_CLASSIFICATION,
+    TaskType.AUDIO_XVECTOR,
+)
 class UniSpeechSATOnnxConfig(Wav2Vec2OnnxConfig):
     pass
 
