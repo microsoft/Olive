@@ -376,13 +376,23 @@ def add_input_model_options(
             type=DiffusersModelVariant,
             choices=[
                 DiffusersModelVariant.AUTO,
-                DiffusersModelVariant.SD15,
+                DiffusersModelVariant.SD,
                 DiffusersModelVariant.SDXL,
+                DiffusersModelVariant.SD3,
                 DiffusersModelVariant.FLUX,
+                DiffusersModelVariant.SANA,
             ],
             default=DiffusersModelVariant.AUTO,
-            help="Model variant: 'sd15', 'sdxl', 'flux', or 'auto' for auto-detection.",
+            help="Model variant: 'sd', 'sdxl', 'sd3', 'flux', 'sana', or 'auto' for auto-detection.",
         )
+        if not enable_hf_adapter:
+            # Add adapter_path for diffusers if not already added by enable_hf_adapter
+            model_group.add_argument(
+                "-a",
+                "--adapter_path",
+                type=str,
+                help="Path to the LoRA adapter weights. Local folder or huggingface id.",
+            )
     if enable_pt:
         model_group.add_argument(
             "--model_script",
