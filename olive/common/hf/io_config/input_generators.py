@@ -844,8 +844,7 @@ class DummyTimestepInputGenerator(DummyInputGenerator):
                     framework=framework,
                     dtype=float_dtype,
                 )
-            case _:
-                raise ValueError(f"Unsupported input name: {input_name}")
+        raise ValueError(f"Unsupported input name: {input_name}")
 
 
 class DummyUNetInputGenerator(DummyInputGenerator):
@@ -891,8 +890,7 @@ class DummyUNetInputGenerator(DummyInputGenerator):
                     framework=framework,
                     dtype=float_dtype,
                 )
-            case _:
-                raise ValueError(f"Unsupported input name: {input_name}")
+        raise ValueError(f"Unsupported input name: {input_name}")
 
 
 class DummyVaeInputGenerator(DummyInputGenerator):
@@ -949,8 +947,7 @@ class DummyVaeInputGenerator(DummyInputGenerator):
                     framework=framework,
                     dtype=float_dtype,
                 )
-            case _:
-                raise ValueError(f"Unsupported input name: {input_name}")
+        raise ValueError(f"Unsupported input name: {input_name}")
 
 
 class DummySD3TransformerInputGenerator(DummyInputGenerator):
@@ -1012,8 +1009,7 @@ class DummySD3TransformerInputGenerator(DummyInputGenerator):
                     framework=framework,
                     dtype=float_dtype,
                 )
-            case _:
-                raise ValueError(f"Unsupported input name: {input_name}")
+        raise ValueError(f"Unsupported input name: {input_name}")
 
 
 class DummyFluxTransformerInputGenerator(DummyInputGenerator):
@@ -1101,8 +1097,7 @@ class DummyFluxTransformerInputGenerator(DummyInputGenerator):
                         dtype=float_dtype,
                     )
                 return None
-            case _:
-                raise ValueError(f"Unsupported input name: {input_name}")
+        raise ValueError(f"Unsupported input name: {input_name}")
 
 
 class DummySanaTransformerInputGenerator(DummyInputGenerator):
@@ -1163,5 +1158,4 @@ class DummySanaTransformerInputGenerator(DummyInputGenerator):
                     framework=framework,
                     dtype=float_dtype,
                 )
-            case _:
-                raise ValueError(f"Unsupported input name: {input_name}")
+        raise ValueError(f"Unsupported input name: {input_name}")
