@@ -1,4 +1,19 @@
+import copy
 from pathlib import Path
+
+
+def get_vae_encoder(vae):
+    """Create a VAE encoder model for export by patching forward method."""
+    vae_encoder = copy.deepcopy(vae)
+    vae_encoder.forward = lambda sample: vae_encoder.encode(sample).latent_dist.parameters
+    return vae_encoder
+
+
+def get_vae_decoder(vae):
+    """Create a VAE decoder model for export by patching forward method."""
+    vae_decoder = copy.deepcopy(vae)
+    vae_decoder.forward = lambda latent_sample: vae_decoder.decode(latent_sample).sample
+    return vae_decoder
 
 
 def is_valid_diffusers_model(model_path: str) -> bool:

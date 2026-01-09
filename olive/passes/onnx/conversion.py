@@ -618,75 +618,94 @@ class OnnxConversion(Pass):
             CompositeModelHandler containing ONNXModelHandler for each component.
 
         """
-        try:
-            from optimum.exporters.onnx import main_export
-        except ImportError as exc:
-            raise ImportError(
-                "Optimum is required for exporting diffusers models to ONNX. Please install optimum to use this feature."
-            ) from exc
+        from olive.common.hf.io_config import get_diffusers_onnx_config
+        from olive.common.hf.peft import make_export_compatible_peft
 
         output_dir = Path(output_model_path).with_suffix("")
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Determine dtype string for optimum
-        dtype_str = None
-        if torch_dtype == torch.float16:
-            dtype_str = "fp16"
-        elif torch_dtype == torch.bfloat16:
-            dtype_str = "bf16"
+        # Load the pipeline (this also loads LoRA if adapter_path is set)
+        pipeline = model.load_model(cache_model=False)
 
-        logger.info("Exporting diffusers model: %s", model.model_path)
+        # Get the pipeline type and exportable components
+        pipeline_type = model.get_pipeline_type()
+        exportable_components = model.get_exportable_components()
 
-        main_export(
-            model_name_or_path=model.model_path,
-            output=str(output_dir),
-            device=device,
-            dtype=dtype_str,
-            opset=config.target_opset,
-            do_validation=False,
-        )
+        logger.info("Exporting diffusers model: %s (type: %s)", model.model_path, pipeline_type)
 
         component_handlers = []
         component_names = []
 
-        possible_components = [
-            "text_encoder",
-            "text_encoder_2",
-            "text_encoder_3",  # SD3
-            "unet",
-            "transformer",  # Flux, SD3
-            "vae_encoder",
-            "vae_decoder",
-            "safety_checker",
-        ]
+        for component_name in exportable_components:
+            # Get the component model and config
+            component_model, component_config = self._get_diffusers_component(pipeline, component_name)
 
-        for component_name in possible_components:
-            component_dir = output_dir / component_name
-            if not component_dir.exists():
+            if component_model is None:
+                logger.warning("Component %s not found in pipeline, skipping", component_name)
                 continue
 
-            onnx_file = component_dir / "model.onnx"
-            if not onnx_file.exists():
-                logger.warning("ONNX file not found for component %s", component_name)
-                continue
-
-            component_handler = ONNXModelHandler(
-                model_path=str(component_dir),
-                onnx_file_name="model.onnx",
+            # Get the OnnxConfig for this component
+            onnx_config = get_diffusers_onnx_config(
+                pipeline_type=pipeline_type,
+                component_name=component_name,
+                config=component_config,
             )
-            component_handlers.append(component_handler)
+
+            # Apply LoRA compatibility for unet/transformer if adapter was loaded
+            if model.adapter_path and component_name in ("unet", "transformer"):
+                component_model = make_export_compatible_peft(
+                    component_model,
+                    merge_weights=config.merge_adapter_weights,
+                )
+
+            # Move to device and dtype
+            component_model = component_model.to(device)
+            if torch_dtype:
+                component_model = component_model.to(torch_dtype)
+            component_model.eval()
+
+            # Generate dummy inputs
+            dummy_inputs = onnx_config.generate_dummy_inputs()
+
+            # Get IO config
+            io_config = onnx_config.get_io_config(component_model)
+
+            # Create output directory for this component
+            component_dir = output_dir / component_name
+            component_dir.mkdir(parents=True, exist_ok=True)
+            component_output_path = str(component_dir / "model.onnx")
+
+            # Export using _export_pytorch_model
+            ir_model = _export_pytorch_model(
+                component_model,
+                dummy_inputs,
+                io_config=io_config,
+                config=config,
+                device=device,
+                dynamo=config.use_dynamo_exporter,
+                torch_dtype=torch_dtype,
+            )
+
+            # Save the model
+            output_model = ir_model_to_olive_model(ir_model, component_output_path, config)
+            component_handlers.append(output_model)
             component_names.append(component_name)
-            logger.info("Exported %s to %s", component_name, onnx_file)
+            logger.info("Exported %s to %s", component_name, component_output_path)
+
+            # Clean up GPU memory
+            del component_model
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         if not component_handlers:
             raise ValueError(
-                f"No ONNX components found after export from '{model.model_path}'. "
+                f"No ONNX components exported from '{model.model_path}'. "
                 "Ensure the model is a valid diffusion pipeline."
             )
 
         model_attributes = deepcopy(model.model_attributes or {})
         model_attributes["model_variant"] = str(model.detected_model_variant)
-        model_attributes["no_flatten"] = True  # Preserve optimum directory structure for diffusers
+        model_attributes["no_flatten"] = True
 
         return CompositeModelHandler(
             model_components=component_handlers,
@@ -694,6 +713,42 @@ class OnnxConversion(Pass):
             model_path=str(output_dir),
             model_attributes=model_attributes,
         )
+
+    def _get_diffusers_component(
+        self, pipeline, component_name: str
+    ) -> tuple[Optional[torch.nn.Module], Optional[Any]]:
+        """Get a component model and its config from the pipeline.
+
+        Args:
+            pipeline: The diffusion pipeline.
+            component_name: Name of the component to get.
+
+        Returns:
+            Tuple of (component_model, component_config), or (None, None) if not found.
+
+        """
+        from olive.model.utils.diffusers_utils import get_vae_decoder, get_vae_encoder
+
+        # Handle VAE encoder/decoder specially
+        if component_name == "vae_encoder":
+            vae = getattr(pipeline, "vae", None)
+            if vae is None:
+                return None, None
+            return get_vae_encoder(vae), vae.config
+
+        if component_name == "vae_decoder":
+            vae = getattr(pipeline, "vae", None)
+            if vae is None:
+                return None, None
+            return get_vae_decoder(vae), vae.config
+
+        # For other components, get directly from pipeline
+        component = getattr(pipeline, component_name, None)
+        if component is None:
+            return None, None
+
+        config = getattr(component, "config", None)
+        return component, config
 
     def _convert_distributed_model_on_device(
         self,

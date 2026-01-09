@@ -216,7 +216,7 @@ def test_diffusion_lora_command(_, mock_run, tmp_path):
         "-o",
         str(output_dir),
         "--model_type",
-        "sd15",
+        "sd",
         "--max_train_steps",
         "1",
     ]

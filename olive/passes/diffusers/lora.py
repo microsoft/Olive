@@ -1030,7 +1030,7 @@ class SDLoRA(Pass):
             dataset: Dataset with image_path, caption, and bucket_assignments.
             training_args: Training arguments.
             model_path: Path to the diffusion model for loading tokenizers.
-            model_variant: Type of diffusion model (SD15, SDXL, FLUX).
+            model_variant: Type of diffusion model (SD, SDXL, FLUX).
             prior_preservation: Whether to include class images for prior preservation.
             class_data_dir: Directory containing class images (for prior preservation).
             class_prompt: Prompt for class images (for prior preservation).
@@ -1062,7 +1062,7 @@ class SDLoRA(Pass):
         elif model_variant == DiffusersModelVariant.SDXL:
             tokenizers["one"] = AutoTokenizer.from_pretrained(model_path, subfolder="tokenizer")
             tokenizers["two"] = AutoTokenizer.from_pretrained(model_path, subfolder="tokenizer_2")
-        else:  # SD15
+        else:  # SD
             tokenizers["main"] = AutoTokenizer.from_pretrained(model_path, subfolder="tokenizer")
 
         def process_image(image_path):

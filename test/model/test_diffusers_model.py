@@ -13,15 +13,15 @@ class TestDiffusersModelHandler:
     model_path = "runwayml/stable-diffusion-v1-5"
 
     def test_model_to_json(self):
-        model = DiffusersModelHandler(model_path=self.model_path, model_variant="sd15")
+        model = DiffusersModelHandler(model_path=self.model_path, model_variant=DiffusersModelVariant.SD)
         model_json = model.to_json()
         assert model_json["config"]["model_path"] == self.model_path
-        assert model_json["config"]["model_variant"] == "sd15"
+        assert model_json["config"]["model_variant"] == "sd"
 
     def test_model_to_json_with_adapter(self):
         model = DiffusersModelHandler(
             model_path=self.model_path,
-            model_variant="sd15",
+            model_variant=DiffusersModelVariant.SD,
             adapter_path="/path/to/lora",
         )
         model_json = model.to_json()
@@ -31,7 +31,7 @@ class TestDiffusersModelHandler:
     def test_model_to_json_with_load_kwargs(self):
         model = DiffusersModelHandler(
             model_path=self.model_path,
-            model_variant="sd15",
+            model_variant=DiffusersModelVariant.SD,
             load_kwargs={"torch_dtype": "float16", "variant": "fp16"},
         )
         model_json = model.to_json()
@@ -40,10 +40,10 @@ class TestDiffusersModelHandler:
     @pytest.mark.parametrize(
         ("model_variant", "expected"),
         [
-            ("sd15", DiffusersModelVariant.SD15),
+            ("sd", DiffusersModelVariant.SD),
             ("sdxl", DiffusersModelVariant.SDXL),
             ("flux", DiffusersModelVariant.FLUX),
-            (DiffusersModelVariant.SD15, DiffusersModelVariant.SD15),
+            (DiffusersModelVariant.SD, DiffusersModelVariant.SD),
             (DiffusersModelVariant.SDXL, DiffusersModelVariant.SDXL),
             (DiffusersModelVariant.FLUX, DiffusersModelVariant.FLUX),
         ],
@@ -62,8 +62,8 @@ class TestDiffusersModelHandler:
             ("some-model-sdxl-variant", DiffusersModelVariant.SDXL),
             ("black-forest-labs/FLUX.1-dev", DiffusersModelVariant.FLUX),
             ("some-flux-model", DiffusersModelVariant.FLUX),
-            ("runwayml/stable-diffusion-v1-5", DiffusersModelVariant.SD15),
-            ("my-custom-sd-model", DiffusersModelVariant.SD15),
+            ("runwayml/stable-diffusion-v1-5", DiffusersModelVariant.SD),
+            ("my-custom-sd-model", DiffusersModelVariant.SD),
         ],
     )
     def test_detected_model_variant_auto_from_path(self, mock_flux, mock_unet, mock_is_valid, model_path, expected):
@@ -87,7 +87,7 @@ class TestDiffusersModelHandler:
         mock_pipeline = MagicMock()
         mock_diffusion_pipeline.from_pretrained.return_value = mock_pipeline
 
-        model = DiffusersModelHandler(model_path=self.model_path, model_variant="sd15")
+        model = DiffusersModelHandler(model_path=self.model_path, model_variant=DiffusersModelVariant.SD)
         result = model.load_model()
 
         assert result == mock_pipeline
@@ -100,7 +100,7 @@ class TestDiffusersModelHandler:
 
         model = DiffusersModelHandler(
             model_path=self.model_path,
-            model_variant="sd15",
+            model_variant=DiffusersModelVariant.SD,
             load_kwargs={"torch_dtype": "float16"},
         )
         model.load_model()
@@ -115,7 +115,7 @@ class TestDiffusersModelHandler:
         adapter_path = "/path/to/lora"
         model = DiffusersModelHandler(
             model_path=self.model_path,
-            model_variant="sd15",
+            model_variant=DiffusersModelVariant.SD,
             adapter_path=adapter_path,
         )
         model.load_model()
@@ -130,7 +130,7 @@ class TestDiffusersModelHandler:
         mock_pipeline.vae = MagicMock()
         mock_diffusion_pipeline.from_pretrained.return_value = mock_pipeline
 
-        model = DiffusersModelHandler(model_path=self.model_path, model_variant="sd15")
+        model = DiffusersModelHandler(model_path=self.model_path, model_variant=DiffusersModelVariant.SD)
 
         unet = model.get_component("unet")
         vae = model.get_component("vae")
@@ -143,7 +143,7 @@ class TestDiffusersModelHandler:
         mock_pipeline = MagicMock(spec=["unet", "vae"])
         mock_diffusion_pipeline.from_pretrained.return_value = mock_pipeline
 
-        model = DiffusersModelHandler(model_path=self.model_path, model_variant="sd15")
+        model = DiffusersModelHandler(model_path=self.model_path, model_variant=DiffusersModelVariant.SD)
 
         with pytest.raises(ValueError, match="Component 'nonexistent' not found"):
             model.get_component("nonexistent")
@@ -154,7 +154,7 @@ class TestDiffusersModelHandler:
         mock_pipeline.return_value = "output"
         mock_diffusion_pipeline.from_pretrained.return_value = mock_pipeline
 
-        model = DiffusersModelHandler(model_path=self.model_path, model_variant="sd15")
+        model = DiffusersModelHandler(model_path=self.model_path, model_variant=DiffusersModelVariant.SD)
 
         inputs = {"prompt": "a cat", "num_inference_steps": 20}
         result = model.run_session(inputs=inputs)
@@ -168,7 +168,7 @@ class TestDiffusersModelHandler:
         mock_pipeline.return_value = "output"
         mock_diffusion_pipeline.from_pretrained.return_value = mock_pipeline
 
-        model = DiffusersModelHandler(model_path=self.model_path, model_variant="sd15")
+        model = DiffusersModelHandler(model_path=self.model_path, model_variant=DiffusersModelVariant.SD)
 
         inputs = ["a cat"]
         result = model.run_session(inputs=inputs)
@@ -179,11 +179,11 @@ class TestDiffusersModelHandler:
     def test_adapter_path_property(self):
         model = DiffusersModelHandler(
             model_path=self.model_path,
-            model_variant="sd15",
+            model_variant=DiffusersModelVariant.SD,
             adapter_path="/path/to/lora",
         )
         assert model.adapter_path == "/path/to/lora"
 
     def test_adapter_path_property_none(self):
-        model = DiffusersModelHandler(model_path=self.model_path, model_variant="sd15")
+        model = DiffusersModelHandler(model_path=self.model_path, model_variant=DiffusersModelVariant.SD)
         assert model.adapter_path is None

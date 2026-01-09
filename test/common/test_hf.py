@@ -70,7 +70,7 @@ def test_load_model_from_task_exception_handling(_, exceptions, expected_excepti
     ],
 )
 def test_get_export_config(model_name, task):
-    from optimum.exporters.onnx import OnnxConfig
+    from olive.common.hf.io_config import OnnxConfig
 
     export_config = get_export_config(model_name, task)
     assert isinstance(export_config, OnnxConfig)

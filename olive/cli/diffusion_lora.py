@@ -279,7 +279,7 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
             model_variant = self.args.model_variant
             if model_variant in (DiffusersModelVariant.SDXL, DiffusersModelVariant.FLUX):
                 base_resolution = 1024
-            elif model_variant == DiffusersModelVariant.SD15:
+            elif model_variant == DiffusersModelVariant.SD:
                 base_resolution = 512
             # If model_variant is "auto", leave base_resolution as None and let preprocessing use its default
 
