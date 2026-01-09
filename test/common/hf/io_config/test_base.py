@@ -11,6 +11,8 @@ from olive.common.hf.io_config.input_generators import DummyTextInputGenerator
 from olive.common.hf.io_config.normalized_config import NormalizedTextConfig
 from olive.common.hf.io_config.tasks import TaskType
 
+# ruff: noqa: SLF001
+
 
 class ConcreteOnnxConfig(OnnxConfig):
     """Concrete implementation for testing."""
