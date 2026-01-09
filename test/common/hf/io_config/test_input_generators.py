@@ -182,7 +182,7 @@ class TestDummyPastKeyValuesGenerator:
         pkv = gen.generate("past_key_values")
         assert len(pkv) == 12
         assert len(pkv[0]) == 2
-        key, value = pkv[0]
+        key, _ = pkv[0]
         assert key.shape[0] == DEFAULT_DUMMY_SHAPES["batch_size"]
         assert key.shape[1] == 12  # num_attention_heads
 
@@ -328,7 +328,7 @@ class TestSpecializedPKVGenerators:
         gen = MistralDummyPastKeyValuesGenerator(TaskType.TEXT_GENERATION, mock_config)
         pkv = gen.generate("past_key_values")
         assert len(pkv) == 32
-        key, value = pkv[0]
+        key, _ = pkv[0]
         assert key.shape[1] == 8  # num_key_value_heads, not num_attention_heads
 
     def test_falcon_pkv_generator(self):
@@ -356,7 +356,7 @@ class TestSpecializedPKVGenerators:
         gen = GPTBigCodeDummyPastKeyValuesGenerator(TaskType.TEXT_GENERATION, mock_config)
         pkv = gen.generate("past_key_values")
         assert len(pkv) == 40
-        key, value = pkv[0]
+        key, _ = pkv[0]
         assert key.shape[1] == 1  # multi_query uses 1 head
 
     def test_gemma_pkv_generator(self):
@@ -371,7 +371,7 @@ class TestSpecializedPKVGenerators:
         gen = GemmaDummyPastKeyValuesGenerator(TaskType.TEXT_GENERATION, mock_config)
         pkv = gen.generate("past_key_values")
         assert len(pkv) == 18
-        key, value = pkv[0]
+        key, _ = pkv[0]
         assert key.shape[1] == 1  # num_key_value_heads
 
 
@@ -848,5 +848,5 @@ class TestBloomPKVGenerator:
         pkv = gen.generate("past_key_values")
         assert len(pkv) == 24
         # Bloom uses batch_first format
-        key, value = pkv[0]
+        key, _ = pkv[0]
         assert key.shape[0] == DEFAULT_DUMMY_SHAPES["batch_size"]

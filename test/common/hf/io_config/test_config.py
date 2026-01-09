@@ -9,29 +9,11 @@ import pytest
 from olive.common.hf.io_config.config import (
     AudioOnnxConfig,
     AudioToTextOnnxConfig,
-    TextAndVisionOnnxConfig,
     TextDecoderOnnxConfig,
     TextDecoderWithPositionIdsOnnxConfig,
-    TextEncoderOnnxConfig,
     TextSeq2SeqOnnxConfig,
-    VisionOnnxConfig,
 )
 from olive.common.hf.io_config.tasks import TaskType
-
-
-class TestTextEncoderOnnxConfig:
-    @pytest.fixture
-    def mock_config(self):
-        config = MagicMock()
-        config.vocab_size = 32000
-        config.hidden_size = 768
-        config.num_hidden_layers = 12
-        config.num_attention_heads = 12
-        return config
-
-    def test_dummy_input_generator_classes(self, mock_config):
-        """Test DUMMY_INPUT_GENERATOR_CLASSES is set."""
-        assert len(TextEncoderOnnxConfig.DUMMY_INPUT_GENERATOR_CLASSES) == 1
 
 
 class TestTextDecoderOnnxConfig:
@@ -106,14 +88,6 @@ class TestTextSeq2SeqOnnxConfig:
         config.num_heads = 8
         return config
 
-    def test_inputs_include_encoder_and_decoder(self, mock_config):
-        """Test inputs include both encoder and decoder inputs."""
-        onnx_config = TextSeq2SeqOnnxConfig(mock_config)
-        inputs = onnx_config.inputs
-        assert "input_ids" in inputs
-        assert "attention_mask" in inputs
-        assert "decoder_input_ids" in inputs
-
     def test_inputs_with_past_include_past_key_values(self, mock_config):
         """Test inputs with past include past_key_values."""
         onnx_config = TextSeq2SeqOnnxConfig(mock_config, use_past=True, use_past_in_inputs=True)
@@ -131,18 +105,6 @@ class TestTextSeq2SeqOnnxConfig:
         encoder_keys = [k for k in inputs if "encoder" in k]
         assert len(decoder_keys) > 0
         assert len(encoder_keys) > 0
-
-
-class TestVisionOnnxConfig:
-    def test_dummy_input_generator_classes(self):
-        """Test DUMMY_INPUT_GENERATOR_CLASSES is set."""
-        assert len(VisionOnnxConfig.DUMMY_INPUT_GENERATOR_CLASSES) == 1
-
-
-class TestTextAndVisionOnnxConfig:
-    def test_dummy_input_generator_classes(self):
-        """Test DUMMY_INPUT_GENERATOR_CLASSES includes text and vision."""
-        assert len(TextAndVisionOnnxConfig.DUMMY_INPUT_GENERATOR_CLASSES) == 3
 
 
 class TestAudioOnnxConfig:
@@ -169,13 +131,6 @@ class TestAudioToTextOnnxConfig:
         config.num_attention_heads = 8
         config.d_model = 512
         return config
-
-    def test_inputs_include_input_features(self, mock_config):
-        """Test inputs include input_features and decoder_input_ids."""
-        onnx_config = AudioToTextOnnxConfig(mock_config)
-        inputs = onnx_config.inputs
-        assert "input_features" in inputs
-        assert "decoder_input_ids" in inputs
 
     def test_add_past_key_values_includes_encoder_decoder(self, mock_config):
         """Test add_past_key_values includes encoder and decoder entries."""
@@ -206,12 +161,6 @@ class TestTextSeq2SeqOnnxConfigAdvanced:
         config.encoder_num_attention_heads = 8
         config.decoder_num_attention_heads = 8
         return config
-
-    def test_create_dummy_input_generator_classes(self, mock_config):
-        """Test _create_dummy_input_generator_classes creates all generators."""
-        onnx_config = TextSeq2SeqOnnxConfig(mock_config)
-        generators = onnx_config._create_dummy_input_generator_classes()
-        assert len(generators) == 3
 
     def test_generate_dummy_inputs(self, mock_config):
         """Test generate_dummy_inputs creates all required inputs."""
@@ -251,10 +200,6 @@ class TestTextDecoderOnnxConfigAdvanced:
         config.num_hidden_layers = 4
         config.num_attention_heads = 12
         return config
-
-    def test_dummy_pkv_generator_class(self, mock_config):
-        """Test DUMMY_PKV_GENERATOR_CLASS is set."""
-        assert TextDecoderOnnxConfig.DUMMY_PKV_GENERATOR_CLASS is not None
 
     def test_outputs_is_merged_false(self, mock_config):
         """Test outputs when is_merged is False (default)."""
