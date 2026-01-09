@@ -40,7 +40,7 @@ class DiffusersModelHandler(OliveModelHandler):
     Example usage:
         model = DiffusersModelHandler(
             model_path="runwayml/stable-diffusion-v1-5",
-            model_variant="sd15",  # optional: sd15, sdxl, flux, or auto
+            model_variant="sd",  # optional: sd, sdxl, flux, or auto
         )
     """
 
