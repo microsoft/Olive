@@ -14,6 +14,7 @@ from olive.common.hf.io_config.tasks import TaskType
 # ruff: noqa: SLF001
 # pylint: disable=W0212
 
+
 class ConcreteOnnxConfig(OnnxConfig):
     """Concrete implementation for testing."""
 
