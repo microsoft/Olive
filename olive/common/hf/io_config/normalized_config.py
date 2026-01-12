@@ -124,6 +124,7 @@ class NormalizedTextAndVisionConfig(NormalizedTextConfig, NormalizedVisionConfig
 Pix2StructNormalizedTextConfig = NormalizedTextAndVisionConfig.with_args(
     text_config="text_config", vision_config="vision_config"
 )
+CLIPNormalizedConfig = NormalizedTextAndVisionConfig.with_args(text_config="text_config", vision_config="vision_config")
 
 
 class NormalizedEncoderDecoderConfig(NormalizedConfig):

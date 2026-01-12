@@ -34,6 +34,7 @@ from olive.common.hf.io_config.input_generators import (
 from olive.common.hf.io_config.normalized_config import (
     BartLikeNormalizedTextConfig,
     BloomNormalizedTextConfig,
+    CLIPNormalizedConfig,
     GPT2LikeNormalizedTextConfig,
     GPTBigCodeNormalizedTextConfig,
     NormalizedConfig,
@@ -247,7 +248,7 @@ class IBertOnnxConfig(DistilBertOnnxConfig):
     pass
 
 
-@register_onnx_config("xlm_roberta", *COMMON_TEXT_TASKS)
+@register_onnx_config("xlm-roberta", *COMMON_TEXT_TASKS)
 class XLMRobertaOnnxConfig(DistilBertOnnxConfig):
     pass
 
@@ -727,7 +728,7 @@ class UniSpeechSATOnnxConfig(Wav2Vec2OnnxConfig):
 
 @register_onnx_config("clip", TaskType.FEATURE_EXTRACTION, TaskType.ZERO_SHOT_IMAGE_CLASSIFICATION)
 class CLIPOnnxConfig(OnnxConfig):
-    NORMALIZED_CONFIG_CLASS = NormalizedConfig
+    NORMALIZED_CONFIG_CLASS = CLIPNormalizedConfig
     DUMMY_INPUT_GENERATOR_CLASSES = (DummyTextInputGenerator, DummyVisionInputGenerator)
 
     @property
