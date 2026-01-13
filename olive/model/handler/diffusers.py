@@ -114,77 +114,61 @@ class DiffusersModelHandler(OliveModelHandler):
 
     @property
     def detected_model_variant(self) -> DiffusersModelVariant:
-        """Detect the diffusion model variant."""
+        """Detect the diffusion model variant from config files."""
         if self.model_variant != DiffusersModelVariant.AUTO:
             return self.model_variant
 
-        model_path_lower = self.model_path.lower() if self.model_path else ""
+        detected = self._detect_variant_from_config()
+        if detected is None:
+            raise ValueError(
+                f"Cannot detect model variant for '{self.model_path}'. "
+                "Please specify model_variant explicitly: 'sd', 'sdxl', 'sd3', 'flux', or 'sana'."
+            )
 
-        # Check for Sana
-        if "sana" in model_path_lower:
-            self.model_variant = DiffusersModelVariant.SANA
-            return DiffusersModelVariant.SANA
+        self.model_variant = detected
+        return detected
 
-        # Check for Flux
-        if "flux" in model_path_lower:
-            self.model_variant = DiffusersModelVariant.FLUX
-            return DiffusersModelVariant.FLUX
+    def _detect_variant_from_config(self) -> Optional[DiffusersModelVariant]:
+        """Detect model variant by reading config files.
 
-        # Check for SD3
-        if "sd3" in model_path_lower or "stable-diffusion-3" in model_path_lower:
-            self.model_variant = DiffusersModelVariant.SD3
-            return DiffusersModelVariant.SD3
+        This method checks the _class_name field in transformer/config.json or unet/config.json
+        to determine the model variant.
 
-        # Try to detect from model config
+        Returns:
+            Detected model variant, or None if detection failed.
+
+        """
         try:
-            from diffusers import SanaTransformer2DModel
+            from diffusers.utils import load_config
+        except ImportError as exc:
+            logger.debug("Failed to import diffusers.utils.load_config: %s", exc)
+            return None
 
-            SanaTransformer2DModel.load_config(self.model_path, subfolder="transformer")
-            self.model_variant = DiffusersModelVariant.SANA
-            return DiffusersModelVariant.SANA
+        # Try transformer config first (for SD3, Flux, Sana)
+        try:
+            transformer_config = load_config(self.model_path, subfolder="transformer")
+            class_name = transformer_config.get("_class_name", "")
+
+            if "Sana" in class_name:
+                return DiffusersModelVariant.SANA
+            if "Flux" in class_name:
+                return DiffusersModelVariant.FLUX
+            if "SD3" in class_name:
+                return DiffusersModelVariant.SD3
         except Exception as exc:
-            logger.debug("Error detecting Sana model variant: %s", exc)
+            logger.debug("No transformer config found: %s", exc)
 
+        # Try unet config (for SD, SDXL)
         try:
-            from diffusers import FluxTransformer2DModel
-
-            FluxTransformer2DModel.load_config(self.model_path, subfolder="transformer")
-            self.model_variant = DiffusersModelVariant.FLUX
-            return DiffusersModelVariant.FLUX
-        except Exception as exc:
-            logger.debug("Error detecting Flux model variant: %s", exc)
-
-        try:
-            from diffusers import SD3Transformer2DModel
-
-            SD3Transformer2DModel.load_config(self.model_path, subfolder="transformer")
-            self.model_variant = DiffusersModelVariant.SD3
-            return DiffusersModelVariant.SD3
-        except Exception as exc:
-            logger.debug("Error detecting SD3 model variant: %s", exc)
-
-        try:
-            from diffusers import UNet2DConditionModel
-
-            unet_config = UNet2DConditionModel.load_config(self.model_path, subfolder="unet")
+            unet_config = load_config(self.model_path, subfolder="unet")
+            # SDXL has cross_attention_dim >= 2048, SD has 768
             if unet_config.get("cross_attention_dim", 768) >= 2048:
-                self.model_variant = DiffusersModelVariant.SDXL
                 return DiffusersModelVariant.SDXL
-        except Exception as exc:
-            logger.debug("Error detecting SDXL model variant: %s", exc)
-
-        # Check model name patterns
-        if "xl" in model_path_lower or "sdxl" in model_path_lower:
-            self.model_variant = DiffusersModelVariant.SDXL
-            return DiffusersModelVariant.SDXL
-        if "sd" in model_path_lower or "stable-diffusion" in model_path_lower:
-            self.model_variant = DiffusersModelVariant.SD
             return DiffusersModelVariant.SD
+        except Exception as exc:
+            logger.debug("No unet config found: %s", exc)
 
-        raise ValueError(
-            f"Cannot detect model variant from '{self.model_path}'. "
-            "Please specify model_variant explicitly: 'sd', 'sdxl', 'sd3', 'flux', or 'sana'."
-        )
+        return None
 
     def load_model(self, rank: int = None, cache_model: bool = True) -> "DiffusionPipeline":
         """Load the diffusion pipeline.

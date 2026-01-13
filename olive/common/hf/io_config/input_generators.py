@@ -684,6 +684,13 @@ class GemmaDummyPastKeyValuesGenerator(DummyPastKeyValuesGenerator):
         ]
 
 
+class BloomDummyPastKeyValuesGenerator(DummyPastKeyValuesGenerator):
+    """Dummy past_key_values input generator for Bloom models.
+
+    Bloom uses batch_first format which is the same as the base class.
+    """
+
+
 class FalconDummyPastKeyValuesGenerator(DummyPastKeyValuesGenerator):
     def __init__(
         self,
