@@ -648,6 +648,11 @@ class DetrOnnxConfig(VisionOnnxConfig):
         }
 
 
+@register_onnx_config("table-transformer", TaskType.FEATURE_EXTRACTION, TaskType.OBJECT_DETECTION)
+class TableTransformerOnnxConfig(DetrOnnxConfig):
+    pass
+
+
 # ============================================================================
 # Audio Models
 # ============================================================================
