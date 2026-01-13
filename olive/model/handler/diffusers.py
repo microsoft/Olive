@@ -127,14 +127,14 @@ class DiffusersModelHandler(OliveModelHandler):
 
         """
         try:
-            from diffusers.utils import load_config
+            from diffusers import ConfigMixin
         except ImportError as exc:
-            logger.debug("Failed to import diffusers.utils.load_config: %s", exc)
+            logger.debug("Failed to import diffusers.ConfigMixin: %s", exc)
             return None
 
         # Try transformer config first (for SD3, Flux, Sana)
         try:
-            transformer_config = load_config(self.model_path, subfolder="transformer")
+            transformer_config = ConfigMixin.load_config(self.model_path, subfolder="transformer")
             class_name = transformer_config.get("_class_name", "")
 
             if "Sana" in class_name:
@@ -148,7 +148,7 @@ class DiffusersModelHandler(OliveModelHandler):
 
         # Try unet config (for SD, SDXL)
         try:
-            unet_config = load_config(self.model_path, subfolder="unet")
+            unet_config = ConfigMixin.load_config(self.model_path, subfolder="unet")
             # SDXL has cross_attention_dim >= 2048, SD has 768
             if unet_config.get("cross_attention_dim", 768) >= 2048:
                 return DiffusersModelVariant.SDXL

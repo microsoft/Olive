@@ -54,27 +54,46 @@ class TestDiffusersModelHandler:
         assert model.detected_model_variant == expected
 
     @patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
-    @patch("diffusers.UNet2DConditionModel.load_config", side_effect=Exception("not found"))
-    @patch("diffusers.FluxTransformer2DModel.load_config", side_effect=Exception("not found"))
     @pytest.mark.parametrize(
-        ("model_path", "expected"),
+        ("model_path", "mock_config", "expected"),
         [
-            ("stabilityai/stable-diffusion-xl-base-1.0", DiffusersModelVariant.SDXL),
-            ("some-model-sdxl-variant", DiffusersModelVariant.SDXL),
-            ("black-forest-labs/FLUX.1-dev", DiffusersModelVariant.FLUX),
-            ("some-flux-model", DiffusersModelVariant.FLUX),
-            ("runwayml/stable-diffusion-v1-5", DiffusersModelVariant.SD),
-            ("my-custom-sd-model", DiffusersModelVariant.SD),
+            # SDXL: unet config with cross_attention_dim >= 2048
+            (
+                "stabilityai/stable-diffusion-xl-base-1.0",
+                {"unet": {"cross_attention_dim": 2048}},
+                DiffusersModelVariant.SDXL,
+            ),
+            # SD: unet config with cross_attention_dim < 2048
+            ("runwayml/stable-diffusion-v1-5", {"unet": {"cross_attention_dim": 768}}, DiffusersModelVariant.SD),
+            # Flux: transformer config with Flux class name
+            (
+                "black-forest-labs/FLUX.1-dev",
+                {"transformer": {"_class_name": "FluxTransformer2DModel"}},
+                DiffusersModelVariant.FLUX,
+            ),
+            # SD3: transformer config with SD3 class name
+            (
+                "stabilityai/stable-diffusion-3-medium",
+                {"transformer": {"_class_name": "SD3Transformer2DModel"}},
+                DiffusersModelVariant.SD3,
+            ),
+            # Sana: transformer config with Sana class name
+            ("some-sana-model", {"transformer": {"_class_name": "SanaTransformer2DModel"}}, DiffusersModelVariant.SANA),
         ],
     )
-    def test_detected_model_variant_auto_from_path(self, mock_flux, mock_unet, mock_is_valid, model_path, expected):
-        model = DiffusersModelHandler(model_path=model_path, model_variant=DiffusersModelVariant.AUTO)
-        assert model.detected_model_variant == expected
+    def test_detected_model_variant_auto_from_config(self, mock_is_valid, model_path, mock_config, expected):
+        def mock_load_config(cls_or_path, subfolder=None):
+            if subfolder in mock_config:
+                return mock_config[subfolder]
+            raise Exception(f"Config not found for {subfolder}")
+
+        with patch("diffusers.ConfigMixin.load_config", side_effect=mock_load_config):
+            model = DiffusersModelHandler(model_path=model_path, model_variant=DiffusersModelVariant.AUTO)
+            assert model.detected_model_variant == expected
 
     @patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
-    @patch("diffusers.UNet2DConditionModel.load_config", side_effect=Exception("not found"))
-    @patch("diffusers.FluxTransformer2DModel.load_config", side_effect=Exception("not found"))
-    def test_detected_model_variant_auto_raises_error(self, mock_flux, mock_unet, mock_is_valid):
+    @patch("diffusers.ConfigMixin.load_config", side_effect=Exception("not found"))
+    def test_detected_model_variant_auto_raises_error(self, mock_load_config, mock_is_valid):
         model = DiffusersModelHandler(model_path="some-random-model", model_variant=DiffusersModelVariant.AUTO)
         with pytest.raises(ValueError, match="Cannot detect model variant"):
             _ = model.detected_model_variant

@@ -180,7 +180,7 @@ class TestDiffusersAPI:
 
     def test_get_diffusers_onnx_config_unsupported_raises(self, mock_clip_config):
         """Test get_diffusers_onnx_config raises for unsupported combination."""
-        with pytest.raises(KeyError, match="not supported"):
+        with pytest.raises(ValueError, match="is not a valid DiffusersModelVariant"):
             get_diffusers_onnx_config(
                 pipeline_type="unsupported_pipeline",
                 component_name="text_encoder",
