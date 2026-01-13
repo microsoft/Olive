@@ -21,6 +21,7 @@ from transformers.modeling_utils import PreTrainedModel
 
 from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
+from olive.constants import DiffusersComponent
 from olive.hardware import AcceleratorSpec
 from olive.model import (
     CompositeModelHandler,
@@ -652,7 +653,7 @@ class OnnxConversion(Pass):
             )
 
             # Apply LoRA compatibility for unet/transformer if adapter was loaded
-            if model.adapter_path and component_name in ("unet", "transformer"):
+            if model.adapter_path and component_name in (DiffusersComponent.UNET, DiffusersComponent.TRANSFORMER):
                 component_model = make_export_compatible_peft(
                     component_model,
                     merge_weights=config.merge_adapter_weights,
@@ -730,13 +731,13 @@ class OnnxConversion(Pass):
         from olive.model.utils.diffusers_utils import get_vae_decoder, get_vae_encoder
 
         # Handle VAE encoder/decoder specially
-        if component_name == "vae_encoder":
+        if component_name == DiffusersComponent.VAE_ENCODER:
             vae = getattr(pipeline, "vae", None)
             if vae is None:
                 return None, None
             return get_vae_encoder(vae), vae.config
 
-        if component_name == "vae_decoder":
+        if component_name == DiffusersComponent.VAE_DECODER:
             vae = getattr(pipeline, "vae", None)
             if vae is None:
                 return None, None

@@ -14,7 +14,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
-from olive.model.handler.diffusers import DiffusersModelVariant
+from olive.constants import DiffusersModelVariant
 from olive.passes.diffusers.lora import LRSchedulerType, MixedPrecision
 
 

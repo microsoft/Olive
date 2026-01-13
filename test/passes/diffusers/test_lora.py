@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import torch
 
-from olive.model.handler.diffusers import DiffusersModelVariant
+from olive.constants import DiffusersModelVariant
 from olive.passes.diffusers.lora import SDLoRA
 from olive.passes.olive_pass import create_pass_from_dict
 

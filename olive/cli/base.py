@@ -12,9 +12,9 @@ from typing import ClassVar, Optional
 from olive.common.constants import DEFAULT_HF_TASK
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import hf_repo_exists, set_nested_dict_value, unescaped_str
+from olive.constants import DiffusersModelVariant
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
-from olive.model.handler.diffusers import DiffusersModelVariant
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 

@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from olive.model.handler.diffusers import DiffusersModelHandler, DiffusersModelVariant
+from olive.constants import DiffusersModelVariant
+from olive.model.handler.diffusers import DiffusersModelHandler
 
 
 class TestDiffusersModelHandler:

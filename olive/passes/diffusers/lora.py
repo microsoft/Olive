@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import Optional, Union
 
 from olive.common.utils import StrEnumBase
+from olive.constants import DiffusersModelVariant
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import DiffusersModelHandler
-from olive.model.handler.diffusers import DiffusersModelVariant
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pass_config import BasePassConfig

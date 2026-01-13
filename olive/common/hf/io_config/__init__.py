@@ -51,6 +51,7 @@ from olive.common.hf.io_config.tasks import (
     TaskType,
     map_task_synonym,
 )
+from olive.constants import DiffusersComponent, DiffusersModelVariant
 
 if TYPE_CHECKING:
     from transformers import PretrainedConfig
@@ -122,42 +123,42 @@ def is_task_supported(model_type: str, task: str) -> bool:
 # ============================================================================
 
 # Mapping: (pipeline_type, component_name) -> OnnxConfig class
-_DIFFUSERS_CONFIG_REGISTRY: dict[tuple[str, str], type[OnnxConfig]] = {
+_DIFFUSERS_CONFIG_REGISTRY: dict[tuple[DiffusersModelVariant, DiffusersComponent], type[OnnxConfig]] = {
     # SD 1.5
-    ("sd", "text_encoder"): DiffusersTextEncoderOnnxConfig,
-    ("sd", "unet"): UNetOnnxConfig,
-    ("sd", "vae_encoder"): VaeEncoderOnnxConfig,
-    ("sd", "vae_decoder"): VaeDecoderOnnxConfig,
+    (DiffusersModelVariant.SD, DiffusersComponent.TEXT_ENCODER): DiffusersTextEncoderOnnxConfig,
+    (DiffusersModelVariant.SD, DiffusersComponent.UNET): UNetOnnxConfig,
+    (DiffusersModelVariant.SD, DiffusersComponent.VAE_ENCODER): VaeEncoderOnnxConfig,
+    (DiffusersModelVariant.SD, DiffusersComponent.VAE_DECODER): VaeDecoderOnnxConfig,
     # SDXL
-    ("sdxl", "text_encoder"): DiffusersTextEncoderOnnxConfig,
-    ("sdxl", "text_encoder_2"): DiffusersTextEncoderWithProjectionOnnxConfig,
-    ("sdxl", "unet"): UNetOnnxConfig,
-    ("sdxl", "vae_encoder"): VaeEncoderOnnxConfig,
-    ("sdxl", "vae_decoder"): VaeDecoderOnnxConfig,
+    (DiffusersModelVariant.SDXL, DiffusersComponent.TEXT_ENCODER): DiffusersTextEncoderOnnxConfig,
+    (DiffusersModelVariant.SDXL, DiffusersComponent.TEXT_ENCODER_2): DiffusersTextEncoderWithProjectionOnnxConfig,
+    (DiffusersModelVariant.SDXL, DiffusersComponent.UNET): UNetOnnxConfig,
+    (DiffusersModelVariant.SDXL, DiffusersComponent.VAE_ENCODER): VaeEncoderOnnxConfig,
+    (DiffusersModelVariant.SDXL, DiffusersComponent.VAE_DECODER): VaeDecoderOnnxConfig,
     # SD3
-    ("sd3", "text_encoder"): DiffusersTextEncoderOnnxConfig,
-    ("sd3", "text_encoder_2"): DiffusersTextEncoderWithProjectionOnnxConfig,
-    ("sd3", "text_encoder_3"): DiffusersT5EncoderOnnxConfig,
-    ("sd3", "transformer"): SD3TransformerOnnxConfig,
-    ("sd3", "vae_encoder"): VaeEncoderOnnxConfig,
-    ("sd3", "vae_decoder"): VaeDecoderOnnxConfig,
+    (DiffusersModelVariant.SD3, DiffusersComponent.TEXT_ENCODER): DiffusersTextEncoderOnnxConfig,
+    (DiffusersModelVariant.SD3, DiffusersComponent.TEXT_ENCODER_2): DiffusersTextEncoderWithProjectionOnnxConfig,
+    (DiffusersModelVariant.SD3, DiffusersComponent.TEXT_ENCODER_3): DiffusersT5EncoderOnnxConfig,
+    (DiffusersModelVariant.SD3, DiffusersComponent.TRANSFORMER): SD3TransformerOnnxConfig,
+    (DiffusersModelVariant.SD3, DiffusersComponent.VAE_ENCODER): VaeEncoderOnnxConfig,
+    (DiffusersModelVariant.SD3, DiffusersComponent.VAE_DECODER): VaeDecoderOnnxConfig,
     # Flux
-    ("flux", "text_encoder"): DiffusersTextEncoderOnnxConfig,
-    ("flux", "text_encoder_2"): DiffusersT5EncoderOnnxConfig,
-    ("flux", "transformer"): FluxTransformerOnnxConfig,
-    ("flux", "vae_encoder"): VaeEncoderOnnxConfig,
-    ("flux", "vae_decoder"): VaeDecoderOnnxConfig,
+    (DiffusersModelVariant.FLUX, DiffusersComponent.TEXT_ENCODER): DiffusersTextEncoderOnnxConfig,
+    (DiffusersModelVariant.FLUX, DiffusersComponent.TEXT_ENCODER_2): DiffusersT5EncoderOnnxConfig,
+    (DiffusersModelVariant.FLUX, DiffusersComponent.TRANSFORMER): FluxTransformerOnnxConfig,
+    (DiffusersModelVariant.FLUX, DiffusersComponent.VAE_ENCODER): VaeEncoderOnnxConfig,
+    (DiffusersModelVariant.FLUX, DiffusersComponent.VAE_DECODER): VaeDecoderOnnxConfig,
     # Sana
-    ("sana", "text_encoder"): DiffusersGemma2TextEncoderOnnxConfig,
-    ("sana", "transformer"): SanaTransformerOnnxConfig,
-    ("sana", "vae_encoder"): DcaeEncoderOnnxConfig,
-    ("sana", "vae_decoder"): DcaeDecoderOnnxConfig,
+    (DiffusersModelVariant.SANA, DiffusersComponent.TEXT_ENCODER): DiffusersGemma2TextEncoderOnnxConfig,
+    (DiffusersModelVariant.SANA, DiffusersComponent.TRANSFORMER): SanaTransformerOnnxConfig,
+    (DiffusersModelVariant.SANA, DiffusersComponent.VAE_ENCODER): DcaeEncoderOnnxConfig,
+    (DiffusersModelVariant.SANA, DiffusersComponent.VAE_DECODER): DcaeDecoderOnnxConfig,
 }
 
 
 def get_diffusers_onnx_config(
-    pipeline_type: str,
-    component_name: str,
+    pipeline_type: DiffusersModelVariant,
+    component_name: DiffusersComponent,
     config: "PretrainedConfig",
     int_dtype: str = "int64",
     float_dtype: str = "fp32",
@@ -166,8 +167,8 @@ def get_diffusers_onnx_config(
     """Get an ONNX config instance for a diffusers pipeline component.
 
     Args:
-        pipeline_type: The diffusers pipeline type (e.g., "sd", "sdxl", "sd3", "flux", "sana").
-        component_name: The component name (e.g., "text_encoder", "unet", "vae_encoder").
+        pipeline_type: The diffusers pipeline type (e.g., DiffusersModelVariant.SD).
+        component_name: The component name (e.g., DiffusersComponent.TEXT_ENCODER).
         config: The component's config.
         int_dtype: The integer data type for inputs (default: "int64").
         float_dtype: The float data type for inputs (default: "fp32").
@@ -180,7 +181,7 @@ def get_diffusers_onnx_config(
         KeyError: If the pipeline type and component combination is not supported.
 
     """
-    key = (pipeline_type.lower(), component_name.lower())
+    key = (DiffusersModelVariant(pipeline_type), DiffusersComponent(component_name))
     if key not in _DIFFUSERS_CONFIG_REGISTRY:
         supported = [f"{p}:{c}" for p, c in _DIFFUSERS_CONFIG_REGISTRY]
         raise KeyError(

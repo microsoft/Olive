@@ -6,8 +6,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from olive.common.utils import StrEnumBase
-from olive.constants import Framework, ModelFileFormat
+from olive.constants import DiffusersComponent, DiffusersModelVariant, Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
@@ -18,17 +17,6 @@ if TYPE_CHECKING:
     from diffusers import DiffusionPipeline
 
 logger = logging.getLogger(__name__)
-
-
-class DiffusersModelVariant(StrEnumBase):
-    """Diffusion model variants."""
-
-    AUTO = "auto"
-    SD = "sd"
-    SDXL = "sdxl"
-    SD3 = "sd3"
-    FLUX = "flux"
-    SANA = "sana"
 
 
 @model_handler_registry("DiffusersModel")
@@ -272,7 +260,7 @@ class DiffusersModelHandler(OliveModelHandler):
             return getattr(pipeline, component_name)
         raise ValueError(f"Component '{component_name}' not found in pipeline")
 
-    def get_exportable_components(self) -> list[str]:
+    def get_exportable_components(self) -> list[DiffusersComponent]:
         """Get list of exportable components for the pipeline variant.
 
         Returns:
@@ -281,23 +269,52 @@ class DiffusersModelHandler(OliveModelHandler):
         """
         variant = self.detected_model_variant
         if variant == DiffusersModelVariant.SD:
-            return ["text_encoder", "unet", "vae_encoder", "vae_decoder"]
+            return [
+                DiffusersComponent.TEXT_ENCODER,
+                DiffusersComponent.UNET,
+                DiffusersComponent.VAE_ENCODER,
+                DiffusersComponent.VAE_DECODER,
+            ]
         elif variant == DiffusersModelVariant.SDXL:
-            return ["text_encoder", "text_encoder_2", "unet", "vae_encoder", "vae_decoder"]
+            return [
+                DiffusersComponent.TEXT_ENCODER,
+                DiffusersComponent.TEXT_ENCODER_2,
+                DiffusersComponent.UNET,
+                DiffusersComponent.VAE_ENCODER,
+                DiffusersComponent.VAE_DECODER,
+            ]
         elif variant == DiffusersModelVariant.SD3:
-            return ["text_encoder", "text_encoder_2", "text_encoder_3", "transformer", "vae_encoder", "vae_decoder"]
+            return [
+                DiffusersComponent.TEXT_ENCODER,
+                DiffusersComponent.TEXT_ENCODER_2,
+                DiffusersComponent.TEXT_ENCODER_3,
+                DiffusersComponent.TRANSFORMER,
+                DiffusersComponent.VAE_ENCODER,
+                DiffusersComponent.VAE_DECODER,
+            ]
         elif variant == DiffusersModelVariant.FLUX:
-            return ["text_encoder", "text_encoder_2", "transformer", "vae_encoder", "vae_decoder"]
+            return [
+                DiffusersComponent.TEXT_ENCODER,
+                DiffusersComponent.TEXT_ENCODER_2,
+                DiffusersComponent.TRANSFORMER,
+                DiffusersComponent.VAE_ENCODER,
+                DiffusersComponent.VAE_DECODER,
+            ]
         elif variant == DiffusersModelVariant.SANA:
-            return ["text_encoder", "transformer", "vae_encoder", "vae_decoder"]
+            return [
+                DiffusersComponent.TEXT_ENCODER,
+                DiffusersComponent.TRANSFORMER,
+                DiffusersComponent.VAE_ENCODER,
+                DiffusersComponent.VAE_DECODER,
+            ]
         else:
             raise ValueError(f"Unknown model variant: {variant}")
 
-    def get_pipeline_type(self) -> str:
-        """Get the pipeline type string for OnnxConfig lookup.
+    def get_pipeline_type(self) -> DiffusersModelVariant:
+        """Get the pipeline type for OnnxConfig lookup.
 
         Returns:
-            Pipeline type string (e.g., 'sd', 'sdxl', 'sd3', 'flux', 'sana').
+            Pipeline type (e.g., DiffusersModelVariant.SD).
 
         """
-        return self.detected_model_variant.value
+        return self.detected_model_variant
