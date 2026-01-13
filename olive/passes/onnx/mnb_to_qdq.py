@@ -28,8 +28,9 @@ class MatMulNBitsToQDQ(Pass):
     """Convert ONNX MatMulNBits nodes to standard ONNX quantized-dequantized (QDQ) format."""
 
     INT_ELEM_TYPE_MAP: ClassVar[dict] = {
-        (2, True): onnx.TensorProto.INT2,
-        (2, False): onnx.TensorProto.UINT2,
+        # int2 and int4 require onnx 1.20+
+        (2, True): 26,
+        (2, False): 25,
         (4, True): onnx.TensorProto.INT4,
         (4, False): onnx.TensorProto.UINT4,
         (8, True): onnx.TensorProto.INT8,

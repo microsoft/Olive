@@ -16,7 +16,7 @@ from olive.passes.onnx.mnb_to_qdq import MatMulNBitsToQDQ
 from olive.passes.onnx.onnx_dag import OnnxDAG
 
 ORT_VERSION = version.parse(ort_version)
-SKIP_2BIT = version.parse("1.24.0") > ORT_VERSION
+SKIP_2BIT = version.parse("1.24.0") > ORT_VERSION or version.parse(onnx.__version__) < version.parse("1.20.1")
 
 
 @pytest.fixture(
