@@ -85,14 +85,14 @@ class TestDiffusersModelHandler:
         def mock_load_config(cls_or_path, subfolder=None):
             if subfolder in mock_config:
                 return mock_config[subfolder]
-            raise Exception(f"Config not found for {subfolder}")
+            raise FileNotFoundError(f"Config not found for {subfolder}")
 
         with patch("diffusers.ConfigMixin.load_config", side_effect=mock_load_config):
             model = DiffusersModelHandler(model_path=model_path, model_variant=DiffusersModelVariant.AUTO)
             assert model.detected_model_variant == expected
 
     @patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
-    @patch("diffusers.ConfigMixin.load_config", side_effect=Exception("not found"))
+    @patch("diffusers.ConfigMixin.load_config", side_effect=FileNotFoundError("not found"))
     def test_detected_model_variant_auto_raises_error(self, mock_load_config, mock_is_valid):
         model = DiffusersModelHandler(model_path="some-random-model", model_variant=DiffusersModelVariant.AUTO)
         with pytest.raises(ValueError, match="Cannot detect model variant"):
