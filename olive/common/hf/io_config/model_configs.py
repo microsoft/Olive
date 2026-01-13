@@ -16,8 +16,8 @@ from olive.common.hf.io_config.config import (
     VisionOnnxConfig,
 )
 from olive.common.hf.io_config.input_generators import (
-    BloomDummyPastKeyValuesGenerator,
     DummyFluxTransformerInputGenerator,
+    DummyPastKeyValuesGenerator,
     DummySanaTransformerInputGenerator,
     DummySD3TransformerInputGenerator,
     DummyTextInputGenerator,
@@ -270,7 +270,7 @@ class DebertaOnnxConfig(BertOnnxConfig):
         return common_inputs
 
 
-@register_onnx_config("deberta_v2", *COMMON_TEXT_TASKS)
+@register_onnx_config("deberta-v2", *COMMON_TEXT_TASKS)
 class DebertaV2OnnxConfig(DebertaOnnxConfig):
     pass
 
@@ -446,8 +446,8 @@ class GraniteOnnxConfig(LlamaOnnxConfig):
 
 @register_onnx_config("bloom", *[*COMMON_TEXT_GENERATION_TASKS, TaskType.TEXT_CLASSIFICATION])
 class BloomOnnxConfig(TextDecoderOnnxConfig):
-    DUMMY_INPUT_GENERATOR_CLASSES = (DummyTextInputGenerator, BloomDummyPastKeyValuesGenerator)
-    DUMMY_PKV_GENERATOR_CLASS = BloomDummyPastKeyValuesGenerator
+    DUMMY_INPUT_GENERATOR_CLASSES = (DummyTextInputGenerator, DummyPastKeyValuesGenerator)
+    DUMMY_PKV_GENERATOR_CLASS = DummyPastKeyValuesGenerator
     NORMALIZED_CONFIG_CLASS = BloomNormalizedTextConfig
 
 
@@ -516,7 +516,7 @@ class BlenderbotOnnxConfig(BartOnnxConfig):
     pass
 
 
-@register_onnx_config("blenderbot_small", *COMMON_TEXT2TEXT_GENERATION_TASKS)
+@register_onnx_config("blenderbot-small", *COMMON_TEXT2TEXT_GENERATION_TASKS)
 class BlenderbotSmallOnnxConfig(BartOnnxConfig):
     pass
 

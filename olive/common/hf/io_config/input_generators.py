@@ -4,12 +4,10 @@
 # -------------------------------------------------------------------------
 import random
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from olive.common.hf.io_config.normalized_config import (
     NormalizedConfig,
-    NormalizedEncoderDecoderConfig,
-    NormalizedSeq2SeqConfig,
     NormalizedTextConfig,
     NormalizedVisionConfig,
 )
@@ -229,11 +227,7 @@ class DummyTextInputGenerator(DummyInputGenerator):
         **kwargs,
     ):
         self.task = task
-
-        if isinstance(normalized_config, NormalizedEncoderDecoderConfig):
-            self.vocab_size = normalized_config.vocab_size
-        else:
-            self.vocab_size = normalized_config.vocab_size
+        self.vocab_size = normalized_config.vocab_size
 
         if random_batch_size_range:
             low, high = random_batch_size_range
@@ -313,11 +307,7 @@ class DummySeq2SeqDecoderTextInputGenerator(DummyDecoderTextInputGenerator):
             random_sequence_length_range=random_sequence_length_range,
             random_num_choices_range=random_num_choices_range,
         )
-
-        if isinstance(normalized_config, NormalizedEncoderDecoderConfig):
-            self.hidden_size = normalized_config.ENCODER_NORMALIZED_CONFIG_CLASS.hidden_size
-        else:
-            self.hidden_size = normalized_config.hidden_size
+        self.hidden_size = normalized_config.hidden_size
 
     def generate(self, input_name: str, framework: str = "pt", int_dtype: str = "int64", float_dtype: str = "fp32"):
         if input_name in ["encoder_outputs", "encoder_hidden_states"]:
@@ -389,7 +379,7 @@ class DummySeq2SeqPastKeyValuesGenerator(DummyInputGenerator):
     def __init__(
         self,
         task: str,
-        normalized_config: Union[NormalizedSeq2SeqConfig, NormalizedEncoderDecoderConfig],
+        normalized_config: NormalizedConfig,
         batch_size: int = DEFAULT_DUMMY_SHAPES["batch_size"],
         sequence_length: int = DEFAULT_DUMMY_SHAPES["sequence_length"],
         encoder_sequence_length: Optional[int] = None,
@@ -412,22 +402,11 @@ class DummySeq2SeqPastKeyValuesGenerator(DummyInputGenerator):
             self.sequence_length if encoder_sequence_length is None else encoder_sequence_length
         )
 
-        if isinstance(normalized_config, NormalizedEncoderDecoderConfig):
-            self.encoder_num_attention_heads = (
-                self.normalized_config.DECODER_NORMALIZED_CONFIG_CLASS.encoder_num_attention_heads
-            )
-            self.decoder_num_attention_heads = (
-                self.normalized_config.DECODER_NORMALIZED_CONFIG_CLASS.decoder_num_attention_heads
-            )
-            self.encoder_hidden_size = self.normalized_config.DECODER_NORMALIZED_CONFIG_CLASS.hidden_size
-            self.decoder_hidden_size = self.normalized_config.DECODER_NORMALIZED_CONFIG_CLASS.hidden_size
-            self.decoder_num_layers = self.normalized_config.DECODER_NORMALIZED_CONFIG_CLASS.num_layers
-        else:
-            self.encoder_num_attention_heads = self.normalized_config.encoder_num_attention_heads
-            self.decoder_num_attention_heads = self.normalized_config.decoder_num_attention_heads
-            self.encoder_hidden_size = self.normalized_config.hidden_size
-            self.decoder_hidden_size = self.normalized_config.hidden_size
-            self.decoder_num_layers = self.normalized_config.decoder_num_layers
+        self.encoder_num_attention_heads = self.normalized_config.encoder_num_attention_heads
+        self.decoder_num_attention_heads = self.normalized_config.decoder_num_attention_heads
+        self.encoder_hidden_size = self.normalized_config.hidden_size
+        self.decoder_hidden_size = self.normalized_config.hidden_size
+        self.decoder_num_layers = self.normalized_config.decoder_num_layers
 
     def generate(self, input_name: str, framework: str = "pt", int_dtype: str = "int64", float_dtype: str = "fp32"):
         if input_name == "past_key_values":
@@ -703,12 +682,6 @@ class GemmaDummyPastKeyValuesGenerator(DummyPastKeyValuesGenerator):
             )
             for _ in range(self.num_layers)
         ]
-
-
-class BloomDummyPastKeyValuesGenerator(DummyPastKeyValuesGenerator):
-    def generate(self, input_name: str, framework: str = "pt", int_dtype: str = "int64", float_dtype: str = "fp32"):
-        # Use the default implementation for newer transformers
-        return super().generate(input_name, framework=framework, int_dtype=int_dtype, float_dtype=float_dtype)
 
 
 class FalconDummyPastKeyValuesGenerator(DummyPastKeyValuesGenerator):
