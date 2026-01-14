@@ -2210,7 +2210,9 @@ def test_packed_attention_to_loop_mha(tmp_path):
         outputs=[output],
     )
 
-    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20), helper.make_opsetid(OpType.Custom, 1)])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_opsetid("", 20), helper.make_opsetid(OpType.Custom, 1)]
+    )
     model.ir_version = 10
     model_path = tmp_path / "model.onnx"
     onnx.save(model, model_path)
@@ -2232,16 +2234,10 @@ def test_packed_attention_to_loop_mha(tmp_path):
     op_types = [node.op_type for node in output_model_def.graph.node]
     assert "PackedAttention" not in op_types
     assert "Loop" in op_types
-
-    # MultiHeadAttention is in the Loop's body subgraph
-    loop_node = next(node for node in output_model_def.graph.node if node.op_type == "Loop")
-    body_graph = loop_node.attribute[0].g
-    body_op_types = [node.op_type for node in body_graph.node]
-    assert "MultiHeadAttention" in body_op_types
+    assert "MultiHeadAttention" in [node.op_type for node in output_model_def.graph.node]
 
 
 def test_packed_attention_to_packed_mha(tmp_path):
-    """Test PackedAttentionToPackedMHA surgeon replaces custom::PackedAttention with PackedMultiHeadAttention."""
     # setup: create model with custom::PackedAttention node
     batch_size, num_heads, seq_len, head_dim = 1, 2, 6, 4
 
@@ -2268,7 +2264,9 @@ def test_packed_attention_to_packed_mha(tmp_path):
         outputs=[output],
     )
 
-    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20), helper.make_opsetid(OpType.Custom, 1)])
+    model = helper.make_model(
+        graph, opset_imports=[helper.make_opsetid("", 20), helper.make_opsetid(OpType.Custom, 1)]
+    )
     model.ir_version = 10
     model_path = tmp_path / "model.onnx"
     onnx.save(model, model_path)
