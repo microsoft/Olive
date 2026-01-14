@@ -15,13 +15,14 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 import onnx
+import onnxscript
 from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
-from onnx_ir.passes.common import DeduplicateHashedInitializersPass
+from onnx_ir.passes.common import DeduplicateHashedInitializersPass, InlinePass, RemoveUnusedOpsetsPass
 from onnxscript import ir, rewriter
 from onnxscript.rewriter import pattern
 
-from olive.constants import MSFT_DOMAIN
+from olive.constants import MSFT_DOMAIN, OpType
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -2038,6 +2039,216 @@ class TieWordEmbeddings(ProtoSurgeon):
         if transpose:
             arr0 = arr0.T
         return np.array_equal(arr0.ravel(), arr1.ravel())
+
+
+class PackedAttentionToLoopMHA(Surgeon):
+    """Replace custom::PackedAttention with a loop calling com.microsoft::MultiHeadAttention.
+
+    This surgery expands the custom PackedAttention operation into a loop that processes
+    each sequence segment separately using MultiHeadAttention.
+
+    Input shapes:
+        - query_states, key_states, value_states: [B, num_heads, seq_len, head_dim]
+        - cu_seqlens: [num_segments + 1] cumulative sequence lengths
+
+    Output shape:
+        - attn_output: [B, seq_len, num_heads, head_dim]
+    """
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        # Get the opset version from the model
+        opset_version = model.opset_imports.get("", 20)
+
+        custom = onnxscript.values.Opset(OpType.Custom, 1)
+        op = onnxscript.values.Opset("", opset_version)
+        msft_op = onnxscript.values.Opset(MSFT_DOMAIN, 1)
+
+        @onnxscript.script(opset=custom)
+        def PackedAttention(  # noqa: N802
+            query_states,
+            key_states,
+            value_states,
+            cu_seqlens,
+            scale: float,
+            num_heads: int,
+        ):
+            # Shapes of input Q/K/V: [B, num_heads, seq_len, head_dim]
+
+            # Convert Q/K/V to shape [B, seq_len, num_heads*head_dim]
+            to_3d_shape = op.Constant(value_ints=[0, 0, -1])
+            query_transposed = op.Transpose(query_states, perm=[0, 2, 1, 3])
+            output_shape = op.Shape(query_transposed)
+            query_3d = op.Reshape(query_transposed, to_3d_shape)
+            value_3d = op.Reshape(op.Transpose(value_states, perm=[0, 2, 1, 3]), to_3d_shape)
+            key_3d = op.Reshape(op.Transpose(key_states, perm=[0, 2, 1, 3]), to_3d_shape)
+
+            num_patches = op.Size(cu_seqlens) - 1
+            seq_axis = op.Constant(value_ints=[1])
+            seq_axis_int32 = op.Cast(seq_axis, to=onnx.TensorProto.INT32)
+            attn_output = op.Slice(value_3d, [0], [0], seq_axis)  # Initialize empty output
+            for i in range(num_patches):
+                i_1d = op.Reshape(i, [1])
+                i_plus_1_1d = i_1d + 1
+                start = op.Gather(cu_seqlens, i_1d, axis=0)
+                end = op.Gather(cu_seqlens, i_plus_1_1d, axis=0)
+
+                query_i = op.Slice(query_3d, start, end, seq_axis_int32)
+                key_i = op.Slice(key_3d, start, end, seq_axis_int32)
+                value_i = op.Slice(value_3d, start, end, seq_axis_int32)
+
+                mha_output = msft_op.MultiHeadAttention(
+                    query_i,
+                    key_i,
+                    value_i,
+                    num_heads=num_heads,
+                    scale=scale,
+                )
+                attn_output = op.Concat(attn_output, mha_output, axis=1)
+            return op.Reshape(attn_output, output_shape)  # [B, seq_len, num_heads, head_dim]
+
+        # Update the functions into the model
+        irfunctions: list[ir.Function] = [ir.from_proto(PackedAttention.to_function_proto())]
+        model_functions = model.functions
+
+        if len(model_functions) != 0:
+            raise ValueError("Input model cannot have model-local functions.")
+        for func in irfunctions:
+            model_functions[func.identifier()] = func
+
+        InlinePass()(model)
+        RemoveUnusedOpsetsPass()(model)
+        return model
+
+
+class PackedAttentionToPackedMHA(Surgeon):
+    """Replace custom::PackedAttention with com.microsoft::PackedMultiHeadAttention.
+
+    This surgery expands the custom PackedAttention operation into a single
+    PackedMultiHeadAttention call with computed token offsets.
+
+    Input shapes:
+        - query, key, value: [B=1, num_heads, seq_len, head_dim]
+        - cu_seqlens: [num_segments + 1] cumulative sequence lengths
+
+    Output shape:
+        - attn_output: [B, seq_len, num_heads, head_dim]
+    """
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        # Get the opset version from the model
+        opset_version = model.opset_imports.get("", 20)
+
+        custom = onnxscript.values.Opset(OpType.Custom, 1)
+        op = onnxscript.values.Opset("", opset_version)
+        msft_op = onnxscript.values.Opset(MSFT_DOMAIN, 1)
+
+        @onnxscript.script(opset=custom)
+        def PackedAttention(query, key, value, cu_seqlens, scale: float, num_heads: int):  # noqa: N802
+            # Shapes of input Q/K/V: [B=1, num_heads, seq_len, head_dim]
+            num_patches = op.Cast(op.Size(cu_seqlens), to=onnx.TensorProto.INT32) - 1
+            # Identify lengths of each patch and max length
+            starts = op.Slice(cu_seqlens, [0], [-1], [0])  # [num_patches]
+            ends = op.Slice(cu_seqlens, [1], [9223372036854775807], [0])  # [num_patches]
+            lengths = ends - starts  # [num_patches]
+            max_length = op.ReduceMax(lengths, [0], keepdims=0)  # [1]
+            # Create token_offset required by the PackedMultiHeadAttention op
+            # First create matrix: [
+            #    [0, 1, 2, ..., max_length-1],
+            #    [max_length, max_length+1, ..., 2*max_length-1],
+            #    ... ]
+            rows = op.Range(0, num_patches, 1)  # [num_patches]
+            rows_2d = op.Unsqueeze(rows, [1])  # [num_patches, 1]
+            cols = op.Range(0, max_length, 1)  # [max_length]
+            cols_2d = op.Unsqueeze(cols, [0])  # [1, max_length]
+            position_matrix = rows_2d * max_length + cols_2d  # [num_patches, max_length]
+            position_matrix_shape = op.Shape(position_matrix)
+            # Now find positions of valid tokens and padding tokens
+            # Position at column j in row i is valid if j < lengths[i]
+            token_mask = cols_2d < op.Unsqueeze(lengths, [1])  # [num_patches, max_length]
+            token_mask_1d = op.Reshape(token_mask, [-1])  # [num_patches * max_length]
+            # All other positions are padding
+            padded_mask_1d = op.Not(token_mask_1d)
+            valid_token_positions = op.Compress(position_matrix, token_mask)  # [total_valid_tokens]
+            padded_token_positions = op.Compress(position_matrix, padded_mask_1d)  # [total_padded_tokens]
+            token_offset_1d = op.Concat(
+                valid_token_positions, padded_token_positions, axis=0
+            )  # [num_patches * max_length]
+            token_offset = op.Reshape(token_offset_1d, position_matrix_shape)  # [num_patches, max_length]
+
+            # Convert query/key/value to shape (seq_len, num_heads* head_dim)
+            # squeeze(0) => transpose(0,1) => reshape([0, -1])
+            query_3d = op.Transpose(op.Squeeze(query, [0]), perm=[1, 0, 2])
+            shape_3d = op.Shape(query_3d)
+            query_2d = op.Reshape(query_3d, [0, -1])
+            key_2d = op.Reshape(op.Transpose(op.Squeeze(key, [0]), perm=[1, 0, 2]), [0, -1])
+            value_2d = op.Reshape(op.Transpose(op.Squeeze(value, [0]), perm=[1, 0, 2]), [0, -1])
+
+            packed_attn_output_2d = msft_op.PackedMultiHeadAttention(
+                query_2d,
+                key_2d,
+                value_2d,
+                None,
+                token_offset,
+                cu_seqlens,
+                scale=scale,
+                num_heads=num_heads,
+            )
+            packed_attn_output_3d = op.Reshape(packed_attn_output_2d, shape_3d)
+            return op.Unsqueeze(packed_attn_output_3d, [0])  # [B, seq_len, num_heads, head_dim]
+
+        # Update the functions into the model
+        irfunctions: list[ir.Function] = [ir.from_proto(PackedAttention.to_function_proto())]
+        model_functions = model.functions
+
+        if len(model_functions) != 0:
+            raise ValueError("Input model cannot have model-local functions.")
+        for func in irfunctions:
+            model_functions[func.identifier()] = func
+
+        InlinePass()(model)
+        RemoveUnusedOpsetsPass()(model)
+        return model
+
+
+class RenameOutputDims(Surgeon):
+    """Rename dynamic dimension names in output shapes.
+
+    This surgery renames the dimension name at a specific index in an output's shape.
+    Useful for restoring meaningful dimension names after graph transformations
+    that may have changed them.
+
+    Example usage:
+        {
+            "surgeon": "RenameOutputDims",
+            "output_idx": 0,
+            "dim_idx": 0,
+            "dim_name": "num_logical_patches"
+        }
+    """
+
+    def __init__(self, output_idx: int, dim_idx: int, dim_name: str):
+        super().__init__()
+        self.output_idx = output_idx
+        self.dim_idx = dim_idx
+        self.dim_name = dim_name
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        outputs = model.graph.outputs
+        if self.output_idx >= len(outputs):
+            raise ValueError(f"output_idx {self.output_idx} is out of range. Model has {len(outputs)} outputs.")
+
+        output = outputs[self.output_idx]
+        if output.shape is None:
+            raise ValueError(f"Output at index {self.output_idx} has no shape information.")
+
+        if self.dim_idx >= len(output.shape):
+            raise ValueError(f"dim_idx {self.dim_idx} is out of range. Output has {len(output.shape)} dimensions.")
+
+        # Create a new shape with the modified dimension name
+        new_dims = list(output.shape)
+        new_dims[self.dim_idx] = self.dim_name
+        output.shape = ir.Shape(new_dims)
+        return model
 
 
 class GraphSurgeries(Pass):
