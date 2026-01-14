@@ -6,7 +6,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from olive.constants import DiffusersComponent, DiffusersModelVariant, Framework, ModelFileFormat
+from olive.constants import DiffusersComponent as DC  # noqa: N817
+from olive.constants import DiffusersModelVariant, Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
@@ -260,7 +261,7 @@ class DiffusersModelHandler(OliveModelHandler):
             return getattr(pipeline, component_name)
         raise ValueError(f"Component '{component_name}' not found in pipeline")
 
-    def get_exportable_components(self) -> list[DiffusersComponent]:
+    def get_exportable_components(self) -> list[DC]:
         """Get list of exportable components for the pipeline variant.
 
         Returns:
@@ -268,47 +269,45 @@ class DiffusersModelHandler(OliveModelHandler):
 
         """
         variant = self.detected_model_variant
-        if variant == DiffusersModelVariant.SD:
-            return [
-                DiffusersComponent.TEXT_ENCODER,
-                DiffusersComponent.UNET,
-                DiffusersComponent.VAE_ENCODER,
-                DiffusersComponent.VAE_DECODER,
-            ]
-        elif variant == DiffusersModelVariant.SDXL:
-            return [
-                DiffusersComponent.TEXT_ENCODER,
-                DiffusersComponent.TEXT_ENCODER_2,
-                DiffusersComponent.UNET,
-                DiffusersComponent.VAE_ENCODER,
-                DiffusersComponent.VAE_DECODER,
-            ]
-        elif variant == DiffusersModelVariant.SD3:
-            return [
-                DiffusersComponent.TEXT_ENCODER,
-                DiffusersComponent.TEXT_ENCODER_2,
-                DiffusersComponent.TEXT_ENCODER_3,
-                DiffusersComponent.TRANSFORMER,
-                DiffusersComponent.VAE_ENCODER,
-                DiffusersComponent.VAE_DECODER,
-            ]
-        elif variant == DiffusersModelVariant.FLUX:
-            return [
-                DiffusersComponent.TEXT_ENCODER,
-                DiffusersComponent.TEXT_ENCODER_2,
-                DiffusersComponent.TRANSFORMER,
-                DiffusersComponent.VAE_ENCODER,
-                DiffusersComponent.VAE_DECODER,
-            ]
-        elif variant == DiffusersModelVariant.SANA:
-            return [
-                DiffusersComponent.TEXT_ENCODER,
-                DiffusersComponent.TRANSFORMER,
-                DiffusersComponent.VAE_ENCODER,
-                DiffusersComponent.VAE_DECODER,
-            ]
-        else:
+        variant_components = {
+            DiffusersModelVariant.SD: [
+                DC.TEXT_ENCODER,
+                DC.UNET,
+                DC.VAE_ENCODER,
+                DC.VAE_DECODER,
+            ],
+            DiffusersModelVariant.SDXL: [
+                DC.TEXT_ENCODER,
+                DC.TEXT_ENCODER_2,
+                DC.UNET,
+                DC.VAE_ENCODER,
+                DC.VAE_DECODER,
+            ],
+            DiffusersModelVariant.SD3: [
+                DC.TEXT_ENCODER,
+                DC.TEXT_ENCODER_2,
+                DC.TEXT_ENCODER_3,
+                DC.TRANSFORMER,
+                DC.VAE_ENCODER,
+                DC.VAE_DECODER,
+            ],
+            DiffusersModelVariant.FLUX: [
+                DC.TEXT_ENCODER,
+                DC.TEXT_ENCODER_2,
+                DC.TRANSFORMER,
+                DC.VAE_ENCODER,
+                DC.VAE_DECODER,
+            ],
+            DiffusersModelVariant.SANA: [
+                DC.TEXT_ENCODER,
+                DC.TRANSFORMER,
+                DC.VAE_ENCODER,
+                DC.VAE_DECODER,
+            ],
+        }
+        if variant not in variant_components:
             raise ValueError(f"Unknown model variant: {variant}")
+        return variant_components[variant]
 
     def get_pipeline_type(self) -> DiffusersModelVariant:
         """Get the pipeline type for OnnxConfig lookup.

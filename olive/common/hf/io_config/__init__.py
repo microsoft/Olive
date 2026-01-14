@@ -113,9 +113,7 @@ def is_model_supported(model_type: str) -> bool:
 
 def is_task_supported(model_type: str, task: str) -> bool:
     """Check if a task is supported for a model type."""
-    if model_type not in _ONNX_CONFIG_REGISTRY:
-        return False
-    return task in _ONNX_CONFIG_REGISTRY[model_type]
+    return model_type in _ONNX_CONFIG_REGISTRY and task in _ONNX_CONFIG_REGISTRY[model_type]
 
 
 # ============================================================================
