@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import torch
 
-from olive.model.handler.diffusers import DiffusersModelVariant
+from olive.constants import DiffusersModelVariant
 from olive.passes.diffusers.lora import SDLoRA
 from olive.passes.olive_pass import create_pass_from_dict
 
@@ -115,7 +115,7 @@ def test_sd_lora_train_sd15(
 
     config = get_pass_config(
         test_image_folder,
-        model_variant=DiffusersModelVariant.SD15,
+        model_variant=DiffusersModelVariant.SD,
         training_args=DEFAULT_TRAINING_ARGS,
     )
     p = create_pass_from_dict(SDLoRA, config, disable_search=True)
@@ -164,7 +164,7 @@ def test_sd_lora_merge_lora(
 
     config = get_pass_config(
         test_image_folder,
-        model_variant=DiffusersModelVariant.SD15,
+        model_variant=DiffusersModelVariant.SD,
         merge_lora=True,
         training_args=DEFAULT_TRAINING_ARGS,
     )
@@ -376,7 +376,7 @@ def test_sd_lora_dreambooth_sd15(
 
     config = get_pass_config(
         test_image_folder,
-        model_variant=DiffusersModelVariant.SD15,
+        model_variant=DiffusersModelVariant.SD,
         dreambooth=True,
         instance_prompt="a photo of sks dog",
         prior_loss_weight=1.0,

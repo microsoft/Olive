@@ -119,6 +119,29 @@ class AccuracyLevel(IntEnum):
     int8 = 4
 
 
+class DiffusersModelVariant(StrEnumBase):
+    """Diffusion model variants."""
+
+    AUTO = "auto"
+    SD = "sd"
+    SDXL = "sdxl"
+    SD3 = "sd3"
+    FLUX = "flux"
+    SANA = "sana"
+
+
+class DiffusersComponent(StrEnumBase):
+    """Diffusers pipeline component names."""
+
+    TEXT_ENCODER = "text_encoder"
+    TEXT_ENCODER_2 = "text_encoder_2"
+    TEXT_ENCODER_3 = "text_encoder_3"
+    UNET = "unet"
+    TRANSFORMER = "transformer"
+    VAE_ENCODER = "vae_encoder"
+    VAE_DECODER = "vae_decoder"
+
+
 def precision_bits_from_precision(p):
     mapping = {
         Precision.INT4: PrecisionBits.BITS4,

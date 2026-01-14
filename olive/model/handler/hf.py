@@ -117,14 +117,15 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         if dummy_inputs is not None:
             return dummy_inputs
 
-        logger.debug("Trying hf optimum export config to get dummy inputs")
+        logger.debug("Trying hf export config to get dummy inputs")
         dummy_inputs = self.get_hf_dummy_inputs()
         if dummy_inputs is not None:
-            logger.debug("Got dummy inputs from hf optimum export config")
+            logger.debug("Got dummy inputs from hf export config")
         else:
             raise ValueError(
-                "Unable to get dummy inputs for the model. Please provide io_config or install an optimum version that"
-                " supports the model for export."
+                f"Unable to get dummy inputs for the model '{self.model_path}'. "
+                f"The model type '{self.get_hf_model_type()}' may not be supported. "
+                "Please provide io_config manually."
             )
 
         return dummy_inputs

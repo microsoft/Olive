@@ -12,9 +12,9 @@ from typing import ClassVar, Optional
 from olive.common.constants import DEFAULT_HF_TASK
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import hf_repo_exists, set_nested_dict_value, unescaped_str
+from olive.constants import DiffusersModelVariant
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
-from olive.model.handler.diffusers import DiffusersModelVariant
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 
@@ -376,13 +376,23 @@ def add_input_model_options(
             type=DiffusersModelVariant,
             choices=[
                 DiffusersModelVariant.AUTO,
-                DiffusersModelVariant.SD15,
+                DiffusersModelVariant.SD,
                 DiffusersModelVariant.SDXL,
+                DiffusersModelVariant.SD3,
                 DiffusersModelVariant.FLUX,
+                DiffusersModelVariant.SANA,
             ],
             default=DiffusersModelVariant.AUTO,
-            help="Model variant: 'sd15', 'sdxl', 'flux', or 'auto' for auto-detection.",
+            help="Model variant: 'sd', 'sdxl', 'sd3', 'flux', 'sana', or 'auto' for auto-detection.",
         )
+        if not enable_hf_adapter:
+            # Add adapter_path for diffusers if not already added by enable_hf_adapter
+            model_group.add_argument(
+                "-a",
+                "--adapter_path",
+                type=str,
+                help="Path to the LoRA adapter weights. Local folder or huggingface id.",
+            )
     if enable_pt:
         model_group.add_argument(
             "--model_script",

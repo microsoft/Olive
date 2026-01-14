@@ -6,8 +6,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from olive.common.utils import StrEnumBase
-from olive.constants import Framework, ModelFileFormat
+from olive.constants import DiffusersComponent as DC  # noqa: N817
+from olive.constants import DiffusersModelVariant, Framework, ModelFileFormat
 from olive.hardware.accelerator import Device
 from olive.model.config.registry import model_handler_registry
 from olive.model.handler.base import OliveModelHandler
@@ -20,15 +20,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DiffusersModelVariant(StrEnumBase):
-    """Diffusion model variants."""
-
-    AUTO = "auto"
-    SD15 = "sd15"
-    SDXL = "sdxl"
-    FLUX = "flux"
-
-
 @model_handler_registry("DiffusersModel")
 class DiffusersModelHandler(OliveModelHandler):
     """Model handler for diffusers models (Stable Diffusion, SDXL, Flux, etc.).
@@ -38,7 +29,7 @@ class DiffusersModelHandler(OliveModelHandler):
     Example usage:
         model = DiffusersModelHandler(
             model_path="runwayml/stable-diffusion-v1-5",
-            model_variant="sd15",  # optional: sd15, sdxl, flux, or auto
+            model_variant="sd",  # optional: sd, sdxl, flux, or auto
         )
     """
 
@@ -112,49 +103,61 @@ class DiffusersModelHandler(OliveModelHandler):
 
     @property
     def detected_model_variant(self) -> DiffusersModelVariant:
-        """Detect the diffusion model variant."""
+        """Detect the diffusion model variant from config files."""
         if self.model_variant != DiffusersModelVariant.AUTO:
             return self.model_variant
 
-        model_path_lower = self.model_path.lower() if self.model_path else ""
+        detected = self._detect_variant_from_config()
+        if detected is None:
+            raise ValueError(
+                f"Cannot detect model variant for '{self.model_path}'. "
+                "Please specify model_variant explicitly: 'sd', 'sdxl', 'sd3', 'flux', or 'sana'."
+            )
 
-        # Check for Flux
-        if "flux" in model_path_lower:
-            self.model_variant = DiffusersModelVariant.FLUX
-            return DiffusersModelVariant.FLUX
+        self.model_variant = detected
+        return detected
 
-        # Try to detect from model config
+    def _detect_variant_from_config(self) -> Optional[DiffusersModelVariant]:
+        """Detect model variant by reading config files.
+
+        This method checks the _class_name field in transformer/config.json or unet/config.json
+        to determine the model variant.
+
+        Returns:
+            Detected model variant, or None if detection failed.
+
+        """
         try:
-            from diffusers import FluxTransformer2DModel
+            from diffusers import ConfigMixin
+        except ImportError as exc:
+            logger.debug("Failed to import diffusers.ConfigMixin: %s", exc)
+            return None
 
-            FluxTransformer2DModel.load_config(self.model_path, subfolder="transformer")
-            self.model_variant = DiffusersModelVariant.FLUX
-            return DiffusersModelVariant.FLUX
+        # Try transformer config first (for SD3, Flux, Sana)
+        try:
+            transformer_config = ConfigMixin.load_config(self.model_path, subfolder="transformer")
+            class_name = transformer_config.get("_class_name", "")
+
+            if "Sana" in class_name:
+                return DiffusersModelVariant.SANA
+            if "Flux" in class_name:
+                return DiffusersModelVariant.FLUX
+            if "SD3" in class_name:
+                return DiffusersModelVariant.SD3
         except Exception as exc:
-            logger.debug("Error detecting Flux model variant with FluxTransformer2DModel: %s", exc)
+            logger.debug("No transformer config found: %s", exc)
 
+        # Try unet config (for SD, SDXL)
         try:
-            from diffusers import UNet2DConditionModel
-
-            unet_config = UNet2DConditionModel.load_config(self.model_path, subfolder="unet")
+            unet_config = ConfigMixin.load_config(self.model_path, subfolder="unet")
+            # SDXL has cross_attention_dim >= 2048, SD has 768
             if unet_config.get("cross_attention_dim", 768) >= 2048:
-                self.model_variant = DiffusersModelVariant.SDXL
                 return DiffusersModelVariant.SDXL
+            return DiffusersModelVariant.SD
         except Exception as exc:
-            logger.debug("Error detecting SDXL model variant with UNet2DConditionModel: %s", exc)
+            logger.debug("No unet config found: %s", exc)
 
-        # Check model name patterns
-        if "xl" in model_path_lower or "sdxl" in model_path_lower:
-            self.model_variant = DiffusersModelVariant.SDXL
-            return DiffusersModelVariant.SDXL
-        if "sd" in model_path_lower or "stable-diffusion" in model_path_lower:
-            self.model_variant = DiffusersModelVariant.SD15
-            return DiffusersModelVariant.SD15
-
-        raise ValueError(
-            f"Cannot detect model variant from '{self.model_path}'. "
-            "Please specify model_variant explicitly: 'sd15', 'sdxl', or 'flux'."
-        )
+        return None
 
     def load_model(self, rank: int = None, cache_model: bool = True) -> "DiffusionPipeline":
         """Load the diffusion pipeline.
@@ -257,3 +260,60 @@ class DiffusersModelHandler(OliveModelHandler):
         if hasattr(pipeline, component_name):
             return getattr(pipeline, component_name)
         raise ValueError(f"Component '{component_name}' not found in pipeline")
+
+    def get_exportable_components(self) -> list[DC]:
+        """Get list of exportable components for the pipeline variant.
+
+        Returns:
+            List of component names that should be exported.
+
+        """
+        variant = self.detected_model_variant
+        variant_components = {
+            DiffusersModelVariant.SD: [
+                DC.TEXT_ENCODER,
+                DC.UNET,
+                DC.VAE_ENCODER,
+                DC.VAE_DECODER,
+            ],
+            DiffusersModelVariant.SDXL: [
+                DC.TEXT_ENCODER,
+                DC.TEXT_ENCODER_2,
+                DC.UNET,
+                DC.VAE_ENCODER,
+                DC.VAE_DECODER,
+            ],
+            DiffusersModelVariant.SD3: [
+                DC.TEXT_ENCODER,
+                DC.TEXT_ENCODER_2,
+                DC.TEXT_ENCODER_3,
+                DC.TRANSFORMER,
+                DC.VAE_ENCODER,
+                DC.VAE_DECODER,
+            ],
+            DiffusersModelVariant.FLUX: [
+                DC.TEXT_ENCODER,
+                DC.TEXT_ENCODER_2,
+                DC.TRANSFORMER,
+                DC.VAE_ENCODER,
+                DC.VAE_DECODER,
+            ],
+            DiffusersModelVariant.SANA: [
+                DC.TEXT_ENCODER,
+                DC.TRANSFORMER,
+                DC.VAE_ENCODER,
+                DC.VAE_DECODER,
+            ],
+        }
+        if variant not in variant_components:
+            raise ValueError(f"Unknown model variant: {variant}")
+        return variant_components[variant]
+
+    def get_pipeline_type(self) -> DiffusersModelVariant:
+        """Get the pipeline type for OnnxConfig lookup.
+
+        Returns:
+            Pipeline type (e.g., DiffusersModelVariant.SD).
+
+        """
+        return self.detected_model_variant
