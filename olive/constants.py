@@ -104,6 +104,7 @@ class OpType(StrEnumBase):
     Div = "Div"
     Shape = "Shape"
     Constant = "Constant"
+    Custom = "custom"
 
 
 class AccuracyLevel(IntEnum):

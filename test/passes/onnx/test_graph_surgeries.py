@@ -2112,3 +2112,181 @@ def test_remove_gidx_from_matmulnbits(tmp_path):
     # case 3: Random gidx was provided, so it should not be removed
     assert len(case_3_ips) == 5
     assert "layers.2.MatMulNBits.g_idx" in case_3_ips
+
+
+def test_rename_output_dims(tmp_path):
+    # setup: create a model with a dynamic dimension in output shape
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, ["batch", 3, 4])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, ["old_dim_name", 3, 4])
+
+    node = helper.make_node("Identity", inputs=["input"], outputs=["output"], name="Identity")
+
+    graph = helper.make_graph(
+        nodes=[node],
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RenameOutputDims", "output_idx": 0, "dim_idx": 0, "dim_name": "new_dim_name"}]},
+        disable_search=True,
+    )
+
+    # execute
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+
+    # assert
+    output_shape = output_model_def.graph.output[0].type.tensor_type.shape
+    dim_names = [dim.dim_param for dim in output_shape.dim]
+    assert dim_names[0] == "new_dim_name"
+
+
+def test_rename_output_dims_invalid_output_idx(tmp_path):
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3])
+
+    node = helper.make_node("Identity", inputs=["input"], outputs=["output"])
+
+    graph = helper.make_graph(
+        nodes=[node],
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RenameOutputDims", "output_idx": 5, "dim_idx": 0, "dim_name": "new_name"}]},
+        disable_search=True,
+    )
+
+    with pytest.raises(ValueError, match="output_idx 5 is out of range"):
+        p.run(input_model, output_folder)
+
+
+def test_packed_attention_to_loop_mha(tmp_path):
+    # setup: create model with custom::PackedAttention node
+    batch_size, num_heads, seq_len, head_dim = 1, 2, 6, 4
+
+    query = helper.make_tensor_value_info("query", TensorProto.FLOAT, [batch_size, num_heads, seq_len, head_dim])
+    key = helper.make_tensor_value_info("key", TensorProto.FLOAT, [batch_size, num_heads, seq_len, head_dim])
+    value = helper.make_tensor_value_info("value", TensorProto.FLOAT, [batch_size, num_heads, seq_len, head_dim])
+    cu_seqlens = helper.make_tensor_value_info("cu_seqlens", TensorProto.INT32, [3])
+    output = helper.make_tensor_value_info("output", TensorProto.FLOAT, [batch_size, seq_len, num_heads, head_dim])
+
+    packed_attn_node = helper.make_node(
+        "PackedAttention",
+        inputs=["query", "key", "value", "cu_seqlens"],
+        outputs=["output"],
+        name="packed_attention",
+        domain=OpType.Custom,
+        scale=0.5,
+        num_heads=num_heads,
+    )
+
+    graph = helper.make_graph(
+        nodes=[packed_attn_node],
+        name="TestGraph",
+        inputs=[query, key, value, cu_seqlens],
+        outputs=[output],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20), helper.make_opsetid(OpType.Custom, 1)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "PackedAttentionToLoopMHA"}]},
+        disable_search=True,
+    )
+
+    # execute
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+
+    # assert: PackedAttention should be replaced with Loop and MultiHeadAttention
+    op_types = [node.op_type for node in output_model_def.graph.node]
+    assert "PackedAttention" not in op_types
+    assert "Loop" in op_types
+
+    # MultiHeadAttention is in the Loop's body subgraph
+    loop_node = next(node for node in output_model_def.graph.node if node.op_type == "Loop")
+    body_graph = loop_node.attribute[0].g
+    body_op_types = [node.op_type for node in body_graph.node]
+    assert "MultiHeadAttention" in body_op_types
+
+
+def test_packed_attention_to_packed_mha(tmp_path):
+    """Test PackedAttentionToPackedMHA surgeon replaces custom::PackedAttention with PackedMultiHeadAttention."""
+    # setup: create model with custom::PackedAttention node
+    batch_size, num_heads, seq_len, head_dim = 1, 2, 6, 4
+
+    query = helper.make_tensor_value_info("query", TensorProto.FLOAT, [batch_size, num_heads, seq_len, head_dim])
+    key = helper.make_tensor_value_info("key", TensorProto.FLOAT, [batch_size, num_heads, seq_len, head_dim])
+    value = helper.make_tensor_value_info("value", TensorProto.FLOAT, [batch_size, num_heads, seq_len, head_dim])
+    cu_seqlens = helper.make_tensor_value_info("cu_seqlens", TensorProto.INT32, [3])
+    output = helper.make_tensor_value_info("output", TensorProto.FLOAT, [batch_size, seq_len, num_heads, head_dim])
+
+    packed_attn_node = helper.make_node(
+        "PackedAttention",
+        inputs=["query", "key", "value", "cu_seqlens"],
+        outputs=["output"],
+        name="packed_attention",
+        domain=OpType.Custom,
+        scale=0.5,
+        num_heads=num_heads,
+    )
+
+    graph = helper.make_graph(
+        nodes=[packed_attn_node],
+        name="TestGraph",
+        inputs=[query, key, value, cu_seqlens],
+        outputs=[output],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20), helper.make_opsetid(OpType.Custom, 1)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "PackedAttentionToPackedMHA"}]},
+        disable_search=True,
+    )
+
+    # execute
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+
+    # assert: PackedAttention should be replaced with PackedMultiHeadAttention
+    op_types = [node.op_type for node in output_model_def.graph.node]
+    assert "PackedAttention" not in op_types
+    assert "PackedMultiHeadAttention" in op_types
