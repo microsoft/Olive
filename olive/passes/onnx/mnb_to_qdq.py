@@ -28,6 +28,9 @@ class MatMulNBitsToQDQ(Pass):
     """Convert ONNX MatMulNBits nodes to standard ONNX quantized-dequantized (QDQ) format."""
 
     INT_ELEM_TYPE_MAP: ClassVar[dict] = {
+        # int2 and int4 require onnx 1.20+
+        (2, True): 26,
+        (2, False): 25,
         (4, True): onnx.TensorProto.INT4,
         (4, False): onnx.TensorProto.UINT4,
         (8, True): onnx.TensorProto.INT8,
@@ -97,6 +100,7 @@ class MatMulNBitsToQDQ(Pass):
         nodes_to_exclude = set(config.nodes_to_exclude or [])
 
         num_modified = 0
+        two_bit_present = False
         for node_name in dag.get_node_names():
             op_type = dag.get_node_op_type(node_name)
             if op_type != "MatMulNBits" or node_name in nodes_to_exclude:
@@ -126,8 +130,8 @@ class MatMulNBitsToQDQ(Pass):
             is_per_axis = num_k_blocks == 1
 
             bits = node_attributes["bits"]
-            if bits not in [4, 8]:
-                logger.debug("%s uses %d bits, only 4 or 8 bits is supported", node_name, bits)
+            if bits not in [2, 4, 8]:
+                logger.debug("%s uses %d bits, only 2, 4 or 8 bits is supported", node_name, bits)
                 continue
 
             # we can only deal with trivial g_idx, dequantize linear does not support g_idx
@@ -338,6 +342,7 @@ class MatMulNBitsToQDQ(Pass):
                 dag.make_output(node_output)
 
             num_modified += 1
+            two_bit_present |= bits == 2
 
         if num_modified == 0:
             logger.info("No MatMulNBits nodes found. Returning the original model.")
@@ -347,7 +352,8 @@ class MatMulNBitsToQDQ(Pass):
         logger.debug("Modified %d MatMulNBits nodes", num_modified)
         # this might not work for all models but will just update the opset version to 21
         # if there is an issue, try the logic in OnnxOpVersionConversion
-        dag.model.opset_import[0].version = max(21, dag.model.opset_import[0].version)
+        opset = 25 if two_bit_present else 21
+        dag.model.opset_import[0].version = max(opset, dag.model.opset_import[0].version)
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(dag.model, output_model_path, config)
@@ -374,34 +380,60 @@ class MatMulNBitsToQDQ(Pass):
 
     @staticmethod
     def _maybe_unpack_on_row(tensor: "NDArray", bits: int) -> "NDArray":
-        """Unpack uint8 into two uint4 (stored in uint8) column wise if bits is 4."""
+        """Unpack uint8 into multiple sub-byte values (stored in uint8) column wise if bits < 8.
+
+        For example:
+        - bits=2: unpack 1 uint8 into 4 uint2 values
+        - bits=4: unpack 1 uint8 into 2 uint4 values
+        - bits=8: no unpacking needed
+        """
         if bits == 8:
             # no need to unpack if bits is 8
             return tensor
 
-        # two uint4 packed into one uint8
-        # right 4 bits are the first uint4
-        shifts = np.array([0, 4])
+        # number of sub-byte values packed into one uint8
+        num_packed = 8 // bits
+        # shifts for extracting each sub-byte value
+        # e.g., bits=2: [0, 2, 4, 6], bits=4: [0, 4]
+        shifts = np.arange(num_packed, dtype=np.int32) * bits
 
         # unpack the uint8
         tensor = np.right_shift(tensor[:, :, None], shifts[None, None, :]).astype(np.uint8)
-        # mask out the first 4 bits
-        tensor &= 0xF
+        # mask out to keep only the relevant bits
+        mask = (1 << bits) - 1  # e.g., bits=2: 0x3, bits=4: 0xF
+        tensor &= mask
         return tensor.reshape(tensor.shape[0], -1)
 
     @staticmethod
     def _maybe_pack_on_flat(tensor: "NDArray", bits: int, signed: bool) -> "NDArray":
-        """Pack two uint4/int4 into one uint8/int8 on a flattened tensor if bits is 4.
+        """Pack multiple sub-byte values into uint8/int8 on a flattened tensor if bits < 8.
 
-        If bits is 8, it is cast to int8 or uint8 based on signed.
+        For example:
+        - bits=2: pack 4 uint2/int2 values into one uint8/int8
+        - bits=4: pack 2 uint4/int4 values into one uint8/int8
+        - bits=8: cast to int8 or uint8 based on signed
         """
         tensor = tensor.flatten().astype(np.int8 if signed else np.uint8)
         if bits == 8:
             # no need to pack if bits is 8
             return tensor
 
-        if len(tensor) % 2:
-            tensor = np.pad(tensor, (0, 1), mode="constant")
+        # number of sub-byte values to pack into one uint8
+        num_packed = 8 // bits
 
-        # right 4 bits are the first uint4
-        return (tensor[0::2] & 0xF) | ((tensor[1::2] & 0xF) << 4)
+        # pad if necessary to make length divisible by num_packed
+        if len(tensor) % num_packed:
+            pad_size = num_packed - (len(tensor) % num_packed)
+            tensor = np.pad(tensor, (0, pad_size), mode="constant")
+
+        # mask to keep only the relevant bits
+        mask = (1 << bits) - 1  # e.g., bits=2: 0x3, bits=4: 0xF
+
+        # pack values: combine num_packed values into one uint8
+        # e.g., bits=2: val[0] | (val[1] << 2) | (val[2] << 4) | (val[3] << 6)
+        # e.g., bits=4: val[0] | (val[1] << 4)
+        result = tensor[0::num_packed] & mask
+        for i in range(1, num_packed):
+            result |= (tensor[i::num_packed] & mask) << (i * bits)
+
+        return result

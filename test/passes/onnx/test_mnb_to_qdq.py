@@ -15,15 +15,30 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.mnb_to_qdq import MatMulNBitsToQDQ
 from olive.passes.onnx.onnx_dag import OnnxDAG
 
+ORT_VERSION = version.parse(ort_version)
+SKIP_2BIT = version.parse("1.24.0") > ORT_VERSION or version.parse(onnx.__version__) < version.parse("1.20.1")
+
 
 @pytest.fixture(
-    params=[(True, 4), (False, 4), (True, 8), (False, 8)],
-    ids=["symmetric-4bit", "asymmetric-4bit", "symmetric-8bit", "asymmetric-8bit"],
+    params=[
+        pytest.param(
+            (True, 2), marks=pytest.mark.skipif(SKIP_2BIT, reason="2-bit not supported in this version of ONNX Runtime")
+        ),
+        pytest.param(
+            (False, 2),
+            marks=pytest.mark.skipif(SKIP_2BIT, reason="2-bit not supported in this version of ONNX Runtime"),
+        ),
+        (True, 4),
+        (False, 4),
+        (True, 8),
+        (False, 8),
+    ],
+    ids=["symmetric-2bit", "asymmetric-2bit", "symmetric-4bit", "asymmetric-4bit", "symmetric-8bit", "asymmetric-8bit"],
     name="create_mnb_model",
 )
 def create_mnb_model_fixture(request, tmp_path):
     symmetric, bits = request.param
-    if version.parse(ort_version) < version.parse("1.22.0"):
+    if version.parse("1.22.0") > ORT_VERSION:
         if bits == 8:
             pytest.skip("MatMulNBitsQuantizer doesn't support 8 bits in this version of ONNX Runtime")
 
@@ -86,12 +101,16 @@ def create_mnb_model_fixture(request, tmp_path):
     return mnb_path, in_dim, symmetric, bits
 
 
-@pytest.mark.parametrize("use_transpose_op", [True])
+@pytest.mark.parametrize("use_transpose_op", [True, False])
 @pytest.mark.parametrize("use_signed_int", [True, False])
 @pytest.mark.parametrize("add_zero_point", [True, False])
 @pytest.mark.parametrize("nodes_to_exclude", [None, ["/f1/MatMul_Q4"]])
 def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_signed_int, use_transpose_op, tmp_path):
     mnb_path, in_dim, is_symmetric, bits = create_mnb_model
+
+    if use_transpose_op and bits == 2:
+        pytest.skip("Transpose op not yet supported for 2 bit in ONNX Runtime")
+
     input_model = ONNXModelHandler(mnb_path)
 
     # setup
