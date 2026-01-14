@@ -2194,7 +2194,7 @@ def test_packed_attention_to_loop_mha(tmp_path):
     output = helper.make_tensor_value_info("output", TensorProto.FLOAT, [batch_size, seq_len, num_heads, head_dim])
 
     packed_attn_node = helper.make_node(
-        "PackedAttention",
+        OpType.PackedAttention,
         inputs=["query", "key", "value", "cu_seqlens"],
         outputs=["output"],
         name="packed_attention",
@@ -2230,9 +2230,14 @@ def test_packed_attention_to_loop_mha(tmp_path):
 
     # assert: PackedAttention should be replaced with Loop and MultiHeadAttention
     op_types = [node.op_type for node in output_model_def.graph.node]
-    assert "PackedAttention" not in op_types
-    assert "Loop" in op_types
-    assert "MultiHeadAttention" in [node.op_type for node in output_model_def.graph.node]
+    assert OpType.PackedAttention not in op_types
+    assert OpType.Loop in op_types
+
+    # MultiHeadAttention is in the Loop's body subgraph
+    loop_node = next(node for node in output_model_def.graph.node if node.op_type == OpType.Loop)
+    body_graph = loop_node.attribute[0].g
+    body_op_types = [node.op_type for node in body_graph.node]
+    assert OpType.MultiHeadAttention in body_op_types
 
 
 def test_packed_attention_to_packed_mha(tmp_path):
@@ -2246,7 +2251,7 @@ def test_packed_attention_to_packed_mha(tmp_path):
     output = helper.make_tensor_value_info("output", TensorProto.FLOAT, [batch_size, seq_len, num_heads, head_dim])
 
     packed_attn_node = helper.make_node(
-        "PackedAttention",
+        OpType.PackedAttention,
         inputs=["query", "key", "value", "cu_seqlens"],
         outputs=["output"],
         name="packed_attention",
@@ -2282,5 +2287,5 @@ def test_packed_attention_to_packed_mha(tmp_path):
 
     # assert: PackedAttention should be replaced with PackedMultiHeadAttention
     op_types = [node.op_type for node in output_model_def.graph.node]
-    assert "PackedAttention" not in op_types
-    assert "PackedMultiHeadAttention" in op_types
+    assert OpType.PackedAttention not in op_types
+    assert OpType.PackedMultiHeadAttention in op_types

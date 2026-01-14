@@ -105,6 +105,10 @@ class OpType(StrEnumBase):
     Shape = "Shape"
     Constant = "Constant"
     Custom = "custom"
+    PackedAttention = "PackedAttention"
+    PackedMultiHeadAttention = "PackedMultiHeadAttention"
+    MultiHeadAttention = "MultiHeadAttention"
+    Loop = "Loop"
 
 
 class AccuracyLevel(IntEnum):
