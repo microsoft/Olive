@@ -2210,9 +2210,7 @@ def test_packed_attention_to_loop_mha(tmp_path):
         outputs=[output],
     )
 
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_opsetid("", 20), helper.make_opsetid(OpType.Custom, 1)]
-    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20), helper.make_opsetid(OpType.Custom, 1)])
     model.ir_version = 10
     model_path = tmp_path / "model.onnx"
     onnx.save(model, model_path)
@@ -2264,9 +2262,7 @@ def test_packed_attention_to_packed_mha(tmp_path):
         outputs=[output],
     )
 
-    model = helper.make_model(
-        graph, opset_imports=[helper.make_opsetid("", 20), helper.make_opsetid(OpType.Custom, 1)]
-    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20), helper.make_opsetid(OpType.Custom, 1)])
     model.ir_version = 10
     model_path = tmp_path / "model.onnx"
     onnx.save(model, model_path)
