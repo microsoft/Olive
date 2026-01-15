@@ -160,6 +160,175 @@ def maybe_convert_tokenizers(library_name: str, output: Path, model=None, prepro
         logger.warning("Tokenizer won't be converted.")
 
 
+def _validate_enum_value(value, enum_class: type, param_name: str) -> tuple[bool, str]:
+    """Validate that a value can be converted to an enum (case-insensitive).
+
+    Args:
+        value: The value to validate (None, string, or already enum).
+        enum_class: The enum class to validate against.
+        param_name: Name of the parameter for error messages.
+
+    Returns:
+        Tuple of (is_valid, error_message). error_message is empty if valid.
+
+    """
+    if value is None or isinstance(value, enum_class):
+        return True, ""
+
+    if not isinstance(value, str):
+        return False, f"{param_name} '{value}' is not a valid string or {enum_class.__name__} enum."
+
+    lookup_key = value.lower()
+
+    # Try matching by enum.value first (case-insensitive)
+    value_map = {m.value.lower(): m for m in enum_class}
+    if lookup_key in value_map:
+        return True, ""
+
+    # Try matching by enum.name (case-insensitive)
+    name_map = {m.name.lower(): m for m in enum_class}
+    if lookup_key in name_map:
+        return True, ""
+
+    # Validation failed
+    valid_values = sorted(set([m.value for m in enum_class] + [m.name for m in enum_class]))
+    return False, f"{param_name} '{value}' is not supported. Supported values are: {', '.join(valid_values)}."
+
+
+def _convert_to_enum(value, enum_class: type, param_name: str):
+    """Convert a value to an enum if needed (case-insensitive).
+
+    Accepts:
+    - None (returns None)
+    - Enum instances of the correct type (returns as-is)
+    - Strings matching enum.value (case-insensitive)
+    - Strings matching enum.name (case-insensitive)
+
+    Args:
+        value: The value to convert (None, string, or already enum).
+        enum_class: The enum class to convert to.
+        param_name: Name of the parameter for error messages.
+
+    Returns:
+        The enum value, or None if input was None.
+
+    Raises:
+        ValueError: If conversion fails.
+
+    """
+    if value is None or isinstance(value, enum_class):
+        return value
+
+    if not isinstance(value, str):
+        raise ValueError(f"{param_name} '{value}' is not a valid string or {enum_class.__name__} enum.")
+
+    lookup_key = value.lower()
+
+    # Try matching by enum.value first (case-insensitive)
+    value_map = {m.value.lower(): m for m in enum_class}
+    if lookup_key in value_map:
+        return value_map[lookup_key]
+
+    # Try matching by enum.name (case-insensitive)
+    name_map = {m.name.lower(): m for m in enum_class}
+    if lookup_key in name_map:
+        return name_map[lookup_key]
+
+    # Conversion failed
+    valid_values = sorted(set([m.value for m in enum_class] + [m.name for m in enum_class]))
+    raise ValueError(f"{param_name} '{value}' is not supported. Supported values are: {', '.join(valid_values)}.")
+
+
+def _convert_compress_config_enums(compress_config: dict) -> dict:
+    """Convert compress_config enum values from strings to enum instances.
+
+    Handles both strings and existing enum instances (pass through unchanged).
+    This function should be called at the point of use to ensure enum values are
+    properly converted, especially when validate_config() may have been bypassed
+    (e.g., in unit tests with disable_search=True).
+
+    Args:
+        compress_config: The compress_config dictionary to convert.
+
+    Returns:
+        The compress_config with enum values converted.
+
+    Raises:
+        ImportError: If nncf is not installed.
+        ValueError: If an enum value is invalid.
+
+    """
+    try:
+        import nncf
+    except ImportError:
+        raise ImportError("Please install olive-ai[openvino] to use OpenVINO NNCF") from None
+
+    if not compress_config:
+        return compress_config
+
+    if compress_config.get("mode") is not None:
+        compress_config["mode"] = _convert_to_enum(
+            compress_config["mode"],
+            nncf.parameters.CompressWeightsMode,
+            "mode",
+        )
+    if compress_config.get("sensitivity_metric") is not None:
+        compress_config["sensitivity_metric"] = _convert_to_enum(
+            compress_config["sensitivity_metric"],
+            nncf.parameters.SensitivityMetric,
+            "sensitivity_metric",
+        )
+    if compress_config.get("backup_mode") is not None:
+        compress_config["backup_mode"] = _convert_to_enum(
+            compress_config["backup_mode"],
+            nncf.parameters.BackupMode,
+            "backup_mode",
+        )
+    if compress_config.get("compression_format") is not None:
+        compress_config["compression_format"] = _convert_to_enum(
+            compress_config["compression_format"],
+            nncf.parameters.CompressionFormat,
+            "compression_format",
+        )
+
+    return compress_config
+
+
+def _validate_advanced_compression_params(advanced_params: Optional[dict]) -> tuple[bool, str]:
+    """Validate advanced_compression_parameters enum values.
+
+    This is a validation-only function that does not modify the value.
+    Use _get_advanced_compression_params for actual conversion.
+
+    Args:
+        advanced_params: The advanced_compression_parameters dictionary to validate.
+
+    Returns:
+        Tuple of (is_valid, error_message). error_message is empty if valid.
+
+    """
+    if not advanced_params:
+        return True, ""
+
+    # Import NNCF advanced parameter types for validation
+    try:
+        from nncf.quantization.advanced_parameters import GroupSizeFallbackMode
+    except ImportError:
+        return False, "Please install olive-ai[openvino] to use OpenVINO NNCF"
+
+    # Validate group_size_fallback_mode if present
+    if advanced_params.get("group_size_fallback_mode") is not None:
+        is_valid, error_msg = _validate_enum_value(
+            advanced_params["group_size_fallback_mode"],
+            GroupSizeFallbackMode,
+            "group_size_fallback_mode",
+        )
+        if not is_valid:
+            return False, error_msg
+
+    return True, ""
+
+
 class OpenVINOWeightCompression(Pass):
     """OpenVINO weight compression pass.
 
@@ -246,90 +415,48 @@ class OpenVINOWeightCompression(Pass):
         if not super().validate_config(config, accelerator_spec):
             return False
 
-        # validate mode in compress_config if provided
-        if (
-            config.compress_config
-            and config.compress_config.get("mode") is not None
-            and config.compress_config.get("mode") not in [m.value for m in nncf.parameters.CompressWeightsMode]
-        ):
-            logger.error(
-                "Mode %s is not supported. Supported CompressWeightsMode values are %s.",
-                config.compress_config.get("mode"),
-                ", ".join([m.value for m in nncf.parameters.CompressWeightsMode]),
-            )
-            return False
-
-        # validate sensitivity metric in compress_config if provided
-        if (
-            config.compress_config
-            and config.compress_config.get("sensitivity_metric") is not None
-            and config.compress_config.get("sensitivity_metric")
-            not in [m.value for m in nncf.parameters.SensitivityMetric]
-        ):
-            logger.error(
-                "Sensitivity metric %s is not supported. Supported SensitivityMetric values are %s.",
-                config.compress_config.get("sensitivity_metric"),
-                ", ".join([m.value for m in nncf.parameters.SensitivityMetric]),
-            )
-            return False
-
-        # validate backup mode in compress_config if provided
-        if (
-            config.compress_config
-            and config.compress_config.get("backup_mode") is not None
-            and config.compress_config.get("backup_mode") not in [m.value for m in nncf.parameters.BackupMode]
-        ):
-            logger.error(
-                "Backup mode %s is not supported. Supported BackupMode values are %s.",
-                config.compress_config.get("backup_mode"),
-                ", ".join([m.value for m in nncf.parameters.BackupMode]),
-            )
-            return False
-
-        # validate compression format in compress_config if provided
-        if (
-            config.compress_config
-            and config.compress_config.get("compression_format") is not None
-            and config.compress_config.get("compression_format")
-            not in [m.name for m in nncf.parameters.CompressionFormat]
-        ):
-            logger.error(
-                "Compression format %s is not supported. Supported CompressionFormat values are %s.",
-                config.compress_config.get("compression_format"),
-                ", ".join([m.name for m in nncf.parameters.CompressionFormat]),
-            )
-            return False
-
-        # validate allowed libraries in extra_args if provided
-        if (
-            config.extra_args
-            and config.extra_args.get("library") is not None
-            and config.extra_args.get("library") not in [lib.value for lib in OVOptimumLibrary]
-        ):
-            logger.error(
-                "Library %s is not supported. Supported libraries are %s.",
-                config.extra_args.get("library"),
-                ", ".join([lib.value for lib in OVOptimumLibrary]),
-            )
-            return False
-
-        # convert all enum strings to actual enum values for compress_config
-        # this is for mode, sensitivity_metrics, backup_mode, compression_format
+        # Validate compress_config enum parameters
         if config.compress_config:
-            if config.compress_config.get("mode"):
-                config.compress_config["mode"] = nncf.parameters.CompressWeightsMode(config.compress_config.get("mode"))
-            if config.compress_config.get("sensitivity_metric"):
-                config.compress_config["sensitivity_metric"] = nncf.parameters.SensitivityMetric(
-                    config.compress_config.get("sensitivity_metric")
-                )
-            if config.compress_config.get("backup_mode"):
-                config.compress_config["backup_mode"] = nncf.parameters.BackupMode(
-                    config.compress_config.get("backup_mode")
-                )
-            if config.compress_config.get("compression_format"):
-                config.compress_config["compression_format"] = nncf.parameters.CompressionFormat(
-                    config.compress_config.get("compression_format")
-                )
+            enum_validations = [
+                (config.compress_config.get("mode"), nncf.parameters.CompressWeightsMode, "mode"),
+                (
+                    config.compress_config.get("sensitivity_metric"),
+                    nncf.parameters.SensitivityMetric,
+                    "sensitivity_metric",
+                ),
+                (config.compress_config.get("backup_mode"), nncf.parameters.BackupMode, "backup_mode"),
+                (
+                    config.compress_config.get("compression_format"),
+                    nncf.parameters.CompressionFormat,
+                    "compression_format",
+                ),
+            ]
+            for value, enum_class, param_name in enum_validations:
+                is_valid, error_msg = _validate_enum_value(value, enum_class, param_name)
+                if not is_valid:
+                    logger.error(error_msg)
+                    return False
+
+        # Validate extra_args enum parameters
+        if config.extra_args:
+            extra_validations = [
+                (config.extra_args.get("model_type"), nncf.ModelType, "model_type"),
+                (config.extra_args.get("preset"), nncf.QuantizationPreset, "preset"),
+                (config.extra_args.get("library"), OVOptimumLibrary, "library"),
+            ]
+            for value, enum_class, param_name in extra_validations:
+                is_valid, error_msg = _validate_enum_value(value, enum_class, param_name)
+                if not is_valid:
+                    logger.error(error_msg)
+                    return False
+
+            # Validate advanced_compression_parameters
+            is_valid, error_msg = _validate_advanced_compression_params(
+                config.extra_args.get("advanced_compression_parameters")
+            )
+            if not is_valid:
+                logger.error(error_msg)
+                return False
 
         return True
 
@@ -378,21 +505,37 @@ class OpenVINOWeightCompression(Pass):
 
     @staticmethod
     def _get_extra_params(config):
+        """Get extra parameters for NNCF compression.
+
+        Converts model_type and preset to enum values at point of use to handle cases
+        where validate_config() may have been bypassed (e.g., in unit tests).
+
+        Args:
+            config: The pass configuration.
+
+        Returns:
+            Dictionary of extra parameters for NNCF compression.
+
+        Raises:
+            ImportError: If nncf is not installed.
+            ValueError: If ignored_scope configuration is invalid, or if model_type/preset values are invalid.
+
+        """
         try:
             import nncf
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO NNCF") from None
 
         extra_params = {}
+        # Convert model_type and preset to enums at point of use
+        # (handles case where validate_config was bypassed, e.g., in unit tests)
         if config.extra_args and config.extra_args.get("model_type") is not None:
-            extra_params["model_type"] = (
-                nncf.ModelType.TRANSFORMER if config.extra_args.get("model_type") == "TRANSFORMER" else None
+            extra_params["model_type"] = _convert_to_enum(
+                config.extra_args.get("model_type"), nncf.ModelType, "model_type"
             )
         if config.extra_args and config.extra_args.get("preset") is not None:
-            extra_params["preset"] = (
-                nncf.QuantizationPreset.PERFORMANCE
-                if config.extra_args.get("preset") == "PERFORMANCE"
-                else nncf.QuantizationPreset.MIXED
+            extra_params["preset"] = _convert_to_enum(
+                config.extra_args.get("preset"), nncf.QuantizationPreset, "preset"
             )
         # target device is not needed for weight compression with NNCF
         if (config.ignored_scope and not config.ignored_scope_type) or (
@@ -428,14 +571,84 @@ class OpenVINOWeightCompression(Pass):
 
     @staticmethod
     def _get_advanced_compression_params(config):
+        """Get advanced compression parameters for NNCF.
+
+        Converts group_size_fallback_mode to enum and nested dataclass parameters.
+
+        Args:
+            config: The pass configuration.
+
+        Returns:
+            Dictionary of advanced compression parameters for NNCF.
+
+        Raises:
+            ImportError: If nncf is not installed.
+            ValueError: If group_size_fallback_mode value is invalid.
+
+        """
         advanced_params = {}
         if config.extra_args and config.extra_args.get("advanced_compression_parameters") is not None:
             advanced_params = deepcopy(config.extra_args.get("advanced_compression_parameters"))
-        if advanced_params and advanced_params.get("backend_params") is not None:
+
+        if not advanced_params:
+            return advanced_params
+
+        # Import NNCF advanced parameter types
+        try:
+            from nncf.quantization.advanced_parameters import (
+                AdvancedAWQParameters,
+                AdvancedGPTQParameters,
+                AdvancedLoraCorrectionParameters,
+                AdvancedScaleEstimationParameters,
+                GroupSizeFallbackMode,
+            )
+        except ImportError:
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO NNCF") from None
+
+        # Convert group_size_fallback_mode string to enum if present
+        if advanced_params.get("group_size_fallback_mode") is not None:
+            advanced_params["group_size_fallback_mode"] = _convert_to_enum(
+                advanced_params["group_size_fallback_mode"],
+                GroupSizeFallbackMode,
+                "group_size_fallback_mode",
+            )
+
+        # Convert nested dataclass parameters if they are dicts
+        if advanced_params.get("awq_params") is not None:
+            awq_params = advanced_params.get("awq_params")
+            if isinstance(awq_params, dict):
+                advanced_params["awq_params"] = AdvancedAWQParameters(**awq_params)
+
+        if advanced_params.get("scale_estimation_params") is not None:
+            scale_params = advanced_params.get("scale_estimation_params")
+            if isinstance(scale_params, dict):
+                advanced_params["scale_estimation_params"] = AdvancedScaleEstimationParameters(**scale_params)
+
+        if advanced_params.get("gptq_params") is not None:
+            gptq_params = advanced_params.get("gptq_params")
+            if isinstance(gptq_params, dict):
+                advanced_params["gptq_params"] = AdvancedGPTQParameters(**gptq_params)
+
+        if advanced_params.get("lora_correction_params") is not None:
+            lora_params = advanced_params.get("lora_correction_params")
+            if isinstance(lora_params, dict):
+                advanced_params["lora_correction_params"] = AdvancedLoraCorrectionParameters(**lora_params)
+
+        # Handle backend_params - extract external_dir for runtime processing
+        # Note: backend_params is backend-specific (ONNX vs OpenVINO) and will be
+        # converted at runtime using the appropriate BackendParameters class
+        if advanced_params.get("backend_params") is not None:
             backend_params = advanced_params.get("backend_params")
-            if backend_params.get("external_dir") is not None:
-                # pop external_dir from advanced_params. Will be added at runtime
-                advanced_params["backend_params"].pop("external_dir")
+            if isinstance(backend_params, dict):
+                # Pop external_dir from backend_params - will be added at runtime
+                external_dir = backend_params.pop("external_dir", None)
+                if not backend_params:
+                    # Remove empty backend_params after popping external_dir
+                    advanced_params.pop("backend_params")
+                # Store external_dir separately if it was present
+                if external_dir is not None:
+                    advanced_params["_external_dir"] = external_dir
+
         return advanced_params
 
     def _run_for_config(
@@ -495,8 +708,10 @@ class OpenVINOWeightCompression(Pass):
         # local copy of extra_args
         extra_args = deepcopy(config.extra_args) if config.extra_args else {}
 
-        # local copy of compress_config
+        # local copy of compress_config and ensure enum values are converted
+        # (handles case where validate_config was bypassed, e.g., in unit tests)
         compress_config = deepcopy(config.compress_config) if config.compress_config else {}
+        compress_config = _convert_compress_config_enums(compress_config)
 
         # set the library name for the HF Model
         if extra_args.get("library") is None:
@@ -659,13 +874,17 @@ class OpenVINOWeightCompression(Pass):
         # get nncf.AdvancedCompressionParameters if any
         advanced_params = None
         adv_par = self._get_advanced_compression_params(config)
-        if config.extra_args and config.extra_args.get("advanced_compression_parameters") and adv_par is not None:
-            acp = config.extra_args.get("advanced_compression_parameters")
-            bp = acp.get("backend_params")
-            if bp is not None and bp.get("external_dir") is not None:
-                adv_par["backend_params"][BackendParameters.EXTERNAL_DATA_DIR] = output_model_path
-
         if adv_par is not None:
+            # Handle external_dir for backend_params - add output path at runtime
+            if adv_par.get("_external_dir") is not None:
+                # Create or update backend_params with external data dir
+                if adv_par.get("backend_params") is None:
+                    adv_par["backend_params"] = {BackendParameters.EXTERNAL_DATA_DIR: output_model_path}
+                else:
+                    adv_par["backend_params"][BackendParameters.EXTERNAL_DATA_DIR] = output_model_path
+                # Remove the temporary _external_dir key
+                adv_par.pop("_external_dir")
+
             advanced_params = nncf.AdvancedCompressionParameters(**adv_par)
 
         # perform weight compression
@@ -756,8 +975,10 @@ class OpenVINOWeightCompression(Pass):
         if loaded_model.opset_import[0].version != target_opset:
             loaded_model = onnx.version_converter.convert_version(loaded_model, target_opset)
 
-        # local copy of compress_config
+        # local copy of compress_config and ensure enum values are converted
+        # (handles case where validate_config was bypassed, e.g., in unit tests)
         compress_config = deepcopy(config.compress_config) if config.compress_config else {}
+        compress_config = _convert_compress_config_enums(compress_config)
 
         # get the weight compression dataset
         compression_dataset = self._get_nncf_dataset(config)
@@ -771,13 +992,18 @@ class OpenVINOWeightCompression(Pass):
         # get nncf.AdvancedCompressionParameters if any
         advanced_params = None
         adv_par = self._get_advanced_compression_params(config)
-        if config.extra_args and config.extra_args.get("advanced_compression_parameters") and adv_par is not None:
-            acp = config.extra_args.get("advanced_compression_parameters")
-            bp = acp.get("backend_params")
-            if bp is not None and bp.get("external_dir") is not None:
-                adv_par["backend_params"][BackendParameters.EXTERNAL_DATA_DIR] = output_model_path
-
         if adv_par is not None:
+            # Handle external_dir for backend_params - add output path at runtime
+            if adv_par.get("_external_dir") is not None:
+                # Create or update backend_params with external data dir
+                # Note: BackendParameters is already imported from nncf.onnx.quantization.backend_parameters
+                if adv_par.get("backend_params") is None:
+                    adv_par["backend_params"] = {BackendParameters.EXTERNAL_DATA_DIR: output_model_path}
+                else:
+                    adv_par["backend_params"][BackendParameters.EXTERNAL_DATA_DIR] = output_model_path
+                # Remove the temporary _external_dir key
+                adv_par.pop("_external_dir")
+
             advanced_params = nncf.AdvancedCompressionParameters(**adv_par)
 
         # perform weight compression
