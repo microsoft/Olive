@@ -14,7 +14,7 @@ marshmallow
 ml_dtypes
 mlflow
 neural-compressor<2.4
-nncf>=2.18.0, <2.19.0
+nncf>=2.18.0
 numpy<2.0.0
 nvidia-modelopt
 onnx==1.18.0
