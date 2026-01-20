@@ -225,6 +225,12 @@ def _export_pytorch_model(
             io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
                 io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
             )
+
+            # When dynamo=True, PyTorch prefers dynamic_shapes over dynamic_axes.
+            # If dynamic_shapes is None and fallback is enabled, don't pass dynamic_axes
+            # to avoid conversion errors. The fallback path will handle dynamic axes.
+            dynamic_axes_for_export = io_config.dynamic_axes if io_config.dynamic_shapes else None
+
             onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
                 pytorch_model,
                 dummy_inputs,
@@ -233,7 +239,7 @@ def _export_pytorch_model(
                 opset_version=config.target_opset,
                 input_names=io_config.input_names,
                 output_names=io_config.output_names,
-                dynamic_axes=io_config.dynamic_axes,
+                dynamic_axes=dynamic_axes_for_export,
                 dynamic_shapes=io_config.dynamic_shapes,
                 dynamo=True,
                 fallback=True,
@@ -619,7 +625,7 @@ class OnnxConversion(Pass):
             CompositeModelHandler containing ONNXModelHandler for each component.
 
         """
-        from olive.common.hf.io_config import get_diffusers_onnx_config
+        from olive.common.hf.io_config import generate_diffusers_dummy_inputs, get_diffusers_io_config
         from olive.common.hf.peft import make_export_compatible_peft
 
         output_dir = Path(output_model_path).with_suffix("")
@@ -645,13 +651,6 @@ class OnnxConversion(Pass):
                 logger.warning("Component %s not found in pipeline, skipping", component_name)
                 continue
 
-            # Get the OnnxConfig for this component
-            onnx_config = get_diffusers_onnx_config(
-                pipeline_type=pipeline_type,
-                component_name=component_name,
-                config=component_config,
-            )
-
             # Apply LoRA compatibility for unet/transformer if adapter was loaded
             if model.adapter_path and component_name in (DiffusersComponent.UNET, DiffusersComponent.TRANSFORMER):
                 component_model = make_export_compatible_peft(
@@ -665,11 +664,17 @@ class OnnxConversion(Pass):
                 component_model = component_model.to(torch_dtype)
             component_model.eval()
 
-            # Generate dummy inputs
-            dummy_inputs = onnx_config.generate_dummy_inputs()
+            # Generate dummy inputs using new task-driven API
+            dummy_inputs = generate_diffusers_dummy_inputs(
+                component_name=component_name,
+                config=component_config,
+            )
 
-            # Get IO config
-            io_config = onnx_config.get_io_config(component_model)
+            # Get IO config using new task-driven API
+            io_config = get_diffusers_io_config(
+                component_name=component_name,
+                config=component_config,
+            )
 
             # Create output directory for this component
             component_dir = output_dir / component_name

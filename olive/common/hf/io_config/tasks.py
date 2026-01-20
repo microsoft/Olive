@@ -47,29 +47,6 @@ class TaskType(str, Enum):
     VISUAL_QUESTION_ANSWERING = "visual-question-answering"
 
 
-# Common task groups for convenience
-COMMON_TEXT_TASKS = [
-    TaskType.FEATURE_EXTRACTION,
-    TaskType.FILL_MASK,
-    TaskType.MULTIPLE_CHOICE,
-    TaskType.QUESTION_ANSWERING,
-    TaskType.TEXT_CLASSIFICATION,
-    TaskType.TOKEN_CLASSIFICATION,
-]
-
-COMMON_TEXT_GENERATION_TASKS = [
-    TaskType.FEATURE_EXTRACTION,
-    TaskType.FEATURE_EXTRACTION_WITH_PAST,
-    TaskType.TEXT_GENERATION,
-    TaskType.TEXT_GENERATION_WITH_PAST,
-]
-
-COMMON_TEXT2TEXT_GENERATION_TASKS = [
-    *COMMON_TEXT_GENERATION_TASKS,
-    TaskType.TEXT2TEXT_GENERATION,
-    TaskType.TEXT2TEXT_GENERATION_WITH_PAST,
-]
-
 # Task synonyms mapping
 _TASK_SYNONYMS = {
     "default": TaskType.FEATURE_EXTRACTION,

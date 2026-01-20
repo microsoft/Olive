@@ -2,50 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
-
-from olive.common.hf.io_config.tasks import (
-    COMMON_TEXT2TEXT_GENERATION_TASKS,
-    COMMON_TEXT_GENERATION_TASKS,
-    COMMON_TEXT_TASKS,
-    TaskType,
-    map_task_synonym,
-)
+from olive.common.hf.io_config.tasks import TaskType, map_task_synonym
+from olive.common.hf.io_config.yaml_loader import is_task_supported
 
 
-class TestTaskType:
-    def test_task_type_values(self):
-        """Test that TaskType enum values are correct strings."""
-        assert TaskType.FEATURE_EXTRACTION == "feature-extraction"
-        assert TaskType.TEXT_GENERATION == "text-generation"
-        assert TaskType.TEXT_CLASSIFICATION == "text-classification"
-        assert TaskType.AUTOMATIC_SPEECH_RECOGNITION == "automatic-speech-recognition"
-        assert TaskType.IMAGE_CLASSIFICATION == "image-classification"
+class TestIsTaskSupported:
+    def test_supported_task(self):
+        assert is_task_supported("text-generation") is True
+        assert is_task_supported("text-classification") is True
 
-    def test_task_type_string_comparison(self):
-        """Test that TaskType can be compared with strings."""
-        assert TaskType.FEATURE_EXTRACTION == "feature-extraction"
-        assert TaskType.TEXT_GENERATION == "text-generation"
-
-
-class TestTaskGroups:
-    def test_common_text_tasks_contains_expected(self):
-        """Test COMMON_TEXT_TASKS contains expected task types."""
-        assert TaskType.FEATURE_EXTRACTION in COMMON_TEXT_TASKS
-        assert TaskType.FILL_MASK in COMMON_TEXT_TASKS
-        assert TaskType.TEXT_CLASSIFICATION in COMMON_TEXT_TASKS
-        assert TaskType.TOKEN_CLASSIFICATION in COMMON_TEXT_TASKS
-
-    def test_common_text_generation_tasks_contains_expected(self):
-        """Test COMMON_TEXT_GENERATION_TASKS contains expected task types."""
-        assert TaskType.TEXT_GENERATION in COMMON_TEXT_GENERATION_TASKS
-        assert TaskType.TEXT_GENERATION_WITH_PAST in COMMON_TEXT_GENERATION_TASKS
-        assert TaskType.FEATURE_EXTRACTION in COMMON_TEXT_GENERATION_TASKS
-
-    def test_common_text2text_generation_tasks_contains_text_gen(self):
-        """Test COMMON_TEXT2TEXT_GENERATION_TASKS includes text generation tasks."""
-        for task in COMMON_TEXT_GENERATION_TASKS:
-            assert task in COMMON_TEXT2TEXT_GENERATION_TASKS
-        assert TaskType.TEXT2TEXT_GENERATION in COMMON_TEXT2TEXT_GENERATION_TASKS
+    def test_unsupported_task(self):
+        assert is_task_supported("unknown-task") is False
 
 
 class TestMapTaskSynonym:

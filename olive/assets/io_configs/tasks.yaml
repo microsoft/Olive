@@ -1,0 +1,250 @@
+# Task Templates for ONNX Export
+# Each task defines input/output specifications for HuggingFace models
+#
+# Format:
+#   shape: defines the tensor shape for dummy input generation
+#   axes: defines which dimensions are dynamic for ONNX export
+
+text-generation:
+  inputs:
+    input_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      max_value: vocab_size
+    attention_mask:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+    position_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      optional: true
+  outputs:
+    logits:
+      axes: {0: batch_size, 1: sequence_length, 2: vocab_size}
+  with_past:
+    attention_mask:
+      shape: [batch_size, past_sequence_length + sequence_length]
+      axes: {0: batch_size, 1: past_sequence_length + sequence_length}
+      dtype: int64
+
+text-classification:
+  inputs:
+    input_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      max_value: vocab_size
+    attention_mask:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+    token_type_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      optional: true
+  outputs:
+    logits:
+      axes: {0: batch_size, 1: num_labels}
+
+feature-extraction:
+  inputs:
+    input_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      max_value: vocab_size
+    attention_mask:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+    token_type_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      optional: true
+  outputs:
+    last_hidden_state:
+      axes: {0: batch_size, 1: sequence_length, 2: hidden_size}
+
+fill-mask:
+  inputs:
+    input_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      max_value: vocab_size
+    attention_mask:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+    token_type_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      optional: true
+  outputs:
+    logits:
+      axes: {0: batch_size, 1: sequence_length, 2: vocab_size}
+
+token-classification:
+  inputs:
+    input_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      max_value: vocab_size
+    attention_mask:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+    token_type_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      optional: true
+  outputs:
+    logits:
+      axes: {0: batch_size, 1: sequence_length, 2: num_labels}
+
+question-answering:
+  inputs:
+    input_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      max_value: vocab_size
+    attention_mask:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+    token_type_ids:
+      shape: [batch_size, sequence_length]
+      axes: {0: batch_size, 1: sequence_length}
+      dtype: int64
+      optional: true
+  outputs:
+    start_logits:
+      axes: {0: batch_size, 1: sequence_length}
+    end_logits:
+      axes: {0: batch_size, 1: sequence_length}
+
+multiple-choice:
+  inputs:
+    input_ids:
+      shape: [batch_size, num_choices, sequence_length]
+      axes: {0: batch_size, 1: num_choices, 2: sequence_length}
+      dtype: int64
+      max_value: vocab_size
+    attention_mask:
+      shape: [batch_size, num_choices, sequence_length]
+      axes: {0: batch_size, 1: num_choices, 2: sequence_length}
+      dtype: int64
+    token_type_ids:
+      shape: [batch_size, num_choices, sequence_length]
+      axes: {0: batch_size, 1: num_choices, 2: sequence_length}
+      dtype: int64
+      optional: true
+  outputs:
+    logits:
+      axes: {0: batch_size, 1: num_choices}
+
+text2text-generation:
+  inputs:
+    input_ids:
+      shape: [batch_size, encoder_sequence_length]
+      axes: {0: batch_size, 1: encoder_sequence_length}
+      dtype: int64
+      max_value: vocab_size
+    attention_mask:
+      shape: [batch_size, encoder_sequence_length]
+      axes: {0: batch_size, 1: encoder_sequence_length}
+      dtype: int64
+    decoder_input_ids:
+      shape: [batch_size, decoder_sequence_length]
+      axes: {0: batch_size, 1: decoder_sequence_length}
+      dtype: int64
+      max_value: vocab_size
+  outputs:
+    logits:
+      axes: {0: batch_size, 1: decoder_sequence_length, 2: vocab_size}
+
+image-classification:
+  inputs:
+    pixel_values:
+      shape: [batch_size, num_channels, height, width]
+      axes: {0: batch_size}
+      dtype: float
+  outputs:
+    logits:
+      axes: {0: batch_size, 1: num_labels}
+
+object-detection:
+  inputs:
+    pixel_values:
+      shape: [batch_size, num_channels, height, width]
+      axes: {0: batch_size}
+      dtype: float
+  outputs:
+    logits:
+      axes: {0: batch_size, 1: num_queries, 2: num_labels}
+    pred_boxes:
+      axes: {0: batch_size, 1: num_queries, 2: 4}
+
+semantic-segmentation:
+  inputs:
+    pixel_values:
+      shape: [batch_size, num_channels, height, width]
+      axes: {0: batch_size}
+      dtype: float
+  outputs:
+    logits:
+      axes: {0: batch_size, 1: num_labels, 2: height, 3: width}
+
+audio-classification:
+  inputs:
+    input_values:
+      shape: [batch_size, audio_sequence_length]
+      axes: {0: batch_size, 1: audio_sequence_length}
+      dtype: float
+  outputs:
+    logits:
+      axes: {0: batch_size, 1: num_labels}
+
+automatic-speech-recognition:
+  inputs:
+    input_values:
+      shape: [batch_size, audio_sequence_length]
+      axes: {0: batch_size, 1: audio_sequence_length}
+      dtype: float
+  outputs:
+    logits:
+      axes: {0: batch_size, 1: sequence_length, 2: vocab_size}
+
+zero-shot-image-classification:
+  inputs:
+    input_ids:
+      shape: [text_batch_size, sequence_length]
+      axes: {0: text_batch_size, 1: sequence_length}
+      dtype: int64
+      max_value: vocab_size
+    attention_mask:
+      shape: [text_batch_size, sequence_length]
+      axes: {0: text_batch_size, 1: sequence_length}
+      dtype: int64
+    pixel_values:
+      shape: [image_batch_size, num_channels, height, width]
+      axes: {0: image_batch_size}
+      dtype: float
+  outputs:
+    logits_per_image:
+      axes: {0: image_batch_size, 1: text_batch_size}
+    logits_per_text:
+      axes: {0: text_batch_size, 1: image_batch_size}
+    text_embeds:
+      axes: {0: text_batch_size, 1: projection_dim}
+    image_embeds:
+      axes: {0: image_batch_size, 1: projection_dim}
