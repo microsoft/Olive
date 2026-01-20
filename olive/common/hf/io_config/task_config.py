@@ -290,11 +290,8 @@ def _build_dynamic_shapes(
         )
         return {}
 
-    # Build nested structure
-    dynamic_shapes = {}
-    for name, axes in ordered_inputs.items():
-        if not name.startswith("past_key_values."):
-            dynamic_shapes[name] = axes
+    # Build nested structure (exclude flattened past_key_values)
+    dynamic_shapes = {name: axes for name, axes in ordered_inputs.items() if not name.startswith("past_key_values.")}
 
     # Generate nested past_key_values
     dynamic_shapes["past_key_values"] = [
