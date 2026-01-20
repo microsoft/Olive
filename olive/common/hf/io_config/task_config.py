@@ -271,13 +271,10 @@ def _build_dynamic_shapes(
     for name in ordered_inputs:
         if name.startswith("past_key_values."):
             parts = name.split(".")
-            if len(parts) >= 2:
-                try:
-                    idx = int(parts[1])
-                    max_idx = max(max_idx, idx)
-                    pkv_count += 1
-                except ValueError:
-                    pass
+            if len(parts) >= 2 and parts[1].isdigit():
+                idx = int(parts[1])
+                max_idx = max(max_idx, idx)
+                pkv_count += 1
 
     # No past_key_values, return as-is
     if max_idx == -1:
