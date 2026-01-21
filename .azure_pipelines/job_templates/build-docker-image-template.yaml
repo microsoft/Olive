@@ -10,6 +10,8 @@ parameters:
 steps:
 - script: |
     docker login -u $(docker-username) -p $(docker-password)
+    docker system prune -af --volumes || true
+    docker builder prune -af || true
     docker build \
     --build-arg BASE_IMAGE=${{ parameters.base_image }} \
     --build-arg TENSORRT_VERSION=${{ parameters.trt_version }} \
