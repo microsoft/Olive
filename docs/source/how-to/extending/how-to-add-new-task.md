@@ -191,12 +191,13 @@ Aliases help resolve config attributes that have different names across models:
 
 ```yaml
 aliases:
-  num_layers: [num_hidden_layers, n_layer, n_layers, num_layers]
-  hidden_size: [hidden_size, dim, d_model, n_embd]
-  num_attention_heads: [num_attention_heads, num_heads, n_head, n_heads]
-  num_kv_heads: [num_key_value_heads, num_kv_heads]
+  num_layers: [num_hidden_layers, n_layer, n_layers]
+  hidden_size: [dim, d_model, n_embd]
+  num_attention_heads: [num_heads, n_head, n_heads, encoder_attention_heads]
+  num_kv_heads: [num_key_value_heads]
   height: [sample_size, image_size, vision_config.image_size]
   width: [sample_size, image_size, vision_config.image_size]
+  num_channels: [in_channels, vision_config.num_channels]
 ```
 
 ### Default Dimensions
@@ -223,7 +224,7 @@ my_custom_dim: 128
 
 # Add aliases if the same concept has different names
 aliases:
-  my_custom_dim: [custom_dim, my_dim, special_dim]
+  my_custom_dim: [custom_dim, my_dim]
 ```
 
 ## Dimension Resolution

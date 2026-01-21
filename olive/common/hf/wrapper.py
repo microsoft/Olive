@@ -9,7 +9,7 @@ import torch
 from torch import nn
 from transformers import PretrainedConfig
 
-from olive.common.hf.io_config.yaml_loader import resolve_alias
+from olive.common.hf.io_config.io_resolver import resolve_alias
 from olive.common.utils import find_first_matched_value, get_attr, replace_submodules, set_attr
 
 if TYPE_CHECKING:

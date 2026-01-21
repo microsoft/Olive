@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 
-from olive.common.hf.io_config.yaml_loader import (
+from olive.common.hf.io_config.io_resolver import (
     get_default_shapes,
     get_diffusers_component_config,
     get_task_template,

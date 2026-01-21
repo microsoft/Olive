@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from olive.common.hf.io_config.io_resolver import get_task_template, resolve_alias
 from olive.common.hf.io_config.task_config import (
     _build_inputs,
     generate_dummy_inputs,
@@ -13,7 +14,6 @@ from olive.common.hf.io_config.task_config import (
     get_io_config,
 )
 from olive.common.hf.io_config.tasks import TaskType
-from olive.common.hf.io_config.yaml_loader import get_task_template, resolve_alias
 
 
 class TestResolveAlias:

@@ -9,7 +9,7 @@ import logging
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any
 
-from olive.common.hf.io_config.yaml_loader import (
+from olive.common.hf.io_config.io_resolver import (
     get_diffusers_component_config,
     get_task_template,
 )
@@ -53,7 +53,7 @@ def get_io_config(
     """
     from transformers import AutoConfig
 
-    from olive.common.hf.io_config.yaml_loader import resolve_alias
+    from olive.common.hf.io_config.io_resolver import resolve_alias
 
     # Load config if needed
     if isinstance(model_name_or_config, str):
@@ -162,7 +162,7 @@ def _add_past_key_values_inputs(
         config: Model config to get num_layers.
 
     """
-    from olive.common.hf.io_config.yaml_loader import resolve_alias
+    from olive.common.hf.io_config.io_resolver import resolve_alias
 
     # Update attention_mask for past context
     if "attention_mask" in dynamic_axes:
@@ -188,7 +188,7 @@ def _add_present_outputs(
         config: Model config to get num_layers.
 
     """
-    from olive.common.hf.io_config.yaml_loader import resolve_alias
+    from olive.common.hf.io_config.io_resolver import resolve_alias
 
     # Get number of layers from config
     num_layers = resolve_alias(config, "num_layers") or 12

@@ -2,8 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
+from olive.common.hf.io_config.io_resolver import is_task_supported
 from olive.common.hf.io_config.tasks import TaskType, map_task_synonym
-from olive.common.hf.io_config.yaml_loader import is_task_supported
 
 
 class TestIsTaskSupported:

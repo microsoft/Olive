@@ -4,16 +4,15 @@
 # Attribute aliases (same concept, different naming across models)
 aliases:
   # Layer count
-  num_layers: [num_hidden_layers, n_layer, n_layers, num_layers]
+  num_layers: [num_hidden_layers, n_layer, n_layers]
   # Hidden dimensions
-  hidden_size: [hidden_size, dim, d_model, n_embd]
-  num_attention_heads: [num_attention_heads, num_heads, n_head, n_heads, encoder_attention_heads]
-  num_kv_heads: [num_key_value_heads, num_kv_heads]
-  head_dim: [head_dim]
+  hidden_size: [dim, d_model, n_embd]
+  num_attention_heads: [num_heads, n_head, n_heads, encoder_attention_heads]
+  num_kv_heads: [num_key_value_heads]
   # Image dimensions
   height: [sample_size, image_size, vision_config.image_size]
   width: [sample_size, image_size, vision_config.image_size]
-  num_channels: [in_channels, num_channels, vision_config.num_channels]
+  num_channels: [in_channels, vision_config.num_channels]
 
 # Common
 batch_size: 2
