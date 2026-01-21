@@ -32,6 +32,7 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 
 - [Olive design overview](extending/design)
 - [How to add a new Pass](extending/how-to-add-optimization-pass)
+- [How to add a new task for ONNX export](extending/how-to-add-new-task.md)
 - [How to add custom model evaluator](extending/custom-model-evaluator)
 - [How to add custom scripts to load datasets](extending/custom-scripts)
 
@@ -57,6 +58,7 @@ configure-workflows/systems
 configure-workflows/engine-configuration
 extending/design
 extending/how-to-add-optimization-pass
+extending/how-to-add-new-task
 extending/custom-model-evaluator
 extending/custom-scripts
 ```
