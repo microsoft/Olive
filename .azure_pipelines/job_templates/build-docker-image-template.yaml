@@ -11,6 +11,20 @@ steps:
 - script: |
     set -euxo pipefail
 
+    echo "=== Move Docker data to larger disk ==="
+    # /mnt/storage has ~1TB available, while / is often low on space
+    if [ -d /mnt/storage ] && [ ! -f /etc/docker/daemon.json ]; then
+      sudo mkdir -p /mnt/storage/docker
+      echo '{"data-root": "/mnt/storage/docker"}' | sudo tee /etc/docker/daemon.json
+      sudo systemctl restart docker
+      echo "Docker data-root moved to /mnt/storage/docker"
+    fi
+
+  displayName: Move Docker to larger disk
+
+- script: |
+    set -euxo pipefail
+
     echo "=== BEFORE CLEAN: disk ==="
     df -h
     df -ih || true
