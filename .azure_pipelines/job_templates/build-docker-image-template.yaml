@@ -9,20 +9,84 @@ parameters:
 
 steps:
 - script: |
+    set -euxo pipefail
+
+    echo "=== BEFORE CLEAN: disk ==="
+    df -h
+    df -ih || true
+
+    echo "=== BEFORE CLEAN: docker usage ==="
+    docker version
+    docker info --format 'DockerRootDir={{.DockerRootDir}}'
+    docker system df -v || true
+
+    echo "=== BEFORE CLEAN: biggest dirs (/) ==="
+    sudo du -xhd1 / 2>/dev/null | sort -hr | head -n 30 || true
+
+    echo "=== login ==="
     docker login -u $(docker-username) -p $(docker-password)
+
+    echo "=== CLEAN ==="
     docker system prune -af --volumes || true
     docker builder prune -af || true
+
+    echo "=== AFTER CLEAN: disk ==="
+    df -h
+    df -ih || true
+
+    echo "=== AFTER CLEAN: docker usage ==="
+    docker system df -v || true
+
+    echo "=== AFTER CLEAN: docker root breakdown ==="
+    DOCKER_ROOT="$(docker info --format '{{.DockerRootDir}}')"
+    sudo du -sh "$DOCKER_ROOT" 2>/dev/null || true
+    sudo du -xhd2 "$DOCKER_ROOT" 2>/dev/null | sort -hr | head -n 50 || true
+
+    echo "=== AFTER CLEAN: buildx cache (if available) ==="
+    docker buildx ls || true
+    docker buildx du --verbose || true
+
+  displayName: Preflight & Cleanup (find disk hogs)
+
+- script: |
+    set -euxo pipefail
+
+    echo "=== BUILD ==="
     docker build \
-    --build-arg BASE_IMAGE=${{ parameters.base_image }} \
-    --build-arg TENSORRT_VERSION=${{ parameters.trt_version }} \
-    --build-arg PYTHON_VERSION=${{ parameters.python_version }} \
-    -t ${{ parameters.docker_image }} \
-    -f $(Build.SourcesDirectory)/${{ parameters.dockerfile }} .
+      --build-arg BASE_IMAGE=${{ parameters.base_image }} \
+      --build-arg TENSORRT_VERSION=${{ parameters.trt_version }} \
+      --build-arg PYTHON_VERSION=${{ parameters.python_version }} \
+      -t ${{ parameters.docker_image }} \
+      -f $(Build.SourcesDirectory)/${{ parameters.dockerfile }} .
+
   displayName: Build Docker Image
 
 - script: |
-    docker version
-    docker image ls
-    docker system df
+    set -euxo pipefail
+
+    echo "=== AFTER BUILD: disk ==="
     df -h
-  displayName: Check Docker Images
+    df -ih || true
+
+    echo "=== AFTER BUILD: images ==="
+    docker image ls
+
+    echo "=== AFTER BUILD: docker usage ==="
+    docker system df -v || true
+
+    echo "=== AFTER BUILD: docker root breakdown ==="
+    DOCKER_ROOT="$(docker info --format '{{.DockerRootDir}}')"
+    sudo du -sh "$DOCKER_ROOT" 2>/dev/null || true
+    sudo du -xhd2 "$DOCKER_ROOT" 2>/dev/null | sort -hr | head -n 50 || true
+
+    echo "=== AFTER BUILD: workspace hogs ==="
+    echo "PIPELINE_WORKSPACE=$PIPELINE_WORKSPACE"
+    echo "BUILD_SOURCESDIRECTORY=$BUILD_SOURCESDIRECTORY"
+    du -sh "$PIPELINE_WORKSPACE" 2>/dev/null || true
+    du -sh "$BUILD_SOURCESDIRECTORY" 2>/dev/null || true
+    sudo find "$PIPELINE_WORKSPACE" -type f -printf '%s %p\n' 2>/dev/null | sort -nr | head -n 50 || true
+
+    echo "=== AFTER BUILD: buildx cache (if available) ==="
+    docker buildx du --verbose || true
+
+  displayName: Postcheck (what consumed disk)
