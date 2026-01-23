@@ -16,6 +16,7 @@ from test.utils import get_tiny_phi3
 
 
 # TODO(team): Fix autoawq compatibility with transformers>=4.57 (PytorchGELUTanh removed)
+# https://github.com/hiyouga/LlamaFactory/issues/9247
 @pytest.mark.skip(reason="autoawq incompatible with transformers>=4.57, need fix")
 @pytest.mark.skipif(
     not torch.cuda.is_available(),
