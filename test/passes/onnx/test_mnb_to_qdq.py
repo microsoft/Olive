@@ -80,7 +80,7 @@ def create_mnb_model_fixture(request, tmp_path):
         input_names=["input"],
         output_names=["output"],
         dynamic_axes={"input": {0: "batch", 1: "seq"}, "output": {0: "batch", 1: "seq"}},
-        dynamo=False,
+        dynamo=True,
     )
 
     # quantized model
@@ -104,7 +104,8 @@ def create_mnb_model_fixture(request, tmp_path):
 @pytest.mark.parametrize("use_transpose_op", [True, False])
 @pytest.mark.parametrize("use_signed_int", [True, False])
 @pytest.mark.parametrize("add_zero_point", [True, False])
-@pytest.mark.parametrize("nodes_to_exclude", [None, ["/f1/MatMul_Q4"]])
+# Note: With dynamo export, the node names are like "node_MatMul_1_Q4" instead of "/f1/MatMul_Q4"
+@pytest.mark.parametrize("nodes_to_exclude", [None, ["node_MatMul_1_Q4"]])
 def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_signed_int, use_transpose_op, tmp_path):
     mnb_path, in_dim, is_symmetric, bits = create_mnb_model
 

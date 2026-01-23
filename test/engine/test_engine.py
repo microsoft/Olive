@@ -62,7 +62,9 @@ class TestEngine:
         engine = Engine(**options)
 
         # execute
-        engine.register(OnnxConversion, host=host, evaluator_config=evaluator_config)
+        engine.register(
+            OnnxConversion, config={"use_dynamo_exporter": True}, host=host, evaluator_config=evaluator_config
+        )
 
         # assert
         assert name in engine.input_passes_configs
@@ -93,7 +95,7 @@ class TestEngine:
         model_config = get_pytorch_model_config()
         engine = Engine(cache_config={"cache_dir": tmpdir})
 
-        engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13})
+        engine.register(OnnxConversion, config={"use_dynamo_exporter": True})
         outputs: WorkflowOutput = engine.run(
             model_config,
             DEFAULT_CPU_ACCELERATOR,
@@ -146,8 +148,8 @@ class TestEngine:
 
         engine = Engine(**options)
         p_name = "converter"
-        p1: OnnxConversion = get_onnxconversion_pass(target_opset=13)
-        p2: OnnxConversion = get_onnxconversion_pass(target_opset=14)
+        p1: OnnxConversion = get_onnxconversion_pass()
+        p2: OnnxConversion = get_onnxconversion_pass(target_opset=21)
         engine.set_input_passes_configs(
             {
                 p_name: [
@@ -259,7 +261,7 @@ class TestEngine:
 
         engine = Engine(**options)
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        p_config = OnnxConversion.generate_config(accelerator_spec, {"target_opset": 13}).dict()
+        p_config = OnnxConversion.generate_config(accelerator_spec, {"use_dynamo_exporter": True}).dict()
         engine.register(OnnxConversion, config=p_config)
 
         output_model_id = engine.cache.get_output_model_id(
@@ -332,7 +334,9 @@ class TestEngine:
         }
         engine = Engine(**options)
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        p_config = OnnxConversion.generate_config(accelerator_spec, {"target_opset": 13}).dict()
+        # Use TorchScript because dynamo export creates models with strict input shape requirements
+        # that don't match the dummy data used for evaluation
+        p_config = OnnxConversion.generate_config(accelerator_spec, {"use_dynamo_exporter": False}).dict()
         engine.register(OnnxConversion, config=p_config)
         # output model to output_dir
         output_dir = tmp_path / "output_dir"
@@ -368,7 +372,7 @@ class TestEngine:
                 "evaluator": evaluator_config,
             }
             engine = Engine(**options)
-            engine.register(OnnxConversion)
+            engine.register(OnnxConversion, config={"use_dynamo_exporter": True})
 
             model_config = get_pytorch_model_config()
 
@@ -414,7 +418,7 @@ class TestEngine:
         mock_local_system_init.return_value = mock_local_system
 
         engine = Engine(**options)
-        engine.register(OnnxConversion)
+        engine.register(OnnxConversion, config={"use_dynamo_exporter": True})
 
         # output model to output_dir
         output_dir = Path(tmpdir)
@@ -526,7 +530,7 @@ class TestEngine:
             ),
         )
         accelerator_spec = create_accelerator(system_config)
-        engine.register(OnnxConversion)
+        engine.register(OnnxConversion, config={"use_dynamo_exporter": True})
 
         model_config = get_pytorch_model_config()
         output_dir = Path(tmpdir)
@@ -559,7 +563,7 @@ class TestEngine:
                 "evaluator": evaluator_config,
             }
             engine = Engine(**options)
-            engine.register(OnnxConversion)
+            engine.register(OnnxConversion, config={"use_dynamo_exporter": True})
             model_config = get_pytorch_model_config()
             # execute
             output_dir = Path(tmpdir)

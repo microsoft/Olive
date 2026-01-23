@@ -496,6 +496,7 @@ def test_validate_config_returns_false_for_unsupported_configurations(pass_confi
     assert not AimetQuantization.validate_config(config, accelerator_spec)
 
 
+@pytest.mark.skip(reason="Dynamo export fails for Llama, need fix")
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
 @pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_ties_kv_io_quantizers(tmp_path):

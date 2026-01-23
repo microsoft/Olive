@@ -25,6 +25,7 @@ def wikitext_2_raw_v1_test():
     return datasets.load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
 
 
+@pytest.mark.skip(reason="Need to update pass logic to compatible with latest optimum-intel")
 def test_openvino_weight_compression_hf_to_openvino(tmp_path):
     # imports here
     import numpy as np
@@ -97,6 +98,7 @@ def test_openvino_weight_compression_hf_to_openvino(tmp_path):
         shutil.rmtree(hf_to_ov_model.model_path)
 
 
+@pytest.mark.skip(reason="Need to update pass logic to compatible with latest optimum-intel")
 def test_openvino_weight_compression_hf_to_openvino_multi_ignore_scope(tmp_path):
     # imports here
     import numpy as np

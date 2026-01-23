@@ -35,7 +35,7 @@ class BucketBatchSampler(Sampler):
             seed: Random seed for reproducibility.
 
         """
-        super().__init__(dataset)
+        super().__init__()
         self.dataset = dataset
         self.batch_size = batch_size
         self.drop_last = drop_last

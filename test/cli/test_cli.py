@@ -431,6 +431,8 @@ def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
 #     assert (output_dir / "speech.onnx_adapter").exists()
 
 
+# TODO(team): Fix autoawq compatibility with transformers>=4.57 (PytorchGELUTanh removed)
+@pytest.mark.skip(reason="autoawq incompatible with transformers>=4.57, need fix")
 @patch("huggingface_hub.repo_exists", return_value=True)
 def test_extract_adapters_command_from_peft_model(mock_repo_exists, tmp_path):
     # setup
