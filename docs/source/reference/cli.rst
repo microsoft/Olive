@@ -69,6 +69,17 @@ Fine-tune a model on a dataset using HuggingFace peft. Huggingface training argu
     :prog: olive
     :path: finetune
 
+Diffusion LoRA
+==============
+
+Train LoRA adapters for diffusion models (Stable Diffusion 1.5, SDXL, Flux). Supports both local image folders and HuggingFace datasets.
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: diffusion-lora
+
 Auto-Optimization
 =================
 
