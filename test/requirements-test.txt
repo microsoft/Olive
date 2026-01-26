@@ -39,4 +39,6 @@ sentencepiece
 soundfile
 tabulate
 torchvision
+# Remove version pin when the tests are fixed
 transformers<5.0.0
+huggingface-hub<1.3.4
