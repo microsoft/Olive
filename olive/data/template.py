@@ -39,14 +39,14 @@ def huggingface_data_config_template(model_name, task, **kwargs) -> DataConfig:
     **kwargs: dict
         Additional arguments:
         - olive.data.component.load_dataset_config.huggingface_dataset
-            - `data_name`: str, data name in huggingface dataset, e.g.: "glue", "squad"
+            - `data_name`: str, data name in huggingface dataset, e.g.: "nyu-mll/glue", "squad"
             - `subset`: str, subset of data, e.g.: "train", "validation", "test"
             - `split`: str, split of data, e.g.: "train", "validation", "test"
             - `data_files`: str | list | dict, path to source data file(s).
             e.g.
                 load_dataset_config={
                     "params": {
-                        "data_name": "glue",
+                        "data_name": "nyu-mll/glue",
                         "subset": "train",
                         "split": "train",
                         "data_files": "whatever.pt"
