@@ -146,6 +146,7 @@ class OliveHfQuantizer(HfQuantizer):
 
     # only support load and inference, no on-the-fly quantization
     requires_calibration = True
+    modules_to_not_convert: list[str] | None = None
 
     def _process_model_before_weight_loading(
         self, model: PreTrainedModel, keep_in_fp32_modules: list[str] | None = None, **kwargs
