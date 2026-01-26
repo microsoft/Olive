@@ -22,7 +22,7 @@ from test.utils import get_hf_model
 def wikitext_2_raw_v1_test():
     import datasets
 
-    return datasets.load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
+    return datasets.load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1", split="test")
 
 
 @pytest.mark.skip(reason="Need to update pass logic to compatible with latest optimum-intel")

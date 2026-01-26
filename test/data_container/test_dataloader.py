@@ -36,7 +36,7 @@ def test_llm_augmented_dataloader(tmp_path, use_gqa):
     data_config = huggingface_data_config_template(
         model_name=pytorch_model.model_name_or_path,
         task="text-generation",
-        load_dataset_config={"data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train"},
+        load_dataset_config={"data_name": "Salesforce/wikitext", "subset": "wikitext-2-raw-v1", "split": "train"},
         pre_process_data_config={"add_special_tokens": False, "max_seq_len": 10, "max_samples": 1},
     )
 

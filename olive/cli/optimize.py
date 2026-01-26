@@ -797,7 +797,7 @@ WIKITEXT2_DATA_CONFIG_TEMPLATE = [
     {
         "name": "wikitext2_train",
         "type": "HuggingfaceContainer",
-        "load_dataset_config": {"data_name": "wikitext", "subset": "wikitext-2-raw-v1", "split": "train"},
+        "load_dataset_config": {"data_name": "Salesforce/wikitext", "subset": "wikitext-2-raw-v1", "split": "train"},
         "pre_process_data_config": {
             "strategy": "line-by-line",
             "add_special_tokens": False,

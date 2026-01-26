@@ -324,7 +324,7 @@ def get_calibration_data_config(
         model_name=model_name_or_path,
         task="text-generation",
         load_dataset_config={
-            "data_name": "wikitext",
+            "data_name": "Salesforce/wikitext",
             "subset": "wikitext-2-raw-v1",
             "split": split,
             "trust_remote_code": trust_remote_code,
