@@ -10,6 +10,7 @@ datasets
 diffusers
 docker>=7.1.0
 evaluate
+huggingface-hub<1.3.4
 marshmallow
 ml_dtypes
 mlflow
@@ -41,4 +42,3 @@ tabulate
 torchvision
 # Remove version pin when the tests are fixed
 transformers<5.0.0
-huggingface-hub<1.3.4
