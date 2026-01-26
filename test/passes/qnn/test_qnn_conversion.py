@@ -39,9 +39,9 @@ def test_qnn_conversion_cmd(mocked_qnn_sdk_runner, config, tmp_path):
         str(tmp_path / "model.cpp"),
         "--input_dim",
         "input",
-        "1,1",  # got from onnx model graph even if no input_dim in config
+        "1,1",
         "--out_node",
-        "output",  # got from onnx model graph even if no out_node in config
+        "output",
     ]
     if config:
         expected_cmd_list.extend(["--show_unconsumed_nodes", "--custom_io", "CUSTOM_IO"])

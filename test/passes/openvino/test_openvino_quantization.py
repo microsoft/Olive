@@ -388,7 +388,7 @@ def get_openvino_model(tmp_path, cifar10_mv2_model):
 
 def get_cifar10_mv2_onnx_model(tmp_path, cifar10_mv2_model):
     onnx_model_path = tmp_path / "cifar10_mobilenetv2.onnx"
-    onnx_conversion_config = {"target_opset": 13, "dynamic": False}
+    onnx_conversion_config = {"dynamic": False}
     p = create_pass_from_dict(
         OnnxConversion,
         onnx_conversion_config,

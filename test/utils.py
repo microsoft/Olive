@@ -37,7 +37,21 @@ def pytorch_model_loader(model_path):
 
 
 def get_pytorch_model_io_config(batch_size=1):
-    return {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(batch_size, 1)]}
+    return {
+        "input_names": ["input"],
+        "output_names": ["output"],
+        "input_shapes": [(batch_size, 1)],
+    }
+
+
+def get_pytorch_model_dynamic_shapes():
+    """Get dynamic_shapes dict for dynamo export to preserve batch dimension."""
+    from torch.export import Dim
+
+    batch_size = Dim("batch_size")
+    # DummyModel.forward(x) takes input 'x' with shape (batch_size, 1)
+    # Mark first dim as dynamic to preserve batch dimension
+    return {"x": {0: batch_size}}
 
 
 def get_pytorch_model_dummy_input(model=None, batch_size=1):
@@ -79,11 +93,10 @@ def create_onnx_model_file():
         pytorch_model,
         dummy_input,
         ONNX_MODEL_PATH,
-        opset_version=10,
         input_names=io_config["input_names"],
         output_names=io_config["output_names"],
         external_data=False,
-        dynamo=False,
+        dynamo=True,
     )
 
 
@@ -91,16 +104,16 @@ def create_onnx_model_with_dynamic_axis(onnx_model_path, batch_size=1):
     pytorch_model = pytorch_model_loader(model_path=None)
     dummy_input = get_pytorch_model_dummy_input(pytorch_model, batch_size)
     io_config = get_pytorch_model_io_config()
+    dynamic_shapes = get_pytorch_model_dynamic_shapes()
     torch.onnx.export(
         pytorch_model,
         dummy_input,
         onnx_model_path,
-        opset_version=10,
         input_names=io_config["input_names"],
         output_names=io_config["output_names"],
-        dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
         external_data=False,
-        dynamo=False,
+        dynamo=True,
+        dynamic_shapes=dynamic_shapes,
     )
 
 
@@ -234,10 +247,12 @@ def get_throughput_metric(*lat_subtype, user_config=None):
     )
 
 
-def get_onnxconversion_pass(target_opset=13) -> type[Pass]:
+def get_onnxconversion_pass(target_opset=None) -> type[Pass]:
     from olive.passes.onnx.conversion import OnnxConversion
 
-    onnx_conversion_config = {"target_opset": target_opset}
+    onnx_conversion_config = {"use_dynamo_exporter": True}
+    if target_opset is not None:
+        onnx_conversion_config["target_opset"] = target_opset
     return create_pass_from_dict(OnnxConversion, onnx_conversion_config)
 
 
@@ -279,7 +294,7 @@ def get_glue_huggingface_data_config():
         type="HuggingfaceContainer",
         load_dataset_config=DataComponentConfig(
             params={
-                "data_name": "glue",
+                "data_name": "nyu-mll/glue",
                 "subset": "mrpc",
                 "split": "validation",
                 "batch_size": 1,
@@ -379,7 +394,7 @@ def get_wikitext_data_config(
         model_name=model_name_or_path,
         task="text-generation",
         load_dataset_config={
-            "data_name": "wikitext",
+            "data_name": "Salesforce/wikitext",
             "subset": "wikitext-2-raw-v1",
             "split": "train[:1000]",
         },

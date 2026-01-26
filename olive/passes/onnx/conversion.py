@@ -212,6 +212,11 @@ def _export_pytorch_model(
                     "Please upgrade PyTorch to 2.6.0 or above."
                 )
 
+            # Register DynamicCache export support
+            from transformers.integrations.executorch import register_dynamic_cache_export_support
+
+            register_dynamic_cache_export_support()
+
             if isinstance(dummy_inputs, dict):
                 dummy_kwargs = dummy_inputs
                 dummy_inputs = ()
@@ -242,7 +247,7 @@ def _export_pytorch_model(
                 dynamic_axes=dynamic_axes_for_export,
                 dynamic_shapes=io_config.dynamic_shapes,
                 dynamo=True,
-                fallback=True,
+                fallback=False,
                 optimize=config.optimize,
                 report=logger.isEnabledFor(logging.DEBUG),
             )
