@@ -20,8 +20,8 @@ jobs:
   pool:
     name: ${{ parameters.pool}}
   variables:
-    PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
-    HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
+    PIP_CACHE_DIR: /mnt/storage/.cache/pip
+    HF_HOME: /mnt/storage/.cache/huggingface
 
   steps:
   - script: |
