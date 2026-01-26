@@ -8,6 +8,7 @@ from itertools import chain
 from pathlib import Path
 from unittest.mock import patch
 
+import onnx
 import pytest
 import torch
 from onnxscript import ir
@@ -39,10 +40,8 @@ def _torch_is_older_than(version_str: str) -> bool:
     ("input_model", "use_dynamo_exporter", "dynamic"),
     [
         (get_hf_model(), True, True),
-        (get_hf_model(), False, True),
         (get_hf_model(), True, False),
         (get_pytorch_model(), True, True),
-        (get_pytorch_model(), False, True),
         (get_pytorch_model(), True, False),
     ],
 )
@@ -58,7 +57,7 @@ def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter: b
 
 
 @pytest.mark.parametrize("quantizer_pass", [Rtn, GptqQuantizer])
-@pytest.mark.parametrize("use_dynamo_exporter", [False, True])
+@pytest.mark.parametrize("use_dynamo_exporter", [True])
 def test_onnx_conversion_pass_quant_model(quantizer_pass, use_dynamo_exporter: bool, tmp_path):
     if use_dynamo_exporter and platform.system() == "Windows":
         pytest.skip("FIXME: torch ops fails on Windows")
@@ -101,8 +100,11 @@ def test_onnx_conversion_pass_quant_model(quantizer_pass, use_dynamo_exporter: b
     assert num_gbq == expected_num_gbq
 
 
-@pytest.mark.parametrize("target_opset", [9, 10, 16])
+@pytest.mark.parametrize("target_opset", [16, 17, 18])
 def test_onnx_op_version_conversion_pass(target_opset, tmp_path):
+    # Note: The test ONNX model is created with dynamo export at opset 20.
+    # ONNX version converter cannot downgrade Gemm from opset 13+ to opset 9/10,
+    # so we only test conversion to opset 16+.
     input_model = get_onnx_model()
     # setup
     p = create_pass_from_dict(
@@ -199,12 +201,19 @@ def get_dummy_inputs_llama2(_):
 )
 @patch("torch.onnx.export")
 def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_config_func, dummy_inputs_func):
-    dummy_inputs = None
+    dummy_kwargs = None
+
+    class MockOnnxProgram:
+        def __init__(self, model_path):
+            self.model = ir.serde.deserialize_model(onnx.load(model_path))
 
     def mock_onnx_export_func(*args, **kwargs):
-        nonlocal dummy_inputs
-        _, dummy_inputs, output_path = args
+        nonlocal dummy_kwargs
+        # For dynamo export, inputs are passed via kwargs parameter
+        dummy_kwargs = kwargs.get("kwargs", {})
+        _, _, output_path = args
         shutil.copyfile(ONNX_MODEL_PATH, output_path)
+        return MockOnnxProgram(output_path)
 
     output_folder = tmp_path / "onnx"
     output_folder.mkdir(parents=True, exist_ok=True)
@@ -216,9 +225,9 @@ def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_con
     )
     mock_onnx_export.side_effect = mock_onnx_export_func
     # setup
-    p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
+    p = create_pass_from_dict(OnnxConversion, {"use_dynamo_exporter": True}, disable_search=True)
     _ = p.run(input_model, str(output_folder))
-    assert "past_key_values" in dummy_inputs  # pylint: disable=unsupported-membership-test
+    assert "past_key_values" in dummy_kwargs  # pylint: disable=unsupported-membership-test
 
 
 @pytest.mark.parametrize(

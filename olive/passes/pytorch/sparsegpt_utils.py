@@ -90,12 +90,14 @@ def catch_layer_inputs(model_wrapper, dataloader, device, num_samples=None):
             super().__init__()
             self.module = module
 
-        def forward(self, inputs, **kwargs):
+        def forward(self, *args, **kwargs):
+            # First positional argument is the hidden states (inputs)
+            layer_inputs = args[0] if args else kwargs.get("hidden_states")
             # handle batch dimension
-            for batch in range(inputs.shape[0]):
+            for batch in range(layer_inputs.shape[0]):
                 if cache["i"] >= num_samples:
                     break
-                inputs[cache["i"]] = inputs[batch]
+                inputs[cache["i"]] = layer_inputs[batch]
                 cache["i"] += 1
             cache["attention_mask"] = kwargs.get("attention_mask")
             for input_name in additional_input:

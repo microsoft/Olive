@@ -49,7 +49,7 @@ def get_patched_data_config(model_name_or_path, trust_remote_code, **kwargs):
         model_name=model_name_or_path,
         task="text-generation",
         load_dataset_config={
-            "data_name": "wikitext",
+            "data_name": "Salesforce/wikitext",
             "subset": "wikitext-2-raw-v1",
             "split": "train",
             "trust_remote_code": trust_remote_code,

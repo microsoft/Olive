@@ -88,14 +88,15 @@ def test_quantization_preprocess(tmp_path):
     assert out is not None
 
 
+# Note: With dynamo export, node names are like "node_linear" instead of "/fc1/Gemm"
 @pytest.mark.parametrize(
     ("kwargs", "expected"),
     [
         ({}, {"op_types_to_quantize": ["Gemm", "Sigmoid"]}),
         ({"op_types_to_quantize": ["Gemm"]}, {"op_types_to_quantize": ["Gemm"]}),
-        ({"op_types_to_exclude": ["Gemm"]}, {"op_types_to_quantize": ["Sigmoid"], "nodes_to_exclude": ["/fc1/Gemm"]}),
+        ({"op_types_to_exclude": ["Gemm"]}, {"op_types_to_quantize": ["Sigmoid"], "nodes_to_exclude": ["node_linear"]}),
         (
-            # this node does not exist in the model but using this instead of "/fc1/Gemm"
+            # this node does not exist in the model but using this instead of "node_linear"
             # there is only one Gemm node so op_types_to_quantize differs after 1.21.0
             {"nodes_to_exclude": ["/fc2/Gemm"]},
             {"op_types_to_quantize": ["Gemm", "Sigmoid"], "nodes_to_exclude": ["/fc2/Gemm"]},

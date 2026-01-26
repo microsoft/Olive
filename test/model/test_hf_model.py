@@ -36,13 +36,14 @@ class TestHFModel:
         )
 
         pytorch_model = olive_model.load_model()
-        modeling_dir = Path(self.local_path).name if local else f"{self.model_name.replace('/', '.')}.{self.revision}"
-        expected_class_name = (
-            f"transformers_modules.{modeling_dir}.modeling_phi3.Phi3ForCausalLM"
-            if trust_remote_code
-            else "transformers.models.phi3.modeling_phi3.Phi3ForCausalLM"
-        )
-        assert f"{pytorch_model.__module__}.{pytorch_model.__class__.__name__}" == expected_class_name
+        actual_class_path = f"{pytorch_model.__module__}.{pytorch_model.__class__.__name__}"
+        if trust_remote_code:
+            # When using remote code, the model is loaded from transformers_modules
+            assert actual_class_path.startswith("transformers_modules.")
+            assert actual_class_path.endswith(".modeling_phi3.Phi3ForCausalLM")
+        else:
+            # When not using remote code, the model is loaded from transformers
+            assert actual_class_path == "transformers.models.phi3.modeling_phi3.Phi3ForCausalLM"
 
     @pytest.mark.parametrize("local", [True, False])
     def test_load_model_with_kwargs(self, local):

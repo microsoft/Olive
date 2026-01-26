@@ -47,7 +47,7 @@ def get_pileval(
 def get_wikitext2(
     tokenizer: PreTrainedTokenizer, nsamples: int, seqlen: int, device: str | None, seed: int = 0
 ) -> DataLoader[torch.Tensor]:
-    traindata = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
+    traindata = load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1", split="train")
     trainenc = tokenizer("\n\n".join(traindata["text"]), return_tensors="pt")
     trainenc = trainenc.to(device)
 
@@ -111,7 +111,7 @@ def get_calib_dataloader_to_tensor(
         dataset = load_dataset("cnn_dailymail", name="3.0.0", split="train")
         text_data = dataset["article"][:num_calib_data]
     elif dataset_name == "wikitext":
-        dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
+        dataset = load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1", split="train")
         text_data = dataset["text"][:num_calib_data]
     else:
         raise NotImplementedError
@@ -157,7 +157,7 @@ def get_calib_dataloader_to_dict(
         dataset = load_dataset("cnn_dailymail", name="3.0.0", split="train")
         prompt_col_name = "article"
     elif dataset_name == "wikitext":
-        dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
+        dataset = load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1", split="train")
         prompt_col_name = "text"
     else:
         raise NotImplementedError
@@ -258,7 +258,7 @@ class ConcatDataset(Dataset):
 
 def get_trainer_dataset(path, subset, tokenizer, max_train_samples, max_eval_samples, seqlen=1024):
     def tokenize_add_label(sample):
-        if path in ["wikitext"]:
+        if path in ["Salesforce/wikitext"]:
             input_text = sample["text"]
 
         elif path in ["shibing624/AdvertiseGen"]:
@@ -274,14 +274,14 @@ def get_trainer_dataset(path, subset, tokenizer, max_train_samples, max_eval_sam
             "labels": input_ids,
         }
 
-    if path in ["wikitext"]:
+    if path in ["Salesforce/wikitext"]:
         train_dataset = load_dataset(path=path, name="wikitext-2-raw-v1", split=subset, trust_remote_code=True)
     elif path in ["shibing624/AdvertiseGen"]:
         train_dataset = load_dataset(path=path, split=subset, trust_remote_code=True)
     else:
         raise ValueError(f"Unsupported path: {path}")
     # Using wikitext as default eval_dataset
-    eval_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="test", trust_remote_code=True)
+    eval_dataset = load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1", split="test", trust_remote_code=True)
 
     if max_train_samples:
         max_train_samples = min(len(train_dataset), max_train_samples)
@@ -306,7 +306,7 @@ def get_trainer_dataset(path, subset, tokenizer, max_train_samples, max_eval_sam
 
 
 def get_dataset(path, subset, tokenizer, seqlen):
-    if path in ["wikitext"]:
+    if path in ["Salesforce/wikitext"]:
         text = load_dataset(path=path, name="wikitext-2-raw-v1", split=subset)
         strtext = "\n\n".join(text["text"])
     elif path in ["shibing624/AdvertiseGen"]:

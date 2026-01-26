@@ -20,10 +20,34 @@ jobs:
   pool:
     name: ${{ parameters.pool}}
   variables:
-    PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
-    HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
+    PIP_CACHE_DIR: /mnt/storage/.cache/pip
+    HF_HOME: /mnt/storage/.cache/huggingface
 
   steps:
+  - script: |
+      set -euxo pipefail
+
+      # Move agent work directory to /mnt/storage via symlink
+      AGENT_ROOT=$(dirname "$(Agent.BuildDirectory)")
+      sudo mkdir -p /mnt/storage/vss_work
+      sudo chown -R $USER:$USER /mnt/storage/vss_work
+      sudo cp -a "$AGENT_ROOT"/* /mnt/storage/vss_work/ 2>/dev/null || true
+      sudo rm -rf "$AGENT_ROOT"
+      sudo ln -sf /mnt/storage/vss_work "$AGENT_ROOT"
+
+      # Move Docker and containerd to /mnt/storage
+      sudo systemctl stop docker containerd
+      sudo mkdir -p /mnt/storage/docker /mnt/storage/containerd /etc/containerd
+      echo '{"data-root": "/mnt/storage/docker"}' | sudo tee /etc/docker/daemon.json
+      containerd config default | sed 's|/var/lib/containerd|/mnt/storage/containerd|g' | sudo tee /etc/containerd/config.toml > /dev/null
+      sudo systemctl start containerd docker
+
+      # Move /tmp to /mnt/storage
+      sudo mkdir -p /mnt/storage/tmp
+      sudo chmod 1777 /mnt/storage/tmp
+      sudo mount --bind /mnt/storage/tmp /tmp
+    displayName: Move pipeline to /mnt/storage
+
   - template: build-docker-image-template.yaml
     parameters:
       python_version: ${{ parameters.python_version }}

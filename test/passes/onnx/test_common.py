@@ -41,7 +41,7 @@ def test_model_proto_to_olive_model(external_data_config, tmp_path):
 def test_resave_model(has_external_data, tmp_path):
     # setup
     input_model = create_pass_from_dict(
-        OnnxConversion, {"save_as_external_data": has_external_data}, disable_search=True
+        OnnxConversion, {"save_as_external_data": has_external_data, "use_dynamo_exporter": True}, disable_search=True
     ).run(get_hf_model(), str(tmp_path / "input"))
 
     # execute

@@ -26,7 +26,7 @@ def test_slicegpt(tmp_path):
     dataset = {
         "load_dataset_config": {
             "params": {
-                "data_name": "wikitext",
+                "data_name": "Salesforce/wikitext",
                 "subset": "wikitext-2-raw-v1",
                 "split": "train",
                 "trust_remote_code": True,

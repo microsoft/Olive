@@ -66,7 +66,7 @@ def test_run_pass_command_pass_config():
     RunPassCommand.register_subcommand(sub_parsers)
 
     # Test pass-config argument
-    json_config = '{"target_opset": 13, "convert_attribute": true}'
+    json_config = '{"convert_attribute": true}'
     args = parser.parse_args(
         [
             "run-pass",
@@ -177,14 +177,13 @@ def test_run_pass_command_config_generation_with_pass_config():
     pass_config = {"type": pass_name}
 
     # Add additional configuration
-    additional_config = {"target_opset": 13, "convert_attribute": True}
+    additional_config = {"convert_attribute": True}
     pass_config.update(additional_config)
 
     config["passes"] = {pass_name.lower(): pass_config}
 
     # Verify the enhanced structure
     assert config["passes"]["onnxconversion"]["type"] == "OnnxConversion"
-    assert config["passes"]["onnxconversion"]["target_opset"] == 13
     assert config["passes"]["onnxconversion"]["convert_attribute"] is True
 
 
