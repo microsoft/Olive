@@ -251,6 +251,9 @@ class ModelBuilder(Pass):
         if config.extra_options:
             extra_args.update(config.extra_options)
 
+        # Ensure output_model_filepath matches the final filename in extra_args
+        output_model_filepath = Path(output_model_path) / extra_args["filename"]
+
         model_attributes = copy.deepcopy(model.model_attributes or {})
 
         try:

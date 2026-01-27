@@ -140,6 +140,9 @@ class DiffusersComponent(StrEnumBase):
     TRANSFORMER = "transformer"
     VAE_ENCODER = "vae_encoder"
     VAE_DECODER = "vae_decoder"
+    FLUX_TRANSFORMER = "flux_transformer"
+    SD3_TRANSFORMER = "sd3_transformer"
+    SANA_TRANSFORMER = "sana_transformer"
 
 
 def precision_bits_from_precision(p):
