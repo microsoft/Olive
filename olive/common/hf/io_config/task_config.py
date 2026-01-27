@@ -84,7 +84,7 @@ def get_io_config(
         _add_present_outputs(dynamic_axes, config)
 
     # Order inputs according to model forward signature
-    ordered_inputs = _order_inputs(dynamic_axes, model)
+    ordered_inputs = _order_inputs(dynamic_axes, model, set(outputs.keys()))
 
     # Separate input and output names
     input_names = [name for name in ordered_inputs if not name.startswith("present.")]
@@ -202,6 +202,7 @@ def _add_present_outputs(
 def _order_inputs(
     dynamic_axes: dict,
     model: PreTrainedModel | None,
+    output_names: set[str] | None = None,
 ) -> OrderedDict:
     """Order inputs according to model forward signature.
 
@@ -210,6 +211,7 @@ def _order_inputs(
     Args:
         dynamic_axes: Dict of all dynamic axes (inputs and outputs).
         model: Optional model for forward signature inspection.
+        output_names: Set of output names to exclude from input ordering.
 
     Returns:
         OrderedDict of input names to dynamic axes, ordered by forward signature.
@@ -217,11 +219,15 @@ def _order_inputs(
     """
     import re
 
-    # Filter to only input names (not outputs like present.*)
+    if output_names is None:
+        output_names = set()
+
+    # Filter to only input names (not outputs like present.* or explicit output names)
     input_axes = OrderedDict()
     for name, axes in dynamic_axes.items():
-        if not name.startswith("present.") and not name.startswith("logits"):
-            input_axes[name] = axes
+        if name.startswith("present.") or name in output_names:
+            continue
+        input_axes[name] = axes
 
     if model is None:
         return input_axes
