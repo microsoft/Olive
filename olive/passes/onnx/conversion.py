@@ -853,7 +853,7 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
     # Align tree spec only for not transformers.Cache.
     if len(dummy_inputs) == 0:
         for k, v in dummy_kwargs.items():
-            if not isinstance(v, transformers.Cache):
+            if not isinstance(v, transformers.Cache) and k in dynamic_shapes:
                 input_tree_spec = _pytree.tree_flatten(v)[1]
                 flatten_dynamic_shapes = get_the_flattened_and_tree_spec(dynamic_shapes[k], leaf_is_str=False)[0]
                 dynamic_shapes[k] = _pytree.tree_unflatten(flatten_dynamic_shapes, input_tree_spec)

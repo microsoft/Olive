@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import huggingface_hub
 import pytest
@@ -222,5 +222,5 @@ class TestHFDummyInput:
         # get dummy inputs
         dummy_inputs = olive_model.get_dummy_inputs()
 
-        get_model_dummy_input.assert_called_once_with(self.model_name, self.task)
+        get_model_dummy_input.assert_called_once_with(self.model_name, self.task, model=ANY)
         assert dummy_inputs == 1

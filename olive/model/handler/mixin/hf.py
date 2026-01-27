@@ -121,6 +121,7 @@ class HfMixin:
         return get_model_dummy_input(
             self.model_path,
             self.task,
+            model=self.load_model(),
             **self.get_load_kwargs(),
         )
 
