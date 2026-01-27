@@ -37,7 +37,7 @@ Number splits
 
 **`cost-model`**
 
-Let's now split the model using a cost model. Please refer to the [pre-generated cost models](https://github.com/microsoft/Olive/blob/main/assets/cost_models/Phi-3.5-mini.csv) in the Olive repository for an example a cost model csv.
+Let's now split the model using a cost model. Please refer to the [pre-generated cost models](https://github.com/microsoft/Olive/blob/main/olive/assets/cost_models/Phi-3.5-mini.csv) in the Olive repository for an example a cost model csv.
 
 ```bash
 olive auto-opt -m microsoft/Phi-3.5-mini-instruct --precision fp16 --provider CUDAExecutionProvider --memory 2GB --cost-model phi-3.5-cost.csv -o models/phi-costsplit
