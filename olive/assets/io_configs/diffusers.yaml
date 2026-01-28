@@ -54,6 +54,20 @@ components:
       last_hidden_state:
         axes: {0: batch_size, 1: sequence_length, 2: hidden_size}
 
+  mistral3_text_encoder:
+    inputs:
+      input_ids:
+        shape: [batch_size, sequence_length]
+        axes: {0: batch_size, 1: sequence_length}
+        dtype: int64
+      attention_mask:
+        shape: [batch_size, sequence_length]
+        axes: {0: batch_size, 1: sequence_length}
+        dtype: int64
+    outputs:
+      last_hidden_state:
+        axes: {0: batch_size, 1: sequence_length, 2: hidden_size}
+
   unet:
     inputs:
       sample:
@@ -164,6 +178,42 @@ components:
         dtype: float
         condition: guidance_embeds
 
+  flux2_transformer:
+    inputs:
+      hidden_states:
+        shape: [batch_size, packed_height_width, in_channels]
+        axes: {0: batch_size, 1: packed_height_width, 2: in_channels}
+        dtype: float
+      encoder_hidden_states:
+        shape: [batch_size, sequence_length, joint_attention_dim]
+        axes: {0: batch_size, 1: sequence_length, 2: joint_attention_dim}
+        dtype: float
+      pooled_projections:
+        shape: [batch_size, pooled_projection_dim]
+        axes: {0: batch_size, 1: pooled_projection_dim}
+        dtype: float
+      timestep:
+        shape: [batch_size]
+        axes: {0: batch_size}
+        dtype: float
+      txt_ids:
+        shape: [sequence_length, 3]
+        axes: {0: sequence_length}
+        dtype: float
+      img_ids:
+        shape: [packed_height_width, 3]
+        axes: {0: packed_height_width}
+        dtype: float
+    outputs:
+      out_sample:
+        axes: {0: batch_size, 1: packed_height_width, 2: in_channels}
+    optional_inputs:
+      guidance:
+        shape: [batch_size]
+        axes: {0: batch_size}
+        dtype: float
+        condition: guidance_embeds
+
   sana_transformer:
     inputs:
       hidden_states:
@@ -229,6 +279,11 @@ pipelines:
     - text_encoder
     - t5_encoder:text_encoder_2
     - flux_transformer:transformer
+    - vae_encoder
+    - vae_decoder
+  flux2:
+    - mistral3_text_encoder:text_encoder
+    - flux2_transformer:transformer
     - vae_encoder
     - vae_decoder
   sana:

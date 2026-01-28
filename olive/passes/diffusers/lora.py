@@ -223,7 +223,9 @@ class SDLoRA(Pass):
         logger.info("Detected model variant: %s", model_variant)
 
         # Route to appropriate training method
-        if model_variant == DiffusersModelVariant.FLUX:
+        if model_variant == DiffusersModelVariant.FLUX2:
+            return self._train_flux2(model, config, training_args, output_model_path)
+        elif model_variant == DiffusersModelVariant.FLUX:
             return self._train_flux(model, config, training_args, output_model_path)
         else:
             return self._train_sd(model, config, training_args, model_variant, output_model_path)
@@ -902,6 +904,319 @@ class SDLoRA(Pass):
         output_model.set_resource("adapter_path", str(adapter_path))
         return output_model
 
+    def _train_flux2(
+        self,
+        model: DiffusersModelHandler,
+        config: BasePassConfig,
+        training_args: DiffusionTrainingArguments,
+        output_model_path: str,
+    ) -> DiffusersModelHandler:
+        """Train LoRA for Flux2 models."""
+        import torch
+        import torch.nn.functional as F
+        from accelerate import Accelerator
+        from accelerate.utils import ProjectConfiguration, set_seed
+        from diffusers import AutoencoderKLFlux2, Flux2Transformer2DModel
+        from diffusers.optimization import get_scheduler
+        from peft import LoraConfig
+        from tqdm.auto import tqdm
+        from transformers import AutoModel
+
+        # Flux2 requires bfloat16
+        if training_args.mixed_precision == "fp16":
+            logger.warning("Flux2 requires bfloat16, switching from fp16")
+            training_args.mixed_precision = "bf16"
+
+        with tempfile.TemporaryDirectory(prefix="olive_flux2_lora_") as temp_dir:
+            project_config = ProjectConfiguration(
+                project_dir=temp_dir,
+                logging_dir=os.path.join(temp_dir, "logs"),
+            )
+            accelerator = Accelerator(
+                gradient_accumulation_steps=training_args.gradient_accumulation_steps,
+                mixed_precision=training_args.mixed_precision,
+                project_config=project_config,
+            )
+
+            if training_args.seed is not None:
+                set_seed(training_args.seed)
+
+            model_path = model.model_path
+            logger.info("Loading Flux2 models from %s", model_path)
+
+            # Set weight dtype (Flux2 needs bfloat16)
+            weight_dtype = torch.bfloat16
+
+            # Load text encoder (Mistral3ForConditionalGeneration - frozen, for encoding prompts only)
+            text_encoder = AutoModel.from_pretrained(model_path, subfolder="text_encoder")
+
+            # Load VAE and Transformer (Flux2-specific classes)
+            vae = AutoencoderKLFlux2.from_pretrained(model_path, subfolder="vae")
+            transformer = Flux2Transformer2DModel.from_pretrained(model_path, subfolder="transformer")
+
+            # Freeze all base models and move to device
+            vae.requires_grad_(False)
+            vae.to(accelerator.device, dtype=weight_dtype)
+
+            text_encoder.requires_grad_(False)
+            text_encoder.to(accelerator.device, dtype=weight_dtype)
+
+            transformer.requires_grad_(False)
+            transformer.to(accelerator.device, dtype=weight_dtype)
+
+            # Setup LoRA for transformer only (after moving to device)
+            lora_alpha = config.alpha if config.alpha is not None else config.r
+            target_modules = config.target_modules or [
+                "to_k",
+                "to_q",
+                "to_v",
+                "to_out.0",
+                "add_k_proj",
+                "add_q_proj",
+                "add_v_proj",
+                "to_add_out",
+            ]
+
+            transformer_lora_config = LoraConfig(
+                r=config.r,
+                lora_alpha=lora_alpha,
+                lora_dropout=config.lora_dropout,
+                init_lora_weights="gaussian",
+                target_modules=target_modules,
+            )
+            transformer.add_adapter(transformer_lora_config)
+
+            # LoRA trainable parameters should be fp32 for stable training with mixed precision
+            for param in transformer.parameters():
+                if param.requires_grad:
+                    param.data = param.data.to(torch.float32)
+
+            # Log trainable parameters
+            trainable_params = sum(p.numel() for p in transformer.parameters() if p.requires_grad)
+            total_params = sum(p.numel() for p in transformer.parameters())
+            logger.info(
+                "Flux2 Transformer trainable parameters: %d / %d (%.2f%%)",
+                trainable_params,
+                total_params,
+                100 * trainable_params / total_params,
+            )
+
+            # Enable gradient checkpointing
+            if training_args.gradient_checkpointing:
+                transformer.enable_gradient_checkpointing()
+
+            # Prepare class images for prior preservation
+            class_data_dir = None
+            if config.with_prior_preservation:
+                class_data_dir = self._prepare_class_images(
+                    model_path=model_path,
+                    class_prompt=config.class_prompt,
+                    class_data_dir=config.class_data_dir,
+                    num_class_images=config.num_class_images,
+                    model_variant=DiffusersModelVariant.FLUX2,
+                )
+
+            # Load dataset
+            train_dataset = self._load_dataset(config)
+            train_dataloader = self._create_dataloader(
+                train_dataset,
+                training_args,
+                model_path,
+                DiffusersModelVariant.FLUX2,
+                prior_preservation=config.with_prior_preservation,
+                class_data_dir=class_data_dir,
+                class_prompt=config.class_prompt,
+                instance_prompt=config.instance_prompt,
+            )
+
+            # Calculate training steps
+            num_update_steps_per_epoch = math.ceil(len(train_dataloader) / training_args.gradient_accumulation_steps)
+            num_train_epochs = math.ceil(training_args.max_train_steps / num_update_steps_per_epoch)
+
+            # Setup optimizer (transformer only)
+            params_to_optimize = list(filter(lambda p: p.requires_grad, transformer.parameters()))
+
+            optimizer = torch.optim.AdamW(
+                params_to_optimize,
+                lr=training_args.learning_rate,
+                betas=(0.9, 0.999),
+                weight_decay=1e-2,
+                eps=1e-8,
+            )
+
+            # Setup LR scheduler
+            lr_scheduler = get_scheduler(
+                training_args.lr_scheduler,
+                optimizer=optimizer,
+                num_warmup_steps=training_args.lr_warmup_steps * accelerator.num_processes,
+                num_training_steps=training_args.max_train_steps * accelerator.num_processes,
+            )
+
+            # Prepare with accelerator
+            transformer, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                transformer, optimizer, train_dataloader, lr_scheduler
+            )
+
+            # Training loop
+            logger.info("***** Running Flux2 LoRA training *****")
+            logger.info("  Num examples = %d", len(train_dataset))
+            logger.info("  Num epochs = %d", num_train_epochs)
+            logger.info("  Batch size = %d", training_args.train_batch_size)
+            logger.info("  Gradient accumulation steps = %d", training_args.gradient_accumulation_steps)
+            logger.info("  Total optimization steps = %d", training_args.max_train_steps)
+            if config.dreambooth:
+                logger.info("  Prior preservation enabled with weight = %.2f", config.prior_loss_weight)
+
+            global_step = 0
+            progress_bar = tqdm(
+                range(training_args.max_train_steps),
+                disable=not accelerator.is_local_main_process,
+                desc="Training Flux2",
+            )
+
+            for _ in range(num_train_epochs):
+                transformer.train()
+
+                for _, batch in enumerate(train_dataloader):
+                    with accelerator.accumulate(transformer):
+                        # Encode images to latents
+                        pixel_values = batch["pixel_values"].to(device=accelerator.device, dtype=weight_dtype)
+                        latents = vae.encode(pixel_values).latent_dist.sample()
+                        latents = (latents - vae.config.shift_factor) * vae.config.scaling_factor
+
+                        # Save latent dimensions before packing (needed for image IDs)
+                        batch_size, _channels, latent_height, latent_width = latents.shape
+
+                        # Pack latents for Flux2
+                        latents = self._pack_latents(latents)
+
+                        # Sample noise and timesteps (flow matching)
+                        noise = torch.randn_like(latents)
+
+                        # Flux2 uses continuous timesteps in [0, 1]
+                        u = torch.rand(batch_size, device=latents.device, dtype=weight_dtype)
+                        timesteps = (u * 1000).to(latents.device)
+
+                        # Flow matching: sigmas = t
+                        sigmas = self._get_sigmas(timesteps, latents.ndim, latents.dtype, latents.device)
+                        noisy_latents = sigmas * noise + (1.0 - sigmas) * latents
+
+                        # Get text embeddings (frozen)
+                        with torch.no_grad():
+                            prompt_embeds, pooled_prompt_embeds, text_ids = self._encode_prompt_flux2(
+                                batch, text_encoder
+                            )
+                            # Get latent image IDs
+                            latent_image_ids = self._prepare_latent_image_ids(
+                                batch_size, latent_height // 2, latent_width // 2, latents.device, weight_dtype
+                            )
+
+                        # Transformer forward (with gradients for LoRA training)
+                        model_pred = transformer(
+                            hidden_states=noisy_latents,
+                            timestep=timesteps / 1000,
+                            guidance=torch.full(
+                                (batch_size,), training_args.guidance_scale, device=latents.device, dtype=weight_dtype
+                            ),
+                            pooled_projections=pooled_prompt_embeds,
+                            encoder_hidden_states=prompt_embeds,
+                            txt_ids=text_ids,
+                            img_ids=latent_image_ids,
+                            return_dict=False,
+                        )[0]
+
+                        # Flow matching target: velocity = noise - data
+                        target = noise - latents
+
+                        # Prior preservation: split predictions and targets (official HuggingFace approach)
+                        if config.with_prior_preservation:
+                            model_pred, model_pred_prior = torch.chunk(model_pred, 2, dim=0)
+                            target, target_prior = torch.chunk(target, 2, dim=0)
+
+                            # Instance loss
+                            instance_loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+
+                            # Prior loss
+                            prior_loss = F.mse_loss(model_pred_prior.float(), target_prior.float(), reduction="mean")
+
+                            # Combined loss
+                            loss = instance_loss + config.prior_loss_weight * prior_loss
+                        else:
+                            # Standard LoRA training
+                            loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+
+                        accelerator.backward(loss)
+                        if accelerator.sync_gradients:
+                            accelerator.clip_grad_norm_(params_to_optimize, training_args.max_grad_norm)
+                        optimizer.step()
+                        lr_scheduler.step()
+                        optimizer.zero_grad()
+
+                    if accelerator.sync_gradients:
+                        progress_bar.update(1)
+                        global_step += 1
+
+                        if accelerator.is_main_process:
+                            if global_step % training_args.logging_steps == 0:
+                                logger.info(
+                                    "Step %d: loss=%.4f, lr=%.6f",
+                                    global_step,
+                                    loss.detach().item(),
+                                    lr_scheduler.get_last_lr()[0],
+                                )
+
+                            if global_step % training_args.checkpointing_steps == 0:
+                                save_path = os.path.join(temp_dir, f"checkpoint-{global_step}")
+                                accelerator.save_state(save_path)
+
+                    if global_step >= training_args.max_train_steps:
+                        break
+
+            # Save final model
+            accelerator.wait_for_everyone()
+            output_path = Path(output_model_path)
+
+            # Save adapter weights
+            adapter_path = output_path / "adapter"
+
+            if accelerator.is_main_process:
+                adapter_path.mkdir(parents=True, exist_ok=True)
+
+                if config.merge_lora:
+                    # Merge LoRA and save full transformer
+                    transformer_unwrapped = accelerator.unwrap_model(transformer)
+                    transformer_merged = transformer_unwrapped.merge_and_unload()
+                    transformer_merged.save_pretrained(adapter_path)
+                    logger.info("Saved merged Transformer to %s", adapter_path)
+                else:
+                    # Save LoRA adapter in diffusers-compatible format
+                    transformer_unwrapped = accelerator.unwrap_model(transformer)
+                    transformer_unwrapped = transformer_unwrapped.to(torch.float32)
+
+                    from diffusers import Flux2Pipeline
+                    from peft import get_peft_model_state_dict
+
+                    transformer_lora_state_dict = get_peft_model_state_dict(transformer_unwrapped)
+
+                    Flux2Pipeline.save_lora_weights(
+                        save_directory=str(adapter_path),
+                        transformer_lora_layers=transformer_lora_state_dict,
+                        safe_serialization=True,
+                    )
+                    logger.info("Saved Flux2 Transformer LoRA to %s", adapter_path)
+
+            accelerator.end_training()
+
+        # Clean up
+        del transformer
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        # Return model handler
+        output_model = deepcopy(model)
+        output_model.set_resource("adapter_path", str(adapter_path))
+        return output_model
+
     def _detect_model_variant(self, model: DiffusersModelHandler, config: BasePassConfig) -> DiffusersModelVariant:
         """Detect the model variant."""
         if config.model_variant != DiffusersModelVariant.AUTO:
@@ -959,7 +1274,11 @@ class SDLoRA(Pass):
         logger.info("Generating %d class images with prompt: '%s'", num_to_generate, class_prompt)
 
         # Load appropriate pipeline
-        if model_variant == DiffusersModelVariant.FLUX:
+        if model_variant == DiffusersModelVariant.FLUX2:
+            from diffusers import Flux2Pipeline
+
+            pipeline = Flux2Pipeline.from_pretrained(model_path, torch_dtype=torch.bfloat16)
+        elif model_variant == DiffusersModelVariant.FLUX:
             from diffusers import FluxPipeline
 
             pipeline = FluxPipeline.from_pretrained(model_path, torch_dtype=torch.bfloat16)
@@ -1056,7 +1375,9 @@ class SDLoRA(Pass):
 
         # Load tokenizers based on model variant
         tokenizers = {}
-        if model_variant == DiffusersModelVariant.FLUX:
+        if model_variant == DiffusersModelVariant.FLUX2:
+            tokenizers["mistral"] = AutoTokenizer.from_pretrained(model_path, subfolder="tokenizer")
+        elif model_variant == DiffusersModelVariant.FLUX:
             tokenizers["clip"] = AutoTokenizer.from_pretrained(model_path, subfolder="tokenizer")
             tokenizers["t5"] = AutoTokenizer.from_pretrained(model_path, subfolder="tokenizer_2")
         elif model_variant == DiffusersModelVariant.SDXL:
@@ -1103,7 +1424,10 @@ class SDLoRA(Pass):
             """Tokenize a list of captions."""
             result = {}
             for name, tok in tokenizers.items():
-                max_len = 512 if name == "t5" else 77
+                if name == "mistral" or name == "t5":
+                    max_len = 512
+                else:
+                    max_len = 77
                 tokens = tok(
                     captions_list, padding="max_length", max_length=max_len, truncation=True, return_tensors="pt"
                 )
@@ -1113,8 +1437,12 @@ class SDLoRA(Pass):
                     "two": "input_ids_two",
                     "clip": "input_ids_one",
                     "t5": "input_ids_t5",
+                    "mistral": "input_ids_mistral",
                 }
                 result[key_map[name]] = tokens.input_ids
+                # Also store attention mask for mistral
+                if name == "mistral" and hasattr(tokens, "attention_mask"):
+                    result["attention_mask_mistral"] = tokens.attention_mask
             return result
 
         # Load class images list if prior preservation is enabled
@@ -1240,6 +1568,39 @@ class SDLoRA(Pass):
         # T5 encoder for main text embeddings
         t5_output = text_encoder_2(input_ids_t5)
         prompt_embeds = t5_output[0]
+
+        # Create text IDs
+        text_ids = torch.zeros(prompt_embeds.shape[0], prompt_embeds.shape[1], 3, device=prompt_embeds.device)
+
+        return prompt_embeds, pooled_prompt_embeds, text_ids
+
+    def _encode_prompt_flux2(self, batch, text_encoder):
+        """Encode prompts for Flux2 (frozen Mistral3 text encoder)."""
+        import torch
+
+        input_ids = batch["input_ids_mistral"].to(text_encoder.device)
+        attention_mask = batch.get("attention_mask_mistral")
+        if attention_mask is not None:
+            attention_mask = attention_mask.to(text_encoder.device)
+
+        # Mistral3 encoder for text embeddings
+        outputs = text_encoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            output_hidden_states=True,
+            return_dict=True,
+        )
+
+        # Use last hidden state as prompt embeddings
+        prompt_embeds = outputs.last_hidden_state
+
+        # For pooled embeddings, use mean pooling over sequence
+        if attention_mask is not None:
+            pooled_prompt_embeds = (prompt_embeds * attention_mask.unsqueeze(-1)).sum(dim=1) / attention_mask.sum(
+                dim=1, keepdim=True
+            )
+        else:
+            pooled_prompt_embeds = prompt_embeds.mean(dim=1)
 
         # Create text IDs
         text_ids = torch.zeros(prompt_embeds.shape[0], prompt_embeds.shape[1], 3, device=prompt_embeds.device)

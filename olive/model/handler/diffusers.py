@@ -140,6 +140,8 @@ class DiffusersModelHandler(OliveModelHandler):
 
             if "Sana" in class_name:
                 return DiffusersModelVariant.SANA
+            if "Flux2" in class_name:
+                return DiffusersModelVariant.FLUX2
             if "Flux" in class_name:
                 return DiffusersModelVariant.FLUX
             if "SD3" in class_name:
@@ -294,6 +296,12 @@ class DiffusersModelHandler(OliveModelHandler):
             DiffusersModelVariant.FLUX: [
                 DC.TEXT_ENCODER,
                 DC.TEXT_ENCODER_2,
+                DC.TRANSFORMER,
+                DC.VAE_ENCODER,
+                DC.VAE_DECODER,
+            ],
+            DiffusersModelVariant.FLUX2: [
+                DC.TEXT_ENCODER,
                 DC.TRANSFORMER,
                 DC.VAE_ENCODER,
                 DC.VAE_DECODER,

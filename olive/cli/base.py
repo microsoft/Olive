@@ -380,10 +380,11 @@ def add_input_model_options(
                 DiffusersModelVariant.SDXL,
                 DiffusersModelVariant.SD3,
                 DiffusersModelVariant.FLUX,
+                DiffusersModelVariant.FLUX2,
                 DiffusersModelVariant.SANA,
             ],
             default=DiffusersModelVariant.AUTO,
-            help="Model variant: 'sd', 'sdxl', 'sd3', 'flux', 'sana', or 'auto' for auto-detection.",
+            help="Model variant: 'sd', 'sdxl', 'sd3', 'flux', 'flux2', 'sana', or 'auto' for auto-detection.",
         )
         if not enable_hf_adapter:
             # Add adapter_path for diffusers if not already added by enable_hf_adapter

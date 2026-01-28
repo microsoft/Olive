@@ -277,7 +277,7 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
         if base_resolution is None:
             # Auto-detect based on model type
             model_variant = self.args.model_variant
-            if model_variant in (DiffusersModelVariant.SDXL, DiffusersModelVariant.FLUX):
+            if model_variant in (DiffusersModelVariant.SDXL, DiffusersModelVariant.FLUX, DiffusersModelVariant.FLUX2):
                 base_resolution = 1024
             elif model_variant == DiffusersModelVariant.SD:
                 base_resolution = 512

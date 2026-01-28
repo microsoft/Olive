@@ -127,6 +127,7 @@ class DiffusersModelVariant(StrEnumBase):
     SDXL = "sdxl"
     SD3 = "sd3"
     FLUX = "flux"
+    FLUX2 = "flux2"
     SANA = "sana"
 
 
