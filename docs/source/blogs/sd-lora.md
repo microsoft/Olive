@@ -90,7 +90,7 @@ Use any image dataset from the HuggingFace Hub. Specify `--data_name` with optio
 
 ## Command Reference
 
-For the complete list of CLI options, see the [Diffusion LoRA CLI Reference](../../reference/cli.rst#diffusion-lora).
+For the complete list of CLI options, see the [Diffusion LoRA CLI Reference](https://microsoft.github.io/Olive/reference/cli.html#diffusion-lora).
 
 ```bash
 olive diffusion-lora --help
@@ -225,7 +225,7 @@ Olive supports automatic data preprocessing including image filtering, auto-capt
 
 **CLI** only supports basic aspect ratio bucketing via `--base_resolution`. For advanced preprocessing (auto-captioning, filtering, tagging), use a JSON configuration file.
 
-For detailed preprocessing options and examples, see the [SD LoRA Feature Documentation](../../features/sd-lora.md#data-configuration).
+For detailed preprocessing options and examples, see the [SD LoRA Feature Documentation](https://microsoft.github.io/Olive/features/sd-lora.html).
 
 ## Export to ONNX and Run Inference
 
