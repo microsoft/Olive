@@ -185,19 +185,66 @@ The TensorRT Model Optimizer-Windows is engineered to deliver advanced model com
 
 The primary objective of the TensorRT Model Optimizer-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard.
 
-Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ algorithm.
+Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ and RTN algorithms.
 
 ### Example Configuration
+
+#### a. Pure 4 bit Quantization
+
 ```json
 "quantization": {
     "type": "NVModelOptQuantization",
     "algorithm": "awq",
     "tokenizer_dir": "microsoft/Phi-3-mini-4k-instruct",
-    "calibration": "awq_lite"
+    "calibration_method": "awq_lite"
 }
 ```
 
-Please refer to [Phi3.5 example](https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3.5-mini-instruct/NvTensorRtRtx)  for usability and setup details.
+#### b. Mixed Precision Quantization
+
+For better accuracy while maintaining model compression, you can enable mixed precision quantization using the `enable_mixed_quant` parameter. This allows higher precision levels (8 bit) for important layers of the model while using 4 bits for others:
+
+**1. Default Mixed Precision Strategy**
+
+```json
+"quantization": {
+    "type": "NVModelOptQuantization",
+    "algorithm": "awq",
+    "tokenizer_dir": "meta-llama/Llama-3.1-8B-Instruct",
+    "calibration_method": "awq_lite",
+    "enable_mixed_quant": true
+}
+```
+
+Configuration:
+
+- `enable_mixed_quant` is set to `true`, the default mixed precision strategy quantizes:
+- **8 bit layer**: Important layer are quantized 8-bits per-channel
+- **4 bit layer**: All other layers
+
+**2. Custom Layer Selection with layers_8bit**
+
+For fine-grained control over which specific layers should use INT8 quantization, use the `layers_8bit` parameter with a comma-separated list of layer name patterns:
+
+```json
+"quantization": {
+    "type": "NVModelOptQuantization",
+    "algorithm": "awq",
+    "tokenizer_dir": "meta-llama/Llama-3.1-8B-Instruct",
+    "calibration_method": "awq_lite",
+    "layers_8bit": "model.layers.0,model.layers.1,lm_head"
+}
+```
+
+Configurations:
+
+- `layers_8bit` accepts comma-separated layer name patterns (e.g., `"model.layers.0,lm_head"`)
+- Matching layers are quantized to 8 bit for better accuracy, they are quantized per-channel
+- Non-matching layers are quantized to 4 bit for efficiency
+- When `layers_8bit` is specified, mixed precision is automatically enabled
+- Overrides the default `enable_mixed_quant` strategy
+
+Please refer to [Phi3.5 example](https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3.5-mini-instruct/NvTensorRtRtx) for usability and setup details.
 
 
 ## Quantize with AI Model Efficiency Toolkit

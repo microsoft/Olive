@@ -694,11 +694,6 @@
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Execution provider: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">from_execution_provider</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metrics: </span><span class="si">{</span><span class="n">best_model</span><span class="o">.</span><span class="n">metrics_value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="c1"># Get the best model for CPU</span>
-    <span class="n">best_cpu_model</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_best_candidate_by_device</span><span class="p">(</span><span class="s2">&quot;CPU&quot;</span><span class="p">)</span>
-
-    <span class="c1"># Get all models for GPU</span>
-    <span class="n">gpu_models</span> <span class="o">=</span> <span class="n">workflow_output</span><span class="o">.</span><span class="n">get_output_models_by_device</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -706,15 +701,7 @@
 <h2>Output Class Hierarchy<a class="headerlink" href="#output-class-hierarchy" title="Link to this heading">#</a></h2>
 <p>Olive organizes optimization results in a hierarchical structure:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">WorkflowOutput</span></code>: Top-level container for all results across devices</p>
-<ul>
-<li><p>Contains multiple <code class="docutils literal notranslate"><span class="pre">DeviceOutput</span></code> instances (one per device)</p>
-<ul>
-<li><p>Each <code class="docutils literal notranslate"><span class="pre">DeviceOutput</span></code> contains multiple <code class="docutils literal notranslate"><span class="pre">ModelOutput</span></code> instances</p></li>
-</ul>
-</li>
-</ul>
-</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">WorkflowOutput</span></code>: Top-level container for all output models, contains multiple <code class="docutils literal notranslate"><span class="pre">ModelOutput</span></code> instances</p></li>
 </ul>
 </section>
 <section id="output-classes-in-detail">
@@ -728,37 +715,14 @@
 <section id="key-methods">
 <h4>Key Methods<a class="headerlink" href="#key-methods" title="Link to this heading">#</a></h4>
 <ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">from_device()</span></code> - Get the device used for this workflow</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">from_execution_provider()</span></code> - Get the execution provider used for this workflow</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">get_input_model_metrics()</span></code> - Get the metrics for the input model</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">get_available_devices()</span></code> - Get a list of devices that the workflow ran on</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">has_output_model()</span></code> - Check if any optimized models are available</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">get_output_models_by_device(device)</span></code> - Get all optimized models for a specific device</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">get_output_model_by_id(model_id)</span></code> - Get a specific model by its ID</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">get_output_models()</span></code> - Get all optimized models sorted by metrics</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">get_best_candidate_by_device(device)</span></code> - Get the best model for a specific device</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">get_best_candidate()</span></code> - Get the best model across all devices</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">trace_back_run_history(model_id)</span></code> - Get the optimization history for a specific model</p></li>
-</ul>
-</section>
-</section>
-<section id="deviceoutput">
-<h3>DeviceOutput<a class="headerlink" href="#deviceoutput" title="Link to this heading">#</a></h3>
-<p>The <code class="docutils literal notranslate"><span class="pre">DeviceOutput</span></code> class groups model outputs for a specific device, containing results for different execution providers on that device.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceOutput</span>
-</pre></div>
-</div>
-<section id="key-attributes">
-<h4>Key Attributes<a class="headerlink" href="#key-attributes" title="Link to this heading">#</a></h4>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">device</span></code> - The device type (e.g., “cpu”, “gpu”)</p></li>
-</ul>
-</section>
-<section id="id1">
-<h4>Key Methods<a class="headerlink" href="#id1" title="Link to this heading">#</a></h4>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">has_output_model()</span></code> - Check if any model outputs are available for this device</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">get_output_models()</span></code> - Get all model outputs for this device</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">get_best_candidate()</span></code> - Get the best model output for this device based on metrics</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">get_best_candidate_by_execution_provider(execution_provider)</span></code> - Get the best model for a specific execution provider</p></li>
 </ul>
 </section>
 </section>
@@ -768,8 +732,8 @@
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelOutput</span>
 </pre></div>
 </div>
-<section id="id2">
-<h4>Key Attributes<a class="headerlink" href="#id2" title="Link to this heading">#</a></h4>
+<section id="key-attributes">
+<h4>Key Attributes<a class="headerlink" href="#key-attributes" title="Link to this heading">#</a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">metrics</span></code> - Dictionary containing the model’s performance metrics</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">metrics_value</span></code> - Simplified version of metrics with just the values</p></li>
@@ -779,8 +743,8 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">model_config</span></code> - Configuration details for the model</p></li>
 </ul>
 </section>
-<section id="id3">
-<h4>Key Methods<a class="headerlink" href="#id3" title="Link to this heading">#</a></h4>
+<section id="id1">
+<h4>Key Methods<a class="headerlink" href="#id1" title="Link to this heading">#</a></h4>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">from_device()</span></code> - Get the device this model was optimized for</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">from_execution_provider()</span></code> - Get the execution provider this model was optimized for</p></li>
@@ -861,14 +825,9 @@
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#key-methods">Key Methods</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#deviceoutput">DeviceOutput</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#modeloutput">ModelOutput</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#key-attributes">Key Attributes</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Key Methods</a></li>
-</ul>
-</li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#modeloutput">ModelOutput</a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Key Attributes</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Key Methods</a></li>
 </ul>
 </li>
 </ul>

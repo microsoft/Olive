@@ -276,6 +276,7 @@
         "accuracy",
         "latency",
         "throughput",
+        "size_on_disk",
         "custom"
       ],
       "type": "string"

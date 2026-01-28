@@ -1,0 +1,862 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>How to Add a New Task or Diffusers Component for ONNX Export &#8212; Olive latest documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/header.css?v=5dcc4e7b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../../_static/documentation_options.js?v=c6e86fd7"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/extending/how-to-add-new-task';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'latest';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            true;
+        </script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="How to Add Custom Model Evaluator" href="custom-model-evaluator.html" />
+    <link rel="prev" title="How to Add a New Pass" href="how-to-add-optimization-pass.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="latest" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Olive latest documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    How Tos
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../features/index.html">
+    Features
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../blogs/index.html">
+    Blogs
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../index.html">
+    How Tos
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../blogs/index.html">
+    Blogs
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">How Tos</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How to Add a New Task or Diffusers Component for ONNX Export</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="how-to-add-a-new-task-or-diffusers-component-for-onnx-export">
+<h1>How to Add a New Task or Diffusers Component for ONNX Export<a class="headerlink" href="#how-to-add-a-new-task-or-diffusers-component-for-onnx-export" title="Link to this heading">#</a></h1>
+<p>This guide explains how to add IO configurations for a new HuggingFace task or diffusers component to enable ONNX model export.</p>
+<p>Olive uses YAML-based IO configurations to define input/output specifications for ONNX export. These configurations specify tensor shapes, data types, and dynamic axes for each model input and output.</p>
+<p>There are two types of configurations:</p>
+<ul class="simple">
+<li><p><strong>Task configs</strong> (<code class="docutils literal notranslate"><span class="pre">tasks.yaml</span></code>): For HuggingFace transformers tasks like text-generation, text-classification, etc.</p></li>
+<li><p><strong>Diffusers component configs</strong> (<code class="docutils literal notranslate"><span class="pre">diffusers.yaml</span></code>): For Stable Diffusion and similar diffusion model components like UNet, VAE, text encoders, etc.</p></li>
+</ul>
+<section id="file-locations">
+<h2>File Locations<a class="headerlink" href="#file-locations" title="Link to this heading">#</a></h2>
+<p>IO config files are located in <code class="docutils literal notranslate"><span class="pre">olive/assets/io_configs/</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>olive/assets/io_configs/
+├── tasks.yaml      # Task-based configurations
+├── diffusers.yaml  # Diffusers component configurations
+└── defaults.yaml   # Default dimension values and aliases
+</pre></div>
+</div>
+</section>
+<section id="task-based-io-configs-tasks-yaml">
+<h2>Task-based IO Configs (<code class="docutils literal notranslate"><span class="pre">tasks.yaml</span></code>)<a class="headerlink" href="#task-based-io-configs-tasks-yaml" title="Link to this heading">#</a></h2>
+<section id="format">
+<h3>Format<a class="headerlink" href="#format" title="Link to this heading">#</a></h3>
+<p>Each task defines its input/output specifications:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">task-name</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">inputs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">dim1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">dim2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">...</span><span class="p p-Indicator">]</span><span class="w">      </span><span class="c1"># Shape template for dummy input generation</span>
+<span class="w">      </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">axis_name</span><span class="p p-Indicator">,</span><span class="nt"> 1</span><span class="p">:</span><span class="w"> </span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">  </span><span class="c1"># Dynamic axes for ONNX export</span>
+<span class="w">      </span><span class="nt">dtype</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int64 | float</span><span class="w">          </span><span class="c1"># Data type (default: int64)</span>
+<span class="w">      </span><span class="nt">max_value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vocab_size</span><span class="w">         </span><span class="c1"># Optional: max value for random input</span>
+<span class="w">      </span><span class="nt">optional</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                </span><span class="c1"># Optional: skip if not in model.forward()</span>
+<span class="w">  </span><span class="nt">outputs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">output_name</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">axis_name</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">     </span><span class="c1"># Dynamic axes for ONNX export</span>
+<span class="w">  </span><span class="nt">with_past</span><span class="p">:</span><span class="w">                        </span><span class="c1"># Optional: overrides for KV cache scenarios</span>
+<span class="w">    </span><span class="nt">input_name</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">...</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+</section>
+<section id="field-descriptions">
+<h3>Field Descriptions<a class="headerlink" href="#field-descriptions" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">shape</span></code></p></td>
+<td><p>List of dimension names or integers. Used to generate dummy inputs for ONNX export. Dimension names are resolved from model config or defaults.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">axes</span></code></p></td>
+<td><p>Dict mapping axis index to axis name. Defines which dimensions are dynamic in the exported ONNX model.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dtype</span></code></p></td>
+<td><p>Data type: <code class="docutils literal notranslate"><span class="pre">int64</span></code>, <code class="docutils literal notranslate"><span class="pre">int32</span></code>, or <code class="docutils literal notranslate"><span class="pre">float</span></code>. Defaults to <code class="docutils literal notranslate"><span class="pre">int64</span></code> for inputs.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">optional</span></code></p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">true</span></code>, the input is only included if it exists in <code class="docutils literal notranslate"><span class="pre">model.forward()</span></code> signature.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_value</span></code></p></td>
+<td><p>Maximum value for random input generation (e.g., <code class="docutils literal notranslate"><span class="pre">vocab_size</span></code> for input_ids).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">with_past</span></code></p></td>
+<td><p>Alternative shapes/axes when using KV cache (<code class="docutils literal notranslate"><span class="pre">use_past_in_inputs=True</span></code>).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="example-adding-a-new-task">
+<h3>Example: Adding a New Task<a class="headerlink" href="#example-adding-a-new-task" title="Link to this heading">#</a></h3>
+<p>To add support for a new task, add an entry to <code class="docutils literal notranslate"><span class="pre">tasks.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Custom task for a new model type</span>
+<span class="nt">my-custom-task</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">inputs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">input_ids</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">sequence_length</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="nt"> 1</span><span class="p">:</span><span class="w"> </span><span class="nv">sequence_length</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="nt">dtype</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int64</span>
+<span class="w">      </span><span class="nt">max_value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vocab_size</span>
+<span class="w">    </span><span class="nt">attention_mask</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">sequence_length</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="nt"> 1</span><span class="p">:</span><span class="w"> </span><span class="nv">sequence_length</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="nt">dtype</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int64</span>
+<span class="w">    </span><span class="nt">custom_input</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">custom_dim</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="nt"> 1</span><span class="p">:</span><span class="w"> </span><span class="nv">custom_dim</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="nt">dtype</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">float</span>
+<span class="w">      </span><span class="nt">optional</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">outputs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">logits</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="nt"> 1</span><span class="p">:</span><span class="w"> </span><span class="nv">sequence_length</span><span class="p p-Indicator">,</span><span class="nt"> 2</span><span class="p">:</span><span class="w"> </span><span class="nv">vocab_size</span><span class="p p-Indicator">}</span>
+<span class="w">    </span><span class="nt">custom_output</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="nt"> 1</span><span class="p">:</span><span class="w"> </span><span class="nv">hidden_size</span><span class="p p-Indicator">}</span>
+</pre></div>
+</div>
+</section>
+<section id="supported-tasks">
+<h3>Supported Tasks<a class="headerlink" href="#supported-tasks" title="Link to this heading">#</a></h3>
+<p>Currently supported tasks include:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">text-generation</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">text-classification</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">feature-extraction</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fill-mask</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">token-classification</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">question-answering</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">multiple-choice</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">text2text-generation</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">image-classification</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">object-detection</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">semantic-segmentation</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">audio-classification</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">automatic-speech-recognition</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zero-shot-image-classification</span></code></p></li>
+</ul>
+</section>
+</section>
+<section id="diffusers-component-configs-diffusers-yaml">
+<h2>Diffusers Component Configs (<code class="docutils literal notranslate"><span class="pre">diffusers.yaml</span></code>)<a class="headerlink" href="#diffusers-component-configs-diffusers-yaml" title="Link to this heading">#</a></h2>
+<section id="id1">
+<h3>Format<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<p>Diffusers configurations define components and pipelines:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">components</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">component_name</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">inputs</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">input_name</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">dim1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">dim2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">...</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">axis_name</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">...</span><span class="p p-Indicator">}</span>
+<span class="w">        </span><span class="nt">dtype</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int64 | float</span>
+<span class="w">    </span><span class="nt">outputs</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">output_name</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">axis_name</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">...</span><span class="p p-Indicator">}</span>
+<span class="w">    </span><span class="nt">sdxl_inputs</span><span class="p">:</span><span class="w">           </span><span class="c1"># Optional: additional inputs for SDXL</span>
+<span class="w">      </span><span class="nt">extra_input</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">...</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span>
+<span class="w">    </span><span class="nt">optional_inputs</span><span class="p">:</span><span class="w">       </span><span class="c1"># Optional: conditional inputs</span>
+<span class="w">      </span><span class="nt">optional_input</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">...</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config_attr</span><span class="w">  </span><span class="c1"># Only include if config.config_attr is True</span>
+
+<span class="nt">pipelines</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">pipeline_name</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">component_name</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">component_config:alias_name</span><span class="w">  </span><span class="c1"># Use component_config with alias</span>
+</pre></div>
+</div>
+</section>
+<section id="example-adding-a-new-diffusers-component">
+<h3>Example: Adding a New Diffusers Component<a class="headerlink" href="#example-adding-a-new-diffusers-component" title="Link to this heading">#</a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">components</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">my_custom_transformer</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">inputs</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">hidden_states</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">in_channels</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">height</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">width</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="nt"> 1</span><span class="p">:</span><span class="w"> </span><span class="nv">in_channels</span><span class="p p-Indicator">,</span><span class="nt"> 2</span><span class="p">:</span><span class="w"> </span><span class="nv">height</span><span class="p p-Indicator">,</span><span class="nt"> 3</span><span class="p">:</span><span class="w"> </span><span class="nv">width</span><span class="p p-Indicator">}</span>
+<span class="w">        </span><span class="nt">dtype</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">float</span>
+<span class="w">      </span><span class="nt">encoder_hidden_states</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">sequence_length</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">hidden_size</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="nt"> 1</span><span class="p">:</span><span class="w"> </span><span class="nv">sequence_length</span><span class="p p-Indicator">,</span><span class="nt"> 2</span><span class="p">:</span><span class="w"> </span><span class="nv">hidden_size</span><span class="p p-Indicator">}</span>
+<span class="w">        </span><span class="nt">dtype</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">float</span>
+<span class="w">      </span><span class="nt">timestep</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">batch_size</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">batch_size</span><span class="p p-Indicator">}</span>
+<span class="w">        </span><span class="nt">dtype</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">float</span>
+<span class="w">    </span><span class="nt">outputs</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">out_sample</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">batch_size</span><span class="p p-Indicator">,</span><span class="nt"> 1</span><span class="p">:</span><span class="w"> </span><span class="nv">in_channels</span><span class="p p-Indicator">,</span><span class="nt"> 2</span><span class="p">:</span><span class="w"> </span><span class="nv">height</span><span class="p p-Indicator">,</span><span class="nt"> 3</span><span class="p">:</span><span class="w"> </span><span class="nv">width</span><span class="p p-Indicator">}</span>
+<span class="w">    </span><span class="nt">optional_inputs</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">guidance</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">batch_size</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">0</span><span class="p">:</span><span class="w"> </span><span class="nv">batch_size</span><span class="p p-Indicator">}</span>
+<span class="w">        </span><span class="nt">dtype</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">float</span>
+<span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guidance_embeds</span><span class="w">  </span><span class="c1"># Only if config.guidance_embeds is True</span>
+
+<span class="nt">pipelines</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">my_custom_pipeline</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">text_encoder</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_custom_transformer:transformer</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vae_encoder</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vae_decoder</span>
+</pre></div>
+</div>
+</section>
+<section id="supported-diffusers-components">
+<h3>Supported Diffusers Components<a class="headerlink" href="#supported-diffusers-components" title="Link to this heading">#</a></h3>
+<p>Currently supported components include:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">text_encoder</span></code>, <code class="docutils literal notranslate"><span class="pre">text_encoder_with_projection</span></code>, <code class="docutils literal notranslate"><span class="pre">t5_encoder</span></code>, <code class="docutils literal notranslate"><span class="pre">gemma2_text_encoder</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">unet</span></code>, <code class="docutils literal notranslate"><span class="pre">sd3_transformer</span></code>, <code class="docutils literal notranslate"><span class="pre">flux_transformer</span></code>, <code class="docutils literal notranslate"><span class="pre">sana_transformer</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">vae_encoder</span></code>, <code class="docutils literal notranslate"><span class="pre">vae_decoder</span></code>, <code class="docutils literal notranslate"><span class="pre">dcae_encoder</span></code>, <code class="docutils literal notranslate"><span class="pre">dcae_decoder</span></code></p></li>
+</ul>
+<p>Supported pipelines: <code class="docutils literal notranslate"><span class="pre">sd</span></code>, <code class="docutils literal notranslate"><span class="pre">sdxl</span></code>, <code class="docutils literal notranslate"><span class="pre">sd3</span></code>, <code class="docutils literal notranslate"><span class="pre">flux</span></code>, <code class="docutils literal notranslate"><span class="pre">sana</span></code></p>
+</section>
+</section>
+<section id="default-values-defaults-yaml">
+<h2>Default Values (<code class="docutils literal notranslate"><span class="pre">defaults.yaml</span></code>)<a class="headerlink" href="#default-values-defaults-yaml" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">defaults.yaml</span></code> file defines:</p>
+<ol class="arabic simple">
+<li><p><strong>Aliases</strong>: Alternative attribute names for the same concept across different models</p></li>
+<li><p><strong>Default dimensions</strong>: Fallback values when dimensions can’t be resolved from model config</p></li>
+</ol>
+<section id="aliases">
+<h3>Aliases<a class="headerlink" href="#aliases" title="Link to this heading">#</a></h3>
+<p>Aliases help resolve config attributes that have different names across models:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">aliases</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">num_layers</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">num_hidden_layers</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">n_layer</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">n_layers</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">hidden_size</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">dim</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">d_model</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">n_embd</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">num_attention_heads</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">num_heads</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">n_head</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">n_heads</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">encoder_attention_heads</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">num_kv_heads</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">num_key_value_heads</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">height</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">sample_size</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">image_size</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">vision_config.image_size</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">width</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">sample_size</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">image_size</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">vision_config.image_size</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">num_channels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">in_channels</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">vision_config.num_channels</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+</section>
+<section id="default-dimensions">
+<h3>Default Dimensions<a class="headerlink" href="#default-dimensions" title="Link to this heading">#</a></h3>
+<p>Default values used when dimensions can’t be resolved from model config:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="nt">sequence_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="nt">past_sequence_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="nt">vocab_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">32000</span>
+<span class="nt">height</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+<span class="nt">width</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64</span>
+<span class="nt">num_channels</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+</pre></div>
+</div>
+</section>
+<section id="adding-new-defaults">
+<h3>Adding New Defaults<a class="headerlink" href="#adding-new-defaults" title="Link to this heading">#</a></h3>
+<p>If your model uses a dimension not already defined, add it to <code class="docutils literal notranslate"><span class="pre">defaults.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Add new dimension for your model</span>
+<span class="nt">my_custom_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+
+<span class="c1"># Add aliases if the same concept has different names</span>
+<span class="nt">aliases</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">my_custom_dim</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">custom_dim</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">my_dim</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="dimension-resolution">
+<h2>Dimension Resolution<a class="headerlink" href="#dimension-resolution" title="Link to this heading">#</a></h2>
+<p>When generating dummy inputs, dimensions in <code class="docutils literal notranslate"><span class="pre">shape</span></code> are resolved in this order:</p>
+<ol class="arabic simple">
+<li><p><strong>Model config with aliases</strong>: Check <code class="docutils literal notranslate"><span class="pre">config.attr_name</span></code> for each alias</p></li>
+<li><p><strong>Computed dimensions</strong>: Special dimensions like <code class="docutils literal notranslate"><span class="pre">height_latent</span> <span class="pre">=</span> <span class="pre">height</span> <span class="pre">//</span> <span class="pre">8</span></code></p></li>
+<li><p><strong>Default values</strong>: Fall back to values in <code class="docutils literal notranslate"><span class="pre">defaults.yaml</span></code></p></li>
+</ol>
+</section>
+<section id="usage-in-olive-workflows">
+<h2>Usage in Olive Workflows<a class="headerlink" href="#usage-in-olive-workflows" title="Link to this heading">#</a></h2>
+<p>Once you’ve added your IO config, Olive will automatically use it during ONNX conversion.</p>
+<section id="task-based-models">
+<h3>Task-based Models<a class="headerlink" href="#task-based-models" title="Link to this heading">#</a></h3>
+<p>For HuggingFace transformers models, specify the task in <code class="docutils literal notranslate"><span class="pre">HfModel</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># olive_config.yaml</span>
+<span class="nt">input_model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HfModel</span>
+<span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-model</span>
+<span class="w">  </span><span class="nt">task</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-custom-task</span><span class="w">  </span><span class="c1"># Uses the task config you defined</span>
+
+<span class="nt">passes</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">conversion</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">OnnxConversion</span>
+</pre></div>
+</div>
+</section>
+<section id="diffusers-models">
+<h3>Diffusers Models<a class="headerlink" href="#diffusers-models" title="Link to this heading">#</a></h3>
+<p>For diffusion models, use <code class="docutils literal notranslate"><span class="pre">DiffusersModel</span></code>. Olive automatically detects the pipeline type and exports all components using the IO configs defined in <code class="docutils literal notranslate"><span class="pre">diffusers.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># olive_config.yaml</span>
+<span class="nt">input_model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DiffusersModel</span>
+<span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stabilityai/stable-diffusion-xl-base-1.0</span>
+
+<span class="nt">passes</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">conversion</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">OnnxConversion</span>
+</pre></div>
+</div>
+<p>Olive will automatically:</p>
+<ol class="arabic simple">
+<li><p>Detect the pipeline type (e.g., <code class="docutils literal notranslate"><span class="pre">sdxl</span></code>)</p></li>
+<li><p>Identify exportable components (text_encoder, text_encoder_2, unet, vae_encoder, vae_decoder)</p></li>
+<li><p>Use the corresponding IO configs from <code class="docutils literal notranslate"><span class="pre">diffusers.yaml</span></code> for each component</p></li>
+</ol>
+</section>
+</section>
+<section id="testing-your-config">
+<h2>Testing Your Config<a class="headerlink" href="#testing-your-config" title="Link to this heading">#</a></h2>
+<p>After adding a new IO config, verify it works:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.hf.io_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_io_config</span><span class="p">,</span> <span class="n">generate_dummy_inputs</span>
+
+<span class="c1"># Test task config</span>
+<span class="n">io_config</span> <span class="o">=</span> <span class="n">get_io_config</span><span class="p">(</span><span class="s2">&quot;my-model-path&quot;</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="s2">&quot;my-custom-task&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_names&quot;</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;output_names&quot;</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;dynamic_axes&quot;</span><span class="p">])</span>
+
+<span class="c1"># Generate dummy inputs</span>
+<span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">generate_dummy_inputs</span><span class="p">(</span><span class="s2">&quot;my-model-path&quot;</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="s2">&quot;my-custom-task&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">tensor</span> <span class="ow">in</span> <span class="n">dummy_inputs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For diffusers:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.hf.io_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_diffusers_io_config</span><span class="p">,</span> <span class="n">generate_diffusers_dummy_inputs</span>
+
+<span class="c1"># Test diffusers config</span>
+<span class="n">io_config</span> <span class="o">=</span> <span class="n">get_diffusers_io_config</span><span class="p">(</span><span class="s2">&quot;my_custom_transformer&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_names&quot;</span><span class="p">])</span>
+
+<span class="c1"># Generate dummy inputs</span>
+<span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">generate_diffusers_dummy_inputs</span><span class="p">(</span><span class="s2">&quot;my_custom_transformer&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="how-to-add-optimization-pass.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">How to Add a New Pass</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="custom-model-evaluator.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">How to Add Custom Model Evaluator</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#file-locations">File Locations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-based-io-configs-tasks-yaml">Task-based IO Configs (<code class="docutils literal notranslate"><span class="pre">tasks.yaml</span></code>)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#format">Format</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#field-descriptions">Field Descriptions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-adding-a-new-task">Example: Adding a New Task</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-tasks">Supported Tasks</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#diffusers-component-configs-diffusers-yaml">Diffusers Component Configs (<code class="docutils literal notranslate"><span class="pre">diffusers.yaml</span></code>)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Format</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-adding-a-new-diffusers-component">Example: Adding a New Diffusers Component</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-diffusers-components">Supported Diffusers Components</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#default-values-defaults-yaml">Default Values (<code class="docutils literal notranslate"><span class="pre">defaults.yaml</span></code>)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#aliases">Aliases</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#default-dimensions">Default Dimensions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-new-defaults">Adding New Defaults</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dimension-resolution">Dimension Resolution</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-in-olive-workflows">Usage in Olive Workflows</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#task-based-models">Task-based Models</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#diffusers-models">Diffusers Models</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing-your-config">Testing Your Config</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2025, Olive Dev team.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

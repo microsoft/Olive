@@ -1,5 +1,5 @@
 Command Line Tools
-===================
+==================
 
 Olive provides command line tools that can be invoked using the ``olive`` command.
 
@@ -69,6 +69,17 @@ Fine-tune a model on a dataset using HuggingFace peft. Huggingface training argu
     :prog: olive
     :path: finetune
 
+Diffusion LoRA
+==============
+
+Train LoRA adapters for diffusion models (Stable Diffusion 1.5, SDXL, Flux). Supports both local image folders and HuggingFace datasets.
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: diffusion-lora
+
 Auto-Optimization
 =================
 
@@ -81,7 +92,7 @@ Automatically optimize the input model for the given target and precision.
     :path: auto-opt
 
 Generate Adapters
-==================
+=================
 
 Generate ONNX model with adapters as inputs.
 
@@ -138,7 +149,7 @@ Configure Qualcomm SDK.
     :path: configure-qualcomm-sdk
 
 Shared Cache
-=============
+============
 
 Delete Olive model cache stored in the cloud.
 
@@ -147,6 +158,17 @@ Delete Olive model cache stored in the cloud.
     :func: get_cli_parser
     :prog: olive
     :path: shared-cache
+
+Benchmark
+=========
+
+Run benchmarking using llm-eval.
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: benchmark
 
 Providing Input Models
 ======================

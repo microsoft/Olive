@@ -440,7 +440,7 @@
 </figcaption>
 </figure>
 <p><strong><code class="docutils literal notranslate"><span class="pre">cost-model</span></code></strong></p>
-<p>Let’s now split the model using a cost model. Please refer to the <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/assets/cost_models/Phi-3.5-mini.csv">pre-generated cost models</a> in the Olive repository for an example a cost model csv.</p>
+<p>Let’s now split the model using a cost model. Please refer to the <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/assets/cost_models/Phi-3.5-mini.csv">pre-generated cost models</a> in the Olive repository for an example a cost model csv.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>auto-opt<span class="w"> </span>-m<span class="w"> </span>microsoft/Phi-3.5-mini-instruct<span class="w"> </span>--precision<span class="w"> </span>fp16<span class="w"> </span>--provider<span class="w"> </span>CUDAExecutionProvider<span class="w"> </span>--memory<span class="w"> </span>2GB<span class="w"> </span>--cost-model<span class="w"> </span>phi-3.5-cost.csv<span class="w"> </span>-o<span class="w"> </span>models/phi-costsplit
 </pre></div>
 </div>

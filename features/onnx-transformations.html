@@ -1540,7 +1540,7 @@ for more details on the optimizations done by this tool.</p>
 <section id="id37">
 <h4>Description<a class="headerlink" href="#id37" title="Link to this heading">#</a></h4>
 <p>Replace MatMul + Add with Gemm.</p>
-<p>Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor. If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm node and reshaped back to the original shape after the Gemm node.</p>
+<p>Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor. If the first MatMul input is more than 2D and the shapes are static, it is reshaped to 2D before the Gemm node and reshaped back to the original shape after the Gemm node. If a Relu is present after the Add operation and reshaping is required, the post-reshape will be added after the Relu operation.</p>
 </section>
 <section id="id38">
 <h4>Example<a class="headerlink" href="#id38" title="Link to this heading">#</a></h4>
@@ -1556,6 +1556,12 @@ for more details on the optimizations done by this tool.</p>
                  <span class="o">|</span>             <span class="o">|</span>
                  <span class="n">v</span>             <span class="n">v</span>
 <span class="p">[</span><span class="n">N</span><span class="o">-</span><span class="n">D</span> <span class="n">Input</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">MatMul</span> <span class="o">-----&gt;</span> <span class="n">Add</span>
+
+<span class="n">Static</span> <span class="n">shaped</span> <span class="nb">input</span> <span class="ow">and</span> <span class="n">ReLU</span> <span class="n">post</span> <span class="n">Add</span><span class="p">:</span>
+             <span class="p">[</span><span class="mi">2</span><span class="n">D</span> <span class="n">weight</span><span class="p">]</span>    <span class="p">[</span><span class="mi">1</span><span class="n">D</span> <span class="n">bias</span><span class="p">]</span>
+                 <span class="o">|</span>             <span class="o">|</span>
+                 <span class="n">v</span>             <span class="n">v</span>
+<span class="p">[</span><span class="n">N</span><span class="o">-</span><span class="n">D</span> <span class="n">Input</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">MatMul</span> <span class="o">-----&gt;</span> <span class="n">Add</span> <span class="o">-----&gt;</span> <span class="n">Relu</span>
 </pre></div>
 </div>
 <p>After applying:</p>
@@ -1584,6 +1590,15 @@ for more details on the optimizations done by this tool.</p>
                               <span class="o">|</span>
                               <span class="n">v</span>
 <span class="p">[</span><span class="n">N</span><span class="o">-</span><span class="n">D</span> <span class="n">Input</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">Reshape</span> <span class="o">--&gt;</span> <span class="n">Gemm</span> <span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">--&gt;</span> <span class="n">Reshape</span>
+                              <span class="o">^</span>
+                              <span class="o">|</span>
+                          <span class="p">[</span><span class="mi">1</span><span class="n">D</span> <span class="n">bias</span><span class="p">]</span>
+
+<span class="n">Static</span> <span class="n">shaped</span> <span class="n">inputs</span> <span class="ow">and</span> <span class="n">ReLU</span> <span class="n">post</span> <span class="n">Add</span><span class="p">:</span>
+                          <span class="p">[</span><span class="mi">2</span><span class="n">D</span> <span class="n">weight</span><span class="p">]</span>
+                              <span class="o">|</span>
+                              <span class="n">v</span>
+<span class="p">[</span><span class="n">N</span><span class="o">-</span><span class="n">D</span> <span class="n">Input</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">Reshape</span> <span class="o">--&gt;</span> <span class="n">Gemm</span> <span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">--&gt;</span> <span class="n">ReLU</span> <span class="o">--&gt;</span> <span class="n">Reshape</span>
                               <span class="o">^</span>
                               <span class="o">|</span>
                           <span class="p">[</span><span class="mi">1</span><span class="n">D</span> <span class="n">bias</span><span class="p">]</span>
@@ -2501,6 +2516,31 @@ for more details on the optimizations done by this tool.</p>
 </div>
 </section>
 </section>
+<section id="tiewordembeddings">
+<h3><code class="docutils literal notranslate"><span class="pre">TieWordEmbeddings</span></code><a class="headerlink" href="#tiewordembeddings" title="Link to this heading">#</a></h3>
+<section id="id87">
+<h4>Description<a class="headerlink" href="#id87" title="Link to this heading">#</a></h4>
+<p>Tie the weights of word embedding and output projection layers.
+Two cases are supported:</p>
+<ul class="simple">
+<li><p>Both are unquantized: lm head MatMul is replaced with a Gemm with transB set to True. input activation is reshaped to 2D and the output is reshaped back to original rank. For CPU and CUDA atleast, reshape on activation is just a metadata change so there is no overhead. This option was chosen over adding a transpose node on the shared weight since ORT constant folds the transpose and duplicates the initializer during session init.</p></li>
+<li><p>Both are quantized with MatMulNBits and GatherBlockQuantized. A reshape node is added on the MatMulNBits qweight. This only saves disk space but not device memory because ORT constant folds the reshape and duplicates the initializer.</p></li>
+</ul>
+</section>
+<section id="id88">
+<h4>Example<a class="headerlink" href="#id88" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TieWordEmbeddings&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 <section id="ort-performance-tuning">
 <h2>ORT Performance Tuning<a class="headerlink" href="#ort-performance-tuning" title="Link to this heading">#</a></h2>
@@ -2509,8 +2549,8 @@ environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
 <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
-<section id="id87">
-<h3>Example Configuration<a class="headerlink" href="#id87" title="Link to this heading">#</a></h3>
+<section id="id89">
+<h3>Example Configuration<a class="headerlink" href="#id89" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtSessionParamsTuning&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;session_params_tuning_data_config&quot;</span><span class="p">,</span>
@@ -2799,10 +2839,15 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id86">Example</a></li>
 </ul>
 </li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tiewordembeddings"><code class="docutils literal notranslate"><span class="pre">TieWordEmbeddings</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id87">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id88">Example</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ort-performance-tuning">ORT Performance Tuning</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id87">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id89">Example Configuration</a></li>
 </ul>
 </li>
 </ul>

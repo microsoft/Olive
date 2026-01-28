@@ -1,0 +1,1428 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Diffusion Model LoRA Training &#8212; Olive latest documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../_static/documentation_options.js?v=c6e86fd7"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'features/sd-lora';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'latest';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            true;
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Quantization" href="quantization.html" />
+    <link rel="prev" title="PEFT Adapters" href="peft-adapters.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="latest" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Olive latest documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How Tos
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Features
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../blogs/index.html">
+    Blogs
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How Tos
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Features
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../blogs/index.html">
+    Blogs
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Features</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Diffusion Model LoRA Training</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="diffusion-model-lora-training">
+<h1>Diffusion Model LoRA Training<a class="headerlink" href="#diffusion-model-lora-training" title="Link to this heading">#</a></h1>
+<p>Olive provides the <code class="docutils literal notranslate"><span class="pre">SDLoRA</span></code> pass for training LoRA (Low-Rank Adaptation) adapters on diffusion models. This enables efficient fine-tuning of large image generation models with minimal GPU memory requirements.</p>
+<section id="supported-models">
+<h2>Supported Models<a class="headerlink" href="#supported-models" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Model Type</p></th>
+<th class="head"><p>Examples</p></th>
+<th class="head"><p>Resolution</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>SD 1.5</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">runwayml/stable-diffusion-v1-5</span></code></p></td>
+<td><p>512</p></td>
+<td><p>Standard Stable Diffusion</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>SDXL</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">stabilityai/stable-diffusion-xl-base-1.0</span></code></p></td>
+<td><p>1024</p></td>
+<td><p>Dual CLIP encoders</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Flux</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">black-forest-labs/FLUX.1-dev</span></code></p></td>
+<td><p>1024</p></td>
+<td><p>DiT architecture, requires bfloat16</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="quick-start-with-cli">
+<h2>Quick Start with CLI<a class="headerlink" href="#quick-start-with-cli" title="Link to this heading">#</a></h2>
+<p>The easiest way to train a LoRA adapter is using the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">diffusion-lora</span></code> command.</p>
+<section id="basic-usage">
+<h3>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Train with local images</span>
+olive<span class="w"> </span>diffusion-lora<span class="w"> </span>-m<span class="w"> </span>runwayml/stable-diffusion-v1-5<span class="w"> </span>-d<span class="w"> </span>./train_images
+
+<span class="c1"># Train with HuggingFace dataset</span>
+olive<span class="w"> </span>diffusion-lora<span class="w"> </span>-m<span class="w"> </span>runwayml/stable-diffusion-v1-5<span class="w"> </span>--data_name<span class="w"> </span>linoyts/Tuxemon<span class="w"> </span>--caption_column<span class="w"> </span>prompt
+
+<span class="c1"># Train SDXL</span>
+olive<span class="w"> </span>diffusion-lora<span class="w"> </span>-m<span class="w"> </span>stabilityai/stable-diffusion-xl-base-1.0<span class="w"> </span>-d<span class="w"> </span>./train_images
+
+<span class="c1"># Train Flux</span>
+olive<span class="w"> </span>diffusion-lora<span class="w"> </span>-m<span class="w"> </span>black-forest-labs/FLUX.1-dev<span class="w"> </span>-d<span class="w"> </span>./train_images<span class="w"> </span>-r<span class="w"> </span><span class="m">32</span>
+</pre></div>
+</div>
+</section>
+<section id="cli-options">
+<h3>CLI Options<a class="headerlink" href="#cli-options" title="Link to this heading">#</a></h3>
+<section id="model-options">
+<h4>Model Options<a class="headerlink" href="#model-options" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-m,</span> <span class="pre">--model_name_or_path</span></code></p></td>
+<td><p>HuggingFace model name or local path (required)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-o,</span> <span class="pre">--output_path</span></code></p></td>
+<td><p>Output path for LoRA adapter (default: <code class="docutils literal notranslate"><span class="pre">diffusion-lora-adapter</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--model_variant</span></code></p></td>
+<td><p>Model variant: <code class="docutils literal notranslate"><span class="pre">auto</span></code>, <code class="docutils literal notranslate"><span class="pre">sd15</span></code>, <code class="docutils literal notranslate"><span class="pre">sdxl</span></code>, <code class="docutils literal notranslate"><span class="pre">flux</span></code> (default: <code class="docutils literal notranslate"><span class="pre">auto</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="lora-options">
+<h4>LoRA Options<a class="headerlink" href="#lora-options" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-r,</span> <span class="pre">--lora_r</span></code></p></td>
+<td><p>16</p></td>
+<td><p>LoRA rank (SD: 4-16, Flux: 16-64)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--alpha</span></code></p></td>
+<td><p>Same as r</p></td>
+<td><p>LoRA alpha for scaling</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--lora_dropout</span></code></p></td>
+<td><p>0.0</p></td>
+<td><p>LoRA dropout probability</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--target_modules</span></code></p></td>
+<td><p>Auto</p></td>
+<td><p>Target modules (comma-separated)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--merge_lora</span></code></p></td>
+<td><p>False</p></td>
+<td><p>Merge LoRA into base model</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="data-options">
+<h4>Data Options<a class="headerlink" href="#data-options" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-d,</span> <span class="pre">--data_dir</span></code></p></td>
+<td><p>Path to local image folder</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--data_name</span></code></p></td>
+<td><p>HuggingFace dataset name</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--data_split</span></code></p></td>
+<td><p>Dataset split (default: <code class="docutils literal notranslate"><span class="pre">train</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--image_column</span></code></p></td>
+<td><p>Image column name (default: <code class="docutils literal notranslate"><span class="pre">image</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--caption_column</span></code></p></td>
+<td><p>Caption column name</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--base_resolution</span></code></p></td>
+<td><p>Base resolution (auto-detected from model type)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="training-options">
+<h4>Training Options<a class="headerlink" href="#training-options" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--max_train_steps</span></code></p></td>
+<td><p>1000</p></td>
+<td><p>Maximum training steps</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--learning_rate</span></code></p></td>
+<td><p>1e-4</p></td>
+<td><p>Learning rate</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--train_batch_size</span></code></p></td>
+<td><p>1</p></td>
+<td><p>Training batch size</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--gradient_accumulation_steps</span></code></p></td>
+<td><p>4</p></td>
+<td><p>Gradient accumulation steps</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mixed_precision</span></code></p></td>
+<td><p>bf16</p></td>
+<td><p>Mixed precision: <code class="docutils literal notranslate"><span class="pre">no</span></code>, <code class="docutils literal notranslate"><span class="pre">fp16</span></code>, <code class="docutils literal notranslate"><span class="pre">bf16</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--lr_scheduler</span></code></p></td>
+<td><p>constant</p></td>
+<td><p>LR scheduler type</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--lr_warmup_steps</span></code></p></td>
+<td><p>0</p></td>
+<td><p>Warmup steps</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--seed</span></code></p></td>
+<td><p>None</p></td>
+<td><p>Random seed</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="dreambooth-options">
+<h4>DreamBooth Options<a class="headerlink" href="#dreambooth-options" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dreambooth</span></code></p></td>
+<td><p>False</p></td>
+<td><p>Enable DreamBooth training</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--prior_loss_weight</span></code></p></td>
+<td><p>1.0</p></td>
+<td><p>Prior preservation loss weight</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="flux-options">
+<h4>Flux Options<a class="headerlink" href="#flux-options" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--guidance_scale</span></code></p></td>
+<td><p>3.5</p></td>
+<td><p>Guidance scale for Flux training</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="cli-examples">
+<h3>CLI Examples<a class="headerlink" href="#cli-examples" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># SD 1.5 with custom training settings</span>
+olive<span class="w"> </span>diffusion-lora<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-m<span class="w"> </span>runwayml/stable-diffusion-v1-5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-d<span class="w"> </span>./train_images<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-r<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--max_train_steps<span class="w"> </span><span class="m">500</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--learning_rate<span class="w"> </span>5e-5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-o<span class="w"> </span>my-lora
+
+<span class="c1"># SDXL with HuggingFace dataset</span>
+olive<span class="w"> </span>diffusion-lora<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-m<span class="w"> </span>stabilityai/stable-diffusion-xl-base-1.0<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--data_name<span class="w"> </span>linoyts/Tuxemon<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--caption_column<span class="w"> </span>prompt<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-r<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--max_train_steps<span class="w"> </span><span class="m">2000</span>
+
+<span class="c1"># Flux with higher rank</span>
+olive<span class="w"> </span>diffusion-lora<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-m<span class="w"> </span>black-forest-labs/FLUX.1-dev<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-d<span class="w"> </span>./train_images<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-r<span class="w"> </span><span class="m">32</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mixed_precision<span class="w"> </span>bf16<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--guidance_scale<span class="w"> </span><span class="m">3</span>.5
+
+<span class="c1"># DreamBooth training</span>
+olive<span class="w"> </span>diffusion-lora<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-m<span class="w"> </span>runwayml/stable-diffusion-v1-5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-d<span class="w"> </span>./train_images<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--dreambooth<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--prior_loss_weight<span class="w"> </span><span class="m">1</span>.0
+
+<span class="c1"># Merge LoRA into base model</span>
+olive<span class="w"> </span>diffusion-lora<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-m<span class="w"> </span>runwayml/stable-diffusion-v1-5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-d<span class="w"> </span>./train_images<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--merge_lora
+</pre></div>
+</div>
+</section>
+</section>
+<section id="training-data-structure">
+<h2>Training Data Structure<a class="headerlink" href="#training-data-structure" title="Link to this heading">#</a></h2>
+<p>Prepare your training images with corresponding caption files:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>train_images/
+├── image1.png
+├── image1.txt    # Contains: &quot;a photo of sks dog&quot;
+├── image2.jpg
+├── image2.txt    # Contains: &quot;sks dog playing in the park&quot;
+└── ...
+</pre></div>
+</div>
+</section>
+<section id="configuration-file">
+<h2>Configuration File<a class="headerlink" href="#configuration-file" title="Link to this heading">#</a></h2>
+<p>For more complex workflows or integration with other Olive passes, use a JSON configuration file.</p>
+<section id="minimal-configuration">
+<h3>Minimal Configuration<a class="headerlink" href="#minimal-configuration" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DiffusersModel&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;runwayml/stable-diffusion-v1-5&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;local_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LocalSystem&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gpu&quot;</span><span class="p">}]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ImageDataContainer&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image_folder_dataset&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_images&quot;</span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;sd_lora&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SDLoRA&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;host&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_system&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local_system&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;output_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;output&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Run with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>config.json
+</pre></div>
+</div>
+</section>
+<section id="using-huggingface-datasets">
+<h3>Using HuggingFace Datasets<a class="headerlink" href="#using-huggingface-datasets" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DiffusersModel&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;runwayml/stable-diffusion-v1-5&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ImageDataContainer&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_dataset&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;linoyts/Tuxemon&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;image_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;caption_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;prompt&quot;</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;sd_lora&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SDLoRA&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;r&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;training_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;max_train_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1000</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;train_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="sdlora-pass-configuration">
+<h2>SDLoRA Pass Configuration<a class="headerlink" href="#sdlora-pass-configuration" title="Link to this heading">#</a></h2>
+<section id="basic-parameters">
+<h3>Basic Parameters<a class="headerlink" href="#basic-parameters" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_variant</span></code></p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code></p></td>
+<td><p>Model variant: <code class="docutils literal notranslate"><span class="pre">&quot;sd15&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;sdxl&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;flux&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">r</span></code></p></td>
+<td><p>int</p></td>
+<td><p>16</p></td>
+<td><p>LoRA rank</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">alpha</span></code></p></td>
+<td><p>float</p></td>
+<td><p>None</p></td>
+<td><p>LoRA alpha (defaults to r)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lora_dropout</span></code></p></td>
+<td><p>float</p></td>
+<td><p>0.0</p></td>
+<td><p>Dropout probability</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">target_modules</span></code></p></td>
+<td><p>list</p></td>
+<td><p>None</p></td>
+<td><p>Target modules (auto-detected if None)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">merge_lora</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>False</p></td>
+<td><p>Merge LoRA into base model</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="dreambooth">
+<h3>DreamBooth<a class="headerlink" href="#dreambooth" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dreambooth</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>False</p></td>
+<td><p>Enable DreamBooth training (for learning specific subjects)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">prior_loss_weight</span></code></p></td>
+<td><p>float</p></td>
+<td><p>1.0</p></td>
+<td><p>Weight of prior preservation loss (only when dreambooth=True)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="training-arguments">
+<h3>Training Arguments<a class="headerlink" href="#training-arguments" title="Link to this heading">#</a></h3>
+<p>Configure via <code class="docutils literal notranslate"><span class="pre">training_args</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SDLoRA&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;training_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;learning_rate&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1e-4</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;max_train_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1000</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;train_batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;gradient_accumulation_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;gradient_checkpointing&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;mixed_precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bf16&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;lr_scheduler&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;constant&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;lr_warmup_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;checkpointing_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;logging_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Argument</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">learning_rate</span></code></p></td>
+<td><p>1e-4</p></td>
+<td><p>Learning rate</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">max_train_steps</span></code></p></td>
+<td><p>1000</p></td>
+<td><p>Maximum training steps</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">train_batch_size</span></code></p></td>
+<td><p>1</p></td>
+<td><p>Batch size</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">gradient_accumulation_steps</span></code></p></td>
+<td><p>4</p></td>
+<td><p>Gradient accumulation</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gradient_checkpointing</span></code></p></td>
+<td><p>True</p></td>
+<td><p>Enable gradient checkpointing</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mixed_precision</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;bf16&quot;</span></code></p></td>
+<td><p>Mixed precision mode (<code class="docutils literal notranslate"><span class="pre">&quot;fp16&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;bf16&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;no&quot;</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lr_scheduler</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;constant&quot;</span></code></p></td>
+<td><p>LR scheduler type</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lr_warmup_steps</span></code></p></td>
+<td><p>0</p></td>
+<td><p>Warmup steps</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_grad_norm</span></code></p></td>
+<td><p>1.0</p></td>
+<td><p>Max gradient norm</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">snr_gamma</span></code></p></td>
+<td><p>None</p></td>
+<td><p>SNR gamma for Min-SNR weighting</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">checkpointing_steps</span></code></p></td>
+<td><p>500</p></td>
+<td><p>Save checkpoint every N steps</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">logging_steps</span></code></p></td>
+<td><p>10</p></td>
+<td><p>Log every N steps</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">seed</span></code></p></td>
+<td><p>None</p></td>
+<td><p>Random seed</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">guidance_scale</span></code></p></td>
+<td><p>3.5</p></td>
+<td><p>Flux only: guidance scale</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">use_prodigy</span></code></p></td>
+<td><p>False</p></td>
+<td><p>Flux only: use Prodigy optimizer</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">prodigy_beta3</span></code></p></td>
+<td><p>None</p></td>
+<td><p>Flux only: Prodigy beta3 parameter</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="data-configuration">
+<h2>Data Configuration<a class="headerlink" href="#data-configuration" title="Link to this heading">#</a></h2>
+<p>Use <code class="docutils literal notranslate"><span class="pre">ImageDataContainer</span></code> with <code class="docutils literal notranslate"><span class="pre">image_lora_preprocess</span></code> for automatic data preprocessing.</p>
+<section id="local-image-folder">
+<h3>Local Image Folder<a class="headerlink" href="#local-image-folder" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ImageDataContainer&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image_folder_dataset&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_images&quot;</span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="huggingface-dataset">
+<h3>HuggingFace Dataset<a class="headerlink" href="#huggingface-dataset" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ImageDataContainer&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;huggingface_dataset&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;data_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;linoyts/Tuxemon&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;split&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;image_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;caption_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;prompt&quot;</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="preprocessing-chain">
+<h3>Preprocessing Chain<a class="headerlink" href="#preprocessing-chain" title="Link to this heading">#</a></h3>
+<p>The preprocessing chain supports multiple steps:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Step</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">image_filtering</span></code></p></td>
+<td><p>Disabled</p></td>
+<td><p>Filter low quality images</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">auto_caption</span></code></p></td>
+<td><p>Disabled</p></td>
+<td><p>Generate captions with VLM</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">auto_tagging</span></code></p></td>
+<td><p>Disabled</p></td>
+<td><p>Generate tags with WD14</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">image_resizing</span></code></p></td>
+<td><p>Disabled</p></td>
+<td><p>Resize images to fixed size</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">aspect_ratio_bucketing</span></code></p></td>
+<td><p>Enabled</p></td>
+<td><p>Group by aspect ratio</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Default preprocessing is <code class="docutils literal notranslate"><span class="pre">aspect_ratio_bucketing</span></code> with <code class="docutils literal notranslate"><span class="pre">base_resolution=512</span></code>.</p>
+</section>
+<section id="custom-preprocessing">
+<h3>Custom Preprocessing<a class="headerlink" href="#custom-preprocessing" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ImageDataContainer&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image_folder_dataset&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_images&quot;</span><span class="p">}</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;pre_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image_lora_preprocess&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;base_resolution&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;output_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resized_images&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="nt">&quot;auto_caption&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                            </span><span class="nt">&quot;model_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;florence2&quot;</span><span class="p">,</span>
+<span class="w">                            </span><span class="nt">&quot;trigger_word&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sks&quot;</span>
+<span class="w">                        </span><span class="p">},</span>
+<span class="w">                        </span><span class="nt">&quot;aspect_ratio_bucketing&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="auto-captioning">
+<h3>Auto Captioning<a class="headerlink" href="#auto-captioning" title="Link to this heading">#</a></h3>
+<p>Automatically generate captions using vision-language models:</p>
+<section id="supported-captioning-models">
+<h4>Supported Captioning Models<a class="headerlink" href="#supported-captioning-models" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Model</p></th>
+<th class="head"><p>Default Model Name</p></th>
+<th class="head"><p>Features</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">blip2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Salesforce/blip2-opt-2.7b</span></code></p></td>
+<td><p>General captions</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">florence2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">microsoft/Florence-2-large</span></code></p></td>
+<td><p>Detailed descriptions</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="auto-caption-parameters">
+<h4>Auto Caption Parameters<a class="headerlink" href="#auto-caption-parameters" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">model_type</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;blip2&quot;</span></code></p></td>
+<td><p>Captioning model (<code class="docutils literal notranslate"><span class="pre">&quot;blip2&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;florence2&quot;</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">model_name</span></code></p></td>
+<td><p>None</p></td>
+<td><p>Custom model path</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">trigger_word</span></code></p></td>
+<td><p>None</p></td>
+<td><p>Trigger word to prepend to all captions (e.g., <code class="docutils literal notranslate"><span class="pre">&quot;sks&quot;</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">overwrite</span></code></p></td>
+<td><p>False</p></td>
+<td><p>Overwrite existing captions</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">device</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;cuda&quot;</span></code></p></td>
+<td><p>Device for inference</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="aspect-ratio-bucketing">
+<h3>Aspect Ratio Bucketing<a class="headerlink" href="#aspect-ratio-bucketing" title="Link to this heading">#</a></h3>
+<p>Groups images by aspect ratio to minimize padding and improve training quality.</p>
+<p>Set <code class="docutils literal notranslate"><span class="pre">base_resolution</span></code> based on your model:</p>
+<ul class="simple">
+<li><p>SD 1.5: <code class="docutils literal notranslate"><span class="pre">base_resolution=512</span></code> (default)</p></li>
+<li><p>SDXL/Flux: <code class="docutils literal notranslate"><span class="pre">base_resolution=1024</span></code></p></li>
+</ul>
+</section>
+</section>
+<section id="model-specific-examples">
+<h2>Model-Specific Examples<a class="headerlink" href="#model-specific-examples" title="Link to this heading">#</a></h2>
+<section id="stable-diffusion-1-5">
+<h3>Stable Diffusion 1.5<a class="headerlink" href="#stable-diffusion-1-5" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DiffusersModel&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;runwayml/stable-diffusion-v1-5&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ImageDataContainer&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image_folder_dataset&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_images&quot;</span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;sd_lora&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SDLoRA&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;r&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="sdxl">
+<h3>SDXL<a class="headerlink" href="#sdxl" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DiffusersModel&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;stabilityai/stable-diffusion-xl-base-1.0&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ImageDataContainer&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image_folder_dataset&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_images&quot;</span><span class="p">}</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;pre_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image_lora_preprocess&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;base_resolution&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;sd_lora&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SDLoRA&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;r&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="flux">
+<h3>Flux<a class="headerlink" href="#flux" title="Link to this heading">#</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DiffusersModel&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;black-forest-labs/FLUX.1-dev&quot;</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;data_configs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ImageDataContainer&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;load_dataset_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image_folder_dataset&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_images&quot;</span><span class="p">}</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;pre_process_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image_lora_preprocess&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;base_resolution&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;sd_lora&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SDLoRA&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;train_data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;train_data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;r&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;training_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;mixed_precision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bf16&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;guidance_scale&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">3.5</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Note:</strong> Flux requires <code class="docutils literal notranslate"><span class="pre">bfloat16</span></code> - the pass will automatically switch from <code class="docutils literal notranslate"><span class="pre">float16</span></code> if needed.</p>
+</section>
+</section>
+<section id="inference">
+<h2>Inference<a class="headerlink" href="#inference" title="Link to this heading">#</a></h2>
+<p>After training, load the LoRA weights using diffusers:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">diffusers</span><span class="w"> </span><span class="kn">import</span> <span class="n">StableDiffusionXLPipeline</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="c1"># Load base model</span>
+<span class="n">pipe</span> <span class="o">=</span> <span class="n">StableDiffusionXLPipeline</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
+    <span class="s2">&quot;stabilityai/stable-diffusion-xl-base-1.0&quot;</span><span class="p">,</span>
+    <span class="n">torch_dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float16</span>
+<span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span>
+
+<span class="c1"># Load LoRA</span>
+<span class="n">pipe</span><span class="o">.</span><span class="n">load_lora_weights</span><span class="p">(</span><span class="s2">&quot;output/adapter&quot;</span><span class="p">)</span>
+<span class="n">pipe</span><span class="o">.</span><span class="n">fuse_lora</span><span class="p">(</span><span class="n">lora_scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+
+<span class="c1"># Generate</span>
+<span class="n">image</span> <span class="o">=</span> <span class="n">pipe</span><span class="p">(</span>
+    <span class="s2">&quot;a photo of sks dog in a garden&quot;</span><span class="p">,</span>
+    <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
+    <span class="n">guidance_scale</span><span class="o">=</span><span class="mf">7.5</span>
+<span class="p">)</span><span class="o">.</span><span class="n">images</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="n">image</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;output.png&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="tips">
+<h2>Tips<a class="headerlink" href="#tips" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p><strong>Memory</strong>: Enable <code class="docutils literal notranslate"><span class="pre">gradient_checkpointing</span></code> and reduce <code class="docutils literal notranslate"><span class="pre">train_batch_size</span></code> if OOM</p></li>
+<li><p><strong>Quality</strong>: Use 10-20 high-quality, diverse training images</p></li>
+<li><p><strong>Captions</strong>: Include a unique trigger word (e.g., “sks”) in all captions</p></li>
+<li><p><strong>LoRA Rank</strong>: Start with r=4-16 for SD, r=16-64 for Flux</p></li>
+<li><p><strong>Overfitting</strong>: Monitor training loss; reduce steps if outputs look too similar to training data</p></li>
+<li><p><strong>Inference Scale</strong>: Use <code class="docutils literal notranslate"><span class="pre">lora_scale=0.7-0.8</span></code> if LoRA effect is too strong</p></li>
+</ol>
+</section>
+<section id="dependencies">
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Link to this heading">#</a></h2>
+<p>Install required dependencies:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai<span class="o">[</span>sd-lora<span class="o">]</span>
+
+<span class="c1"># Or manually:</span>
+pip<span class="w"> </span>install<span class="w"> </span>accelerate&gt;<span class="o">=</span><span class="m">0</span>.30.0<span class="w"> </span>peft<span class="w"> </span>diffusers&gt;<span class="o">=</span><span class="m">0</span>.25.0<span class="w"> </span>transformers&gt;<span class="o">=</span><span class="m">4</span>.30.0
+</pre></div>
+</div>
+<p>For auto-captioning:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>transformers&gt;<span class="o">=</span><span class="m">4</span>.30.0<span class="w">  </span><span class="c1"># For BLIP-2 and Florence-2</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="peft-adapters.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">PEFT Adapters</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="quantization.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Quantization</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-models">Supported Models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start-with-cli">Quick Start with CLI</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-usage">Basic Usage</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cli-options">CLI Options</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#model-options">Model Options</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#lora-options">LoRA Options</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#data-options">Data Options</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#training-options">Training Options</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#dreambooth-options">DreamBooth Options</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#flux-options">Flux Options</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cli-examples">CLI Examples</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#training-data-structure">Training Data Structure</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuration-file">Configuration File</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#minimal-configuration">Minimal Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-huggingface-datasets">Using HuggingFace Datasets</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sdlora-pass-configuration">SDLoRA Pass Configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-parameters">Basic Parameters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dreambooth">DreamBooth</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#training-arguments">Training Arguments</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#data-configuration">Data Configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local-image-folder">Local Image Folder</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#huggingface-dataset">HuggingFace Dataset</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#preprocessing-chain">Preprocessing Chain</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-preprocessing">Custom Preprocessing</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-captioning">Auto Captioning</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-captioning-models">Supported Captioning Models</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-caption-parameters">Auto Caption Parameters</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#aspect-ratio-bucketing">Aspect Ratio Bucketing</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#model-specific-examples">Model-Specific Examples</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#stable-diffusion-1-5">Stable Diffusion 1.5</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#sdxl">SDXL</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#flux">Flux</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#inference">Inference</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tips">Tips</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dependencies">Dependencies</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2025, Olive Dev team.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

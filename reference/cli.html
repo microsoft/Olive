@@ -730,6 +730,7 @@
 <p>Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model or PyTorch model.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">model_variant</span> <span class="p">{</span><span class="n">auto</span><span class="p">,</span><span class="n">sd</span><span class="p">,</span><span class="n">sdxl</span><span class="p">,</span><span class="n">sd3</span><span class="p">,</span><span class="n">flux</span><span class="p">,</span><span class="n">sana</span><span class="p">}]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">conversion_device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">}]</span>
@@ -739,7 +740,7 @@
                                 <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="n">TORCH_DTYPE</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">target_opset</span> <span class="n">TARGET_OPSET</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">}]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">bf16</span><span class="p">}]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">int4_block_size</span> <span class="p">{</span><span class="mi">16</span><span class="p">,</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">128</span><span class="p">,</span><span class="mi">256</span><span class="p">}]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">int4_accuracy_level</span> <span class="n">INT4_ACCURACY_LEVEL</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">exclude_embeds</span> <span class="n">EXCLUDE_EMBEDS</span><span class="p">]</span>
@@ -767,6 +768,11 @@
 </dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
+</dd>
+<dt><kbd>--model_variant</kbd></dt>
+<dd><p>Possible choices: auto, sd, sdxl, sd3, flux, sana</p>
+<p>Model variant: ‘sd’, ‘sdxl’, ‘sd3’, ‘flux’, ‘sana’, or ‘auto’ for auto-detection.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">auto</span></code></p>
 </dd>
 <dt><kbd>--model_script</kbd></dt>
 <dd><p>The script file containing the model definition. Required for the local PyTorch model.</p>
@@ -838,7 +844,7 @@
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--precision</kbd></dt>
-<dd><p>Possible choices: fp16, fp32, int4</p>
+<dd><p>Possible choices: fp16, fp32, int4, bf16</p>
 <p>The precision of the ONNX model. This is used by Model Builder</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">'fp16'</span></code></p>
 </dd>
@@ -1074,6 +1080,200 @@
 </dd>
 <dt><kbd>--target_modules</kbd></dt>
 <dd><p>The target modules for LoRA. If multiple, separate by comma.</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="diffusion-lora">
+<h1>Diffusion LoRA<a class="headerlink" href="#diffusion-lora" title="Link to this heading">#</a></h1>
+<p>Train LoRA adapters for diffusion models (Stable Diffusion 1.5, SDXL, Flux). Supports both local image folders and HuggingFace datasets.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">diffusion</span><span class="o">-</span><span class="n">lora</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">model_variant</span> <span class="p">{</span><span class="n">auto</span><span class="p">,</span><span class="n">sd</span><span class="p">,</span><span class="n">sdxl</span><span class="p">,</span><span class="n">sd3</span><span class="p">,</span><span class="n">flux</span><span class="p">,</span><span class="n">sana</span><span class="p">}]</span>
+                            <span class="p">[</span><span class="o">-</span><span class="n">r</span> <span class="n">LORA_R</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">alpha</span> <span class="n">ALPHA</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">lora_dropout</span> <span class="n">LORA_DROPOUT</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">target_modules</span> <span class="n">TARGET_MODULES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dreambooth</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">instance_prompt</span> <span class="n">INSTANCE_PROMPT</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">with_prior_preservation</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">class_prompt</span> <span class="n">CLASS_PROMPT</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">class_data_dir</span> <span class="n">CLASS_DATA_DIR</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">num_class_images</span> <span class="n">NUM_CLASS_IMAGES</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">prior_loss_weight</span> <span class="n">PRIOR_LOSS_WEIGHT</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">-</span><span class="n">d</span> <span class="n">DATA_DIR</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">data_name</span> <span class="n">DATA_NAME</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">data_split</span> <span class="n">DATA_SPLIT</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">image_column</span> <span class="n">IMAGE_COLUMN</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">caption_column</span> <span class="n">CAPTION_COLUMN</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">base_resolution</span> <span class="n">BASE_RESOLUTION</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">max_train_steps</span> <span class="n">MAX_TRAIN_STEPS</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">learning_rate</span> <span class="n">LEARNING_RATE</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">train_batch_size</span> <span class="n">TRAIN_BATCH_SIZE</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">gradient_accumulation_steps</span> <span class="n">GRADIENT_ACCUMULATION_STEPS</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">mixed_precision</span> <span class="p">{</span><span class="n">no</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">bf16</span><span class="p">}]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">lr_scheduler</span> <span class="p">{</span><span class="n">constant</span><span class="p">,</span><span class="n">linear</span><span class="p">,</span><span class="n">cosine</span><span class="p">,</span><span class="n">cosine_with_restarts</span><span class="p">,</span><span class="n">polynomial</span><span class="p">,</span><span class="n">constant_with_warmup</span><span class="p">}]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">lr_warmup_steps</span> <span class="n">LR_WARMUP_STEPS</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">seed</span> <span class="n">SEED</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">guidance_scale</span> <span class="n">GUIDANCE_SCALE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">merge_lora</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+                            <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
+</pre></div>
+</div>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>-m, --model_name_or_path</kbd></dt>
+<dd><p>HuggingFace model name or local path (e.g., ‘runwayml/stable-diffusion-v1-5’).</p>
+</dd>
+<dt><kbd>-o, --output_path</kbd></dt>
+<dd><p>Output path for the LoRA adapter. Default: diffusion-lora-adapter.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'diffusion-lora-adapter'</span></code></p>
+</dd>
+<dt><kbd>--model_variant</kbd></dt>
+<dd><p>Possible choices: auto, sd, sdxl, sd3, flux, sana</p>
+<p>Type of diffusion model. Default: auto-detect.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'auto'</span></code></p>
+</dd>
+<dt><kbd>--merge_lora</kbd></dt>
+<dd><p>Merge LoRA into base model instead of saving adapter only.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--account_name</kbd></dt>
+<dd><p>Azure storage account name for shared cache.</p>
+</dd>
+<dt><kbd>--container_name</kbd></dt>
+<dd><p>Azure storage container name for shared cache.</p>
+</dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
+</dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+</dl>
+</section>
+<section id="olive.cli.launcher-get_cli_parser-lora-options">
+<h2>LoRA options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-lora-options" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>-r, --lora_r</kbd></dt>
+<dd><p>LoRA rank. SD: 4-16, Flux: 16-64. Default: 16.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">16</span></code></p>
+</dd>
+<dt><kbd>--alpha</kbd></dt>
+<dd><p>LoRA alpha for scaling. Default: same as r.</p>
+</dd>
+<dt><kbd>--lora_dropout</kbd></dt>
+<dd><p>LoRA dropout probability. Default: 0.0.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">0.0</span></code></p>
+</dd>
+<dt><kbd>--target_modules</kbd></dt>
+<dd><p>Target modules for LoRA (comma-separated). Default: auto-detect based on model type.</p>
+</dd>
+</dl>
+</section>
+<section id="olive.cli.launcher-get_cli_parser-dreambooth-options">
+<h2>DreamBooth options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-dreambooth-options" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>--dreambooth</kbd></dt>
+<dd><p>Enable DreamBooth training for learning specific subjects.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--instance_prompt</kbd></dt>
+<dd><p>Fixed prompt for all images in DreamBooth mode. Required when –dreambooth is set. Example: ‘a photo of sks dog’.</p>
+</dd>
+<dt><kbd>--with_prior_preservation</kbd></dt>
+<dd><p>Enable prior preservation to prevent language drift. Requires –class_prompt.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--class_prompt</kbd></dt>
+<dd><p>Prompt for class images in prior preservation. Required when –with_prior_preservation is set. Example: ‘a photo of a dog’.</p>
+</dd>
+<dt><kbd>--class_data_dir</kbd></dt>
+<dd><p>Directory containing class images. If not provided or has fewer than –num_class_images, images will be auto-generated.</p>
+</dd>
+<dt><kbd>--num_class_images</kbd></dt>
+<dd><p>Number of class images for prior preservation. Default: 200.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">200</span></code></p>
+</dd>
+<dt><kbd>--prior_loss_weight</kbd></dt>
+<dd><p>Weight of prior preservation loss. Default: 1.0.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1.0</span></code></p>
+</dd>
+</dl>
+</section>
+<section id="olive.cli.launcher-get_cli_parser-data-options">
+<h2>Data options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-data-options" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>-d, --data_dir</kbd></dt>
+<dd><p>Path to local image folder with training images.</p>
+</dd>
+<dt><kbd>--data_name</kbd></dt>
+<dd><p>HuggingFace dataset name (e.g., ‘linoyts/Tuxemon’).</p>
+</dd>
+<dt><kbd>--data_split</kbd></dt>
+<dd><p>Dataset split to use. Default: train.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'train'</span></code></p>
+</dd>
+<dt><kbd>--image_column</kbd></dt>
+<dd><p>Column name for images in HuggingFace dataset. Default: image.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'image'</span></code></p>
+</dd>
+<dt><kbd>--caption_column</kbd></dt>
+<dd><p>Column name for captions in HuggingFace dataset.</p>
+</dd>
+<dt><kbd>--base_resolution</kbd></dt>
+<dd><p>Base resolution for training. Auto-detected if model_variant is specified (SD1.5: 512, SDXL/Flux: 1024).</p>
+</dd>
+</dl>
+</section>
+<section id="olive.cli.launcher-get_cli_parser-training-options">
+<h2>Training options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-training-options" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>--max_train_steps</kbd></dt>
+<dd><p>Maximum training steps. Default: 1000.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1000</span></code></p>
+</dd>
+<dt><kbd>--learning_rate</kbd></dt>
+<dd><p>Learning rate. Default: 1e-4.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">0.0001</span></code></p>
+</dd>
+<dt><kbd>--train_batch_size</kbd></dt>
+<dd><p>Training batch size. Default: 1.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
+</dd>
+<dt><kbd>--gradient_accumulation_steps</kbd></dt>
+<dd><p>Gradient accumulation steps. Default: 4.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">4</span></code></p>
+</dd>
+<dt><kbd>--mixed_precision</kbd></dt>
+<dd><p>Possible choices: no, fp16, bf16</p>
+<p>Mixed precision training. Default: bf16.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'bf16'</span></code></p>
+</dd>
+<dt><kbd>--lr_scheduler</kbd></dt>
+<dd><p>Possible choices: constant, linear, cosine, cosine_with_restarts, polynomial, constant_with_warmup</p>
+<p>Learning rate scheduler. Default: constant.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'constant'</span></code></p>
+</dd>
+<dt><kbd>--lr_warmup_steps</kbd></dt>
+<dd><p>Learning rate warmup steps. Default: 0.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></p>
+</dd>
+<dt><kbd>--seed</kbd></dt>
+<dd><p>Random seed for reproducibility.</p>
+</dd>
+</dl>
+</section>
+<section id="olive.cli.launcher-get_cli_parser-flux-options">
+<h2>Flux options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-flux-options" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>--guidance_scale</kbd></dt>
+<dd><p>Guidance scale for Flux training. Default: 3.5.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3.5</span></code></p>
 </dd>
 </dl>
 </section>
@@ -1508,6 +1708,92 @@
 </dl>
 </section>
 </section>
+<section id="benchmark">
+<h1>Benchmark<a class="headerlink" href="#benchmark" title="Link to this heading">#</a></h1>
+<p>Run benchmarking using llm-eval.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">benchmark</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
+                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="o">--</span><span class="n">tasks</span> <span class="p">[</span><span class="n">TASKS</span> <span class="o">...</span><span class="p">]</span>
+                       <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
+                       <span class="p">[</span><span class="o">--</span><span class="n">max_length</span> <span class="n">MAX_LENGTH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">limit</span> <span class="n">LIMIT</span><span class="p">]</span>
+                       <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+                       <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                       <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span>
+</pre></div>
+</div>
+<section id="olive.cli.launcher-get_cli_parser-named-arguments">
+<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>-m, --model_name_or_path</kbd></dt>
+<dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
+</dd>
+<dt><kbd>-t, --task</kbd></dt>
+<dd><p>Task for which the huggingface model is used. Default task is text-generation-with-past.</p>
+</dd>
+<dt><kbd>--trust_remote_code</kbd></dt>
+<dd><p>Trust remote code when loading a huggingface model.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>-a, --adapter_path</kbd></dt>
+<dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
+</dd>
+<dt><kbd>--model_script</kbd></dt>
+<dd><p>The script file containing the model definition. Required for the local PyTorch model.</p>
+</dd>
+<dt><kbd>--script_dir</kbd></dt>
+<dd><p>The directory containing the local PyTorch model script file. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information">https://microsoft.github.io/Olive/reference/cli.html#model-script-file-information</a> for more information.</p>
+</dd>
+<dt><kbd>-o, --output_path</kbd></dt>
+<dd><p>Path to save the command output.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">onnx-model</span></code></p>
+</dd>
+<dt><kbd>--log_level</kbd></dt>
+<dd><p>Logging level. Default is 3. level 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">3</span></code></p>
+</dd>
+<dt><kbd>--save_config_file</kbd></dt>
+<dd><p>Generate and save the config file for the command.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--dry_run</kbd></dt>
+<dd><p>Enable dry run mode. This will not perform any actual optimization but will validate the configuration.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
+<dt><kbd>--account_name</kbd></dt>
+<dd><p>Azure storage account name for shared cache.</p>
+</dd>
+<dt><kbd>--container_name</kbd></dt>
+<dd><p>Azure storage container name for shared cache.</p>
+</dd>
+</dl>
+</section>
+<section id="olive.cli.launcher-get_cli_parser-lm-eval-evaluator-options">
+<h2>lm-eval evaluator options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-lm-eval-evaluator-options" title="Link to this heading">#</a></h2>
+<dl class="option-list">
+<dt><kbd>--tasks</kbd></dt>
+<dd><p>List of tasks to evaluate on.</p>
+</dd>
+<dt><kbd>--device</kbd></dt>
+<dd><p>Possible choices: cpu, gpu</p>
+<p>Target device for evaluation.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code></p>
+</dd>
+<dt><kbd>--batch_size</kbd></dt>
+<dd><p>Batch size.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
+</dd>
+<dt><kbd>--max_length</kbd></dt>
+<dd><p>Maximum length of input + output.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1024</span></code></p>
+</dd>
+<dt><kbd>--limit</kbd></dt>
+<dd><p>Number (or percentage of dataset) of samples to use for evaluation.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
+</dd>
+</dl>
+</section>
+</section>
 <section id="providing-input-models">
 <h1>Providing Input Models<a class="headerlink" href="#providing-input-models" title="Link to this heading">#</a></h1>
 <p>There are more than one way to supply input model to the Olive commands.</p>
@@ -1635,6 +1921,15 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lora-options">LoRA options</a></li>
 </ul>
 </li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#diffusion-lora">Diffusion LoRA</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lora-options">LoRA options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-dreambooth-options">DreamBooth options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-data-options">Data options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-training-options">Training options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-flux-options">Flux options</a></li>
+</ul>
+</li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-optimization">Auto-Optimization</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
@@ -1661,6 +1956,11 @@ Specifies the format of the model. The default value is <cite>PyTorch.EntireMode
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#shared-cache">Shared Cache</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#benchmark">Benchmark</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lm-eval-evaluator-options">lm-eval evaluator options</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#providing-input-models">Providing Input Models</a></li>

@@ -287,20 +287,13 @@ if workflow_output.has_output_model():
     print(f"Execution provider: {best_model.from_execution_provider()}")
     print(f"Metrics: {best_model.metrics_value}")
 
-    # Get the best model for CPU
-    best_cpu_model = workflow_output.get_best_candidate_by_device("CPU")
-
-    # Get all models for GPU
-    gpu_models = workflow_output.get_output_models_by_device("GPU")
 ```
 
 ## Output Class Hierarchy
 
 Olive organizes optimization results in a hierarchical structure:
 
-- `WorkflowOutput`: Top-level container for all results across devices
-  - Contains multiple `DeviceOutput` instances (one per device)
-    - Each `DeviceOutput` contains multiple `ModelOutput` instances
+- `WorkflowOutput`: Top-level container for all output models, contains multiple `ModelOutput` instances
 
 ## Output Classes in Detail
 
@@ -314,34 +307,15 @@ from olive import WorkflowOutput
 
 #### Key Methods
 
+- `from_device()` - Get the device used for this workflow
+- `from_execution_provider()` - Get the execution provider used for this workflow
 - `get_input_model_metrics()` - Get the metrics for the input model
-- `get_available_devices()` - Get a list of devices that the workflow ran on
 - `has_output_model()` - Check if any optimized models are available
-- `get_output_models_by_device(device)` - Get all optimized models for a specific device
 - `get_output_model_by_id(model_id)` - Get a specific model by its ID
 - `get_output_models()` - Get all optimized models sorted by metrics
-- `get_best_candidate_by_device(device)` - Get the best model for a specific device
 - `get_best_candidate()` - Get the best model across all devices
 - `trace_back_run_history(model_id)` - Get the optimization history for a specific model
 
-### DeviceOutput
-
-The `DeviceOutput` class groups model outputs for a specific device, containing results for different execution providers on that device.
-
-```python
-from olive import DeviceOutput
-```
-
-#### Key Attributes
-
-- `device` - The device type (e.g., "cpu", "gpu")
-
-#### Key Methods
-
-- `has_output_model()` - Check if any model outputs are available for this device
-- `get_output_models()` - Get all model outputs for this device
-- `get_best_candidate()` - Get the best model output for this device based on metrics
-- `get_best_candidate_by_execution_provider(execution_provider)` - Get the best model for a specific execution provider
 
 ### ModelOutput
 

@@ -335,6 +335,7 @@ Please also find the detailed options from following table for each pass:
 | [Gptq](pass.rst#gptq) | Run GPTQ quantization on a Hugging Face PyTorch model. |
 | [GptqQuantizer](pass.rst#gptqquantizer) | GPTQ quantization Pass On Pytorch Model. |
 | [AutoAWQQuantizer](pass.rst#awqquantizer) | AWQ quantization Pass On Pytorch Model. |
+| [Rtn](pass.rst#rtn) | Run RTN quantization on a Hugging Face PyTorch model. |
 | [TorchTRTConversion](pass.rst#torchtrtconversion) | Convert torch.nn.Linear modules in the transformer layers of a HuggingFace PyTorch model to TensorRT modules. |
 | [OptimumConversion](pass.rst#optimumconversion) | Convert huggingface models to ONNX via the Optimum library. |
 | [OptimumMerging](pass.rst#optimummerging) | Merge 2 models together with an `if` node via the Optimum library. |

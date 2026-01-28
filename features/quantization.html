@@ -61,7 +61,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Shared Cache" href="shared-model-cache.html" />
-    <link rel="prev" title="PEFT Adapters" href="peft-adapters.html" />
+    <link rel="prev" title="Diffusion Model LoRA Training" href="sd-lora.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="latest" />
@@ -588,18 +588,60 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <p>Olive also integrates <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Model-Optimizer">TensorRT Model Optimizer-Windows</a></p>
 <p>The TensorRT Model Optimizer-Windows is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users,it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.</p>
 <p>The primary objective of the TensorRT Model Optimizer-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard.</p>
-<p>Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ algorithm.</p>
+<p>Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ and RTN algorithms.</p>
 <section id="id8">
 <h3>Example Configuration<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
+<section id="a-pure-4-bit-quantization">
+<h4>a. Pure 4 bit Quantization<a class="headerlink" href="#a-pure-4-bit-quantization" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;tokenizer_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;microsoft/Phi-3-mini-4k-instruct&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;calibration&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq_lite&quot;</span>
+<span class="w">    </span><span class="nt">&quot;calibration_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq_lite&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>Please refer to <a class="reference external" href="https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3.5-mini-instruct/NvTensorRtRtx">Phi3.5 example</a>  for usability and setup details.</p>
+</section>
+<section id="b-mixed-precision-quantization">
+<h4>b. Mixed Precision Quantization<a class="headerlink" href="#b-mixed-precision-quantization" title="Link to this heading">#</a></h4>
+<p>For better accuracy while maintaining model compression, you can enable mixed precision quantization using the <code class="docutils literal notranslate"><span class="pre">enable_mixed_quant</span></code> parameter. This allows higher precision levels (8 bit) for important layers of the model while using 4 bits for others:</p>
+<p><strong>1. Default Mixed Precision Strategy</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tokenizer_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-3.1-8B-Instruct&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;calibration_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq_lite&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;enable_mixed_quant&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Configuration:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">enable_mixed_quant</span></code> is set to <code class="docutils literal notranslate"><span class="pre">true</span></code>, the default mixed precision strategy quantizes:</p></li>
+<li><p><strong>8 bit layer</strong>: Important layer are quantized 8-bits per-channel</p></li>
+<li><p><strong>4 bit layer</strong>: All other layers</p></li>
+</ul>
+<p><strong>2. Custom Layer Selection with layers_8bit</strong></p>
+<p>For fine-grained control over which specific layers should use INT8 quantization, use the <code class="docutils literal notranslate"><span class="pre">layers_8bit</span></code> parameter with a comma-separated list of layer name patterns:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;tokenizer_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-3.1-8B-Instruct&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;calibration_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq_lite&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;layers_8bit&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model.layers.0,model.layers.1,lm_head&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Configurations:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">layers_8bit</span></code> accepts comma-separated layer name patterns (e.g., <code class="docutils literal notranslate"><span class="pre">&quot;model.layers.0,lm_head&quot;</span></code>)</p></li>
+<li><p>Matching layers are quantized to 8 bit for better accuracy, they are quantized per-channel</p></li>
+<li><p>Non-matching layers are quantized to 4 bit for efficiency</p></li>
+<li><p>When <code class="docutils literal notranslate"><span class="pre">layers_8bit</span></code> is specified, mixed precision is automatically enabled</p></li>
+<li><p>Overrides the default <code class="docutils literal notranslate"><span class="pre">enable_mixed_quant</span></code> strategy</p></li>
+</ul>
+<p>Please refer to <a class="reference external" href="https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3.5-mini-instruct/NvTensorRtRtx">Phi3.5 example</a> for usability and setup details.</p>
+</section>
 </section>
 </section>
 <section id="quantize-with-ai-model-efficiency-toolkit">
@@ -704,12 +746,12 @@ If the user desires to only tune either of dynamic or static quantization, Olive
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="peft-adapters.html"
+       href="sd-lora.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">PEFT Adapters</p>
+        <p class="prev-next-title">Diffusion Model LoRA Training</p>
       </div>
     </a>
     <a class="right-next"
@@ -773,7 +815,11 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#nvidia-tensorrt-model-optimizer-windows">NVIDIA TensorRT Model Optimizer-Windows</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Example Configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#a-pure-4-bit-quantization">a. Pure 4 bit Quantization</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#b-mixed-precision-quantization">b. Mixed Precision Quantization</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-ai-model-efficiency-toolkit">Quantize with AI Model Efficiency Toolkit</a><ul class="nav section-nav flex-column">
