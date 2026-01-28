@@ -1,0 +1,40 @@
+# Default dimension values for dummy input generation
+# These values are used when dimensions cannot be resolved from model config
+
+# Attribute aliases (same concept, different naming across models)
+aliases:
+  # Layer count
+  num_layers: [num_hidden_layers, n_layer, n_layers]
+  # Hidden dimensions
+  hidden_size: [dim, d_model, n_embd]
+  num_attention_heads: [num_heads, n_head, n_heads, encoder_attention_heads]
+  num_kv_heads: [num_key_value_heads]
+  # Image dimensions
+  height: [sample_size, image_size, vision_config.image_size]
+  width: [sample_size, image_size, vision_config.image_size]
+  num_channels: [in_channels, vision_config.num_channels]
+
+# Common
+batch_size: 2
+sequence_length: 16
+past_sequence_length: 16
+num_choices: 4
+vocab_size: 32000
+
+# Image
+width: 64
+height: 64
+num_channels: 3
+point_batch_size: 3
+nb_points_per_image: 2
+visual_seq_length: 16
+
+# Multimodal (CLIP, etc.)
+text_batch_size: 2
+image_batch_size: 2
+projection_dim: 512
+
+# Audio
+feature_size: 80
+nb_max_frames: 3000
+audio_sequence_length: 16000

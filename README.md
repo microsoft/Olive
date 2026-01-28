@@ -16,11 +16,12 @@ Given a model and targeted hardware, Olive (abbreviation of **O**nnx **LIVE**) c
 ## 📰 News Highlights
 Here are some recent videos, blog articles and labs that highlight Olive:
 
-- [ Sep 2025 ] [Olive examples are relocated to new Olive-recipes repository]((https://github.com/microsoft/olive-recipes)
+- [ Oct 2025 ] [Exploring Optimal Quantization Settings for Small Language Models with Olive](https://microsoft.github.io/Olive/blogs/quant-slms.html)
+- [ Sep 2025 ] [Olive examples are relocated to new Olive-recipes repository](https://github.com/microsoft/olive-recipes)
 - [ Aug 2025 ] [Olive 0.9.2 is released with new quantization algorithms](https://github.com/microsoft/Olive/releases/tag/v0.9.2)
 - [ May 2025 ] [Olive 0.9.0 is released with support for NPUs](https://github.com/microsoft/Olive/releases/tag/v0.9.0)
 - [ Mar 2025 ] [Olive 0.8.0 is released with new quantization techniques](https://github.com/microsoft/Olive/releases/tag/v0.8.0)
-- [ Feb 2025 ] [New Notebook available - Finetune and Optimize DeepSeek R1 with Olive 🐋 ](examples/getting_started/olive-deepseek-finetune.ipynb)
+- [ Feb 2025 ] [New Notebook available - Finetune and Optimize DeepSeek R1 with Olive 🐋 ](https://github.com/microsoft/Olive/blob/main/notebooks/olive-deepseek-finetune.ipynb)
 - [ Nov 2024 ] [Democratizing AI Model optimization with the new Olive CLI](https://onnxruntime.ai/blogs/olive-cli)
 - [ Nov 2024 ] [Unlocking NLP Potential: Fine-Tuning with Microsoft Olive (Ignite Pre-Day Lab PRE016)](https://github.com/Azure/Ignite_FineTuning_workshop)
 - [ Nov 2024 ] [Olive supports generating models for MultiLoRA serving on the ONNX Runtime ](https://onnxruntime.ai/blogs/multilora)
@@ -43,6 +44,27 @@ pip install transformers onnxruntime-genai
 ```
 > [!NOTE]
 > Olive has optional dependencies that can be installed to enable additional features. Please refer to [Olive package config](./olive/olive_config.json) for the list of extras and their dependencies.
+
+> [!NOTE]
+> For Windows users: to avoid HF_HUB_DISABLE_SYMLINKS_WARNING
+>
+> Olive depends on huggingface_hub library if you download models from there. On Windows you will get a warning like
+>
+> ```
+> UserWarning: `huggingface_hub` cache-system uses symlinks by default to efficiently store duplicated files but your machine does not support them in C:\Users\name\.cache\huggingface\hub\model-name.
+> Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.
+> ```
+>
+> You can fix this warning using one of the 4 options below. Note that option 1, 2 and 3 saves diskspace, while option 4 only supresses the warning
+>
+> 1. Enable Developer Mode on Windows (one-time setup) documented in the [Microsoft Developer Tools Docs](https://learn.microsoft.com/en-us/windows/advanced-settings/developer-mode).
+> 2. Run Python as administrator when using Olive with the huggingface_hub library.
+> 3. Reconfigure where the cache is stored. This restriction is not limited to storing the cache in the default location only.
+> 4. Keep using HF_HUB_DISABLE_SYMLINKS_WARNING=1 to suppress the warning and accept the extra disk usage.
+>
+> Regarding the options, you should decide what is possible in your environment (e.g. company policy) and what fits best for you.
+>
+> The limitation of the huggingface_hub library is also documentd in the [Hub Client Library Docs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache#limitations).
 
 #### 2. Automatic Optimizer
 
@@ -90,7 +112,7 @@ The sample chat app to run is found as [model-chat.py](https://github.com/micros
 ## 🎓 Learn more
 
 - [Documentation](https://microsoft.github.io/Olive)
-- [Recipes](https//github.com/microsoft/olive-recipes)
+- [Recipes](https://github.com/microsoft/olive-recipes)
 
 ## 🤝 Contributions and Feedback
 - We welcome contributions! Please read the [contribution guidelines](./CONTRIBUTING.md) for more details on how to contribute to the Olive project.
@@ -107,3 +129,5 @@ Licensed under the [MIT](./LICENSE) License.
 
 [![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive%20CI?label=Olive-CI)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1240)
 [![Build Status](https://dev.azure.com/aiinfra/PublicPackages/_apis/build/status%2FOlive-ORT-Nightly?label=Olive-ORT-Nightly)](https://dev.azure.com/aiinfra/PublicPackages/_build/latest?definitionId=1279)
+
+

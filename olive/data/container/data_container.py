@@ -46,12 +46,10 @@ class DataContainer(BaseModel):
         pre_process_dataset = self.pre_process(dataset)
         return self.dataloader(pre_process_dataset)
 
-    def create_calibration_dataloader(self, model_path=None, io_config=None, calibration_providers=None):
+    def create_calibration_dataloader(self, model_path=None, io_config=None):
         """Create calibration dataloader."""
         dataloader = self.create_dataloader()
-        return default_calibration_dataloader(
-            dataloader, model_path=model_path, io_config=io_config, calibration_providers=calibration_providers
-        )
+        return default_calibration_dataloader(dataloader, model_path=model_path, io_config=io_config)
 
     def get_first_batch(self, dataloader=None):
         """Get first batch of dataloader."""

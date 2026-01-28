@@ -37,7 +37,21 @@ def pytorch_model_loader(model_path):
 
 
 def get_pytorch_model_io_config(batch_size=1):
-    return {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(batch_size, 1)]}
+    return {
+        "input_names": ["input"],
+        "output_names": ["output"],
+        "input_shapes": [(batch_size, 1)],
+    }
+
+
+def get_pytorch_model_dynamic_shapes():
+    """Get dynamic_shapes dict for dynamo export to preserve batch dimension."""
+    from torch.export import Dim
+
+    batch_size = Dim("batch_size")
+    # DummyModel.forward(x) takes input 'x' with shape (batch_size, 1)
+    # Mark first dim as dynamic to preserve batch dimension
+    return {"x": {0: batch_size}}
 
 
 def get_pytorch_model_dummy_input(model=None, batch_size=1):
@@ -79,9 +93,10 @@ def create_onnx_model_file():
         pytorch_model,
         dummy_input,
         ONNX_MODEL_PATH,
-        opset_version=10,
         input_names=io_config["input_names"],
         output_names=io_config["output_names"],
+        external_data=False,
+        dynamo=True,
     )
 
 
@@ -89,14 +104,16 @@ def create_onnx_model_with_dynamic_axis(onnx_model_path, batch_size=1):
     pytorch_model = pytorch_model_loader(model_path=None)
     dummy_input = get_pytorch_model_dummy_input(pytorch_model, batch_size)
     io_config = get_pytorch_model_io_config()
+    dynamic_shapes = get_pytorch_model_dynamic_shapes()
     torch.onnx.export(
         pytorch_model,
         dummy_input,
         onnx_model_path,
-        opset_version=10,
         input_names=io_config["input_names"],
         output_names=io_config["output_names"],
-        dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+        external_data=False,
+        dynamo=True,
+        dynamic_shapes=dynamic_shapes,
     )
 
 
@@ -230,10 +247,12 @@ def get_throughput_metric(*lat_subtype, user_config=None):
     )
 
 
-def get_onnxconversion_pass(target_opset=13) -> type[Pass]:
+def get_onnxconversion_pass(target_opset=None) -> type[Pass]:
     from olive.passes.onnx.conversion import OnnxConversion
 
-    onnx_conversion_config = {"target_opset": target_opset}
+    onnx_conversion_config = {"use_dynamo_exporter": True}
+    if target_opset is not None:
+        onnx_conversion_config["target_opset"] = target_opset
     return create_pass_from_dict(OnnxConversion, onnx_conversion_config)
 
 
@@ -275,7 +294,7 @@ def get_glue_huggingface_data_config():
         type="HuggingfaceContainer",
         load_dataset_config=DataComponentConfig(
             params={
-                "data_name": "glue",
+                "data_name": "nyu-mll/glue",
                 "subset": "mrpc",
                 "split": "validation",
                 "batch_size": 1,
@@ -338,10 +357,11 @@ def create_raw_data(raw_data_dir, input_names, input_shapes, input_types=None, n
 
 
 def make_local_tiny_llama(save_path, model_type="hf"):
-    input_model = HfModelHandler(model_path="hf-internal-testing/tiny-random-LlamaForCausalLM")
-    loaded_model = input_model.load_model()
     # this checkpoint has an invalid generation config that cannot be saved
-    loaded_model.generation_config.pad_token_id = 1
+    input_model = HfModelHandler(
+        model_path="hf-internal-testing/tiny-random-LlamaForCausalLM", load_kwargs={"pad_token_id": 1}
+    )
+    loaded_model = input_model.load_model()
 
     save_path = Path(save_path)
     save_path.mkdir(parents=True, exist_ok=True)
@@ -361,6 +381,12 @@ def make_local_tiny_llama(save_path, model_type="hf"):
     )
 
 
+def get_tiny_phi3():
+    return HfModelHandler(
+        model_path="katuni4ka/tiny-random-phi3", load_kwargs={"revision": "585361abfee667f3c63f8b2dc4ad58405c4e34e2"}
+    )
+
+
 def get_wikitext_data_config(
     model_name_or_path, max_seq_len=1024, max_samples=1, strategy="join-random", pad_to_max_len=True
 ):
@@ -368,7 +394,7 @@ def get_wikitext_data_config(
         model_name=model_name_or_path,
         task="text-generation",
         load_dataset_config={
-            "data_name": "wikitext",
+            "data_name": "Salesforce/wikitext",
             "subset": "wikitext-2-raw-v1",
             "split": "train[:1000]",
         },

@@ -1,5 +1,4 @@
 global-exclude *.py[cod]
-recursive-include examples *
 recursive-include docs *
 prune */**/__pycache__
 prune docs/build/**/*

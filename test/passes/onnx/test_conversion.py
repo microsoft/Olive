@@ -8,19 +8,27 @@ from itertools import chain
 from pathlib import Path
 from unittest.mock import patch
 
+import onnx
 import pytest
 import torch
 from onnxscript import ir
 from packaging import version
 
 from olive.common.config_utils import validate_config
-from olive.model import HfModelHandler, PyTorchModelHandler
+from olive.model import PyTorchModelHandler
 from olive.model.config import IoConfig
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion, OnnxOpVersionConversion
 from olive.passes.pytorch.autogptq import GptqQuantizer
-from olive.passes.pytorch.gptq import Gptq
-from test.utils import ONNX_MODEL_PATH, get_hf_model, get_onnx_model, get_pytorch_model, pytorch_model_loader
+from olive.passes.pytorch.rtn import Rtn
+from test.utils import (
+    ONNX_MODEL_PATH,
+    get_hf_model,
+    get_onnx_model,
+    get_pytorch_model,
+    get_tiny_phi3,
+    pytorch_model_loader,
+)
 
 
 def _torch_is_older_than(version_str: str) -> bool:
@@ -32,10 +40,8 @@ def _torch_is_older_than(version_str: str) -> bool:
     ("input_model", "use_dynamo_exporter", "dynamic"),
     [
         (get_hf_model(), True, True),
-        (get_hf_model(), False, True),
         (get_hf_model(), True, False),
         (get_pytorch_model(), True, True),
-        (get_pytorch_model(), False, True),
         (get_pytorch_model(), True, False),
     ],
 )
@@ -50,46 +56,29 @@ def test_onnx_conversion_pass_with_exporters(input_model, use_dynamo_exporter: b
     assert Path(onnx_model.model_path).exists()
 
 
-@pytest.mark.parametrize("quantizer_pass", [Gptq, GptqQuantizer])
-def test_onnx_conversion_pass_quant_model(quantizer_pass, tmp_path):
+@pytest.mark.parametrize("quantizer_pass", [Rtn, GptqQuantizer])
+@pytest.mark.parametrize("use_dynamo_exporter", [True])
+def test_onnx_conversion_pass_quant_model(quantizer_pass, use_dynamo_exporter: bool, tmp_path):
+    if use_dynamo_exporter and platform.system() == "Windows":
+        pytest.skip("FIXME: torch ops fails on Windows")
+
     if quantizer_pass == GptqQuantizer and not torch.cuda.is_available():
         pytest.skip("GptqQuantizer requires CUDA")
 
-    # setup
-    base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
-    quantizer_pass = create_pass_from_dict(quantizer_pass, {"group_size": 16}, disable_search=True)
-    quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
-
-    p = create_pass_from_dict(OnnxConversion, {"torch_dtype": "float32"}, disable_search=True)
-    output_folder = str(tmp_path / "onnx")
-
-    # run
-    onnx_model = p.run(quantized_model, output_folder)
-
-    # assert
-    assert Path(onnx_model.model_path).exists()
-    model_ir = ir.load(onnx_model.model_path)
-    num_mnb = sum(node.op_type == "MatMulNBits" for node in model_ir.graph)
-    # 2 layers X 1 qkv, 1 o, 1 gate_up, 1 down
-    assert num_mnb == 2 * 4
-
-
-@pytest.mark.skipif(not hasattr(torch.onnx, "ops"), reason="requires torch>=2.8")
-@pytest.mark.skipif(platform.system() == "Windows", reason="FIXME: torch ops fails on Windows")
-@pytest.mark.parametrize("quantizer_pass", [Gptq, GptqQuantizer])
-def test_onnx_conversion_pass_quant_model_with_torch_ops(quantizer_pass, tmp_path):
-    if quantizer_pass == GptqQuantizer and not torch.cuda.is_available():
-        pytest.skip("GptqQuantizer requires CUDA")
+    if use_dynamo_exporter and version.parse(torch.__version__) != version.parse("2.8.0"):
+        pytest.skip("Dynamo export requires 2.8. 2.9+ has issues with older transformers versions.")
 
     # setup
-    base_model = HfModelHandler(model_path="katuni4ka/tiny-random-phi3")
-    # awq has minimum hidden size of 64 or 64 multiples so this model is not compatible
-    # only testing with gptq quantized model
-    quantizer_pass = create_pass_from_dict(Gptq, {"group_size": 16}, disable_search=True)
+    base_model = get_tiny_phi3()
+    pass_config = {"group_size": 16}
+    if quantizer_pass == Rtn:
+        pass_config["lm_head"] = True
+        pass_config["embeds"] = True
+    quantizer_pass = create_pass_from_dict(quantizer_pass, pass_config, disable_search=True)
     quantized_model = quantizer_pass.run(base_model, str(tmp_path / "quantized"))
 
     p = create_pass_from_dict(
-        OnnxConversion, {"torch_dtype": "float32", "use_dynamo_exporter": True}, disable_search=True
+        OnnxConversion, {"torch_dtype": "float32", "use_dynamo_exporter": use_dynamo_exporter}, disable_search=True
     )
     output_folder = str(tmp_path / "onnx")
 
@@ -101,11 +90,21 @@ def test_onnx_conversion_pass_quant_model_with_torch_ops(quantizer_pass, tmp_pat
     model_ir = ir.load(onnx_model.model_path)
     num_mnb = sum(node.op_type == "MatMulNBits" for node in model_ir.graph)
     # 2 layers X 1 qkv, 1 o, 1 gate_up, 1 down
-    assert num_mnb == 2 * 4
+    expected_num_mnb = 2 * 4
+    if pass_config.get("lm_head", False):
+        expected_num_mnb += 1
+    assert num_mnb == expected_num_mnb
+
+    num_gbq = sum(node.op_type == "GatherBlockQuantized" for node in model_ir.graph)
+    expected_num_gbq = 1 if pass_config.get("embeds", False) else 0
+    assert num_gbq == expected_num_gbq
 
 
-@pytest.mark.parametrize("target_opset", [9, 10, 16])
+@pytest.mark.parametrize("target_opset", [16, 17, 18])
 def test_onnx_op_version_conversion_pass(target_opset, tmp_path):
+    # Note: The test ONNX model is created with dynamo export at opset 20.
+    # ONNX version converter cannot downgrade Gemm from opset 13+ to opset 9/10,
+    # so we only test conversion to opset 16+.
     input_model = get_onnx_model()
     # setup
     p = create_pass_from_dict(
@@ -202,12 +201,19 @@ def get_dummy_inputs_llama2(_):
 )
 @patch("torch.onnx.export")
 def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_config_func, dummy_inputs_func):
-    dummy_inputs = None
+    dummy_kwargs = None
+
+    class MockOnnxProgram:
+        def __init__(self, model_path):
+            self.model = ir.serde.deserialize_model(onnx.load(model_path))
 
     def mock_onnx_export_func(*args, **kwargs):
-        nonlocal dummy_inputs
-        _, dummy_inputs, output_path = args
+        nonlocal dummy_kwargs
+        # For dynamo export, inputs are passed via kwargs parameter
+        dummy_kwargs = kwargs.get("kwargs", {})
+        _, _, output_path = args
         shutil.copyfile(ONNX_MODEL_PATH, output_path)
+        return MockOnnxProgram(output_path)
 
     output_folder = tmp_path / "onnx"
     output_folder.mkdir(parents=True, exist_ok=True)
@@ -219,9 +225,9 @@ def test_onnx_conversion_with_past_key_values(mock_onnx_export, tmp_path, io_con
     )
     mock_onnx_export.side_effect = mock_onnx_export_func
     # setup
-    p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
+    p = create_pass_from_dict(OnnxConversion, {"use_dynamo_exporter": True}, disable_search=True)
     _ = p.run(input_model, str(output_folder))
-    assert "past_key_values" in dummy_inputs  # pylint: disable=unsupported-membership-test
+    assert "past_key_values" in dummy_kwargs  # pylint: disable=unsupported-membership-test
 
 
 @pytest.mark.parametrize(

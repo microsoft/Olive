@@ -40,6 +40,7 @@ PROVIDER_PACKAGE_MAPPING = {
 DEVICE_TO_EXECUTION_PROVIDERS = {
     "cpu": {ExecutionProvider.CPUExecutionProvider, ExecutionProvider.OpenVINOExecutionProvider},
     "gpu": {
+        ExecutionProvider.QNNExecutionProvider,
         ExecutionProvider.DmlExecutionProvider,
         ExecutionProvider.CUDAExecutionProvider,
         ExecutionProvider.ROCMExecutionProvider,

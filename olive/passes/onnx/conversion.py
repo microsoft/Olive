@@ -21,8 +21,11 @@ from transformers.modeling_utils import PreTrainedModel
 
 from olive.common.config_utils import get_the_flattened_and_tree_spec, validate_config
 from olive.common.utils import find_submodules, resolve_torch_dtype, tensor_data_to_device, tensor_data_to_dtype
+from olive.constants import DiffusersComponent
 from olive.hardware import AcceleratorSpec
 from olive.model import (
+    CompositeModelHandler,
+    DiffusersModelHandler,
     DistributedHfModelHandler,
     DistributedOnnxModelHandler,
     HfModelHandler,
@@ -122,7 +125,9 @@ def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
 
         outputs = orig_forward(*args, **kwargs)
 
-        if isinstance(outputs.get("past_key_values"), (DynamicCache, EncoderDecoderCache)):
+        if isinstance(outputs, dict) and isinstance(
+            outputs.get("past_key_values"), (DynamicCache, EncoderDecoderCache)
+        ):
             outputs["past_key_values"] = outputs["past_key_values"].to_legacy_cache()
 
         return outputs
@@ -207,6 +212,11 @@ def _export_pytorch_model(
                     "Please upgrade PyTorch to 2.6.0 or above."
                 )
 
+            # Register DynamicCache export support
+            from transformers.integrations.executorch import register_dynamic_cache_export_support
+
+            register_dynamic_cache_export_support()
+
             if isinstance(dummy_inputs, dict):
                 dummy_kwargs = dummy_inputs
                 dummy_inputs = ()
@@ -220,6 +230,12 @@ def _export_pytorch_model(
             io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
                 io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
             )
+
+            # When dynamo=True, PyTorch prefers dynamic_shapes over dynamic_axes.
+            # If dynamic_shapes is None and fallback is enabled, don't pass dynamic_axes
+            # to avoid conversion errors. The fallback path will handle dynamic axes.
+            dynamic_axes_for_export = io_config.dynamic_axes if io_config.dynamic_shapes else None
+
             onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
                 pytorch_model,
                 dummy_inputs,
@@ -228,10 +244,10 @@ def _export_pytorch_model(
                 opset_version=config.target_opset,
                 input_names=io_config.input_names,
                 output_names=io_config.output_names,
-                dynamic_axes=io_config.dynamic_axes,
+                dynamic_axes=dynamic_axes_for_export,
                 dynamic_shapes=io_config.dynamic_shapes,
                 dynamo=True,
-                fallback=True,
+                fallback=False,
                 optimize=config.optimize,
                 report=logger.isEnabledFor(logging.DEBUG),
             )
@@ -243,6 +259,11 @@ def _export_pytorch_model(
             # can be removed.
             ir.external_data.load_to_model(model)
         else:
+            dynamo_args = {}
+            if not _torch_is_older_than("2.9.0"):
+                # default is True in 2.9.0 and later
+                dynamo_args["dynamo"] = False
+
             torch.onnx.export(
                 pytorch_model,
                 dummy_inputs,
@@ -252,11 +273,13 @@ def _export_pytorch_model(
                 input_names=io_config.input_names,
                 output_names=io_config.output_names,
                 dynamic_axes=io_config.dynamic_axes,
+                **dynamo_args,
             )
-            model = ir.load(tmp_model_path)
             # After the line below, the model is loaded into memory, so it's safe to
             # delete previously exported file(s)
-            ir.external_data.load_to_model(model)
+            # loading using onnx for now since ir.external_data.load_to_model doesn't load constants from external files
+            # it's also faster this way
+            model = ir.serde.deserialize_model(onnx.load(tmp_model_path))
 
             # Workaround as described under IoConfig.string_to_int_dim_params: change numeric dim_param to dim_value
             if io_config.string_to_int_dim_params:
@@ -511,10 +534,10 @@ class OnnxConversion(Pass):
 
     def _run_for_config_internal(
         self,
-        model: Union[DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
+        model: Union[DiffusersModelHandler, DistributedHfModelHandler, HfModelHandler, PyTorchModelHandler],
         config: type[BasePassConfig],
         output_model_path: str,
-    ) -> Union[DistributedOnnxModelHandler, ONNXModelHandler]:
+    ) -> Union[CompositeModelHandler, DistributedOnnxModelHandler, ONNXModelHandler]:
         # get the device to use for conversion
         # default to "cpu" for PyTorchModelHandler and "cuda" for DistributedHfModel
         device = config.device or "cpu"
@@ -526,6 +549,9 @@ class OnnxConversion(Pass):
                 " is incorrect, try converting the model on GPU or convert in float32 and use"
                 " OrtTransformerOptimization/OnnxFloatToFloat16 pass after this pass."
             )
+
+        if isinstance(model, DiffusersModelHandler):
+            return self._convert_diffusers_model(model, config, output_model_path, device, torch_dtype)
 
         if isinstance(model, DistributedHfModelHandler):
             if not config.device:
@@ -582,6 +608,158 @@ class OnnxConversion(Pass):
 
         output_model.model_attributes = model_attributes
         return output_model
+
+    def _convert_diffusers_model(
+        self,
+        model: DiffusersModelHandler,
+        config: type[BasePassConfig],
+        output_model_path: str,
+        device: str,
+        torch_dtype: Optional[torch.dtype] = None,
+    ) -> CompositeModelHandler:
+        """Convert a DiffusersModelHandler to ONNX models.
+
+        Args:
+            model: The DiffusersModelHandler to convert.
+            config: The pass configuration.
+            output_model_path: The output path for the ONNX models.
+            device: The device to use for conversion.
+            torch_dtype: The dtype to cast the model to before conversion.
+
+        Returns:
+            CompositeModelHandler containing ONNXModelHandler for each component.
+
+        """
+        from olive.common.hf.io_config import generate_diffusers_dummy_inputs, get_diffusers_io_config
+        from olive.common.hf.peft import make_export_compatible_peft
+
+        output_dir = Path(output_model_path).with_suffix("")
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Load the pipeline (this also loads LoRA if adapter_path is set)
+        pipeline = model.load_model(cache_model=False)
+
+        # Get the pipeline type and exportable components
+        pipeline_type = model.get_pipeline_type()
+        exportable_components = model.get_exportable_components()
+
+        logger.info("Exporting diffusers model: %s (type: %s)", model.model_path, pipeline_type)
+
+        component_handlers = []
+        component_names = []
+
+        for component_name in exportable_components:
+            # Get the component model and config
+            component_model, component_config = self._get_diffusers_component(pipeline, component_name)
+
+            if component_model is None:
+                logger.warning("Component %s not found in pipeline, skipping", component_name)
+                continue
+
+            # Apply LoRA compatibility for unet/transformer if adapter was loaded
+            if model.adapter_path and component_name in (DiffusersComponent.UNET, DiffusersComponent.TRANSFORMER):
+                component_model = make_export_compatible_peft(
+                    component_model,
+                    merge_weights=config.merge_adapter_weights,
+                )
+
+            # Move to device and dtype
+            component_model = component_model.to(device)
+            if torch_dtype:
+                component_model = component_model.to(torch_dtype)
+            component_model.eval()
+
+            # Generate dummy inputs using new task-driven API
+            dummy_inputs = generate_diffusers_dummy_inputs(
+                component_name=component_name,
+                config=component_config,
+            )
+
+            # Get IO config using new task-driven API
+            io_config = get_diffusers_io_config(
+                component_name=component_name,
+                config=component_config,
+            )
+
+            # Create output directory for this component
+            component_dir = output_dir / component_name
+            component_dir.mkdir(parents=True, exist_ok=True)
+            component_output_path = str(component_dir / "model.onnx")
+
+            # Export using _export_pytorch_model
+            ir_model = _export_pytorch_model(
+                component_model,
+                dummy_inputs,
+                io_config=io_config,
+                config=config,
+                device=device,
+                dynamo=config.use_dynamo_exporter,
+                torch_dtype=torch_dtype,
+            )
+
+            # Save the model
+            output_model = ir_model_to_olive_model(ir_model, component_output_path, config)
+            component_handlers.append(output_model)
+            component_names.append(component_name)
+            logger.info("Exported %s to %s", component_name, component_output_path)
+
+            # Clean up GPU memory
+            del component_model
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+        if not component_handlers:
+            raise ValueError(
+                f"No ONNX components exported from '{model.model_path}'. "
+                "Ensure the model is a valid diffusion pipeline."
+            )
+
+        model_attributes = deepcopy(model.model_attributes or {})
+        model_attributes["model_variant"] = str(model.detected_model_variant)
+        model_attributes["no_flatten"] = True
+
+        return CompositeModelHandler(
+            model_components=component_handlers,
+            model_component_names=component_names,
+            model_path=str(output_dir),
+            model_attributes=model_attributes,
+        )
+
+    def _get_diffusers_component(
+        self, pipeline, component_name: str
+    ) -> tuple[Optional[torch.nn.Module], Optional[Any]]:
+        """Get a component model and its config from the pipeline.
+
+        Args:
+            pipeline: The diffusion pipeline.
+            component_name: Name of the component to get.
+
+        Returns:
+            Tuple of (component_model, component_config), or (None, None) if not found.
+
+        """
+        from olive.model.utils.diffusers_utils import get_vae_decoder, get_vae_encoder
+
+        # Handle VAE encoder/decoder specially
+        if component_name == DiffusersComponent.VAE_ENCODER:
+            vae = getattr(pipeline, "vae", None)
+            if vae is None:
+                return None, None
+            return get_vae_encoder(vae), vae.config
+
+        if component_name == DiffusersComponent.VAE_DECODER:
+            vae = getattr(pipeline, "vae", None)
+            if vae is None:
+                return None, None
+            return get_vae_decoder(vae), vae.config
+
+        # For other components, get directly from pipeline
+        component = getattr(pipeline, component_name, None)
+        if component is None:
+            return None, None
+
+        config = getattr(component, "config", None)
+        return component, config
 
     def _convert_distributed_model_on_device(
         self,
@@ -675,7 +853,7 @@ def _validate_dynamic_shapes(dynamic_shapes, dummy_inputs, dummy_kwargs, model):
     # Align tree spec only for not transformers.Cache.
     if len(dummy_inputs) == 0:
         for k, v in dummy_kwargs.items():
-            if not isinstance(v, transformers.Cache):
+            if not isinstance(v, transformers.Cache) and k in dynamic_shapes:
                 input_tree_spec = _pytree.tree_flatten(v)[1]
                 flatten_dynamic_shapes = get_the_flattened_and_tree_spec(dynamic_shapes[k], leaf_is_str=False)[0]
                 dynamic_shapes[k] = _pytree.tree_unflatten(flatten_dynamic_shapes, input_tree_spec)

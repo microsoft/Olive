@@ -363,7 +363,7 @@ Users can build their own workflows using the python api but we also provide a c
 python –m olive.workflows.run --config <json config path>
 ```
 
-Please refer to `examples/bert_ptq_cpu/bert_config.json` for an example.
+Please refer to [olive-recipes](https://github.com/microsoft/olive-recipes) repo for examples.
 
 This tool is also available for use in the python api
 ```python

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import huggingface_hub
 import pytest
@@ -36,13 +36,14 @@ class TestHFModel:
         )
 
         pytorch_model = olive_model.load_model()
-        modeling_dir = Path(self.local_path).name if local else f"{self.model_name.replace('/', '.')}.{self.revision}"
-        expected_class_name = (
-            f"transformers_modules.{modeling_dir}.modeling_phi3.Phi3ForCausalLM"
-            if trust_remote_code
-            else "transformers.models.phi3.modeling_phi3.Phi3ForCausalLM"
-        )
-        assert f"{pytorch_model.__module__}.{pytorch_model.__class__.__name__}" == expected_class_name
+        actual_class_path = f"{pytorch_model.__module__}.{pytorch_model.__class__.__name__}"
+        if trust_remote_code:
+            # When using remote code, the model is loaded from transformers_modules
+            assert actual_class_path.startswith("transformers_modules.")
+            assert actual_class_path.endswith(".modeling_phi3.Phi3ForCausalLM")
+        else:
+            # When not using remote code, the model is loaded from transformers
+            assert actual_class_path == "transformers.models.phi3.modeling_phi3.Phi3ForCausalLM"
 
     @pytest.mark.parametrize("local", [True, False])
     def test_load_model_with_kwargs(self, local):
@@ -72,7 +73,8 @@ class TestHFModel:
         if tokenizer_exists:
             olive_model.get_hf_tokenizer().save_pretrained(tmp_path)
         saved_filepaths = olive_model.save_metadata(tmp_path)
-        assert len(saved_filepaths) == (4 if tokenizer_exists else 9)
+        # transformers>=4.53.x
+        assert len(saved_filepaths) == (4 if tokenizer_exists else 10)
         assert all(Path(fp).exists() for fp in saved_filepaths)
         assert isinstance(transformers.AutoConfig.from_pretrained(tmp_path), transformers.Phi3Config)
         assert isinstance(transformers.AutoTokenizer.from_pretrained(tmp_path), transformers.LlamaTokenizerFast)
@@ -92,8 +94,8 @@ class TestHFModel:
         loaded_model.save_pretrained(tmp_path)
 
         saved_filepaths = olive_model.save_metadata(tmp_path)
-        # generation config is also saved
-        assert len(saved_filepaths) == 8
+        # generation config is also saved, transformers>=4.53.x
+        assert len(saved_filepaths) == 9
 
         with open(tmp_path / "config.json") as f:
             config = json.load(f)
@@ -220,5 +222,5 @@ class TestHFDummyInput:
         # get dummy inputs
         dummy_inputs = olive_model.get_dummy_inputs()
 
-        get_model_dummy_input.assert_called_once_with(self.model_name, self.task)
+        get_model_dummy_input.assert_called_once_with(self.model_name, self.task, model=ANY)
         assert dummy_inputs == 1

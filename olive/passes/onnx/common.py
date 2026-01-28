@@ -12,6 +12,7 @@ from typing import Any, Callable, Optional, Union
 import onnx
 from onnx import external_data_helper
 from onnxscript import ir
+from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
 
 from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -76,6 +77,27 @@ def get_external_data_config() -> dict[str, PassConfigParam]:
     }
 
 
+def add_version_metadata_to_model_proto(model: onnx.ModelProto) -> onnx.ModelProto:
+    olive_version = None
+    try:
+        import olive
+
+        olive_version = getattr(olive, "__version__", "unknown")
+    except Exception:
+        olive_version = "unknown"
+
+    for md in model.metadata_props:
+        if md.key == "olive_version":
+            md.value = olive_version
+            return model
+
+    md = model.metadata_props.add()
+    md.key = "olive_version"
+    md.value = olive_version
+
+    return model
+
+
 def model_proto_to_file(
     model: onnx.ModelProto,
     output_path: Union[str, Path],
@@ -119,6 +141,8 @@ def model_proto_to_file(
         )
 
     if not save_as_external_data:
+        # Add olive version to metadata
+        add_version_metadata_to_model_proto(model)
         # save model
         onnx.save_model(model, str(output_path))
         return False
@@ -136,6 +160,8 @@ def model_proto_to_file(
         if any(output_dir.iterdir()):
             raise RuntimeError(f"Output directory ({output_dir}) for external data is not empty.")
 
+    # Add olive version to metadata
+    add_version_metadata_to_model_proto(model)
     # save model
     onnx.save_model(
         model,
@@ -190,7 +216,6 @@ def model_proto_to_olive_model(
     )
     if has_external_data or external_initializers_file_name or constant_inputs_file_name or force_model_dir:
         model_path = LocalFolder({"path": Path(output_model_path).parent})
-
         onnx_file_name = Path(output_model_path).name
     else:
         model_path = LocalFile({"path": output_model_path})
@@ -255,7 +280,6 @@ def ir_model_to_olive_model(
         logger.debug("Model was saved with external data: %s", external_data_name)
         model_path = LocalFolder({"path": Path(output_model_path).parent})
         onnx_file_name = Path(output_model_path).name
-
     else:
         ir.save(model, output_model_path)
 
@@ -392,7 +416,7 @@ def resave_model(
     if not external_file_names:
         if force_external_data:
             # save the model with single external data file
-            model_proto_to_file(onnx.load(model_path), new_model_path, {"save_as_external_data": True})
+            model_proto_to_file(onnx.load(model_path), new_model_path, save_as_external_data=True)
             return True
 
         # no external data, so we can just copy the model
@@ -401,7 +425,7 @@ def resave_model(
 
     if len(external_file_names) > 1:
         # save the model with single external data file
-        model_proto_to_file(onnx.load(model_path), new_model_path, {"save_as_external_data": True})
+        model_proto_to_file(onnx.load(model_path), new_model_path, save_as_external_data=True)
         return True
 
     external_file_path = str(model_path.parent / external_file_names[0])
@@ -422,14 +446,16 @@ def resave_model(
     return True
 
 
-LORA_NAME_PATTERNS = [
+LORA_NAME_PATTERNS_TORCHSCRIPT = [
     f".*[./]{name}[./]{matmul}$"
     for name in ["default_0", "default_0_1", "default", "default_1", "lora_A", "lora_B"]
     for matmul in ["MatMul", "MatMul_Q4"]
 ]
-LOHA_NAME_PATTERNS = [f".*[./]{name}[./]default" for name in ["hada_w1_a", "hada_w1_b", "hada_w2_a", "hada_w2_b"]]
+LOHA_NAME_PATTERNS_TORCHSCRIPT = [
+    f".*[./]{name}[./]default" for name in ["hada_w1_a", "hada_w1_b", "hada_w2_a", "hada_w2_b"]
+]
 
-DORA_NAME_PATTERNS = [
+DORA_NAME_PATTERNS_TORCHSCRIPT = [
     f".*{pattern}$"
     for pattern in [
         "default/Div",
@@ -440,9 +466,58 @@ DORA_NAME_PATTERNS = [
     ]
 ]
 
+LORA_NAME_PATTERNS_DYNAMO = ["lora_A", "lora_B"]
+LOHA_NAME_PATTERNS_DYNAMO = ["hada_w1_a", "hada_w1_b", "hada_w2_a", "hada_w2_b"]
+DORA_NAME_PATTERNS_DYNAMO = ["lora_A", "lora_B", "lora_magnitude_vector"]
+PATTERN_MAP_DYNAMO = {
+    AdapterType.LORA: LORA_NAME_PATTERNS_DYNAMO,
+    AdapterType.DORA: DORA_NAME_PATTERNS_DYNAMO,
+    AdapterType.LOHA: LOHA_NAME_PATTERNS_DYNAMO,
+}
+
+
+def model_has_adapters_from_dynamo(model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA) -> bool:
+    """Check if the model has adapters.
+
+    :param model_path: The path to the model.
+    :return: True if the model has adapters, False otherwise.
+    """
+    ir_model = ir.load(model_path)
+    return any(
+        get_adapter_name(initializer, PATTERN_MAP_DYNAMO.get(adapter_type, []))
+        for initializer in ir_model.graph.initializers.values()
+    )
+
+
+def get_adapter_name(initializer, patterns) -> str:
+    """Get the adapter name from the initializer.
+
+    If the model is exported by torch dynamo, the LORA adapter may be folded into a single tensor.
+    In this case, the adapter name is stored in the metadata_props of the initializer.
+    We look for the adapter name in both the initializer name and the metadata_props.
+    If not found, return None.
+
+    :param initializer: The initializer to check.
+    :param patterns: The patterns to look for.
+    :return: The adapter name if found, None otherwise.
+    """
+    adapter_name = None
+
+    if any(x in initializer.name for x in patterns):
+        adapter_name = initializer.name
+    elif FOLDED_FROM_KEY in initializer.metadata_props:
+        import ast
+
+        folded_from_str = initializer.metadata_props[FOLDED_FROM_KEY]
+        folded_from = set(ast.literal_eval(folded_from_str))
+        adapter_name = next((s for s in folded_from if any(x in s for x in patterns)), None)
+    return adapter_name
+
 
 # TODO(jambayk): considering matching by subgraph pattern, more involved but more reliable
-def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA) -> bool:
+def model_has_adapters_from_torchscript(
+    model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA
+) -> bool:
     """Check if the model has adapters.
 
     :param model_path: The path to the model.
@@ -463,20 +538,28 @@ def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType =
 
 def is_dora_node(op_type: str, node_name: str) -> bool:
     return op_type in {"MatMul", "MatMulNBits", "Div"} and any(
-        re.match(pattern, node_name) for pattern in DORA_NAME_PATTERNS
+        re.match(pattern, node_name) for pattern in DORA_NAME_PATTERNS_TORCHSCRIPT
     )
 
 
 def is_lora_node(op_type: str, node_name: str) -> bool:
-    return op_type in {"MatMul", "MatMulNBits"} and any(re.match(pattern, node_name) for pattern in LORA_NAME_PATTERNS)
+    return op_type in {"MatMul", "MatMulNBits"} and any(
+        re.match(pattern, node_name) for pattern in LORA_NAME_PATTERNS_TORCHSCRIPT
+    )
 
 
 def is_loha_model(dag: OnnxDAG) -> bool:
     for graph in dag.graphs:
         for initializer in graph.initializer:
-            if any(re.match(pattern, initializer.name) for pattern in LOHA_NAME_PATTERNS):
+            if any(re.match(pattern, initializer.name) for pattern in LOHA_NAME_PATTERNS_TORCHSCRIPT):
                 return True
     return False
+
+
+def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA) -> bool:
+    return model_has_adapters_from_dynamo(model_path, adapter_type) or model_has_adapters_from_torchscript(
+        model_path, adapter_type
+    )
 
 
 def _fix_output_shapes(model_proto: onnx.ModelProto):
@@ -677,6 +760,8 @@ def update_llm_pipeline_genai_config(
                 pipeline_config[name]["session_options"] = group_session_options
             pipeline_config[name][f"run_on_{dont_run_on}"] = False
 
+    pipeline_config[llm_pipeline["lm_head"]]["is_lm_head"] = True
+
     decoder_config["pipeline"] = [pipeline_config]
 
     # save the updated genai_config
@@ -688,3 +773,100 @@ def update_llm_pipeline_genai_config(
     additional_files.append(str(new_genai_config_path))
 
     return model
+
+
+def update_llm_pipeline_genai_config_gpu(
+    model: ONNXModelHandler,
+    output_model_dir: Union[str, Path],
+    input_model_path: Union[str, Path],
+    decoder_config_extra: Optional[dict[str, Any]] = None,
+) -> ONNXModelHandler:
+    """Update the LLM pipeline in the model's genai_config.json file.
+
+    :param model: The  model to update.
+    :param decoder_config_extra: Extra configuration for the decoder.
+    """
+    output_model_dir = Path(output_model_dir)
+
+    # update genai_config if it exists
+    genai_config_path = None
+    genai_config_path = Path(input_model_path).parent / "genai_config.json"
+
+    if genai_config_path.exists():
+        genai_config_path = str(genai_config_path.resolve())
+    else:
+        return model
+
+    with open(genai_config_path) as f:
+        genai_config = json.load(f)
+
+    # update model_type
+    genai_config["model"]["type"] = "decoder-pipeline"
+
+    # Update the provider_options list
+    provider_option = {"qnn": {"backend_type": "gpu"}}
+    genai_config["model"]["decoder"]["session_options"]["provider_options"] = [provider_option]
+
+    # update decoder config
+    decoder_config = genai_config["model"]["decoder"]
+    decoder_config.get("sliding_window", {}).pop("slide_inputs", None)
+    for key, value in (decoder_config_extra or {}).items():
+        exisiting_value = decoder_config.get(key)
+        if isinstance(exisiting_value, dict):
+            exisiting_value.update(value)
+        elif isinstance(exisiting_value, list):
+            exisiting_value.extend(value)
+        else:
+            decoder_config[key] = value
+
+    pipeline_config = {}
+    component_io_config = model.io_config
+    pipeline_config["model_onnx"] = {
+        "filename": Path(model.model_path).name,
+        "inputs": component_io_config["input_names"],
+        "outputs": component_io_config["output_names"],
+    }
+
+    decoder_config["pipeline"] = [pipeline_config]
+
+    # save the updated genai_config
+    new_genai_config_path = output_model_dir / "genai_config.json"
+    with new_genai_config_path.open("w") as f:
+        json.dump(genai_config, f, indent=4)
+
+    return model
+
+
+def update_llm_pipeline_genai_config_gpu_ctxbin(
+    model_path: Union[str, Path],
+) -> None:
+    """Update the filename fields in the model's genai_config.json file from 'model' to 'model_ctx'.
+
+    The genai_config.json file is updated in place in the model's directory.
+    :param model_path: Path to the model file.
+    """
+    # Find genai_config in the model's directory
+    model_dir = Path(model_path).parent
+    genai_config_path = model_dir / "genai_config.json"
+
+    if not genai_config_path.exists():
+        return
+
+    with open(genai_config_path) as f:
+        genai_config = json.load(f)
+
+    # Update decoder filename to 'model_ctx'
+    if "decoder" in genai_config.get("model", {}):
+        if "filename" in genai_config["model"]["decoder"]:
+            genai_config["model"]["decoder"]["filename"] = "model/model_ctx.onnx"
+
+        # Update filename in pipeline configuration
+        decoder_config = genai_config["model"]["decoder"]
+        if "pipeline" in decoder_config and isinstance(decoder_config["pipeline"], list):
+            for pipeline_item in decoder_config["pipeline"]:
+                if "model_onnx" in pipeline_item and "filename" in pipeline_item["model_onnx"]:
+                    pipeline_item["model_onnx"]["filename"] = "model/model_ctx.onnx"
+
+    # Save the updated genai_config back to the same location
+    with genai_config_path.open("w") as f:
+        json.dump(genai_config, f, indent=4)

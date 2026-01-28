@@ -6,6 +6,8 @@
 from pathlib import Path
 
 import pytest
+import torch
+from packaging import version
 
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -13,6 +15,10 @@ from olive.passes.onnx.optimum_conversion import OptimumConversion
 from test.utils import get_hf_model
 
 
+@pytest.mark.skipif(
+    version.parse(torch.__version__) >= version.parse("2.9.0"),
+    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
+)
 @pytest.mark.parametrize("extra_args", [{"atol": 0.1}, {"atol": None}])
 def test_optimum_conversion_pass(extra_args, tmp_path):
     input_model = get_hf_model()
@@ -27,6 +33,10 @@ def test_optimum_conversion_pass(extra_args, tmp_path):
     assert Path(onnx_model.model_path).exists()
 
 
+@pytest.mark.skipif(
+    version.parse(torch.__version__) >= version.parse("2.9.0"),
+    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
+)
 @pytest.mark.parametrize(
     ("components", "extra_args", "expected_components"),
     [
@@ -71,6 +81,10 @@ def test_optimum_conversion_pass_with_components(components, extra_args, expecte
         assert set(component_names) == set(expected_components)
 
 
+@pytest.mark.skipif(
+    version.parse(torch.__version__) >= version.parse("2.9.0"),
+    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
+)
 @pytest.mark.parametrize(
     ("config", "is_valid"),
     [

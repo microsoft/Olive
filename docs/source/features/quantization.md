@@ -72,7 +72,7 @@ This pass supports ONNX models and can quantize `MatMul` and `Gather` nodes to 4
 ```
 
 ## HQQ
-`HQQ (Half-Quadratic Quantization)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, [HQQ](https://mobiusml.github.io/hqq_blog/) uses half-quadratic splitting to minimize weight quantization error efficiently.
+`HQQ (Half-Quadratic Quantization)` is a fast, calibration-free weight quantization method that enables low-bit quantization of large models without relying on gradient-based optimization. Unlike data-dependent approaches like GPTQ, [HQQ](https://dropbox.github.io/hqq_blog/) uses half-quadratic splitting to minimize weight quantization error efficiently.
 
 This pass only supports ONNX models, and will only quantize `MatMul` nodes to 4 bits.
 
@@ -185,16 +185,147 @@ The TensorRT Model Optimizer-Windows is engineered to deliver advanced model com
 
 The primary objective of the TensorRT Model Optimizer-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard.
 
-Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ algorithm.
+Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ and RTN algorithms.
 
 ### Example Configuration
+
+#### a. Pure 4 bit Quantization
+
 ```json
 "quantization": {
     "type": "NVModelOptQuantization",
     "algorithm": "awq",
     "tokenizer_dir": "microsoft/Phi-3-mini-4k-instruct",
-    "calibration": "awq_lite"
+    "calibration_method": "awq_lite"
 }
 ```
 
-Please refer to [Phi3.5 example](https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3.5-mini-instruct/NvTensorRtRtx)  for usability and setup details.
+#### b. Mixed Precision Quantization
+
+For better accuracy while maintaining model compression, you can enable mixed precision quantization using the `enable_mixed_quant` parameter. This allows higher precision levels (8 bit) for important layers of the model while using 4 bits for others:
+
+**1. Default Mixed Precision Strategy**
+
+```json
+"quantization": {
+    "type": "NVModelOptQuantization",
+    "algorithm": "awq",
+    "tokenizer_dir": "meta-llama/Llama-3.1-8B-Instruct",
+    "calibration_method": "awq_lite",
+    "enable_mixed_quant": true
+}
+```
+
+Configuration:
+
+- `enable_mixed_quant` is set to `true`, the default mixed precision strategy quantizes:
+- **8 bit layer**: Important layer are quantized 8-bits per-channel
+- **4 bit layer**: All other layers
+
+**2. Custom Layer Selection with layers_8bit**
+
+For fine-grained control over which specific layers should use INT8 quantization, use the `layers_8bit` parameter with a comma-separated list of layer name patterns:
+
+```json
+"quantization": {
+    "type": "NVModelOptQuantization",
+    "algorithm": "awq",
+    "tokenizer_dir": "meta-llama/Llama-3.1-8B-Instruct",
+    "calibration_method": "awq_lite",
+    "layers_8bit": "model.layers.0,model.layers.1,lm_head"
+}
+```
+
+Configurations:
+
+- `layers_8bit` accepts comma-separated layer name patterns (e.g., `"model.layers.0,lm_head"`)
+- Matching layers are quantized to 8 bit for better accuracy, they are quantized per-channel
+- Non-matching layers are quantized to 4 bit for efficiency
+- When `layers_8bit` is specified, mixed precision is automatically enabled
+- Overrides the default `enable_mixed_quant` strategy
+
+Please refer to [Phi3.5 example](https://github.com/microsoft/olive-recipes/tree/main/microsoft-Phi-3.5-mini-instruct/NvTensorRtRtx) for usability and setup details.
+
+
+## Quantize with AI Model Efficiency Toolkit
+Olive supports quantizing models with Qualcomm's [AI Model Efficiency Toolkit](https://github.com/quic/aimet) (AIMET).
+
+AIMET is a software toolkit for quantizing trained ML models to optimize deployment on edge devices such as mobile phones or laptops. AIMET employs post-training and fine-tuning techniques to minimize accuracy loss during quantization.
+
+Olive consolidates AIMET quantization into a single pass called AimetQuantization which supports LPBQ, SeqMSE, and AdaRound. Multiple techniques can be applied in a single pass by listing them in the techniques array. If no techniques are specified, AIMET applies basic static quantization to the model using the provided data.
+
+| Technique                      | Description                                                                 |
+|--------------------------------|-----------------------------------------------------------------------------|
+| **LPBQ**     | An alternative to blockwise quantization which allows backends to leverage existing per-channel quantization kernels while significantly improving encoding granularity. |
+| **SeqMSE**   | Optimizes the weight encodings of each layer of a model to minimize the difference between the layer's original and quantized outputs. |
+| **AdaRound** | Tunes the rounding direction for quantized model weights to minimize the local quantization error at each layer output. |
+
+### Example Configuration
+
+```json
+{
+    "type": "AimetQuantization",
+    "data_config": "calib_data_config"
+}
+```
+
+#### LPBQ
+
+Configurations:
+
+- `block_size`: Number of input channels to group in each block (default: `64`).
+- `op_types`: List of operator types for which to enable LPBQ (default: `["Gemm", "MatMul", "Conv"]`).
+- `nodes_to_exclude`: List of node names to exclude from LPBQ weight quantization (default: `None`)
+
+
+```json
+{
+    "type": "AimetQuantization",
+    "data_config": "calib_data_config",
+    "techniques": [
+        {"name": "lpbq", "block_size": 64}
+    ]
+}
+```
+
+#### SeqMSE
+
+Configurations:
+
+
+- `data_config`: Data config to use for SeqMSE optimization. Defaults to calibration set if not specified.
+- `num_candidates`: Number of encoding candidates to sweep for each weight (default: `20`).
+
+
+```json
+{
+    "type": "AimetQuantization",
+    "data_config": "calib_data_config",
+    "precision": "int4",
+    "techniques": [
+        {"name": "seqmse", "num_candidates": 20}
+    ]
+}
+```
+
+#### AdaRound
+
+Configurations:
+
+- `num_iterations`: Number of optimization steps to take for each layer (default: `10000`). Recommended value is
+                10K for weight bitwidths >= 8-bits, 15K for weight bitwidths < 8 bits.
+- `nodes_to_exclude`: List of node names to exclude from AdaRound optimization (default: `None`).
+
+
+```json
+{
+    "type": "AimetQuantization",
+    "data_config": "calib_data_config",
+    "techniques": [
+        {"name": "adaround", "num_iterations": 10000, "nodes_to_exclude": ["/lm_head/MatMul"]}
+    ]
+}
+```
+
+Please refer to [AimetQuantization](aimet_quantization) for more details about the pass and its config parameters.
+

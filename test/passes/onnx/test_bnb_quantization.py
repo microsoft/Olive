@@ -27,6 +27,9 @@ def get_onnx_matmul_model(model_path, model_attributes=None):
     pytorch_model = pytorch_model_loader(model_path=None)
     # need 3D input for MatMul, otherwise it will be converted to Gemm
     dummy_input = torch.randn(1, 1, 1)
+    # Use TorchScript export here because OnnxBnb4Quantization.quantized_modules feature
+    # relies on node names containing module names (e.g., "fc1"), which only works with TorchScript.
+    # Dynamo export produces generic node names like "node_MatMul_1".
     torch.onnx.export(
         pytorch_model,
         dummy_input,
@@ -34,6 +37,7 @@ def get_onnx_matmul_model(model_path, model_attributes=None):
         input_names=["input"],
         output_names=["output"],
         opset_version=13,
+        dynamo=False,
     )
     return ONNXModelHandler(model_path, model_attributes=model_attributes)
 

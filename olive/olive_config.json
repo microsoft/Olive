@@ -13,8 +13,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "int4", "int8", "int16" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ],
+            "supported_algorithms": [ "lpbq", "seqmse", "adaround" ],
+            "supported_quantization_encodings": [ "qdq" ],
             "extra_dependencies": [ "aimet-onnx" ],
             "dataset": "dataset_required"
         },
@@ -403,6 +403,15 @@
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "openvino" ]
         },
+        "OpenVINOWeightCompression": {
+            "module_path": "olive.passes.openvino.compression.OpenVINOWeightCompression",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "openvino" ]
+        },
         "OptimumConversion": {
             "module_path": "olive.passes.onnx.optimum_conversion.OptimumConversion",
             "supported_providers": [ "*" ],
@@ -474,6 +483,16 @@
             "supported_quantization_encodings": [  ],
             "dataset": "dataset"
         },
+        "SDLoRA": {
+            "module_path": "olive.passes.diffusers.lora.SDLoRA",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "gpu" ],
+            "supported_precisions": [ "*" ],
+            "extra_dependencies": [ "sd-lora" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_required"
+        },
         "QNNContextBinaryGenerator": {
             "module_path": "olive.passes.qnn.context_binary_generator.QNNContextBinaryGenerator",
             "supported_providers": [ "*" ],
@@ -510,7 +529,7 @@
             "module_path": "olive.passes.quark_quantizer.quark_quantization.QuarkQuantization",
             "supported_providers": [ "CPUExecutionProvider", "ROCMExecutionProvider", "CUDAExecutionProvider" ],
             "supported_accelerators": [ "cpu", "gpu" ],
-            "supported_precisions": [ "fp16", "fp32" ],
+            "supported_precisions": [ "fp16", "fp32", "bf16" ],
             "supported_algorithms": [ "awq" ],
             "supported_quantization_encodings": [  ],
             "run_on_target": true,
@@ -524,6 +543,14 @@
             "supported_algorithms": [ "quarot" ],
             "supported_quantization_encodings": [  ],
             "dataset": "dataset_optional"
+        },
+        "Rtn": {
+            "module_path": "olive.passes.pytorch.rtn.Rtn",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
+            "supported_algorithms": [ "rtn" ],
+            "supported_quantization_encodings": [  ]
         },
         "SelectiveMixedPrecision": {
             "module_path": "olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision",
@@ -602,7 +629,7 @@
         }
     },
     "extra_dependencies": {
-        "aimet-onnx": [ "aimet-onnx>=2.12.0" ],
+        "aimet-onnx": [ "aimet-onnx>=2.15.0" ],
         "auto-opt": [ "optimum" ],
         "azureml": [ "azure-ai-ml>=1.11.1", "azure-identity" ],
         "bnb": [ "bitsandbytes", "triton" ],
@@ -616,10 +643,11 @@
         "gpu": [ "onnxruntime-gpu" ],
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
+        "diffusers": [ "accelerate>=0.30.0", "peft", "diffusers" ],
         "nvmo": [ "nvidia-modelopt[onnx]" ],
         "openvino": [
-            "openvino>=2025.1.0",
-            "nncf>=2.16.0",
+            "openvino>=2025.3.0",
+            "nncf>=2.18.0",
             "numpy<2.0",
             "optimum[openvino]<=1.24",
             "onnxruntime-openvino"

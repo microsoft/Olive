@@ -25,7 +25,14 @@ from olive.constants import Framework
 from olive.data.config import DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.template import dummy_data_config_template
-from olive.evaluator.metric import LatencySubType, Metric, MetricType, ThroughputSubType, get_latency_config_from_metric
+from olive.evaluator.metric import (
+    LatencySubType,
+    Metric,
+    MetricType,
+    SizeOnDiskSubType,
+    ThroughputSubType,
+    get_latency_config_from_metric,
+)
 from olive.evaluator.metric_backend import MetricBackend
 from olive.evaluator.metric_result import MetricResult, SubMetricResult, flatten_metric_result, joint_metric_key
 from olive.evaluator.registry import Registry
@@ -54,6 +61,21 @@ class OliveModelOutput(NamedTuple):
 class OliveEvaluator(ABC):
     def __init__(self, **kwargs):
         super().__init__()
+
+    @staticmethod
+    def unpack_batch_for_accuracy(batch):
+        """Unpack batch for accuracy evaluation. Requires (data, label) format."""
+        if not isinstance(batch, (tuple, list)) or len(batch) != 2:
+            raise ValueError(
+                "Accuracy evaluation requires dataset with labels. "
+                "Please use ClassificationDataset which returns (data, label)."
+            )
+        return batch[0], batch[1]
+
+    @staticmethod
+    def extract_input_data(batch):
+        """Extract input data from batch, ignoring labels if present."""
+        return batch[0] if isinstance(batch, (tuple, list)) and len(batch) == 2 else batch
 
     @abstractmethod
     def evaluate(
@@ -261,6 +283,19 @@ class _OliveEvaluator(OliveEvaluator):
         latencies = self._evaluate_raw_latency(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_throughput(metric, latencies)
 
+    def _evaluate_size_on_disk(
+        self,
+        model: "OliveModelHandler",
+        metric: Metric,
+        dataloader: "DataLoader",
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, list[str]] = None,
+    ) -> MetricResult:
+        return MetricResult.parse_obj(
+            {SizeOnDiskSubType.BYTES.value: {"value": model.size_on_disk, "priority": -1, "higher_is_better": False}}
+        )
+
     def _evaluate_custom(
         self,
         model: "OliveModelHandler",
@@ -320,6 +355,10 @@ class _OliveEvaluator(OliveEvaluator):
                 metrics_res[metric.name] = self._evaluate_throughput(
                     model, metric, dataloader, post_func, device, execution_providers
                 )
+            elif metric.type == MetricType.SIZE_ON_DISK:
+                metrics_res[metric.name] = self._evaluate_size_on_disk(
+                    model, metric, dataloader, post_func, device, execution_providers
+                )
             elif metric.type == MetricType.CUSTOM:
                 metrics_res[metric.name] = self._evaluate_custom(
                     model, metric, dataloader, eval_func, post_func, device, execution_providers
@@ -374,7 +413,9 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         use_fp16 = any(v == "float16" for v in io_config["input_types"])
         input_feed = None
         if io_bind and shared_kv_buffer and use_fp16:
-            input_feed = format_data(next(iter(dataloader))[0], io_config)
+            batch = next(iter(dataloader))
+            input_data = OliveEvaluator.extract_input_data(batch)
+            input_feed = format_data(input_data, io_config)
 
         # load constant inputs if any
         constant_inputs = None
@@ -415,7 +456,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         logits_dict = collections.defaultdict(list)
         output_names = io_config["output_names"]
         is_single_tensor_output = len(output_names) == 1
-        for input_data, labels in dataloader:
+        for batch in dataloader:
+            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
             input_feed = format_data(input_data, io_config)
             result = model.run_session(session, input_feed, **run_kwargs)
             if is_single_tensor_output:
@@ -471,7 +513,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         )
         io_config = model.io_config
 
-        input_data, _ = next(iter(dataloader))
+        batch = next(iter(dataloader))
+        input_data = OliveEvaluator.extract_input_data(batch)
         input_feed = format_data(input_data, io_config)
 
         latencies = session.time_run(
@@ -520,7 +563,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         targets = []
         logits = []
         output_names = io_config["output_names"]
-        for _, (input_data, labels) in enumerate(dataloader):
+        for batch in dataloader:
+            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
             input_dict = format_data(input_data, io_config)
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
             output = session.run(None, input_dict)
@@ -598,8 +642,9 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
         io_config = model.io_config
 
-        input_feed, _ = next(iter(dataloader))
-        input_feed = format_data(input_feed, io_config)
+        batch = next(iter(dataloader))
+        input_data = OliveEvaluator.extract_input_data(batch)
+        input_feed = format_data(input_data, io_config)
         kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
 
         io_bind = OnnxEvaluator.io_bind_enabled(metric, model.inference_settings)
@@ -714,7 +759,8 @@ class PyTorchEvaluator(_OliveEvaluator):
         device = _OliveEvaluator.device_string_to_torch_device(device)
         run_kwargs = metric.get_run_kwargs()
         session.to(device)
-        for input_data_i, labels in dataloader:
+        for batch in dataloader:
+            input_data_i, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
             input_data = tensor_data_to_device(input_data_i, device)
             result = model.run_session(session, input_data, **run_kwargs)
             outputs = post_func(result) if post_func else result
@@ -771,7 +817,8 @@ class PyTorchEvaluator(_OliveEvaluator):
         # pytorch model doesn't use inference_settings, so we can pass None
         session = model.prepare_session(inference_settings=None, device=device)
 
-        input_data, _ = next(iter(dataloader))
+        batch = next(iter(dataloader))
+        input_data = OliveEvaluator.extract_input_data(batch)
         torch_device = _OliveEvaluator.device_string_to_torch_device(device)
         run_kwargs = metric.get_run_kwargs()
 
@@ -837,7 +884,8 @@ class OpenVINOEvaluator(_OliveEvaluator):
         preds = []
         targets = []
         logits = []
-        for input_data, label in dataloader:
+        for batch in dataloader:
+            input_data, label = OliveEvaluator.unpack_batch_for_accuracy(batch)
             model.run_session(session, {0: input_data}, **run_kwargs)
             result = session.get_output_tensor(0).data
             outputs = post_func(result) if post_func else result
@@ -873,7 +921,8 @@ class OpenVINOEvaluator(_OliveEvaluator):
         run_kwargs = metric.get_run_kwargs()
 
         latencies = []
-        for input_data, _ in dataloader:
+        for batch in dataloader:
+            input_data = OliveEvaluator.extract_input_data(batch)
             t = time.perf_counter()
             model.run_session(session, input_data, **run_kwargs)
             latencies.append(time.perf_counter() - t)
@@ -902,6 +951,8 @@ class QNNEvaluator(_OliveEvaluator):
         logits = []
         run_kwargs = metric.get_run_kwargs()
         for data_dir, input_list, labels in dataloader:
+            if labels is None:
+                raise ValueError("Accuracy evaluation requires dataset with labels.")
             run_kwargs["data_dir"] = data_dir
             result = model.run_session(session, input_list, **run_kwargs)
             for idx, output in enumerate(result.get("result")):
@@ -1024,30 +1075,49 @@ class LMEvaluator(OliveEvaluator):
         else:
             raise ValueError(f"Unknown model class: {self.model_class}")
 
-        lmmodel = get_model(self.model_class)(**init_args, batch_size=self.batch_size, max_length=self.max_length)
-
-        results = simple_evaluate(
-            model=lmmodel,
-            tasks=self.tasks,
-            task_manager=TaskManager(),
-            log_samples=False,
-            batch_size=self.batch_size,
-            device=device,
-            limit=self.limit,
+        logger.debug(
+            "Running LM evaluation with model class: %s and device/ep args: %s",
+            self.model_class,
+            {k: v for k, v in init_args.items() if k in ["device", "ep", "ep_options"]},
         )
 
         metrics = {}
-        for task_name in sorted(results["results"].keys()):
-            metric_items = sorted(results["results"][task_name].items())
+        if MetricType.SIZE_ON_DISK.value in self.tasks:
+            self.tasks.remove(MetricType.SIZE_ON_DISK.value)
+            metrics[MetricType.SIZE_ON_DISK.value] = MetricResult.parse_obj(
+                {
+                    SizeOnDiskSubType.BYTES.value: {
+                        "value": model.size_on_disk,
+                        "priority": -1,
+                        "higher_is_better": False,
+                    }
+                }
+            )
 
-            task_metrics = {}
-            for mf, v in metric_items:
-                if mf != "alias":
-                    m, _ = mf.split(",", 1)
-                    if not m.endswith("_stderr"):
-                        task_metrics[m] = SubMetricResult(value=v, priority=-1, higher_is_better=True)
+        if self.tasks:
+            lmmodel = get_model(self.model_class)(**init_args, batch_size=self.batch_size, max_length=self.max_length)
 
-            metrics[task_name] = MetricResult.parse_obj(task_metrics)
+            results = simple_evaluate(
+                model=lmmodel,
+                tasks=self.tasks,
+                task_manager=TaskManager(),
+                log_samples=False,
+                batch_size=self.batch_size,
+                device=device,
+                limit=self.limit,
+            )
+
+            for task_name in sorted(results["results"].keys()):
+                metric_items = sorted(results["results"][task_name].items())
+
+                task_metrics = {}
+                for mf, v in metric_items:
+                    if mf != "alias":
+                        m, _ = mf.split(",", 1)
+                        if not m.endswith("_stderr"):
+                            task_metrics[m] = SubMetricResult(value=v, priority=-1, higher_is_better=True)
+
+                metrics[task_name] = MetricResult.parse_obj(task_metrics)
 
         return flatten_metric_result(metrics)
 

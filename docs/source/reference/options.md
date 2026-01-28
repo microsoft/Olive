@@ -320,8 +320,9 @@ Please also find the detailed options from following table for each pass:
 | [LoftQ](pass.rst#loftq) | Run LoftQ fine-tuning on a Hugging Face PyTorch model. |
 | [OpenVINOConversion](pass.rst#openvinoconversion) | Converts PyTorch, ONNX or TensorFlow Model to OpenVINO Model. |
 | [OpenVINOIoUpdate](pass.rst#openvinoioupdate) | Converts dynamic OpenVINO Model to static OpenVINO Model and updates IO names. |
-| [OpenVINOQuantization](pass.rst#openvinoquantization) | Post-training quantization for OpenVINO models and ONNX models |
-| [OpenVINOQuantizationWithAccuracy](pass.rst#openvinoquantizationwithaccuracy) | Post-training quantization with accuracy for OpenVINO models and ONNX models |
+| [OpenVINOQuantization](pass.rst#openvinoquantization) | Post-training quantization for OpenVINO models and ONNX models using Intel® NNCF |
+| [OpenVINOQuantizationWithAccuracy](pass.rst#openvinoquantizationwithaccuracy) | Post-training quantization with accuracy for OpenVINO models and ONNX models using Intel® NNCF |
+| [OpenVINOWeightCompression](pass.rst#openvinoweightcompression) | Weight Compression to compress Huggingface to OpenVINO model and Huggingface to ONNX model as well as ONNX to ONNX model using Intel® NNCF |
 | [OpenVINOEncapsulation](pass.rst#openvinoencapsulation) | Generates an ONNX model that encapsulates an OpenVINO IR model. |
 | [OpenVINOOptimumConversion](pass.rst#openvinooptimumconversion) | Run [optimum-cli export openvino](https://huggingface.co/docs/optimum/main/en/intel/openvino/export) command using Optimum Intel® to convert Huggingface Model to OpenVINO Model and optionally perform weight compression or quantization. |
 | [QNNConversion](pass.rst#qnnconversion) | Convert ONNX, TensorFlow, or PyTorch model to QNN C++ model. Quantize the model if –input_list is provided as extra_args. Uses qnn-[framework]-converter tool from the QNN SDK. |
@@ -334,6 +335,7 @@ Please also find the detailed options from following table for each pass:
 | [Gptq](pass.rst#gptq) | Run GPTQ quantization on a Hugging Face PyTorch model. |
 | [GptqQuantizer](pass.rst#gptqquantizer) | GPTQ quantization Pass On Pytorch Model. |
 | [AutoAWQQuantizer](pass.rst#awqquantizer) | AWQ quantization Pass On Pytorch Model. |
+| [Rtn](pass.rst#rtn) | Run RTN quantization on a Hugging Face PyTorch model. |
 | [TorchTRTConversion](pass.rst#torchtrtconversion) | Convert torch.nn.Linear modules in the transformer layers of a HuggingFace PyTorch model to TensorRT modules. |
 | [OptimumConversion](pass.rst#optimumconversion) | Convert huggingface models to ONNX via the Optimum library. |
 | [OptimumMerging](pass.rst#optimummerging) | Merge 2 models together with an `if` node via the Optimum library. |

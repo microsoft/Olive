@@ -9,6 +9,7 @@ import torch
 from torch import nn
 from transformers import PretrainedConfig
 
+from olive.common.hf.io_config.io_resolver import resolve_alias
 from olive.common.utils import find_first_matched_value, get_attr, replace_submodules, set_attr
 
 if TYPE_CHECKING:
@@ -174,18 +175,7 @@ class LayerWrapper:
 class ModelWrapper:
     """Wrapper for transformer model."""
 
-    HIDDEN_SIZE_NAMES = ("hidden_size", "dim", "d_model", "n_embd")
-    NUM_ATTENTION_HEADS_NAMES = (
-        "num_attention_heads",
-        "num_heads",
-        "n_head",
-        "n_heads",
-        "encoder_attention_heads",
-        "decoder_num_attention_heads",
-    )
-    NUM_KEY_VALUE_HEADS_NAMES = ("num_key_value_heads",)
-    HEAD_DIM_NAMES = ("head_dim",)
-    NUM_HIDDEN_LAYER_NAMES = ("num_hidden_layers", "num_layers", "n_layer", "n_layers")
+    # Model-type specific mappings (cannot use aliases)
     MAX_LENGTH = {
         "default": "max_position_embeddings",
         "gpt2": "n_positions",
@@ -224,18 +214,15 @@ class ModelWrapper:
 
     def __init__(self, config: Union[PretrainedConfig, dict]):
         self.config = config if isinstance(config, PretrainedConfig) else PretrainedConfig.from_dict(config)
-        self.model_type = find_first_matched_value(self.config, "model_type")
+        self.model_type = getattr(self.config, "model_type", None)
 
-        # model attributes
-        self.hidden_size = find_first_matched_value(self.config, self.HIDDEN_SIZE_NAMES)
-        self.num_attention_heads = find_first_matched_value(self.config, self.NUM_ATTENTION_HEADS_NAMES)
-        self.num_key_value_heads = (
-            find_first_matched_value(self.config, self.NUM_KEY_VALUE_HEADS_NAMES) or self.num_attention_heads
-        )
-        self.head_dim = (
-            find_first_matched_value(self.config, self.HEAD_DIM_NAMES) or self.hidden_size // self.num_attention_heads
-        )
-        self.num_hidden_layers = find_first_matched_value(self.config, self.NUM_HIDDEN_LAYER_NAMES)
+        # model attributes (using unified aliases from defaults.yaml)
+        self.hidden_size = resolve_alias(self.config, "hidden_size")
+        self.num_attention_heads = resolve_alias(self.config, "num_attention_heads")
+        self.num_key_value_heads = resolve_alias(self.config, "num_kv_heads") or self.num_attention_heads
+        self.head_dim = resolve_alias(self.config, "head_dim") or self.hidden_size // self.num_attention_heads
+        self.num_hidden_layers = resolve_alias(self.config, "num_layers")
+        # MAX_LENGTH uses model_type-based mapping, not aliases
         self.max_length = find_first_matched_value(self.config, self.MAX_LENGTH)
 
         self._model = None

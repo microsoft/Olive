@@ -18,6 +18,12 @@ class TargetUserConfig(ConfigBase):
     class Config:
         validate_assignment = True
 
+    @validator("accelerators", pre=True)
+    def validate_accelerators(cls, v):
+        if v and len(v) > 1:
+            raise ValueError("Only one accelerator is supported currently.")
+        return v
+
 
 class LocalTargetUserConfig(TargetUserConfig):
     pass

@@ -1,0 +1,238 @@
+# Diffusers Component Configurations
+# IO specs for Stable Diffusion, SDXL, SD3, Flux, Sana pipelines
+#
+# Format:
+#   shape: defines the tensor shape for dummy input generation
+#   axes: defines which dimensions are dynamic for ONNX export
+
+components:
+  text_encoder:
+    inputs:
+      input_ids:
+        shape: [batch_size, sequence_length]
+        axes: {0: batch_size, 1: sequence_length}
+        dtype: int64
+    outputs:
+      last_hidden_state:
+        axes: {0: batch_size, 1: sequence_length, 2: hidden_size}
+      pooler_output:
+        axes: {0: batch_size, 1: hidden_size}
+
+  text_encoder_with_projection:
+    inputs:
+      input_ids:
+        shape: [batch_size, sequence_length]
+        axes: {0: batch_size, 1: sequence_length}
+        dtype: int64
+    outputs:
+      text_embeds:
+        axes: {0: batch_size, 1: projection_dim}
+      last_hidden_state:
+        axes: {0: batch_size, 1: sequence_length, 2: hidden_size}
+
+  t5_encoder:
+    inputs:
+      input_ids:
+        shape: [batch_size, sequence_length]
+        axes: {0: batch_size, 1: sequence_length}
+        dtype: int64
+    outputs:
+      last_hidden_state:
+        axes: {0: batch_size, 1: sequence_length, 2: hidden_size}
+
+  gemma2_text_encoder:
+    inputs:
+      input_ids:
+        shape: [batch_size, sequence_length]
+        axes: {0: batch_size, 1: sequence_length}
+        dtype: int64
+      attention_mask:
+        shape: [batch_size, sequence_length]
+        axes: {0: batch_size, 1: sequence_length}
+        dtype: int64
+    outputs:
+      last_hidden_state:
+        axes: {0: batch_size, 1: sequence_length, 2: hidden_size}
+
+  unet:
+    inputs:
+      sample:
+        shape: [batch_size, in_channels, height, width]
+        axes: {0: batch_size, 1: in_channels, 2: height, 3: width}
+        dtype: float
+      timestep:
+        shape: []
+        axes: {}
+        dtype: float
+      encoder_hidden_states:
+        shape: [batch_size, sequence_length, cross_attention_dim]
+        axes: {0: batch_size, 1: sequence_length, 2: cross_attention_dim}
+        dtype: float
+    outputs:
+      out_sample:
+        axes: {0: batch_size, 1: in_channels, 2: height, 3: width}
+    sdxl_inputs:
+      text_embeds:
+        shape: [batch_size, text_encoder_projection_dim]
+        axes: {0: batch_size, 1: text_encoder_projection_dim}
+        dtype: float
+      time_ids:
+        shape: [batch_size, 6]
+        axes: {0: batch_size}
+        dtype: float
+    optional_inputs:
+      timestep_cond:
+        shape: [batch_size, time_cond_proj_dim]
+        axes: {0: batch_size, 1: time_cond_proj_dim}
+        dtype: float
+
+  vae_encoder:
+    inputs:
+      sample:
+        shape: [batch_size, num_channels, height, width]
+        axes: {0: batch_size}
+        dtype: float
+    outputs:
+      latent_parameters:
+        axes: {0: batch_size, 1: latent_channels, 2: height_latent, 3: width_latent}
+
+  vae_decoder:
+    inputs:
+      latent_sample:
+        shape: [batch_size, latent_channels, height_latent, width_latent]
+        axes: {0: batch_size, 1: latent_channels, 2: height_latent, 3: width_latent}
+        dtype: float
+    outputs:
+      sample:
+        axes: {0: batch_size, 1: out_channels, 2: height, 3: width}
+
+  sd3_transformer:
+    inputs:
+      hidden_states:
+        shape: [batch_size, in_channels, height, width]
+        axes: {0: batch_size, 1: in_channels, 2: height, 3: width}
+        dtype: float
+      encoder_hidden_states:
+        shape: [batch_size, sequence_length, joint_attention_dim]
+        axes: {0: batch_size, 1: sequence_length, 2: joint_attention_dim}
+        dtype: float
+      pooled_projections:
+        shape: [batch_size, pooled_projection_dim]
+        axes: {0: batch_size, 1: pooled_projection_dim}
+        dtype: float
+      timestep:
+        shape: [batch_size]
+        axes: {0: batch_size}
+        dtype: float
+    outputs:
+      out_sample:
+        axes: {0: batch_size, 1: in_channels, 2: height, 3: width}
+
+  flux_transformer:
+    inputs:
+      hidden_states:
+        shape: [batch_size, packed_height_width, in_channels]
+        axes: {0: batch_size, 1: packed_height_width, 2: in_channels}
+        dtype: float
+      encoder_hidden_states:
+        shape: [batch_size, sequence_length, joint_attention_dim]
+        axes: {0: batch_size, 1: sequence_length, 2: joint_attention_dim}
+        dtype: float
+      pooled_projections:
+        shape: [batch_size, pooled_projection_dim]
+        axes: {0: batch_size, 1: pooled_projection_dim}
+        dtype: float
+      timestep:
+        shape: [batch_size]
+        axes: {0: batch_size}
+        dtype: float
+      txt_ids:
+        shape: [sequence_length, 3]
+        axes: {0: sequence_length}
+        dtype: float
+      img_ids:
+        shape: [packed_height_width, 3]
+        axes: {0: packed_height_width}
+        dtype: float
+    outputs:
+      out_sample:
+        axes: {0: batch_size, 1: packed_height_width, 2: in_channels}
+    optional_inputs:
+      guidance:
+        shape: [batch_size]
+        axes: {0: batch_size}
+        dtype: float
+        condition: guidance_embeds
+
+  sana_transformer:
+    inputs:
+      hidden_states:
+        shape: [batch_size, in_channels, height, width]
+        axes: {0: batch_size, 1: in_channels, 2: height, 3: width}
+        dtype: float
+      encoder_hidden_states:
+        shape: [batch_size, sequence_length, caption_channels]
+        axes: {0: batch_size, 1: sequence_length, 2: caption_channels}
+        dtype: float
+      encoder_attention_mask:
+        shape: [batch_size, sequence_length]
+        axes: {0: batch_size, 1: sequence_length}
+        dtype: int64
+      timestep:
+        shape: [batch_size]
+        axes: {0: batch_size}
+        dtype: float
+    outputs:
+      out_sample:
+        axes: {0: batch_size, 1: in_channels, 2: height, 3: width}
+
+  dcae_encoder:
+    inputs:
+      sample:
+        shape: [batch_size, num_channels, height, width]
+        axes: {0: batch_size}
+        dtype: float
+    outputs:
+      latent:
+        axes: {0: batch_size, 1: latent_channels, 2: height_latent, 3: width_latent}
+
+  dcae_decoder:
+    inputs:
+      latent_sample:
+        shape: [batch_size, latent_channels, height_latent, width_latent]
+        axes: {0: batch_size, 1: latent_channels, 2: height_latent, 3: width_latent}
+        dtype: float
+    outputs:
+      sample:
+        axes: {0: batch_size, 1: out_channels, 2: height, 3: width}
+
+pipelines:
+  sd:
+    - text_encoder
+    - unet
+    - vae_encoder
+    - vae_decoder
+  sdxl:
+    - text_encoder
+    - text_encoder_with_projection:text_encoder_2
+    - unet
+    - vae_encoder
+    - vae_decoder
+  sd3:
+    - text_encoder
+    - text_encoder_with_projection:text_encoder_2
+    - t5_encoder:text_encoder_3
+    - sd3_transformer:transformer
+    - vae_encoder
+    - vae_decoder
+  flux:
+    - text_encoder
+    - t5_encoder:text_encoder_2
+    - flux_transformer:transformer
+    - vae_encoder
+    - vae_decoder
+  sana:
+    - gemma2_text_encoder:text_encoder
+    - sana_transformer:transformer
+    - dcae_encoder:vae_encoder
+    - dcae_decoder:vae_decoder

@@ -33,6 +33,8 @@ pip install -r "$4"
 pip install huggingface-hub
 hf auth login --token "$7"
 
+pip list
+
 # Step 4: Run tests with or without coverage tracking
 XML_PATH="/logs/TestOlive.xml"
 if [ "$6" = "true" ]; then

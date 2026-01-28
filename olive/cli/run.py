@@ -19,8 +19,9 @@ class WorkflowRunCommand(BaseOliveCLICommand):
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser("run", help="Run an olive workflow")
         sub_parser.add_argument("--run-config", "--config", type=str, help="Path to json config file", required=True)
-        sub_parser.add_argument("--setup", help="Setup environment needed to run the workflow", action="store_true")
-        sub_parser.add_argument("--packages", help="List packages required to run the workflow", action="store_true")
+        sub_parser.add_argument(
+            "--list_required_packages", help="List packages required to run the workflow", action="store_true"
+        )
         sub_parser.add_argument(
             "--tempdir", type=str, help="Root directory for tempfile directories and files", required=False
         )
@@ -51,10 +52,14 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         from olive.common.config_utils import load_config_file
         from olive.workflows import run as olive_run
 
-        run_config = load_config_file(self.args.run_config)
+        # allow the run_config to be a dict already (for api use)
+        run_config = self.args.run_config
+        if not isinstance(run_config, dict):
+            run_config = load_config_file(run_config)
         if input_model_config := get_input_model_config(self.args, required=False):
             print("Replacing input model config in run config")
             run_config["input_model"] = input_model_config
+
         for arg_key, rc_key in [("output_path", "output_dir"), ("log_level", "log_severity_level")]:
             if (arg_value := getattr(self.args, arg_key)) is not None:
                 print(f"Replacing {rc_key} in run config with {arg_value}")
@@ -63,10 +68,14 @@ class WorkflowRunCommand(BaseOliveCLICommand):
                 # add value to run config directly
                 run_config[rc_key] = arg_value
 
-        olive_run(
+        workflow_output = olive_run(
             run_config,
-            setup=self.args.setup,
-            packages=self.args.packages,
+            list_required_packages=self.args.list_required_packages,
             tempdir=self.args.tempdir,
             package_config=self.args.package_config,
         )
+
+        if self.args.list_required_packages is True:
+            print("Required packages listed!")
+
+        return workflow_output

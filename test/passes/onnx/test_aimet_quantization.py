@@ -14,6 +14,7 @@ import torch
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 
 from olive.common.constants import OS
+from olive.common.onnx_io import get_kv_info
 from olive.constants import Precision
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
@@ -21,6 +22,8 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.aimet_quantization import AimetQuantization
+from olive.passes.onnx.conversion import OnnxConversion
+from test.utils import make_local_tiny_llama
 
 IS_LINUX = platform.system() == OS.LINUX
 CUDA_AVAILABLE = torch.cuda.is_available()
@@ -45,6 +48,21 @@ class DummyCalibrationDataReader(CalibrationDataReader):
             return item
         except Exception:
             return None
+
+
+class DummyDataGenerator(CalibrationDataReader):
+    # pylint: disable=W0223
+    def __init__(self, model):
+        super().__init__()
+        self.sample_counter = 1
+        self.model = model
+
+    def get_next(self) -> dict:
+        if self.sample_counter <= 0:
+            return None
+
+        self.sample_counter -= 1
+        return self.model.get_dummy_inputs()
 
 
 @Registry.register_dataloader()
@@ -155,7 +173,9 @@ def test_aimet_quantization_uses_provided_precisions(tmp_path, precisions):
 
     initializer_dict = {tensor.name: tensor for tensor in model.graph.initializer}
     tensor_to_quantizer = {
-        node.input[0]: node for node in model.graph.node if node.op_type in ("QuantizeLinear", "DequantizeLinear")
+        node.input[0].removesuffix("_q"): node
+        for node in model.graph.node
+        if node.op_type in ("QuantizeLinear", "DequantizeLinear")
     }
 
     # Weight should be symmetrically quantized with precision type
@@ -171,6 +191,32 @@ def test_aimet_quantization_uses_provided_precisions(tmp_path, precisions):
         quantizer = tensor_to_quantizer[tensor]
         offset = onnx.numpy_helper.to_array(initializer_dict[quantizer.input[2]])
         assert offset.dtype == np.dtype(act_type)
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+def test_aimet_quantization_applies_precision_overrides(tmp_path):
+    input_model = dummy_onnx_model(tmp_path / "dummy_model.onnx")
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
+        ),
+        "tensor_precision_overrides": {"output": Precision.UINT16},
+    }
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+
+    out = p.run(input_model, tmp_path)
+
+    model = onnx.load(out.model_path)
+
+    initializer_dict = {tensor.name: tensor for tensor in model.graph.initializer}
+    tensor_to_quantizer = {
+        node.output[0]: node for node in model.graph.node if node.op_type in ("QuantizeLinear", "DequantizeLinear")
+    }
+    output_offset = onnx.numpy_helper.to_array(initializer_dict[tensor_to_quantizer["output"].input[2]])
+    assert output_offset.dtype == np.dtype("uint16")
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
@@ -269,11 +315,11 @@ def test_aimet_quantization_applies_adaround(tmp_path):
     }
     p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
 
-    with patch("aimet_onnx.apply_adaround") as mock_seq_mse:
+    with patch("aimet_onnx.apply_adaround") as mock_adaround:
         out = p.run(input_model, tmp_path)
-        assert mock_seq_mse.call_count == 1
+        assert mock_adaround.call_count == 1
 
-        (_, data, num_iterations, nodes_to_include), _ = mock_seq_mse.call_args
+        (_, data, num_iterations, nodes_to_include), _ = mock_adaround.call_args
         assert isinstance(data, Iterable)
         assert num_iterations == 5
         assert nodes_to_include is None
@@ -305,11 +351,42 @@ def test_aimet_quantization_excludes_adaround_nodes(tmp_path):
     }
     p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
 
-    with patch("aimet_onnx.apply_adaround") as mock_seq_mse:
+    with patch("aimet_onnx.apply_adaround") as mock_adaround:
         p.run(input_model, tmp_path)
-        assert mock_seq_mse.call_count == 1
-        (_, _, _, nodes_to_include), _ = mock_seq_mse.call_args
+        assert mock_adaround.call_count == 1
+        (_, _, _, nodes_to_include), _ = mock_adaround.call_args
         assert not nodes_to_include
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+def test_aimet_quantization_applies_seq_mse(tmp_path):
+    input_model = dummy_onnx_matmul_model(tmp_path / "dummy_model_mm.onnx")
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader_len_16"),
+        ),
+        "precision": "int4",
+        "techniques": [
+            {
+                "name": "seqmse",
+                "num_candidates": 5,
+            }
+        ],
+    }
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+
+    with patch("aimet_onnx.apply_seq_mse") as mock_seq_mse:
+        out = p.run(input_model, tmp_path)
+        assert mock_seq_mse.call_count == 1
+
+        (_, data, num_candidates), _ = mock_seq_mse.call_args
+        assert isinstance(data, Iterable)
+        assert num_candidates == 5
+
+    assert out is not None
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
@@ -344,7 +421,7 @@ def test_aimet_quantization_excludes_op_types(tmp_path, op_types, disabled_quant
     model = onnx.load(out.model_path)
 
     tensor_to_quantizer = {
-        tensor: node
+        tensor.removesuffix("_q"): node
         for node in model.graph.node
         for tensor in (node.input[0], node.output[0])
         if node.op_type in ("QuantizeLinear", "DequantizeLinear")
@@ -374,7 +451,9 @@ def test_aimet_quantization_preserves_quantization_in_prequantized_model(tmp_pat
     model = onnx.load(out.model_path)
 
     tensor_to_quantizer = {
-        node.input[0]: node for node in model.graph.node if node.op_type in ("QuantizeLinear", "DequantizeLinear")
+        node.input[0].removesuffix("_q"): node
+        for node in model.graph.node
+        if node.op_type in ("QuantizeLinear", "DequantizeLinear")
     }
 
     weight_quantizer = tensor_to_quantizer["weight_dq"]
@@ -415,3 +494,48 @@ def test_validate_config_returns_false_for_unsupported_configurations(pass_confi
 
     config = AimetQuantization.generate_config(accelerator_spec, pass_config, disable_search=True)
     assert not AimetQuantization.validate_config(config, accelerator_spec)
+
+
+@pytest.mark.skip(reason="Dynamo export fails for Llama, need fix")
+@pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
+def test_aimet_quantization_ties_kv_io_quantizers(tmp_path):
+    model = make_local_tiny_llama(tmp_path / "input_model")
+    onnx_model = create_pass_from_dict(OnnxConversion, {}, disable_search=True).run(model, tmp_path / "onnx_model")
+
+    @Registry.register_dataloader()
+    def _test_quant_dataloader_llm(*args, **kwargs):
+        return DummyDataGenerator(model)
+
+    config = {
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader_llm"),
+        ),
+    }
+
+    p = create_pass_from_dict(AimetQuantization, config, disable_search=True)
+    out = p.run(onnx_model, tmp_path)
+
+    output_model = onnx.load(out.model_path)
+
+    # Map from tensor name to its quantization scale tensor name
+    tensor_to_scale_offset = {}
+    for node in output_model.graph.node:
+        if node.op_type in ("QuantizeLinear", "DequantizeLinear"):
+            scale = node.input[1]
+            offset = node.input[2] if len(node.input) > 2 else None
+            tensor_to_scale_offset[node.input[0]] = (scale, offset)
+            tensor_to_scale_offset[node.output[0]] = (scale, offset)
+
+    initializer_dict = {init.name: onnx.numpy_helper.to_array(init) for init in output_model.graph.initializer}
+
+    kv_info = get_kv_info(out.io_config)
+    # Verify that all present key/value quantization scales are equal
+    for present, past in kv_info["present_to_past"].items():
+        present_scale, present_offset = tensor_to_scale_offset[present]
+        past_scale, past_offset = tensor_to_scale_offset[past]
+        assert np.array_equal(initializer_dict[present_scale], initializer_dict[past_scale])
+        if present_offset:
+            assert np.array_equal(initializer_dict[present_offset], initializer_dict[past_offset])

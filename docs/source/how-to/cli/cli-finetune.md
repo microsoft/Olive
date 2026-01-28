@@ -29,6 +29,8 @@ olive finetune \
 
 ::::
 
+Find more details about how to configure data [here](../configure-workflows/how-to-configure-data.md).
+
 ### {octicon}`dependabot;1em` Auto-Optimize the model and adapters
 
 If you would like your fine-tuned model to run on the ONNX Runtime, you'll can execute the `olive auto-opt` command to produce an optimized ONNX model and adapter, using

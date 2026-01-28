@@ -236,11 +236,9 @@ def quant_type_from_precision(p):
     return mapping.get(p)
 
 
-def get_calibration_dataloader(config, model_path=None, io_config=None, calibration_providers=None):
+def get_calibration_dataloader(config, model_path=None, io_config=None):
     data_config = validate_config(config.data_config, DataConfig)
-    return data_config.to_data_container().create_calibration_dataloader(
-        model_path=model_path, io_config=io_config, calibration_providers=calibration_providers
-    )
+    return data_config.to_data_container().create_calibration_dataloader(model_path=model_path, io_config=io_config)
 
 
 # extra options name: (param_name, use in dynamic quantization)
@@ -250,6 +248,36 @@ _param_extra_options_mapping = {
     "MinimumRealRange": ("min_real_range", False),
     "TensorQuantOverrides": ("tensor_quant_overrides", False),
 }
+
+
+def patch_min_max_calibrater():
+    from onnxruntime.quantization.calibrate import MinMaxCalibrater
+
+    original_augment_graph = MinMaxCalibrater.augment_graph
+    if original_augment_graph.__name__ == "patched_augment_graph":
+        return
+
+    from olive.passes.onnx.onnx_dag import OnnxDAG
+
+    def patched_augment_graph(self):
+        original_augment_graph(self)
+
+        dag = OnnxDAG(onnx.load(self.augmented_model_path, load_external_data=False))
+        for o_name in list(self.model_original_outputs):
+            # remove the output since we don't need it for calibration
+            dag.remove_output(o_name)
+            self.model_original_outputs.remove(o_name)
+            self.num_model_outputs -= 1
+
+            # if the producer has no consumers, remove it
+            producer = dag.get_producer(o_name)
+            if len(dag.get_consumers(producer)) == 0:
+                # remove the producer if it has no consumers
+                dag.remove_node(producer)
+        dag.update()
+        onnx.save(dag.model, self.augmented_model_path)
+
+    MinMaxCalibrater.augment_graph = patched_augment_graph
 
 
 class OnnxQuantization(Pass):
@@ -458,6 +486,7 @@ class OnnxQuantization(Pass):
 
         if is_static:
             run_config = self.get_static_run_config(model, config, run_config, ort_less_than_1_21)
+            patch_min_max_calibrater()
             try:
                 quantize_static(
                     model_input=model.model_path,
@@ -522,7 +551,7 @@ class OnnxQuantization(Pass):
         self, model: ONNXModelHandler, config: type[BasePassConfig], run_config: dict, ort_less_than_1_21: bool
     ) -> dict:
         """Prepare the run config for static quantization."""
-        dataloader = get_calibration_dataloader(config, model.model_path, model.io_config, config.calibration_providers)
+        dataloader = get_calibration_dataloader(config, model.model_path, model.io_config)
         if config.quant_format != "QDQ" or not config.prepare_qdq_config:
             run_config.update(
                 {
@@ -563,7 +592,7 @@ class OnnxQuantization(Pass):
                 get_qdq_config_kwargs[qdq_key] = extra_options[key]
                 # remove the key from extra_options
                 extra_options.pop(key, None)
-        if extra_options:
+        if extra_options and not is_qnn_ep:
             get_qdq_config_kwargs["extra_options"] = extra_options
         # tensor_quant_overrides is init_overrides in qnn
         if is_qnn_ep:
@@ -577,6 +606,11 @@ class OnnxQuantization(Pass):
 
         # get the qdq config
         qdq_config = get_qdq_config(**get_qdq_config_kwargs)
+
+        # allow user's extra_options to override the qdq_config extra_options
+        # same as the non-qnn path
+        if is_qnn_ep and extra_options:
+            qdq_config.extra_options.update(extra_options)
 
         # override the run_config with qdq_config
         new_run_config = {k: v for k, v in inspect.getmembers(qdq_config) if not k.startswith("_")}
@@ -594,6 +628,7 @@ class OnnxQuantization(Pass):
                     set(new_run_config["op_types_to_quantize"]) - set(config.op_types_to_exclude)
                 )
 
+        logger.debug("QDQ quantization run config: %s", new_run_config)
         return new_run_config
 
 

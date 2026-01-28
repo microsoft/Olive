@@ -24,6 +24,7 @@ from olive.cli.launcher import main as cli_main
         "tune-session-params",
         "auto-opt",
         "optimize",
+        "diffusion-lora",
     ],
 )
 def test_valid_command(console_script, command):
@@ -88,19 +89,16 @@ def test_unknown_args():
     assert "-u" in error_message
 
 
-@pytest.mark.parametrize("packages", [True, False])
-@pytest.mark.parametrize("setup", [True, False])
+@pytest.mark.parametrize("list_required_packages", [True, False])
 @pytest.mark.parametrize("tempdir", [None, "tempdir"])
 @patch("olive.workflows.run")
-def test_workflow_run_command(mock_run, tempdir, setup, packages, tmp_path):
+def test_workflow_run_command(mock_run, tempdir, list_required_packages, tmp_path):
     # setup
     config_path = tmp_path / "config.json"
     config_path.write_text(json.dumps({"key": "value"}))  # Create a dummy config file
     command_args = ["run", "--run-config", str(config_path)]
-    if packages:
-        command_args.append("--packages")
-    if setup:
-        command_args.append("--setup")
+    if list_required_packages:
+        command_args.append("--list_required_packages")
     if tempdir is not None:
         command_args.extend(["--tempdir", tempdir])
 
@@ -109,7 +107,7 @@ def test_workflow_run_command(mock_run, tempdir, setup, packages, tmp_path):
 
     # assert
     mock_run.assert_called_once_with(
-        {"key": "value"}, setup=setup, package_config=None, tempdir=tempdir, packages=packages
+        {"key": "value"}, package_config=None, tempdir=tempdir, list_required_packages=list_required_packages
     )
 
 
@@ -146,10 +144,9 @@ def test_workflow_run_command_with_overrides(mock_run, tmp_path):
             "output_dir": str(Path("new_output_path").resolve()),
             "log_severity_level": 2,
         },
-        setup=False,
+        list_required_packages=False,
         package_config=None,
         tempdir=None,
-        packages=False,
     )
 
 
@@ -190,6 +187,47 @@ def test_finetune_command(_, mock_run, tmp_path):
 
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_id
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
+def test_diffusion_lora_command(_, mock_run, tmp_path):
+    # setup
+    output_dir = tmp_path / "output_dir"
+    data_dir = tmp_path / "train_images"
+    data_dir.mkdir()
+
+    # Create dummy training images
+    from PIL import Image
+
+    for i in range(2):
+        img = Image.new("RGB", (64, 64), color=(i * 50, i * 50, i * 50))
+        img.save(data_dir / f"image_{i}.png")
+        (data_dir / f"image_{i}.txt").write_text(f"a test image {i}")
+
+    model_id = "runwayml/stable-diffusion-v1-5"
+    command_args = [
+        "diffusion-lora",
+        "-m",
+        model_id,
+        "-d",
+        str(data_dir),
+        "-o",
+        str(output_dir),
+        "--model_type",
+        "sd",
+        "--max_train_steps",
+        "1",
+    ]
+
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == model_id
+    assert config["input_model"]["type"] == "DiffusersModel"
+    assert "sd_lora" in config["passes"]
     assert mock_run.call_count == 1
 
 
@@ -328,35 +366,42 @@ def test_shared_cache_delete_all_with_confirmation(mock_AzureContainerClientFact
     mock_factory_instance.delete_all.assert_called_once()
 
 
-@pytest.mark.parametrize("algorithm_name", ["awq", "gptq"])
+@pytest.mark.parametrize("algorithm_name", ["awq", "gptq", "lpbq", "seqmse", "adaround"])
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists")
 def test_quantize_command(mock_repo_exists, mock_run, algorithm_name, tmp_path):
+    from test.utils import ONNX_MODEL_PATH
+
     # setup
     output_dir = tmp_path / "output_dir"
 
     # setup
     command_args = [
         "quantize",
-        "-m",
-        "dummy_model",
         "--algorithm",
         algorithm_name,
         "-o",
         str(output_dir),
     ]
 
+    model_name = "dummy_model"
     if algorithm_name == "gptq":
         command_args += ["-d", "dummy_dataset"]
         command_args += ["--implementation", "autogptq"]
     if algorithm_name == "awq":
         command_args += ["--implementation", "awq"]
+    if algorithm_name in {"lpbq", "seqmse", "adaround"}:
+        model_name = str(ONNX_MODEL_PATH)
+        command_args += ["-d", "dummy_dataset"]
+        command_args += ["--implementation", "aimet"]
+
+    command_args += ["-m", model_name]
 
     # execute
     cli_main(command_args)
 
     config = mock_run.call_args[0][0]
-    assert config["input_model"]["model_path"] == "dummy_model"
+    assert config["input_model"]["model_path"] == model_name
     assert mock_run.call_count == 1
 
 
@@ -531,3 +576,40 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         pass_list = [k[1]["type"] for k in passes.items()]
 
         assert pass_list == [item.strip() for item in t[2].split(",")]
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_benchmark_command(_, mock_run, tmp_path):
+    # setup
+    output_dir = tmp_path / "output_dir"
+    model_id = "dummy-model-id"
+    command_args = [
+        "benchmark",
+        "-m",
+        model_id,
+        "-o",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "helloswag",
+        "--device",
+        "gpu",
+        "--batch_size",
+        "8",
+        "--max_length",
+        "1024",
+        "--limit",
+        "16",
+    ]
+
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == model_id
+    assert config["evaluators"]["evaluator"]["tasks"] == ["arc_easy", "helloswag"]
+    assert config["evaluators"]["evaluator"]["batch_size"] == 8
+    assert config["evaluators"]["evaluator"]["max_length"] == 1024
+    assert config["evaluators"]["evaluator"]["limit"] == 16
+    assert mock_run.call_count == 1

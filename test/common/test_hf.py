@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from olive.common.hf.model_io import get_export_config, get_model_dummy_input, get_model_io_config
+from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
 from olive.common.hf.utils import load_model_from_task
 
 
@@ -62,20 +62,6 @@ def test_load_model_from_task_exception_handling(_, exceptions, expected_excepti
                 _ = load_model_from_task("text-classification", "dummy-model-name")
 
 
-@pytest.mark.parametrize(
-    ("model_name", "task"),
-    [
-        ("hf-internal-testing/tiny-random-BertForSequenceClassification", "text-classification"),
-        ("hf-internal-testing/tiny-random-LlamaForCausalLM", "text-generation"),
-    ],
-)
-def test_get_export_config(model_name, task):
-    from optimum.exporters.onnx import OnnxConfig
-
-    export_config = get_export_config(model_name, task)
-    assert isinstance(export_config, OnnxConfig)
-
-
 def get_model_name_task(with_past: bool):
     model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
     task = "text-generation"
@@ -112,11 +98,3 @@ def test_get_model_io_config(use_cache, with_past):
     assert io_config["input_names"] == expected_input_names
     assert io_config["output_names"] == expected_output_names
     assert set(io_config["dynamic_axes"].keys()) == set(expected_input_names + expected_output_names)
-    # dynamic_shapes has nested past_key_values and only includes input names
-    if with_past:
-        assert (
-            len(expected_input_names)
-            == len(io_config["dynamic_shapes"]) - 1 + len(io_config["dynamic_shapes"]["past_key_values"]) * 2
-        )
-    else:
-        assert len(expected_input_names) == len(io_config["dynamic_shapes"])

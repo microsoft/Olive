@@ -40,6 +40,26 @@ class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin, PytorchKvCach
             io_config=io_config,
         )
 
+    @property
+    def size_on_disk(self) -> int:
+        """Compute size of the model on disk."""
+        import torch
+
+        class ByteCounter:
+            def __init__(self):
+                self.nbytes = 0
+
+            def write(self, data):
+                self.nbytes += len(data)
+
+            def flush(self):
+                pass
+
+        counter = ByteCounter()
+        model = self.load_model()
+        torch.save(model.state_dict(), counter)
+        return counter.nbytes
+
     def prepare_session(
         self,
         inference_settings: Optional[dict[str, Any]] = None,
@@ -174,7 +194,7 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
         return model
 
     def _load_slicegpt_model(self):
-        from slicgpt.hf_utils import load_sliced_model
+        from slicegpt.hf_utils import load_sliced_model
 
         model_name = self.model_attributes.get("model_name")
         if not model_name:

@@ -1,19 +1,20 @@
 accelerate
-# azureml.evaluate.mlflow.hftransformers is deprecated in 0.0.66 and above
-azureml-evaluate-mlflow>=0.0.60, <0.0.66
-# Pin azureml-metrics[all] greater than 0.0.26 to avoid breaking change in azureml-evaluate-mlflow
-azureml-metrics[all]>=0.0.26
+# package conflict with onnxruntime-genai
+# amd-quark==0.10
+azure-identity
+azure-storage-blob
 coverage
 cppimport
 cupy-cuda12x
 datasets
+diffusers
 docker>=7.1.0
 evaluate
 marshmallow
 ml_dtypes
-mlflow>=2.4.0, <2.20.0
+mlflow
 neural-compressor<2.4
-nncf>=2.16.0
+nncf>=2.18.0
 numpy<2.0.0
 nvidia-modelopt
 onnx==1.18.0
@@ -24,8 +25,7 @@ onnxoptimizer
 onnxruntime_extensions
 onnxscript>=0.2.4
 onnxsim
-openvino>=2025.1.0
-optimum[openvino]>=1.17.0, <=1.24
+openvino>=2025.3.0
 optuna
 pandas
 peft
@@ -39,3 +39,5 @@ sentencepiece
 soundfile
 tabulate
 torchvision
+# Remove version pin when the tests are fixed
+transformers<5.0.0

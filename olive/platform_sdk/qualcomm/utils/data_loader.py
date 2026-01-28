@@ -258,7 +258,9 @@ class FileListCommonDataLoader(FileListDataLoader):
             input_specs[input_name] = {"target_shape": input_shape}
 
         # get single data sample
-        input_data, _ = next(iter(dataloader))
+        batch = next(iter(dataloader))
+        # extract input data, ignoring labels if present
+        input_data = batch[0] if isinstance(batch, (tuple, list)) and len(batch) == 2 else batch
         # source input names
         for input_name, input_spec in input_specs.items():
             if input_name in input_data:
@@ -312,7 +314,14 @@ class FileListCommonDataLoader(FileListDataLoader):
         annotations = []
         num_samples = len(dataloader)
         sample_digits = len(str(num_samples))
-        for i, (input_data_i, annotation) in enumerate(dataloader):
+        for i, batch in enumerate(dataloader):
+            # extract input data and annotation, handling both formats
+            if isinstance(batch, (tuple, list)) and len(batch) == 2:
+                input_data_i, annotation = batch
+            else:
+                input_data_i = batch
+                annotation = None
+
             if isinstance(input_data_i, tuple):
                 input_data = dict(zip(input_specs.keys(), input_data_i))
             elif isinstance(input_data_i, (torch.Tensor, np.ndarray)):
@@ -340,7 +349,8 @@ class FileListCommonDataLoader(FileListDataLoader):
                 input_file_path = input_dir_path / input_file_name
                 data.tofile(input_file_path)
 
-            annotations.append(annotation.tolist())
+            # handle annotation (labels) - may be None for datasets without labels
+            annotations.append(annotation.tolist() if annotation is not None else None)
 
         annotations = None if annotations[0] is None else np.array(annotations)
 

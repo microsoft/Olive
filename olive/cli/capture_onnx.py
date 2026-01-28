@@ -5,6 +5,7 @@
 import argparse
 from argparse import ArgumentParser
 from copy import deepcopy
+from enum import IntEnum
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -13,14 +14,16 @@ from olive.cli.base import (
     add_save_config_file_options,
     add_shared_cache_options,
     add_telemetry_options,
+    get_diffusers_input_model,
     get_input_model_config,
     update_shared_cache_options,
 )
-from olive.common.utils import IntEnumBase, set_nested_dict_value
+from olive.common.utils import set_nested_dict_value
+from olive.model.utils.diffusers_utils import is_valid_diffusers_model
 from olive.telemetry.telemetry import action
 
 
-class ModelBuilderAccuracyLevel(IntEnumBase):
+class ModelBuilderAccuracyLevel(IntEnum):
     fp32 = 1
     fp16 = 2
     bf16 = 3
@@ -47,7 +50,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         # model options
         add_input_model_options(
-            sub_parser, enable_hf=True, enable_hf_adapter=True, enable_pt=True, default_output_path="onnx-model"
+            sub_parser,
+            enable_hf=True,
+            enable_hf_adapter=True,
+            enable_pt=True,
+            enable_diffusers=True,
+            default_output_path="onnx-model",
         )
 
         sub_parser.add_argument(
@@ -109,7 +117,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             "--precision",
             type=str,
             default="fp16",
-            choices=["fp16", "fp32", "int4"],
+            choices=["fp16", "fp32", "int4", "bf16"],
             help="The precision of the ONNX model. This is used by Model Builder",
         )
         mb_group.add_argument(
@@ -174,27 +182,48 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     def _get_run_config(self, tempdir: str) -> dict:
         config = deepcopy(TEMPLATE)
 
-        input_model_config = get_input_model_config(self.args)
+        # Check if diffusers model detection is needed
+        is_diffusers = is_valid_diffusers_model(self.args.model_name_or_path) if self.args.model_name_or_path else False
+        if is_diffusers:
+            input_model_config = get_diffusers_input_model(self.args, self.args.model_name_or_path)
+        else:
+            input_model_config = get_input_model_config(self.args)
         assert input_model_config["type"].lower() in {
             "hfmodel",
             "pytorchmodel",
-        }, "Only HfModel and PyTorchModel are supported in capture-onnx-graph command."
+            "diffusersmodel",
+        }, "Only HfModel, PyTorchModel, and DiffusersModel are supported in capture-onnx-graph command."
 
-        # whether model is in fp16 (currently not supported by CPU EP)
-        is_fp16 = (not self.args.use_model_builder and self.args.torch_dtype == "float16") or (
-            self.args.use_model_builder and self.args.precision == "fp16"
+        is_diffusers_model = input_model_config["type"].lower() == "diffusersmodel"
+
+        # whether model is in fp16 or bf16 (currently not supported by CPU EP)
+        is_fp16_or_bf16 = (not self.args.use_model_builder and self.args.torch_dtype == "float16") or (
+            self.args.use_model_builder and self.args.precision in ("fp16", "bf16")
         )
         to_replace = [
             ("input_model", input_model_config),
             ("output_dir", self.args.output_path),
             ("log_severity_level", self.args.log_level),
-            (("systems", "local_system", "accelerators", 0, "device"), "gpu" if is_fp16 else "cpu"),
+            (("systems", "local_system", "accelerators", 0, "device"), "gpu" if is_fp16_or_bf16 else "cpu"),
             (
                 ("systems", "local_system", "accelerators", 0, "execution_providers"),
-                [("CUDAExecutionProvider" if is_fp16 else "CPUExecutionProvider")],
+                [("CUDAExecutionProvider" if is_fp16_or_bf16 else "CPUExecutionProvider")],
             ),
         ]
-        if self.args.use_model_builder:
+
+        if is_diffusers_model:
+            del config["passes"]["m"]
+            to_replace.extend(
+                [
+                    (
+                        ("passes", "c", "device"),
+                        self.args.conversion_device if self.args.conversion_device == "cpu" else "cuda",
+                    ),
+                    (("passes", "c", "torch_dtype"), self.args.torch_dtype),
+                    (("passes", "c", "target_opset"), self.args.target_opset),
+                ]
+            )
+        elif self.args.use_model_builder:
             del config["passes"]["c"]
             to_replace.extend(
                 [
@@ -233,9 +262,14 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             if not self.args.use_ort_genai:
                 del config["passes"]["m"]
             else:
+                mb_precision = {
+                    "fp16": "fp16",
+                    "bf16": "bf16",
+                }.get(self.args.precision, "fp32")
+
                 to_replace.extend(
                     [
-                        (("passes", "m", "precision"), "fp16" if is_fp16 else "fp32"),
+                        (("passes", "m", "precision"), mb_precision),
                         (("passes", "m", "metadata_only"), True),
                     ]
                 )

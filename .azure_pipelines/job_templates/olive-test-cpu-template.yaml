@@ -20,6 +20,8 @@ jobs:
     PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
     HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
     PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
+    PYTHONIOENCODING: utf-8
+    PYTHONUTF8: 1
 
   steps:
   - template: olive-setup-template.yaml
@@ -36,15 +38,10 @@ jobs:
   - script: |
         python -m pip install pytest
         python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
-
+        python -m pip list
         coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test --basetemp $(PYTEST_BASETEMP)
         coverage xml
     displayName: Test Olive
-    env:
-      WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
-      WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
-      WORKSPACE_NAME: $(workspace-name)
-      MANAGED_IDENTITY_CLIENT_ID: $(olive-1es-identity-client-id)
 
   - task: CredScan@3
     displayName: 'Run CredScan'

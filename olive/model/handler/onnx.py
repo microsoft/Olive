@@ -77,6 +77,12 @@ class ONNXModelHandler(OliveModelHandler, OnnxEpValidateMixin):
         return get_onnx_file_path(model_path, self.onnx_file_name) if model_path else None
 
     @property
+    def size_on_disk(self) -> int:
+        """Compute size of the model on disk."""
+        model = self.load_model()
+        return model.ByteSize()
+
+    @property
     def external_initializers_path(self) -> Optional[str]:
         model_path = super().model_path
         return get_additional_file_path(model_path, self.external_initializers_file_name) if model_path else None
@@ -244,6 +250,15 @@ class DistributedOnnxModelHandler(OliveModelHandler, OnnxEpValidateMixin):
             use_ort_extensions=self.use_ort_extensions,
             model_attributes=self.model_attributes,
         )
+
+    @property
+    def size_on_disk(self) -> int:
+        """Compute size of the model on disk."""
+        nbytes = 0
+        for rank in range(self.num_ranks):
+            model = self.load_model(rank, cache_model=False)
+            nbytes += model.ByteSize()
+        return nbytes
 
     def prepare_session(
         self,

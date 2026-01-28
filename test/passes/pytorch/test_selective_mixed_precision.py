@@ -3,12 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import pytest
+import torch
 from transformers import LlamaConfig, LlamaForCausalLM
 
 from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.selective_mixed_precision import SelectiveMixedPrecision
+from test.utils import get_tiny_phi3
 
 
 @pytest.fixture(name="input_model", scope="module")
@@ -36,7 +38,7 @@ def input_model_fixture(tmp_path_factory):
         ("k_quant_last", [], False),
     ],
 )
-def test_selective_mixed_precision(algorithm, expected_layer_indices, include_qkv, input_model, tmp_path):
+def test_selective_mixed_precision_k_quant(algorithm, expected_layer_indices, include_qkv, input_model, tmp_path):
     """Test SelectiveMixedPrecision pass with different algorithms."""
     config = {"algorithm": algorithm}
     p = create_pass_from_dict(SelectiveMixedPrecision, config, disable_search=True)
@@ -67,3 +69,31 @@ def test_selective_mixed_precision(algorithm, expected_layer_indices, include_qk
             }
         )
     assert output_model.model_attributes["mixed_precision_info"] == expected_mp_info
+
+
+@pytest.mark.parametrize("algorithm", ["snr", "snr_relative", "iqe", "iqe_relative", "kld_gradient"])
+def test_selective_mixed_precision_scored(algorithm, tmp_path):
+    if algorithm == "kld_gradient" and not torch.cuda.is_available():
+        pytest.skip("Skipping kld_gradient test as it runs slow on CPU.")
+
+    p = create_pass_from_dict(
+        SelectiveMixedPrecision,
+        {"algorithm": algorithm, "ratio": 0.8, "group_size": 16, "high_sym": True},
+        disable_search=True,
+    )
+
+    output_model = p.run(get_tiny_phi3(), str(tmp_path))
+
+    # Check that mixed_precision_info was added
+    assert "mixed_precision_info" in output_model.model_attributes
+    assert output_model.model_attributes["mixed_precision_info"]["default"] == {
+        "bits": PrecisionBits.BITS4,
+        "group_size": 16,
+        "symmetric": False,
+    }
+    # all layers are so small, lm_head is always included to reach ratio
+    assert output_model.model_attributes["mixed_precision_info"]["overrides"]["lm_head"] == {
+        "bits": PrecisionBits.BITS8,
+        "group_size": 16,
+        "symmetric": True,
+    }

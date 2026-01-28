@@ -2,8 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from enum import IntEnum
+
 from olive.common.config_utils import CaseInsensitiveEnum
-from olive.common.utils import IntEnumBase, StrEnumBase
+from olive.common.utils import StrEnumBase
 
 MSFT_DOMAIN = "com.microsoft"
 
@@ -52,7 +54,7 @@ class Precision(StrEnumBase):
     BF16 = "bf16"
 
 
-class PrecisionBits(IntEnumBase):
+class PrecisionBits(IntEnum):
     BITS4 = 4
     BITS8 = 8
     BITS16 = 16
@@ -66,6 +68,9 @@ class QuantAlgorithm(CaseInsensitiveEnum):
     RTN = "rtn"
     SPINQUANT = "spinquant"
     QUAROT = "quarot"
+    LPBQ = "lpbq"
+    SEQMSE = "seqmse"
+    ADAROUND = "adaround"
 
 
 class QuantEncoding(StrEnumBase):
@@ -82,6 +87,7 @@ class DatasetRequirement(StrEnumBase):
 class OpType(StrEnumBase):
     """Enum for operator types."""
 
+    DequantizeLinear = "DequantizeLinear"
     Gather = "Gather"
     GatherBlockQuantized = "GatherBlockQuantized"
     MatMulNBits = "MatMulNBits"
@@ -98,14 +104,45 @@ class OpType(StrEnumBase):
     Div = "Div"
     Shape = "Shape"
     Constant = "Constant"
+    Custom = "custom"
+    PackedAttention = "PackedAttention"
+    PackedMultiHeadAttention = "PackedMultiHeadAttention"
+    MultiHeadAttention = "MultiHeadAttention"
+    Loop = "Loop"
 
 
-class AccuracyLevel(IntEnumBase):
+class AccuracyLevel(IntEnum):
     unset = 0
     fp32 = 1
     fp16 = 2
     bf16 = 3
     int8 = 4
+
+
+class DiffusersModelVariant(StrEnumBase):
+    """Diffusion model variants."""
+
+    AUTO = "auto"
+    SD = "sd"
+    SDXL = "sdxl"
+    SD3 = "sd3"
+    FLUX = "flux"
+    SANA = "sana"
+
+
+class DiffusersComponent(StrEnumBase):
+    """Diffusers pipeline component names."""
+
+    TEXT_ENCODER = "text_encoder"
+    TEXT_ENCODER_2 = "text_encoder_2"
+    TEXT_ENCODER_3 = "text_encoder_3"
+    UNET = "unet"
+    TRANSFORMER = "transformer"
+    VAE_ENCODER = "vae_encoder"
+    VAE_DECODER = "vae_decoder"
+    FLUX_TRANSFORMER = "flux_transformer"
+    SD3_TRANSFORMER = "sd3_transformer"
+    SANA_TRANSFORMER = "sana_transformer"
 
 
 def precision_bits_from_precision(p):

@@ -61,7 +61,6 @@ Always reference these instructions first and fallback to search or bash command
 ### Repository Structure
 - `olive/` -- Main package directory with core functionality
 - `test/` -- Test suite with requirements-test*.txt files
-- `examples/` -- Example scripts and notebooks (35+ model optimization examples)
 - `docs/` -- Documentation
 - `.github/workflows/` -- CI/CD pipelines (lint.yml, codeql.yml)
 - `olive/passes/onnx` -- Directory of ONNX transformations passes
@@ -87,12 +86,6 @@ Always reference these instructions first and fallback to search or bash command
 - Entry point: `olive` command (defined in setup.py console_scripts)
 - Version location: `olive/__init__.py` (__version__)
 
-### Examples and Documentation
-- Getting started notebooks: `examples/getting_started/`
-- Model-specific examples: `examples/{model_name}/` (phi2, mistral, llama, etc.)
-- Quick start example: Qwen/Qwen2.5-0.5B-Instruct optimization
-- Documentation website: https://microsoft.github.io/Olive/
-
 ### Development Workflow
 - Code style: Black formatter with 120 character line limit
 - Linting: Multiple tools via lintrunner (ruff, pylint, editorconfig-checker, etc.)
@@ -111,4 +104,3 @@ When network connectivity is limited:
 - Focus on configuration validation with `--dry_run` mode
 - Test CLI help commands and basic imports
 - Validate linting and code formatting
-- Use local examples in `examples/` directory for reference

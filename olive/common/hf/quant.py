@@ -69,13 +69,6 @@ def get_auto_gptq_qlinear_cls(quantization_config):
     return None
 
 
-def get_olive_qlinear_cls(quantization_config):
-    """Get the right OliveQuantLinear class based on the quantization config."""
-    from olive.common.quant.linear import QuantLinear
-
-    return QuantLinear
-
-
 @torch.no_grad()
 def _replace_qlinear_modules(
     model: torch.nn.Module, dynamo: bool, mapping: dict[str, tuple[Callable, Callable]], desc: str
@@ -229,9 +222,9 @@ class QuantLinearNbit(torch.nn.Module):
         )
         self.register_buffer(
             "qzeros",
-            torch.zeros(out_features * math.ceil(n_blocks_per_col * self.bits / 8), dtype=torch.uint8),
+            torch.zeros(out_features, math.ceil(n_blocks_per_col * self.bits / 8), dtype=torch.uint8),
         )
-        self.register_buffer("scales", torch.zeros((out_features * n_blocks_per_col), dtype=dtype))
+        self.register_buffer("scales", torch.zeros((out_features, n_blocks_per_col), dtype=dtype))
         if g_idx:
             self.register_buffer(
                 "g_idx", torch.tensor([i // self.group_size for i in range(in_features)], dtype=torch.int32)
@@ -289,11 +282,11 @@ class QuantLinearNbit(torch.nn.Module):
         # pack the zeros
         if bits == 4:
             izeros = (izeros[:, 0::2] & 0xF) | ((izeros[:, 1::2] & 0xF) << 4)
-        self.qzeros = izeros.flatten().contiguous()
+        self.qzeros = izeros.contiguous()
 
-        self.scales = scales.flatten().contiguous()
+        self.scales = scales.contiguous()
 
-        self.g_idx = g_idx
+        self.g_idx = g_idx.contiguous() if g_idx is not None else None
 
     @classmethod
     def from_tensors(
@@ -372,21 +365,10 @@ def make_auto_gptq_qlinearnbit(qlinear, dynamo):
     )
 
 
-def make_olive_qlinearnbit(qlinear, dynamo):
-    return QuantLinearNbit.from_tensors(
-        *qlinear.get_unpacked_params(),
-        group_size=qlinear.quantizer.group_size,
-        bits=qlinear.quantizer.bits,
-        bias=qlinear.bias,
-        dynamo=dynamo,
-    )
-
-
 # TODO(jambayk): maybe support bitsandbytes too. Need to consider dtype compatibility
 EXPORT_QLINEAR_MAPPING = {
     "awq": (get_auto_awq_qlinear_cls, make_auto_awq_qlinearnbit),
     "gptq": (get_auto_gptq_qlinear_cls, make_auto_gptq_qlinearnbit),
-    "olive": (get_olive_qlinear_cls, make_olive_qlinearnbit),
 }
 
 

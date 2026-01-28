@@ -7,10 +7,18 @@ from pathlib import Path
 
 import onnx
 
+from olive.hardware import Device
 from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.passes import Pass
-from olive.passes.onnx.common import fix_dim_params, process_llm_pipeline, resave_model
+from olive.passes.onnx.common import (
+    add_version_metadata_to_model_proto,
+    fix_dim_params,
+    process_llm_pipeline,
+    resave_model,
+    update_llm_pipeline_genai_config_gpu,
+)
 from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
@@ -56,9 +64,18 @@ class StaticLLM(Pass):
             ),
         }
 
-    def _run_for_config(
-        self, model: CompositeModelHandler, config: type[BasePassConfig], output_model_path: str
-    ) -> CompositeModelHandler:
+    def _run_for_config(self, model, config: type[BasePassConfig], output_model_path: str):
+        if (
+            self.accelerator_spec.execution_provider == ExecutionProvider.QNNExecutionProvider
+            and self.accelerator_spec.accelerator_type == Device.GPU
+        ):
+            assert isinstance(model, ONNXModelHandler), "StaticLLM (qnn-gpu) requires a single ONNXModelHandler."
+            return self._run_qnn_gpu(model, config, output_model_path)
+
+        else:
+            return self._run_generic(model, config, output_model_path)
+
+    def _run_generic(self, model: CompositeModelHandler, config: type[BasePassConfig], output_model_path: str):
         assert isinstance(model, CompositeModelHandler), "StaticLLM pass only supports CompositeModelHandler"
         model_components = list(model.model_components)
         assert all(isinstance(m, ONNXModelHandler) for m in model_components), "All components must be ONNXModelHandler"
@@ -119,6 +136,8 @@ class StaticLLM(Pass):
 
                     # save the model with fixed shapes
                     component_model_path = output_dir / f"{new_component_name}.onnx"
+                    # Add olive version to metadata
+                    add_version_metadata_to_model_proto(component_proto)
                     onnx.save_model(component_proto, component_model_path)
                     new_groups[key][new_component_name] = ONNXModelHandler(
                         model_path=output_dir, onnx_file_name=component_model_path.name
@@ -160,6 +179,60 @@ class StaticLLM(Pass):
             output_model_path,
             decoder_config_extra=decoder_config_extra,
             group_session_options=config.group_session_options,
+        )
+
+    def _run_qnn_gpu(self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: Path):
+        output_model_dir = Path(output_model_path).with_suffix("")
+        model_path = Path(model.model_path)
+
+        # --- Step 1: Load model (handle both single and external data) ---
+        try:
+            model_proto = onnx.load(model_path, load_external_data=True)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load ONNX model: {e}") from e
+
+        # --- Step 2: Fix symbolic dimensions ---
+        batch_size, sequence_length = OnnxDAG(model_proto).get_io_shape("input_ids")
+        if not (isinstance(batch_size, str) and isinstance(sequence_length, str)):
+            raise ValueError("Input dimensions must be symbolic before static shape fixing.")
+
+        param_mapping = {batch_size: config.batch_size, sequence_length: config.context_length}
+        self.fix_shape(model_proto, param_mapping)
+
+        # --- Step 3: Save model as external-data format ---
+        output_model_file = Path(output_model_dir) / "model.onnx"
+        external_data_file = Path(output_model_dir) / "model.onnx.data"
+
+        onnx.save(
+            model_proto,
+            str(output_model_file),
+            save_as_external_data=True,
+            all_tensors_to_one_file=True,
+            location=external_data_file.name,
+            convert_attribute=False,
+        )
+
+        decoder_config_extra = {
+            "inputs": {
+                "past_sequence_length": "past_seq_len",
+                "total_sequence_length": "total_seq_len",
+            },
+            "sliding_window": {
+                "window_size": config.context_length,
+                "pad_value": 0,
+                "alignment": "left",
+                "slide_key_value_cache": False,
+            },
+        }
+
+        input_model_path = model.model_path
+        model_static = ONNXModelHandler(model_path=output_model_dir, onnx_file_name=output_model_file.name)
+
+        return update_llm_pipeline_genai_config_gpu(
+            model_static,
+            output_model_dir,
+            input_model_path,
+            decoder_config_extra,
         )
 
     @staticmethod

@@ -31,11 +31,6 @@ good-names = [
 ]
 
 [tool.pylint.main]
-# https://github.com/pylint-dev/pylint/issues/3242#issuecomment-776482259
-# Please don't use ** for the pattern. It will cause pylint to crash.
-# the crash error message would like:
-# re.error: multiple repeat at position 41
-ignore-paths = [".*/examples/directml/llm/chat_app/.*"]
 
 [tool.pylint.messages_control]
 disable = [
@@ -187,9 +182,7 @@ classmethod-decorators = ["classmethod", "olive.common.pydantic_v1.validator", "
 
 [tool.ruff.lint.per-file-ignores]
 ".azure_pipelines/**" = ["INP001"]
-"examples/**" = ["TID252", "INP001"]
 "docs/**" = ["INP001"]
 "test/**" = ["INP001"]
 "scripts/**" = ["INP001"]
-"examples/directml/llm/chat_app/**" = ["TID252", "UP006", "T201"]
 "olive/cli/**" = ["T201"]

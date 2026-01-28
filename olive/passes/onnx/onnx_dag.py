@@ -84,9 +84,21 @@ class OnnxDAG:
     def __init__(self, model: "ModelProto", only_main_graph: bool = False):
         self.model = model
         self.graphs = self.get_all_graphs(self.model, only_main_graph)
-        self.nodes: dict[str, OnnxNode] = {}
-        self.ios: dict[str, OnnxIO] = {}
+
+        # Initialize empty containers once
+        self.nodes = {}
+        self.ios = {}
         self.connections = defaultdict(list)
+        self.unique_node_counter = 0
+
+        # Build state
+        self._initialize_dag()
+
+    def _initialize_dag(self):
+        """Populate nodes, ios, and connections from self.model/self.graphs."""
+        self.nodes.clear()
+        self.ios.clear()
+        self.connections.clear()
         self.unique_node_counter = 0
 
         # traverse the graphs and populate nodes, ios, and connections
@@ -383,7 +395,7 @@ class OnnxDAG:
             output is already present as an one. If False, it will raise an error.
         """
         node_name = node_proto.name
-        if not node_name or node_name in self.nodes:
+        while not node_name or node_name in self.nodes or node_name in self.ios:
             node_name = f"{node_proto.op_type}_{self.unique_node_counter}"
             self.unique_node_counter += 1
         self._process_node(
@@ -926,11 +938,16 @@ class OnnxDAG:
             graph.ClearField("input")
             graph.input.extend(inputs)
             graph.ClearField("initializer")
-            graph.initializer.extend(initializers)
+            # add iteratively to avoid hitting 2GB limit on protobuf
+            for init in initializers:
+                # TODO(jambayk): maybe move to onnx-ir backend for more memory efficiency
+                graph.initializer.add().CopyFrom(init)
             graph.ClearField("output")
             graph.output.extend(outputs)
             graph.ClearField("value_info")
             graph.value_info.extend(value_infos)
+        # reinitialize the dag, cleans up unused components, new init references
+        self._initialize_dag()
 
     def remove_identity_nodes(self):
         """Remove identity nodes from the graph."""

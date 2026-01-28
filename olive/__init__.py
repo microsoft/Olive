@@ -18,8 +18,10 @@ _logger.propagate = False
 
 # Import Python API functions
 from olive.cli.api import (  # noqa: E402
+    benchmark,
     capture_onnx_graph,
     convert_adapters,
+    diffusion_lora,
     extract_adapters,
     finetune,
     generate_adapter,
@@ -28,15 +30,16 @@ from olive.cli.api import (  # noqa: E402
     run,
     tune_session_params,
 )
-from olive.engine.output import DeviceOutput, ModelOutput, WorkflowOutput  # noqa: E402
+from olive.engine.output import ModelOutput, WorkflowOutput  # noqa: E402
 
 __all__ = [
-    "DeviceOutput",
     "ModelOutput",
     "WorkflowOutput",
     # Python API functions
+    "benchmark",
     "capture_onnx_graph",
     "convert_adapters",
+    "diffusion_lora",
     "extract_adapters",
     "finetune",
     "generate_adapter",

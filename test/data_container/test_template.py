@@ -21,7 +21,7 @@ class TestDataConfigTemplate:
             task="text-classification",
             load_dataset_config=DataComponentConfig(
                 params={
-                    "data_name": "glue",
+                    "data_name": "nyu-mll/glue",
                     "subset": "mrpc",
                     "split": "train",
                 }

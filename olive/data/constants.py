@@ -41,3 +41,10 @@ class DefaultDataContainer(StrEnumBase):
     """enumerate for the default data containers."""
 
     DATA_CONTAINER = "DataContainer"
+
+
+class DatasetType(StrEnumBase):
+    """enumerate for different dataset source types."""
+
+    HUGGINGFACE_DATASET = "huggingface_dataset"
+    IMAGE_FOLDER_DATASET = "image_folder_dataset"
