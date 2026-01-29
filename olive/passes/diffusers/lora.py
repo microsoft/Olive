@@ -1084,7 +1084,6 @@ class SDLoRA(Pass):
                         # Encode images to latents
                         pixel_values = batch["pixel_values"].to(device=accelerator.device, dtype=weight_dtype)
                         latents = vae.encode(pixel_values).latent_dist.sample()
-                        latents = (latents - vae.config.shift_factor) * vae.config.scaling_factor
 
                         # Save latent dimensions before packing (needed for image IDs)
                         batch_size, _channels, latent_height, latent_width = latents.shape
