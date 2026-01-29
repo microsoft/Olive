@@ -1108,8 +1108,8 @@ class SDLoRA(Pass):
                             prompt_embeds, text_ids = self._encode_prompt_flux2(
                                 batch, text_encoder, target_device=accelerator.device
                             )
-                            # Get latent image IDs
-                            latent_image_ids = self._prepare_latent_image_ids(
+                            # Get latent image IDs (FLUX2 uses 4D position IDs)
+                            latent_image_ids = self._prepare_latent_ids_flux2(
                                 batch_size, latent_height // 2, latent_width // 2, latents.device, weight_dtype
                             )
 
@@ -1651,7 +1651,7 @@ class SDLoRA(Pass):
         return sigmas.to(dtype=dtype, device=device)
 
     def _prepare_latent_image_ids(self, batch_size, height, width, device, dtype):
-        """Prepare latent image IDs for Flux."""
+        """Prepare latent image IDs for Flux (3D: T, H, W)."""
         import torch
 
         latent_image_ids = torch.zeros(height, width, 3, device=device, dtype=dtype)
@@ -1659,3 +1659,20 @@ class SDLoRA(Pass):
         latent_image_ids[..., 2] = torch.arange(width, device=device, dtype=dtype)[None, :]
         latent_image_ids = latent_image_ids.reshape(height * width, 3)
         return latent_image_ids.unsqueeze(0).expand(batch_size, -1, -1)
+
+    def _prepare_latent_ids_flux2(self, batch_size, height, width, device, dtype):
+        """Prepare latent IDs for Flux2 (4D: T, H, W, L)."""
+        import torch
+
+        t = torch.arange(1, device=device)  # [0] - time dimension
+        h = torch.arange(height, device=device)
+        w = torch.arange(width, device=device)
+        l = torch.arange(1, device=device)  # [0] - layer dimension
+
+        # Create position IDs: (H*W, 4)
+        latent_ids = torch.cartesian_prod(t, h, w, l).to(dtype=dtype)
+
+        # Expand to batch: (B, H*W, 4)
+        latent_ids = latent_ids.unsqueeze(0).expand(batch_size, -1, -1)
+
+        return latent_ids
