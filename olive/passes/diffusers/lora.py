@@ -1105,7 +1105,7 @@ class SDLoRA(Pass):
                         # Get text embeddings (frozen)
                         # Note: text_encoder runs on CPU to save GPU memory
                         with torch.no_grad():
-                            prompt_embeds, pooled_prompt_embeds, text_ids = self._encode_prompt_flux2(
+                            prompt_embeds, text_ids = self._encode_prompt_flux2(
                                 batch, text_encoder, target_device=accelerator.device
                             )
                             # Get latent image IDs
@@ -1576,8 +1576,12 @@ class SDLoRA(Pass):
 
         return prompt_embeds, pooled_prompt_embeds, text_ids
 
-    def _encode_prompt_flux2(self, batch, text_encoder, target_device=None):
+    def _encode_prompt_flux2(self, batch, text_encoder, target_device=None, hidden_states_layers=(10, 20, 30)):
         """Encode prompts for Flux2 (frozen Mistral3 text encoder).
+
+        FLUX2 uses a unique encoding method: it extracts hidden states from multiple
+        intermediate layers (10, 20, 30) of Mistral3 and concatenates them.
+        This produces embeddings with dimension 5120 * 3 = 15360.
 
         Note: text_encoder runs entirely on CPU to save GPU memory.
         Only the output embeddings are moved to target_device (GPU).
@@ -1590,6 +1594,7 @@ class SDLoRA(Pass):
 
         # text_encoder stays on CPU, inputs go to CPU
         encoder_device = next(text_encoder.parameters()).device
+        encoder_dtype = next(text_encoder.parameters()).dtype
         input_ids = batch["input_ids_mistral"].to(encoder_device)
         attention_mask = batch.get("attention_mask_mistral")
         if attention_mask is not None:
@@ -1600,25 +1605,22 @@ class SDLoRA(Pass):
             input_ids=input_ids,
             attention_mask=attention_mask,
             output_hidden_states=True,
-            return_dict=True,
+            use_cache=False,
         )
 
-        # Use last hidden state as prompt embeddings, move to target device (GPU)
-        prompt_embeds = outputs.last_hidden_state.to(target_device)
+        # Extract hidden states from specified layers and stack them
+        # hidden_states_layers = (10, 20, 30) by default
+        out = torch.stack([outputs.hidden_states[k] for k in hidden_states_layers], dim=1)
+        out = out.to(dtype=encoder_dtype, device=target_device)
 
-        # For pooled embeddings, use mean pooling over sequence
-        if attention_mask is not None:
-            attention_mask_gpu = attention_mask.to(target_device)
-            pooled_prompt_embeds = (prompt_embeds * attention_mask_gpu.unsqueeze(-1)).sum(dim=1) / attention_mask_gpu.sum(
-                dim=1, keepdim=True
-            )
-        else:
-            pooled_prompt_embeds = prompt_embeds.mean(dim=1)
+        # Reshape: [batch, num_layers, seq_len, hidden_dim] -> [batch, seq_len, num_layers * hidden_dim]
+        batch_size, num_channels, seq_len, hidden_dim = out.shape
+        prompt_embeds = out.permute(0, 2, 1, 3).reshape(batch_size, seq_len, num_channels * hidden_dim)
 
-        # Create text IDs
-        text_ids = torch.zeros(prompt_embeds.shape[0], prompt_embeds.shape[1], 3, device=target_device)
+        # Create text IDs (3D position encoding)
+        text_ids = torch.zeros(batch_size, seq_len, 3, device=target_device, dtype=prompt_embeds.dtype)
 
-        return prompt_embeds, pooled_prompt_embeds, text_ids
+        return prompt_embeds, text_ids
 
     def _compute_time_ids_batch(self, batch, device, dtype):
         """Compute SDXL time IDs for a batch."""
