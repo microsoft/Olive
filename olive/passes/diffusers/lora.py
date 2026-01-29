@@ -955,11 +955,13 @@ class SDLoRA(Pass):
             transformer = Flux2Transformer2DModel.from_pretrained(model_path, subfolder="transformer")
 
             # Freeze all base models and move to device
+            # Note: text_encoder stays on CPU to save GPU memory (FLUX2 models are very large)
+            # It will be moved to GPU temporarily only when encoding prompts
             vae.requires_grad_(False)
             vae.to(accelerator.device, dtype=weight_dtype)
 
             text_encoder.requires_grad_(False)
-            text_encoder.to(accelerator.device, dtype=weight_dtype)
+            text_encoder.to(dtype=weight_dtype)  # Keep on CPU, only convert dtype
 
             transformer.requires_grad_(False)
             transformer.to(accelerator.device, dtype=weight_dtype)
@@ -1102,9 +1104,10 @@ class SDLoRA(Pass):
                         noisy_latents = sigmas * noise + (1.0 - sigmas) * latents
 
                         # Get text embeddings (frozen)
+                        # Note: text_encoder is on CPU, will be temporarily moved to GPU for encoding
                         with torch.no_grad():
                             prompt_embeds, pooled_prompt_embeds, text_ids = self._encode_prompt_flux2(
-                                batch, text_encoder
+                                batch, text_encoder, target_device=accelerator.device
                             )
                             # Get latent image IDs
                             latent_image_ids = self._prepare_latent_image_ids(
@@ -1574,14 +1577,26 @@ class SDLoRA(Pass):
 
         return prompt_embeds, pooled_prompt_embeds, text_ids
 
-    def _encode_prompt_flux2(self, batch, text_encoder):
-        """Encode prompts for Flux2 (frozen Mistral3 text encoder)."""
+    def _encode_prompt_flux2(self, batch, text_encoder, target_device=None):
+        """Encode prompts for Flux2 (frozen Mistral3 text encoder).
+
+        Note: text_encoder is kept on CPU to save GPU memory. It's temporarily moved to GPU
+        for encoding, then moved back to CPU.
+        """
         import torch
 
-        input_ids = batch["input_ids_mistral"].to(text_encoder.device)
+        # Determine target device (where outputs should be)
+        if target_device is None:
+            target_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # Remember original device and move text_encoder to GPU temporarily
+        original_device = next(text_encoder.parameters()).device
+        text_encoder.to(target_device)
+
+        input_ids = batch["input_ids_mistral"].to(target_device)
         attention_mask = batch.get("attention_mask_mistral")
         if attention_mask is not None:
-            attention_mask = attention_mask.to(text_encoder.device)
+            attention_mask = attention_mask.to(target_device)
 
         # Mistral3 encoder for text embeddings
         outputs = text_encoder(
@@ -1592,7 +1607,7 @@ class SDLoRA(Pass):
         )
 
         # Use last hidden state as prompt embeddings
-        prompt_embeds = outputs.last_hidden_state
+        prompt_embeds = outputs.last_hidden_state.clone()  # Clone to keep on GPU after moving encoder back
 
         # For pooled embeddings, use mean pooling over sequence
         if attention_mask is not None:
@@ -1603,7 +1618,12 @@ class SDLoRA(Pass):
             pooled_prompt_embeds = prompt_embeds.mean(dim=1)
 
         # Create text IDs
-        text_ids = torch.zeros(prompt_embeds.shape[0], prompt_embeds.shape[1], 3, device=prompt_embeds.device)
+        text_ids = torch.zeros(prompt_embeds.shape[0], prompt_embeds.shape[1], 3, device=target_device)
+
+        # Move text_encoder back to CPU to free GPU memory
+        text_encoder.to(original_device)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         return prompt_embeds, pooled_prompt_embeds, text_ids
 
