@@ -1103,7 +1103,7 @@ class SDLoRA(Pass):
                         noisy_latents = sigmas * noise + (1.0 - sigmas) * latents
 
                         # Get text embeddings (frozen)
-                        # Note: text_encoder is on CPU, will be temporarily moved to GPU for encoding
+                        # Note: text_encoder runs on CPU to save GPU memory
                         with torch.no_grad():
                             prompt_embeds, pooled_prompt_embeds, text_ids = self._encode_prompt_flux2(
                                 batch, text_encoder, target_device=accelerator.device
@@ -1114,16 +1114,16 @@ class SDLoRA(Pass):
                             )
 
                         # Transformer forward (with gradients for LoRA training)
+                        # Note: Flux2Transformer2DModel doesn't use pooled_projections (unlike FluxTransformer2DModel)
                         model_pred = transformer(
                             hidden_states=noisy_latents,
+                            encoder_hidden_states=prompt_embeds,
                             timestep=timesteps / 1000,
+                            img_ids=latent_image_ids,
+                            txt_ids=text_ids,
                             guidance=torch.full(
                                 (batch_size,), training_args.guidance_scale, device=latents.device, dtype=weight_dtype
                             ),
-                            pooled_projections=pooled_prompt_embeds,
-                            encoder_hidden_states=prompt_embeds,
-                            txt_ids=text_ids,
-                            img_ids=latent_image_ids,
                             return_dict=False,
                         )[0]
 
