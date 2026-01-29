@@ -1579,8 +1579,8 @@ class SDLoRA(Pass):
     def _encode_prompt_flux2(self, batch, text_encoder, target_device=None):
         """Encode prompts for Flux2 (frozen Mistral3 text encoder).
 
-        Note: text_encoder is kept on CPU to save GPU memory. It's temporarily moved to GPU
-        for encoding, then moved back to CPU.
+        Note: text_encoder runs entirely on CPU to save GPU memory.
+        Only the output embeddings are moved to target_device (GPU).
         """
         import torch
 
@@ -1588,16 +1588,14 @@ class SDLoRA(Pass):
         if target_device is None:
             target_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # Remember original device and move text_encoder to GPU temporarily
-        original_device = next(text_encoder.parameters()).device
-        text_encoder.to(target_device)
-
-        input_ids = batch["input_ids_mistral"].to(target_device)
+        # text_encoder stays on CPU, inputs go to CPU
+        encoder_device = next(text_encoder.parameters()).device
+        input_ids = batch["input_ids_mistral"].to(encoder_device)
         attention_mask = batch.get("attention_mask_mistral")
         if attention_mask is not None:
-            attention_mask = attention_mask.to(target_device)
+            attention_mask = attention_mask.to(encoder_device)
 
-        # Mistral3 encoder for text embeddings
+        # Mistral3 encoder for text embeddings (runs on CPU)
         outputs = text_encoder(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -1605,12 +1603,13 @@ class SDLoRA(Pass):
             return_dict=True,
         )
 
-        # Use last hidden state as prompt embeddings
-        prompt_embeds = outputs.last_hidden_state.clone()  # Clone to keep on GPU after moving encoder back
+        # Use last hidden state as prompt embeddings, move to target device (GPU)
+        prompt_embeds = outputs.last_hidden_state.to(target_device)
 
         # For pooled embeddings, use mean pooling over sequence
         if attention_mask is not None:
-            pooled_prompt_embeds = (prompt_embeds * attention_mask.unsqueeze(-1)).sum(dim=1) / attention_mask.sum(
+            attention_mask_gpu = attention_mask.to(target_device)
+            pooled_prompt_embeds = (prompt_embeds * attention_mask_gpu.unsqueeze(-1)).sum(dim=1) / attention_mask_gpu.sum(
                 dim=1, keepdim=True
             )
         else:
@@ -1618,11 +1617,6 @@ class SDLoRA(Pass):
 
         # Create text IDs
         text_ids = torch.zeros(prompt_embeds.shape[0], prompt_embeds.shape[1], 3, device=target_device)
-
-        # Move text_encoder back to CPU to free GPU memory
-        text_encoder.to(original_device)
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
 
         return prompt_embeds, pooled_prompt_embeds, text_ids
 
