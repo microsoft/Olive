@@ -15,6 +15,7 @@ from olive.cli.base import (
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
+from olive.telemetry import action
 
 
 class BenchmarkCommand(BaseOliveCLICommand):
@@ -71,6 +72,7 @@ class BenchmarkCommand(BaseOliveCLICommand):
         add_shared_cache_options(sub_parser)
         sub_parser.set_defaults(func=BenchmarkCommand)
 
+    @action
     def run(self):
         return self._run_workflow()
 

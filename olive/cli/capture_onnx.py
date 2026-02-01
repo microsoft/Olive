@@ -20,7 +20,7 @@ from olive.cli.base import (
 )
 from olive.common.utils import set_nested_dict_value
 from olive.model.utils.diffusers_utils import is_valid_diffusers_model
-from olive.telemetry.telemetry import action
+from olive.telemetry import action
 
 
 class ModelBuilderAccuracyLevel(IntEnum):

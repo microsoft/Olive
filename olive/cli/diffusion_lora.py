@@ -16,6 +16,7 @@ from olive.cli.base import (
 from olive.common.utils import set_nested_dict_value
 from olive.constants import DiffusersModelVariant
 from olive.passes.diffusers.lora import LRSchedulerType, MixedPrecision
+from olive.telemetry import action
 
 
 class DiffusionLoraCommand(BaseOliveCLICommand):
@@ -239,6 +240,7 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
         add_save_config_file_options(sub_parser)
         sub_parser.set_defaults(func=DiffusionLoraCommand)
 
+    @action
     def run(self):
         return self._run_workflow()
 

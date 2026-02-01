@@ -5,7 +5,7 @@
 from argparse import ArgumentParser
 
 from olive.cli.base import BaseOliveCLICommand, add_telemetry_options
-from olive.telemetry.telemetry import action
+from olive.telemetry import action
 
 
 class ConfigureQualcommSDKCommand(BaseOliveCLICommand):
