@@ -11,6 +11,7 @@ from olive.cli.base import (
     add_logging_options,
     add_save_config_file_options,
     add_shared_cache_options,
+    add_telemetry_options,
     update_shared_cache_options,
 )
 from olive.common.utils import set_nested_dict_value
@@ -238,6 +239,7 @@ class DiffusionLoraCommand(BaseOliveCLICommand):
         add_shared_cache_options(sub_parser)
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
+        add_telemetry_options(sub_parser)
         sub_parser.set_defaults(func=DiffusionLoraCommand)
 
     @action

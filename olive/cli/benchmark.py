@@ -11,6 +11,7 @@ from olive.cli.base import (
     add_logging_options,
     add_save_config_file_options,
     add_shared_cache_options,
+    add_telemetry_options,
     get_input_model_config,
     update_shared_cache_options,
 )
@@ -70,6 +71,7 @@ class BenchmarkCommand(BaseOliveCLICommand):
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
         add_shared_cache_options(sub_parser)
+        add_telemetry_options(sub_parser)
         sub_parser.set_defaults(func=BenchmarkCommand)
 
     @action

@@ -12,7 +12,7 @@ from time import time
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import requests
-from opentelemetry.sdk._logs import LogData
+from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
 from opentelemetry.sdk.resources import Resource
 
@@ -173,7 +173,7 @@ class OneCollectorLogExporter(LogExporter):
         """
         return self._transport.register_payload_transmitted_callback(callback, include_failures)
 
-    def export(self, batch: Sequence[LogData]) -> LogExportResult:
+    def export(self, batch: Sequence[ReadableLogRecord]) -> LogExportResult:
         """Export a batch of log records.
 
         Args:
@@ -202,7 +202,7 @@ class OneCollectorLogExporter(LogExporter):
                     item_bytes = self._serialize_log_data(log_data)
                     serialized_items.append(item_bytes)
                 except Exception as ex:
-                    event_source.export_exception_thrown("LogData", ex)
+                    event_source.export_exception_thrown("ReadableLogRecord", ex)
                     # Continue with other items
 
             if not serialized_items:
@@ -234,15 +234,15 @@ class OneCollectorLogExporter(LogExporter):
                     return LogExportResult.FAILURE
 
             # Log success
-            event_source.sink_data_written("LogData", len(batch), "OneCollector")
+            event_source.sink_data_written("ReadableLogRecord", len(batch), "OneCollector")
 
             return LogExportResult.SUCCESS
 
         except Exception as ex:
-            event_source.export_exception_thrown("LogData", ex)
+            event_source.export_exception_thrown("ReadableLogRecord", ex)
             return LogExportResult.FAILURE
 
-    def _serialize_log_data(self, log_data: LogData) -> bytes:
+    def _serialize_log_data(self, log_data: ReadableLogRecord) -> bytes:
         """Serialize a single log record to JSON bytes.
 
         Args:
