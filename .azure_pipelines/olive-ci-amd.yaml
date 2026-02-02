@@ -1,0 +1,49 @@
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - olive/passes/quark_quantizer/*
+    - test/passes/quark_quantizer/*
+
+pr:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - olive/passes/quark_quantizer/*
+    - test/passes/quark_quantizer/*
+
+variables:
+  runCodesignValidationInjection: false
+  skipComponentGovernanceDetection: true
+
+jobs:
+# Linux OpenVINO unit tests
+- template: job_templates/olive-test-cpu-template.yaml
+  parameters:
+    name: Linux_CPU_OpenVINO_Unit_Test
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    pytest_marker: 'amd'
+    requirements_file: 'requirements-test-amd.txt'
+    test_path: 'test/passes/quark_quantizer'
+
+- template: job_templates/olive-test-linux-gpu-template.yaml
+  parameters:
+    name: Linux_GPU_OpenVINO_Unit_Test
+    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    pytest_marker: 'amd'
+    requirements_file: 'requirements-test-amd.txt'
+    test_path: 'test/passes/quark_quantizer'
+
+# Windows OpenVINO unit tests
+- template: job_templates/olive-test-cpu-template.yaml
+  parameters:
+    name: Windows_CPU_OpenVINO_Unit_Test
+    pool: $(OLIVE_POOL_WIN2019)
+    windows: True
+    pytest_marker: 'amd'
+    requirements_file: 'requirements-test-amd.txt'
+    test_path: 'test/passes/quark_quantizer'
