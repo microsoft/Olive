@@ -10,7 +10,7 @@ from types import TracebackType
 from typing import Any, Callable, Optional, TypeVar
 
 from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, _get_logger
-from olive.telemetry.utils import _format_exception_msg
+from olive.telemetry.utils import _format_exception_message
 
 _TFunc = TypeVar("_TFunc", bound=Callable[..., Any])
 
@@ -110,7 +110,7 @@ class ActionContext:
         if exc_type is not None and exc_val is not None:
             log_error(
                 exception_type=exc_type.__name__,
-                exception_message=_format_exception_msg(exc_val, exc_tb),
+                exception_message=_format_exception_message(exc_val, exc_tb),
                 metadata=self.metadata,
             )
 
@@ -139,7 +139,7 @@ def action(func: _TFunc) -> _TFunc:
             success = False
             log_error(
                 exception_type=type(exc).__name__,
-                exception_message=_format_exception_msg(exc, exc.__traceback__),
+                exception_message=_format_exception_message(exc, exc.__traceback__),
             )
             raise
         finally:

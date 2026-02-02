@@ -45,8 +45,8 @@ class OneCollectorLogExporter(LogRecordExporter):
         Args:
             options: Exporter configuration options
             excluded_attributes: Attribute keys to exclude from log attributes
-        """
 
+        """
         # Validate options
         options.validate()
 

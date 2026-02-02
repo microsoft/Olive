@@ -15,10 +15,10 @@ from pathlib import Path
 from typing import Any, Optional
 
 from olive.telemetry.constants import CONNECTION_STRING
+from olive.telemetry.deviceid import get_encrypted_device_id_and_status
 from olive.telemetry.library.event_source import event_source
 from olive.telemetry.library.telemetry_logger import TelemetryLogger as _LibraryTelemetryLogger
 from olive.telemetry.library.telemetry_logger import get_telemetry_logger
-from olive.telemetry.deviceid import get_encrypted_device_id_and_status
 from olive.telemetry.utils import get_telemetry_base_dir
 
 # Default event names used by the high-level telemetry helpers.
@@ -67,13 +67,6 @@ class TelemetryCacheHandler:
         self._flush_in_progress = False
         self._transport = None
 
-        # Track replayed events that haven't been sent yet
-        self._pending_replay_events = []  # List of events being replayed
-        self._pending_replay_lock = threading.Lock()
-        self._replay_in_progress = False
-        self._replay_writeback_scheduled = False
-        self._replay_new_writes = False
-
     def setup_payload_callbacks(self) -> None:
         logger = self._telemetry._logger
         if not logger:
@@ -113,31 +106,10 @@ class TelemetryCacheHandler:
     def _on_payload_transmitted(self, args) -> None:
         try:
             if args.succeeded:
-                # Telemetry succeeded - mark any pending replayed events as sent
-                with self._pending_replay_lock:
-                    if self._pending_replay_events:
-                        # Remove events from pending list (they were successfully sent)
-                        sent_count = min(len(self._pending_replay_events), args.item_count)
-                        self._pending_replay_events = self._pending_replay_events[sent_count:]
-
-                        # If no more pending replayed events, signal completion
-                        if not self._pending_replay_events and self._replay_in_progress:
-                            self._replay_in_progress = False
-                            if not self._replay_new_writes and not self._replay_writeback_scheduled:
-                                cache_path = self._get_cache_path()
-                                if cache_path:
-                                    cache_path.unlink(missing_ok=True)
-
                 # Also flush any previously cached failures
                 self._schedule_cache_task(self._flush_cache)
             else:
                 # Telemetry failed - cache this payload for later replay
-                with self._pending_replay_lock:
-                    has_pending_replay = bool(self._pending_replay_events)
-                    should_writeback = self._replay_in_progress and has_pending_replay
-                    if should_writeback and not self._replay_writeback_scheduled:
-                        self._replay_writeback_scheduled = True
-                        self._schedule_cache_task(self._write_entries_to_cache, self._pending_replay_events.copy())
                 payload = getattr(self._transport, "_last_payload", None)
                 if payload:
                     self._schedule_cache_task(self._write_payload_to_cache, payload)
@@ -171,10 +143,6 @@ class TelemetryCacheHandler:
             if cache_path is None:
                 return
 
-            with self._pending_replay_lock:
-                if self._replay_in_progress:
-                    self._replay_new_writes = True
-
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             cache_size = cache_path.stat().st_size if cache_path.exists() else 0
 
@@ -183,29 +151,6 @@ class TelemetryCacheHandler:
 
             entries = _parse_payload(payload)
             if not entries:
-                return
-
-            if cache_size >= MAX_CACHE_SIZE_BYTES:
-                entries = [entry for entry in entries if entry.get("event_name") in CRITICAL_EVENTS]
-                if not entries:
-                    return
-
-            with self._cache_lock, cache_path.open("ab") as cache_file:
-                for entry in entries:
-                    pickle.dump(entry, cache_file, protocol=pickle.HIGHEST_PROTOCOL)
-        except Exception:
-            return
-
-    def _write_entries_to_cache(self, entries: list[dict[str, Any]]) -> None:
-        try:
-            cache_path = self._get_cache_path()
-            if cache_path is None:
-                return
-
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_size = cache_path.stat().st_size if cache_path.exists() else 0
-
-            if cache_size >= HARD_MAX_CACHE_SIZE_BYTES:
                 return
 
             if cache_size >= MAX_CACHE_SIZE_BYTES:
@@ -240,13 +185,6 @@ class TelemetryCacheHandler:
 
                 cache_path.unlink(missing_ok=True)
 
-                # Mark these entries as pending replay
-                with self._pending_replay_lock:
-                    self._pending_replay_events = entries.copy()
-                    self._replay_in_progress = True
-                    self._replay_writeback_scheduled = False
-                    self._replay_new_writes = False
-
                 for entry in entries:
                     try:
                         event_name = entry.get("event_name")
@@ -259,10 +197,6 @@ class TelemetryCacheHandler:
                         attributes["initTs"] = entry.get("ts")
                         self._telemetry.log(event_name, attributes, None)
                     except Exception:
-                        # Remove failed entry from pending list
-                        with self._pending_replay_lock:
-                            if entry in self._pending_replay_events:
-                                self._pending_replay_events.remove(entry)
                         continue
 
                 self._telemetry.force_flush(timeout_millis=5_000)

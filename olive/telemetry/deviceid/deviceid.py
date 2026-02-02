@@ -1,5 +1,4 @@
 import hashlib
-import logging
 import platform
 import uuid
 from enum import Enum
@@ -30,7 +29,6 @@ def get_device_id() -> str:
     :return: The device id.
     :rtype: str
     """
-    logger = logging.getLogger(__name__)
     device_id: str = ""
     store: Union[Store, WindowsStore]
     create_new_id = False
@@ -97,9 +95,6 @@ def get_encrypted_device_id_and_status() -> tuple[str, DeviceIdStatus]:
         str: FIPS-compliant encrypted device ID (base64-encoded)
 
     """
-    device_id = (
-        get_device_id() if _device_id_state["device_id"] is not None else _device_id_state["device_id"]
-    )
+    device_id = get_device_id() if _device_id_state["device_id"] is not None else _device_id_state["device_id"]
     encrypted_device_id = hashlib.sha256(device_id.encode("utf-8")).digest().hex().upper() if device_id else ""
     return encrypted_device_id, _device_id_state["status"]
-
