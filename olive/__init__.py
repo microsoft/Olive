@@ -34,9 +34,9 @@ from olive.engine.output import ModelOutput, WorkflowOutput  # noqa: E402
 from olive.version import __version__  # noqa: E402
 
 __all__ = [
-    "__version__",
     "ModelOutput",
     "WorkflowOutput",
+    "__version__",
     # Python API functions
     "benchmark",
     "capture_onnx_graph",

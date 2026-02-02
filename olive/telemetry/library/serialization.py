@@ -7,7 +7,7 @@
 
 import base64
 import json
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
@@ -54,8 +54,8 @@ class CommonSchemaJsonSerializationHelper:
             if value.tzinfo is None:
                 # Assume naive datetime is UTC
                 return value.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-            else:
-                return value.astimezone().isoformat()
+            utc_value = value.astimezone(timezone.utc)
+            return utc_value.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
         if isinstance(value, date):
             return value.isoformat()

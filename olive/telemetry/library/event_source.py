@@ -237,6 +237,10 @@ class OneCollectorEventSource:
                 extra={"event_id": OneCollectorEventId.ATTRIBUTE_DROPPED},
             )
 
+    def disable(self) -> None:
+        """Disable telemetry logging."""
+        self.logger.disabled = True
+
 
 # Global event source instance
 event_source = OneCollectorEventSource()

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import requests
 from opentelemetry.sdk._logs import ReadableLogRecord
-from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
+from opentelemetry.sdk._logs.export import LogExportResult, LogRecordExporter
 from opentelemetry.sdk.resources import Resource
 
 from olive.telemetry.library.callback_manager import CallbackManager
@@ -28,10 +28,10 @@ if TYPE_CHECKING:
     from olive.telemetry.library.callback_manager import PayloadTransmittedCallbackArgs
 
 
-class OneCollectorLogExporter(LogExporter):
+class OneCollectorLogExporter(LogRecordExporter):
     """OpenTelemetry log exporter for Microsoft OneCollector.
 
-    Implements the OpenTelemetry LogExporter interface and sends logs
+    Implements the OpenTelemetry LogRecordExporter interface and sends logs
     to OneCollector using the Common Schema JSON format.
     """
 
@@ -110,7 +110,6 @@ class OneCollectorLogExporter(LogExporter):
 
         # Initialize metadata
         self._metadata: dict[str, Any] = {}
-        self._add_default_metadata()
 
         # Cache for resource (populated on first export)
         self._resource: Optional[Resource] = None
@@ -217,7 +216,6 @@ class OneCollectorLogExporter(LogExporter):
             for payload in payloads:
                 # Count items in this payload (approximation based on newlines)
                 item_count = payload.count(b"\n") + 1 if payload else 0
-
                 success = self._retry_handler.execute_with_retry(
                     operation=lambda payload=payload, item_count=item_count: self._transport.send(
                         payload, deadline_sec - time(), item_count=item_count
@@ -261,11 +259,11 @@ class OneCollectorLogExporter(LogExporter):
         if self._resource and self._resource.attributes:
             for key, value in self._resource.attributes.items():
                 # Map common resource attributes
-                if key == "service.name":
+                if key == "service.name" and "app_name" not in data:
                     data["app_name"] = value
-                elif key == "service.version":
+                elif key == "service.version" and "app_version" not in data:
                     data["app_version"] = value
-                elif key == "service.instance.id":
+                elif key == "service.instance.id" and "app_instance_id" not in data:
                     data["app_instance_id"] = value
                 else:
                     data[key] = value

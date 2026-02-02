@@ -184,7 +184,10 @@ class HttpJsonPostTransport(ITransport):
 
                 self.callback_manager.notify(
                     PayloadTransmittedCallbackArgs(
-                        succeeded=False, status_code=None, payload_size_bytes=payload_size_bytes, item_count=item_count
+                        succeeded=False,
+                        status_code=None,
+                        payload_size_bytes=payload_size_bytes,
+                        item_count=item_count,
                     )
                 )
 
@@ -197,7 +200,11 @@ class HttpJsonPostTransport(ITransport):
 
                 self.callback_manager.notify(
                     PayloadTransmittedCallbackArgs(
-                        succeeded=False, status_code=None, payload_size_bytes=payload_size_bytes, item_count=item_count
+                        succeeded=False,
+                        status_code=None,
+                        payload_size_bytes=payload_size_bytes,
+                        item_count=item_count,
+                        error_message=str(ex),
                     )
                 )
 

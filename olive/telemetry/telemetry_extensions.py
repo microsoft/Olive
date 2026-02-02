@@ -9,10 +9,40 @@ import time
 from types import TracebackType
 from typing import Any, Callable, Optional, TypeVar
 
-from olive.telemetry.telemetry import log_action, log_error
+from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, _get_logger
 from olive.telemetry.utils import _format_exception_msg
 
 _TFunc = TypeVar("_TFunc", bound=Callable[..., Any])
+
+
+def log_action(
+    invoked_from: str,
+    action_name: str,
+    duration_ms: float,
+    success: bool,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    telemetry = _get_logger()
+    attributes = {
+        "invoked_from": invoked_from,
+        "action_name": action_name,
+        "duration_ms": duration_ms,
+        "success": success,
+    }
+    telemetry._log(ACTION_EVENT_NAME, attributes, metadata)
+
+
+def log_error(
+    exception_type: str,
+    exception_message: str,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    telemetry = _get_logger()
+    attributes = {
+        "exception_type": exception_type,
+        "exception_message": exception_message,
+    }
+    telemetry._log(ERROR_EVENT_NAME, attributes, metadata)
 
 
 def _resolve_invoked_from(skip_frames: int = 0) -> str:
@@ -79,7 +109,6 @@ class ActionContext:
 
         if exc_type is not None and exc_val is not None:
             log_error(
-                invoked_from=self.invoked_from,
                 exception_type=exc_type.__name__,
                 exception_message=_format_exception_msg(exc_val, exc_tb),
                 metadata=self.metadata,
@@ -98,10 +127,9 @@ def action(func: _TFunc) -> _TFunc:
         action_name = func.__name__
         if args and hasattr(args[0], "__class__"):
             cls_name = args[0].__class__.__name__
+            cls_name = cls_name[: -len("Command")] if cls_name.endswith("Command") else cls_name
             if cls_name:
-                action_name = f"{cls_name}.{action_name}"
-                if action_name.endswith(f"Command.{func.__name__}"):
-                    action_name = f"{cls_name[: -len('Command')]}.{func.__name__}"
+                action_name = cls_name if action_name == "run" else f"{cls_name}.{action_name}"
 
         start_time = time.perf_counter()
         success = True
@@ -110,7 +138,6 @@ def action(func: _TFunc) -> _TFunc:
         except Exception as exc:
             success = False
             log_error(
-                invoked_from=invoked_from,
                 exception_type=type(exc).__name__,
                 exception_message=_format_exception_msg(exc, exc.__traceback__),
             )

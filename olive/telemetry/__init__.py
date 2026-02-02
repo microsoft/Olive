@@ -3,6 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from olive.telemetry.telemetry import Telemetry
-from olive.telemetry.telemetry_decorators import ActionContext, action
+from olive.telemetry.telemetry_extensions import action
 
-__all__ = ["ActionContext", "Telemetry", "action"]
+__all__ = ["Telemetry", "action"]

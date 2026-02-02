@@ -6,6 +6,7 @@
 """High-level telemetry logger facade for easy usage."""
 
 import logging
+import uuid
 from typing import Any, Optional
 
 from opentelemetry._logs import set_logger_provider
@@ -15,6 +16,20 @@ from opentelemetry.sdk.resources import Resource
 
 from olive.telemetry.library.exporter import OneCollectorLogExporter
 from olive.telemetry.library.options import OneCollectorExporterOptions
+from olive.version import __version__ as VERSION
+
+
+def _get_service_name() -> str:
+    """Derive service name from the root package name.
+
+    Returns:
+        The capitalized name of the root package
+
+    """
+    # Get the root package name from this module's path
+    # e.g., olive.telemetry.library.telemetry_logger -> olive
+    package_name = __name__.split(".")[0]
+    return package_name.capitalize()
 
 
 class TelemetryLogger:
@@ -57,8 +72,9 @@ class TelemetryLogger:
             self._logger_provider = LoggerProvider(
                 resource=Resource.create(
                     {
-                        "service.name": "telemetry_logger",
-                        "service.instance.id": "telemetry_logger-instance",
+                        "service.name": _get_service_name(),
+                        "service.version": VERSION,
+                        "service.instance.id": str(uuid.uuid4()),  # Unique instance ID; can double as session ID
                     }
                 )
             )
@@ -67,7 +83,12 @@ class TelemetryLogger:
             set_logger_provider(self._logger_provider)
 
             # Add batch processor
-            self._logger_provider.add_log_record_processor(BatchLogRecordProcessor(self._logger_exporter))
+            self._logger_provider.add_log_record_processor(
+                BatchLogRecordProcessor(
+                    self._logger_exporter,
+                    schedule_delay_millis=1000,
+                )
+            )
 
             # Create logging handler
             handler = LoggingHandler(level=logging.INFO, logger_provider=self._logger_provider)
@@ -86,7 +107,7 @@ class TelemetryLogger:
             self._logger_provider = None
             self._logger_exporter = None
 
-    def add_metadata(self, metadata: dict[str, Any]) -> None:
+    def add_global_metadata(self, metadata: dict[str, Any]) -> None:
         """Add metadata fields to all telemetry events.
 
         Args:
@@ -122,6 +143,12 @@ class TelemetryLogger:
         """Shutdown the telemetry logger and flush pending data."""
         if self._logger_provider:
             self._logger_provider.shutdown()
+
+    def force_flush(self, timeout_millis: float = 10_000) -> bool:
+        """Force flush buffered log records."""
+        if self._logger_provider:
+            return self._logger_provider.force_flush(timeout_millis=timeout_millis)
+        return False
 
 
 # Convenience functions for common use cases

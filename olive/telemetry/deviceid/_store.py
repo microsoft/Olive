@@ -13,7 +13,7 @@ class Store:
 
     def _build_path(self) -> Path:
         os_name = platform.system()
-        if os_name in ("Darwin"):
+        if os_name == "Darwin":
             home = os.getenv("HOME")
             if home is None:
                 raise ValueError("HOME environment variable not set")
@@ -82,3 +82,7 @@ class WindowsStore:
             access=winreg.KEY_ALL_ACCESS | winreg.KEY_WOW64_64KEY,
         ) as key_handle:
             winreg.SetValueEx(key_handle, REGISTRY_KEY, 0, winreg.REG_SZ, device_id)
+
+
+def get_device_id_store_path() -> Path:
+    return Store()._build_path()
