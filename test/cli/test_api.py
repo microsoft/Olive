@@ -4,12 +4,9 @@
 # --------------------------------------------------------------------------
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # pylint: disable=W0611, W0212
 
 
-@pytest.mark.unit
 class TestOlivePythonAPI:
     """Test cases for Olive Python API functions."""
 

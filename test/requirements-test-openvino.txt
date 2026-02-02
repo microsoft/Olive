@@ -1,0 +1,23 @@
+coverage
+
+# HuggingFace
+datasets
+nncf>=2.18.0
+numpy<2.0.0
+peft
+
+# OpenVINO specific test requirements
+# Core OpenVINO dependencies
+openvino>=2025.3.0
+optimum-intel==1.24.0
+
+# Utilities
+packaging
+
+torch<2.9
+
+# Test framework
+pytest
+
+# PyTorch
+torchvision

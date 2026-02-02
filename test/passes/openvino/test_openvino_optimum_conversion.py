@@ -10,8 +10,9 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.optimum_intel import OpenVINOOptimumConversion
 from test.utils import get_hf_model
 
+pytestmark = pytest.mark.openvino
 
-@pytest.mark.skip(reason="Need to update pass logic to compatible with latest optimum-intel")
+
 def test_openvino_optimum_conversion_pass_convert_with_tokenizers(tmp_path):
     # setup
     input_hf_model = get_hf_model("hf-internal-testing/tiny-random-PhiForCausalLM")
@@ -36,7 +37,6 @@ def test_openvino_optimum_conversion_pass_convert_with_tokenizers(tmp_path):
     assert bin_file.is_file()
 
 
-@pytest.mark.skip(reason="Need to update pass logic to compatible with latest optimum-intel")
 def test_openvino_optimum_conversion_pass_convert_without_tokenizers(tmp_path):
     # setup
     input_hf_model = get_hf_model("hf-internal-testing/tiny-random-PhiForCausalLM")
@@ -61,7 +61,6 @@ def test_openvino_optimum_conversion_pass_convert_without_tokenizers(tmp_path):
     assert bin_file.is_file()
 
 
-@pytest.mark.skip(reason="Need to update pass logic to compatible with latest optimum-intel")
 def test_openvino_optimum_conversion_pass_convert_with_weight_compression(tmp_path):
     # setup
     input_hf_model = get_hf_model("hf-internal-testing/tiny-random-PhiForCausalLM")
@@ -95,7 +94,6 @@ def test_openvino_optimum_conversion_pass_convert_with_weight_compression(tmp_pa
     assert bin_file.is_file()
 
 
-@pytest.mark.skip(reason="Need to update pass logic to compatible with latest optimum-intel")
 def test_openvino_optimum_conversion_pass_convert_with_quantization(tmp_path):
     # setup
     input_hf_model = get_hf_model("hf-internal-testing/tiny-random-clip-zero-shot-image-classification")
@@ -123,7 +121,6 @@ def test_openvino_optimum_conversion_pass_convert_with_quantization(tmp_path):
     assert bin_file.is_file()
 
 
-@pytest.mark.skip(reason="Need to update pass logic to compatible with latest optimum-intel")
 def test_openvino_optimum_conversion_pass_convert_multiple_components_without_main(tmp_path):
     # setup
     input_hf_model = get_hf_model("hf-internal-testing/tiny-random-Qwen2VLForConditionalGeneration")
