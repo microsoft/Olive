@@ -6,7 +6,6 @@
 
 import base64
 import json
-import os
 import pickle
 import platform
 import threading
@@ -16,11 +15,11 @@ from pathlib import Path
 from typing import Any, Optional
 
 from olive.telemetry.constants import CONNECTION_STRING
-from olive.telemetry.deviceid._store import get_device_id_store_path
 from olive.telemetry.library.event_source import event_source
 from olive.telemetry.library.telemetry_logger import TelemetryLogger as _LibraryTelemetryLogger
 from olive.telemetry.library.telemetry_logger import get_telemetry_logger
-from olive.telemetry.utils import _generate_encrypted_device_id
+from olive.telemetry.deviceid import get_encrypted_device_id_and_status
+from olive.telemetry.utils import get_telemetry_base_dir
 
 # Default event names used by the high-level telemetry helpers.
 HEARTBEAT_EVENT_NAME = "OliveHeartbeat"
@@ -30,6 +29,7 @@ ERROR_EVENT_NAME = "OliveError"
 ALLOWED_KEYS = {
     HEARTBEAT_EVENT_NAME: [
         "device_id",
+        "id_status",
         "os.name",
         "os.version",
         "os.release",
@@ -142,6 +142,7 @@ class TelemetryCacheHandler:
                 if payload:
                     self._schedule_cache_task(self._write_payload_to_cache, payload)
         except Exception:
+            # Fail silently.
             pass
 
     def _schedule_cache_task(self, func, *args) -> None:
@@ -152,17 +153,11 @@ class TelemetryCacheHandler:
                 # If executor is not available (e.g., during shutdown), execute synchronously
                 func(*args)
         except Exception:
+            # Fail silently.
             pass
 
     def _get_telemetry_support_dir(self) -> Optional[Path]:
-        os_name = platform.system()
-        if os_name == "Windows":
-            base_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
-            if not base_dir:
-                base_dir = str(Path.home() / "AppData" / "Local")
-            return Path(base_dir) / "Microsoft" / ".onnxruntime"
-
-        return get_device_id_store_path()
+        return get_telemetry_base_dir()
 
     def _get_cache_path(self) -> Optional[Path]:
         support_dir = self._get_telemetry_support_dir()
@@ -281,6 +276,7 @@ class Telemetry:
     """Wrapper that wires environment configuration into the library logger."""
 
     _instance: Optional["Telemetry"] = None
+    _initialized: bool = False
 
     def __new__(cls):
         if cls._instance is None:
@@ -330,8 +326,10 @@ class Telemetry:
             metadata: Optional additional metadata to include.
 
         """
+        encrypted_device_id, device_id_status = get_encrypted_device_id_and_status()
         attributes = {
-            "device_id": _generate_encrypted_device_id(),
+            "device_id": encrypted_device_id,
+            "id_status": device_id_status.value,
             "os": {
                 "name": platform.system().lower(),
                 "version": platform.version(),

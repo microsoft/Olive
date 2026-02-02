@@ -39,23 +39,13 @@ class OneCollectorLogExporter(LogRecordExporter):
         self,
         options: Optional[OneCollectorExporterOptions] = None,
         excluded_attributes: Optional[set[str]] = None,
-        **kwargs,
     ):
         """Initialize the OneCollector log exporter.
 
         Args:
             options: Exporter configuration options
             excluded_attributes: Attribute keys to exclude from log attributes
-            **kwargs: Legacy keyword arguments for backward compatibility
-                - connection_string: OneCollector connection string
-                - headers: Additional HTTP headers
-                - timeout: Request timeout in seconds
-                - compression: Compression type
-
         """
-        # Handle legacy initialization
-        if options is None:
-            options = self._create_options_from_kwargs(kwargs)
 
         # Validate options
         options.validate()
@@ -113,22 +103,6 @@ class OneCollectorLogExporter(LogRecordExporter):
 
         # Cache for resource (populated on first export)
         self._resource: Optional[Resource] = None
-
-    def _create_options_from_kwargs(self, kwargs: dict) -> OneCollectorExporterOptions:
-        """Create options from legacy keyword arguments."""
-        from olive.telemetry.library.options import (
-            CompressionType,
-            OneCollectorExporterOptions,
-            OneCollectorTransportOptions,
-        )
-
-        connection_string = kwargs.get("connection_string")
-        timeout = kwargs.get("timeout", 10.0)
-        compression = kwargs.get("compression", CompressionType.DEFLATE)
-
-        transport_options = OneCollectorTransportOptions(timeout_seconds=timeout, compression=compression)
-
-        return OneCollectorExporterOptions(connection_string=connection_string, transport_options=transport_options)
 
     def add_metadata(self, metadata: dict[str, Any]) -> None:
         """Add custom metadata fields to all exported logs.

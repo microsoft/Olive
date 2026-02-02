@@ -1,10 +1,9 @@
-import os
-import platform
 from pathlib import Path
+
+from olive.telemetry.utils import get_telemetry_base_dir
 
 REGISTRY_PATH = r"SOFTWARE\Microsoft\DeveloperTools\.onnxruntime"
 REGISTRY_KEY = "deviceid"
-DEVICEID_LOCATION = r"Microsoft/DeveloperTools/deviceid/.onnxruntime/"
 
 
 class Store:
@@ -12,20 +11,7 @@ class Store:
         self._file_path: Path = self._build_path()
 
     def _build_path(self) -> Path:
-        os_name = platform.system()
-        if os_name == "Darwin":
-            home = os.getenv("HOME")
-            if home is None:
-                raise ValueError("HOME environment variable not set")
-
-            return Path(f"{home}/Library/Application Support/{DEVICEID_LOCATION}")
-
-        home = os.getenv("XDG_CACHE_HOME", f"{os.getenv('HOME')}/.cache")
-
-        if not home:
-            raise ValueError("HOME environment variable not set")
-
-        return Path(home).joinpath(DEVICEID_LOCATION)
+        return get_telemetry_base_dir()
 
     def retrieve_id(self) -> str:
         """Retrieve the device id from the store location.
@@ -49,8 +35,8 @@ class Store:
         try:
             self._file_path.parent.mkdir(parents=True)
         except FileExistsError:
-            # this is unexpected, but not an issue, since we want this file
-            # path to exist
+            # This is unexpected, but is not an issue,
+            # since we want this file path to exist.
             pass
 
         self._file_path.touch()
@@ -84,7 +70,3 @@ class WindowsStore:
             access=winreg.KEY_ALL_ACCESS | winreg.KEY_WOW64_64KEY,
         ) as key_handle:
             winreg.SetValueEx(key_handle, REGISTRY_KEY, 0, winreg.REG_SZ, device_id)
-
-
-def get_device_id_store_path() -> Path:
-    return Store()._build_path()

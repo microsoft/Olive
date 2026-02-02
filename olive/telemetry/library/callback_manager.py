@@ -67,7 +67,8 @@ class CallbackManager:
                 try:
                     self._callbacks.remove(entry)
                 except ValueError:
-                    pass  # Already removed
+                    # The callback was already removed.
+                    pass
 
         return unregister
 

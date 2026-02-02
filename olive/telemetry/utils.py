@@ -2,29 +2,38 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import hashlib
+import os
+import platform
 import traceback
+from pathlib import Path
 from types import TracebackType
 from typing import Optional
 
-from olive.telemetry.deviceid import get_device_id
+DEVICEID_LOCATION = r"Microsoft/DeveloperTools/deviceid/.onnxruntime/"
 
 
-def _generate_encrypted_device_id() -> str:
-    """Generate a FIPS-compliant encrypted device ID using SHA256.
+def get_telemetry_base_dir() -> Path:
+    os_name = platform.system()
+    if os_name == "Windows":
+        base_dir = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+        if not base_dir:
+            base_dir = str(Path.home() / "AppData" / "Local")
+        return Path(base_dir) / "Microsoft" / ".onnxruntime"
 
-    This method uses SHA256 which is FIPS 140-2 approved for cryptographic operations.
-    The device ID is hashed to ensure deterministic but secure device identification.
+    if os_name == "Darwin":
+        home = os.getenv("HOME")
+        if home is None:
+            raise ValueError("HOME environment variable not set")
+        return Path(home) / "Library" / "Application Support" / DEVICEID_LOCATION
 
-    Returns:
-        str: FIPS-compliant encrypted device ID (base64-encoded)
+    home = os.getenv("XDG_CACHE_HOME", f"{os.getenv('HOME')}/.cache")
+    if not home:
+        raise ValueError("HOME environment variable not set")
 
-    """
-    hash_bytes = hashlib.sha256(get_device_id().encode("utf-8")).digest()
-    return hash_bytes.hex().upper()
+    return Path(home) / DEVICEID_LOCATION
 
 
-def _format_exception_msg(ex: BaseException, tb: Optional[TracebackType] = None) -> str:
+def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = None) -> str:
     """Format an exception and trim local paths for readability."""
     folder = "Olive"
     file_line = 'File "'
