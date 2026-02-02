@@ -29,7 +29,7 @@ def log_action(
         "duration_ms": duration_ms,
         "success": success,
     }
-    telemetry._log(ACTION_EVENT_NAME, attributes, metadata)
+    telemetry.log(ACTION_EVENT_NAME, attributes, metadata)
 
 
 def log_error(
@@ -42,7 +42,7 @@ def log_error(
         "exception_type": exception_type,
         "exception_message": exception_message,
     }
-    telemetry._log(ERROR_EVENT_NAME, attributes, metadata)
+    telemetry.log(ERROR_EVENT_NAME, attributes, metadata)
 
 
 def _resolve_invoked_from(skip_frames: int = 0) -> str:

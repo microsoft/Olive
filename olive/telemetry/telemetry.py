@@ -142,7 +142,7 @@ class TelemetryCacheHandler:
                 if payload:
                     self._schedule_cache_task(self._write_payload_to_cache, payload)
         except Exception:
-            return
+            pass
 
     def _schedule_cache_task(self, func, *args) -> None:
         try:
@@ -152,7 +152,7 @@ class TelemetryCacheHandler:
                 # If executor is not available (e.g., during shutdown), execute synchronously
                 func(*args)
         except Exception:
-            return
+            pass
 
     def _get_telemetry_support_dir(self) -> Optional[Path]:
         os_name = platform.system()
@@ -262,11 +262,7 @@ class TelemetryCacheHandler:
                         if not isinstance(attributes, dict):
                             continue
                         attributes["initTs"] = entry.get("ts")
-                        metadata = {}
-                        for key in ("app_name", "app_version", "app_instance_id"):
-                            if key in attributes:
-                                metadata[key] = attributes.pop(key)
-                        self._telemetry._log(event_name, attributes, metadata or None)
+                        self._telemetry.log(event_name, attributes, None)
                     except Exception:
                         # Remove failed entry from pending list
                         with self._pending_replay_lock:
@@ -317,7 +313,7 @@ class Telemetry:
         if self._logger:
             self._logger.add_global_metadata(metadata)
 
-    def _log(
+    def log(
         self, event_name: str, attributes: Optional[dict[str, Any]] = None, metadata: Optional[dict[str, Any]] = None
     ) -> None:
         if self._logger:
@@ -343,7 +339,7 @@ class Telemetry:
                 "arch": platform.machine(),
             },
         }
-        self._log(HEARTBEAT_EVENT_NAME, attributes, metadata)
+        self.log(HEARTBEAT_EVENT_NAME, attributes, metadata)
 
     def disable_telemetry(self) -> None:
         if self._logger:

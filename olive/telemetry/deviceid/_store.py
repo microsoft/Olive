@@ -49,6 +49,8 @@ class Store:
         try:
             self._file_path.parent.mkdir(parents=True)
         except FileExistsError:
+            # this is unexpected, but not an issue, since we want this file
+            # path to exist
             pass
 
         self._file_path.touch()

@@ -23,13 +23,13 @@ def _get_service_name() -> str:
     """Derive service name from the root package name.
 
     Returns:
-        The capitalized name of the root package
+        The name of the root package
 
     """
     # Get the root package name from this module's path
     # e.g., olive.telemetry.library.telemetry_logger -> olive
-    package_name = __name__.split(".")[0]
-    return package_name.capitalize()
+    package_name = __name__.split(".", maxsplit=1)[0]
+    return package_name
 
 
 class TelemetryLogger:
