@@ -43,7 +43,7 @@ pip list
 XML_PATH="/logs/TestOlive.xml"
 PYTEST_MARKER_ARG=""
 if [ -n "$8" ]; then
-    PYTEST_MARKER_ARG="-m $8"
+    PYTEST_MARKER_ARG="-m '$8'"
 fi
 
 if [ "$6" = "true" ]; then
