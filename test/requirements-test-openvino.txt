@@ -4,7 +4,6 @@ coverage
 datasets
 nncf>=2.18.0
 numpy<2.0.0
-peft
 
 # OpenVINO specific test requirements
 # Core OpenVINO dependencies
@@ -13,11 +12,12 @@ optimum-intel==1.24.0
 
 # Utilities
 packaging
-
-torch<2.9
+peft
 
 # Test framework
 pytest
+
+torch<2.9
 
 # PyTorch
 torchvision
