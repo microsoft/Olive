@@ -633,7 +633,7 @@ def add_search_options(sub_parser: ArgumentParser):
 
 def add_telemetry_options(sub_parser: ArgumentParser):
     """Add telemetry options to the sub_parser."""
-    sub_parser.add_argument("--disable-telemetry", action="store_true", help="Disable telemetry for this command.")
+    sub_parser.add_argument("--disable_telemetry", action="store_true", help="Disable telemetry for this command.")
     return sub_parser
 
 
