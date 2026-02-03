@@ -63,11 +63,7 @@ class CallbackManager:
         """
         with self._lock:
             if self._disposed:
-
-                def unregister():
-                    return None
-
-                return unregister
+                return lambda: None  # No-op unregister if disposed
             entry = (callback, include_failures)
             self._callbacks.append(entry)
 
