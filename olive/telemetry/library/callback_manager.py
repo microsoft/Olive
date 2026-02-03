@@ -31,6 +31,9 @@ class PayloadTransmittedCallbackArgs:
     item_count: int
     """Number of items in the payload."""
 
+    payload_bytes: Optional[bytes] = None
+    """Raw payload bytes (uncompressed), if available."""
+
 
 class CallbackManager:
     """Manages callbacks for payload transmission events.
@@ -43,6 +46,7 @@ class CallbackManager:
         """Initialize the callback manager."""
         self._callbacks: list[tuple[Callable[[PayloadTransmittedCallbackArgs], None], bool]] = []
         self._lock = threading.Lock()
+        self._disposed = False
 
     def register(
         self, callback: Callable[[PayloadTransmittedCallbackArgs], None], include_failures: bool = False
@@ -58,6 +62,12 @@ class CallbackManager:
 
         """
         with self._lock:
+            if self._disposed:
+
+                def unregister():
+                    return None
+
+                return unregister
             entry = (callback, include_failures)
             self._callbacks.append(entry)
 
@@ -81,6 +91,8 @@ class CallbackManager:
         """
         # Get snapshot of callbacks to avoid holding lock during invocation
         with self._lock:
+            if self._disposed:
+                return
             callbacks_snapshot = self._callbacks.copy()
 
         # Invoke callbacks
@@ -99,3 +111,9 @@ class CallbackManager:
         """Clear all registered callbacks."""
         with self._lock:
             self._callbacks.clear()
+
+    def dispose(self) -> None:
+        """Dispose the manager and prevent further registrations."""
+        with self._lock:
+            self._callbacks.clear()
+            self._disposed = True

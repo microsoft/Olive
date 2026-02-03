@@ -320,3 +320,6 @@ class OneCollectorLogExporter(LogRecordExporter):
         # Close HTTP session
         if hasattr(self, "_session"):
             self._session.close()
+
+        if hasattr(self, "_callback_manager"):
+            self._callback_manager.dispose()

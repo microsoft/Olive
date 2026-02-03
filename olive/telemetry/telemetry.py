@@ -65,34 +65,6 @@ class TelemetryCacheHandler:
         self._cache_lock = threading.Lock()
         self._cache_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="olive_telemetry_cache")
         self._flush_in_progress = False
-        self._transport = None
-
-    def setup_payload_callbacks(self) -> None:
-        logger = self._telemetry._logger
-        if not logger:
-            return
-
-        exporter = getattr(logger, "_logger_exporter", None)
-        if not exporter:
-            return
-
-        transport = getattr(exporter, "_transport", None)
-        if not transport:
-            return
-        if getattr(transport, "_cache_wrap_installed", False):
-            return
-
-        original_send = transport.send
-
-        def wrapped_send(payload: bytes, timeout_sec: float, item_count: int = 1):
-            transport._last_payload = payload
-            return original_send(payload, timeout_sec, item_count=item_count)
-
-        transport.send = wrapped_send
-        transport._cache_wrap_installed = True
-        self._transport = transport
-
-        exporter.register_payload_transmitted_callback(self._on_payload_transmitted, include_failures=True)
 
     def shutdown(self) -> None:
         if self._cache_executor:
@@ -103,14 +75,14 @@ class TelemetryCacheHandler:
             self._cache_executor.shutdown(wait=True)
             self._cache_executor = None
 
-    def _on_payload_transmitted(self, args) -> None:
+    def on_payload_transmitted(self, args) -> None:
         try:
             if args.succeeded:
                 # Also flush any previously cached failures
                 self._schedule_cache_task(self._flush_cache)
             else:
                 # Telemetry failed - cache this payload for later replay
-                payload = getattr(self._transport, "_last_payload", None)
+                payload = getattr(args, "payload_bytes", None)
                 if payload:
                     self._schedule_cache_task(self._write_payload_to_cache, payload)
         except Exception:
@@ -165,12 +137,13 @@ class TelemetryCacheHandler:
             return
 
     def _flush_cache(self) -> None:
-        with self._cache_lock:
-            if self._flush_in_progress:
-                return
-            self._flush_in_progress = True
+        entries: list[dict[str, Any]] = []
+        try:
+            with self._cache_lock:
+                if self._flush_in_progress:
+                    return
+                self._flush_in_progress = True
 
-            try:
                 cache_path = self._get_cache_path()
                 if cache_path is None:
                     return
@@ -185,24 +158,25 @@ class TelemetryCacheHandler:
 
                 cache_path.unlink(missing_ok=True)
 
-                for entry in entries:
-                    try:
-                        event_name = entry.get("event_name")
-                        event_data = entry.get("event_data")
-                        if not event_name or not event_data:
-                            continue
-                        attributes = json.loads(event_data)
-                        if not isinstance(attributes, dict):
-                            continue
-                        attributes["initTs"] = entry.get("ts")
-                        self._telemetry.log(event_name, attributes, None)
-                    except Exception:
+            for entry in entries:
+                try:
+                    event_name = entry.get("event_name")
+                    event_data = entry.get("event_data")
+                    if not event_name or not event_data:
                         continue
+                    attributes = json.loads(event_data)
+                    if not isinstance(attributes, dict):
+                        continue
+                    attributes["initTs"] = entry.get("ts")
+                    self._telemetry.log(event_name, attributes, None)
+                except Exception:
+                    continue
 
-                self._telemetry.force_flush(timeout_millis=5_000)
-            except Exception:
-                return
-            finally:
+            self._telemetry.force_flush(timeout_millis=5_000)
+        except Exception:
+            return
+        finally:
+            with self._cache_lock:
                 self._flush_in_progress = False
 
 
@@ -237,7 +211,10 @@ class Telemetry:
     def _setup_payload_callbacks(self) -> None:
         if not self._logger:
             return
-        self._cache_handler.setup_payload_callbacks()
+        self._logger.register_payload_transmitted_callback(
+            self._cache_handler.on_payload_transmitted,
+            include_failures=True,
+        )
 
     def add_global_metadata(self, metadata: dict[str, Any]) -> None:
         if self._logger:

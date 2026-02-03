@@ -7,7 +7,7 @@
 
 import logging
 import uuid
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
@@ -104,6 +104,14 @@ class TelemetryLogger:
         """
         if self._logger_exporter:
             self._logger_exporter.add_metadata(metadata)
+
+    def register_payload_transmitted_callback(
+        self, callback, include_failures: bool = False
+    ) -> Optional[Callable[[], None]]:
+        """Register a callback for payload transmission events."""
+        if self._logger_exporter:
+            return self._logger_exporter.register_payload_transmitted_callback(callback, include_failures)
+        return None
 
     def log(self, event_name: str, attributes: Optional[dict[str, Any]] = None) -> None:
         """Log a telemetry event.

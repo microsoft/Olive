@@ -166,6 +166,7 @@ class HttpJsonPostTransport(ITransport):
                         status_code=status_code,
                         payload_size_bytes=payload_size_bytes,
                         item_count=item_count,
+                        payload_bytes=payload,
                     )
                 )
 
@@ -173,8 +174,12 @@ class HttpJsonPostTransport(ITransport):
                 return True, status_code
             else:
                 # Log error response
-                error_message = response.text[:100] if response.text else ""
-                event_source.http_transport_error_response("HttpJsonPost", status_code, error_message, "")
+                if event_source.is_error_logging_enabled():
+                    collector_error = response.headers.get("Collector-Error", "")
+                    error_details = response.text[:100] if response.text else ""
+                    event_source.http_transport_error_response(
+                        "HttpJsonPost", status_code, collector_error, error_details
+                    )
                 return False, status_code
 
         except requests.exceptions.Timeout:
@@ -188,6 +193,7 @@ class HttpJsonPostTransport(ITransport):
                         status_code=None,
                         payload_size_bytes=payload_size_bytes,
                         item_count=item_count,
+                        payload_bytes=payload,
                     )
                 )
 
@@ -204,6 +210,7 @@ class HttpJsonPostTransport(ITransport):
                         status_code=None,
                         payload_size_bytes=payload_size_bytes,
                         item_count=item_count,
+                        payload_bytes=payload,
                     )
                 )
 

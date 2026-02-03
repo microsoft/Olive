@@ -43,6 +43,10 @@ class OneCollectorEventSource:
         """Check if informational level logging is enabled."""
         return self.logger.isEnabledFor(logging.INFO)
 
+    def is_error_logging_enabled(self) -> bool:
+        """Check if error level logging is enabled."""
+        return self.logger.isEnabledFor(logging.ERROR)
+
     def export_exception_thrown(self, item_type: str, exception: Exception) -> None:
         """Log an exception thrown during export.
 
