@@ -21,10 +21,10 @@ variables:
   skipComponentGovernanceDetection: true
 
 jobs:
-# Linux OpenVINO unit tests
+# Linux AMD unit tests
 - template: job_templates/olive-test-cpu-template.yaml
   parameters:
-    name: Linux_CPU_OpenVINO_Unit_Test
+    name: Linux_CPU_AMD_Unit_Test
     pool: $(OLIVE_POOL_UBUNTU2004)
     pytest_marker: 'amd'
     requirements_file: 'requirements-test-amd.txt'
@@ -32,7 +32,7 @@ jobs:
 
 - template: job_templates/olive-test-linux-gpu-template.yaml
   parameters:
-    name: Linux_GPU_OpenVINO_Unit_Test
+    name: Linux_GPU_AMD_Unit_Test
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     pytest_marker: 'amd'
     requirements_file: 'requirements-test-amd.txt'
@@ -41,7 +41,7 @@ jobs:
 # Windows OpenVINO unit tests
 - template: job_templates/olive-test-cpu-template.yaml
   parameters:
-    name: Windows_CPU_OpenVINO_Unit_Test
+    name: Windows_CPU_AMD_Unit_Test
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
     pytest_marker: 'amd'
