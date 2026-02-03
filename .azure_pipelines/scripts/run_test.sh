@@ -41,19 +41,19 @@ pip list
 
 # Step 4: Run tests with or without coverage tracking
 XML_PATH="/logs/TestOlive.xml"
-PYTEST_MARKER_ARG=""
+PYTEST_MARKER_ARGS=()
 if [ -n "$8" ]; then
-    PYTEST_MARKER_ARG="-m '$8'"
+    PYTEST_MARKER_ARGS=(-m "$8")
 fi
 
 if [ "$6" = "true" ]; then
     echo "Running tests with coverage tracking..."
-    coverage run -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING $PYTEST_MARKER_ARG "$5"
+    coverage run -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING "${PYTEST_MARKER_ARGS[@]}" "$5"
     coverage xml -o /logs/coverage.xml
 else
     echo "Starting pytest at $(date)"
     echo "Running tests without coverage tracking..."
-    timeout 1100 python -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING $PYTEST_MARKER_ARG "$5"
+    timeout 1100 python -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING "${PYTEST_MARKER_ARGS[@]}" "$5"
     exit_code=$?
     echo "pytest exited with code $exit_code"
 
