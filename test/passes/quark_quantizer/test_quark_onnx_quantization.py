@@ -12,6 +12,8 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.quark_quantizer.quark_quantization import QuarkQuantization
 from test.utils import get_onnx_model, get_pytorch_model_dummy_input
 
+pytestmark = pytest.mark.amd
+
 
 class DummyCalibrationDataReader(CalibrationDataReader):
     # pylint: disable=W0223
@@ -37,7 +39,6 @@ def _test_quant_dataloader(dataset, batch_size, **kwargs):
     return DummyCalibrationDataReader(batch_size=batch_size)
 
 
-@pytest.mark.skip(reason="Quark Quantizer tests are skipped due to package conflicts with onnxruntime-genai.")
 def test_static_qdq_u8s8_quantization(tmp_path):
     input_model = get_onnx_model()
     config = {
@@ -68,7 +69,6 @@ def test_static_qdq_u8s8_quantization(tmp_path):
     assert out is not None
 
 
-@pytest.mark.skip(reason="Quark Quantizer tests are skipped due to package conflicts with onnxruntime-genai.")
 def test_static_qdq_u8s8_with_mp_quantization(tmp_path):
     input_model = get_onnx_model()
     config = {

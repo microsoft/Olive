@@ -32,13 +32,13 @@ jobs:
   parameters:
     name: Linux_CPU_CI_Unit_Test
     pool: $(OLIVE_POOL_UBUNTU2004)
-    pytest_marker: 'not openvino'
+    pytest_marker: 'not openvino and not amd'
 
 - template: job_templates/olive-test-linux-gpu-template.yaml
   parameters:
     name: Linux_GPU_CI_Unit_Test
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
-    pytest_marker: 'not openvino'
+    pytest_marker: 'not openvino and not amd'
 
 # Windows unit tests
 - template: job_templates/olive-test-cpu-template.yaml
@@ -46,4 +46,4 @@ jobs:
     name: Windows_CPU_CI_Unit_Test
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
-    pytest_marker: 'not openvino'
+    pytest_marker: 'not openvino and not amd'
