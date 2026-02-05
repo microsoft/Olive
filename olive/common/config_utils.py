@@ -213,7 +213,7 @@ class NestedConfig(ConfigBase):
     @model_validator(mode="before")
     @classmethod
     def gather_nested_field(cls, values):
-        all_fields = {name for name in cls.model_fields.keys()}
+        all_fields = set(cls.model_fields.keys())
         for field in cls.model_fields.values():
             if field.alias:
                 all_fields.add(field.alias)
@@ -324,7 +324,7 @@ def create_config_class(
     config = {}
     field_validators_dict = {}
     validators = validators.copy() if validators else {}
-    
+
     for param, param_config in default_config.items():
         if param_config.category == ParamCategory.OBJECT:
             validator_name = f"validate_{param}_object"
@@ -332,7 +332,7 @@ def create_config_class(
             while validator_name in validators:
                 validator_name = f"{validator_name}_{count}"
                 count += 1
-            
+
             def make_obj_validator(field_name):
                 @field_validator(field_name)
                 @classmethod
@@ -342,8 +342,9 @@ def create_config_class(
                     if isinstance(v, str) and info.data.get("user_script") is None:
                         raise ValueError(f"user_script must be provided if {field_name} is a name string")
                     return v
+
                 return check_obj
-            
+
             field_validators_dict[validator_name] = make_obj_validator(param)
 
         type_ = param_config.type_
