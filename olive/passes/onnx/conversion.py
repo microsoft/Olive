@@ -398,7 +398,7 @@ def _prepare_hf_model(model: HfModelHandler, device: str, torch_dtype: Optional[
     model_attributes = deepcopy(model.model_attributes or {})
     load_kwargs = model.load_kwargs
     model_dtype = load_kwargs.get_torch_dtype()
-    new_load_kwargs = deepcopy(load_kwargs.dict())
+    new_load_kwargs = deepcopy(load_kwargs.model_dump())
 
     if torch_dtype and torch_dtype != model_dtype:
         # if the load kwargs specify a different dtype, update the load kwargs

@@ -7,8 +7,8 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
-from olive.common.pydantic_v1 import ValidationError
 from olive.data.config import DataConfig
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.package_config import OlivePackageConfig
@@ -80,7 +80,7 @@ class TestDataConfigValidation:
             }
         ]
 
-        run_config = RunConfig.parse_obj(config_dict)
+        run_config = RunConfig.model_validate(config_dict)
         assert run_config.data_configs[0].name == "dummy_data_config2"
         assert run_config.data_configs[0].pre_process_params.get("model_name") == expected_model_name
         assert run_config.data_configs[0].pre_process_params.get("task") == expected_task
@@ -117,7 +117,7 @@ class TestDataConfigValidation:
                 }
             ]
 
-        run_config = RunConfig.parse_obj(config_dict)
+        run_config = RunConfig.model_validate(config_dict)
 
         assert run_config.data_configs[0].name == "dummy_data_config2"
         assert run_config.data_configs[0].load_dataset_params.get("trust_remote_code") == expected_trust_remote_code
@@ -131,7 +131,7 @@ class TestDataConfigValidation:
         config_dict = deepcopy(self.template)
         config_dict["passes"]["tuning"][0]["data_config"] = data_config_str
 
-        run_config = RunConfig.parse_obj(config_dict)
+        run_config = RunConfig.model_validate(config_dict)
         pass_data_config = run_config.passes["tuning"][0].config["data_config"]
         if data_config_str is None:
             assert pass_data_config is None
@@ -176,9 +176,9 @@ class TestPassConfigValidation:
         config_dict["passes"]["tuning"][0]["approach"] = approach
         if not is_valid:
             with pytest.raises(ValueError):  # noqa: PT011
-                RunConfig.parse_obj(config_dict)
+                RunConfig.model_validate(config_dict)
         else:
-            config = RunConfig.parse_obj(config_dict)
+            config = RunConfig.model_validate(config_dict)
             assert config.passes["tuning"][0].config["approach"] == approach
 
 
@@ -218,4 +218,4 @@ class TestPythonEnvironmentSystemConfig:
             "systems": {"py_system": python_environment},
         }
         with pytest.raises(ValidationError, match=error_message):
-            RunConfig.parse_obj(invalid_config)
+            RunConfig.model_validate(invalid_config)

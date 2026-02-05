@@ -393,7 +393,7 @@ class OnnxQuantization(Pass):
         from onnxruntime.quantization.calibrate import CalibrationMethod
 
         # start with a copy of the config
-        run_config = config.dict()
+        run_config = config.model_dump()
         is_static = run_config["quant_mode"] == "static"
         if is_static:
             assert config.data_config, "data_config is required for static quantization."

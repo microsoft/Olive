@@ -85,7 +85,7 @@ class OnnxFloatToFloat16(Pass):
         # using the float16 converter from onnxruntime since it is regularly updated
         # and can handle large models (>2GB) as well as ort contrib ops
         ort_onnx_model = OnnxModel(loaded_model)
-        config_dict = config.dict()
+        config_dict = config.model_dump()
         ort_onnx_model.convert_float_to_float16(
             op_block_list=op_block_list,
             node_block_list=node_block_list,

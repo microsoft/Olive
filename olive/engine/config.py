@@ -2,10 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Union
+from typing import Optional, Union
+
+from pydantic import ConfigDict, Field
 
 from olive.common.config_utils import ConfigBase
-from olive.common.pydantic_v1 import Extra, Field
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.passes.pass_config import AbstractPassConfig
 from olive.search.search_strategy import SearchStrategyConfig
@@ -19,18 +20,19 @@ INVALID_CONFIG = "invalid-config"
 PRUNED_CONFIGS = (FAILED_CONFIG, INVALID_CONFIG)
 
 
-class EngineConfig(ConfigBase, extra=Extra.forbid):
-    search_strategy: Union[SearchStrategyConfig, bool] = Field(
+class EngineConfig(ConfigBase):
+    model_config = ConfigDict(extra='forbid')
+    search_strategy: Optional[Union[SearchStrategyConfig, bool]] = Field(
         None, description="Search strategy configuration to use to auto optimize the input model."
     )
-    host: SystemConfig = Field(
+    host: Optional[SystemConfig] = Field(
         None,
         description=(
             "The host of the engine. It can be a string or a dictionary. "
             "If it is a string, it is the name of a system in `systems`."
         ),
     )
-    target: SystemConfig = Field(
+    target: Optional[SystemConfig] = Field(
         None,
         description=(
             "The target to run model evaluations on. It can be a string or a dictionary. "
@@ -38,7 +40,7 @@ class EngineConfig(ConfigBase, extra=Extra.forbid):
             "If it is a dictionary, it contains the system information. If not specified, it is the local system."
         ),
     )
-    evaluator: OliveEvaluatorConfig = Field(
+    evaluator: Optional[OliveEvaluatorConfig] = Field(
         None,
         description=(
             "The evaluator of the engine. It can be a string or a dictionary. "
@@ -74,14 +76,14 @@ class RunPassConfig(AbstractPassConfig):
 
     """
 
-    host: Union[SystemConfig, str] = Field(
+    host: Optional[Union[SystemConfig, str]] = Field(
         None,
         description=(
             "Host system for the pass. If it is a string, must refer to a system config under `systems` section. If not"
             " provided, use the engine's host system."
         ),
     )
-    evaluator: Union[OliveEvaluatorConfig, str] = Field(
+    evaluator: Optional[Union[OliveEvaluatorConfig, str]] = Field(
         None,
         description=(
             "Evaluator for the pass. If it is a string, must refer to an evaluator config under `evaluators` section."

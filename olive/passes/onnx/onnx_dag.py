@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import onnx
 from onnx import AttributeProto, GraphProto, NodeProto, TensorProto, ValueInfoProto
+from pydantic import Field
 
 from olive.common.config_utils import ConfigBase
-from olive.common.pydantic_v1 import Field
 from olive.common.utils import StrEnumBase
 
 if TYPE_CHECKING:
@@ -70,7 +70,7 @@ class OnnxIO(ConfigBase):
     Behaves similar to labeled edges in a graph but can connect to multiple nodes.
     """
 
-    source: str = None
+    source: Optional[str] = None
     destination: list[str] = Field(default_factory=list)
     graph_idx: int
     # reference to the protobuf object

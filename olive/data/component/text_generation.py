@@ -5,12 +5,12 @@
 
 from pathlib import Path
 from random import Random
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import transformers
+from pydantic import Field, field_validator
 
 from olive.common.config_utils import ConfigBase, validate_config, validate_object
-from olive.common.pydantic_v1 import validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import StrEnumBase
 from olive.data.component.dataset import ClassificationDataset
@@ -35,113 +35,124 @@ class TextGenParams(ConfigBase):
     Base dataclass for text generation tasks.
     """
 
-    user_script: Union[str, Path] = None  # user script use to define formatting functions
-    script_dir: Union[str, Path] = None  # directory with user script dependencies
-    max_samples: int = None  # max number of samples to use, None for all
+    user_script: Optional[Union[str, Path]] = None  # user script use to define formatting functions
+    script_dir: Optional[Union[str, Path]] = None  # directory with user script dependencies
+    max_samples: Optional[int] = None  # max number of samples to use, None for all
     max_seq_len: int = 1024  # max length of sequence
     # TODO(jambayk): currently only support padding to max length since we preprocess all data at once
     # might have to expose collator for dataloader to support dynamic padding of batches
     # if false, cannot guarantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
-    padding_side: str = "right"  # pad to the right or left
+    padding_side: str = Field(default = "right", validate_default=True)  # pad to the right or left
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
     use_attention_mask: bool = True  # add attention mask to each example
     # either use chat template or text
     # Chat template: template is applied to the chat messages to generate the text
     # use default (True) or custom (str) chat template
     # chat template must handle its own bos and eos tokens
-    chat_template: Union[bool, str] = None
+    chat_template: Optional[Union[bool, str]] = None
     message_col: str = "messages"  # column with chat messages
     # Text: text is extracted from the dataset
     add_special_tokens: bool = True  # add bos and eos tokens to each sequence
     # one of text_formatting_func, text_template, or text_cols must be provided
     # priority: text_formatting_func > text_template > text_cols
     # function that formats the text, must take in an example dict and return a string
-    text_formatting_func: Union[str, Callable] = None  # name of formatting function for text
+    text_formatting_func: Optional[Union[str, Callable]] = None  # name of formatting function for text
     # a python f-string template for the text with {column_name} as placeholders
-    text_template: str = None
+    text_template: Optional[str] = None
     # list of text columns, columns are concatenated together using a space
-    text_cols: Union[str, list[str]] = "text"
+    text_cols: Union[str, list[str]] = Field(default = "text", validate_default=True)
     # in JOIN strategies, the rows of text_cols are concatenated together
-    strategy: TextGenStrategy = TextGenStrategy.JOIN
-    stride: int = None  # required when strategy is JOIN_SLIDING_WINDOW
+    strategy: TextGenStrategy = Field(default = TextGenStrategy.JOIN, validate_default=True)
+    stride: Optional[int] = None  # required when strategy is JOIN_SLIDING_WINDOW
     # text to join the rows of input columns when strategy is JOIN
     # add_special_tokens: "{bos_token} {text_col1} {eos_token} {joiner} {bos_token} {text_col2} {eos_token}..."
     # no add_special_tokens: "{text_col1} {joiner} {text_col2}..."
     # if None, joined with a space
     joiner: str = "\n\n"
     processing_batch_size: int = 1024  # number of examples to process at a time
-    random_seed: int = None  # random seed for LINE_BY_LINE_RANDOM and JOIN_RANDOM
+    random_seed: Optional[int] = None  # random seed for LINE_BY_LINE_RANDOM and JOIN_RANDOM
     random_retries: int = (
         10  # number of resamples to try before giving up when a sample is too short for RANDOM strategies
     )
 
-    @validator("padding_side", always=True)
+    @field_validator("padding_side", mode="before")
+    @classmethod
     def _check_padding_side(cls, v):
         if v not in ["left", "right"]:
             raise ValueError("padding_side must be either left or right")
         return v
 
-    @validator("drop_short_sequences", always=True)
-    def _check_padding(cls, v, values):
-        if "pad_to_max_len" not in values:
+    @field_validator("drop_short_sequences", mode="before")
+    @classmethod
+    def _check_padding(cls, v, info):
+        if "pad_to_max_len" not in info.data:
             raise ValueError("Invalid pad_to_max_len")
-        if v and values["pad_to_max_len"]:
+        if v and info.data["pad_to_max_len"]:
             raise ValueError("pad_to_max_len and drop_short_sequences cannot both be True")
         return v
 
-    @validator("text_formatting_func")
-    def _check_text_formatting_func(cls, v, values, field):
-        return validate_object(v, values, field)
+    @field_validator("text_formatting_func", mode="before")
+    @classmethod
+    def _check_text_formatting_func(cls, v, info):
+        # Create a simple object with name attribute for validate_object
+        class FieldInfo:
+            def __init__(self, name):
+                self.name = name
+        return validate_object(v, info.data, FieldInfo(info.field_name))
 
-    @validator("text_cols", always=True)
-    def _check_text_cols(cls, v, values):
-        if "chat_template" not in values:
+    @field_validator("text_cols", mode="before")
+    @classmethod
+    def _check_text_cols(cls, v, info):
+        if "chat_template" not in info.data:
             raise ValueError("Invalid chat_template")
 
         if isinstance(v, str):
             v = [v]
 
-        if values["chat_template"]:
+        if info.data["chat_template"]:
             # chat template is used, so text_cols is not relevant
             return v
 
         alternatives = ["text_formatting_func", "text_template"]
         for alternate in alternatives:
             # for good validation error, check that all alternates are in values
-            if alternate not in values:
+            if alternate not in info.data:
                 raise ValueError(f"Invalid {alternate}")
 
-        if not (v or any(values[option] for option in alternatives)):
+        if not (v or any(info.data[option] for option in alternatives)):
             # check that at least one alternate is specified
             raise ValueError(f"One of text_cols, {', '.join(alternatives)} must be specified")
 
         return v
 
-    @validator("stride", always=True)
-    def _check_stride(cls, v, values):
-        if "strategy" not in values:
+    @field_validator("stride", mode="before")
+    @classmethod
+    def _check_stride(cls, v, info):
+        if "strategy" not in info.data:
             raise ValueError("Invalid strategy")
-        if values["strategy"] == TextGenStrategy.JOIN_SLIDING_WINDOW and v is None:
+        if info.data["strategy"] == TextGenStrategy.JOIN_SLIDING_WINDOW and v is None:
             raise ValueError("stride must be specified when strategy is JOIN_SLIDING_WINDOW")
         return v
 
-    @validator("strategy", always=True)
-    def _check_max_samples(cls, v, values):
-        if "max_samples" not in values:
+    @field_validator("strategy", mode="before")
+    @classmethod
+    def _check_max_samples(cls, v, info):
+        if "max_samples" not in info.data:
             raise ValueError("Invalid max_samples")
-        if "random" in v and values["max_samples"] is None:
+        if "random" in v and info.data["max_samples"] is None:
             raise ValueError("max_samples must be specified when strategy is random")
         return v
 
-    @validator("strategy", always=True)
-    def _check_use_attention_mask(cls, v, values):
-        if "use_attention_mask" not in values:
+    @field_validator("strategy", mode="before")
+    @classmethod
+    def _check_use_attention_mask(cls, v, info):
+        if "use_attention_mask" not in info.data:
             raise ValueError("Invalid use_attention_mask")
-        if "pad_to_max_len" not in values:
+        if "pad_to_max_len" not in info.data:
             raise ValueError("Invalid pad_to_max_len")
-        use_attention_mask = values["use_attention_mask"]
-        pad_to_max_len = values["pad_to_max_len"]
+        use_attention_mask = info.data["use_attention_mask"]
+        pad_to_max_len = info.data["pad_to_max_len"]
         if "join" in v:
             # both True and False are valid since attention_mask is all 1s
             return v
@@ -151,11 +162,12 @@ class TextGenParams(ConfigBase):
             )
         return v
 
-    @validator("random_seed", always=True)
-    def _check_random(cls, v, values):
-        if "strategy" not in values:
+    @field_validator("random_seed", mode="before")
+    @classmethod
+    def _check_random(cls, v, info):
+        if "strategy" not in info.data:
             raise ValueError("Invalid strategy")
-        if "random" in values["strategy"] and v is None:
+        if "random" in info.data["strategy"] and v is None:
             raise ValueError("random_seed must be specified when strategy is random")
         return v
 
@@ -364,13 +376,13 @@ def text_gen_pre_process(dataset, tokenizer, all_kwargs):
 
 def get_text(
     example: dict[str, str],
-    chat_template: Union[bool, str] = None,
+    chat_template: Optional[Union[bool, str]] = None,
     message_col: str = "messages",
-    formatting_func: Callable = None,
-    template: str = None,
-    cols: list[str] = None,
+    formatting_func: Optional[Callable] = None,
+    template: Optional[str] = None,
+    cols: Optional[list[str]] = None,
     add_special_tokens: bool = False,
-    tokenizer: transformers.PreTrainedTokenizer = None,
+    tokenizer: Optional[transformers.PreTrainedTokenizer] = None,
 ):
     """Get text from example using formatting_func, template, or cols."""
     if chat_template:
@@ -411,7 +423,7 @@ def batch_tokenize_text(text_list, tokenizer, args):
 
 
 def append_text_gen_input_ids(
-    tokenized_inputs, input_ids, attention_mask, context: int = None, ignore_index=IGNORE_INDEX
+    tokenized_inputs, input_ids, attention_mask, context: Optional[int] = None, ignore_index=IGNORE_INDEX
 ):
     """Convert input_ids to inputs dict and append to tokenized_inputs."""
     inputs = {"input_ids": input_ids, "attention_mask": attention_mask}

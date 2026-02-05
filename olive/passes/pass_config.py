@@ -6,6 +6,8 @@ import builtins
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Optional, Union
 
+from pydantic import Field, create_model, field_validator
+
 from olive.common.config_utils import (
     ConfigBase,
     ConfigParam,
@@ -14,7 +16,6 @@ from olive.common.config_utils import (
     validate_lowercase,
     validate_object,
 )
-from olive.common.pydantic_v1 import Field, create_model, validator
 from olive.common.utils import StrEnumBase
 from olive.constants import DatasetRequirement, Precision, QuantAlgorithm, QuantEncoding
 from olive.hardware.accelerator import Device
@@ -50,7 +51,7 @@ class PassConfigParam(ConfigParam):
 
     """
 
-    search_defaults: SearchParameter = None
+    search_defaults: Optional[SearchParameter] = None
 
     def __repr__(self):
         repr_list = []
@@ -74,7 +75,7 @@ def get_user_script_data_config(
     user_script_config = {
         "user_script": PassConfigParam(
             type_=type_,
-            required=required,
+            required=bool(required),
             category=ParamCategory.PATH,
             description=(
                 "Path to user script. The values for other parameters which were assigned "
@@ -95,17 +96,19 @@ DEFAULT_SET = set(PassParamDefault)
 
 
 class BasePassConfig(ConfigBase):
-    @validator("*", pre=True)
-    def _validate_default_str(cls, v, field):
+    @field_validator("*", mode="before")
+    @classmethod
+    def _validate_default_str(cls, v, info):
         if not isinstance(v, (str, PassParamDefault)) or v not in DEFAULT_SET:
             return v
 
-        if field.required:
-            raise ValueError(f"{field.name} is required and cannot be set to {v}")
+        if info.field_name in cls.model_fields and cls.model_fields[info.field_name].is_required():
+            raise ValueError(f"{info.field_name} is required and cannot be set to {v}")
 
         return PassParamDefault(v)
 
-    @validator("*", pre=True)
+    @field_validator("*", mode="before")
+    @classmethod
     def _validate_search_parameter(cls, v):
         if isinstance(v, dict) and v.get("olive_parameter_type") == "SearchParameter":
             return json_to_search_parameter(v)
@@ -116,7 +119,7 @@ class AbstractPassConfig(NestedConfig):
     """Base class for pass configuration."""
 
     type: str = Field(description="The type of the pass.")
-    config: Union[dict[str, Any], builtins.type[BasePassConfig]] = Field(
+    config: Optional[Union[dict[str, Any], builtins.type[BasePassConfig]]] = Field(
         None,
         description=(
             "The configuration of the pass. Values for required parameters must be provided. For optional parameters,"
@@ -125,7 +128,8 @@ class AbstractPassConfig(NestedConfig):
         ),
     )
 
-    @validator("type", pre=True)
+    @field_validator("type", mode="before")
+    @classmethod
     def validate_type(cls, v):
         return validate_lowercase(v)
 
@@ -134,16 +138,16 @@ def create_config_class(
     pass_type: str,
     default_config: dict[str, PassConfigParam],
     disable_search: Optional[bool] = False,
-    validators: dict[str, Callable] = None,
+    validators: Optional[dict[str, Callable]] = None,
 ) -> type[BasePassConfig]:
     """Create a Pydantic model class from a configuration dictionary."""
     config = {}
     validators = validators.copy() if validators else {}
     for param, param_config in default_config.items():
         if param_config.category == ParamCategory.OBJECT:
-            validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_object)
+            validators[f"validate_{param}"] = field_validator(param, mode="before")(validate_object)
         if param == "data_dir":
-            validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_resource_path)
+            validators[f"validate_{param}"] = field_validator(param, mode="before")(validate_resource_path)
 
         type_ = param_config.type_
         if param_config.required:
@@ -203,73 +207,79 @@ class PassModuleConfig(ConfigBase):
         for attr in attrs:
             setattr(cls, attr, getattr(self, attr))
 
-    @validator("module_path", pre=True)
+    @field_validator("module_path", mode="before")
+    @classmethod
     def validate_module_path(cls, v):
         if not v:
             raise ValueError("module_path cannot be empty or None")
         return v
 
-    @validator("supported_providers", pre=True)
-    def validate_supported_providers(cls, v, values):
+    @field_validator("supported_providers", mode="before")
+    @classmethod
+    def validate_supported_providers(cls, v, info):
         v = v or []
         if v == ["*"]:
             v = PassModuleConfig.EXECUTION_PROVIDERS
-        return v
+        # Validate each item
+        result = []
+        for item in v:
+            if item not in PassModuleConfig.EXECUTION_PROVIDERS:
+                raise ValueError(f"Invalid provider: {item}")
+            result.append(item)
+        return result
 
-    @validator("supported_providers", pre=True, each_item=True)
-    def validate_supported_provider(cls, v, values):
-        if v not in PassModuleConfig.EXECUTION_PROVIDERS:
-            raise ValueError(f"Invalid provider: {v}")
-        return v
-
-    @validator("supported_accelerators", pre=True)
-    def validate_supported_accelerators(cls, v, values):
+    @field_validator("supported_accelerators", mode="before")
+    @classmethod
+    def validate_supported_accelerators(cls, v, info):
         v = v or []
         if v == ["*"]:
             v = PassModuleConfig.ACCELERATORS
-        return v
+        # Validate each item
+        result = []
+        for item in v:
+            if item not in PassModuleConfig.ACCELERATORS:
+                raise ValueError(f"Invalid accelerator: {item}")
+            result.append(item)
+        return result
 
-    @validator("supported_accelerators", pre=True, each_item=True)
-    def validate_supported_accelerator(cls, v, values):
-        if v not in PassModuleConfig.ACCELERATORS:
-            raise ValueError(f"Invalid accelerator: {v}")
-        return v
-
-    @validator("supported_precisions", pre=True)
-    def validate_supported_precisions(cls, v, values):
+    @field_validator("supported_precisions", mode="before")
+    @classmethod
+    def validate_supported_precisions(cls, v, info):
         v = v or []
         if v == ["*"]:
             v = PassModuleConfig.PRECISIONS
-        return v
+        # Validate each item
+        result = []
+        for item in v:
+            if item not in PassModuleConfig.PRECISIONS:
+                raise ValueError(f"Invalid algorithm: {item}")
+            result.append(item)
+        return result
 
-    @validator("supported_precisions", pre=True, each_item=True)
-    def validate_supported_precision(cls, v, values):
-        if v not in PassModuleConfig.PRECISIONS:
-            raise ValueError(f"Invalid algorithm: {v}")
-        return v
-
-    @validator("supported_algorithms", pre=True)
-    def validate_supported_algorithm(cls, v, values):
+    @field_validator("supported_algorithms", mode="before")
+    @classmethod
+    def validate_supported_algorithms(cls, v, info):
         v = v or []
         if v == ["*"]:
             v = PassModuleConfig.QUANT_ALGORITHMS
-        return v
+        # Validate each item
+        result = []
+        for item in v:
+            if item not in PassModuleConfig.QUANT_ALGORITHMS:
+                raise ValueError(f"Invalid algorithm: {item}")
+            result.append(item)
+        return result
 
-    @validator("supported_algorithms", pre=True, each_item=True)
-    def validate_supported_algorithms(cls, v, values):
-        if v not in PassModuleConfig.QUANT_ALGORITHMS:
-            raise ValueError(f"Invalid algorithm: {v}")
-        return v
-
-    @validator("supported_quantization_encodings", pre=True)
-    def validate_supported_quantization_encoding(cls, v, values):
+    @field_validator("supported_quantization_encodings", mode="before")
+    @classmethod
+    def validate_supported_quantization_encodings(cls, v, info):
         v = v or []
         if v == ["*"]:
             v = PassModuleConfig.QUANT_ENCODINGS
-        return v
-
-    @validator("supported_quantization_encodings", pre=True, each_item=True)
-    def validate_supported_quantization_encodings(cls, v, values):
-        if v not in PassModuleConfig.QUANT_ENCODINGS:
-            raise ValueError(f"Invalid algorithm: {v}")
-        return v
+        # Validate each item
+        result = []
+        for item in v:
+            if item not in PassModuleConfig.QUANT_ENCODINGS:
+                raise ValueError(f"Invalid quantization encoding: {item}")
+            result.append(item)
+        return result

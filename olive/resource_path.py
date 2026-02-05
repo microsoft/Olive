@@ -10,6 +10,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Optional, Union
 
+from pydantic import Field, field_validator
+
 from olive.common.auto_config import AutoConfigClass
 from olive.common.config_utils import (
     CaseInsensitiveEnum,
@@ -19,7 +21,6 @@ from olive.common.config_utils import (
     serialize_to_json,
     validate_config,
 )
-from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import copy_dir, get_credentials, retry_func
 
 logger = logging.getLogger(__name__)
@@ -37,13 +38,13 @@ LOCAL_RESOURCE_TYPES = (ResourceType.LocalFile, ResourceType.LocalFolder)
 
 class ResourcePath(AutoConfigClass):
     registry: ClassVar[dict[str, type["ResourcePath"]]] = {}
-    name: ResourceType = None
+    name: Optional[ResourceType] = None
 
     def __repr__(self) -> str:
         return self.get_path()
 
     @property
-    def type(self) -> ResourceType:
+    def type(self) -> Optional[ResourceType]:
         return self.name
 
     @abstractmethod
@@ -52,7 +53,7 @@ class ResourcePath(AutoConfigClass):
         raise NotImplementedError
 
     @abstractmethod
-    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
+    def save_to_dir(self, dir_path: Union[Path, str], name: Optional[str] = None, overwrite: bool = False) -> str:
         """Save the resource to a directory."""
         raise NotImplementedError
 
@@ -89,12 +90,13 @@ class ResourcePathConfig(NestedConfig):
     type: ResourceType = Field(..., description="Type of the resource.")
     config: ConfigBase = Field(..., description="Config of the resource.")
 
-    @validator("config", pre=True)
-    def validate_config(cls, v, values):
-        if "type" not in values:
+    @field_validator("config", mode="before")
+    @classmethod
+    def validate_config(cls, v, info):
+        if "type" not in info.data:
             raise ValueError("Invalid type.")
 
-        config_class = ResourcePath.registry[values["type"]].get_config_class()
+        config_class = ResourcePath.registry[info.data["type"]].get_config_class()
         return validate_config(v, config_class)
 
     def create_resource_path(self) -> ResourcePath:
@@ -127,7 +129,7 @@ def create_resource_path(
         return resource_path_config.create_resource_path()
 
     # check if the resource path is a file, folder, azureml datastore, or a string name
-    resource_type: ResourceType = None
+    resource_type: Optional[ResourceType] = None
     config_key = None
     if Path(resource_path).is_file():
         resource_type = ResourceType.LocalFile
@@ -220,13 +222,13 @@ class LocalResourcePath(ResourcePath):
 
     @classmethod
     def _validators(cls) -> dict[str, Callable]:
-        return {"validate_path": validator("path", allow_reuse=True)(_validate_path)}
+        return {"validate_path": field_validator("path", mode="before")(_validate_path)}
 
     def get_path(self) -> str:
         return str(self.config.path)
 
     def save_to_dir(
-        self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False, flatten: bool = False
+        self, dir_path: Union[Path, str], name: Optional[str] = None, overwrite: bool = False, flatten: bool = False
     ) -> str:
         # directory to save the resource to
         dir_path = Path(dir_path).resolve()
@@ -285,7 +287,7 @@ class LocalFile(LocalResourcePath):
     @classmethod
     def _validators(cls) -> dict[str, Callable[..., Any]]:
         validators = super()._validators()
-        validators.update({"validate_file_path": validator("path", allow_reuse=True)(_validate_file_path)})
+        validators.update({"validate_file_path": field_validator("path", mode="before")(_validate_file_path)})
         return validators
 
 
@@ -304,7 +306,7 @@ class LocalFolder(LocalResourcePath):
     @classmethod
     def _validators(cls) -> dict[str, Callable[..., Any]]:
         validators = super()._validators()
-        validators.update({"validate_folder_path": validator("path", allow_reuse=True)(_validate_folder_path)})
+        validators.update({"validate_folder_path": field_validator("path", mode="before")(_validate_folder_path)})
         return validators
 
 
@@ -322,7 +324,7 @@ class StringName(ResourcePath):
     def get_path(self) -> str:
         return self.config.name
 
-    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
+    def save_to_dir(self, dir_path: Union[Path, str], name: Optional[str] = None, overwrite: bool = False) -> str:
         logger.debug("Resource is a string name. No need to save to directory.")
         return self.config.name
 
@@ -364,7 +366,7 @@ class AzureMLRegistryModel(ResourcePath):
             f"azureml://registries/{self.config.registry_name}/models/{self.config.name}/versions/{self.config.version}"
         )
 
-    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
+    def save_to_dir(self, dir_path: Union[Path, str], name: Optional[str] = None, overwrite: bool = False) -> str:
         from azure.ai.ml import MLClient
 
         self.set_azure_logging_if_noset()

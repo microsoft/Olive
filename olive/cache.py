@@ -13,10 +13,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
+from pydantic import Field, field_validator, model_validator
+
 from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.container_client_factory import AzureContainerClientFactory
-from olive.common.pydantic_v1 import root_validator, validator
 from olive.common.utils import hash_dict, hf_repo_exists, set_nested_dict_value
 from olive.model.config.model_config import ModelConfig
 from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
@@ -53,15 +54,16 @@ class CacheSubDirs:
 
 
 class CacheConfig(ConfigBase):
-    cache_dir: Union[str, list[str]] = DEFAULT_CACHE_DIR
+    cache_dir: Union[str, list[str]] = Field(default = DEFAULT_CACHE_DIR, validate_default=True)
     clean_cache: bool = False
     clean_evaluation_cache: bool = False
-    account_name: str = None
-    container_name: str = None
+    account_name: Optional[str] = None
+    container_name: Optional[str] = None
     enable_shared_cache: bool = False
     update_shared_cache: bool = True
 
-    @validator("cache_dir", pre=True, always=True)
+    @field_validator("cache_dir", mode="before")
+    @classmethod
     def validate_cache_dir(cls, v):
         if not v:
             return [DEFAULT_CACHE_DIR]
@@ -85,30 +87,32 @@ class CacheConfig(ConfigBase):
             return [DEFAULT_CACHE_DIR, v]
         return [v]
 
-    @validator("account_name")
-    def validate_account_name(cls, v, values):
+    @field_validator("account_name")
+    @classmethod
+    def validate_account_name(cls, v, info):
         if v:
             return v
-        match = cls._get_shared_cache_match(values.get("cache_dir"))
+        match = cls._get_shared_cache_match(info.data.get("cache_dir"))
         return match.group(1) if match else None
 
-    @validator("container_name")
-    def validate_container_name(cls, v, values):
+    @field_validator("container_name")
+    @classmethod
+    def validate_container_name(cls, v, info):
         if v:
             return v
-        match = cls._get_shared_cache_match(values.get("cache_dir"))
+        match = cls._get_shared_cache_match(info.data.get("cache_dir"))
         return match.group(2) if match else None
 
-    @root_validator()
-    def validate_enable_shared_cache(cls, values):
-        if values.get("account_name") and values.get("container_name"):
-            values["enable_shared_cache"] = True
-        elif values.get("enable_shared_cache"):
-            values["account_name"] = values.get("account_name") or "olivepublicmodels"
-            values["container_name"] = values.get("container_name") or "olivecachemodels"
+    @model_validator(mode="after")
+    def validate_enable_shared_cache(self):
+        if self.account_name and self.container_name:
+            self.enable_shared_cache = True
+        elif self.enable_shared_cache:
+            self.account_name = self.account_name or "olivepublicmodels"
+            self.container_name = self.container_name or "olivecachemodels"
         else:
-            values["enable_shared_cache"] = False
-        return values
+            self.enable_shared_cache = False
+        return self
 
     @staticmethod
     def _get_shared_cache_match(cache_dir):
@@ -280,7 +284,7 @@ class OliveCache:
         pass_name: str,
         pass_config: dict[str, Any],
         input_model_id: str,
-        accelerator_spec: "AcceleratorSpec" = None,
+        accelerator_spec: Optional["AcceleratorSpec"] = None,
     ):
         run_json = self.get_run_json(pass_name.lower(), pass_config, input_model_id, accelerator_spec)
         return hash_dict(run_json)[:8]
@@ -436,7 +440,7 @@ class OliveCache:
                                 from olive.passes.onnx.common import resave_model
 
                                 resave_model(
-                                    ModelConfig.parse_obj(component_model_json).create_model().model_path,
+                                    ModelConfig.model_validate(component_model_json).create_model().model_path,
                                     actual_output_dir / f"{component_name}.onnx",
                                     saved_external_files=saved_external_files,
                                 )
@@ -462,7 +466,7 @@ class OliveCache:
         output_dir: str,
         overwrite: bool = False,
         only_cache_files: bool = False,
-        path_prefix: str = None,
+        path_prefix: Optional[str] = None,
     ) -> dict:
         # get updated model json with local resources
         model_json, local_resource_names = self._replace_with_local_resources(
@@ -730,7 +734,7 @@ class SharedCache:
                     model_id,
                 )
 
-    def load_model(self, model_id: str, model_json_path: Path) -> ModelConfig:
+    def load_model(self, model_id: str, model_json_path: Path) -> Optional[ModelConfig]:
         """Get model config from shared cache by model id."""
         model_config_blob = f"{model_id}/model.json"
 
@@ -842,7 +846,7 @@ class SharedCache:
             self.container_client_factory.upload_blob(blob_name, data)
 
     def _download_blob_list(
-        self, blob_list, directory_prefix: str, output_model_path: Path, prefix: str = None
+        self, blob_list, directory_prefix: str, output_model_path: Path, prefix: Optional[str] = None
     ) -> None:
         for blob in blob_list:
             local_file_path = (

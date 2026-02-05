@@ -6,8 +6,8 @@ import pytest
 import torch
 import transformers
 from packaging import version
+from pydantic import ValidationError
 
-from olive.common.pydantic_v1 import ValidationError
 from olive.model.config.hf_config import HfLoadKwargs
 
 

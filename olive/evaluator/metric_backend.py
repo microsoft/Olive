@@ -35,7 +35,7 @@ class MetricBackend(AutoConfigClass):
         metric_results_dict = {}
         for sub_metric in metrics.sub_types:
             metric_results_dict[sub_metric.name] = self.measure_sub_metric(model_output, targets, sub_metric)
-        return MetricResult.parse_obj(metric_results_dict)
+        return MetricResult.model_validate(metric_results_dict)
 
 
 class TorchMetrics(MetricBackend):

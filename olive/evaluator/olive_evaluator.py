@@ -10,15 +10,15 @@ from copy import deepcopy
 from functools import partial
 from numbers import Number
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple, Union
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Optional, Union
 
 import numpy as np
 import torch
+from pydantic import Field, field_validator, model_validator
 
 from olive.common.config_utils import NestedConfig, validate_config
 from olive.common.import_lib import import_user_module
 from olive.common.ort_inference import OrtInferenceSession, prepare_io_bindings
-from olive.common.pydantic_v1 import Field, root_validator, validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import format_data, load_weights, tensor_data_to_device
 from olive.constants import Framework
@@ -121,8 +121,6 @@ class OliveEvaluator(ABC):
 
     @staticmethod
     def get_user_config(framework: Framework, metric: Metric):
-        assert metric.user_config, "user_config is not specified in the metric config"
-
         dataloader = None
         eval_func = None
         post_func = None
@@ -130,6 +128,9 @@ class OliveEvaluator(ABC):
         # load the evaluate function
         # priority: evaluate_func > metric_func
         if metric.type == MetricType.CUSTOM:
+            if not metric.user_config:
+                raise ValueError("user_config is required for CUSTOM metric type")
+
             evaluate_func = getattr(metric.user_config, "evaluate_func", None)
             kwargs = getattr(metric.user_config, "evaluate_func_kwargs", None) or {}
             if not evaluate_func:
@@ -186,7 +187,7 @@ class OliveEvaluator(ABC):
                 priority=sub_type.priority,
                 higher_is_better=sub_type.higher_is_better,
             )
-        return MetricResult.parse_obj(metric_res)
+        return MetricResult.model_validate(metric_res)
 
     @staticmethod
     def compute_throughput(metric: Metric, latencies: Any) -> MetricResult:
@@ -207,7 +208,7 @@ class OliveEvaluator(ABC):
                 priority=sub_type.priority,
                 higher_is_better=sub_type.higher_is_better,
             )
-        return MetricResult.parse_obj(metric_res)
+        return MetricResult.model_validate(metric_res)
 
 
 class _OliveEvaluator(OliveEvaluator):
@@ -217,7 +218,7 @@ class _OliveEvaluator(OliveEvaluator):
 
     @classmethod
     def io_bind_enabled(cls, metric: Metric, inference_settings: dict) -> bool:
-        if metric.user_config.io_bind:
+        if metric.user_config and metric.user_config.io_bind:
             return True
 
         return inference_settings and inference_settings.get("io_bind")
@@ -292,7 +293,7 @@ class _OliveEvaluator(OliveEvaluator):
         device: Device = Device.CPU,
         execution_providers: Union[str, list[str]] = None,
     ) -> MetricResult:
-        return MetricResult.parse_obj(
+        return MetricResult.model_validate(
             {SizeOnDiskSubType.BYTES.value: {"value": model.size_on_disk, "priority": -1, "higher_is_better": False}}
         )
 
@@ -307,7 +308,7 @@ class _OliveEvaluator(OliveEvaluator):
         execution_providers=None,
     ) -> MetricResult:
         raw_res = None
-        if metric.user_config.evaluate_func:
+        if metric.user_config and metric.user_config.evaluate_func:
             raw_res = eval_func(model, device, execution_providers)
         else:
             inference_output, targets = self._inference(
@@ -329,7 +330,7 @@ class _OliveEvaluator(OliveEvaluator):
                     priority=sub_type.priority,
                     higher_is_better=sub_type.higher_is_better,
                 )
-        return MetricResult.parse_obj(metric_res)
+        return MetricResult.model_validate(metric_res)
 
     def evaluate(
         self,
@@ -409,7 +410,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         # prepare for io binding
         io_config = model.io_config
         io_bind = OnnxEvaluator.io_bind_enabled(metric, model.inference_settings)
-        shared_kv_buffer = metric.user_config.shared_kv_buffer
+        shared_kv_buffer = getattr(metric.user_config, "shared_kv_buffer", None) if metric.user_config else None
         use_fp16 = any(v == "float16" for v in io_config["input_types"])
         input_feed = None
         if io_bind and shared_kv_buffer and use_fp16:
@@ -645,7 +646,9 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         batch = next(iter(dataloader))
         input_data = OliveEvaluator.extract_input_data(batch)
         input_feed = format_data(input_data, io_config)
-        kv_cache_ortvalues = {} if metric.user_config.shared_kv_buffer else None
+        kv_cache_ortvalues = (
+            {} if (metric.user_config and getattr(metric.user_config, "shared_kv_buffer", None)) else None
+        )
 
         io_bind = OnnxEvaluator.io_bind_enabled(metric, model.inference_settings)
         if io_bind:
@@ -653,7 +656,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                 session,
                 input_feed,
                 Device.GPU,
-                shared_kv_buffer=metric.user_config.shared_kv_buffer,
+                shared_kv_buffer=getattr(metric.user_config, "shared_kv_buffer", None) if metric.user_config else None,
                 kv_cache_ortvalues=kv_cache_ortvalues,
             )
         latencies = []
@@ -1084,7 +1087,7 @@ class LMEvaluator(OliveEvaluator):
         metrics = {}
         if MetricType.SIZE_ON_DISK.value in self.tasks:
             self.tasks.remove(MetricType.SIZE_ON_DISK.value)
-            metrics[MetricType.SIZE_ON_DISK.value] = MetricResult.parse_obj(
+            metrics[MetricType.SIZE_ON_DISK.value] = MetricResult.model_validate(
                 {
                     SizeOnDiskSubType.BYTES.value: {
                         "value": model.size_on_disk,
@@ -1117,21 +1120,21 @@ class LMEvaluator(OliveEvaluator):
                         if not m.endswith("_stderr"):
                             task_metrics[m] = SubMetricResult(value=v, priority=-1, higher_is_better=True)
 
-                metrics[task_name] = MetricResult.parse_obj(task_metrics)
+                metrics[task_name] = MetricResult.model_validate(task_metrics)
 
         return flatten_metric_result(metrics)
 
 
 class OliveEvaluatorConfig(NestedConfig):
-    _nested_field_name = "type_args"
+    _nested_field_name: ClassVar[str] = "type_args"
 
-    name: str = None
-    type: str = None
+    name: Optional[str] = None
+    type: Optional[str] = None
     type_args: dict = Field(default_factory=dict)
 
     # user script to define and register the evaluator
-    user_script: Union[Path, str] = None
-    script_dir: Union[Path, str] = None
+    user_script: Optional[Union[Path, str]] = None
+    script_dir: Optional[Union[Path, str]] = None
 
     metrics: list[Metric] = []  # noqa: RUF012
 
@@ -1149,8 +1152,13 @@ class OliveEvaluatorConfig(NestedConfig):
                     return sub_metric.goal is not None and sub_metric.goal.has_regression_goal()
         return False
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def validate_type(cls, values):
+        # In pydantic v2, values can be None when no arguments are provided
+        if values is None:
+            values = {}
+
         if values.get("user_script"):
             import_user_module(values["user_script"], values.get("script_dir"))
 
@@ -1160,7 +1168,8 @@ class OliveEvaluatorConfig(NestedConfig):
 
         return values
 
-    @validator("metrics")
+    @field_validator("metrics")
+    @classmethod
     def validate_metrics(cls, v):
         metric_len = len(v)
 

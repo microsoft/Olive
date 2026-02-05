@@ -8,11 +8,18 @@ import logging
 from functools import partial
 from pathlib import Path
 from types import FunctionType, MethodType
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Any, Callable, ClassVar, Optional, TypeVar, Union
 
 import yaml
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    RootModel,
+    create_model,
+    field_validator,
+    model_validator,
+)
 
-from olive.common.pydantic_v1 import BaseModel, create_model, root_validator, validator
 from olive.common.utils import StrEnumBase, hash_function, hash_object
 
 logger = logging.getLogger(__name__)
@@ -52,7 +59,7 @@ def _expanded_default(custom_default: Callable[[Any], Any], make_absolute: bool,
     return serialize_object(obj)
 
 
-def config_json_dumps(obj: Any, default: Callable[[Any], Any] = None, make_absolute: bool = True, **kwargs) -> str:
+def config_json_dumps(obj: Any, default: Optional[Callable[[Any], Any]] = None, make_absolute: bool = True, **kwargs) -> str:
     """Serialize a Python object into a JSON string. Also serializes functions and objects."""
     default = partial(_expanded_default, default, make_absolute)
     return json.dumps(obj, default=default, **kwargs)
@@ -69,7 +76,7 @@ def _expanded_object_hook(custom_object_hook: Callable[[dict], Any], obj: dict) 
     return custom_object_hook(obj)
 
 
-def config_json_loads(s: Union[str, bytes, bytearray], *, object_hook: Callable[[dict], Any] = None, **kwargs) -> Any:
+def config_json_loads(s: Union[str, bytes, bytearray], *, object_hook: Optional[Callable[[dict], Any]] = None, **kwargs) -> Any:
     """Deserialize a JSON string into a Python object."""
     object_hook = partial(_expanded_object_hook, object_hook)
     return json.loads(s, object_hook=object_hook, **kwargs)
@@ -78,7 +85,8 @@ def config_json_loads(s: Union[str, bytes, bytearray], *, object_hook: Callable[
 def serialize_to_json(obj: Any, check_object: bool = False, make_absolute: bool = True) -> dict:
     """Serialize a Python object into a JSON dict. Also serializes functions and objects."""
     if isinstance(obj, BaseModel):
-        raw_json = obj.json(encoder=partial(_expanded_default, None, make_absolute))
+        # In pydantic v2, use model_dump() and then json.dumps with custom encoder
+        raw_json = config_json_dumps(obj.model_dump(), make_absolute=make_absolute)
     else:
         raw_json = config_json_dumps(obj, make_absolute=make_absolute)
     if check_object:
@@ -107,18 +115,16 @@ def load_config_file(file_path: Union[str, Path]) -> dict:
 
 
 class ConfigBase(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-        json_loads = config_json_loads
-        json_dumps = config_json_dumps
-        json_encoders = {Path: lambda x: str(x.resolve())}  # noqa: RUF012
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+    )
 
     def to_json(self, check_object: bool = False, make_absolute: bool = True) -> dict:
         return serialize_to_json(self, check_object, make_absolute)
 
     @classmethod
     def from_json(cls, json_dict: dict) -> "ConfigBase":
-        return cls.parse_raw(json.dumps(json_dict))
+        return cls.model_validate_json(json.dumps(json_dict))
 
     @classmethod
     def parse_file_or_obj(cls, file_or_obj: Union[str, Path, dict]) -> "ConfigBase":
@@ -133,42 +139,58 @@ class ConfigBase(BaseModel):
         else:
             obj = load_config_file(file_or_obj)
 
-        return cls.parse_obj(obj)
+        return cls.model_validate(obj)
 
 
-class ConfigListBase(ConfigBase):
-    __root__: list[Any]
+class ConfigListBase(RootModel):
+    root: list[Any]
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __iter__(self):
-        return iter(self.__root__)
+        return iter(self.root)
 
     def __getitem__(self, item):
-        return self.__root__[item]
+        return self.root[item]
 
     def __len__(self):
-        return len(self.__root__)
+        return len(self.root)
+
+    def to_json(self, check_object: bool = False, make_absolute: bool = True) -> dict:
+        return serialize_to_json(self, check_object, make_absolute)
+
+    @classmethod
+    def from_json(cls, json_dict: dict) -> "ConfigListBase":
+        return cls.model_validate_json(json.dumps(json_dict))
 
 
-class ConfigDictBase(ConfigBase):
-    __root__: dict[str, Any]
+class ConfigDictBase(RootModel):
+    root: dict[str, Any]
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __iter__(self):
-        return iter(self.__root__)
+        return iter(self.root)
 
     def keys(self):
-        return self.__root__.keys()
+        return self.root.keys()
 
     def values(self):
-        return self.__root__.values()
+        return self.root.values()
 
     def items(self):
-        return self.__root__.items()
+        return self.root.items()
 
     def __getitem__(self, item):
-        return self.__root__[item]
+        return self.root[item]
 
     def __len__(self):
-        return len(self.__root__) if self.__root__ else 0
+        return len(self.root) if self.root else 0
+
+    def to_json(self, check_object: bool = False, make_absolute: bool = True) -> dict:
+        return serialize_to_json(self, check_object, make_absolute)
+
+    @classmethod
+    def from_json(cls, json_dict: dict) -> "ConfigDictBase":
+        return cls.model_validate_json(json.dumps(json_dict))
 
 
 class NestedConfig(ConfigBase):
@@ -187,12 +209,19 @@ class NestedConfig(ConfigBase):
     this class. The fields of this class take precedence over the fields in the nested class.
     """
 
-    _nested_field_name: str = "config"
+    _nested_field_name: ClassVar[str] = "config"
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def gather_nested_field(cls, values):
-        # print("here", cls.__name__)
-        all_fields = {name_or_alias for field in cls.__fields__.values() for name_or_alias in (field.name, field.alias)}
+        # In pydantic v2, values can be None when no arguments are provided
+        if values is None:
+            values = {}
+
+        all_fields = set(cls.model_fields.keys())
+        for field in cls.model_fields.values():
+            if field.alias:
+                all_fields.add(field.alias)
         if cls._nested_field_name not in all_fields:
             logger.debug(
                 "TypedConfig is used but is missing the nested field name '%s'. Ignoring root validator",
@@ -204,11 +233,9 @@ class NestedConfig(ConfigBase):
 
         nested_field = values.pop(cls._nested_field_name, {}) or {}
         if isinstance(nested_field, ConfigBase):
-            # TODO(jambayk): do we want to allow this case? Or only allow one of "_nested_field_name" or kwargs?
-            nested_field = nested_field.dict()
+            nested_field = nested_field.model_dump()
 
-        # put any other fields into the nested field
-        for name in list(values):  # need a copy of the keys since we are mutating the dict
+        for name in list(values):
             if name in other_fields:
                 continue
             if name in nested_field:
@@ -216,7 +243,8 @@ class NestedConfig(ConfigBase):
             else:
                 nested_field[name] = values.pop(name)
 
-        if nested_field or cls.__fields__[cls._nested_field_name].required:
+        field_info = cls.model_fields.get(cls._nested_field_name)
+        if nested_field or (field_info and field_info.is_required()):
             values[cls._nested_field_name] = nested_field
         return values
 
@@ -252,7 +280,7 @@ class ConfigParam(ConfigBase):
     required: bool = False
     default_value: Any = None
     category: ParamCategory = ParamCategory.NONE
-    description: str = None
+    description: Optional[str] = None
 
     def __repr__(self):
         repr_list = []
@@ -295,20 +323,34 @@ def create_config_class(
     class_name: str,
     default_config: dict[str, ConfigParam],
     base: type = ConfigBase,
-    validators: dict[str, Callable] = None,
+    validators: Optional[dict[str, Callable]] = None,
 ) -> type[ConfigBase]:
     """Create a Pydantic model class from a configuration dictionary."""
     config = {}
+    field_validators_dict = {}
     validators = validators.copy() if validators else {}
+
     for param, param_config in default_config.items():
-        # automatically add validator for object params
         if param_config.category == ParamCategory.OBJECT:
             validator_name = f"validate_{param}_object"
             count = 0
             while validator_name in validators:
                 validator_name = f"{validator_name}_{count}"
                 count += 1
-            validators[validator_name] = validator(param, allow_reuse=True)(validate_object)
+
+            def make_obj_validator(field_name):
+                @field_validator(field_name)
+                @classmethod
+                def check_obj(cls, v, info):
+                    if "user_script" not in info.data:
+                        raise ValueError("Invalid user_script")
+                    if isinstance(v, str) and info.data.get("user_script") is None:
+                        raise ValueError(f"user_script must be provided if {field_name} is a name string")
+                    return v
+
+                return check_obj
+
+            field_validators_dict[validator_name] = make_obj_validator(param)
 
         type_ = param_config.type_
         if param_config.required:
@@ -317,7 +359,10 @@ def create_config_class(
 
         config[param] = (Optional[type_], param_config.default_value)
 
-    return create_model(class_name, **config, __base__=base, __validators__=validators)
+    # Use dict() instead of dict comprehension
+    field_validators_dict = dict(validators.items())
+
+    return create_model(class_name, **config, __base__=base, __validators__=field_validators_dict)
 
 
 T = TypeVar("T", bound=ConfigBase)
@@ -337,8 +382,7 @@ def validate_config(
     if isinstance(config, dict):
         user_keys = set(config.keys())
         config = instance_class(**config)
-        # check for unused keys
-        config_dict = config.dict()
+        config_dict = config.model_dump()
         config_keys = set(config_dict.keys())
         unused_keys = user_keys - config_keys
         if isinstance(config, NestedConfig):
@@ -361,8 +405,8 @@ def validate_config(
 
 def convert_configs_to_dicts(config: Any) -> Any:
     """Convert all ConfigBase objects to dictionaries."""
-    if isinstance(config, ConfigBase):
-        return config.dict()
+    if isinstance(config, (ConfigBase, RootModel)):
+        return config.model_dump()
     if isinstance(config, dict):
         return {k: convert_configs_to_dicts(v) for k, v in config.items()}
     if isinstance(config, list):

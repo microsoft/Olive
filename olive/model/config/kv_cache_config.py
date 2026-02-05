@@ -5,8 +5,9 @@
 from itertools import chain
 from typing import Optional
 
+from pydantic import Field, model_validator
+
 from olive.common.config_utils import ConfigBase
-from olive.common.pydantic_v1 import validator
 
 
 class KVCacheConfig(ConfigBase):
@@ -22,7 +23,7 @@ class KVCacheConfig(ConfigBase):
     # world_size is used for distributed model. If world_size > 1,
     # the number of heads should be divisible by world_size
     world_size: int = 1
-    past_sequence_length: int = None
+    past_sequence_length: Optional[int] = None
 
     batch_size: int = 0
     dtype: Optional[str] = "float32"
@@ -32,32 +33,25 @@ class KVCacheConfig(ConfigBase):
     # but in some cases, the past_sequence_length is not the 3rd dimension
     # [batch_size, past_sequence_length, num_heads, hidden_size/num_heads]
     sequence_length_idx: int = 2
-    past_kv_dynamic_axis: Optional[dict] = None
-    present_kv_dynamic_axis: Optional[dict] = None
+    past_kv_dynamic_axis: Optional[dict] = Field(default = None, validate_default=True)
+    present_kv_dynamic_axis: Optional[dict] = Field(default = None, validate_default=True)
 
-    @validator("past_kv_dynamic_axis", always=True)
-    def check_past_kv_dynamic_axis(cls, v, values):
-        is_shared_kv = values.get("shared_kv")
-        msl_idx = str(values.get("sequence_length_idx"))
-        if v is None:
-            v = (
+    @model_validator(mode="after")
+    def validate_config(self):
+        msl_idx = str(self.sequence_length_idx)
+        if self.past_kv_dynamic_axis is None:
+            self.past_kv_dynamic_axis = (
                 {"0": "batch_size", msl_idx: "max_sequence_length"}
-                if is_shared_kv
+                if self.shared_kv
                 else {"0": "batch_size", msl_idx: "past_sequence_length"}
             )
-        return v
-
-    @validator("present_kv_dynamic_axis", always=True)
-    def check_present_kv_dynamic_axis(cls, v, values):
-        is_shared_kv = values.get("shared_kv")
-        msl_idx = str(values.get("sequence_length_idx"))
-        if v is None:
-            v = (
+        if self.present_kv_dynamic_axis is None:
+            self.present_kv_dynamic_axis = (
                 {"0": "batch_size", msl_idx: "max_sequence_length"}
-                if is_shared_kv
+                if self.shared_kv
                 else {"0": "batch_size", msl_idx: "past_sequence_length + sequence_length"}
             )
-        return v
+        return self
 
     def _get_k_names(self, direction="inputs"):
         if direction == "inputs":

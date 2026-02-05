@@ -255,7 +255,7 @@ class ModelBuilder(Pass):
         extra_args.update(
             {
                 key: value.value if isinstance(value, IntEnum) else value
-                for key, value in config.dict().items()
+                for key, value in config.model_dump().items()
                 if value is not None and key not in {"precision", "metadata_only", "search", "extra_options"}
             }
         )
