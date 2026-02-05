@@ -7,6 +7,7 @@
 import base64
 import errno
 import json
+import os
 import platform
 import threading
 import time
@@ -448,11 +449,14 @@ class Telemetry:
             return
 
         self._logger = self._create_logger()
+        event_source.disable()
+
         self._cache_handler = TelemetryCacheHandler(self)
         self._initialized = True
         self._setup_payload_callbacks()
         self._log_heartbeat()
-        event_source.disable()
+        if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1":
+            self.disable_telemetry()
 
     def _create_logger(self) -> Optional[_LibraryTelemetryLogger]:
         try:
@@ -461,8 +465,6 @@ class Telemetry:
             return None
 
     def _setup_payload_callbacks(self) -> None:
-        if not self._logger:
-            return
         # Register callback for payload transmission events
         # No need to store unregister function - logger shutdown will clean up callbacks
         self._logger.register_payload_transmitted_callback(
@@ -482,8 +484,7 @@ class Telemetry:
             >>> telemetry.add_global_metadata({"user_id": "12345", "environment": "production"})
 
         """
-        if self._logger:
-            self._logger.add_global_metadata(metadata)
+        self._logger.add_global_metadata(metadata)
 
     def log(
         self,
@@ -503,11 +504,10 @@ class Telemetry:
             >>> telemetry.log("ModelOptimized", {"model_type": "bert", "duration_ms": 1500})
 
         """
-        if self._logger:
-            attrs = _merge_metadata(attributes, metadata)
-            self._logger.log(event_name, attrs)
-            if self._cache_handler:
-                self._cache_handler.record_event_logged()
+        attrs = _merge_metadata(attributes, metadata)
+        self._logger.log(event_name, attrs)
+        if self._cache_handler:
+            self._cache_handler.record_event_logged()
 
     def _log_heartbeat(
         self,
@@ -538,8 +538,7 @@ class Telemetry:
         After calling this method, no telemetry events will be sent until
         telemetry is explicitly re-enabled.
         """
-        if self._logger:
-            self._logger.disable_telemetry()
+        self._logger.disable_telemetry()
 
     def shutdown(self, timeout_millis: float = 10_000, callback_timeout_millis: float = 2_000) -> None:
         """Shutdown telemetry and flush pending events.
@@ -563,8 +562,7 @@ class Telemetry:
             self._cache_handler.shutdown()
 
         # Step 3: Shutdown logger (callbacks cleaned up automatically)
-        if self._logger:
-            self._logger.shutdown()
+        self._logger.shutdown()
 
     def __del__(self):
         """Cleanup telemetry resources on garbage collection.
