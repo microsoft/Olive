@@ -5,7 +5,7 @@
 from typing import Optional, Union
 
 from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase
-from olive.common.pydantic_v1 import Field, validator
+from olive.common.pydantic_v1 import Field, field_validator
 from olive.hardware.accelerator import AcceleratorSpec, Device
 
 
@@ -28,26 +28,32 @@ class AcceleratorConfig(ConfigBase):
         None, description="Memory size of accelerator in bytes. Can also be provided in string format like 1GB."
     )
 
-    @validator("execution_providers", always=True)
-    def validate_device_and_execution_providers(cls, v, values):
-        if not v and values.get("device") is None:
+    @field_validator("execution_providers", mode="after")
+    @classmethod
+    def validate_device_and_execution_providers(cls, v, info):
+        if not v and info.data.get("device") is None:
             # checking for not v since v could be an empty list
             raise ValueError("Either device or execution_providers must be provided")
         if v and len(v) > 1:
             raise ValueError("Only one execution provider is supported per accelerator")
         return v
 
-    @validator("execution_providers", pre=True, each_item=True)
+    @field_validator("execution_providers", mode="before")
+    @classmethod
     def validate_ep_suffix(cls, v):
         if not v:
             return v
+        
+        result = []
+        for item in (v if isinstance(v, list) else [v]):
+            ep_name = item[0] if isinstance(item, (tuple, list)) else item
+            if not ep_name.endswith("ExecutionProvider"):
+                raise ValueError(f"Execution provider {ep_name} should end with ExecutionProvider")
+            result.append(item)
+        return result
 
-        ep_name = v[0] if isinstance(v, (tuple, list)) else v
-        if not ep_name.endswith("ExecutionProvider"):
-            raise ValueError(f"Execution provider {ep_name} should end with ExecutionProvider")
-        return v
-
-    @validator("memory", pre=True)
+    @field_validator("memory", mode="before")
+    @classmethod
     def validate_memory(cls, v):
         return AcceleratorSpec.str_to_int_memory(v)
 

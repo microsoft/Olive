@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import field_validator
 from olive.systems.common import AcceleratorConfig, SystemType
 
 
@@ -18,7 +18,8 @@ class TargetUserConfig(ConfigBase):
     class Config:
         validate_assignment = True
 
-    @validator("accelerators", pre=True)
+    @field_validator("accelerators", mode="before")
+    @classmethod
     def validate_accelerators(cls, v):
         if v and len(v) > 1:
             raise ValueError("Only one accelerator is supported currently.")
@@ -38,11 +39,13 @@ class DockerTargetUserConfig(TargetUserConfig):
     run_params: Optional[dict] = None
     clean_image: bool = True
 
-    @validator("build_context_path")
+    @field_validator("build_context_path")
+    @classmethod
     def _get_abspath(cls, v):
         return str(Path(v).resolve()) if v else None
 
-    @validator("work_dir")
+    @field_validator("work_dir")
+    @classmethod
     def _validate_work_dir(cls, v):
         if not v.startswith("/"):
             raise ValueError(f"work_dir must be an absolute path, got: {v}")
@@ -55,8 +58,11 @@ class PythonEnvironmentTargetUserConfig(TargetUserConfig):
     environment_variables: dict[str, str] = None  # os.environ will be updated with these variables
     prepend_to_path: list[str] = None  # paths to prepend to os.environ["PATH"]
 
-    @validator("python_environment_path", "prepend_to_path", pre=True, each_item=True)
+    @field_validator("python_environment_path", "prepend_to_path", mode="before")
+    @classmethod
     def _get_abspath(cls, v):
+        if isinstance(v, list):
+            return [str(Path(item).resolve()) if item else None for item in v]
         return str(Path(v).resolve()) if v else None
 
 
@@ -84,12 +90,13 @@ class SystemConfig(NestedConfig):
     type: SystemType
     config: TargetUserConfig = None
 
-    @validator("config", pre=True, always=True)
-    def validate_config(cls, v, values):
-        if "type" not in values:
+    @field_validator("config", mode="before")
+    @classmethod
+    def validate_config(cls, v, info):
+        if "type" not in info.data:
             raise ValueError("Invalid type")
 
-        system_type = values["type"]
+        system_type = info.data["type"]
         config_class = _type_to_config[system_type]
         return validate_config(v, config_class)
 

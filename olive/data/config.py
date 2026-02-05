@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Union
 
 from olive.common.config_utils import ConfigBase, NestedConfig, validate_lowercase
 from olive.common.import_lib import import_user_module
-from olive.common.pydantic_v1 import Field, root_validator, validator
+from olive.common.pydantic_v1 import Field, field_validator, model_validator
 from olive.data.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
 from olive.data.registry import Registry
 
@@ -26,7 +26,8 @@ class DataComponentConfig(NestedConfig):
     type: str = None
     params: dict = Field(default_factory=dict)
 
-    @validator("type", pre=True)
+    @field_validator("type", mode="before")
+    @classmethod
     def validate_type(cls, v):
         return validate_lowercase(v)
 
@@ -52,20 +53,23 @@ class DataConfig(ConfigBase):
     post_process_data_config: DataComponentConfig = None
     dataloader_config: DataComponentConfig = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def validate_data_config(cls, values):
         if values.get("user_script"):
             import_user_module(values["user_script"], values.get("script_dir"))
         return values
 
-    @validator("name", pre=True)
+    @field_validator("name", mode="before")
+    @classmethod
     def validate_name(cls, v):
         pattern = r"^[A-Za-z0-9_]+$"
         if not re.match(pattern, v):
             raise ValueError(f"DataConfig name {v} should only contain letters, numbers and underscore.")
         return v
 
-    @validator("type", pre=True)
+    @field_validator("type", mode="before")
+    @classmethod
     def validate_type(cls, v):
         if v is not None and Registry.get_container(v) is None:
             raise ValueError(f"Invalid/unknown DataConfig type: {v}")

@@ -6,7 +6,7 @@ from itertools import chain
 from typing import Optional
 
 from olive.common.config_utils import ConfigBase
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import field_validator
 
 
 class KVCacheConfig(ConfigBase):
@@ -35,10 +35,11 @@ class KVCacheConfig(ConfigBase):
     past_kv_dynamic_axis: Optional[dict] = None
     present_kv_dynamic_axis: Optional[dict] = None
 
-    @validator("past_kv_dynamic_axis", always=True)
-    def check_past_kv_dynamic_axis(cls, v, values):
-        is_shared_kv = values.get("shared_kv")
-        msl_idx = str(values.get("sequence_length_idx"))
+    @field_validator("past_kv_dynamic_axis", mode="after")
+    @classmethod
+    def check_past_kv_dynamic_axis(cls, v, info):
+        is_shared_kv = info.data.get("shared_kv")
+        msl_idx = str(info.data.get("sequence_length_idx"))
         if v is None:
             v = (
                 {"0": "batch_size", msl_idx: "max_sequence_length"}
@@ -47,10 +48,11 @@ class KVCacheConfig(ConfigBase):
             )
         return v
 
-    @validator("present_kv_dynamic_axis", always=True)
-    def check_present_kv_dynamic_axis(cls, v, values):
-        is_shared_kv = values.get("shared_kv")
-        msl_idx = str(values.get("sequence_length_idx"))
+    @field_validator("present_kv_dynamic_axis", mode="after")
+    @classmethod
+    def check_present_kv_dynamic_axis(cls, v, info):
+        is_shared_kv = info.data.get("shared_kv")
+        msl_idx = str(info.data.get("sequence_length_idx"))
         if v is None:
             v = (
                 {"0": "batch_size", msl_idx: "max_sequence_length"}

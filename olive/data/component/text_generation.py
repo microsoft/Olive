@@ -10,7 +10,7 @@ from typing import Callable, Union
 import transformers
 
 from olive.common.config_utils import ConfigBase, validate_config, validate_object
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import field_validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import StrEnumBase
 from olive.data.component.dataset import ClassificationDataset
@@ -76,72 +76,79 @@ class TextGenParams(ConfigBase):
         10  # number of resamples to try before giving up when a sample is too short for RANDOM strategies
     )
 
-    @validator("padding_side", always=True)
+    @field_validator("padding_side", mode="after")
+    @classmethod
     def _check_padding_side(cls, v):
         if v not in ["left", "right"]:
             raise ValueError("padding_side must be either left or right")
         return v
 
-    @validator("drop_short_sequences", always=True)
-    def _check_padding(cls, v, values):
-        if "pad_to_max_len" not in values:
+    @field_validator("drop_short_sequences", mode="after")
+    @classmethod
+    def _check_padding(cls, v, info):
+        if "pad_to_max_len" not in info.data:
             raise ValueError("Invalid pad_to_max_len")
-        if v and values["pad_to_max_len"]:
+        if v and info.data["pad_to_max_len"]:
             raise ValueError("pad_to_max_len and drop_short_sequences cannot both be True")
         return v
 
-    @validator("text_formatting_func")
-    def _check_text_formatting_func(cls, v, values, field):
-        return validate_object(v, values, field)
+    @field_validator("text_formatting_func")
+    @classmethod
+    def _check_text_formatting_func(cls, v, info):
+        return validate_object(v, info.data, info)
 
-    @validator("text_cols", always=True)
-    def _check_text_cols(cls, v, values):
-        if "chat_template" not in values:
+    @field_validator("text_cols", mode="after")
+    @classmethod
+    def _check_text_cols(cls, v, info):
+        if "chat_template" not in info.data:
             raise ValueError("Invalid chat_template")
 
         if isinstance(v, str):
             v = [v]
 
-        if values["chat_template"]:
+        if info.data["chat_template"]:
             # chat template is used, so text_cols is not relevant
             return v
 
         alternatives = ["text_formatting_func", "text_template"]
         for alternate in alternatives:
             # for good validation error, check that all alternates are in values
-            if alternate not in values:
+            if alternate not in info.data:
                 raise ValueError(f"Invalid {alternate}")
 
-        if not (v or any(values[option] for option in alternatives)):
+        if not (v or any(info.data[option] for option in alternatives)):
             # check that at least one alternate is specified
             raise ValueError(f"One of text_cols, {', '.join(alternatives)} must be specified")
 
         return v
 
-    @validator("stride", always=True)
-    def _check_stride(cls, v, values):
-        if "strategy" not in values:
+    @field_validator("stride", mode="after")
+    @classmethod
+    def _check_stride(cls, v, info):
+        if "strategy" not in info.data:
             raise ValueError("Invalid strategy")
-        if values["strategy"] == TextGenStrategy.JOIN_SLIDING_WINDOW and v is None:
+        if info.data["strategy"] == TextGenStrategy.JOIN_SLIDING_WINDOW and v is None:
             raise ValueError("stride must be specified when strategy is JOIN_SLIDING_WINDOW")
         return v
 
-    @validator("strategy", always=True)
-    def _check_max_samples(cls, v, values):
-        if "max_samples" not in values:
+    @field_validator("strategy", mode="after")
+    @classmethod
+    def _check_max_samples(cls, v, info):
+        if "max_samples" not in info.data:
             raise ValueError("Invalid max_samples")
-        if "random" in v and values["max_samples"] is None:
+        if "random" in v and info.data["max_samples"] is None:
             raise ValueError("max_samples must be specified when strategy is random")
         return v
 
-    @validator("strategy", always=True)
-    def _check_use_attention_mask(cls, v, values):
-        if "use_attention_mask" not in values:
+    @field_validator("strategy", mode="after")
+    @classmethod
+    def _check_use_attention_mask(cls, v, info):
+        if "use_attention_mask" not in info.data:
             raise ValueError("Invalid use_attention_mask")
-        if "pad_to_max_len" not in values:
+        if "pad_to_max_len" not in info.data:
             raise ValueError("Invalid pad_to_max_len")
-        use_attention_mask = values["use_attention_mask"]
-        pad_to_max_len = values["pad_to_max_len"]
+        use_attention_mask = info.data["use_attention_mask"]
+        pad_to_max_len = info.data["pad_to_max_len"]
         if "join" in v:
             # both True and False are valid since attention_mask is all 1s
             return v
@@ -151,11 +158,12 @@ class TextGenParams(ConfigBase):
             )
         return v
 
-    @validator("random_seed", always=True)
-    def _check_random(cls, v, values):
-        if "strategy" not in values:
+    @field_validator("random_seed", mode="after")
+    @classmethod
+    def _check_random(cls, v, info):
+        if "strategy" not in info.data:
             raise ValueError("Invalid strategy")
-        if "random" in values["strategy"] and v is None:
+        if "random" in info.data["strategy"] and v is None:
             raise ValueError("random_seed must be specified when strategy is random")
         return v
 

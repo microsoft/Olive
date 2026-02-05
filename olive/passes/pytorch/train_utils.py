@@ -13,7 +13,7 @@ from packaging import version
 from transformers import __version__ as transformers_version
 
 from olive.common.config_utils import NestedConfig, validate_config
-from olive.common.pydantic_v1 import Field, validator
+from olive.common.pydantic_v1 import Field, field_validator
 from olive.common.utils import cleanup_memory
 from olive.data.config import DataConfig
 from olive.data.template import huggingface_data_config_template
@@ -56,7 +56,8 @@ class BaseHFTrainingArguments(NestedConfig):
         ),
     )
 
-    @validator("extra_args", pre=True, always=True)
+    @field_validator("extra_args", mode="before")
+    @classmethod
     def validate_extra_args(cls, v):
         if v is None:
             v = {}

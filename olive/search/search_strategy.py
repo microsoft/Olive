@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Union
 
 from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase, NestedConfig, validate_config, validate_enum
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import field_validator
 from olive.search.samplers import REGISTRY, SearchSampler
 from olive.search.search_parameter import Categorical
 from olive.search.search_results import SearchResults
@@ -42,31 +42,35 @@ class SearchStrategyConfig(NestedConfig):
     max_time: int = None
     include_pass_params: bool = True
 
-    @validator("execution_order", pre=True)
+    @field_validator("execution_order", mode="before")
+    @classmethod
     def _validate_execution_order(cls, v):
         return validate_enum(SearchStrategyExecutionOrder, v)
 
-    @validator("sampler", pre=True)
+    @field_validator("sampler", mode="before")
+    @classmethod
     def _validate_sampler(cls, v):
         if v not in REGISTRY:
             raise ValueError(f"Unknown sampler: {v}")
         return v
 
-    @validator("sampler_config", pre=True, always=True)
-    def _validate_sampler_config(cls, v, values):
-        if "sampler" not in values:
+    @field_validator("sampler_config", mode="before")
+    @classmethod
+    def _validate_sampler_config(cls, v, info):
+        if "sampler" not in info.data:
             raise ValueError("Invalid sampler")
 
-        config_class = REGISTRY[values["sampler"]].get_config_class()
+        config_class = REGISTRY[info.data["sampler"]].get_config_class()
         return validate_config(v, config_class)
 
-    @validator("stop_when_goals_met", "max_iter", "max_time", pre=True)
-    def _validate_stop_when_goals_met(cls, v, values, field):
-        if "execution_order" not in values:
+    @field_validator("stop_when_goals_met", "max_iter", "max_time", mode="before")
+    @classmethod
+    def _validate_stop_when_goals_met(cls, v, info):
+        if "execution_order" not in info.data:
             raise ValueError("Invalid execution_order")
-        if v and values["execution_order"] != SearchStrategyExecutionOrder.JOINT:
-            logger.info("%s is only supported for joint execution order. Ignoring...", field.name)
-            return field.default
+        if v and info.data["execution_order"] != SearchStrategyExecutionOrder.JOINT:
+            logger.info("%s is only supported for joint execution order. Ignoring...", info.field_name)
+            return cls.model_fields[info.field_name].default
         return v
 
 

@@ -22,7 +22,7 @@ from packaging import version
 
 from olive.common.hf.mappings import MODELS_TO_LORA_TARGET_MODULES_MAPPING
 from olive.common.hf.utils import get_peft_task_type_from_task
-from olive.common.pydantic_v1 import Field, validator
+from olive.common.pydantic_v1 import Field, field_validator
 from olive.common.utils import StrEnumBase, find_submodules, resolve_torch_dtype
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
@@ -88,7 +88,8 @@ class HFTrainingArguments(BaseHFTrainingArguments):
         ),
     )
 
-    @validator("extra_args", pre=True, always=True)
+    @field_validator("extra_args", mode="before")
+    @classmethod
     def validate_torch_dtype(cls, v):
         if v and "fp16" in v:
             logger.warning("Extra arg 'fp16' is not allowed. Please use `torch_dtype` instead.")

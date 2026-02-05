@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, create_config_class
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,8 @@ class MetricGoal(ConfigBase):
     type: str  # threshold , deviation, percent-deviation
     value: float
 
-    @validator("type")
+    @field_validator("type")
+    @classmethod
     def check_type(cls, v):
         allowed_types = [
             "threshold",
@@ -80,16 +81,17 @@ class MetricGoal(ConfigBase):
             raise ValueError(f"Metric goal type must be one of {allowed_types}")
         return v
 
-    @validator("value")
-    def check_value(cls, v, values):
-        if "type" not in values:
+    @field_validator("value")
+    @classmethod
+    def check_value(cls, v, info):
+        if "type" not in info.data:
             raise ValueError("Invalid type")
         if (
-            values["type"]
+            info.data["type"]
             in {"min-improvement", "max-degradation", "percent-min-improvement", "percent-max-degradation"}
             and v < 0
         ):
-            raise ValueError(f"Value must be nonnegative for type {values['type']}")
+            raise ValueError(f"Value must be nonnegative for type {info.data['type']}")
         return v
 
     def has_regression_goal(self):

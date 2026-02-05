@@ -8,7 +8,7 @@ from pathlib import Path
 
 from olive.common.config_utils import NestedConfig
 from olive.common.constants import LOCAL_INPUT_MODEL_ID
-from olive.common.pydantic_v1 import Field, validator
+from olive.common.pydantic_v1 import Field, field_validator
 from olive.common.utils import hash_dict, hash_file, hash_string
 from olive.model.config.registry import get_model_handler, is_valid_model_type
 from olive.resource_path import create_resource_path
@@ -22,7 +22,8 @@ class ModelConfig(NestedConfig):
     type: str = Field(description="The type of the model handler.")
     config: dict = Field(description="The config for the model handler. Used to initialize the model handler.")
 
-    @validator("type")
+    @field_validator("type")
+    @classmethod
     def validate_type(cls, v):
         if not is_valid_model_type(v):
             raise ValueError(f"Unknown model type {v}")

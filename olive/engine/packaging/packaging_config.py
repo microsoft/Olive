@@ -6,7 +6,7 @@ from typing import Optional
 
 from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase, NestedConfig, validate_config
 from olive.common.constants import BASE_IMAGE
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import field_validator
 
 
 class PackagingType(CaseInsensitiveEnum):
@@ -42,8 +42,9 @@ class PackagingConfig(NestedConfig):
     name: str = "OutputModels"
     config: CommonPackagingConfig = None
 
-    @validator("config", pre=True, always=True)
-    def _validate_config(cls, v, values):
-        packaging_type = values.get("type")
+    @field_validator("config", mode="before")
+    @classmethod
+    def _validate_config(cls, v, info):
+        packaging_type = info.data.get("type")
         config_class = _type_to_config.get(packaging_type)
         return validate_config(v, config_class)

@@ -19,7 +19,7 @@ from olive.common.config_utils import (
     serialize_to_json,
     validate_config,
 )
-from olive.common.pydantic_v1 import Field, validator
+from olive.common.pydantic_v1 import Field, field_validator
 from olive.common.utils import copy_dir, get_credentials, retry_func
 
 logger = logging.getLogger(__name__)
@@ -89,12 +89,13 @@ class ResourcePathConfig(NestedConfig):
     type: ResourceType = Field(..., description="Type of the resource.")
     config: ConfigBase = Field(..., description="Config of the resource.")
 
-    @validator("config", pre=True)
-    def validate_config(cls, v, values):
-        if "type" not in values:
+    @field_validator("config", mode="before")
+    @classmethod
+    def validate_config(cls, v, info):
+        if "type" not in info.data:
             raise ValueError("Invalid type.")
 
-        config_class = ResourcePath.registry[values["type"]].get_config_class()
+        config_class = ResourcePath.registry[info.data["type"]].get_config_class()
         return validate_config(v, config_class)
 
     def create_resource_path(self) -> ResourcePath:
@@ -220,7 +221,7 @@ class LocalResourcePath(ResourcePath):
 
     @classmethod
     def _validators(cls) -> dict[str, Callable]:
-        return {"validate_path": validator("path", allow_reuse=True)(_validate_path)}
+        return {"validate_path": field_validator("path", mode="before")(_validate_path)}
 
     def get_path(self) -> str:
         return str(self.config.path)
@@ -285,7 +286,7 @@ class LocalFile(LocalResourcePath):
     @classmethod
     def _validators(cls) -> dict[str, Callable[..., Any]]:
         validators = super()._validators()
-        validators.update({"validate_file_path": validator("path", allow_reuse=True)(_validate_file_path)})
+        validators.update({"validate_file_path": field_validator("path", mode="before")(_validate_file_path)})
         return validators
 
 
@@ -304,7 +305,7 @@ class LocalFolder(LocalResourcePath):
     @classmethod
     def _validators(cls) -> dict[str, Callable[..., Any]]:
         validators = super()._validators()
-        validators.update({"validate_folder_path": validator("path", allow_reuse=True)(_validate_folder_path)})
+        validators.update({"validate_folder_path": field_validator("path", mode="before")(_validate_folder_path)})
         return validators
 
 

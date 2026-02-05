@@ -7,7 +7,7 @@ from typing import Any, Optional, Union
 
 from olive.common.config_utils import ConfigBase, get_the_flattened_and_tree_spec
 from olive.common.hf.wrapper import ModelWrapper
-from olive.common.pydantic_v1 import validator
+from olive.common.pydantic_v1 import field_validator
 from olive.model.config.kv_cache_config import KVCacheConfig
 
 
@@ -54,29 +54,32 @@ class IoConfig(ConfigBase):
     # if KVCacheConfig, use the provided KVCacheConfig
     kv_cache: Union[bool, dict[str, Any], KVCacheConfig] = False
 
-    @validator("input_shapes", "input_types")
-    def check_input_shapes(cls, v, values):
+    @field_validator("input_shapes", "input_types")
+    @classmethod
+    def check_input_shapes(cls, v, info):
         if not v:
             return v
 
-        if "input_names" not in values:
+        if "input_names" not in info.data:
             raise ValueError("Invalid input_names")
-        if len(v) != len(values["input_names"]):
+        if len(v) != len(info.data["input_names"]):
             raise ValueError("input_names and input_shapes must have the same length")
         return v
 
-    @validator("output_shapes", "output_types")
-    def check_output_shapes(cls, v, values):
+    @field_validator("output_shapes", "output_types")
+    @classmethod
+    def check_output_shapes(cls, v, info):
         if not v:
             return v
 
-        if "output_names" not in values:
+        if "output_names" not in info.data:
             raise ValueError("Invalid output_names")
-        if len(v) != len(values["output_names"]):
+        if len(v) != len(info.data["output_names"]):
             raise ValueError("output_names and output_shapes must have the same length")
         return v
 
-    @validator("dynamic_axes")
+    @field_validator("dynamic_axes")
+    @classmethod
     def convert_dynamic_axes(cls, v):
         if not v:
             return v
@@ -86,7 +89,8 @@ class IoConfig(ConfigBase):
             dynamic_axes[k] = {int(kk): vv for kk, vv in value.items()}
         return dynamic_axes
 
-    @validator("dynamic_shapes")
+    @field_validator("dynamic_shapes")
+    @classmethod
     def convert_dynamic_shapes(cls, v):
         if not v:
             return v
@@ -103,7 +107,8 @@ class IoConfig(ConfigBase):
                 new_flattened.append(axes)
         return tree_spec.unflatten(new_flattened)
 
-    @validator("string_to_int_dim_params")
+    @field_validator("string_to_int_dim_params")
+    @classmethod
     def check_string_to_int_dim_params(cls, v):
         if not v:
             return v

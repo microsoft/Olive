@@ -10,7 +10,7 @@ import torch
 import transformers
 
 from olive.common.config_utils import NestedConfig
-from olive.common.pydantic_v1 import Field, validator
+from olive.common.pydantic_v1 import Field, field_validator
 from olive.common.utils import exclude_keys, resolve_torch_dtype
 
 logger = logging.getLogger(__name__)
@@ -83,13 +83,15 @@ class HfLoadKwargs(NestedConfig):
         ),
     )
 
-    @validator("torch_dtype", pre=True)
+    @field_validator("torch_dtype", mode="before")
+    @classmethod
     def validate_torch_dtype(cls, v):
         if isinstance(v, torch.dtype):
             v = str(v).replace("torch.", "")
         return v
 
-    @validator("device_map", pre=True)
+    @field_validator("device_map", mode="before")
+    @classmethod
     def validate_device_map(cls, v):
         if isinstance(v, torch.device):
             v = cls.device_to_str(v)
@@ -97,18 +99,19 @@ class HfLoadKwargs(NestedConfig):
             v = {k: cls.device_to_str(v) for k, v in v.items()}
         return v
 
-    @validator("quantization_config", pre=True, always=True)
-    def validate_quantization_config(cls, v, values):
-        if "quantization_method" not in values:
+    @field_validator("quantization_config", mode="before")
+    @classmethod
+    def validate_quantization_config(cls, v, info):
+        if "quantization_method" not in info.data:
             # to ensure we don't get a KeyError
             raise ValueError("Invalid quantization_config")
-        if (values["quantization_method"] and not v) or (not values["quantization_method"] and v):
+        if (info.data["quantization_method"] and not v) or (not info.data["quantization_method"] and v):
             raise ValueError("quantization_config and quantization_method must be provided together")
         if not v:
             return v
 
         try:
-            full_config = cls.dict_to_quantization_config(values["quantization_method"], v).to_dict()
+            full_config = cls.dict_to_quantization_config(info.data["quantization_method"], v).to_dict()
             # in newer versions to_dict has extra keys quant_method, _load_in_4bit and _load_in_8bit
             # which are internal attributes and not part of init params
             for key in ["quant_method", "_load_in_4bit", "_load_in_8bit"]:
@@ -118,7 +121,7 @@ class HfLoadKwargs(NestedConfig):
             # we don't want to fail since the pass target might have the correct transformers version
             logger.warning(
                 "Could not import the config class for quantization method %s. Skipping validation",
-                values["quantization_method"],
+                info.data["quantization_method"],
             )
             return v
 

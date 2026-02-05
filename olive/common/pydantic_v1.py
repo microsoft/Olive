@@ -3,19 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-"""Pydantic v1 compatibility module.
+"""Pydantic v2 native API module.
 
-Pydantic v2 has breaking changes that are not compatible with the current version of Olive.
-Migration Guide: https://docs.pydantic.dev/latest/migration/.
-
-In order to support both versions of Pydantic, we use this module to access pydantic's v1 API.
+This module now uses pydantic v2 native APIs directly.
 """
 
 # pylint: disable=redefined-builtin, wildcard-import, unused-wildcard-import
 
-try:
-    # pydantic v2
-    from pydantic.v1 import *  # noqa: F403
-except ImportError:
-    # pydantic v1
-    from pydantic import *  # noqa: F403
+from pydantic import *  # noqa: F403
+from pydantic import ConfigDict, RootModel, field_validator, model_validator  # noqa: F401

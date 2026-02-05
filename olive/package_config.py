@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from olive.common.config_utils import ConfigBase
-from olive.common.pydantic_v1 import Field, validator
+from olive.common.pydantic_v1 import Field, field_validator
 from olive.passes import PassModuleConfig
 
 if TYPE_CHECKING:
@@ -26,7 +26,8 @@ class OlivePackageConfig(ConfigBase):
 
     _pass_modules: ClassVar[dict[str, type["Pass"]]] = {}
 
-    @validator("passes")
+    @field_validator("passes")
+    @classmethod
     def validate_passes(cls, values):
         return {key.lower(): value for key, value in values.items()}
 

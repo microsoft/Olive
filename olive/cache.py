@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from olive.common.config_utils import ConfigBase, convert_configs_to_dicts, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_WORKFLOW_ID
 from olive.common.container_client_factory import AzureContainerClientFactory
-from olive.common.pydantic_v1 import root_validator, validator
+from olive.common.pydantic_v1 import field_validator, model_validator
 from olive.common.utils import hash_dict, hf_repo_exists, set_nested_dict_value
 from olive.model.config.model_config import ModelConfig
 from olive.resource_path import ResourcePath, create_resource_path, find_all_resources
@@ -61,7 +61,8 @@ class CacheConfig(ConfigBase):
     enable_shared_cache: bool = False
     update_shared_cache: bool = True
 
-    @validator("cache_dir", pre=True, always=True)
+    @field_validator("cache_dir", mode="before")
+    @classmethod
     def validate_cache_dir(cls, v):
         if not v:
             return [DEFAULT_CACHE_DIR]
@@ -85,29 +86,32 @@ class CacheConfig(ConfigBase):
             return [DEFAULT_CACHE_DIR, v]
         return [v]
 
-    @validator("account_name")
-    def validate_account_name(cls, v, values):
+    @field_validator("account_name")
+    @classmethod
+    def validate_account_name(cls, v, info):
         if v:
             return v
-        match = cls._get_shared_cache_match(values.get("cache_dir"))
+        match = cls._get_shared_cache_match(info.data.get("cache_dir"))
         return match.group(1) if match else None
 
-    @validator("container_name")
-    def validate_container_name(cls, v, values):
+    @field_validator("container_name")
+    @classmethod
+    def validate_container_name(cls, v, info):
         if v:
             return v
-        match = cls._get_shared_cache_match(values.get("cache_dir"))
+        match = cls._get_shared_cache_match(info.data.get("cache_dir"))
         return match.group(2) if match else None
 
-    @root_validator()
+    @model_validator(mode="after")
+    @classmethod
     def validate_enable_shared_cache(cls, values):
-        if values.get("account_name") and values.get("container_name"):
-            values["enable_shared_cache"] = True
-        elif values.get("enable_shared_cache"):
-            values["account_name"] = values.get("account_name") or "olivepublicmodels"
-            values["container_name"] = values.get("container_name") or "olivecachemodels"
+        if values.account_name and values.container_name:
+            values.enable_shared_cache = True
+        elif values.enable_shared_cache:
+            values.account_name = values.account_name or "olivepublicmodels"
+            values.container_name = values.container_name or "olivecachemodels"
         else:
-            values["enable_shared_cache"] = False
+            values.enable_shared_cache = False
         return values
 
     @staticmethod

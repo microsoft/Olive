@@ -18,7 +18,7 @@ import torch
 from olive.common.config_utils import NestedConfig, validate_config
 from olive.common.import_lib import import_user_module
 from olive.common.ort_inference import OrtInferenceSession, prepare_io_bindings
-from olive.common.pydantic_v1 import Field, root_validator, validator
+from olive.common.pydantic_v1 import Field, field_validator, model_validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import format_data, load_weights, tensor_data_to_device
 from olive.constants import Framework
