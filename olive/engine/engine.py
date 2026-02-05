@@ -302,7 +302,7 @@ class Engine:
     def _compute_no_search_pass_configs(self, accelerator_spec: "AcceleratorSpec"):
         self.computed_passes_configs.clear()
         for name, passes_configs in self.input_passes_configs.items():
-            pass_config = validate_config(passes_configs[0].dict(), RunPassConfig)
+            pass_config = validate_config(passes_configs[0].model_dump(), RunPassConfig)
 
             pass_cls: type[Pass] = self.olive_config.import_pass_module(pass_config.type)
             pass_config.config = pass_cls.generate_config(accelerator_spec, pass_config.config, {}, True)
@@ -394,7 +394,7 @@ class Engine:
             if pass_name in sample_passes_configs:
                 sample_pass_config = sample_passes_configs[pass_name]
                 pass_config = passes_configs[sample_pass_config["index"]]
-                pass_config = validate_config(pass_config.dict(), RunPassConfig)
+                pass_config = validate_config(pass_config.model_dump(), RunPassConfig)
 
                 pass_cls = self.olive_config.import_pass_module(pass_config.type)
                 pass_config.config = pass_cls.generate_config(
@@ -754,7 +754,7 @@ class Engine:
         """Cache the evaluation in the cache directory."""
         evaluation_json = {
             "model_id": model_id,
-            "signal": signal.dict(),
+            "signal": signal.model_dump(),
         }
         self.cache.cache_evaluation(model_id, evaluation_json)
 

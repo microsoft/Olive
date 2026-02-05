@@ -51,7 +51,7 @@ def main(raw_args=None):
 
     # save metric result json
     with Path(args.output_path).open("w") as f:
-        f.write(metric_result.json())
+        f.write(metric_result.model_dump_json())
 
 
 if __name__ == "__main__":

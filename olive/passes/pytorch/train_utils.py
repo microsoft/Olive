@@ -70,7 +70,7 @@ class BaseHFTrainingArguments(NestedConfig):
         return v
 
     def create_training_args(self) -> transformers.TrainingArguments:
-        args = self.dict()
+        args = self.model_dump()
         if not args["output_dir"]:
             raise ValueError("output_dir must be provided.")
         if args["deepspeed"] is True:
@@ -112,7 +112,7 @@ def load_hf_base_model(
     new_model_handler = deepcopy(model_handler)
 
     # load model, reset load_kwargs and adapter_path
-    load_kwargs = new_model_handler.load_kwargs.dict() if new_model_handler.load_kwargs else {}
+    load_kwargs = new_model_handler.load_kwargs.model_dump() if new_model_handler.load_kwargs else {}
     load_kwargs.update(
         {
             # use "auto" as default to use the dtype from the model config

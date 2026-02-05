@@ -151,7 +151,7 @@ class AddOliveMetadata(Pass):
         try:
             from olive.model.config.model_config import ModelConfig
 
-            model_config = ModelConfig.parse_obj(model.to_json())
+            model_config = ModelConfig.model_validate(model.to_json())
             model_hash = model_config.get_model_identifier()
             metadata["model_hash"] = model_hash
         except Exception as e:

@@ -30,7 +30,7 @@ class TestSearchResults:
             "latency-max": {"goal": 30, "higher_is_better": False, "priority": 3},
         }
 
-        signal1 = MetricResult.parse_obj(
+        signal1 = MetricResult.model_validate(
             {
                 "accuracy-accuracy_custom": {
                     "value": 0.75,
@@ -40,7 +40,7 @@ class TestSearchResults:
                 "latency-avg": {"value": 4.5, "priority": 2, "higher_is_better": False},
             }
         )
-        signal2 = MetricResult.parse_obj(
+        signal2 = MetricResult.model_validate(
             {
                 "accuracy-accuracy_custom": {
                     "value": 0.78,
@@ -50,7 +50,7 @@ class TestSearchResults:
                 "latency-avg": {"value": 55.9, "priority": 2, "higher_is_better": False},
             }
         )
-        signal3 = MetricResult.parse_obj(
+        signal3 = MetricResult.model_validate(
             {
                 "accuracy-accuracy_custom": {
                     "value": 0.76,

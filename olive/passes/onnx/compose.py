@@ -77,7 +77,7 @@ class ComposeOnnxModels(Pass):
                     new_groups[group_name][composed_name] = self._get_composed_model(
                         [component_models[component_name].model_path for component_name in llm_pipeline[group_name]],
                         output_dir / f"{composed_name}.onnx",
-                        external_config=config.dict(),
+                        external_config=config.model_dump(),
                         saved_cb_files=saved_cb_files,
                         as_model_dir=True,
                     )
@@ -89,7 +89,7 @@ class ComposeOnnxModels(Pass):
         return self._get_composed_model(
             [component.model_path for component in model.model_components],
             resolve_onnx_path(output_model_path),
-            external_config=config.dict(),
+            external_config=config.model_dump(),
         )
 
     @staticmethod

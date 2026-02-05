@@ -66,7 +66,7 @@ def get_pytorch_model_config(batch_size=1):
             "io_config": get_pytorch_model_io_config(batch_size),
         },
     }
-    return ModelConfig.parse_obj(config)
+    return ModelConfig.model_validate(config)
 
 
 def get_pytorch_model(batch_size=1):
@@ -82,7 +82,7 @@ def get_hf_model(model_path="hf-internal-testing/tiny-random-gptj"):
 
 
 def get_hf_model_config():
-    return ModelConfig.parse_obj(get_hf_model().to_json())
+    return ModelConfig.model_validate(get_hf_model().to_json())
 
 
 def create_onnx_model_file():
@@ -118,12 +118,12 @@ def create_onnx_model_with_dynamic_axis(onnx_model_path, batch_size=1):
 
 
 def get_onnx_model_config(model_path=None):
-    return ModelConfig.parse_obj({"type": "ONNXModel", "config": {"model_path": str(model_path or ONNX_MODEL_PATH)}})
+    return ModelConfig.model_validate({"type": "ONNXModel", "config": {"model_path": str(model_path or ONNX_MODEL_PATH)}})
 
 
 def get_composite_onnx_model_config(model_path=None):
-    onnx_model_config = get_onnx_model_config(model_path).dict()
-    return ModelConfig.parse_obj(
+    onnx_model_config = get_onnx_model_config(model_path).model_dump()
+    return ModelConfig.model_validate(
         {
             "type": "CompositeModel",
             "config": {

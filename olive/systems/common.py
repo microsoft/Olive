@@ -43,7 +43,7 @@ class AcceleratorConfig(ConfigBase):
     def validate_ep_suffix(cls, v):
         if not v:
             return v
-        
+
         result = []
         for item in (v if isinstance(v, list) else [v]):
             ep_name = item[0] if isinstance(item, (tuple, list)) else item

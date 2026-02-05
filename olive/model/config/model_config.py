@@ -54,7 +54,7 @@ class ModelConfig(NestedConfig):
         if model_config.config.get("model_attributes"):
             model_config.config["model_attributes"].pop("additional_files", None)
             model_config.config["model_attributes"].pop("_name_or_path", None)
-        return hash_dict({"model_identifier": model_identifier, "model_config": model_config.dict()})[:8]
+        return hash_dict({"model_identifier": model_identifier, "model_config": model_config.model_dump()})[:8]
 
     def get_model_identifier(self):
         model_path = self.config.get("model_path")

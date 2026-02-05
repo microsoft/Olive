@@ -18,7 +18,7 @@ import torch
 from olive.common.config_utils import NestedConfig, validate_config
 from olive.common.import_lib import import_user_module
 from olive.common.ort_inference import OrtInferenceSession, prepare_io_bindings
-from olive.common.pydantic_v1 import Field, field_validator, model_validator
+from olive.common.pydantic_v1 import Field, root_validator, validator
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import format_data, load_weights, tensor_data_to_device
 from olive.constants import Framework
@@ -186,7 +186,7 @@ class OliveEvaluator(ABC):
                 priority=sub_type.priority,
                 higher_is_better=sub_type.higher_is_better,
             )
-        return MetricResult.parse_obj(metric_res)
+        return MetricResult.model_validate(metric_res)
 
     @staticmethod
     def compute_throughput(metric: Metric, latencies: Any) -> MetricResult:
@@ -207,7 +207,7 @@ class OliveEvaluator(ABC):
                 priority=sub_type.priority,
                 higher_is_better=sub_type.higher_is_better,
             )
-        return MetricResult.parse_obj(metric_res)
+        return MetricResult.model_validate(metric_res)
 
 
 class _OliveEvaluator(OliveEvaluator):
@@ -292,7 +292,7 @@ class _OliveEvaluator(OliveEvaluator):
         device: Device = Device.CPU,
         execution_providers: Union[str, list[str]] = None,
     ) -> MetricResult:
-        return MetricResult.parse_obj(
+        return MetricResult.model_validate(
             {SizeOnDiskSubType.BYTES.value: {"value": model.size_on_disk, "priority": -1, "higher_is_better": False}}
         )
 
@@ -329,7 +329,7 @@ class _OliveEvaluator(OliveEvaluator):
                     priority=sub_type.priority,
                     higher_is_better=sub_type.higher_is_better,
                 )
-        return MetricResult.parse_obj(metric_res)
+        return MetricResult.model_validate(metric_res)
 
     def evaluate(
         self,
@@ -1084,7 +1084,7 @@ class LMEvaluator(OliveEvaluator):
         metrics = {}
         if MetricType.SIZE_ON_DISK.value in self.tasks:
             self.tasks.remove(MetricType.SIZE_ON_DISK.value)
-            metrics[MetricType.SIZE_ON_DISK.value] = MetricResult.parse_obj(
+            metrics[MetricType.SIZE_ON_DISK.value] = MetricResult.model_validate(
                 {
                     SizeOnDiskSubType.BYTES.value: {
                         "value": model.size_on_disk,
@@ -1117,7 +1117,7 @@ class LMEvaluator(OliveEvaluator):
                         if not m.endswith("_stderr"):
                             task_metrics[m] = SubMetricResult(value=v, priority=-1, higher_is_better=True)
 
-                metrics[task_name] = MetricResult.parse_obj(task_metrics)
+                metrics[task_name] = MetricResult.model_validate(task_metrics)
 
         return flatten_metric_result(metrics)
 

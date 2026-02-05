@@ -186,7 +186,7 @@ class TestHFDummyInput:
         olive_model = HfModelHandler(model_path=self.model_name, task=self.task, io_config=self.io_config)
         # get io config
         io_config = olive_model.io_config
-        assert io_config == IoConfig(**self.io_config).dict(exclude_none=True)
+        assert io_config == IoConfig(**self.io_config).model_dump(exclude_none=True)
 
     @patch("olive.model.handler.mixin.hf.get_model_io_config")
     def test_hf_config_io_config(self, get_model_io_config):

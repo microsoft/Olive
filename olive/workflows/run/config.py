@@ -84,7 +84,7 @@ class RunEngineConfig(EngineConfig):
         return v
 
     def create_engine(self, olive_config, workflow_id):
-        config = self.dict(include=EngineConfig.__fields__.keys())
+        config = self.model_dump(include=EngineConfig.model_fields.keys())
         if self.cache_config:
             cache_config = validate_config(self.cache_config, CacheConfig)
         else:
@@ -195,13 +195,13 @@ class RunConfig(NestedConfig):
 
         result = []
         for item in v:
-            input_model_config = info.data["input_model"].dict()
+            input_model_config = info.data["input_model"].model_dump()
             if input_model_config["type"].lower() not in ["hfmodel", "onnxmodel"]:
                 result.append(item)
                 continue
 
             if isinstance(item, DataConfig):
-                item = item.dict()
+                item = item.model_dump()
 
             # all model related info used for auto filling
             task = None
@@ -289,7 +289,7 @@ class RunConfig(NestedConfig):
 
         for i, _ in enumerate(v):
             # validate first to gather config params
-            v[i] = iv = validate_config(v[i], RunPassConfig).dict()
+            v[i] = iv = validate_config(v[i], RunPassConfig).model_dump()
 
             if iv.get("config"):
                 _resolve_all_data_configs(iv["config"], info.data)
@@ -435,7 +435,7 @@ def _auto_fill_data_config(config, info, config_names, param_names, only_none=Fa
         # validate the component config first to gather the config params
         config[component_config_name] = component_config = validate_config(
             config.get(component_config_name) or {}, DataComponentConfig
-        ).dict()
+        ).model_dump()
         component_config["params"] = component_config_params = component_config.get("params") or {}
 
         for key in param_names:

@@ -196,7 +196,7 @@ class TestPythonEnvironmentSystem:
         ouptut_path = tmp_path / "output.json"
 
         # mock output
-        mock_evaluation_result = MetricResult.parse_obj(
+        mock_evaluation_result = MetricResult.model_validate(
             {"accuracy-accuracy_score": {"value": 0.5, "priority": 1, "higher_is_better": True}}
         )
         mock_evaluate.return_value = mock_evaluation_result
@@ -264,6 +264,6 @@ class TestPythonEnvironmentSystem:
                 "python_environment_path": self.python_environment_path,
             },
         }
-        system_config = SystemConfig.parse_obj(config)
+        system_config = SystemConfig.model_validate(config)
         system = system_config.create_system()
         assert system

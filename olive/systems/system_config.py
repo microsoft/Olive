@@ -102,4 +102,4 @@ class SystemConfig(NestedConfig):
 
     def create_system(self):
         system_class = import_system_from_type(self.type)
-        return system_class(**self.config.dict())
+        return system_class(**self.config.model_dump())

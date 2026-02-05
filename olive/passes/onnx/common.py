@@ -210,7 +210,7 @@ def model_proto_to_olive_model(
         "convert_attribute",
     ]
     if not isinstance(external_data_config, dict):
-        external_data_config = external_data_config.dict()
+        external_data_config = external_data_config.model_dump()
     has_external_data = model_proto_to_file(
         model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys if k in external_data_config}
     )
@@ -259,7 +259,7 @@ def ir_model_to_olive_model(
     :return: The ONNXModelHandler.
     """
     if not isinstance(external_data_config, dict):
-        external_data_config = external_data_config.dict()
+        external_data_config = external_data_config.model_dump()
 
     save_as_external_data = external_data_config.get("save_as_external_data")
     # Save as external data if requested or if the model is large

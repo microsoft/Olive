@@ -332,7 +332,7 @@ class SpinQuant(RotateBase):
 
         from olive.passes.pytorch.sgdg import SGDG
 
-        training_args = HFTrainingArguments.parse_obj(config.training_args or {})
+        training_args = HFTrainingArguments.model_validate(config.training_args or {})
 
         # rotate the model
         model_wrapper, rotation_params, save_replacements = self.rotate_model(

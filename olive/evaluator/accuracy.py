@@ -33,7 +33,7 @@ class AccuracyBase(AutoConfigClass):
         self.resolve_kwargs()
 
     def resolve_kwargs(self):
-        config_dict = self.config.dict()
+        config_dict = self.config.model_dump()
         kwargs = config_dict.pop("kwargs", {})
         config_dict.update(kwargs or {})
         self.config_dict = config_dict

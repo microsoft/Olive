@@ -134,7 +134,7 @@ class QuarkQuantization(Pass):
             data_config = validate_config(config.data_config, DataConfig)
             data_reader = data_config.to_data_container().create_calibration_dataloader()
 
-        run_config = config.dict()
+        run_config = config.model_dump()
         to_delete = [
             "data_config",
             "quant_preprocess",

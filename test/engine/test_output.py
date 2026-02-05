@@ -158,7 +158,7 @@ def create_node(model_id, metric_values):
     for metric_name, value in metric_values.items():
         metric_dict[metric_name] = {"value": value, "priority": 1, "higher_is_better": True}
 
-    metrics.value = MetricResult(__root__=metric_dict)
+    metrics.value = MetricResult(root=metric_dict)
     metrics.cmp_direction = dict.fromkeys(metric_values, 1)
 
     return FootprintNode(

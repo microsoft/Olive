@@ -8,6 +8,7 @@ from collections import OrderedDict, defaultdict
 from typing import TYPE_CHECKING, NamedTuple
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
+from olive.common.pydantic_v1 import Field
 from olive.evaluator.metric_result import MetricResult
 
 if TYPE_CHECKING:
@@ -45,7 +46,7 @@ class FootprintNode(ConfigBase):
     # None for no parent which means current model is the input model
     parent_model_id: str = None
     model_id: str
-    model_config: dict = None
+    model_config_data: dict = Field(default=None, alias="model_config")
     from_pass: str = None
     pass_run_config: dict = None
     is_pareto_frontier: bool = False
@@ -190,7 +191,7 @@ class Footprint:
         return self.get_model_path(self.get_output_model_id())
 
     def get_model_config(self, model_id):
-        model_config = self.nodes[model_id].model_config
+        model_config = self.nodes[model_id].model_config_data
         if model_config is None:
             return {}
 
@@ -203,7 +204,7 @@ class Footprint:
         return self.get_model_config(model_id).get("model_path", None)
 
     def get_model_type(self, model_id):
-        model_config = self.nodes[model_id].model_config
+        model_config = self.nodes[model_id].model_config_data
         if model_config is None:
             return None
 

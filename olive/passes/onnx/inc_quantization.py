@@ -473,7 +473,7 @@ class IncQuantization(Pass):
         ), "Require neural-compressor >= 2.3.0 to support weight only quantization."
 
         # start with a copy of the config
-        run_config = config.dict()
+        run_config = config.model_dump()
         require_dataloader = run_config["approach"] == "static" or (
             run_config["approach"] == "weight_only"
             and run_config["weight_only_config"]["algorithm"] in {QuantAlgorithm.GPTQ, QuantAlgorithm.AWQ}

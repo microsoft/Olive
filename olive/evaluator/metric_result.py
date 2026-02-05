@@ -15,19 +15,19 @@ class SubMetricResult(ConfigBase):
 
 
 class MetricResult(ConfigDictBase):
-    __root__: dict[str, SubMetricResult]
+    root: dict[str, SubMetricResult]
     delimiter: ClassVar[str] = "-"
 
     def get_value(self, metric_name, sub_type_name):
-        if not self.__root__:
+        if not self.root:
             return None
-        return self.__root__[joint_metric_key(metric_name, sub_type_name)].value
+        return self.root[joint_metric_key(metric_name, sub_type_name)].value
 
     def get_all_sub_type_metric_value(self, metric_name):
-        return {k.split(self.delimiter)[-1]: v.value for k, v in self.__root__.items() if k.startswith(metric_name)}
+        return {k.split(self.delimiter)[-1]: v.value for k, v in self.root.items() if k.startswith(metric_name)}
 
     def __str__(self) -> str:
-        repr_obj = {k: v.value for k, v in self.__root__.items()}
+        repr_obj = {k: v.value for k, v in self.root.items()}
         return json.dumps(repr_obj, indent=2)
 
 
@@ -45,4 +45,4 @@ def flatten_metric_sub_type(metric_dict: dict[str, dict]):
 
 
 def flatten_metric_result(dict_results: dict[str, MetricResult]):
-    return MetricResult.parse_obj(flatten_metric_sub_type(dict_results))
+    return MetricResult.model_validate(flatten_metric_sub_type(dict_results))

@@ -445,7 +445,7 @@ class LoRA(Pass):
                 # use fp16 mixed precision training
                 config.training_args.extra_args["fp16"] = True
             # create training args
-            logger.debug("Training args: %s", config.training_args.dict())
+            logger.debug("Training args: %s", config.training_args.model_dump())
 
             # get trainer'
             trainer = transformers.Trainer(
@@ -760,7 +760,7 @@ class QLoRABase(LoRA):
             model, config, output_model_path
         )
         if config.save_quant_config:
-            load_kwargs = new_model_handler.load_kwargs.dict() if new_model_handler.load_kwargs else {}
+            load_kwargs = new_model_handler.load_kwargs.model_dump() if new_model_handler.load_kwargs else {}
             load_kwargs.update(bnb_quant_config)
             new_model_handler.load_kwargs = HfLoadKwargs(**load_kwargs)
             new_model_handler.model_attributes["quantized_modules"] = quantized_modules

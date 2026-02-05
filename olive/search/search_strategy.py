@@ -70,7 +70,8 @@ class SearchStrategyConfig(NestedConfig):
             raise ValueError("Invalid execution_order")
         if v and info.data["execution_order"] != SearchStrategyExecutionOrder.JOINT:
             logger.info("%s is only supported for joint execution order. Ignoring...", info.field_name)
-            return cls.model_fields[info.field_name].default
+            field_info = cls.model_fields.get(info.field_name)
+            return field_info.default if field_info else None
         return v
 
 

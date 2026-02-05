@@ -137,7 +137,7 @@ class Pass(ABC):
         assert set(point.keys()).intersection(set(search_params.keys())) == point.keys(), (
             "Search point is not in the search space."
         )
-        return config_class.parse_obj({**fixed_values, **search_params, **point})
+        return config_class.model_validate({**fixed_values, **search_params, **point})
 
     @classmethod
     def _identify_search_values(
@@ -449,7 +449,7 @@ class Pass(ABC):
         default_config: dict[str, PassConfigParam],
     ) -> dict[str, Any]:
         """Resolve config to BasePassConfig."""
-        config = input_config.dict()
+        config = input_config.model_dump()
         config = cls._resolve_defaults(config, default_config)
         if "user_script" in config:
             user_module_loader = UserModuleLoader(config["user_script"], config["script_dir"])

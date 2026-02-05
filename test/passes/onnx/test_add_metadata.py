@@ -352,10 +352,10 @@ class TestAddOliveMetadata:
         # Calculate hash twice for same model using the actual implementation approach
         from olive.model.config.model_config import ModelConfig
 
-        model_config1 = ModelConfig.parse_obj(input_model.to_json())
+        model_config1 = ModelConfig.model_validate(input_model.to_json())
         hash1 = model_config1.get_model_identifier()
 
-        model_config2 = ModelConfig.parse_obj(input_model.to_json())
+        model_config2 = ModelConfig.model_validate(input_model.to_json())
         hash2 = model_config2.get_model_identifier()
 
         # Hashes should be identical

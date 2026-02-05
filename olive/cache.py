@@ -440,7 +440,7 @@ class OliveCache:
                                 from olive.passes.onnx.common import resave_model
 
                                 resave_model(
-                                    ModelConfig.parse_obj(component_model_json).create_model().model_path,
+                                    ModelConfig.model_validate(component_model_json).create_model().model_path,
                                     actual_output_dir / f"{component_name}.onnx",
                                     saved_external_files=saved_external_files,
                                 )

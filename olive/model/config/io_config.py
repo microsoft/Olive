@@ -170,7 +170,7 @@ def complete_kv_cache_with_model_attributes(kv_cache, model_attributes):
                 "world_size": kv_cache.get("world_size") or world_size,
             }
         )
-        kv_cache_obj = KVCacheConfig.parse_obj(kv_cache_dict)
+        kv_cache_obj = KVCacheConfig.model_validate(kv_cache_dict)
     elif isinstance(kv_cache, KVCacheConfig):
         # as num_hidden_layers, num_attention_heads, hidden_size are required for kv_cache
         # there is no need to update them
@@ -209,7 +209,7 @@ def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
 
 def is_io_config_static(config: Union[IoConfig, dict]):
     if isinstance(config, IoConfig):
-        config = config.dict()
+        config = config.model_dump()
     if not config.get("input_shapes"):
         return False
     return all(all(isinstance(dim, int) for dim in shape) for shape in config["input_shapes"])
