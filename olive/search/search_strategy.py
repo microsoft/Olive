@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Union
 
 from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase, NestedConfig, validate_config, validate_enum
 from olive.common.pydantic_v1 import field_validator
+from pydantic_core import PydanticUndefined
 from olive.search.samplers import REGISTRY, SearchSampler
 from olive.search.search_parameter import Categorical
 from olive.search.search_results import SearchResults
@@ -71,7 +72,9 @@ class SearchStrategyConfig(NestedConfig):
         if v and info.data["execution_order"] != SearchStrategyExecutionOrder.JOINT:
             logger.info("%s is only supported for joint execution order. Ignoring...", info.field_name)
             field_info = cls.model_fields.get(info.field_name)
-            return field_info.default if field_info else None
+            if field_info and field_info.default is not PydanticUndefined:
+                return field_info.default
+            return None
         return v
 
 

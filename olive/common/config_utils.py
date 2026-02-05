@@ -213,8 +213,10 @@ class NestedConfig(ConfigBase):
     @model_validator(mode='before')
     @classmethod
     def gather_nested_field(cls, values):
-        all_fields = {name_or_alias for field in cls.model_fields.values() for name_or_alias in (field.alias or field.title, field.title or field.alias) if name_or_alias}
-        all_fields.update(cls.model_fields.keys())
+        all_fields = {name for name in cls.model_fields.keys()}
+        for field in cls.model_fields.values():
+            if field.alias:
+                all_fields.add(field.alias)
         if cls._nested_field_name not in all_fields:
             logger.debug(
                 "TypedConfig is used but is missing the nested field name '%s'. Ignoring root validator",
@@ -239,7 +241,6 @@ class NestedConfig(ConfigBase):
         field_info = cls.model_fields.get(cls._nested_field_name)
         if nested_field or (field_info and field_info.is_required()):
             values[cls._nested_field_name] = nested_field
-        return values
         return values
 
 

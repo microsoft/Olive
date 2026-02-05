@@ -160,17 +160,16 @@ class RunConfig(NestedConfig):
         return values
 
     @model_validator(mode="after")
-    @classmethod
-    def validate_python_environment_paths(cls, values):
+    def validate_python_environment_paths(self):
         # Check if we need to validate python environment path
-        engine = values.engine
+        engine = self.engine
         if engine:
             engine_host = engine.host
             if not engine_host or engine_host.type != SystemType.Docker:
-                systems = values.systems
+                systems = self.systems
                 if systems:
                     _validate_python_environment_path(systems)
-        return values
+        return self
 
     @field_validator("data_configs", mode="before")
     @classmethod

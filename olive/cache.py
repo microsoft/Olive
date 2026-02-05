@@ -103,16 +103,15 @@ class CacheConfig(ConfigBase):
         return match.group(2) if match else None
 
     @model_validator(mode="after")
-    @classmethod
-    def validate_enable_shared_cache(cls, values):
-        if values.account_name and values.container_name:
-            values.enable_shared_cache = True
-        elif values.enable_shared_cache:
-            values.account_name = values.account_name or "olivepublicmodels"
-            values.container_name = values.container_name or "olivecachemodels"
+    def validate_enable_shared_cache(self):
+        if self.account_name and self.container_name:
+            self.enable_shared_cache = True
+        elif self.enable_shared_cache:
+            self.account_name = self.account_name or "olivepublicmodels"
+            self.container_name = self.container_name or "olivecachemodels"
         else:
-            values.enable_shared_cache = False
-        return values
+            self.enable_shared_cache = False
+        return self
 
     @staticmethod
     def _get_shared_cache_match(cache_dir):
