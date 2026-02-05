@@ -27,6 +27,7 @@ openvino>=2025.3.0
 optuna
 pandas
 peft
+perf-estimator
 plotly
 polygraphy>=0.49.22
 psutil
