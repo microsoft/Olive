@@ -95,7 +95,11 @@ class TextGenParams(ConfigBase):
     @field_validator("text_formatting_func")
     @classmethod
     def _check_text_formatting_func(cls, v, info):
-        return validate_object(v, info.data, info)
+        # Create a simple object with name attribute for validate_object
+        class FieldInfo:
+            def __init__(self, name):
+                self.name = name
+        return validate_object(v, info.data, FieldInfo(info.field_name))
 
     @field_validator("text_cols", mode="after")
     @classmethod

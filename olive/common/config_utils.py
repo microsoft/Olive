@@ -356,7 +356,7 @@ def create_config_class(
     for vname, vfunc in validators.items():
         field_validators_dict[vname] = vfunc
 
-    return create_model(class_name, **config, __base__=base, __cls_kwargs__={"__validators__": field_validators_dict})
+    return create_model(class_name, **config, __base__=base, __validators__=field_validators_dict)
 
 
 T = TypeVar("T", bound=ConfigBase)
