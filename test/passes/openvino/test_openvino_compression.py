@@ -6,8 +6,6 @@ import shutil
 from pathlib import Path
 
 import pytest
-import torch
-from packaging import version
 
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
@@ -17,6 +15,8 @@ from olive.passes.onnx.optimum_conversion import OptimumConversion
 from olive.passes.openvino.compression import OpenVINOWeightCompression
 from test.utils import get_hf_model
 
+pytestmark = pytest.mark.openvino
+
 
 @Registry.register_dataset()
 def wikitext_2_raw_v1_test():
@@ -25,7 +25,6 @@ def wikitext_2_raw_v1_test():
     return datasets.load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1", split="test")
 
 
-@pytest.mark.skip(reason="Need to update pass logic to compatible with latest optimum-intel")
 def test_openvino_weight_compression_hf_to_openvino(tmp_path):
     # imports here
     import numpy as np
@@ -98,7 +97,6 @@ def test_openvino_weight_compression_hf_to_openvino(tmp_path):
         shutil.rmtree(hf_to_ov_model.model_path)
 
 
-@pytest.mark.skip(reason="Need to update pass logic to compatible with latest optimum-intel")
 def test_openvino_weight_compression_hf_to_openvino_multi_ignore_scope(tmp_path):
     # imports here
     import numpy as np
@@ -167,10 +165,6 @@ def test_openvino_weight_compression_hf_to_openvino_multi_ignore_scope(tmp_path)
         shutil.rmtree(hf_to_ov_model.model_path)
 
 
-@pytest.mark.skipif(
-    version.parse(torch.__version__) >= version.parse("2.9.0"),
-    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
-)
 def test_openvino_weight_compression_hf_to_onnx(tmp_path):
     from nncf.parameters import CompressWeightsMode
     from nncf.quantization.advanced_parameters import GroupSizeFallbackMode
@@ -215,10 +209,6 @@ def test_openvino_weight_compression_hf_to_onnx(tmp_path):
     shutil.rmtree(q_dir)
 
 
-@pytest.mark.skipif(
-    version.parse(torch.__version__) >= version.parse("2.9.0"),
-    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
-)
 def test_openvino_weight_compression_hf_to_onnx_multi_ignore_scope(tmp_path):
     from nncf.parameters import CompressWeightsMode
 
@@ -259,10 +249,6 @@ def test_openvino_weight_compression_hf_to_onnx_multi_ignore_scope(tmp_path):
     shutil.rmtree(q_dir)
 
 
-@pytest.mark.skipif(
-    version.parse(torch.__version__) >= version.parse("2.9.0"),
-    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
-)
 def test_openvino_weight_compression_onnx_to_onnx(tmp_path):
     from nncf.parameters import CompressWeightsMode
     from nncf.quantization.advanced_parameters import GroupSizeFallbackMode
@@ -319,10 +305,6 @@ def test_openvino_weight_compression_onnx_to_onnx(tmp_path):
     shutil.rmtree(q_dir)
 
 
-@pytest.mark.skipif(
-    version.parse(torch.__version__) >= version.parse("2.9.0"),
-    reason="torch.onnx.export uses dynamo by default in torch 2.9.0+",
-)
 def test_openvino_weight_compression_onnx_to_onnx_multi_ignore_scope(tmp_path):
     from nncf.parameters import CompressWeightsMode
 

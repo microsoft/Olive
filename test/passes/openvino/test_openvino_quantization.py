@@ -17,6 +17,8 @@ from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.quantization import OpenVINOQuantization, OpenVINOQuantizationWithAccuracy
 
+pytestmark = pytest.mark.openvino
+
 
 @Registry.register_dataset()
 def cifar10_dataset(data_dir, **kwargs):

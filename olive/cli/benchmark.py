@@ -85,7 +85,8 @@ class BenchmarkCommand(BaseOliveCLICommand):
         assert input_model_config["type"].lower() in {
             "hfmodel",
             "pytorchmodel",
-        }, "Only HfModel and PyTorchModel are supported in benchmark command."
+            "onnxmodel",
+        }, "Only HfModel, PyTorchModel and OnnxModel are supported in benchmark command."
 
         to_replace = [
             ("input_model", input_model_config),

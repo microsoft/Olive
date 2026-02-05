@@ -1,0 +1,49 @@
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - olive/passes/openvino/*
+    - test/passes/openvino/*
+
+pr:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - olive/passes/openvino/*
+    - test/passes/openvino/*
+
+variables:
+  runCodesignValidationInjection: false
+  skipComponentGovernanceDetection: true
+
+jobs:
+# Linux OpenVINO unit tests
+- template: job_templates/olive-test-cpu-template.yaml
+  parameters:
+    name: Linux_CPU_OpenVINO_Unit_Test
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    pytest_marker: 'openvino'
+    requirements_file: 'requirements-test-openvino.txt'
+    test_path: 'test/passes/openvino'
+
+- template: job_templates/olive-test-linux-gpu-template.yaml
+  parameters:
+    name: Linux_GPU_OpenVINO_Unit_Test
+    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    pytest_marker: 'openvino'
+    requirements_file: 'requirements-test-openvino.txt'
+    test_path: 'test/passes/openvino'
+
+# Windows OpenVINO unit tests
+- template: job_templates/olive-test-cpu-template.yaml
+  parameters:
+    name: Windows_CPU_OpenVINO_Unit_Test
+    pool: $(OLIVE_POOL_WIN2019)
+    windows: True
+    pytest_marker: 'openvino'
+    requirements_file: 'requirements-test-openvino.txt'
+    test_path: 'test/passes/openvino'
