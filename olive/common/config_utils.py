@@ -210,7 +210,7 @@ class NestedConfig(ConfigBase):
 
     _nested_field_name: str = "config"
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     @classmethod
     def gather_nested_field(cls, values):
         all_fields = {name for name in cls.model_fields.keys()}
