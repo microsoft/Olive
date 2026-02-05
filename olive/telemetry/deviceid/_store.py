@@ -11,7 +11,7 @@ class Store:
         self._file_path: Path = self._build_path()
 
     def _build_path(self) -> Path:
-        return get_telemetry_base_dir()
+        return get_telemetry_base_dir() / "deviceid"
 
     def retrieve_id(self) -> str:
         """Retrieve the device id from the store location.

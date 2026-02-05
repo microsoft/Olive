@@ -9,7 +9,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Optional
 
-DEVICEID_LOCATION = r"Microsoft/DeveloperTools/deviceid/.onnxruntime/"
+ORT_SUPPORT_DIR = r"Microsoft/DeveloperTools/.onnxruntime"
 
 
 def get_telemetry_base_dir() -> Path:
@@ -24,13 +24,13 @@ def get_telemetry_base_dir() -> Path:
         home = os.getenv("HOME")
         if home is None:
             raise ValueError("HOME environment variable not set")
-        return Path(home) / "Library" / "Application Support" / DEVICEID_LOCATION
+        return Path(home) / "Library" / "Application Support" / ORT_SUPPORT_DIR
 
     home = os.getenv("XDG_CACHE_HOME", f"{os.getenv('HOME')}/.cache")
     if not home:
         raise ValueError("HOME environment variable not set")
 
-    return Path(home) / DEVICEID_LOCATION
+    return Path(home) / ORT_SUPPORT_DIR
 
 
 def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = None) -> str:

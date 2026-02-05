@@ -140,12 +140,6 @@ class TelemetryLogger:
         if self._logger_provider:
             self._logger_provider.shutdown()
 
-    def force_flush(self, timeout_millis: float = 10_000) -> bool:
-        """Force flush buffered log records."""
-        if self._logger_provider:
-            return self._logger_provider.force_flush(timeout_millis=timeout_millis)
-        return False
-
     @classmethod
     def get_default_logger(cls, connection_string: Optional[str] = None) -> "TelemetryLogger":
         """Get or create the default telemetry logger.

@@ -14,10 +14,7 @@ from olive.telemetry.library.event_source import event_source
 
 @dataclass
 class PayloadTransmittedCallbackArgs:
-    """Arguments passed to payload transmitted callbacks.
-
-    Matches the .NET OneCollectorExporterPayloadTransmittedCallbackArguments.
-    """
+    """Arguments passed to payload transmitted callbacks."""
 
     succeeded: bool
     """Whether the transmission succeeded."""
@@ -46,7 +43,7 @@ class CallbackManager:
         """Initialize the callback manager."""
         self._callbacks: list[tuple[Callable[[PayloadTransmittedCallbackArgs], None], bool]] = []
         self._lock = threading.Lock()
-        self._disposed = False
+        self._closed = False
 
     def register(
         self, callback: Callable[[PayloadTransmittedCallbackArgs], None], include_failures: bool = False
@@ -62,7 +59,7 @@ class CallbackManager:
 
         """
         with self._lock:
-            if self._disposed:
+            if self._closed:
                 return lambda: None  # No-op unregister if disposed
             entry = (callback, include_failures)
             self._callbacks.append(entry)
@@ -87,7 +84,7 @@ class CallbackManager:
         """
         # Get snapshot of callbacks to avoid holding lock during invocation
         with self._lock:
-            if self._disposed:
+            if self._closed:
                 return
             callbacks_snapshot = self._callbacks.copy()
 
@@ -103,13 +100,11 @@ class CallbackManager:
                 # Log but don't propagate exceptions from user code
                 event_source.exception_thrown_from_user_code("PayloadTransmittedCallback", ex)
 
-    def clear(self) -> None:
-        """Clear all registered callbacks."""
-        with self._lock:
-            self._callbacks.clear()
+    def close(self) -> None:
+        """Close the callback manager and prevent further registrations.
 
-    def dispose(self) -> None:
-        """Dispose the manager and prevent further registrations."""
+        This method is idempotent and can be called multiple times.
+        """
         with self._lock:
             self._callbacks.clear()
-            self._disposed = True
+            self._closed = True

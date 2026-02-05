@@ -321,5 +321,6 @@ class OneCollectorLogExporter(LogRecordExporter):
         if hasattr(self, "_session"):
             self._session.close()
 
+        # Close callback manager
         if hasattr(self, "_callback_manager"):
-            self._callback_manager.dispose()
+            self._callback_manager.close()

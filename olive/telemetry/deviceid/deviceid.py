@@ -22,9 +22,10 @@ def get_device_id() -> str:
 
     An empty string is returned if an error occurs during saving or retrieval of the device id.
 
-    Linux id location: $XDG_CACHE_HOME/deviceid if defined else $HOME/.cache/deviceid
-    MacOS id location: $HOME/Library/Application Support/Microsoft/DeveloperTools/deviceid
-    Windows id location: HKEY_CURRENT_USER\SOFTWARE\Microsoft\DeveloperTools\deviceid
+    Linux id location: $XDG_CACHE_HOME/Microsoft/DeveloperTools/.onnxruntime/deviceid if defined
+        else $HOME/.cache/Microsoft/DeveloperTools/.onnxruntime/deviceid
+    MacOS id location: $HOME/Library/Application Support/Microsoft/DeveloperTools/.onnxruntime/deviceid
+    Windows id location: HKEY_CURRENT_USER\SOFTWARE\Microsoft\.onnxruntime\deviceid
 
     :return: The device id.
     :rtype: str
@@ -95,6 +96,6 @@ def get_encrypted_device_id_and_status() -> tuple[str, DeviceIdStatus]:
         str: FIPS-compliant encrypted device ID (base64-encoded)
 
     """
-    device_id = get_device_id() if _device_id_state["device_id"] is not None else _device_id_state["device_id"]
+    device_id = _device_id_state["device_id"] if _device_id_state["device_id"] is not None else get_device_id()
     encrypted_device_id = hashlib.sha256(device_id.encode("utf-8")).digest().hex().upper() if device_id else ""
     return encrypted_device_id, _device_id_state["status"]
