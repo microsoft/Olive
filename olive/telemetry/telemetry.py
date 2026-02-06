@@ -14,15 +14,14 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
-if TYPE_CHECKING:
-    from olive.telemetry.library.callback_manager import PayloadTransmittedCallbackArgs
-
 from olive.telemetry.constants import CONNECTION_STRING
 from olive.telemetry.deviceid import get_encrypted_device_id_and_status
 from olive.telemetry.library.event_source import event_source
-from olive.telemetry.library.telemetry_logger import TelemetryLogger as _LibraryTelemetryLogger
-from olive.telemetry.library.telemetry_logger import get_telemetry_logger
+from olive.telemetry.library.telemetry_logger import TelemetryLogger, get_telemetry_logger
 from olive.telemetry.utils import get_telemetry_base_dir
+
+if TYPE_CHECKING:
+    from olive.telemetry.library.callback_manager import PayloadTransmittedCallbackArgs
 
 # Default event names used by the high-level telemetry helpers.
 HEARTBEAT_EVENT_NAME = "OliveHeartbeat"
@@ -114,6 +113,7 @@ class TelemetryCacheHandler:
         try:
             self.shutdown()
         except Exception:
+            # Silently ignore errors during cleanup
             pass
 
     def on_payload_transmitted(self, args: "PayloadTransmittedCallbackArgs") -> None:
@@ -384,6 +384,7 @@ class TelemetryCacheHandler:
                             cache_path.parent.mkdir(parents=True, exist_ok=True)
                             flush_path.replace(cache_path)
                         except Exception:
+                            # Silently ignore errors during cleanup
                             pass
                     return
 
@@ -458,7 +459,7 @@ class Telemetry:
         if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1":
             self.disable_telemetry()
 
-    def _create_logger(self) -> Optional[_LibraryTelemetryLogger]:
+    def _create_logger(self) -> Optional[TelemetryLogger]:
         try:
             return get_telemetry_logger(base64.b64decode(CONNECTION_STRING).decode())
         except Exception:

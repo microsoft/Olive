@@ -6,7 +6,7 @@ The software may collect information about you and your use of the software and 
 ***
 
 ## Technical Details
-Olive uses the [OpenTelemetry](https://opentelemetry.io/) API for its implementation. By default, this data may be periodically sent to Microsoft servers following GDPR and privacy regulations for anonymity and data access controls. Application, device, and version information is collected automatically.
+Olive uses the [OpenTelemetry](https://opentelemetry.io/) API for its implementation. Telemetry is turned ON by default. Based on user consent, this data may be periodically sent to Microsoft servers following GDPR and privacy regulations for anonymity and data access controls. Application, device, and version information is collected automatically.
 
 In addition, Olive may collect additional telemetry data such as:
 - Invoked commands
