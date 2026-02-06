@@ -580,7 +580,7 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_benchmark_command(_, mock_run, tmp_path):
+def test_benchmark_command_hfmodel(_, mock_run, tmp_path):
     # setup
     output_dir = tmp_path / "output_dir"
     model_id = "dummy-model-id"
@@ -608,6 +608,44 @@ def test_benchmark_command(_, mock_run, tmp_path):
 
     config = mock_run.call_args[0][0]
     assert config["input_model"]["model_path"] == model_id
+    assert config["evaluators"]["evaluator"]["tasks"] == ["arc_easy", "helloswag"]
+    assert config["evaluators"]["evaluator"]["batch_size"] == 8
+    assert config["evaluators"]["evaluator"]["max_length"] == 1024
+    assert config["evaluators"]["evaluator"]["limit"] == 16
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+def test_benchmark_command_onnxmodel(mock_run, tmp_path):
+    from test.utils import ONNX_MODEL_PATH
+
+    # some directories
+    output_dir = tmp_path / "output_dir"
+
+    # setup
+    command_args = [
+        "benchmark",
+        "-m",
+        str(ONNX_MODEL_PATH),
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "helloswag",
+        "--device",
+        "gpu",
+        "--batch_size",
+        "8",
+        "--max_length",
+        "1024",
+        "--limit",
+        "16",
+    ]
+
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == str(ONNX_MODEL_PATH)
     assert config["evaluators"]["evaluator"]["tasks"] == ["arc_easy", "helloswag"]
     assert config["evaluators"]["evaluator"]["batch_size"] == 8
     assert config["evaluators"]["evaluator"]["max_length"] == 1024

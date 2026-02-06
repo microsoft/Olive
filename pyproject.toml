@@ -75,6 +75,9 @@ disable = [
 
 [tool.pytest.ini_options]
 addopts = "-rsfEX --tb=short --color=yes"
+markers = [
+  "openvino: tests requiring openvino specific packages"
+]
 
 [tool.ruff]
 line-length = 120

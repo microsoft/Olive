@@ -1,0 +1,4 @@
+amd-quark==0.10
+coverage
+peft
+pytest

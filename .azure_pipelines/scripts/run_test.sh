@@ -7,9 +7,13 @@
 # $5: Path to the test file to run
 # $6: Whether to use coverage tracking (true/false)
 # $7: HF Token
+# $8: Pytest marker (optional, e.g., "not openvino")
 
 # activate venv
 source olive-venv/bin/activate
+
+# Upgrade pip to avoid dependency resolution bugs
+pip install --upgrade pip
 
 # Step 1: Install PyTorch
 pip install "$1"
@@ -37,14 +41,19 @@ pip list
 
 # Step 4: Run tests with or without coverage tracking
 XML_PATH="/logs/TestOlive.xml"
+PYTEST_MARKER_ARGS=()
+if [ -n "$8" ]; then
+    PYTEST_MARKER_ARGS=(-m "$8")
+fi
+
 if [ "$6" = "true" ]; then
     echo "Running tests with coverage tracking..."
-    coverage run -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING "$5"
+    coverage run -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING "${PYTEST_MARKER_ARGS[@]}" "$5"
     coverage xml -o /logs/coverage.xml
 else
     echo "Starting pytest at $(date)"
     echo "Running tests without coverage tracking..."
-    timeout 1100 python -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING "$5"
+    timeout 1100 python -m pytest -vv -s --junitxml="$XML_PATH" -p no:warnings --disable-warnings --log-cli-level=WARNING "${PYTEST_MARKER_ARGS[@]}" "$5"
     exit_code=$?
     echo "pytest exited with code $exit_code"
 

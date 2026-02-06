@@ -21,6 +21,7 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
     onnxruntime_nightly: true
+    pytest_marker: 'not openvino'
 
 # Linux GPU unit test
 - template: job_templates/olive-test-linux-gpu-template.yaml
@@ -29,6 +30,7 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
     windows: False
     onnxruntime_nightly: true
+    pytest_marker: 'not openvino'
 
 # Windows unit test
 - template: job_templates/olive-test-cpu-template.yaml
@@ -37,3 +39,4 @@ jobs:
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
     onnxruntime_nightly: true
+    pytest_marker: 'not openvino'
