@@ -179,8 +179,8 @@ def _export_pytorch_model(
     if torch_dtype:
         pytorch_model = pytorch_model.to(torch_dtype)
 
-    # Apply any necessary patches
-    _patch_model_if_necessary(pytorch_model)
+    # # Apply any necessary patches
+    # _patch_model_if_necessary(pytorch_model)
 
     # get input and output names, and dynamic axes
     assert io_config is not None, "Cannot get io_config for the model."
