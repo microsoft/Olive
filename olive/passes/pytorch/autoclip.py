@@ -1,3 +1,10 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+# Based on original implementation at
+# https://github.com/OpenBitSys/BitDistiller/blob/main/quantization/autoclip.py
+# --------------------------------------------------------------------------
 from __future__ import annotations
 
 import logging

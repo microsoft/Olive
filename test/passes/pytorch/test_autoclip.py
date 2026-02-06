@@ -23,7 +23,7 @@ from test.utils import get_tiny_phi3, make_local_tiny_llama
     ],
 )
 @pytest.mark.parametrize("group_size", [-1, 16] if torch.cuda.is_available() else [16])
-def test_gptq(tmp_path: Path, model_path: str, expected_model_type: str, group_size: int):
+def test_autoclip(tmp_path: Path, model_path: str, expected_model_type: str, group_size: int):
     # setup
     if model_path == "tiny-llama":
         input_model = make_local_tiny_llama(tmp_path / "input_model")
