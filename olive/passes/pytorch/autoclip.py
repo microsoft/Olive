@@ -15,6 +15,7 @@ from olive.passes.pytorch.quant_utils import (
     prepare_model,
     run_layerwise_quantization,
 )
+from olive.passes.pytorch.train_utils import get_calibration_data_config
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
@@ -82,6 +83,15 @@ class AutoClip(Pass):
     ) -> HfModelHandler:
         wrapper, _, _ = prepare_model(model, config, exclude_attn_inputs=True)
 
+        data_config = config.data_config or get_calibration_data_config(
+            model.model_name_or_path,
+            trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None),
+            data_name="mit-han-lab/pile-val-backup",
+            subset=None,
+            split="validation[:1000]",
+            max_seq_len=1024,
+            max_samples=128,
+        )
         process_module = partial(
             self.process_module,
             n_grid=config.n_grid,
@@ -91,7 +101,7 @@ class AutoClip(Pass):
         run_layerwise_quantization(
             model,
             wrapper,
-            config.data_config,
+            data_config,
             input_hook=self.accumulate_inputs,
             process_module=process_module,
             update_before_process=True,
