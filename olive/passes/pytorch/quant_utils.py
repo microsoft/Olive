@@ -117,17 +117,17 @@ def prepare_model(
     embeds_name = wrapper.get_embeds()[1][0]
     new_qargs: dict[str, dict[str, int | bool]] = {}
 
-    excluded_attn_inputs: set[str] = set()
+    excluded_attn_inputs: set[torch.nn.Module] = set()
     if exclude_attn_inputs:
         for layer_wrapper in wrapper.get_layer_wrappers():
-            _, attn_input_names = layer_wrapper.get_attention_inputs()
-            if len(attn_input_names) == 1:
-                excluded_attn_inputs.add(attn_input_names[0])
+            attn_inputs, _ = layer_wrapper.get_attention_inputs()
+            if len(attn_inputs) == 1:
+                excluded_attn_inputs.add(attn_inputs[0])
             else:
-                excluded_attn_inputs.update(attn_input_names[:2])
+                excluded_attn_inputs.update(attn_inputs[:2])
 
     def should_quantize(module: torch.nn.Module, name: str) -> bool:
-        if name in excluded_attn_inputs:
+        if module in excluded_attn_inputs:
             return False
         if isinstance(module, torch.nn.Linear):
             return name != lm_head_name or qcfg.lm_head
@@ -342,6 +342,8 @@ def run_layerwise_quantization(
         Device string used for calibration.
 
     """
+    from tqdm.auto import tqdm
+
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -353,7 +355,11 @@ def run_layerwise_quantization(
     if not hidden_states:
         raise ValueError("Calibration data is empty. Provide a valid data_config.")
 
-    for layer in wrapper.get_layers(return_name=False):
+    total_steps = wrapper.num_hidden_layers + (1 if include_lm_head else 0)
+    pbar = tqdm(total=total_steps, desc="Processing layers...")
+
+    for layer_idx, layer in enumerate(wrapper.get_layers(return_name=False)):
+        pbar.set_postfix(module=f"layers.{layer_idx}", refresh=False)
         quantizable_modules = [module for module in layer.modules() if hasattr(module, "quant_info")]
         handles = [module.register_forward_hook(input_hook) for module in quantizable_modules]
 
@@ -386,13 +392,19 @@ def run_layerwise_quantization(
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+        pbar.update(1)
+
     if include_lm_head:
         hidden_states = run_layer(wrapper.get_pre_head_layernorm(return_name=False), hidden_states, return_output=True)
         lm_head = wrapper.get_lm_head(return_name=False)
+        pbar.set_postfix(module="lm_head", refresh=False)
         handle = lm_head.register_forward_hook(input_hook)
         run_layer(lm_head, hidden_states, return_output=True)
         handle.remove()
         process_module(lm_head, device)
+        pbar.update(1)
+
+    pbar.close()
 
     if original_use_cache is not None:
         wrapper.model.config.use_cache = original_use_cache

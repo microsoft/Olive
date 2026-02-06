@@ -98,6 +98,8 @@ class AutoClip(Pass):
             include_lm_head=config.lm_head,
         )
 
+        # TODO(jambayk): explore whether we should tie the embedding with lm_head after lm_head is clipped
+
         wrapper.model.save_pretrained(output_model_path)
         model.save_metadata(output_model_path)
 
