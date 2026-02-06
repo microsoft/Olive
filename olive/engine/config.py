@@ -5,7 +5,7 @@
 from typing import Union
 
 from olive.common.config_utils import ConfigBase
-from olive.common.pydantic_v1 import Extra, Field
+from olive.common.pydantic_v1 import ConfigDict, Field
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.passes.pass_config import AbstractPassConfig
 from olive.search.search_strategy import SearchStrategyConfig
@@ -19,7 +19,8 @@ INVALID_CONFIG = "invalid-config"
 PRUNED_CONFIGS = (FAILED_CONFIG, INVALID_CONFIG)
 
 
-class EngineConfig(ConfigBase, extra=Extra.forbid):
+class EngineConfig(ConfigBase):
+    model_config = ConfigDict(extra='forbid')
     search_strategy: Union[SearchStrategyConfig, bool] = Field(
         None, description="Search strategy configuration to use to auto optimize the input model."
     )

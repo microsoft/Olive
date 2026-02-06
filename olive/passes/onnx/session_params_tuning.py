@@ -13,7 +13,6 @@ import onnxruntime as ort
 
 from olive.common.config_utils import validate_config
 from olive.common.ort_inference import check_and_normalize_provider_args, get_ort_available_providers
-from olive.common.pydantic_v1 import Extra
 from olive.data.config import DataConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.metric_result import joint_metric_key
@@ -186,7 +185,7 @@ class OrtSessionParamsTuning(Pass):
             return False
 
         # Rename the search parameters with atomic/singular names for clarity
-        config.__class__.__config__.extra = Extra.allow
+        config.model_config['extra'] = 'allow'
         config.execution_provider = config.providers_list
         config.provider_options = config.provider_options_list
         config.execution_mode = config.execution_mode_list
@@ -268,7 +267,7 @@ class OrtSessionParamsTuning(Pass):
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         # Rename the search parameters with atomic/singular names for clarity
-        config.__class__.__config__.extra = Extra.allow
+        config.model_config['extra'] = 'allow'
         config = config.copy()
         config.execution_provider = config.providers_list
         config.provider_options = config.provider_options_list

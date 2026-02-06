@@ -7,16 +7,15 @@ from pathlib import Path
 from typing import Optional, Union
 
 from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
-from olive.common.pydantic_v1 import field_validator
+from olive.common.pydantic_v1 import ConfigDict, field_validator
 from olive.systems.common import AcceleratorConfig, SystemType
 
 
 class TargetUserConfig(ConfigBase):
+    model_config = ConfigDict(validate_assignment=True)
+    
     accelerators: list[AcceleratorConfig] = None
     hf_token: bool = None
-
-    class Config:
-        validate_assignment = True
 
     @field_validator("accelerators", mode="before")
     @classmethod
