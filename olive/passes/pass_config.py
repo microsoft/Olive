@@ -219,11 +219,7 @@ class PassModuleConfig(ConfigBase):
         v = v or []
         if v == ["*"]:
             v = PassModuleConfig.EXECUTION_PROVIDERS
-        return v
-
-    @field_validator("supported_providers", mode="before")
-    @classmethod
-    def validate_supported_provider(cls, v, info):
+        # Validate each item
         result = []
         for item in v:
             if item not in PassModuleConfig.EXECUTION_PROVIDERS:
@@ -237,11 +233,7 @@ class PassModuleConfig(ConfigBase):
         v = v or []
         if v == ["*"]:
             v = PassModuleConfig.ACCELERATORS
-        return v
-
-    @field_validator("supported_accelerators", mode="before")
-    @classmethod
-    def validate_supported_accelerator(cls, v, info):
+        # Validate each item
         result = []
         for item in v:
             if item not in PassModuleConfig.ACCELERATORS:
@@ -255,11 +247,7 @@ class PassModuleConfig(ConfigBase):
         v = v or []
         if v == ["*"]:
             v = PassModuleConfig.PRECISIONS
-        return v
-
-    @field_validator("supported_precisions", mode="before")
-    @classmethod
-    def validate_supported_precision(cls, v, info):
+        # Validate each item
         result = []
         for item in v:
             if item not in PassModuleConfig.PRECISIONS:
@@ -269,15 +257,11 @@ class PassModuleConfig(ConfigBase):
 
     @field_validator("supported_algorithms", mode="before")
     @classmethod
-    def validate_supported_algorithm(cls, v, info):
+    def validate_supported_algorithms(cls, v, info):
         v = v or []
         if v == ["*"]:
             v = PassModuleConfig.QUANT_ALGORITHMS
-        return v
-
-    @field_validator("supported_algorithms", mode="before")
-    @classmethod
-    def validate_supported_algorithms(cls, v, info):
+        # Validate each item
         result = []
         for item in v:
             if item not in PassModuleConfig.QUANT_ALGORITHMS:
@@ -287,18 +271,14 @@ class PassModuleConfig(ConfigBase):
 
     @field_validator("supported_quantization_encodings", mode="before")
     @classmethod
-    def validate_supported_quantization_encoding(cls, v, info):
+    def validate_supported_quantization_encodings(cls, v, info):
         v = v or []
         if v == ["*"]:
             v = PassModuleConfig.QUANT_ENCODINGS
-        return v
-
-    @field_validator("supported_quantization_encodings", mode="before")
-    @classmethod
-    def validate_supported_quantization_encodings(cls, v, info):
+        # Validate each item
         result = []
         for item in v:
             if item not in PassModuleConfig.QUANT_ENCODINGS:
-                raise ValueError(f"Invalid algorithm: {item}")
+                raise ValueError(f"Invalid quantization encoding: {item}")
             result.append(item)
         return result
