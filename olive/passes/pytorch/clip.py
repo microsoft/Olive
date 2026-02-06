@@ -132,42 +132,30 @@ class AutoClip(Pass):
         module.quant_info.data = None
 
         module.to(device)
-        weight = module.weight.data
-        quantizer = module.quant_info.quantizer
-        max_val, min_val = cls._auto_clip_layer(
-            weight,
+        cls._auto_clip_layer(
+            module,
             input_feat,
-            quantizer,
             n_grid,
             max_shrink,
             n_sample_token,
         )
-        cls._apply_clip(module, max_val, min_val)
         module.to("cpu")
-
-    @staticmethod
-    def _apply_clip(module: torch.nn.Module, max_val: torch.Tensor, min_val: torch.Tensor) -> None:
-        weight = module.weight.data
-        original_shape = weight.shape
-        weight = weight.reshape(max_val.shape[0], max_val.shape[1], -1)
-        weight = torch.clamp(weight, min_val, max_val)
-        module.weight.data = weight.reshape(original_shape)
 
     @classmethod
     def _auto_clip_layer(
         cls,
-        weight: torch.Tensor,
+        module: torch.nn.Module,
         input_feat: torch.Tensor,
-        quantizer,
         n_grid: int,
         max_shrink: float,
         n_sample_token: int,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> None:
+        weight = module.weight.data
         if weight.dim() != 2:
             raise ValueError("AutoClip expects a 2D linear weight tensor.")
 
-        group_size = getattr(quantizer, "group_size", 0)
-        effective_group_size = weight.shape[1] if group_size <= 0 else group_size
+        quantizer = module.quant_info.quantizer
+        effective_group_size = weight.shape[1] if quantizer.group_size <= 0 else quantizer.group_size
         if weight.shape[1] % effective_group_size != 0:
             raise ValueError("Weight in_features must be divisible by group_size.")
 
@@ -216,4 +204,7 @@ class AutoClip(Pass):
 
         best_max_val = torch.cat(best_max_val_all, dim=0).squeeze(1)
         best_min_val = torch.cat(best_min_val_all, dim=0).squeeze(1)
-        return best_max_val, best_min_val
+        original_shape = module.weight.data.shape
+        clipped = module.weight.data.reshape(best_max_val.shape[0], best_max_val.shape[1], -1)
+        clipped = torch.clamp(clipped, best_min_val, best_max_val)
+        module.weight.data = clipped.reshape(original_shape)
