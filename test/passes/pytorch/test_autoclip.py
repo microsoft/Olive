@@ -11,7 +11,7 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import HfModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch.autoclip import AutoClip
-from test.utils import get_tiny_phi3, make_local_tiny_llama
+from test.utils import get_tiny_phi3, get_wikitext_data_config, make_local_tiny_llama
 
 
 # running on CPU takes time so will only run a subset of tests when GPU is not available
@@ -36,6 +36,9 @@ def test_autoclip(tmp_path: Path, model_path: str, expected_model_type: str, gro
             "lm_head": False,
             "sym": False,
             "overrides": {"model.layers.0.self_attn.o_proj": {"bits": 8}},
+            "data_config": get_wikitext_data_config(
+                input_model.model_name_or_path, strategy="line-by-line", max_seq_len=100, max_samples=2
+            ),
         },
         disable_search=True,
         accelerator_spec=AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider"),
