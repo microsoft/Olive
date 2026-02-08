@@ -50,3 +50,56 @@ def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = N
             line_trunc = line_trunc[idx + len(file_line) :]
         lines.append(line_trunc)
     return "\n".join(lines)
+
+
+class _ExclusiveFileLock:
+    """Cross-platform exclusive file lock context manager.
+
+    Uses fcntl on Unix/Linux/macOS, msvcrt on Windows.
+    Prevents cache corruption when multiple processes access the same file.
+
+    Design decisions:
+    - Lock is held for the entire duration of file access (prevents partial reads/writes)
+    - Lock is released automatically on close (even on exceptions)
+    - Platform-specific implementation (fcntl for POSIX, msvcrt for Windows)
+
+    Assumptions:
+    - File locking is supported on the platform
+    - Lock is advisory on some systems (cooperative locking)
+    """
+
+    def __init__(self, file_path: Path, mode: str):
+        self.file_path = file_path
+        self.mode = mode
+        self.file = None
+
+    def __enter__(self):
+        self.file = open(self.file_path, self.mode, encoding="utf-8")
+
+        # Platform-specific locking
+        if os.name == "posix":
+            import fcntl
+
+            fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
+        elif os.name == "nt":
+            import msvcrt
+
+            # Lock 1 byte at position 0
+            msvcrt.locking(self.file.fileno(), msvcrt.LK_LOCK, 1)
+
+        return self.file
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.file:
+            # Unlock happens automatically on close
+            self.file.close()
+
+
+def _exclusive_file_lock(file_path: Path, mode: str):
+    """Create an exclusive file lock context manager.
+
+    :param file_path: Path to the file to lock.
+    :param mode: File open mode ('r', 'a', 'w', etc.).
+    :return: Context manager that returns an open file handle.
+    """
+    return _ExclusiveFileLock(file_path, mode)

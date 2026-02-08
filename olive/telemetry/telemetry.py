@@ -18,7 +18,7 @@ from olive.telemetry.constants import CONNECTION_STRING
 from olive.telemetry.deviceid import get_encrypted_device_id_and_status
 from olive.telemetry.library.event_source import event_source
 from olive.telemetry.library.telemetry_logger import TelemetryLogger, get_telemetry_logger
-from olive.telemetry.utils import get_telemetry_base_dir
+from olive.telemetry.utils import get_telemetry_base_dir, _exclusive_file_lock
 
 if TYPE_CHECKING:
     from olive.telemetry.library.callback_manager import PayloadTransmittedCallbackArgs
@@ -29,7 +29,7 @@ ACTION_EVENT_NAME = "OliveAction"
 ERROR_EVENT_NAME = "OliveError"
 
 ALLOWED_KEYS = {
-    HEARTBEAT_EVENT_NAME: [
+    HEARTBEAT_EVENT_NAME: {
         "device_id",
         "id_status",
         "os.name",
@@ -39,8 +39,8 @@ ALLOWED_KEYS = {
         "app_version",
         "app_instance_id",
         "initTs",
-    ],
-    ACTION_EVENT_NAME: [
+    },
+    ACTION_EVENT_NAME: {
         "invoked_from",
         "action_name",
         "duration_ms",
@@ -48,14 +48,14 @@ ALLOWED_KEYS = {
         "app_version",
         "app_instance_id",
         "initTs",
-    ],
-    ERROR_EVENT_NAME: [
+    },
+    ERROR_EVENT_NAME: {
         "exception_type",
         "exception_message",
         "app_version",
         "app_instance_id",
         "initTs",
-    ],
+    },
 }
 
 CRITICAL_EVENTS = {HEARTBEAT_EVENT_NAME}
@@ -240,6 +240,7 @@ class TelemetryCacheHandler:
         Design decisions:
         - Parse payload to extract individual events (allows filtering)
         - Filter to only critical events near size limit (preserves important data)
+        - Use file locking for multi-process safety (prevents corruption)
         - Use exponential backoff for file contention (avoids spinning)
         - Fail silently on errors (telemetry should never crash app)
 
@@ -277,7 +278,8 @@ class TelemetryCacheHandler:
                             return
 
                     # Append newline-delimited JSON (human-readable, partial corruption recovery)
-                    with cache_path.open("a", encoding="utf-8") as cache_file:
+                    # Use exclusive file lock for multi-process safety
+                    with _exclusive_file_lock(cache_path, mode="a") as cache_file:
                         for entry in entries:
                             # Write compact JSON on single line
                             json.dump(entry, cache_file, ensure_ascii=False, separators=(",", ":"))
@@ -686,6 +688,7 @@ def _read_cache_entries(cache_path: Path) -> list[dict[str, Any]]:
     """Read all entries from a cache file.
 
     Design decisions:
+    - Use file locking for multi-process safety
     - Continue reading past malformed entries (partial data recovery)
     - Return empty list on complete read failure (fail gracefully)
 
@@ -696,7 +699,7 @@ def _read_cache_entries(cache_path: Path) -> list[dict[str, Any]]:
     """
     entries = []
     try:
-        with cache_path.open("r", encoding="utf-8") as cache_file:
+        with _exclusive_file_lock(cache_path, mode="r") as cache_file:
             for raw_line in cache_file:
                 line = raw_line.strip()
                 if not line:
