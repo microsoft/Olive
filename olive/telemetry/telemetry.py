@@ -18,7 +18,7 @@ from olive.telemetry.constants import CONNECTION_STRING
 from olive.telemetry.deviceid import get_encrypted_device_id_and_status
 from olive.telemetry.library.event_source import event_source
 from olive.telemetry.library.telemetry_logger import TelemetryLogger, get_telemetry_logger
-from olive.telemetry.utils import get_telemetry_base_dir, _exclusive_file_lock
+from olive.telemetry.utils import _exclusive_file_lock, get_telemetry_base_dir
 
 if TYPE_CHECKING:
     from olive.telemetry.library.callback_manager import PayloadTransmittedCallbackArgs
