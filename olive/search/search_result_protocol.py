@@ -11,9 +11,7 @@ class EvaluationSignal(Protocol):
 
     Decouples the search subsystem from the concrete MetricResult class.
     Any object supporting dict-like access (``signal[key]``) where values
-    have a ``.value`` attribute, and membership testing (``key in signal``)
-    satisfies this protocol.
+    have a ``.value`` attribute satisfies this protocol.
     """
 
     def __getitem__(self, key: str): ...
-    def __contains__(self, key: str) -> bool: ...
