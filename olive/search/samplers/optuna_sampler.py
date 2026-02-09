@@ -18,7 +18,7 @@ from olive.search.search_space import SearchSpace
 if TYPE_CHECKING:
     from optuna.trial import Trial
 
-    from olive.evaluator.metric_result import MetricResult
+    from olive.search.search_result_protocol import EvaluationSignal
 
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -134,7 +134,7 @@ class OptunaSampler(SearchSampler):
         else:
             raise ValueError(f"Unsupported parameter type: {type(param)}")
 
-    def record_feedback_signal(self, search_point_index: int, signal: "MetricResult", should_prune: bool = False):
+    def record_feedback_signal(self, search_point_index: int, signal: "EvaluationSignal", should_prune: bool = False):
         trial_id = self._search_point_index_to_trail_id[search_point_index]
         if should_prune:
             self._study.tell(trial_id, state=optuna.trial.TrialState.PRUNED)

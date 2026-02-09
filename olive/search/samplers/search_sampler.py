@@ -11,8 +11,8 @@ from olive.common.config_utils import ConfigBase, ConfigParam
 from olive.search.search_space import SearchSpace
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric_result import MetricResult
     from olive.search.search_point import SearchPoint
+    from olive.search.search_result_protocol import EvaluationSignal
 
 
 class SearchSampler(AutoConfigClass):
@@ -73,5 +73,5 @@ class SearchSampler(AutoConfigClass):
         """Suggest a new configuration to try."""
         return None
 
-    def record_feedback_signal(self, search_point_index: int, signal: "MetricResult", should_prune: bool = False):
+    def record_feedback_signal(self, search_point_index: int, signal: "EvaluationSignal", should_prune: bool = False):
         """Report the result of a configuration."""

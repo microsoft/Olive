@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric_result import MetricResult
+    from olive.search.search_result_protocol import EvaluationSignal
 
 
 class SearchResults:
@@ -28,10 +28,10 @@ class SearchResults:
             self._higher_is_betters[name] = objective.get("higher_is_better") or False
             self._multipliers[name] = 1 if self._higher_is_betters[name] else -1
 
-        self._results: tuple[MetricResult, list[str]] = []
+        self._results: tuple[EvaluationSignal, list[str]] = []
         self._sorted_indices: list[int] = []
 
-    def record_feedback_signal(self, search_point_index: int, result: "MetricResult", model_ids: list[str]):
+    def record_feedback_signal(self, search_point_index: int, result: "EvaluationSignal", model_ids: list[str]):
         """Record the evaluation result of a search point."""
         self._results += [None] * ((search_point_index + 1) - len(self._results))
         self._results[search_point_index] = (result, model_ids)

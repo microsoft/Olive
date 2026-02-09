@@ -18,8 +18,8 @@ from olive.search.search_sample import SearchSample
 from olive.search.search_space import SearchSpace
 
 if TYPE_CHECKING:
-    from olive.evaluator.metric_result import MetricResult
     from olive.search.search_parameter import SearchParameter
+    from olive.search.search_result_protocol import EvaluationSignal
 
 logger = logging.getLogger(__name__)
 
@@ -325,7 +325,7 @@ class SearchStrategy:
     def record_feedback_signal(
         self,
         search_point_index: int,
-        signal: "MetricResult",
+        signal: "EvaluationSignal",
         model_ids: list[str],
         should_prune: bool = False,
     ):
