@@ -287,16 +287,6 @@ class Engine:
         """Return evaluator for the given pass."""
         return self.pass_runner.evaluator_for_pass(pass_name)
 
-    def _evaluate_model(
-        self,
-        model_config: ModelConfig,
-        model_id: str,
-        evaluator_config: OliveEvaluatorConfig,
-        accelerator_spec: "AcceleratorSpec",
-    ):
-        """Evaluate a model."""
-        return self.pass_runner.evaluate_model(model_config, model_id, evaluator_config, accelerator_spec)
-
     def resolve_objectives(
         self,
         input_model_config: ModelConfig,
