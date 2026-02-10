@@ -21,7 +21,7 @@ onnxconverter_common
 onnxmltools
 onnxoptimizer
 onnxruntime_extensions
-onnxscript>=0.2.4, <0.6.1
+onnxscript>=0.2.4
 onnxsim
 openvino>=2025.3.0
 optuna
