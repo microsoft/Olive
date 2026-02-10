@@ -21,7 +21,7 @@ onnxconverter_common
 onnxmltools
 onnxoptimizer
 onnxruntime_extensions
-onnxscript>=0.2.4
+onnxscript>=0.2.4, <0.6.1
 onnxsim
 openvino>=2025.3.0
 optuna
@@ -37,5 +37,3 @@ sentencepiece
 soundfile
 tabulate
 torchvision
-# Remove version pin when the tests are fixed
-transformers<5.0.0

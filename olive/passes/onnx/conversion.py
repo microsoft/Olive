@@ -57,6 +57,81 @@ class TraceModelWrapper(torch.nn.Module):
         return self.model(*input_data, **input_dict)
 
 
+def _patch_dynamic_layer_for_export():
+    """Patch DynamicLayer.lazy_initialization for torch.export compatibility (transformers >= 5.0).
+
+    The original uses torch.tensor([]) which creates a 1D empty tensor (shape [0]).
+    torch.export needs consistent tensor ranks, so we use torch.narrow + torch.empty_like
+    to preserve the full shape (e.g. [batch, heads, 0, head_dim]).
+    """
+    from transformers.cache_utils import DynamicLayer
+
+    if not hasattr(DynamicLayer, "lazy_initialization"):
+        return
+
+    def patched_lazy_initialization(self, key_states: torch.Tensor, value_states: torch.Tensor = None):
+        self.dtype, self.device = key_states.dtype, key_states.device
+        like = torch.narrow(key_states, dim=-2, start=0, length=0)
+        if isinstance(key_states, torch._subclasses.fake_tensor.FakeTensor):
+            with key_states.fake_mode:
+                self.keys = torch.empty_like(like, dtype=self.dtype, device=self.device)
+                self.values = torch.empty_like(like, dtype=self.dtype, device=self.device)
+        else:
+            self.keys = torch.empty_like(like, dtype=self.dtype, device=self.device)
+            self.values = torch.empty_like(like, dtype=self.dtype, device=self.device)
+        self.is_initialized = True
+
+    DynamicLayer.lazy_initialization = patched_lazy_initialization
+    logger.debug("Patched DynamicLayer.lazy_initialization for torch.export compatibility.")
+
+
+def _convert_past_key_values_to_dynamic_cache(dummy_kwargs: dict) -> dict:
+    """Convert legacy list-format past_key_values to DynamicCache (transformers >= 5.0).
+
+    Transformers 5.0 models expect DynamicCache objects, not lists of (key, value) tensors.
+    """
+    pkv = dummy_kwargs.get("past_key_values")
+    if pkv is None or not isinstance(pkv, (list, tuple)):
+        return dummy_kwargs
+
+    # Check if it's legacy format: list of [key, value] pairs (each with exactly 2 elements)
+    if not pkv or not isinstance(pkv[0], (list, tuple)) or len(pkv[0]) != 2:
+        return dummy_kwargs
+
+    from transformers.cache_utils import DynamicCache
+
+    dc = DynamicCache()
+    for layer_idx, kv in enumerate(pkv):
+        dc.update(kv[0], kv[1], layer_idx=layer_idx)
+    dummy_kwargs["past_key_values"] = dc
+    logger.debug("Converted past_key_values from legacy list format to DynamicCache.")
+    return dummy_kwargs
+
+
+def _convert_dynamic_shapes_for_dynamic_cache(dynamic_shapes: dict) -> dict:
+    """Convert dynamic_shapes for past_key_values from nested list to DynamicCache pytree format.
+
+    The old format is: [[key_shape, val_shape], ...] (one pair per layer)
+    The DynamicCache pytree expects a flat list: [key0, val0, key1, val1, ...]
+    matching the flattened order from register_dynamic_cache_export_support().
+    """
+    pkv_shapes = dynamic_shapes.get("past_key_values")
+    if pkv_shapes is None or not isinstance(pkv_shapes, (list, tuple)):
+        return dynamic_shapes
+
+    if not pkv_shapes or not isinstance(pkv_shapes[0], (list, tuple)) or len(pkv_shapes[0]) != 2:
+        return dynamic_shapes
+
+    # Convert [[key0, val0], [key1, val1], ...] -> [[key0, key1, ...], [val0, val1, ...]]
+    # matching DynamicCache pytree: _dict_flatten({"key_cache": [...], "value_cache": [...]})
+    dynamic_shapes["past_key_values"] = [
+        [layer[0] for layer in pkv_shapes],
+        [layer[1] for layer in pkv_shapes],
+    ]
+    logger.debug("Converted dynamic_shapes for past_key_values to DynamicCache pytree format.")
+    return dynamic_shapes
+
+
 def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
     if not isinstance(pytorch_model, PreTrainedModel):
         return
@@ -179,9 +254,6 @@ def _export_pytorch_model(
     if torch_dtype:
         pytorch_model = pytorch_model.to(torch_dtype)
 
-    # Apply any necessary patches
-    _patch_model_if_necessary(pytorch_model)
-
     # get input and output names, and dynamic axes
     assert io_config is not None, "Cannot get io_config for the model."
     io_config = validate_config(io_config, IoConfig)
@@ -212,11 +284,6 @@ def _export_pytorch_model(
                     "Please upgrade PyTorch to 2.6.0 or above."
                 )
 
-            # Register DynamicCache export support
-            from transformers.integrations.executorch import register_dynamic_cache_export_support
-
-            register_dynamic_cache_export_support()
-
             if isinstance(dummy_inputs, dict):
                 dummy_kwargs = dummy_inputs
                 dummy_inputs = ()
@@ -224,12 +291,32 @@ def _export_pytorch_model(
                 dummy_kwargs = {}
                 dummy_inputs = tuple(dummy_inputs)
 
+            # Apply patches for DynamicCache / past_key_values compatibility
+            if version.parse(transformers.__version__) >= version.parse("5.0"):
+                # transformers >= 5.0: DynamicCache refactored to use DynamicLayer
+                from transformers.integrations.executorch import register_dynamic_cache_export_support
+
+                register_dynamic_cache_export_support()
+                _patch_dynamic_layer_for_export()
+                dummy_kwargs = _convert_past_key_values_to_dynamic_cache(dummy_kwargs)
+                if io_config.dynamic_shapes:
+                    io_config.dynamic_shapes = _convert_dynamic_shapes_for_dynamic_cache(io_config.dynamic_shapes)
+            else:
+                # transformers < 5.0: patch forward to convert list <-> DynamicCache
+                _patch_model_if_necessary(pytorch_model)
+
             # NOTE: Usually validation is done in io_config.py, but because
             # dynamic_shapes has nested complexity, and it can't be validated multiple
             # times like others, we validate it here.
             io_config.dynamic_shapes, dummy_inputs, dummy_kwargs = _validate_dynamic_shapes(
                 io_config.dynamic_shapes, dummy_inputs, dummy_kwargs, pytorch_model
             )
+            # torch.export requires strict type match between inputs and dynamic_shapes;
+            # _validate_dynamic_shapes may return OrderedDict, so convert back to plain dict
+            if isinstance(io_config.dynamic_shapes, collections.OrderedDict):
+                io_config.dynamic_shapes = dict(io_config.dynamic_shapes)
+            if isinstance(dummy_kwargs, collections.OrderedDict):
+                dummy_kwargs = dict(dummy_kwargs)
 
             # When dynamo=True, PyTorch prefers dynamic_shapes over dynamic_axes.
             # If dynamic_shapes is None and fallback is enabled, don't pass dynamic_axes
