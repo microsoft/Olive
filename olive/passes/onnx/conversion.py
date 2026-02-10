@@ -72,7 +72,7 @@ def _patch_dynamic_layer_for_export():
     def patched_lazy_initialization(self, key_states: torch.Tensor, value_states: torch.Tensor = None):
         self.dtype, self.device = key_states.dtype, key_states.device
         like = torch.narrow(key_states, dim=-2, start=0, length=0)
-        if isinstance(key_states, torch._subclasses.fake_tensor.FakeTensor):
+        if hasattr(key_states, "fake_mode"):
             with key_states.fake_mode:
                 self.keys = torch.empty_like(like, dtype=self.dtype, device=self.device)
                 self.values = torch.empty_like(like, dtype=self.dtype, device=self.device)
