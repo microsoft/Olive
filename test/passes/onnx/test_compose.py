@@ -21,7 +21,7 @@ from test.utils import make_local_tiny_llama
     "use_mb",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skip(reason="Dynamo export fails for Llama, need fix")),
+        False,
     ],
 )
 def test_compose_onnx_models_composite(tmp_path, use_mb):

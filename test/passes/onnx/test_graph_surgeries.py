@@ -1955,9 +1955,6 @@ def test_deduplicate_hashed_initializers_pass_called(mock_dedup_pass, tmp_path):
     mock_instance.assert_called_once()
 
 
-# Skip: Both dynamo (TorchExportError) and TorchScript (RuntimeError: unordered_map::at)
-# fail to export this model due to transformers/PyTorch version incompatibility
-@pytest.mark.skip(reason="ONNX export fails for tiny-random-phi3 model in current environment")
 @pytest.mark.parametrize("quantized", [True, False])
 def test_tie_word_embeddings(tmp_path, quantized):
     # setup
