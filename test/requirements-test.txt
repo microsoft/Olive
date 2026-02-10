@@ -17,6 +17,7 @@ numpy<2.0.0
 nvidia-modelopt
 onnx
 onnx-graphsurgeon
+onnx-ir<0.1.16
 onnxconverter_common
 onnxmltools
 onnxoptimizer
