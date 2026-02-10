@@ -620,6 +620,7 @@ def process_llm_pipeline(
     output_dir: Union[str, Path],
     decoder_config_extra: Optional[dict[str, Any]] = None,
     group_session_options: Optional[dict[str, Any]] = None,
+    group_run_options: Optional[dict[str, Any]] = None,
 ) -> CompositeModelHandler:
     """Process an LLM pipeline with the given function.
 
@@ -631,6 +632,7 @@ def process_llm_pipeline(
     :param output_dir: The directory to save the processed model.
     :param decoder_config_extra: Extra configuration for the decoder.
     :param group_session_options: Session options for the context and iterator groups.
+    :param group_run_options: Run options for the context and iterator groups.
     :return: The processed composite model handler.
     """
     output_dir = Path(output_dir)
@@ -673,6 +675,7 @@ def process_llm_pipeline(
         source_llm_pipeline=llm_pipeline,
         decoder_config_extra=decoder_config_extra,
         group_session_options=group_session_options,
+        group_run_options=group_run_options,
     )
 
 
@@ -681,6 +684,7 @@ def update_llm_pipeline_genai_config(
     source_llm_pipeline: Optional[dict[str, Any]] = None,
     decoder_config_extra: Optional[dict[str, Any]] = None,
     group_session_options: Optional[dict[str, Any]] = None,
+    group_run_options: Optional[dict[str, Any]] = None,
 ) -> CompositeModelHandler:
     """Update the LLM pipeline in the model's genai_config.json file.
 
@@ -688,6 +692,7 @@ def update_llm_pipeline_genai_config(
     :param source_llm_pipeline: The source LLM pipeline to use for the update.
     :param decoder_config_extra: Extra configuration for the decoder.
     :param group_session_options: Session options for the context and iterator groups.
+    :param group_run_options: Run options for the context and iterator groups.
     :return: The updated composite model.
     """
     if not model.model_path or not Path(model.model_path).is_dir():
@@ -737,6 +742,9 @@ def update_llm_pipeline_genai_config(
         group_session_options = group_session_options or decoder_config.get("pipeline", [{}])[0].get(
             source_llm_pipeline["context"][0], {}
         ).get("session_options")
+        group_run_options = group_run_options or decoder_config.get("pipeline", [{}])[0].get(
+            source_llm_pipeline["context"][0], {}
+        ).get("run_options")
     # update pipeline config
     component_models = dict(model.get_model_components())
     pipeline_config = {}
@@ -758,6 +766,8 @@ def update_llm_pipeline_genai_config(
         for name in llm_pipeline[group]:
             if group_session_options:
                 pipeline_config[name]["session_options"] = group_session_options
+            if group_run_options:
+                pipeline_config[name]["run_options"] = group_run_options
             pipeline_config[name][f"run_on_{dont_run_on}"] = False
 
     pipeline_config[llm_pipeline["lm_head"]]["is_lm_head"] = True
