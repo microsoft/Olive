@@ -130,6 +130,35 @@ def load_hf_base_model(
     return new_model_handler.load_model(cache_model=False)
 
 
+def enable_gradient_checkpointing(model: "PreTrainedModel"):
+    """Enable gradient checkpointing on the model for memory efficiency.
+
+    Ensures input embeddings produce gradients (required for checkpointing) and enables
+    gradient checkpointing on the model.
+
+    :param model: The Hugging Face PyTorch model.
+    :return: True if gradient checkpointing was enabled, False if not supported.
+    """
+    if not model.supports_gradient_checkpointing:
+        logger.warning(
+            "gradient_checkpointing is True, but model does not support gradient checkpointing!"
+            " Setting gradient_checkpointing to False"
+        )
+        return False
+
+    if hasattr(model, "enable_input_require_grads"):
+        model.enable_input_require_grads()
+    else:
+
+        def make_inputs_require_grad(module_, input_, output_):
+            output_.requires_grad_(True)
+
+        model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+
+    model.gradient_checkpointing_enable()
+    return True
+
+
 def prepare_model_for_finetuning(model: "PreTrainedModel", training_args: BaseHFTrainingArguments):
     """Prepare the model for fine-tuning.
 
@@ -144,25 +173,8 @@ def prepare_model_for_finetuning(model: "PreTrainedModel", training_args: BaseHF
         # freeze base model's layers
         param.requires_grad = False
 
-    if training_args.gradient_checkpointing and not model.supports_gradient_checkpointing:
-        logger.warning(
-            "gradient_checkpointing is True, but model does not support gradient checkpointing! Setting"
-            " gradient_checkpoing to False"
-        )
+    if training_args.gradient_checkpointing and not enable_gradient_checkpointing(model):
         training_args.gradient_checkpointing = False
-    elif training_args.gradient_checkpointing:
-        # For backward compatibility
-        if hasattr(model, "enable_input_require_grads"):
-            model.enable_input_require_grads()
-        else:
-
-            def make_inputs_require_grad(module_, input_, output_):
-                output_.requires_grad_(True)
-
-            model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
-
-        # enable gradient checkpointing for memory efficiency
-        model.gradient_checkpointing_enable()
 
     logger.debug("The number of trainable parameters in the original model: %s", count_trainable_parameters(model))
 
