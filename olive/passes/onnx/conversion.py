@@ -113,7 +113,6 @@ def _convert_dynamic_shapes_for_dynamic_cache(dynamic_shapes: dict) -> dict:
 
     The old format is: [[key_shape, val_shape], ...] (one pair per layer)
     The DynamicCache pytree expects a flat list: [key0, val0, key1, val1, ...]
-    matching the flattened order from register_dynamic_cache_export_support().
     """
     pkv_shapes = dynamic_shapes.get("past_key_values")
     if pkv_shapes is None or not isinstance(pkv_shapes, (list, tuple)):
@@ -294,9 +293,7 @@ def _export_pytorch_model(
             # Apply patches for DynamicCache / past_key_values compatibility
             if version.parse(transformers.__version__) >= version.parse("5.0"):
                 # transformers >= 5.0: DynamicCache refactored to use DynamicLayer
-                from transformers.integrations.executorch import register_dynamic_cache_export_support
 
-                register_dynamic_cache_export_support()
                 _patch_dynamic_layer_for_export()
                 dummy_kwargs = _convert_past_key_values_to_dynamic_cache(dummy_kwargs)
                 if io_config.dynamic_shapes:
