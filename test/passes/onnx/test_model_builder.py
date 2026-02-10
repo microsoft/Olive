@@ -37,7 +37,8 @@ def test_model_builder(tmp_path, metadata_only):
     reason="Skip for now, need a fix in genai to support new Olive quant format "
     "https://github.com/microsoft/onnxruntime-genai/pull/1916"
 )
-def test_model_builder_olive_quant(tmp_path):
+@pytest.mark.parametrize("embeds", [True, False])
+def test_model_builder_olive_quant(tmp_path, embeds):
     # set up quantized model
     input_model = create_pass_from_dict(
         Rtn,
@@ -46,8 +47,7 @@ def test_model_builder_olive_quant(tmp_path):
             "group_size": 16,
             "symmetric": False,
             "lm_head": True,
-            # quantized embedding export is not supported yet by ModelBuilder
-            "embeds": False,
+            "embeds": embeds,
         },
         disable_search=True,
     ).run(
