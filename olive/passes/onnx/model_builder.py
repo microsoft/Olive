@@ -368,6 +368,7 @@ class ModelBuilder(Pass):
 
         builder = importlib.import_module("onnxruntime_genai.models.builder")
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
+        builder.Model.make_embedding = patched_make_embedding
 
 
 class OliveQuantizedModel:
@@ -469,6 +470,14 @@ class OliveQuantizedModel:
         if isinstance(self.lm_head, TensorModule) and self.lm_head.weight is None:
             self.lm_head.weight = self.embedding.weight
 
+        if isinstance(self.embedding, QuantizedTensorModule):
+            # nest the module into .weight since the builder expects that
+            class EmbeddingWrapper:
+                def __init__(self, embedding):
+                    self.weight = embedding
+
+            self.embedding = EmbeddingWrapper(self.embedding)
+
 
 def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename, root_input, **kwargs):
     if not hasattr(q_matmul, "qweight"):
@@ -496,3 +505,70 @@ def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename
 
     matmul = PackedMatMul()
     return self.make_matmul_int4(matmul, basename, root_input, **kwargs)
+
+
+def patched_make_embedding(self, embedding):
+    import onnx_ir as ir
+
+    basename = "/model/embed_tokens"
+    if getattr(self, "int4_tied_embeddings", False) or getattr(self, "shared_embeddings", False):
+        logger.debug(
+            "int4_tied_embedding/shared_embeddings is set to True but will be ignored. Use TieWordEmbeddings graph surgery to tie"
+            " embeddings."
+        )
+
+    if hasattr(embedding, "qweight"):
+        qweight = "model.embed_tokens.qweight"
+        self.make_initializer(embedding.qweight.reshape([embedding.qweight.shape[0], -1]), qweight)
+        scales = "model.embed_tokens.scales"
+        self.make_initializer(embedding.scales, scales, to=self.io_dtype)
+        if embedding.qzeros is not None:
+            qzeros = "model.embed_tokens.qzeros"
+            self.make_initializer(embedding.qzeros, qzeros)
+
+        gather_name = f"{basename}/GatherBlockQuantized"
+        gather_output = f"{gather_name}/output_0"
+        self.make_node(
+            "GatherBlockQuantized",
+            inputs=[qweight, "input_ids", scales] + ([qzeros] if embedding.qzeros is not None else []),
+            outputs=[gather_output],
+            name=gather_name,
+            domain="com.microsoft",
+            bits=embedding.bits,
+            block_size=embedding.group_size,
+        )
+    else:
+        weight = "model.embed_tokens.weight"
+        self.make_initializer(embedding, weight, to=self.io_dtype)
+
+        gather_name = f"{basename}/Gather"
+        gather_output = f"{gather_name}/output_0"
+        self.make_node("Gather", inputs=[weight, "input_ids"], outputs=[gather_output], name=gather_name)
+
+    self.make_value(gather_output, self.io_dtype, shape=["batch_size", "sequence_length", self.hidden_size])
+
+    if self.embed_attrs["scale"] != 1:
+        # Scale the embeddings
+        mul_name = f"{basename}/Mul"
+        mul_inputs = [gather_output, f"/model/constants/{self.to_str_dtype(self.io_dtype)}/{self.embed_attrs['scale']}"]
+        mul_output = f"{mul_name}/output_0"
+        self.make_node("Mul", inputs=mul_inputs, outputs=[mul_output], name=mul_name)
+        self.make_value(mul_output, self.io_dtype, shape=["batch_size", "sequence_length", self.hidden_size])
+
+        layernorm_attrs_value = mul_output
+    else:
+        layernorm_attrs_value = gather_output
+
+    if self.layernorm_attrs["cast"]["use_fp32"] and self.io_dtype != ir.DataType.FLOAT:
+        # Insert output Cast node
+        cast_name = f"{basename}/Cast"
+        self.make_cast(
+            cast_name,
+            layernorm_attrs_value,
+            ir.DataType.FLOAT,
+            shape=["batch_size", "sequence_length", self.hidden_size],
+        )
+        layernorm_attrs_value = f"{cast_name}/output_0"
+
+    self.layernorm_attrs["root_input"] = layernorm_attrs_value
+    self.layernorm_attrs["skip_input"] = layernorm_attrs_value
