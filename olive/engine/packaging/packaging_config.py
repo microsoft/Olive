@@ -2,11 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Optional
+from typing import ClassVar, Optional
+
+from pydantic import field_validator
 
 from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase, NestedConfig, validate_config
 from olive.common.constants import BASE_IMAGE
-from olive.common.pydantic_v1 import validator
 
 
 class PackagingType(CaseInsensitiveEnum):
@@ -38,12 +39,15 @@ _type_to_config = {
 class PackagingConfig(NestedConfig):
     """Olive output artifacts generation config."""
 
+    _nested_field_name: ClassVar[str] = "config"
+
     type: PackagingType = PackagingType.Zipfile
     name: str = "OutputModels"
-    config: CommonPackagingConfig = None
+    config: Optional[CommonPackagingConfig] = None
 
-    @validator("config", pre=True, always=True)
-    def _validate_config(cls, v, values):
-        packaging_type = values.get("type")
+    @field_validator("config", mode="before")
+    @classmethod
+    def _validate_config(cls, v, info):
+        packaging_type = info.data.get("type")
         config_class = _type_to_config.get(packaging_type)
         return validate_config(v, config_class)

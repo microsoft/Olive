@@ -33,7 +33,7 @@ class MergeAdapterWeights(Pass):
                 "model type or remove `MergeAdapterWeights` from passes configs"
             )
 
-        new_load_kwargs = deepcopy(model.load_kwargs.dict()) if model.load_kwargs else {}
+        new_load_kwargs = deepcopy(model.load_kwargs.model_dump()) if model.load_kwargs else {}
         if (
             new_load_kwargs.get("quantization_method") == "bitsandbytes"
             and new_load_kwargs["quantization_config"]["load_in_4bit"]

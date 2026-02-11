@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import ABC, abstractmethod
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 from olive.common.utils import StrEnumBase, flatten_dict, unflatten_dict
 
@@ -119,7 +119,7 @@ class Conditional(SearchParameter):
         self,
         parents: tuple[str],
         support: dict[tuple[Any], SearchParameter],
-        default: SearchParameter = None,
+        default: Optional[SearchParameter] = None,
     ):
         assert isinstance(parents, tuple), "parents must be a tuple"
         for key in support:

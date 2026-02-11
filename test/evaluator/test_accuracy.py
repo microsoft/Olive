@@ -24,7 +24,7 @@ from olive.evaluator.olive_evaluator import OliveModelOutput
 def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor, metric_config):
     # setup
     acc = AccuracyScore(metric_config)
-    assert "kwargs" in acc.config.dict()
+    assert "kwargs" in acc.config.model_dump()
     assert "kwargs" not in acc.config_dict
     model_output = OliveModelOutput([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]

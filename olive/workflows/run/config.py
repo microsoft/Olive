@@ -4,12 +4,13 @@
 # --------------------------------------------------------------------------
 import shutil
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, ClassVar, Optional, Union
+
+from pydantic import Field, field_validator, model_validator
 
 from olive.cache import CacheConfig
 from olive.common.config_utils import NestedConfig, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_HF_TASK, DEFAULT_WORKFLOW_ID
-from olive.common.pydantic_v1 import Field, root_validator, validator
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.container.huggingface_container import HuggingfaceContainer
@@ -28,11 +29,15 @@ class RunEngineConfig(EngineConfig):
         True,
         description="When true, input model will be evaluated using the engine's evaluator. Set this to false to skip.",
     )
-    output_dir: Union[Path, str] = Field(None, description="Path where final output get saved.")
-    packaging_config: Union[PackagingConfig, list[PackagingConfig]] = Field(
+    output_dir: Optional[Union[Path, str]] = Field(
+        None,
+        description="Path where final output get saved.",
+        validate_default=True,
+    )
+    packaging_config: Optional[Union[PackagingConfig, list[PackagingConfig]]] = Field(
         None, description="Artifacts packaging configuration."
     )
-    cache_config: Union[CacheConfig, dict[str, Any]] = Field(
+    cache_config: Optional[Union[CacheConfig, dict[str, Any]]] = Field(
         None, description="Cache configuration to speed up workflow runs."
     )
     cache_dir: Union[str, Path, list[str]] = Field(
@@ -74,7 +79,8 @@ class RunEngineConfig(EngineConfig):
         ),
     )
 
-    @validator("output_dir", pre=True, always=True)
+    @field_validator("output_dir", mode="before")
+    @classmethod
     def validate_output_dir(cls, v):
         if v is None:
             v = Path.cwd().resolve()
@@ -83,7 +89,7 @@ class RunEngineConfig(EngineConfig):
         return v
 
     def create_engine(self, olive_config, workflow_id):
-        config = self.dict(include=EngineConfig.__fields__.keys())
+        config = self.model_dump(include=EngineConfig.model_fields.keys())
         if self.cache_config:
             cache_config = validate_config(self.cache_config, CacheConfig)
         else:
@@ -108,13 +114,13 @@ class RunConfig(NestedConfig):
     evaluators, engine, passes, and auto optimizer.
     """
 
-    _nested_field_name = "engine"
+    _nested_field_name: ClassVar[str] = "engine"
 
     workflow_id: str = Field(
         DEFAULT_WORKFLOW_ID, description="Workflow ID. If not provided, use the default ID 'default_workflow'."
     )
     input_model: ModelConfig = Field(description="Input model configuration.")
-    systems: dict[str, SystemConfig] = Field(
+    systems: Optional[dict[str, SystemConfig]] = Field(
         None,
         description="System configurations. Other fields such as engine and passes can refer to these systems by name.",
     )
@@ -126,7 +132,7 @@ class RunConfig(NestedConfig):
             " allowed."
         ),
     )
-    evaluators: dict[str, OliveEvaluatorConfig] = Field(
+    evaluators: Optional[dict[str, OliveEvaluatorConfig]] = Field(
         None,
         description=(
             "Evaluator configurations. Other fields such as engine and passes can refer to these evaluators by name."
@@ -141,34 +147,45 @@ class RunConfig(NestedConfig):
     )
     passes: dict[str, list[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def patch_evaluators(cls, values):
+        # In pydantic v2, values can be None when no arguments are provided
+        if values is None:
+            values = {}
+
         if "evaluators" in values:
             for name, evaluator_config in values["evaluators"].items():
                 evaluator_config["name"] = name
         return values
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def patch_passes(cls, values):
+        # In pydantic v2, values can be None when no arguments are provided
+        if values is None:
+            values = {}
+
         if "passes" in values:
             for name, passes_config in values["passes"].items():
                 if isinstance(passes_config, dict):
                     values["passes"][name] = [passes_config]
         return values
 
-    @root_validator()
-    def validate_python_environment_paths(cls, values):
+    @model_validator(mode="after")
+    def validate_python_environment_paths(self):  # noqa: N804  # model_validator mode="after" uses self
         # Check if we need to validate python environment path
-        engine = values.get("engine")
+        engine = self.engine
         if engine:
             engine_host = engine.host
             if not engine_host or engine_host.type != SystemType.Docker:
-                systems = values.get("systems")
+                systems = self.systems
                 if systems:
                     _validate_python_environment_path(systems)
-        return values
+        return self
 
-    @validator("data_configs", pre=True)
+    @field_validator("data_configs", mode="before")
+    @classmethod
     def validate_data_config_names(cls, v):
         if not v:
             return v
@@ -182,115 +199,131 @@ class RunConfig(NestedConfig):
             data_name_set.add(data_config_obj.name)
         return v
 
-    @validator("data_configs", pre=True, each_item=True)
-    def validate_data_configs_with_hf_model(cls, v, values):
-        if "input_model" not in values:
+    @field_validator("data_configs", mode="before")
+    @classmethod
+    def validate_data_configs_with_hf_model(cls, v, info):
+        if "input_model" not in info.data:
             raise ValueError("Invalid input model")
 
-        input_model_config = values["input_model"].dict()
-        if input_model_config["type"].lower() not in ["hfmodel", "onnxmodel"]:
-            return v
+        result = []
+        for item in v:
+            input_model_config = info.data["input_model"].model_dump()
+            if input_model_config["type"].lower() not in ["hfmodel", "onnxmodel"]:
+                result.append(item)
+                continue
 
-        if isinstance(v, DataConfig):
-            v = v.dict()
+            if isinstance(item, DataConfig):
+                item = item.model_dump()  # noqa: PLW2901  # Intentional reassignment for use throughout function
 
-        # all model related info used for auto filling
-        task = None
-        model_name = None
-        if input_model_config["type"].lower() == "onnxmodel" and "model_attributes" in input_model_config["config"]:
-            # Only valid for onnx model converted from Olive Conversion pass
-            task = input_model_config["config"]["model_attributes"].get("hf_task", DEFAULT_HF_TASK)
-            model_name = input_model_config["config"]["model_attributes"].get("_name_or_path")
-        else:
-            task = input_model_config["config"].get("task", DEFAULT_HF_TASK)
-            model_name = input_model_config["config"]["model_path"]
+            # all model related info used for auto filling
+            task = None
+            model_name = None
+            if input_model_config["type"].lower() == "onnxmodel" and "model_attributes" in input_model_config["config"]:
+                # Only valid for onnx model converted from Olive Conversion pass
+                task = input_model_config["config"]["model_attributes"].get("hf_task", DEFAULT_HF_TASK)
+                model_name = input_model_config["config"]["model_attributes"].get("_name_or_path")
+            else:
+                task = input_model_config["config"].get("task", DEFAULT_HF_TASK)
+                model_name = input_model_config["config"]["model_path"]
 
-        model_info = {
-            "model_name": model_name,
-            "task": task,
-            "trust_remote_code": input_model_config["config"].get("load_kwargs", {}).get("trust_remote_code"),
-        }
-        kv_cache = input_model_config.get("io_config", {}).get("kv_cache")
-        if isinstance(kv_cache, dict):
-            for key in ["ort_past_key_name", "ort_past_value_name", "batch_size"]:
-                model_info[key] = kv_cache.get(key)
+            model_info = {
+                "model_name": model_name,
+                "task": task,
+                "trust_remote_code": input_model_config["config"].get("load_kwargs", {}).get("trust_remote_code"),
+            }
+            kv_cache = input_model_config.get("io_config", {}).get("kv_cache")
+            if isinstance(kv_cache, dict):
+                for key in ["ort_past_key_name", "ort_past_value_name", "batch_size"]:
+                    model_info[key] = kv_cache.get(key)
 
-        # TODO(anyone): Will this container ever be used with non-HF models?
-        if v.get("type"):
-            if v["type"] in TRANSFORMER_DUMMY_DATA_CONTAINER:
-                _auto_fill_data_config(
-                    v,
-                    model_info,
-                    ["load_dataset_config"],
-                    ["model_name", "ort_past_key_name", "ort_past_value_name", "batch_size"],
-                )
-            elif v["type"] == HuggingfaceContainer.__name__:
-                # auto insert model_name and task from input model hf config if not present
-                # both are required for huggingface container
-                _auto_fill_data_config(
-                    v, model_info, ["pre_process_data_config", "post_process_data_config"], ["model_name", "task"]
-                )
+            # TODO(anyone): Will this container ever be used with non-HF models?
+            if item.get("type"):
+                if item["type"] in TRANSFORMER_DUMMY_DATA_CONTAINER:
+                    _auto_fill_data_config(
+                        item,
+                        model_info,
+                        ["load_dataset_config"],
+                        ["model_name", "ort_past_key_name", "ort_past_value_name", "batch_size"],
+                    )
+                elif item["type"] == HuggingfaceContainer.__name__:
+                    # auto insert model_name and task from input model hf config if not present
+                    # both are required for huggingface container
+                    _auto_fill_data_config(
+                        item,
+                        model_info,
+                        ["pre_process_data_config", "post_process_data_config"],
+                        ["model_name", "task"],
+                    )
 
-                # auto insert trust_remote_code from input model hf config
-                # won't override if value was set to False explicitly
-                _auto_fill_data_config(
-                    v,
-                    model_info,
-                    ["pre_process_data_config", "load_dataset_config"],
-                    ["trust_remote_code"],
-                    only_none=True,
-                )
+                    # auto insert trust_remote_code from input model hf config
+                    # won't override if value was set to False explicitly
+                    _auto_fill_data_config(
+                        item,
+                        model_info,
+                        ["pre_process_data_config", "load_dataset_config"],
+                        ["trust_remote_code"],
+                        only_none=True,
+                    )
 
-        return validate_config(v, DataConfig)
+            result.append(validate_config(item, DataConfig))
+        return result
 
-    @validator("evaluators", pre=True, each_item=True)
-    def validate_evaluators(cls, v, values):
+    @field_validator("evaluators", mode="before")
+    @classmethod
+    def validate_evaluators(cls, v, info):
         for idx, metric in enumerate(v.get("metrics", [])):
-            v["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
+            v["metrics"][idx] = _resolve_data_config(metric, info.data, "data_config")
         return v
 
-    @validator("engine", pre=True)
-    def validate_engine(cls, v, values):
-        v = _resolve_system(v, values, "host")
-        v = _resolve_system(v, values, "target")
+    @field_validator("engine", mode="before")
+    @classmethod
+    def validate_engine(cls, v, info):
+        v = _resolve_system(v, info.data, "host")
+        v = _resolve_system(v, info.data, "target")
         if v.get("search_strategy") and not v.get("evaluator"):
             raise ValueError(
                 "Can't search without a valid evaluator config. "
                 "Either provider a valid evaluator config or disable search."
             )
 
-        return _resolve_evaluator(v, values)
+        return _resolve_evaluator(v, info.data)
 
-    @validator("passes", pre=True, each_item=True)
-    def validate_pass_host_evaluator(cls, v, values):
-        for i, _ in enumerate(v):
-            v[i] = _resolve_system(v[i], values, "host")
-            v[i] = _resolve_evaluator(v[i], values)
+    @field_validator("passes", mode="before")
+    @classmethod
+    def validate_pass_host_evaluator(cls, v, info):
+        # passes is a dict[str, list[RunPassConfig]]
+        for pass_configs in v.values():  # Only need values, not keys
+            for i, _ in enumerate(pass_configs):
+                pass_configs[i] = _resolve_system(pass_configs[i], info.data, "host")
+                pass_configs[i] = _resolve_evaluator(pass_configs[i], info.data)
         return v
 
-    @validator("passes", pre=True, each_item=True)
-    def validate_pass_search(cls, v, values):
-        if "engine" not in values:
+    @field_validator("passes", mode="before")
+    @classmethod
+    def validate_pass_search(cls, v, info):
+        if "engine" not in info.data:
             raise ValueError("Invalid engine")
 
-        for i, _ in enumerate(v):
-            # validate first to gather config params
-            v[i] = iv = validate_config(v[i], RunPassConfig).dict()
+        # passes is a dict[str, list[RunPassConfig]]
+        for pass_configs in v.values():  # Only need values, not keys
+            for i, _ in enumerate(pass_configs):
+                # validate first to gather config params
+                pass_configs[i] = iv = validate_config(pass_configs[i], RunPassConfig).model_dump()
 
-            if iv.get("config"):
-                _resolve_all_data_configs(iv["config"], values)
+                if iv.get("config"):
+                    _resolve_all_data_configs(iv["config"], info.data)
 
-                searchable_configs = set()
-                for param_name in iv["config"]:
-                    if iv["config"][param_name] == PassParamDefault.SEARCHABLE_VALUES:
-                        searchable_configs.add(param_name)
+                    searchable_configs = set()
+                    for param_name in iv["config"]:
+                        if iv["config"][param_name] == PassParamDefault.SEARCHABLE_VALUES:
+                            searchable_configs.add(param_name)
 
-                if not values["engine"].search_strategy and searchable_configs:
-                    raise ValueError(
-                        f"You cannot disable search for {iv['type']} and"
-                        f" set {searchable_configs} to SEARCHABLE_VALUES at the same time."
-                        " Please remove SEARCHABLE_VALUES or enable search (needs search strategy configs)."
-                    )
+                    if not info.data["engine"].search_strategy and searchable_configs:
+                        raise ValueError(
+                            f"You cannot disable search for {iv['type']} and"
+                            f" set {searchable_configs} to SEARCHABLE_VALUES at the same time."
+                            " Please remove SEARCHABLE_VALUES or enable search (needs search strategy configs)."
+                        )
         return v
 
 
@@ -421,7 +454,7 @@ def _auto_fill_data_config(config, info, config_names, param_names, only_none=Fa
         # validate the component config first to gather the config params
         config[component_config_name] = component_config = validate_config(
             config.get(component_config_name) or {}, DataComponentConfig
-        ).dict()
+        ).model_dump()
         component_config["params"] = component_config_params = component_config.get("params") or {}
 
         for key in param_names:

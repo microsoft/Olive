@@ -5,15 +5,15 @@
 import dataclasses
 import logging
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
 
 import torch
 import transformers
 from packaging import version
+from pydantic import Field, field_validator
 from transformers import __version__ as transformers_version
 
 from olive.common.config_utils import NestedConfig, validate_config
-from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import cleanup_memory
 from olive.data.config import DataConfig
 from olive.data.template import huggingface_data_config_template
@@ -33,30 +33,34 @@ if TYPE_CHECKING:
 class BaseHFTrainingArguments(NestedConfig):
     """Training arguments for transformers.Trainer."""
 
-    _nested_field_name = "extra_args"
+    _nested_field_name: ClassVar[str] = "extra_args"
 
     gradient_checkpointing: bool = Field(True, description="Use gradient checkpointing. Recommended.")
     report_to: Union[str, list[str]] = Field(
         "none", description="The list of integrations to report the results and logs to."
     )
-    output_dir: str = Field(None, description="The output dir for logs and checkpoints. If None, will use a temp dir.")
-    deepspeed: Union[bool, str, dict] = Field(
+    output_dir: Optional[str] = Field(
+        None, description="The output dir for logs and checkpoints. If None, will use a temp dir."
+    )
+    deepspeed: Optional[Union[bool, str, dict]] = Field(
         None,
         description=(
             "Use [Deepspeed](https://github.com/microsoft/deepspeed). If True, will use default deepspeed config. Else,"
             " it is a path to a deepspeed config file or a dict with deepspeed config."
         ),
     )
-    extra_args: dict[str, Any] = Field(
+    extra_args: Optional[dict[str, Any]] = Field(
         None,
         description=(
             "Extra arguments to pass to the trainer. Values can be provided directly to this field as a dict or as"
             " keyword arguments to the config. See transformers.TrainingArguments for more details on the available"
             " arguments."
         ),
+        validate_default=True,
     )
 
-    @validator("extra_args", pre=True, always=True)
+    @field_validator("extra_args", mode="before")
+    @classmethod
     def validate_extra_args(cls, v):
         if v is None:
             v = {}
@@ -69,7 +73,7 @@ class BaseHFTrainingArguments(NestedConfig):
         return v
 
     def create_training_args(self) -> transformers.TrainingArguments:
-        args = self.dict()
+        args = self.model_dump()
         if not args["output_dir"]:
             raise ValueError("output_dir must be provided.")
         if args["deepspeed"] is True:
@@ -111,7 +115,7 @@ def load_hf_base_model(
     new_model_handler = deepcopy(model_handler)
 
     # load model, reset load_kwargs and adapter_path
-    load_kwargs = new_model_handler.load_kwargs.dict() if new_model_handler.load_kwargs else {}
+    load_kwargs = new_model_handler.load_kwargs.model_dump() if new_model_handler.load_kwargs else {}
     load_kwargs.update(
         {
             # use "auto" as default to use the dtype from the model config

@@ -136,8 +136,8 @@ class TestPythonEnvironmentSystem:
         )
 
     @patch("olive.systems.python_environment.python_environment_system.PythonEnvironmentSystem._run_command")
-    @patch("olive.systems.python_environment.python_environment_system.ModelConfig.parse_obj")
-    def test_run_pass(self, mock_model_config_parse_obj, mock__run_command):
+    @patch("olive.systems.python_environment.python_environment_system.ModelConfig.model_validate")
+    def test_run_pass(self, mock_model_config_model_validate, mock__run_command):
         # setup
         model_config = MagicMock()
         dummy_model_config = {"dummy_model_key": "dummy_model_value"}
@@ -159,7 +159,7 @@ class TestPythonEnvironmentSystem:
         mock__run_command.return_value = mock_return_value
 
         mock_output_model_config = MagicMock()
-        mock_model_config_parse_obj.return_value = mock_output_model_config
+        mock_model_config_model_validate.return_value = mock_output_model_config
 
         dummy_output_model_path = "dummy_output_model_path"
 
@@ -168,7 +168,7 @@ class TestPythonEnvironmentSystem:
 
         # assert
         assert res == mock_output_model_config
-        mock_model_config_parse_obj.assert_called_once_with(mock_return_value)
+        mock_model_config_model_validate.assert_called_once_with(mock_return_value)
         mock__run_command.assert_called_once_with(
             self.system.pass_runner_path,
             {"model_config": dummy_model_config, "pass_config": expected_pass_config},
@@ -196,7 +196,7 @@ class TestPythonEnvironmentSystem:
         ouptut_path = tmp_path / "output.json"
 
         # mock output
-        mock_evaluation_result = MetricResult.parse_obj(
+        mock_evaluation_result = MetricResult.model_validate(
             {"accuracy-accuracy_score": {"value": 0.5, "priority": 1, "higher_is_better": True}}
         )
         mock_evaluate.return_value = mock_evaluation_result
@@ -264,6 +264,6 @@ class TestPythonEnvironmentSystem:
                 "python_environment_path": self.python_environment_path,
             },
         }
-        system_config = SystemConfig.parse_obj(config)
+        system_config = SystemConfig.model_validate(config)
         system = system_config.create_system()
         assert system
