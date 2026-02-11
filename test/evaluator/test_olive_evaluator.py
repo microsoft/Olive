@@ -382,9 +382,10 @@ class TestOliveEvaluator:
             # Initialize user_config if needed to set inference_settings
             if metric.user_config is None:
                 from olive.common.config_utils import ConfigBase
+
                 metric.user_config = ConfigBase()
             # Use object.__setattr__ to set dynamic attributes on ConfigBase
-            object.__setattr__(metric.user_config, 'inference_settings', {"onnx": metric_inference_settings.copy()})
+            object.__setattr__(metric.user_config, "inference_settings", {"onnx": metric_inference_settings.copy()})
         model = get_onnx_model()
         model.inference_settings = model_inference_settings.copy() if model_inference_settings else None
         inference_settings = OnnxEvaluator.get_inference_settings(metric, model)

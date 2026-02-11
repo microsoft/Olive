@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Union
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Optional, Union
 
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class MetricBackend(AutoConfigClass):
     registry: ClassVar[dict[str, type["MetricBackend"]]] = {}
 
-    def __init__(self, config: Union[ConfigBase, dict[str, Any]] = None) -> None:
+    def __init__(self, config: Optional[Union[ConfigBase, dict[str, Any]]] = None) -> None:
         super().__init__(config)
 
     @classmethod
@@ -55,7 +55,7 @@ class TorchMetrics(MetricBackend):
 class HuggingfaceMetrics(MetricBackend):
     name: str = "huggingface_metrics"
 
-    def __init__(self, config: Union[ConfigBase, dict[str, Any]] = None) -> None:
+    def __init__(self, config: Optional[Union[ConfigBase, dict[str, Any]]] = None) -> None:
         super().__init__(config)
         try:
             import evaluate

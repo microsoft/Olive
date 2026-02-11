@@ -83,7 +83,7 @@ class OliveEvaluator(ABC):
         model: "OliveModelHandler",
         metrics: list[Metric],
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         raise NotImplementedError
 
@@ -231,7 +231,7 @@ class _OliveEvaluator(OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> tuple[OliveModelOutput, Any]:
         raise NotImplementedError
 
@@ -243,7 +243,7 @@ class _OliveEvaluator(OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         raise NotImplementedError
 
@@ -255,7 +255,7 @@ class _OliveEvaluator(OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> list[float]:
         """For given repeat_test_num, return a list of latencies(ms)."""
         raise NotImplementedError
@@ -267,7 +267,7 @@ class _OliveEvaluator(OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> list[float]:
         latencies = self._evaluate_raw_latency(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_latency(metric, latencies)
@@ -279,7 +279,7 @@ class _OliveEvaluator(OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         latencies = self._evaluate_raw_latency(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_throughput(metric, latencies)
@@ -291,7 +291,7 @@ class _OliveEvaluator(OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         return MetricResult.model_validate(
             {SizeOnDiskSubType.BYTES.value: {"value": model.size_on_disk, "priority": -1, "higher_is_better": False}}
@@ -337,7 +337,7 @@ class _OliveEvaluator(OliveEvaluator):
         model: "OliveModelHandler",
         metrics: list[Metric],
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         metrics_res = {}
         for original_metric in metrics:
@@ -443,7 +443,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> tuple[OliveModelOutput, Any]:
         session, inference_settings = OnnxEvaluator.get_session_wrapper(
             model, metric, dataloader, device, execution_providers
@@ -494,7 +494,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
@@ -506,7 +506,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> list[float]:
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
         session, inference_settings = OnnxEvaluator.get_session_wrapper(
@@ -712,7 +712,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         if isinstance(model, ONNXModelHandler):
             return self._evaluate_onnx_accuracy(model, metric, dataloader, post_func, device, execution_providers)
@@ -730,7 +730,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> list[float]:
         if isinstance(model, ONNXModelHandler):
             return self._evaluate_onnx_latency(model, metric, dataloader, post_func, device, execution_providers)
@@ -753,7 +753,7 @@ class PyTorchEvaluator(_OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> tuple[OliveModelOutput, Any]:
         session = model.prepare_session()
         preds = []
@@ -800,7 +800,7 @@ class PyTorchEvaluator(_OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
@@ -813,7 +813,7 @@ class PyTorchEvaluator(_OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> list[float]:
         # pylint: disable=expression-not-assigned
         warmup_num, repeat_test_num, _ = get_latency_config_from_metric(metric)
@@ -877,7 +877,7 @@ class OpenVINOEvaluator(_OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> tuple[OliveModelOutput, Any]:
         session = model.prepare_session(
             inference_settings=metric.get_inference_settings(Framework.OPENVINO.lower()), device=device
@@ -904,7 +904,7 @@ class OpenVINOEvaluator(_OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
@@ -916,7 +916,7 @@ class OpenVINOEvaluator(_OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> list[float]:
         session = model.prepare_session(
             inference_settings=metric.get_inference_settings(Framework.OPENVINO.lower()), device=device
@@ -942,7 +942,7 @@ class QNNEvaluator(_OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> tuple[OliveModelOutput, Any]:
         dataloader = self._prepare_dataloader(dataloader, model)
         session = model.prepare_session(
@@ -978,7 +978,7 @@ class QNNEvaluator(_OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
@@ -990,7 +990,7 @@ class QNNEvaluator(_OliveEvaluator):
         dataloader: "DataLoader",
         post_func=None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> list[float]:
         dataloader = self._prepare_dataloader(dataloader, model, 1)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
@@ -1035,7 +1035,7 @@ class LMEvaluator(OliveEvaluator):
         model: "OliveModelHandler",
         metrics: list[Metric],
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         from lm_eval import simple_evaluate
         from lm_eval.api.registry import get_model

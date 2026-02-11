@@ -21,7 +21,7 @@ PRUNED_CONFIGS = (FAILED_CONFIG, INVALID_CONFIG)
 
 
 class EngineConfig(ConfigBase):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     search_strategy: Optional[Union[SearchStrategyConfig, bool]] = Field(
         None, description="Search strategy configuration to use to auto optimize the input model."
     )

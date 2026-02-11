@@ -54,7 +54,7 @@ class CacheSubDirs:
 
 
 class CacheConfig(ConfigBase):
-    cache_dir: Union[str, list[str]] = Field(default = DEFAULT_CACHE_DIR, validate_default=True)
+    cache_dir: Union[str, list[str]] = Field(default=DEFAULT_CACHE_DIR, validate_default=True)
     clean_cache: bool = False
     clean_evaluation_cache: bool = False
     account_name: Optional[str] = None
@@ -104,7 +104,7 @@ class CacheConfig(ConfigBase):
         return match.group(2) if match else None
 
     @model_validator(mode="after")
-    def validate_enable_shared_cache(self):
+    def validate_enable_shared_cache(self):  # noqa: N804  # model_validator mode="after" uses self
         if self.account_name and self.container_name:
             self.enable_shared_cache = True
         elif self.enable_shared_cache:

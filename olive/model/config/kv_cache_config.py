@@ -33,11 +33,11 @@ class KVCacheConfig(ConfigBase):
     # but in some cases, the past_sequence_length is not the 3rd dimension
     # [batch_size, past_sequence_length, num_heads, hidden_size/num_heads]
     sequence_length_idx: int = 2
-    past_kv_dynamic_axis: Optional[dict] = Field(default = None, validate_default=True)
-    present_kv_dynamic_axis: Optional[dict] = Field(default = None, validate_default=True)
+    past_kv_dynamic_axis: Optional[dict] = Field(default=None, validate_default=True)
+    present_kv_dynamic_axis: Optional[dict] = Field(default=None, validate_default=True)
 
     @model_validator(mode="after")
-    def validate_config(self):
+    def validate_config(self):  # noqa: N804  # model_validator mode="after" uses self
         msl_idx = str(self.sequence_length_idx)
         if self.past_kv_dynamic_axis is None:
             self.past_kv_dynamic_axis = (
