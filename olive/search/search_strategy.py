@@ -37,7 +37,7 @@ class SearchStrategyConfig(NestedConfig):
     _nested_field_name: ClassVar[str] = "sampler_config"
     execution_order: Optional[Union[str, SearchStrategyExecutionOrder]] = None
     sampler: Optional[str] = None
-    sampler_config: Optional[ConfigBase] = Field(default = None, validate_default=True)
+    sampler_config: Optional[ConfigBase] = Field(default=None, validate_default=True)
     output_model_num: Optional[int] = None
     stop_when_goals_met: bool = False
     max_iter: Optional[int] = None

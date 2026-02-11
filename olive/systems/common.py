@@ -46,7 +46,7 @@ class AcceleratorConfig(ConfigBase):
             return v
 
         result = []
-        for item in (v if isinstance(v, list) else [v]):
+        for item in v if isinstance(v, list) else [v]:
             ep_name = item[0] if isinstance(item, (tuple, list)) else item
             if not ep_name.endswith("ExecutionProvider"):
                 raise ValueError(f"Execution provider {ep_name} should end with ExecutionProvider")

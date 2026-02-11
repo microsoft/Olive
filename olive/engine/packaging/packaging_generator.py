@@ -25,7 +25,6 @@ from olive.resource_path import ResourceType, create_resource_path
 logger = logging.getLogger(__name__)
 
 
-
 def generate_output_artifacts(
     packaging_configs: Union[PackagingConfig, list[PackagingConfig]],
     workflow_output: WorkflowOutput,

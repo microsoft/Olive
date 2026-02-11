@@ -118,7 +118,9 @@ def create_onnx_model_with_dynamic_axis(onnx_model_path, batch_size=1):
 
 
 def get_onnx_model_config(model_path=None):
-    return ModelConfig.model_validate({"type": "ONNXModel", "config": {"model_path": str(model_path or ONNX_MODEL_PATH)}})
+    return ModelConfig.model_validate(
+        {"type": "ONNXModel", "config": {"model_path": str(model_path or ONNX_MODEL_PATH)}}
+    )
 
 
 def get_composite_onnx_model_config(model_path=None):

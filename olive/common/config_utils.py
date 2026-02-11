@@ -59,7 +59,9 @@ def _expanded_default(custom_default: Callable[[Any], Any], make_absolute: bool,
     return serialize_object(obj)
 
 
-def config_json_dumps(obj: Any, default: Optional[Callable[[Any], Any]] = None, make_absolute: bool = True, **kwargs) -> str:
+def config_json_dumps(
+    obj: Any, default: Optional[Callable[[Any], Any]] = None, make_absolute: bool = True, **kwargs
+) -> str:
     """Serialize a Python object into a JSON string. Also serializes functions and objects."""
     default = partial(_expanded_default, default, make_absolute)
     return json.dumps(obj, default=default, **kwargs)
@@ -76,7 +78,9 @@ def _expanded_object_hook(custom_object_hook: Callable[[dict], Any], obj: dict) 
     return custom_object_hook(obj)
 
 
-def config_json_loads(s: Union[str, bytes, bytearray], *, object_hook: Optional[Callable[[dict], Any]] = None, **kwargs) -> Any:
+def config_json_loads(
+    s: Union[str, bytes, bytearray], *, object_hook: Optional[Callable[[dict], Any]] = None, **kwargs
+) -> Any:
     """Deserialize a JSON string into a Python object."""
     object_hook = partial(_expanded_object_hook, object_hook)
     return json.loads(s, object_hook=object_hook, **kwargs)

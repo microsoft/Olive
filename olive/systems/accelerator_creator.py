@@ -32,6 +32,7 @@ class AcceleratorNormalizer:
             logger.info("No accelerators specified. Defaulting to cpu.")
             if not self.system_config.config:
                 from olive.systems.system_config import LocalTargetUserConfig
+
                 self.system_config.config = LocalTargetUserConfig()
             self.system_config.config.accelerators = [
                 {"device": "cpu", **({"execution_providers": ["CPUExecutionProvider"]} if self.is_ep_required else {})}

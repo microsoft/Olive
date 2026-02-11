@@ -88,7 +88,7 @@ def import_system_from_type(system_type: SystemType):
 
 class SystemConfig(NestedConfig):
     type: SystemType
-    config: Optional[TargetUserConfig] = Field(default = None, validate_default=True)
+    config: Optional[TargetUserConfig] = Field(default=None, validate_default=True)
 
     @field_validator("config", mode="before")
     @classmethod

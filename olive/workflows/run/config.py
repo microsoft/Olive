@@ -249,7 +249,10 @@ class RunConfig(NestedConfig):
                     # auto insert model_name and task from input model hf config if not present
                     # both are required for huggingface container
                     _auto_fill_data_config(
-                        item, model_info, ["pre_process_data_config", "post_process_data_config"], ["model_name", "task"]
+                        item,
+                        model_info,
+                        ["pre_process_data_config", "post_process_data_config"],
+                        ["model_name", "task"],
                     )
 
                     # auto insert trust_remote_code from input model hf config

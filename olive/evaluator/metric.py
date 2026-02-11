@@ -114,10 +114,10 @@ class Metric(NestedConfig):
 
     name: str
     type: MetricType
-    backend: Optional[str] = Field(default = "torch_metrics", validate_default=True)
-    sub_types: list[SubMetric] = Field(default = [], validate_default=True)
-    user_config: Optional[ConfigBase] = Field(default = None, validate_default=True)
-    data_config: Optional[DataConfig] = Field(default = None, validate_default=True)
+    backend: Optional[str] = Field(default="torch_metrics", validate_default=True)
+    sub_types: list[SubMetric] = Field(default=[], validate_default=True)
+    user_config: Optional[ConfigBase] = Field(default=None, validate_default=True)
+    data_config: Optional[DataConfig] = Field(default=None, validate_default=True)
 
     def get_inference_settings(self, framework):
         if self.user_config is None:

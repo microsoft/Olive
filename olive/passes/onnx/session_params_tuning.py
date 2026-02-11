@@ -284,10 +284,9 @@ class OrtSessionParamsTuning(Pass):
         # TODO(jambayk): decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model
         # otherwise save or symlink the original model to the output_model_path
-        if config.data_config:
+        if config.data_config and not isinstance(config.data_config, DataConfig):
             # Check if data_config is already a DataConfig instance
-            if not isinstance(config.data_config, DataConfig):
-                config.data_config = validate_config(config.data_config, DataConfig)
+            config.data_config = validate_config(config.data_config, DataConfig)
 
         latency_metric_config = {
             "name": "latency",

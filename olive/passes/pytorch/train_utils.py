@@ -39,7 +39,9 @@ class BaseHFTrainingArguments(NestedConfig):
     report_to: Union[str, list[str]] = Field(
         "none", description="The list of integrations to report the results and logs to."
     )
-    output_dir: Optional[str] = Field(None, description="The output dir for logs and checkpoints. If None, will use a temp dir.")
+    output_dir: Optional[str] = Field(
+        None, description="The output dir for logs and checkpoints. If None, will use a temp dir."
+    )
     deepspeed: Optional[Union[bool, str, dict]] = Field(
         None,
         description=(

@@ -165,6 +165,7 @@ def test_generate_zipfile_artifacts_mlflow(tmp_path):
     # Initialize config with ZipfilePackagingConfig if it's None
     if packaging_config.config is None:
         from olive.engine.packaging.packaging_config import ZipfilePackagingConfig
+
         packaging_config.config = ZipfilePackagingConfig()
     packaging_config.config.export_in_mlflow_format = True
 

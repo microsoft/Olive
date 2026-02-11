@@ -26,7 +26,11 @@ def test_model_output():
         cmp_direction={"latency": 1},
     )
 
-    metrics_json = {"value": {"latency": {"value": 10, "priority": 1, "higher_is_better": False}}, "cmp_direction": {"latency": 1}, "if_goals_met": False}
+    metrics_json = {
+        "value": {"latency": {"value": 10, "priority": 1, "higher_is_better": False}},
+        "cmp_direction": {"latency": 1},
+        "if_goals_met": False,
+    }
     metrics_value_json = {"latency": {"value": 10, "priority": 1, "higher_is_better": False}}
     inference_settings = {"inference": "settings"}
 
