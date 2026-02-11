@@ -163,7 +163,7 @@ class EPContextBinaryGenerator(Pass):
                 process_context_iterator,
                 output_model_path,
                 group_session_options=group_session_options,
-                group_run_options=group_run_options
+                group_run_options=group_run_options,
             )
 
         new_component_models = self._generate_composite_binaries(
