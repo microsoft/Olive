@@ -85,10 +85,12 @@ def _patch_dynamic_layer_for_export():
     logger.debug("Patched DynamicLayer.lazy_initialization for torch.export compatibility.")
 
 
-def _convert_past_key_values_to_dynamic_cache(dummy_kwargs: dict) -> dict:
+def _convert_past_key_values_to_dynamic_cache(dummy_kwargs: dict, config=None) -> dict:
     """Convert legacy list-format past_key_values to DynamicCache (transformers >= 5.0).
 
     Transformers 5.0 models expect DynamicCache objects, not lists of (key, value) tensors.
+    When config is provided, the DynamicCache will create correct layer types (e.g.
+    DynamicSlidingWindowLayer for models using sliding window attention).
     """
     pkv = dummy_kwargs.get("past_key_values")
     if pkv is None or not isinstance(pkv, (list, tuple)):
@@ -100,7 +102,7 @@ def _convert_past_key_values_to_dynamic_cache(dummy_kwargs: dict) -> dict:
 
     from transformers.cache_utils import DynamicCache
 
-    dc = DynamicCache()
+    dc = DynamicCache(config=config)
     for layer_idx, kv in enumerate(pkv):
         dc.update(kv[0], kv[1], layer_idx=layer_idx)
     dummy_kwargs["past_key_values"] = dc
@@ -298,7 +300,8 @@ def _export_pytorch_model(
 
                 register_dynamic_cache_export_support()
                 _patch_dynamic_layer_for_export()
-                dummy_kwargs = _convert_past_key_values_to_dynamic_cache(dummy_kwargs)
+                model_config = getattr(pytorch_model, "config", None)
+                dummy_kwargs = _convert_past_key_values_to_dynamic_cache(dummy_kwargs, config=model_config)
                 if io_config.dynamic_shapes:
                     io_config.dynamic_shapes = _convert_dynamic_shapes_for_dynamic_cache(io_config.dynamic_shapes)
             else:
