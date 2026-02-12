@@ -54,11 +54,13 @@ def get_task_template(task: str) -> dict[str, Any] | None:
     return tasks.get(task)
 
 
-def get_diffusers_component_config(component_name: str) -> dict[str, Any] | None:
+def get_diffusers_component_config(component_name: str, pipeline: str | None = None) -> dict[str, Any] | None:
     """Get diffusers component configuration.
 
     Args:
-        component_name: Component name (e.g., "text_encoder", "unet").
+        component_name: Pipeline component name (e.g., "text_encoder_2", "transformer").
+        pipeline: Pipeline variant (e.g., "sdxl", "flux") to resolve names like
+            "text_encoder_2" that map to different configs per pipeline.
 
     Returns:
         Component configuration dict, or None if not found.
@@ -66,7 +68,20 @@ def get_diffusers_component_config(component_name: str) -> dict[str, Any] | None
     """
     diffusers = _load_diffusers()
     components = diffusers.get("components", {})
-    return components.get(component_name)
+
+    # Direct match
+    if component_name in components:
+        return components[component_name]
+
+    # Resolve via pipeline definition (e.g., "text_encoder_with_projection:text_encoder_2")
+    if pipeline:
+        for entry in diffusers.get("pipelines", {}).get(pipeline, []):
+            if ":" in entry:
+                config_type, pipe_name = entry.split(":", 1)
+                if pipe_name == component_name:
+                    return components.get(config_type)
+
+    return None
 
 
 def get_default_shapes() -> dict[str, int]:

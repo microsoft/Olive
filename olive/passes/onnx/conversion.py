@@ -673,12 +673,14 @@ class OnnxConversion(Pass):
             dummy_inputs = generate_diffusers_dummy_inputs(
                 component_name=component_name,
                 config=component_config,
+                pipeline=str(pipeline_type),
             )
 
             # Get IO config using new task-driven API
             io_config = get_diffusers_io_config(
                 component_name=component_name,
                 config=component_config,
+                pipeline=str(pipeline_type),
             )
 
             # Create output directory for this component
@@ -693,7 +695,7 @@ class OnnxConversion(Pass):
                 io_config=io_config,
                 config=config,
                 device=device,
-                dynamo=config.use_dynamo_exporter,
+                dynamo=True,
                 torch_dtype=torch_dtype,
             )
 
