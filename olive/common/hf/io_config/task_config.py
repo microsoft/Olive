@@ -17,6 +17,8 @@ from olive.common.hf.io_config.io_resolver import (
 if TYPE_CHECKING:
     from transformers import PretrainedConfig, PreTrainedModel
 
+    from olive.constants import DiffusersModelVariant
+
 logger = logging.getLogger(__name__)
 
 
@@ -365,7 +367,7 @@ def generate_dummy_inputs(
 def get_diffusers_io_config(
     component_name: str,
     config: PretrainedConfig,
-    pipeline: str | None = None,
+    pipeline: DiffusersModelVariant | None = None,
     **kwargs,
 ) -> dict[str, Any]:
     """Get IO configuration for a diffusers component.

@@ -7,7 +7,10 @@ from __future__ import annotations
 import functools
 import logging
 from importlib.resources import files
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from olive.constants import DiffusersModelVariant
 
 import yaml
 
@@ -54,7 +57,9 @@ def get_task_template(task: str) -> dict[str, Any] | None:
     return tasks.get(task)
 
 
-def get_diffusers_component_config(component_name: str, pipeline: str | None = None) -> dict[str, Any] | None:
+def get_diffusers_component_config(
+    component_name: str, pipeline: DiffusersModelVariant | None = None
+) -> dict[str, Any] | None:
     """Get diffusers component configuration.
 
     Args:

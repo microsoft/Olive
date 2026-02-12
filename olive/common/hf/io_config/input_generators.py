@@ -19,6 +19,8 @@ from olive.common.hf.io_config.io_resolver import (
 if TYPE_CHECKING:
     from transformers import PretrainedConfig
 
+    from olive.constants import DiffusersModelVariant
+
 
 class DummyInputGenerator(ABC):
     """Generate dummy inputs for ONNX export."""
@@ -70,7 +72,7 @@ class DiffusersDummyInputGenerator(DummyInputGenerator):
     Reads input specifications from diffusers.yaml.
     """
 
-    def __init__(self, component_name: str, config: PretrainedConfig, pipeline: str | None = None):
+    def __init__(self, component_name: str, config: PretrainedConfig, pipeline: DiffusersModelVariant | None = None):
         self.component_name = component_name
         self.config = config
 
@@ -145,7 +147,7 @@ class DiffusersDummyInputGenerator(DummyInputGenerator):
 def generate_diffusers_dummy_inputs(
     component_name: str,
     config: PretrainedConfig,
-    pipeline: str | None = None,
+    pipeline: DiffusersModelVariant | None = None,
 ) -> dict[str, Any]:
     """Create all dummy inputs for a diffusers component.
 
