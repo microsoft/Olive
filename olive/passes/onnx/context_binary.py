@@ -56,6 +56,11 @@ class EPContextBinaryGenerator(Pass):
                 default_value=None,
                 description="Session options for the EP.",
             ),
+            "run_options": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                description="Run options for the EP.",
+            ),
             "disable_cpu_fallback": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -150,6 +155,7 @@ class EPContextBinaryGenerator(Pass):
             group_session_options["provider_options"] = [
                 {self.accelerator_spec.execution_provider.lower().replace("executionprovider", ""): provider_options}
             ]
+            group_run_options = config.run_options
 
             return process_llm_pipeline(
                 model,
@@ -157,6 +163,7 @@ class EPContextBinaryGenerator(Pass):
                 process_context_iterator,
                 output_model_path,
                 group_session_options=group_session_options,
+                group_run_options=group_run_options,
             )
 
         new_component_models = self._generate_composite_binaries(
