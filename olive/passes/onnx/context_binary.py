@@ -243,6 +243,8 @@ class EPContextBinaryGenerator(Pass):
         if execution_provider == ExecutionProvider.QNNExecutionProvider:
             if str(device).lower() == "gpu":
                 provider_options["backend_path"] = "libQnnGpu.so" if platform.system() == "Linux" else "QnnGpu.dll"
+                if share_ep_contexts:
+                    provider_options["enable_gpu_weight_sharing"] = "1"
                 update_llm_pipeline_genai_config_gpu_ctxbin(model_path)
             else:
                 if version.parse(OrtVersion).release < version.parse("1.22.0").release:
