@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 class MetricBackendConfig(ConfigBase):
     """Base configuration for MetricBackend."""
-    pass
+
 
 
 class MetricBackend(ABC):
@@ -73,6 +73,7 @@ class TorchMetrics(MetricBackend):
 
 class HuggingfaceMetricsConfig(ConfigBase):
     """Configuration for HuggingfaceMetrics."""
+
     load_params: Optional[dict[str, Any]] = None
     compute_params: Optional[dict[str, Any]] = None
     result_key: Optional[str] = None

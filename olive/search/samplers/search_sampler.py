@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 class SearchSamplerConfig(ConfigBase):
     """Configuration for SearchSampler."""
+
     max_samples: int = 0
 
 
