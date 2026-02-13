@@ -2,23 +2,24 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import inspect
 import logging
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from inspect import isfunction, signature
-from typing import Any, Callable, ClassVar, Union
+from typing import Any, Callable, ClassVar, Optional, Union
 
 import torch
 import torchmetrics
 
-from olive.common.auto_config import AutoConfigClass, ConfigBase
-from olive.common.config_utils import ConfigParam
+from olive.common.config_utils import ConfigBase, ConfigParam, create_config_class
 from olive.data.constants import IGNORE_INDEX
 
 logger = logging.getLogger(__name__)
 
 
-class AccuracyBase(AutoConfigClass):
+class AccuracyBase(ABC):
     registry: ClassVar[dict[str, type["AccuracyBase"]]] = {}
+    name: Optional[str] = None
     metric_cls_map: ClassVar[dict[str, Union[torchmetrics.Metric, Callable]]] = {
         "accuracy_score": torchmetrics.Accuracy,
         "f1_score": torchmetrics.F1Score,
@@ -29,8 +30,20 @@ class AccuracyBase(AutoConfigClass):
     }
 
     def __init__(self, config: Union[ConfigBase, dict[str, Any]] = None) -> None:
-        super().__init__(config)
+        config = config or {}
+        if isinstance(config, dict):
+            config = self.get_config_class()(**config)
+        self.config = config
         self.resolve_kwargs()
+
+    @classmethod
+    def __init_subclass__(cls, **kwargs) -> None:
+        """Register the metric."""
+        super().__init_subclass__(**kwargs)
+        if inspect.isabstract(cls):
+            return
+        name = cls.name if cls.name is not None else cls.__name__.lower()
+        cls.registry[name] = cls
 
     def resolve_kwargs(self):
         config_dict = self.config.model_dump()
@@ -63,8 +76,11 @@ class AccuracyBase(AutoConfigClass):
         return metric_config
 
     @classmethod
-    def _default_config(cls) -> dict[str, ConfigParam]:
-        return cls._metric_config_from_torch_metrics()
+    def get_config_class(cls) -> type[ConfigBase]:
+        """Get the configuration class."""
+        assert not inspect.isabstract(cls), "Cannot get config class for abstract class"
+        default_config = cls._metric_config_from_torch_metrics()
+        return create_config_class(f"{cls.__name__}Config", default_config, ConfigBase, {})
 
     @staticmethod
     def prepare_tensors(preds, target, dtypes=torch.int):

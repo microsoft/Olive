@@ -2,22 +2,23 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import inspect
 import logging
 import shutil
 import tempfile
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Optional, Union
 
 from pydantic import Field, field_validator
 
-from olive.common.auto_config import AutoConfigClass
 from olive.common.config_utils import (
     CaseInsensitiveEnum,
     ConfigBase,
     ConfigParam,
     NestedConfig,
+    create_config_class,
     serialize_to_json,
     validate_config,
 )
@@ -36,9 +37,40 @@ class ResourceType(CaseInsensitiveEnum):
 LOCAL_RESOURCE_TYPES = (ResourceType.LocalFile, ResourceType.LocalFolder)
 
 
-class ResourcePath(AutoConfigClass):
+class ResourcePath(ABC):
     registry: ClassVar[dict[str, type["ResourcePath"]]] = {}
     name: Optional[ResourceType] = None
+
+    def __init__(self, config: Union[ConfigBase, dict[str, Any]]) -> None:
+        if isinstance(config, dict):
+            config = self.get_config_class()(**config)
+        self.config = config
+
+    @classmethod
+    def __init_subclass__(cls, **kwargs) -> None:
+        """Register the resource path."""
+        super().__init_subclass__(**kwargs)
+        if inspect.isabstract(cls):
+            return
+        name = cls.name if cls.name is not None else cls.__name__.lower()
+        cls.registry[name] = cls
+
+    @classmethod
+    @abstractmethod
+    def _default_config(cls) -> dict[str, ConfigParam]:
+        """Get the default configuration for the class."""
+        raise NotImplementedError
+
+    @classmethod
+    def _validators(cls) -> dict[str, Callable]:
+        """Get pydantic validators for config params."""
+        return {}
+
+    @classmethod
+    def get_config_class(cls) -> type[ConfigBase]:
+        """Get the configuration class."""
+        assert not inspect.isabstract(cls), "Cannot get config class for abstract class"
+        return create_config_class(f"{cls.__name__}Config", cls._default_config(), ConfigBase, cls._validators())
 
     def __repr__(self) -> str:
         return self.get_path()

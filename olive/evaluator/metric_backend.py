@@ -2,11 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from abc import abstractmethod
+import inspect
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Optional, Union
 
-from olive.common.auto_config import AutoConfigClass, ConfigBase
-from olive.common.config_utils import ConfigParam
+from olive.common.config_utils import ConfigBase
 from olive.evaluator.accuracy import AccuracyBase
 from olive.evaluator.metric_result import MetricResult, SubMetricResult
 
@@ -14,15 +14,34 @@ if TYPE_CHECKING:
     from olive.evaluator.metric import Metric, SubMetric
 
 
-class MetricBackend(AutoConfigClass):
+class MetricBackendConfig(ConfigBase):
+    """Base configuration for MetricBackend."""
+    pass
+
+
+class MetricBackend(ABC):
     registry: ClassVar[dict[str, type["MetricBackend"]]] = {}
+    name: Optional[str] = None
 
     def __init__(self, config: Optional[Union[ConfigBase, dict[str, Any]]] = None) -> None:
-        super().__init__(config)
+        config = config or {}
+        if isinstance(config, dict):
+            config = self.get_config_class()(**config)
+        self.config = config
 
     @classmethod
-    def _default_config(cls) -> dict[str, ConfigParam]:
-        return {}
+    def __init_subclass__(cls, **kwargs) -> None:
+        """Register the metric backend."""
+        super().__init_subclass__(**kwargs)
+        if inspect.isabstract(cls):
+            return
+        name = cls.name if cls.name is not None else cls.__name__.lower()
+        cls.registry[name] = cls
+
+    @classmethod
+    def get_config_class(cls) -> type[ConfigBase]:
+        """Get the configuration class."""
+        return MetricBackendConfig
 
     @abstractmethod
     def measure_sub_metric(
@@ -52,11 +71,21 @@ class TorchMetrics(MetricBackend):
         )
 
 
+class HuggingfaceMetricsConfig(ConfigBase):
+    """Configuration for HuggingfaceMetrics."""
+    load_params: Optional[dict[str, Any]] = None
+    compute_params: Optional[dict[str, Any]] = None
+    result_key: Optional[str] = None
+
+
 class HuggingfaceMetrics(MetricBackend):
     name: str = "huggingface_metrics"
 
     def __init__(self, config: Optional[Union[ConfigBase, dict[str, Any]]] = None) -> None:
-        super().__init__(config)
+        config = config or {}
+        if isinstance(config, dict):
+            config = HuggingfaceMetricsConfig(**config)
+        self.config = config
         try:
             import evaluate
         except ImportError:
@@ -64,24 +93,9 @@ class HuggingfaceMetrics(MetricBackend):
         self.evaluate_module = evaluate
 
     @classmethod
-    def _default_config(cls) -> dict[str, ConfigParam]:
-        return {
-            "load_params": ConfigParam(
-                type_=dict[str, Any], default_value=None, description="The parameters to load the metric."
-            ),
-            "compute_params": ConfigParam(
-                type_=dict[str, Any], default_value=None, description="The parameters to compute the metric."
-            ),
-            "result_key": ConfigParam(
-                type_=str,
-                default_value=None,
-                description=(
-                    "The key used to extract the metric result with given format."
-                    "For example, if the metric result is {'accuracy': {'value': 0.9}},"
-                    "then the result_key should be 'accuracy.value'."
-                ),
-            ),
-        }
+    def get_config_class(cls) -> type[ConfigBase]:
+        """Get the configuration class."""
+        return HuggingfaceMetricsConfig
 
     def measure_sub_metric(self, model_output, targets, sub_metric: "SubMetric") -> SubMetricResult:
         load_params = sub_metric.metric_config.load_params or {}

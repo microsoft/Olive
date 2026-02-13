@@ -13,7 +13,6 @@ from sphinx.application import Sphinx
 from sphinx.util.nodes import nested_parse_with_titles
 from sphinx.util.typing import stringify_annotation
 
-from olive.common.auto_config import AutoConfigClass
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.package_config import OlivePackageConfig
 from olive.passes import Pass
@@ -30,12 +29,17 @@ def import_class(class_name: str, package_config: OlivePackageConfig):
     return getattr(module, module_name)
 
 
+def has_get_config_class(cls):
+    """Check if a class has a get_config_class method."""
+    return hasattr(cls, 'get_config_class') and callable(getattr(cls, 'get_config_class'))
+
+
 class AutoConfigDirective(Directive):
     has_content = True
     required_arguments = 1
     option_spec: ClassVar[dict] = {}
 
-    def make_doc(self, auto_config_class: Union[AutoConfigClass, Pass]):
+    def make_doc(self, auto_config_class: Union[type, Pass]):
         class_doc = auto_config_class.__doc__
         lines = []
         if class_doc is not None:
@@ -50,10 +54,44 @@ class AutoConfigDirective(Directive):
             output_model_type = stringify_annotation(output_model_type).replace("olive.model.", "")
             lines += ["", f"**Output:** {stringify_annotation(output_model_type)}"]
 
+        # Get default config - works with both old AutoConfigClass pattern and new pattern
+        if not has_get_config_class(auto_config_class):
+            # Skip if no config class available
+            return lines
+
         if issubclass(auto_config_class, Pass):
-            default_config = auto_config_class.default_config(DEFAULT_CPU_ACCELERATOR)
+            try:
+                default_config = auto_config_class.default_config(DEFAULT_CPU_ACCELERATOR)
+            except Exception:
+                # Pass might not have the old default_config method
+                return lines
         else:
-            default_config = auto_config_class.default_config()
+            # Try old method first for backward compatibility
+            if hasattr(auto_config_class, 'default_config'):
+                try:
+                    default_config = auto_config_class.default_config()
+                except Exception:
+                    return lines
+            else:
+                # New pattern - get config fields from ConfigBase class
+                try:
+                    config_class = auto_config_class.get_config_class()
+                    if hasattr(config_class, 'model_fields'):
+                        # Extract fields from Pydantic v2 model
+                        for field_name, field_info in config_class.model_fields.items():
+                            lines += ["", f".. option:: {field_name}"]
+                            if field_info.description:
+                                lines += ["", f"   {field_info.description}"]
+                            lines += ["", f"   **type:** {stringify_annotation(field_info.annotation)}"]
+                            if field_info.is_required():
+                                lines += ["", "   **required:** True"]
+                            else:
+                                lines += ["", f"   **default_value:** {field_info.default}"]
+                        return lines
+                except Exception:
+                    return lines
+
+        # Old default_config pattern
         for key in default_config:
             param = default_config[key]
             lines += ["", f".. option:: {key}"]
@@ -73,9 +111,10 @@ class AutoConfigDirective(Directive):
         (class_name,) = self.arguments
         package_config = OlivePackageConfig.load_default_config()
         auto_config_class = import_class(class_name, package_config)
-        assert issubclass(auto_config_class, AutoConfigClass) or issubclass(auto_config_class, Pass), (
-            f"{class_name} is not a subclass of AutoConfigClass or Pass"
-        )
+        # Remove AutoConfigClass check since we're migrating away from it
+        # Just check if it has get_config_class method or is a Pass
+        if not (issubclass(auto_config_class, Pass) or has_get_config_class(auto_config_class)):
+            raise ValueError(f"{class_name} is not a subclass of Pass or does not have get_config_class method")
 
         node = nodes.section()
         node.document = self.state.document

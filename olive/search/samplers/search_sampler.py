@@ -2,12 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from abc import abstractmethod
+import inspect
+from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
 
-from olive.common.auto_config import AutoConfigClass
-from olive.common.config_utils import ConfigBase, ConfigParam
+from olive.common.config_utils import ConfigBase
 from olive.search.search_space import SearchSpace
 
 if TYPE_CHECKING:
@@ -15,20 +15,16 @@ if TYPE_CHECKING:
     from olive.search.search_point import SearchPoint
 
 
-class SearchSampler(AutoConfigClass):
+class SearchSamplerConfig(ConfigBase):
+    """Configuration for SearchSampler."""
+    max_samples: int = 0
+
+
+class SearchSampler(ABC):
     """Abstract base class for searchers."""
 
     registry: ClassVar[dict[str, type["SearchSampler"]]] = {}
-
-    @classmethod
-    def _default_config(cls) -> dict[str, ConfigParam]:
-        return {
-            "max_samples": ConfigParam(
-                type_=int,
-                default_value=0,
-                description="Maximum number of samples to suggest. Search exhaustively if set to zero.",
-            ),
-        }
+    name: Optional[str] = None
 
     def __init__(
         self,
@@ -36,7 +32,10 @@ class SearchSampler(AutoConfigClass):
         config: Optional[Union[dict[str, Any], ConfigBase]] = None,
         objectives: dict[str, dict[str, Any]] = None,
     ):
-        super().__init__(config)
+        config = config or {}
+        if isinstance(config, dict):
+            config = self.get_config_class()(**config)
+        self.config = config
 
         self._search_space = search_space
         self._config = config
@@ -47,6 +46,20 @@ class SearchSampler(AutoConfigClass):
         self._higher_is_betters = {
             name: objective.get("higher_is_better") or False for name, objective in self._objectives.items()
         }
+
+    @classmethod
+    def __init_subclass__(cls, **kwargs) -> None:
+        """Register the search sampler."""
+        super().__init_subclass__(**kwargs)
+        if inspect.isabstract(cls):
+            return
+        name = cls.name if cls.name is not None else cls.__name__.lower()
+        cls.registry[name] = cls
+
+    @classmethod
+    def get_config_class(cls) -> type[ConfigBase]:
+        """Get the configuration class."""
+        return SearchSamplerConfig
 
     @property
     @abstractmethod
