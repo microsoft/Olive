@@ -5,18 +5,12 @@
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
 
-from olive.common.config_utils import ConfigBase
+from olive.common.config_utils import ConfigBase, ConfigParam, create_config_class
 from olive.search.search_space import SearchSpace
 
 if TYPE_CHECKING:
     from olive.evaluator.metric_result import MetricResult
     from olive.search.search_point import SearchPoint
-
-
-class SearchSamplerConfig(ConfigBase):
-    """Configuration for SearchSampler."""
-
-    max_samples: int = 0
 
 
 class SearchSampler:
@@ -60,9 +54,27 @@ class SearchSampler:
         cls.registry[name] = cls
 
     @classmethod
+    def _default_config(cls) -> dict[str, ConfigParam]:
+        """Get the default configuration for the sampler.
+        
+        Subclasses can override this to add more configuration parameters.
+        """
+        return {
+            "max_samples": ConfigParam(
+                type_=int,
+                default_value=0,
+                description="Maximum number of samples to suggest. Search exhaustively if set to zero.",
+            ),
+        }
+
+    @classmethod
     def get_config_class(cls) -> type[ConfigBase]:
         """Get the configuration class."""
-        return SearchSamplerConfig
+        if '_is_base_class' not in cls.__dict__:
+            cls._is_base_class = False
+        if cls._is_base_class:
+            raise TypeError(f"Cannot get config class for base class {cls.__name__}")
+        return create_config_class(f"{cls.__name__}Config", cls._default_config(), ConfigBase, {})
 
     @property
     def num_samples_suggested(self) -> int:
