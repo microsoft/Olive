@@ -53,9 +53,9 @@ class AutoConfigClass(ABC):
     ---------------
     To migrate from AutoConfigClass to ConfigBase:
     1. Remove AutoConfigClass inheritance
-    2. Manually define your config class inheriting from ConfigBase
+    2. Manually define your config class inheriting from ConfigBase (olive.common.config_utils)
     3. Implement registry pattern directly in your class if needed
-    4. Use validate_config() from config_utils directly for validation
+    4. Use validate_config() from olive.common.config_utils directly for validation
     """
 
     registry: ClassVar[dict[str, type]] = {}
