@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import inspect
+import warnings
 from abc import ABC, abstractmethod
 from typing import Any, Callable, ClassVar, Optional, Union
 
@@ -11,6 +12,11 @@ from olive.common.config_utils import ConfigBase, ConfigParam, create_config_cla
 
 class AutoConfigClass(ABC):
     """Base class for creating other classes with easily extensible subclassing.
+
+    .. deprecated:: 0.11.0
+        AutoConfigClass is deprecated in favor of directly using ConfigBase from
+        olive.common.config_utils. Please migrate to using ConfigBase and manually
+        implementing registry patterns where needed.
 
     Registry
     The class maintains a registry of all concrete subclasses.
@@ -42,6 +48,14 @@ class AutoConfigClass(ABC):
         @classmethod
         def _validators(cls):
             return {"validate_func_param": field_validator("func_param", allow_reuse=True)(validate_func_param)}
+
+    Migration Guide
+    ---------------
+    To migrate from AutoConfigClass to ConfigBase:
+    1. Remove AutoConfigClass inheritance
+    2. Manually define your config class inheriting from ConfigBase
+    3. Implement registry pattern directly in your class if needed
+    4. Use validate_config() from config_utils directly for validation
     """
 
     registry: ClassVar[dict[str, type]] = {}
@@ -58,6 +72,13 @@ class AutoConfigClass(ABC):
         cls.registry[name] = cls
 
     def __init__(self, config: Union[ConfigBase, dict[str, Any]]) -> None:
+        warnings.warn(
+            f"{self.__class__.__name__} uses AutoConfigClass which is deprecated. "
+            "Please migrate to using ConfigBase directly from olive.common.config_utils. "
+            "See AutoConfigClass docstring for migration guide.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.config_class = self.get_config_class()
         self.config = validate_config(config, self.config_class)
 
