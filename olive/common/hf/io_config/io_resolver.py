@@ -9,10 +9,10 @@ import logging
 from importlib.resources import files
 from typing import TYPE_CHECKING, Any
 
+import yaml
+
 if TYPE_CHECKING:
     from olive.constants import DiffusersModelVariant
-
-import yaml
 
 logger = logging.getLogger(__name__)
 
