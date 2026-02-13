@@ -100,8 +100,8 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         pte_group.add_argument(
             "--target_opset",
             type=int,
-            default=17,
-            help="The target opset version for the ONNX model. Default is 17.",
+            default=20,
+            help="The target opset version for the ONNX model. Default is 20.",
         )
 
         # Model Builder options
