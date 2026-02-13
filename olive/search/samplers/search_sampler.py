@@ -2,8 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import inspect
-from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
 
@@ -21,11 +19,12 @@ class SearchSamplerConfig(ConfigBase):
     max_samples: int = 0
 
 
-class SearchSampler(ABC):
-    """Abstract base class for searchers."""
+class SearchSampler:
+    """Base class for search samplers."""
 
     registry: ClassVar[dict[str, type["SearchSampler"]]] = {}
     name: Optional[str] = None
+    _is_base_class: bool = True
 
     def __init__(
         self,
@@ -52,7 +51,10 @@ class SearchSampler(ABC):
     def __init_subclass__(cls, **kwargs) -> None:
         """Register the search sampler."""
         super().__init_subclass__(**kwargs)
-        if inspect.isabstract(cls):
+        # Subclasses should not be considered base classes unless explicitly set
+        if '_is_base_class' not in cls.__dict__:
+            cls._is_base_class = False
+        if cls._is_base_class:
             return
         name = cls.name if cls.name is not None else cls.__name__.lower()
         cls.registry[name] = cls
@@ -63,10 +65,12 @@ class SearchSampler(ABC):
         return SearchSamplerConfig
 
     @property
-    @abstractmethod
     def num_samples_suggested(self) -> int:
-        """Returns the number of samples suggested so far."""
-        return 0
+        """Returns the number of samples suggested so far.
+        
+        Subclasses must implement this property.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement num_samples_suggested")
 
     @property
     def max_samples(self) -> int:
@@ -82,10 +86,12 @@ class SearchSampler(ABC):
             or ((self.max_samples > 0) and (self.num_samples_suggested >= self.max_samples))
         )
 
-    @abstractmethod
     def suggest(self) -> "SearchPoint":
-        """Suggest a new configuration to try."""
-        return None
+        """Suggest a new configuration to try.
+        
+        Subclasses must implement this method.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement suggest")
 
     def record_feedback_signal(self, search_point_index: int, signal: "MetricResult", should_prune: bool = False):
         """Report the result of a configuration."""

@@ -2,9 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import inspect
 import logging
-from abc import ABC, abstractmethod
 from inspect import isfunction, signature
 from typing import Any, Callable, ClassVar, Optional, Union
 
@@ -17,9 +15,12 @@ from olive.data.constants import IGNORE_INDEX
 logger = logging.getLogger(__name__)
 
 
-class AccuracyBase(ABC):
+class AccuracyBase:
+    """Base class for accuracy metrics."""
+
     registry: ClassVar[dict[str, type["AccuracyBase"]]] = {}
     name: Optional[str] = None
+    _is_base_class: bool = True
     metric_cls_map: ClassVar[dict[str, Union[torchmetrics.Metric, Callable]]] = {
         "accuracy_score": torchmetrics.Accuracy,
         "f1_score": torchmetrics.F1Score,
@@ -40,7 +41,10 @@ class AccuracyBase(ABC):
     def __init_subclass__(cls, **kwargs) -> None:
         """Register the metric."""
         super().__init_subclass__(**kwargs)
-        if inspect.isabstract(cls):
+        # Subclasses should not be considered base classes unless explicitly set
+        if '_is_base_class' not in cls.__dict__:
+            cls._is_base_class = False
+        if cls._is_base_class:
             return
         name = cls.name if cls.name is not None else cls.__name__.lower()
         cls.registry[name] = cls
@@ -78,7 +82,10 @@ class AccuracyBase(ABC):
     @classmethod
     def get_config_class(cls) -> type[ConfigBase]:
         """Get the configuration class."""
-        assert not inspect.isabstract(cls), "Cannot get config class for abstract class"
+        if '_is_base_class' not in cls.__dict__:
+            cls._is_base_class = False
+        if cls._is_base_class:
+            raise TypeError(f"Cannot get config class for base class {cls.__name__}")
         default_config = cls._metric_config_from_torch_metrics()
         return create_config_class(f"{cls.__name__}Config", default_config, ConfigBase, {})
 
@@ -90,9 +97,19 @@ class AccuracyBase(ABC):
         target = torch.tensor(target, dtype=dtypes[1]) if not isinstance(target, torch.Tensor) else target.to(dtypes[1])
         return preds, target
 
-    @abstractmethod
     def measure(self, model_output, target):
-        raise NotImplementedError
+        """Measure the metric.
+        
+        Subclasses must implement this method.
+        
+        Args:
+            model_output: Model output
+            target: Target values
+            
+        Returns:
+            Measured metric value
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement measure")
 
 
 class AccuracyScore(AccuracyBase):

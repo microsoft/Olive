@@ -2,8 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import inspect
-from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Optional, Union
 
 from olive.common.config_utils import ConfigBase
@@ -19,9 +17,12 @@ class MetricBackendConfig(ConfigBase):
 
 
 
-class MetricBackend(ABC):
+class MetricBackend:
+    """Base class for metric backends."""
+
     registry: ClassVar[dict[str, type["MetricBackend"]]] = {}
     name: Optional[str] = None
+    _is_base_class: bool = True
 
     def __init__(self, config: Optional[Union[ConfigBase, dict[str, Any]]] = None) -> None:
         config = config or {}
@@ -33,7 +34,10 @@ class MetricBackend(ABC):
     def __init_subclass__(cls, **kwargs) -> None:
         """Register the metric backend."""
         super().__init_subclass__(**kwargs)
-        if inspect.isabstract(cls):
+        # Subclasses should not be considered base classes unless explicitly set
+        if '_is_base_class' not in cls.__dict__:
+            cls._is_base_class = False
+        if cls._is_base_class:
             return
         name = cls.name if cls.name is not None else cls.__name__.lower()
         cls.registry[name] = cls
@@ -43,12 +47,22 @@ class MetricBackend(ABC):
         """Get the configuration class."""
         return MetricBackendConfig
 
-    @abstractmethod
     def measure_sub_metric(
         self, model_output: Union[tuple, NamedTuple], targets: Any, sub_metric: "SubMetric"
     ) -> SubMetricResult:
-        # model_output: (preds, logits)
-        raise NotImplementedError
+        """Measure a sub-metric.
+        
+        Subclasses must implement this method.
+        
+        Args:
+            model_output: (preds, logits)
+            targets: Target values
+            sub_metric: Sub-metric to measure
+            
+        Returns:
+            SubMetricResult with the measurement
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement measure_sub_metric")
 
     def measure(self, model_output, targets, metrics: "Metric") -> MetricResult:
         metric_results_dict = {}

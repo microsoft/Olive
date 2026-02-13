@@ -2,11 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import inspect
 import logging
 import shutil
 import tempfile
-from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Optional, Union
@@ -37,9 +35,12 @@ class ResourceType(CaseInsensitiveEnum):
 LOCAL_RESOURCE_TYPES = (ResourceType.LocalFile, ResourceType.LocalFolder)
 
 
-class ResourcePath(ABC):
+class ResourcePath:
+    """Base class for resource paths."""
+
     registry: ClassVar[dict[str, type["ResourcePath"]]] = {}
     name: Optional[ResourceType] = None
+    _is_base_class: bool = True
 
     def __init__(self, config: Union[ConfigBase, dict[str, Any]]) -> None:
         if isinstance(config, dict):
@@ -50,16 +51,21 @@ class ResourcePath(ABC):
     def __init_subclass__(cls, **kwargs) -> None:
         """Register the resource path."""
         super().__init_subclass__(**kwargs)
-        if inspect.isabstract(cls):
+        # Subclasses should not be considered base classes unless explicitly set
+        if '_is_base_class' not in cls.__dict__:
+            cls._is_base_class = False
+        if cls._is_base_class:
             return
         name = cls.name if cls.name is not None else cls.__name__.lower()
         cls.registry[name] = cls
 
     @classmethod
-    @abstractmethod
     def _default_config(cls) -> dict[str, ConfigParam]:
-        """Get the default configuration for the class."""
-        raise NotImplementedError
+        """Get the default configuration for the class.
+        
+        Subclasses must implement this method.
+        """
+        raise NotImplementedError(f"{cls.__name__} must implement _default_config")
 
     @classmethod
     def _validators(cls) -> dict[str, Callable]:
@@ -69,7 +75,10 @@ class ResourcePath(ABC):
     @classmethod
     def get_config_class(cls) -> type[ConfigBase]:
         """Get the configuration class."""
-        assert not inspect.isabstract(cls), "Cannot get config class for abstract class"
+        if '_is_base_class' not in cls.__dict__:
+            cls._is_base_class = False
+        if cls._is_base_class:
+            raise TypeError(f"Cannot get config class for base class {cls.__name__}")
         return create_config_class(f"{cls.__name__}Config", cls._default_config(), ConfigBase, cls._validators())
 
     def __repr__(self) -> str:
@@ -79,15 +88,19 @@ class ResourcePath(ABC):
     def type(self) -> Optional[ResourceType]:
         return self.name
 
-    @abstractmethod
     def get_path(self) -> str:
-        """Return the resource path as a string."""
-        raise NotImplementedError
+        """Return the resource path as a string.
+        
+        Subclasses must implement this method.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement get_path")
 
-    @abstractmethod
     def save_to_dir(self, dir_path: Union[Path, str], name: Optional[str] = None, overwrite: bool = False) -> str:
-        """Save the resource to a directory."""
-        raise NotImplementedError
+        """Save the resource to a directory.
+        
+        Subclasses must implement this method.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement save_to_dir")
 
     def is_local_resource(self) -> bool:
         """Return True if the resource is a local resource."""
