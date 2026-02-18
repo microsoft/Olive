@@ -420,13 +420,14 @@ class OliveQuantizedModel:
                 for q_attr, q_value in [("bits", local_bits), ("_group_size", local_group_size)]:
                     setattr(submodule, q_attr, q_value)
                 # in_features is always a multiple of group_size, group_size is a power of 2
-                if tensor_name.endswith("scales"):
-                    submodule.out_features = tensor_value.shape[0]
-                    submodule.in_features = tensor_value.shape[1] * local_group_size
-                elif tensor_name.endswith("qweight"):
-                    tensor_value = tensor_value.reshape(
-                        tensor_value.shape[0], (tensor_value.shape[1] * 8 // local_bits) // local_group_size, -1
-                    )
+                # assumes no padding
+                if tensor_name.endswith("qweight"):
+                    out_features, in_features_packed = tensor_value.shape
+                    in_features = in_features_packed * 8 // local_bits
+                    submodule.in_features = in_features
+                    submodule.out_features = out_features
+                    num_blocks = in_features // local_group_size if local_group_size != -1 else 1
+                    tensor_value = tensor_value.reshape(out_features, num_blocks, -1)
             setattr(submodule, tensor_name.split(".")[-1], tensor_value)
 
         for weight_file in Path(input_path).iterdir():

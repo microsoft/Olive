@@ -33,18 +33,15 @@ def test_model_builder(tmp_path, metadata_only):
     assert Path(output_folder / "genai_config.json").exists()
 
 
-@pytest.mark.skip(
-    reason="Skip for now, need a fix in genai to support new Olive quant format "
-    "https://github.com/microsoft/onnxruntime-genai/pull/1916"
-)
 @pytest.mark.parametrize("embeds", [True, False])
-def test_model_builder_olive_quant(tmp_path, embeds):
+@pytest.mark.parametrize("group_size", [16, -1])
+def test_model_builder_olive_quant(tmp_path, embeds, group_size):
     # set up quantized model
     input_model = create_pass_from_dict(
         Rtn,
         {
             "bits": 4,
-            "group_size": 16,
+            "group_size": group_size,
             "symmetric": False,
             "lm_head": True,
             "embeds": embeds,
