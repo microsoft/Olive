@@ -176,7 +176,7 @@ class TelemetryCacheHandler:
             with self._callback_condition:
                 callbacks_item_count = self._callbacks_item_count
                 expected_items = self._events_logged
-                if not self.is_flushing() and callbacks_item_count >= expected_items:
+                if not self.is_flushing and callbacks_item_count >= expected_items:
                     return True
             remaining = deadline - time.time()
             if remaining <= 0:
@@ -416,6 +416,7 @@ class TelemetryCacheHandler:
                     pass
             return
 
+    @property
     def is_flushing(self) -> bool:
         with self._lock:
             return self._is_flushing
@@ -554,7 +555,7 @@ class Telemetry:
         # Step 1: Wait for pending flush to complete (matches C# 1-second timeout)
         start_time = time.time()
         while time.time() - start_time < 1.0:
-            if not self._cache_handler or not self._cache_handler.is_flushing():
+            if not self._cache_handler or not self._cache_handler.is_flushing:
                 break
             time.sleep(0.05)
 

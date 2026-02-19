@@ -174,7 +174,7 @@ class HttpJsonPostTransport(ITransport):
                 return True, status_code
             else:
                 # Log error response
-                if event_source.is_error_logging_enabled():
+                if event_source.is_error_logging_enabled:
                     collector_error = response.headers.get("Collector-Error", "")
                     error_details = response.text[:100] if response.text else ""
                     event_source.http_transport_error_response(

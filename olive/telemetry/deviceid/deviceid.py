@@ -44,7 +44,7 @@ def get_device_id() -> str:
             _device_id_state["device_id"] = device_id
             return device_id
 
-        device_id = store.retrieve_id().strip()
+        device_id = store.retrieve_id
         if len(device_id) > 256:
             _device_id_state["status"] = DeviceIdStatus.CORRUPTED
             _device_id_state["device_id"] = ""

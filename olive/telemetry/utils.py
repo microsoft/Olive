@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import functools
 import os
 import platform
 import traceback
@@ -12,6 +13,8 @@ from typing import Optional
 ORT_SUPPORT_DIR = r"Microsoft/DeveloperTools/.onnxruntime"
 
 
+@property
+@functools.lru_cache(maxsize=1)
 def get_telemetry_base_dir() -> Path:
     os_name = platform.system()
     if os_name == "Windows":

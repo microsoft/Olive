@@ -39,10 +39,17 @@ class OneCollectorEventSource:
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
 
+    @property
     def is_informational_logging_enabled(self) -> bool:
         """Check if informational level logging is enabled."""
         return self.logger.isEnabledFor(logging.INFO)
 
+    @property
+    def is_warning_logging_enabled(self) -> bool:
+        """Check if warning level logging is enabled."""
+        return self.logger.isEnabledFor(logging.WARNING)
+
+    @property
     def is_error_logging_enabled(self) -> bool:
         """Check if error level logging is enabled."""
         return self.logger.isEnabledFor(logging.ERROR)
@@ -55,7 +62,7 @@ class OneCollectorEventSource:
             exception: The exception that was thrown
 
         """
-        if self.logger.isEnabledFor(logging.ERROR):
+        if self.is_error_logging_enabled:
             self.logger.error(
                 "Exception thrown exporting '%s' batch: %s",
                 item_type,
@@ -73,7 +80,7 @@ class OneCollectorEventSource:
             transport_description: Description of transport used
 
         """
-        if self.is_informational_logging_enabled():
+        if self.is_informational_logging_enabled:
             self.logger.info(
                 "Sent '%s' batch of %s item(s) to '%s' transport",
                 item_type,
@@ -91,7 +98,7 @@ class OneCollectorEventSource:
             sink_description: Description of sink used
 
         """
-        if self.is_informational_logging_enabled():
+        if self.is_informational_logging_enabled:
             self.logger.info(
                 "Wrote '%s' batch of %s item(s) to '%s' sink",
                 item_type,
@@ -112,7 +119,7 @@ class OneCollectorEventSource:
             during_transmission: Number dropped during transmission
 
         """
-        if self.logger.isEnabledFor(logging.WARNING):
+        if self.is_warning_logging_enabled:
             self.logger.warning(
                 "Dropped %s '%s' item(s). %s item(s) dropped during serialization. %s item(s) dropped due to "
                 "transmission failure",
@@ -131,7 +138,7 @@ class OneCollectorEventSource:
             exception: The exception that was thrown
 
         """
-        if self.logger.isEnabledFor(logging.ERROR):
+        if self.is_error_logging_enabled:
             self.logger.error(
                 "Exception thrown by '%s' transport: %s",
                 transport_type,
@@ -152,7 +159,7 @@ class OneCollectorEventSource:
             error_details: Additional error details
 
         """
-        if self.logger.isEnabledFor(logging.ERROR):
+        if self.is_error_logging_enabled:
             self.logger.error(
                 "Error response received by '%s' transport. StatusCode: %s, ErrorMessage: '%s', ErrorDetails: '%s'",
                 transport_type,
@@ -170,7 +177,7 @@ class OneCollectorEventSource:
             event_name: Event name
 
         """
-        if self.logger.isEnabledFor(logging.WARNING):
+        if self.is_warning_logging_enabled:
             self.logger.warning(
                 "Event full name discarded. EventNamespace: '%s', EventName: '%s'",
                 event_namespace,
@@ -185,7 +192,7 @@ class OneCollectorEventSource:
             event_namespace: The invalid namespace
 
         """
-        if self.logger.isEnabledFor(logging.WARNING):
+        if self.is_warning_logging_enabled:
             self.logger.warning(
                 "Event namespace invalid. EventNamespace: '%s'",
                 event_namespace,
@@ -199,7 +206,7 @@ class OneCollectorEventSource:
             event_name: The invalid event name
 
         """
-        if self.logger.isEnabledFor(logging.WARNING):
+        if self.is_warning_logging_enabled:
             self.logger.warning(
                 "Event name invalid. EventName: '%s'",
                 event_name,
@@ -214,7 +221,7 @@ class OneCollectorEventSource:
             exception: The exception that was thrown
 
         """
-        if self.logger.isEnabledFor(logging.ERROR):
+        if self.is_error_logging_enabled:
             self.logger.error(
                 "Exception thrown by '%s' user code: %s",
                 user_code_type,
@@ -232,7 +239,7 @@ class OneCollectorEventSource:
             reason: Reason for dropping
 
         """
-        if self.logger.isEnabledFor(logging.WARNING):
+        if self.is_warning_logging_enabled:
             self.logger.warning(
                 "Dropped %s attribute '%s': %s",
                 item_type,

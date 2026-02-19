@@ -82,10 +82,12 @@ class PayloadBuilder:
 
         return self.NEWLINE_SEPARATOR.join(self.items)
 
+    @property
     def item_count(self) -> int:
         """Get the number of items in the current payload."""
         return len(self.items)
 
+    @property
     def is_empty(self) -> bool:
         """Check if the payload is empty."""
         return len(self.items) == 0

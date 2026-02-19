@@ -281,7 +281,7 @@ class OneCollectorLogExporter(LogRecordExporter):
         self._payload_builder.reset()
 
         for item_bytes in serialized_items:
-            if not self._payload_builder.can_add(item_bytes) and not self._payload_builder.is_empty():
+            if not self._payload_builder.can_add(item_bytes) and not self._payload_builder.is_empty:
                 # Current payload is full, build it and start a new one
                 payloads.append(self._payload_builder.build())
                 self._payload_builder.reset()
@@ -289,7 +289,7 @@ class OneCollectorLogExporter(LogRecordExporter):
             self._payload_builder.add(item_bytes)
 
         # Build final payload
-        if not self._payload_builder.is_empty():
+        if not self._payload_builder.is_empty:
             payloads.append(self._payload_builder.build())
 
         return payloads

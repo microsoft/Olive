@@ -8,11 +8,13 @@ REGISTRY_KEY = "deviceid"
 
 class Store:
     def __init__(self) -> None:
-        self._file_path: Path = self._build_path()
+        self._file_path: Path = self._build_path
 
+    @property
     def _build_path(self) -> Path:
         return get_telemetry_base_dir() / "deviceid"
 
+    @property
     def retrieve_id(self) -> str:
         """Retrieve the device id from the store location.
 
@@ -23,7 +25,7 @@ class Store:
         if not self._file_path.is_file():
             raise FileExistsError(f"File {self._file_path.stem} does not exist")
 
-        return self._file_path.read_text(encoding="utf-8")
+        return self._file_path.read_text(encoding="utf-8").strip()
 
     def store_id(self, device_id: str) -> None:
         """Store the device id in the store location.
@@ -44,6 +46,7 @@ class Store:
 
 
 class WindowsStore:
+    @property
     def retrieve_id(self) -> str:
         """Retrieve the device id from the Windows registry."""
         import winreg
@@ -54,12 +57,12 @@ class WindowsStore:
             winreg.HKEY_CURRENT_USER, REGISTRY_PATH, reserved=0, access=winreg.KEY_READ | winreg.KEY_WOW64_64KEY
         ) as key_handle:
             device_id = winreg.QueryValueEx(key_handle, REGISTRY_KEY)
-        return device_id[0]
+        return device_id[0].strip()
 
     def store_id(self, device_id: str) -> None:
         """Store the device id in the windows registry.
 
-        :param str device_id: The device id to sstore.
+        :param str device_id: The device id to store.
         """
         import winreg
 
