@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------
-# Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: MIT
 # --------------------------------------------------------------------------
 
 import logging
@@ -13,6 +13,9 @@ from olive.hardware import AcceleratorSpec
 from olive.model import HfModelHandler, QairtModelHandler, QairtPreparedModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+
+import qairt
+import qairt.gen_ai_api as qairt_genai
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +31,20 @@ class QairtGenAIBuilder(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
+            # General configs
+            "cache_dir": PassConfigParam(
+                type_=str,
+                default_value="./cache/qairt/gen_ai_builder",
+                description="Directory to be used as the cache directory for subsequent GenAIBuilder invocations."
+                "By default, saves to a similar location to the Olive cache.",
+            ),
+            "log_level": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description="Log level to be used within underlying QAIRT components."
+                "Valid values: DEBUG, INFO, WARN, ERROR.",
+            ),
+            # Device configs
             "backend": PassConfigParam(
                 type_=str,
                 default_value="CPU",
@@ -41,19 +58,40 @@ class QairtGenAIBuilder(Pass):
                 " This option will be ignored if any device custom configurations are set."
                 "e.g. 'chipset:chipset:SC8380XP', 'dsp_arch:v73;soc_model:60' ",
             ),
-            "cache_dir": PassConfigParam(
-                type_=str,
-                default_value=None,
-                description="Directory to be used as the cache directory for subsequent GenAIBuilder invocations."
-                "If no directory is set, the GenAIBuilder API will not cache any artifacts.",
+            # Model configs
+            "multi_graph": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Produces context binaries with additional context length combinations. "
+                "Improves token generation performance for different context lengths but increases preparation time. "
+                "HTP only."
             ),
-            "log_level": PassConfigParam(
-                type_=str,
-                default_value=None,
-                description="Log level to be used within underlying QAIRT components."
-                "Valid values: DEBUG, INFO, WARN, ERROR.",
+            "num_splits": PassConfigParam(
+                type_=int,
+                default_value=-1,
+                description="Number of model splits. Default value is -1 (value chosen by QAIRT based on model). " 
+                "HTP only.",
             ),
         }
+
+    
+    @classmethod
+    def validate_config(
+        cls,
+        config: type[BasePassConfig],
+        accelerator_spec: AcceleratorSpec,
+    ) -> bool:
+        
+        if config.backend != qairt.BackendType.HTP.value:
+            if config.multi_graph:
+                logger.error("multi_graph is unsupported on non-HTP backends")
+                return False
+            if config.num_splits != -1:
+                logger.error("num_splits is unsupported on non-HTP backends")
+                return False
+        
+        return True
+        
 
     def _run_for_config(
         self,
@@ -61,15 +99,6 @@ class QairtGenAIBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> QairtModelHandler:
-        # Attempt to import QAIRT Python API - if not present, something is probably wrong with user setup
-        try:
-            import qairt
-            import qairt.gen_ai_api as qairt_genai
-        except ImportError as exc:
-            raise ImportError(
-                "Failed to import QAIRT GenAIBuilder API - ensure qairt-dev setup completed successfully."
-                "Please run `qairt-vm -i` for help troubleshooting issues."
-            ) from exc
 
         if config.log_level:
             os.environ["QAIRT_LOG_LEVEL"] = config.log_level
@@ -86,19 +115,48 @@ class QairtGenAIBuilder(Pass):
             raise ValueError("QAIRT HTP GenAIBuilder can only consume QairtPreparedModelHandler")
 
         gen_ai_builder = qairt_genai.GenAIBuilderFactory.create(
-            pretrained_model_path=Path(model.model_path), backend_type=config.backend, cache_root=config.cache_dir
+            pretrained_model_path=Path(model.model_path) / "base" / "onnx",
+            backend_type=config.backend,
+            cache_root=config.cache_dir,
+            tokenizer_path=Path(model.model_path),
+            config_path=Path(model.model_path)
         )
+
+        # Embedding LUT is unsupported for now
+        gen_ai_builder._prepare_embedding_lut = False
+
         # Can only set target and transformation configurations if the BE is HTP
         if config.backend == qairt.BackendType.HTP.value:
             gen_ai_builder.set_targets([config.soc_details])
-            gen_ai_builder._prepare_embedding_lut = False
+            gen_ai_builder.multi_graph = config.multi_graph
+            if config.num_splits != -1:
+                gen_ai_builder._transformation_config.model_transformer_config.split_model.num_splits = config.num_splits
 
         gen_ai_container = gen_ai_builder.build()
+
+        # Handling of UDMA on LLMContainer
+        #if config.backend == qairt.BackendType.HTP.value:
+            # TODO fix index issue here where index should map to index
+            #htp_version = gen_ai_container._backend_extensions_config.device_custom_configs[0].dsp_arch
+            #if htp_version >= "v81":
+                #gen_ai_builder._backend_extensions_config.context_custom_configs[0].extended_udma = True
+
         gen_ai_container.save(output_model_path, exist_ok=True)
 
-        # QairtModelHandler requires the source model's config.json to be present
-        config_path = Path(model.model_path) / "config.json"
-        dest_path = Path(output_model_path)
-        hardlink_copy_file(config_path, dest_path, follow_symlinks=True)
+        # QairtModelHandler requires certain source model files to be passed through
+        passthrough_files = [
+            "config.json",
+            "generation_config.json",
+            "tokenizer.json",
+            "tokenizer_config.json"
+        ]
+        for file in passthrough_files:
+            config_path = Path(model.model_path) / file
+            dest_path = Path(output_model_path)
+            # TODO Remove once we have NB1 scripts for all models
+            try:
+                hardlink_copy_file(config_path, dest_path, follow_symlinks=True)
+            except:
+                pass
 
         return QairtModelHandler(model_path=output_model_path)

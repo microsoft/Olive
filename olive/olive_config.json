@@ -492,6 +492,15 @@
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "qairt-dev" ]
         },
+        "QairtPreparation": {
+            "module_path": "olive.passes.qairt.preparation.QairtPreparation",
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "qairt-dev" ]
+        },
         "QLoRA": {
             "module_path": "olive.passes.pytorch.lora.QLoRA",
             "supported_providers": [ "*" ],

@@ -1,6 +1,6 @@
 # -------------------------------------------------------------------------
-# Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: MIT
 # --------------------------------------------------------------------------
 
 import logging
@@ -18,6 +18,9 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, QairtModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+
+import qairt
+import qairt.gen_ai_api as qairt_genai
 
 logger = logging.getLogger(__name__)
 
@@ -87,23 +90,12 @@ class QairtEncapsulation(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        # Attempt to import QAIRT Python API - if not present, something is probably wrong with user setup
-        try:
-            import qairt
-            import qairt.gen_ai_api as qairt_genai
-        except ImportError:
-            raise ImportError("Please install olive-ai[qairt] to use QAIRT models.")
-        
 
         container: qairt_genai.LLMContainer = qairt_genai.LLMContainer.load(model.model_path)
 
-        # NEED TO EXTRACT METADATA FROM CONTAINER FOR ONNX WRAPPING SCRIPT
-        # THIS IS SOMEWHAT COMPLICATED CAUSE IT DEPENDS ON THE NODE TYPE WE ARE USING FOR THIS MODEL, SHOULD BE ORT INPUTS
-
         # Input/Ouptut metadata
-        # TODO - Depending on export format the datatypes here may need to change
-        container.inputs = [("dummy_input", TensorProto.UINT32, [-1, -1, -1, -1])]
-        container.outputs = [("dummy_output", TensorProto.FLOAT, [-1, -1, -1, -1])]
+        container.inputs = [("input_ids", TensorProto.INT32, ["batch_size", "sequence_length"])]
+        container.outputs = [("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])]
         
         input_info = {input[0]: (input[1], input[2]) for input in container.inputs}
 
@@ -118,10 +110,26 @@ class QairtEncapsulation(Pass):
         for (name, datatype, shape) in container.outputs:
             outputs.append(helper.make_tensor_value_info(name, datatype, shape))
 
-        # TODO - Should maybe separate this to a helper function so that different export formats can have their own functions
-        # Export the container 
-        container.export(output_model_path, export_format=qairt.ExportFormat.LM_EXECUTOR)  # Expect no binaries/libs but exported model
-        #container.export(output_model_path, export_format=qairt.ExportFormat.LM_EXECUTOR_DLC)
+        container.export(output_model_path, export_format=qairt.ExportFormat.LM_EXECUTOR)
+
+        # Find the .dlc file in the output directory
+        output_path_obj = Path(output_model_path)
+        dlc_files = list(output_path_obj.glob("*.dlc"))
+        
+        if not dlc_files:
+            raise FileNotFoundError(
+                f"No .dlc file found in {output_model_path} after export. "
+                "Expected at least one .dlc file to be generated."
+            )
+        
+        if len(dlc_files) > 1:
+            logger.warning(
+                f"Multiple .dlc files found in {output_model_path}: {[f.name for f in dlc_files]}. "
+                f"Using the first one: {dlc_files[0].name}"
+            )
+        
+        dlc_filename = dlc_files[0].name
+        logger.info(f"Found DLC file: {dlc_filename}")
 
         context_node = helper.make_node(
             "EPContext",
@@ -131,8 +139,8 @@ class QairtEncapsulation(Pass):
             domain="com.microsoft",
         )
 
-        context_node.attribute.extend([helper.make_attribute("ep_context_type", "zip")])
-        context_node.attribute.extend([helper.make_attribute("ep_zip_context", "model.zip")])
+        context_node.attribute.extend([helper.make_attribute("ep_context_type", "dlc")])
+        context_node.attribute.extend([helper.make_attribute("ep_dlc_context", dlc_filename)])
         context_node.attribute.extend([helper.make_attribute("source", "QAIRTExport")])
 
         # Create the ONNX Graph
@@ -147,7 +155,6 @@ class QairtEncapsulation(Pass):
             checker.check_model(model_def)
 
         # Save the model
-        # TODO - Need to derive a better name here from LLMContainer
         model_name = "model"
         context_model_output = f"{model_name}.onnx"
         context_model_output_dir = Path(output_model_path) / (context_model_output)
@@ -157,10 +164,21 @@ class QairtEncapsulation(Pass):
 
         save(model_def, context_model_output_dir)
 
-        # Source model configuration is required in output directory
-        config_path = Path(model.model_path) / "config.json"
-        dest_path = Path(output_model_path)
-        hardlink_copy_file(config_path, dest_path, follow_symlinks=True)
+        # onnxruntime-genai requires certain source model files to be passed through
+        passthrough_files = [
+            "config.json",
+            "generation_config.json",
+            "tokenizer.json",
+            "tokenizer_config.json"
+        ]
+        for file in passthrough_files:
+            config_path = Path(model.model_path) / file
+            dest_path = Path(output_model_path)
+            # TODO Remove once we have NB1 scripts for all models
+            try:
+                hardlink_copy_file(config_path, dest_path, follow_symlinks=True)
+            except:
+                pass
 
         # generate the genai_config.json file for GenAI models
         create_genai_config(context_model_output, output_model_path, config)
@@ -172,27 +190,32 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
     """Generate the genai_config.json from the model config files.
 
     This is only for Generative AI models for which the config.json and generation_config.json files exist
-    Arguments:
-    @param model_name: name of model ONNX file that is generated
-    @param output_path: path to the output directory where the genai_config.json file will be created
-    @param config: pass configuration containing backend and other settings
-    @return: None
+    Args:
+        model_name: name of model ONNX file that is generated
+        output_path: path to the output directory where the genai_config.json file will be created
+        config: pass configuration containing backend and other settings
+        return: None
     """
     source_config_path = Path(output_path) / "config.json"
 
     if not source_config_path.exists():
         raise ValueError("Cannot create gen_ai_config.json if source model config doesn't exist.")
 
+    generation_config_path = Path(output_path) / "generation_config.json"
+
+    if not generation_config_path.exists():
+        raise ValueError("Cannot create gen_ai_config.json if generation config doesn't exist")
+
     genai_config = {
         "model": {
             "bos_token_id": -1,
             "context_length": -1,
-            "lm_executor": {
+            "decoder": {
                 "session_options": {
                     "log_id": "onnxruntime-genai",
                     "graph_optimization_level": "ORT_DISABLE_ALL",
                     "provider_options": [
-                        {"QNN": {"backend_type": config.backend}}
+                        {"QNN": {"backend_type": config.backend}, "genai_model": "True"}
                     ],
                 },
                 "filename": "qairt_model.onnx",
@@ -218,7 +241,7 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
             "no_repeat_ngram_size": 0,
             "num_beams": 1,
             "num_return_sequences": 1,
-            "past_present_share_buffer": False,
+            "past_present_share_buffer": True,
             "repetition_penalty": 1.0,
             "temperature": 1.0,
             "top_k": 1,
@@ -230,6 +253,9 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
 
     with open(source_config_path) as f:
         src_config = json.load(f)
+
+    with open(generation_config_path) as f:
+        gen_config = json.load(f)
 
     try:
         import onnx
@@ -247,30 +273,29 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
 
     genai_config["model"]["bos_token_id"] = src_config.get("bos_token_id", -1)
     genai_config["model"]["context_length"] = src_config.get("max_position_embeddings", -1)
-    genai_config["model"]["lm_executor"]["filename"] = model_name
-    genai_config["model"]["lm_executor"]["head_size"] = src_config.get("hidden_size", -1) // src_config.get(
+    genai_config["model"]["decoder"]["filename"] = model_name
+    genai_config["model"]["decoder"]["head_size"] = src_config.get("hidden_size", -1) // src_config.get(
         "num_attention_heads", -1
     )
-    genai_config["model"]["lm_executor"]["hidden_size"] = src_config.get("hidden_size", -1)
+    genai_config["model"]["decoder"]["hidden_size"] = src_config.get("hidden_size", -1)
 
     for name in inputs:
-        if name != "beam_idx":
-            genai_config["model"]["lm_executor"]["inputs"].update({name: name})
+        genai_config["model"]["decoder"]["inputs"].update({name: name})
 
     for name in outputs:
-        genai_config["model"]["lm_executor"]["outputs"].update({name: name})
+        genai_config["model"]["decoder"]["outputs"].update({name: name})
 
-    genai_config["model"]["lm_executor"]["num_attention_heads"] = src_config.get("num_attention_heads", -1)
-    genai_config["model"]["lm_executor"]["num_hidden_layers"] = src_config.get("num_hidden_layers", -1)
-    genai_config["model"]["lm_executor"]["num_key_value_heads"] = src_config.get("num_key_value_heads", -1)
+    genai_config["model"]["decoder"]["num_attention_heads"] = src_config.get("num_attention_heads", -1)
+    genai_config["model"]["decoder"]["num_hidden_layers"] = src_config.get("num_hidden_layers", -1)
+    genai_config["model"]["decoder"]["num_key_value_heads"] = src_config.get("num_key_value_heads", -1)
 
-    genai_config["model"]["eos_token_id"] = src_config.get("eos_token_id", -1)
+    genai_config["model"]["eos_token_id"] = gen_config.get("eos_token_id", -1)
     genai_config["model"]["pad_token_id"] = (
-        src_config["pad_token_id"]
-        if hasattr(src_config, "pad_token_id") and src_config["pad_token_id"] is not None
-        else src_config["eos_token_id"][0]
-        if isinstance(src_config["eos_token_id"], list)
-        else src_config["eos_token_id"]
+        gen_config["pad_token_id"]
+        if hasattr(gen_config, "pad_token_id") and gen_config["pad_token_id"] is not None
+        else gen_config["eos_token_id"][0]
+        if isinstance(gen_config["eos_token_id"], list)
+        else gen_config["eos_token_id"]
     )
     genai_config["model"]["type"] = src_config.get("model_type", "")
     genai_config["model"]["vocab_size"] = src_config.get("vocab_size", -1)
