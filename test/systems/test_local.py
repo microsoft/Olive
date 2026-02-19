@@ -75,7 +75,7 @@ class TestLocalSystem:
         metric = metric_func()
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         # olive_model.framework = Framework.ONNX
-        expected_res = MetricResult.parse_obj(
+        expected_res = MetricResult.model_validate(
             {
                 sub_metric.name: {
                     "value": 0.382715310,

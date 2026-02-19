@@ -100,7 +100,7 @@ class PyTorchModelHandlerBase(OliveModelHandler, DummyInputsMixin, PytorchKvCach
         if io_config_obj.kv_cache:
             kv_cache_config = complete_kv_cache_with_model_attributes(io_config_obj.kv_cache, model_attributes or {})
             io_config_obj = extend_io_config_with_kv_cache(io_config_obj, kv_cache_config)
-        return io_config_obj.dict(exclude_none=True)
+        return io_config_obj.model_dump(exclude_none=True)
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)

@@ -41,7 +41,8 @@ class TestDataConfig:
         with pytest.raises(ValueError) as e:  # noqa: PT011
             validate_config(dc_json, DataConfig)
 
-        assert f"{user_script_py} doesn't exist (type=value_error)" in str(e.value)
+        # Pydantic v2 error format changed: removed "(type=value_error)" suffix
+        assert f"{user_script_py} doesn't exist" in str(e.value)
 
         with open(user_script_py, "w") as f:
             f.write("")

@@ -7,13 +7,7 @@ import onnxruntime
 import pytest
 import torch
 from packaging import version
-
-try:
-    # pydantic v2
-    from pydantic.v1.error_wrappers import ValidationError
-except ImportError:
-    # pydantic v1
-    from pydantic.error_wrappers import ValidationError
+from pydantic import ValidationError
 
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict

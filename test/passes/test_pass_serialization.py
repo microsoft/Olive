@@ -19,5 +19,6 @@ def test_pass_serialization(host_device):
     p = cfg.create_pass()
     assert isinstance(p, OnnxConversion)
     assert p.accelerator_spec == DEFAULT_CPU_ACCELERATOR
-    assert p.config == config
+    # In pydantic v2, compare configs by their dumped values, not by instance equality
+    assert p.config.model_dump() == config.model_dump()
     assert p.host_device == host_device

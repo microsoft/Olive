@@ -42,7 +42,7 @@ class GenerateCostModelCommand(BaseOliveCLICommand):
     def run(self):
         import torch
 
-        model_handler = ModelConfig.parse_obj(get_input_model_config(self.args)).create_model()
+        model_handler = ModelConfig.model_validate(get_input_model_config(self.args)).create_model()
 
         # model costs
         costs = {}

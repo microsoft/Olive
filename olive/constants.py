@@ -55,6 +55,7 @@ class Precision(StrEnumBase):
 
 
 class PrecisionBits(IntEnum):
+    BITS2 = 2
     BITS4 = 4
     BITS8 = 8
     BITS16 = 16

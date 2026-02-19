@@ -107,8 +107,8 @@ class AddOliveMetadata(Pass):
         """Get the original HF model name from the model's config if the original model was a HuggingFace model."""
         try:
             model_json = model.to_json()
-            config = model_json.get("config", {})
-            model_attrs = config.get("model_attributes", {})
+            config = model_json.get("config") or {}
+            model_attrs = config.get("model_attributes") or {}
 
             # Check if the original model was a HuggingFace model
             model_type = model_attrs.get("type", "").lower()
@@ -151,7 +151,7 @@ class AddOliveMetadata(Pass):
         try:
             from olive.model.config.model_config import ModelConfig
 
-            model_config = ModelConfig.parse_obj(model.to_json())
+            model_config = ModelConfig.model_validate(model.to_json())
             model_hash = model_config.get_model_identifier()
             metadata["model_hash"] = model_hash
         except Exception as e:

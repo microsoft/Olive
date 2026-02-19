@@ -19,6 +19,8 @@ from olive.common.hf.io_config.io_resolver import (
 if TYPE_CHECKING:
     from transformers import PretrainedConfig
 
+    from olive.constants import DiffusersModelVariant
+
 
 class DummyInputGenerator(ABC):
     """Generate dummy inputs for ONNX export."""
@@ -70,11 +72,11 @@ class DiffusersDummyInputGenerator(DummyInputGenerator):
     Reads input specifications from diffusers.yaml.
     """
 
-    def __init__(self, component_name: str, config: PretrainedConfig):
+    def __init__(self, component_name: str, config: PretrainedConfig, pipeline: DiffusersModelVariant | None = None):
         self.component_name = component_name
         self.config = config
 
-        self.component_spec = get_diffusers_component_config(component_name)
+        self.component_spec = get_diffusers_component_config(component_name, pipeline=pipeline)
         if self.component_spec is None:
             raise ValueError(f"Unknown diffusers component: {component_name}")
 
@@ -145,20 +147,22 @@ class DiffusersDummyInputGenerator(DummyInputGenerator):
 def generate_diffusers_dummy_inputs(
     component_name: str,
     config: PretrainedConfig,
+    pipeline: DiffusersModelVariant | None = None,
 ) -> dict[str, Any]:
     """Create all dummy inputs for a diffusers component.
 
     Args:
         component_name: Name of the diffusers component (e.g., "unet", "vae_encoder")
         config: The component's config object
+        pipeline: Pipeline variant (e.g., "sdxl", "flux")
 
     Returns:
         Dict of input_name -> tensor
 
     """
-    generator = DiffusersDummyInputGenerator(component_name, config)
+    generator = DiffusersDummyInputGenerator(component_name, config, pipeline=pipeline)
 
-    component_spec = get_diffusers_component_config(component_name)
+    component_spec = get_diffusers_component_config(component_name, pipeline=pipeline)
     if component_spec is None:
         raise ValueError(f"Unknown diffusers component: {component_name}")
 
@@ -167,6 +171,14 @@ def generate_diffusers_dummy_inputs(
     # Generate required inputs
     for input_name in component_spec.get("inputs", {}):
         dummy_inputs[input_name] = generator.generate(input_name)
+
+    # Generate SDXL-specific inputs (e.g., text_embeds, time_ids for UNet)
+    is_sdxl = getattr(config, "addition_embed_type", None) == "text_time"
+    if is_sdxl and "sdxl_inputs" in component_spec:
+        sdxl_inputs = {}
+        for input_name in component_spec["sdxl_inputs"]:
+            sdxl_inputs[input_name] = generator.generate(input_name)
+        dummy_inputs["added_cond_kwargs"] = sdxl_inputs
 
     # Generate optional inputs
     for input_name, spec in component_spec.get("optional_inputs", {}).items():

@@ -140,7 +140,7 @@ class TestEngine:
         mock_local_system.return_value = system_object
         system_object.system_type = SystemType.Local
         system_object.run_pass.return_value = onnx_model_config
-        system_object.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        system_object.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
         system_object.get_supported_execution_providers.return_value = [
             "CUDAExecutionProvider",
             "CPUExecutionProvider",
@@ -203,7 +203,12 @@ class TestEngine:
 
         assert system_object.run_pass.call_count == 2
         assert system_object.evaluate_model.call_count == 3
-        system_object.evaluate_model.assert_called_with(onnx_model_config, evaluator_config, DEFAULT_CPU_ACCELERATOR)
+        # In pydantic v2, instances use identity-based equality
+        # Verify the last call arguments by comparing their dumped values
+        last_call_args = system_object.evaluate_model.call_args[0]
+        assert last_call_args[0].model_dump() == onnx_model_config.model_dump()
+        assert last_call_args[1].model_dump() == evaluator_config.model_dump()
+        assert last_call_args[2] == DEFAULT_CPU_ACCELERATOR
 
     @patch("olive.systems.local.LocalSystem")
     @patch("olive.cache.OliveCache.save_model")
@@ -261,7 +266,7 @@ class TestEngine:
 
         engine = Engine(**options)
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        p_config = OnnxConversion.generate_config(accelerator_spec, {"use_dynamo_exporter": True}).dict()
+        p_config = OnnxConversion.generate_config(accelerator_spec, {"use_dynamo_exporter": True}).model_dump()
         engine.register(OnnxConversion, config=p_config)
 
         output_model_id = engine.cache.get_output_model_id(
@@ -278,12 +283,12 @@ class TestEngine:
         mock_local_system_init.return_value = mock_local_system
         mock_local_system.system_type = SystemType.Local
         mock_local_system.run_pass.return_value = onnx_model_config
-        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
 
         # output model to output_dir
         output_dir = tmp_path / "output_dir"
-        expected_metrics = MetricResult.parse_obj(metric_result_dict)
+        expected_metrics = MetricResult.model_validate(metric_result_dict)
         expected_saved_model_config = get_onnx_model_config(model_path=output_dir / "model.onnx")
 
         # execute
@@ -306,7 +311,7 @@ class TestEngine:
         result_json_path = output_dir / "metrics.json"
         assert result_json_path.is_file()
         with result_json_path.open() as f:
-            assert json.load(f) == expected_metrics.__root__
+            assert json.load(f) == expected_metrics.model_dump()
 
     @pytest.mark.parametrize(
         "search_strategy",
@@ -336,7 +341,7 @@ class TestEngine:
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         # Use TorchScript because dynamo export creates models with strict input shape requirements
         # that don't match the dummy data used for evaluation
-        p_config = OnnxConversion.generate_config(accelerator_spec, {"use_dynamo_exporter": False}).dict()
+        p_config = OnnxConversion.generate_config(accelerator_spec, {"use_dynamo_exporter": False}).model_dump()
         engine.register(OnnxConversion, config=p_config)
         # output model to output_dir
         output_dir = tmp_path / "output_dir"
@@ -413,7 +418,7 @@ class TestEngine:
         mock_local_system = MagicMock()
         mock_local_system.run_pass.return_value = get_onnx_model_config()
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
-        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
         mock_local_system.system_type = SystemType.Local
         mock_local_system_init.return_value = mock_local_system
 
@@ -422,7 +427,7 @@ class TestEngine:
 
         # output model to output_dir
         output_dir = Path(tmpdir)
-        expected_res = MetricResult.parse_obj(metric_result_dict)
+        expected_res = MetricResult.model_validate(metric_result_dict)
 
         # execute
         workflow_output: WorkflowOutput = engine.run(
@@ -436,7 +441,10 @@ class TestEngine:
         assert expected_res.to_json() == output_model.metrics_value
         result_json_path = Path(output_dir / "input_model_metrics.json")
         assert result_json_path.is_file()
-        assert MetricResult.parse_file(result_json_path).to_json() == output_model.metrics_value
+        # Load JSON file and use model_validate for pydantic v2
+        with open(result_json_path) as f:
+            result_data = json.load(f)
+        assert MetricResult.model_validate(result_data).to_json() == output_model.metrics_value
 
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_pass(self, mock_local_system_init, tmp_path):
@@ -462,7 +470,7 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         mock_local_system = MagicMock()
-        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
         mock_local_system.system_type = SystemType.Local
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system_init.return_value = mock_local_system
@@ -471,7 +479,7 @@ class TestEngine:
 
         # output model to output_dir
         output_dir = tmp_path
-        expected_res = MetricResult.parse_obj(metric_result_dict)
+        expected_res = MetricResult.model_validate(metric_result_dict)
 
         # execute
         workflow_output: WorkflowOutput = engine.run(
@@ -484,7 +492,10 @@ class TestEngine:
         assert expected_res.to_json() == workflow_output.get_input_model_metrics()
         result_json_path = output_dir / "input_model_metrics.json"
         assert result_json_path.is_file()
-        assert MetricResult.parse_file(result_json_path).to_json() == workflow_output.get_input_model_metrics()
+        # Load JSON file and use model_validate for pydantic v2
+        with open(result_json_path) as f:
+            result_data = json.load(f)
+        assert MetricResult.model_validate(result_data).to_json() == workflow_output.get_input_model_metrics()
 
     @patch("olive.systems.local.LocalSystem")
     @patch("onnxruntime.get_available_providers")
@@ -519,7 +530,7 @@ class TestEngine:
             }
             for sub_metric in metric.sub_types
         }
-        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
         mock_local_system_init.return_value = mock_local_system
 
         engine = Engine(**options)

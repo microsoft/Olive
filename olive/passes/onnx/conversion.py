@@ -398,7 +398,7 @@ def _prepare_hf_model(model: HfModelHandler, device: str, torch_dtype: Optional[
     model_attributes = deepcopy(model.model_attributes or {})
     load_kwargs = model.load_kwargs
     model_dtype = load_kwargs.get_torch_dtype()
-    new_load_kwargs = deepcopy(load_kwargs.dict())
+    new_load_kwargs = deepcopy(load_kwargs.model_dump())
 
     if torch_dtype and torch_dtype != model_dtype:
         # if the load kwargs specify a different dtype, update the load kwargs
@@ -673,12 +673,14 @@ class OnnxConversion(Pass):
             dummy_inputs = generate_diffusers_dummy_inputs(
                 component_name=component_name,
                 config=component_config,
+                pipeline=pipeline_type,
             )
 
             # Get IO config using new task-driven API
             io_config = get_diffusers_io_config(
                 component_name=component_name,
                 config=component_config,
+                pipeline=pipeline_type,
             )
 
             # Create output directory for this component
@@ -693,7 +695,7 @@ class OnnxConversion(Pass):
                 io_config=io_config,
                 config=config,
                 device=device,
-                dynamo=config.use_dynamo_exporter,
+                dynamo=True,
                 torch_dtype=torch_dtype,
             )
 

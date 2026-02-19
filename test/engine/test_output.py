@@ -2,13 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from unittest.mock import MagicMock
-
 import pytest
 
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
 from olive.engine.output import ModelOutput, WorkflowOutput
-from olive.evaluator.metric_result import MetricResult
+from olive.evaluator.metric_result import MetricResult, SubMetricResult
 from olive.hardware.accelerator import AcceleratorSpec, Device
 
 # pylint: disable=W0201, W0212
@@ -21,28 +19,31 @@ def test_model_output():
     from_pass = "test_pass"
     model_path = "path/to/model.onnx"
     model_type = "onnxmodel"
-    metrics_value = {"latency": 10}
-    metrics_json = {"value": metrics_value, "cmp_direction": {"latency": 1}}
-    metrics_value_json = {"latency": {"value": 10}}
-    metrics_mock = MagicMock()
-    metrics_mock.to_json.return_value = metrics_json
 
-    metrics_value_mock = MagicMock()
-    metrics_value_mock.to_json.return_value = metrics_value_json
-    metrics_mock.value = metrics_value_mock
+    # Create proper FootprintNodeMetric instead of MagicMock
+    metrics = FootprintNodeMetric(
+        value=MetricResult(root={"latency": SubMetricResult(value=10, priority=1, higher_is_better=False)}),
+        cmp_direction={"latency": 1},
+    )
+
+    metrics_json = {
+        "value": {"latency": {"value": 10, "priority": 1, "higher_is_better": False}},
+        "cmp_direction": {"latency": 1},
+        "if_goals_met": False,
+    }
+    metrics_value_json = {"latency": {"value": 10, "priority": 1, "higher_is_better": False}}
     inference_settings = {"inference": "settings"}
 
     node = FootprintNode(
         model_id=model_id,
         parent_model_id=parent_model_id,
         from_pass=from_pass,
-        metrics=metrics_mock,
+        metrics=metrics,
         model_config={
             "type": model_type,
             "config": {"model_path": model_path, "inference_settings": inference_settings, "use_ort_extension": True},
         },
     )
-    node.metrics = metrics_mock
     device = Device.CPU
     ep = "CPUExecutionProvider"
 
@@ -158,7 +159,7 @@ def create_node(model_id, metric_values):
     for metric_name, value in metric_values.items():
         metric_dict[metric_name] = {"value": value, "priority": 1, "higher_is_better": True}
 
-    metrics.value = MetricResult(__root__=metric_dict)
+    metrics.value = MetricResult(root=metric_dict)
     metrics.cmp_direction = dict.fromkeys(metric_values, 1)
 
     return FootprintNode(

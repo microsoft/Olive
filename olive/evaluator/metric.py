@@ -3,10 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Optional, Union
+from typing import Any, ClassVar, Optional, Union
+
+from pydantic import Field, field_serializer, field_validator, model_validator
 
 from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
-from olive.common.pydantic_v1 import validator
 from olive.common.utils import StrEnumBase
 from olive.data.config import DataConfig
 from olive.evaluator.accuracy import AccuracyBase
@@ -71,22 +72,23 @@ class SizeOnDiskSubType(StrEnumBase):
 
 class SubMetric(ConfigBase):
     name: Union[AccuracySubType, LatencyMetricConfig, str]
-    metric_config: ConfigBase = None
+    metric_config: Optional[ConfigBase] = None
     # -1 means no priority which will be evaluated only
     priority: int = -1
     higher_is_better: bool = False
-    goal: MetricGoal = None
+    goal: Optional[MetricGoal] = None
 
-    @validator("goal")
-    def validate_goal(cls, v, values):
+    @field_validator("goal")
+    @classmethod
+    def validate_goal(cls, v, info):
         if v is None:
             return v
         if v.type not in ["percent-min-improvement", "percent-max-degradation"]:
             return v
 
-        if "higher_is_better" not in values:
+        if "higher_is_better" not in info.data:
             raise ValueError("Invalid higher_is_better")
-        higher_is_better = values["higher_is_better"]
+        higher_is_better = info.data["higher_is_better"]
 
         ranges = {
             ("percent-min-improvement", True): (0, float("inf")),
@@ -102,16 +104,20 @@ class SubMetric(ConfigBase):
             )
         return v
 
+    @field_serializer("metric_config")
+    def serialize_metric_config(self, metric_config):
+        return metric_config.model_dump()
+
 
 class Metric(NestedConfig):
-    _nested_field_name = "user_config"
+    _nested_field_name: ClassVar[str] = "user_config"
 
     name: str
     type: MetricType
-    backend: Optional[str] = "torch_metrics"
-    sub_types: list[SubMetric]
-    user_config: ConfigBase = None
-    data_config: Optional[DataConfig] = None
+    backend: Optional[str] = Field(default="torch_metrics", validate_default=True)
+    sub_types: list[SubMetric] = Field(default=[], validate_default=True)
+    user_config: Optional[ConfigBase] = Field(default=None, validate_default=True)
+    data_config: Optional[DataConfig] = Field(default=None, validate_default=True)
 
     def get_inference_settings(self, framework):
         if self.user_config is None:
@@ -132,9 +138,21 @@ class Metric(NestedConfig):
             sub_type_info[sub_type.name] = callback(getattr(sub_type, info_name))
         return sub_type_info
 
-    @validator("backend", always=True, pre=True)
-    def validate_backend(cls, v, values):
-        if values["type"] == MetricType.CUSTOM:
+    @model_validator(mode="before")
+    @classmethod
+    def validate_object(cls, values):
+        if "type" not in values:
+            raise ValueError("Invalid type")
+
+        v = values.get("user_config") or {}
+        user_config_class = get_user_config_class(values["type"])
+        values["user_config"] = validate_config(v, user_config_class)
+        return values
+
+    @field_validator("backend", mode="before")
+    @classmethod
+    def validate_backend(cls, v, info):
+        if info.data["type"] == MetricType.CUSTOM:
             return None
         from olive.evaluator.metric_backend import MetricBackend
 
@@ -142,73 +160,83 @@ class Metric(NestedConfig):
         assert MetricBackend.registry[v]() is not None, f"Backend {v} is not available"
         return v
 
-    @validator("sub_types", always=True, pre=True, each_item=True)
-    def validate_sub_types(cls, v, values):
-        if "type" not in values:
+    @field_validator("sub_types", mode="before")
+    @classmethod
+    def validate_sub_types(cls, v, info):
+        if "type" not in info.data:
             raise ValueError("Invalid type")
 
-        if values["type"] == MetricType.CUSTOM:
-            if v.get("priority", -1) != -1 and v.get("higher_is_better", None) is None:
-                raise ValueError(f"higher_is_better must be specified for ranked custom metric: {v['name']}")
-            return v
+        result = []
+        for item in v:
+            if info.data["type"] == MetricType.CUSTOM:
+                if item.get("priority", -1) != -1 and item.get("higher_is_better", None) is None:
+                    raise ValueError(f"higher_is_better must be specified for ranked custom metric: {item['name']}")
+                result.append(item)
+                continue
 
-        # backend joint checking
-        if values["backend"] == "huggingface_metrics":
-            import evaluate
+            # backend joint checking
+            if info.data["backend"] == "huggingface_metrics":
+                import evaluate
 
-            try:
-                evaluate.load(v["name"])
-            except FileNotFoundError as e:
-                raise ValueError(f"could not load metric {v['name']} from huggingface/evaluate") from e
-        elif values["backend"] == "torch_metrics":
-            try:
-                sub_metric_type_cls = None
-                if values["type"] == MetricType.ACCURACY:
-                    sub_metric_type_cls = AccuracySubType
-                elif values["type"] == MetricType.LATENCY:
-                    sub_metric_type_cls = LatencySubType
-                elif values["type"] == MetricType.THROUGHPUT:
-                    sub_metric_type_cls = ThroughputSubType
-                elif values["type"] == MetricType.SIZE_ON_DISK:
-                    sub_metric_type_cls = SizeOnDiskSubType
-                # if not exist, will raise ValueError
-                v["name"] = sub_metric_type_cls(v["name"])
-            except ValueError:
-                raise ValueError(
-                    f"sub_type {v['name']} is not in {list(sub_metric_type_cls.__members__.keys())}"
-                    f" for {values['type']} metric"
-                ) from None
+                try:
+                    evaluate.load(item["name"])
+                except FileNotFoundError as e:
+                    raise ValueError(f"could not load metric {item['name']} from huggingface/evaluate") from e
+            elif info.data["backend"] == "torch_metrics":
+                try:
+                    sub_metric_type_cls = None
+                    if info.data["type"] == MetricType.ACCURACY:
+                        sub_metric_type_cls = AccuracySubType
+                    elif info.data["type"] == MetricType.LATENCY:
+                        sub_metric_type_cls = LatencySubType
+                    elif info.data["type"] == MetricType.THROUGHPUT:
+                        sub_metric_type_cls = ThroughputSubType
+                    elif info.data["type"] == MetricType.SIZE_ON_DISK:
+                        sub_metric_type_cls = SizeOnDiskSubType
+                    # if not exist, will raise ValueError
+                    item["name"] = sub_metric_type_cls(item["name"])
+                except ValueError:
+                    raise ValueError(
+                        f"sub_type {item['name']} is not in {list(sub_metric_type_cls.__members__.keys())}"
+                        f" for {info.data['type']} metric"
+                    ) from None
 
-        # metric_config
-        metric_config_cls = None
-        if values["type"] == MetricType.ACCURACY:
-            v["higher_is_better"] = v.get("higher_is_better", True)
-            if values["backend"] == "torch_metrics":
-                metric_config_cls = AccuracyBase.registry[v["name"]].get_config_class()
-            elif values["backend"] == "huggingface_metrics":
-                from olive.evaluator.metric_backend import HuggingfaceMetrics
+            # metric_config
+            metric_config_cls = None
+            if info.data["type"] == MetricType.ACCURACY:
+                item["higher_is_better"] = item.get("higher_is_better", True)
+                if info.data["backend"] == "torch_metrics":
+                    metric_config_cls = AccuracyBase.registry[item["name"]].get_config_class()
+                elif info.data["backend"] == "huggingface_metrics":
+                    from olive.evaluator.metric_backend import HuggingfaceMetrics
 
-                metric_config_cls = HuggingfaceMetrics.get_config_class()
-        elif values["type"] == MetricType.LATENCY:
-            v["higher_is_better"] = v.get("higher_is_better", False)
-            metric_config_cls = LatencyMetricConfig
-        elif values["type"] == MetricType.THROUGHPUT:
-            v["higher_is_better"] = v.get("higher_is_better", True)
-            metric_config_cls = ThroughputMetricConfig
-        elif values["type"] == MetricType.SIZE_ON_DISK:
-            v["higher_is_better"] = False
-            metric_config_cls = SizeOnDiskMetricConfig
-        v["metric_config"] = validate_config(v.get("metric_config", {}), metric_config_cls)
+                    metric_config_cls = HuggingfaceMetrics.get_config_class()
+            elif info.data["type"] == MetricType.LATENCY:
+                item["higher_is_better"] = item.get("higher_is_better", False)
+                metric_config_cls = LatencyMetricConfig
+            elif info.data["type"] == MetricType.THROUGHPUT:
+                item["higher_is_better"] = item.get("higher_is_better", True)
+                metric_config_cls = ThroughputMetricConfig
+            elif info.data["type"] == MetricType.SIZE_ON_DISK:
+                item["higher_is_better"] = False
+                metric_config_cls = SizeOnDiskMetricConfig
+            item["metric_config"] = validate_config(item.get("metric_config", {}), metric_config_cls)
+            result.append(item)
 
-        return v
+        return result
 
-    @validator("user_config", pre=True, always=True)
-    def validate_user_config(cls, v, values):
-        if "type" not in values:
+    @field_validator("user_config", mode="before")
+    @classmethod
+    def validate_user_config(cls, v, info):
+        if "type" not in info.data:
             raise ValueError("Invalid type")
 
-        user_config_class = get_user_config_class(values["type"])
+        user_config_class = get_user_config_class(info.data["type"])
         return validate_config(v, user_config_class)
+
+    @field_serializer("backend")
+    def serialize_backend(self, backend):
+        return backend if isinstance(backend, str) else backend.model_dump()
 
 
 def get_latency_config_from_metric(metric: Metric):

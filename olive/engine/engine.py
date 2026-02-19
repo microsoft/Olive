@@ -299,12 +299,14 @@ class Engine:
 
     def get_host_device(self):
         # for host device, we will always use the first accelerator device
-        return self.host_config.config.accelerators[0].device if self.host_config.config.accelerators else None
+        if self.host_config and self.host_config.config and self.host_config.config.accelerators:
+            return self.host_config.config.accelerators[0].device
+        return None
 
     def _compute_no_search_pass_configs(self, accelerator_spec: "AcceleratorSpec"):
         self.computed_passes_configs.clear()
         for name, passes_configs in self.input_passes_configs.items():
-            pass_config = validate_config(passes_configs[0].dict(), RunPassConfig)
+            pass_config = validate_config(passes_configs[0].model_dump(), RunPassConfig)
 
             pass_cls: type[Pass] = self.olive_config.import_pass_module(pass_config.type)
             pass_config.config = pass_cls.generate_config(accelerator_spec, pass_config.config, {}, True)
@@ -396,7 +398,7 @@ class Engine:
             if pass_name in sample_passes_configs:
                 sample_pass_config = sample_passes_configs[pass_name]
                 pass_config = passes_configs[sample_pass_config["index"]]
-                pass_config = validate_config(pass_config.dict(), RunPassConfig)
+                pass_config = validate_config(pass_config.model_dump(), RunPassConfig)
 
                 pass_cls = self.olive_config.import_pass_module(pass_config.type)
                 pass_config.config = pass_cls.generate_config(
@@ -593,7 +595,7 @@ class Engine:
         model_json = {} if model == FAILED_CONFIG else model.to_json(check_object=check_object)
         self.cache.cache_model(model_id, model_json)
 
-    def _load_model(self, model_id: str) -> Union[ModelConfig, str]:
+    def _load_model(self, model_id: str) -> Optional[Union[ModelConfig, str]]:
         model_json = self.cache.load_model(model_id)
         if model_json is None:
             return None
@@ -756,7 +758,7 @@ class Engine:
         """Cache the evaluation in the cache directory."""
         evaluation_json = {
             "model_id": model_id,
-            "signal": signal.dict(),
+            "signal": signal.model_dump(),
         }
         self.cache.cache_evaluation(model_id, evaluation_json)
 

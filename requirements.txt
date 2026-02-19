@@ -6,7 +6,7 @@ onnxscript>=0.5.3
 opentelemetry-sdk>=1.39.1
 optuna
 pandas
-pydantic
+pydantic>=2.0
 pyyaml
 torch
 torchmetrics>=1.0.0

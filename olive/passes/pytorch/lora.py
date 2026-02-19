@@ -19,10 +19,10 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import transformers
 from packaging import version
+from pydantic import Field, field_validator
 
 from olive.common.hf.mappings import MODELS_TO_LORA_TARGET_MODULES_MAPPING
 from olive.common.hf.utils import get_peft_task_type_from_task
-from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import StrEnumBase, find_submodules, resolve_torch_dtype
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
@@ -67,7 +67,7 @@ class HFTrainingArguments(BaseHFTrainingArguments):
         description="Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.",
     )
     warmup_ratio: float = Field(0.03, description="Fraction of steps to do a warmup for.")
-    eval_strategy: str = Field(
+    eval_strategy: Optional[str] = Field(
         None,
         description=(
             "The evaluation strategy to use. Forced to 'no' if eval_dataset is not provided. Otherwise, 'steps' unless"
@@ -81,14 +81,15 @@ class HFTrainingArguments(BaseHFTrainingArguments):
             " a checkpoint directory."
         ),
     )
-    resume_from_checkpoint: str = Field(
+    resume_from_checkpoint: Optional[str] = Field(
         None,
         description=(
             "The path to a folder with a valid checkpoint for the model. Supercedes any checkpoint found in output_dir."
         ),
     )
 
-    @validator("extra_args", pre=True, always=True)
+    @field_validator("extra_args", mode="before")
+    @classmethod
     def validate_torch_dtype(cls, v):
         if v and "fp16" in v:
             logger.warning("Extra arg 'fp16' is not allowed. Please use `torch_dtype` instead.")
@@ -444,7 +445,7 @@ class LoRA(Pass):
                 # use fp16 mixed precision training
                 config.training_args.extra_args["fp16"] = True
             # create training args
-            logger.debug("Training args: %s", config.training_args.dict())
+            logger.debug("Training args: %s", config.training_args.model_dump())
 
             # get trainer'
             trainer = transformers.Trainer(
@@ -503,7 +504,7 @@ class LoRA(Pass):
 
     @staticmethod
     def get_peft_model(
-        model: "PreTrainedModel", config: type[BasePassConfig], config_kwargs: dict = None
+        model: "PreTrainedModel", config: type[BasePassConfig], config_kwargs: Optional[dict] = None
     ) -> "PeftModel":
         """Get the PEFT model for LoRA fine-tuning."""
         from peft import LoraConfig, LoraRuntimeConfig, get_peft_model
@@ -595,7 +596,7 @@ class LoHa(LoRAVariant):
 
     @staticmethod
     def get_peft_model(
-        model: "PreTrainedModel", config: type[BasePassConfig], config_kwargs: dict = None
+        model: "PreTrainedModel", config: type[BasePassConfig], config_kwargs: Optional[dict] = None
     ) -> "PeftModel":
         """Get the PEFT model for LoHa fine-tuning."""
         from peft import LoHaConfig, get_peft_model
@@ -658,7 +659,7 @@ class LoKr(LoRAVariant):
 
     @staticmethod
     def get_peft_model(
-        model: "PreTrainedModel", config: type[BasePassConfig], config_kwargs: dict = None
+        model: "PreTrainedModel", config: type[BasePassConfig], config_kwargs: Optional[dict] = None
     ) -> "PeftModel":
         """Get the PEFT model for LoKr fine-tuning."""
         from peft import LoKrConfig, get_peft_model
@@ -759,7 +760,7 @@ class QLoRABase(LoRA):
             model, config, output_model_path
         )
         if config.save_quant_config:
-            load_kwargs = new_model_handler.load_kwargs.dict() if new_model_handler.load_kwargs else {}
+            load_kwargs = new_model_handler.load_kwargs.model_dump() if new_model_handler.load_kwargs else {}
             load_kwargs.update(bnb_quant_config)
             new_model_handler.load_kwargs = HfLoadKwargs(**load_kwargs)
             new_model_handler.model_attributes["quantized_modules"] = quantized_modules

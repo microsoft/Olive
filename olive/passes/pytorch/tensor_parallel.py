@@ -11,8 +11,9 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
+from pydantic import field_validator
+
 from olive.common.config_utils import ParamCategory
-from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import DistributedHfModelHandler, HfModelHandler
 from olive.passes import Pass
@@ -98,7 +99,9 @@ class PyTorchTensorParallel(Pass):
 
     @classmethod
     def _validators(cls) -> dict[str, Callable]:
-        return {"validate_distributor_config": validator("world_size", allow_reuse=True)(cls._validate_world_size)}
+        return {
+            "validate_distributor_config": field_validator("world_size", allow_reuse=True)(cls._validate_world_size)
+        }
 
     @staticmethod
     def _generate_one(params):

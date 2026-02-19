@@ -15,6 +15,7 @@ from olive.engine.packaging.packaging_config import (
     DockerfilePackagingConfig,
     PackagingConfig,
     PackagingType,
+    ZipfilePackagingConfig,
 )
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -22,8 +23,6 @@ from olive.passes.onnx.common import add_version_metadata_to_model_proto
 from olive.resource_path import ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)
-
-# ruff: noqa: N806
 
 
 def generate_output_artifacts(
@@ -44,7 +43,7 @@ def _package_dockerfile(
     workflow_output: WorkflowOutput,
     output_dir: Path,
 ):
-    config: DockerfilePackagingConfig = packaging_config.config
+    config: DockerfilePackagingConfig = packaging_config.config or DockerfilePackagingConfig()
     logger.info("Packaging output models to Dockerfile")
     base_image = config.base_image
     model_config = workflow_output.get_best_candidate().olive_model_config
@@ -86,7 +85,7 @@ def _package_candidate_models(
 ):
     packaging_type = packaging_config.type
     output_name = packaging_config.name
-    config = packaging_config.config
+    config = packaging_config.config or ZipfilePackagingConfig()
     export_in_mlflow_format = config.export_in_mlflow_format
 
     logger.info("Packaging output models to %s", packaging_type)

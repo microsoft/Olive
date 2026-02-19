@@ -35,7 +35,8 @@ class ModelOutput:
         self._model_node = node
         self._device = device
         self._execution_provider = execution_provider
-        self._init_with_model_config(self._model_node.model_config)
+        # Use model_config_data instead of model_config to avoid conflict with pydantic's model_config
+        self._init_with_model_config(self._model_node.model_config_data)
 
     def _init_with_model_config(self, model_config: dict[str, Any]):
         """Initialize the model config."""

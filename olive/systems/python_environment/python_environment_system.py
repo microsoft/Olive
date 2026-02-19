@@ -110,7 +110,7 @@ class PythonEnvironmentSystem(OliveSystem):
             tempdir=tempfile.tempdir,
             output_model_path=output_model_path,
         )
-        return ModelConfig.parse_obj(output_model_json)
+        return ModelConfig.model_validate(output_model_json)
 
     def evaluate_model(
         self, model_config: ModelConfig, evaluator_config: "OliveEvaluatorConfig", accelerator: "AcceleratorSpec"
@@ -122,7 +122,7 @@ class PythonEnvironmentSystem(OliveSystem):
             "accelerator_config": accelerator.to_json(),
         }
         metric_results = self._run_command(self.evaluation_runner_path, config_jsons, tempdir=tempfile.tempdir)
-        return MetricResult.parse_obj(metric_results)
+        return MetricResult.model_validate(metric_results)
 
     def get_supported_execution_providers(self) -> list[str]:
         """Get the available execution providers."""

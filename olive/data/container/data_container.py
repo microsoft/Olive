@@ -2,9 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import ClassVar
+from typing import ClassVar, Optional
 
-from olive.common.pydantic_v1 import BaseModel
+from pydantic import BaseModel
+
 from olive.data.component.dataloader import default_calibration_dataloader
 from olive.data.config import DataConfig, DefaultDataComponentCombos
 from olive.data.constants import DataContainerType, DefaultDataContainer
@@ -19,7 +20,7 @@ class DataContainer(BaseModel):
     default_components_type: ClassVar[dict] = DefaultDataComponentCombos
     # avoid to directly create the instance of DataComponentConfig,
     # suggest to use config.to_data_container()
-    config: DataConfig = None
+    config: Optional[DataConfig] = None
 
     def load_dataset(self):
         """Run load dataset."""
