@@ -57,6 +57,52 @@ class TraceModelWrapper(torch.nn.Module):
         return self.model(*input_data, **input_dict)
 
 
+def _register_dynamic_cache_export_support():
+    """Utilities for `DynamicCache` <> torch.export support."""
+    from transformers.cache_utils import DynamicCache, DynamicLayer, DynamicSlidingWindowLayer
+
+    def _get_cache_dict(cache: DynamicCache):
+        """Convert cache to dictionary format for pytree operations."""
+        if any(not isinstance(layer, (DynamicLayer, DynamicSlidingWindowLayer)) for layer in cache.layers):
+            raise RuntimeError("This pytree flattening function should only be applied to DynamicCache")
+
+        return {
+            "cache": [(layer.keys, layer.values) for layer in cache.layers if layer.keys is not None],
+        }
+
+    try:
+        torch.utils._pytree.register_pytree_node(
+            DynamicCache,
+            lambda dynamic_cache: torch.utils._pytree._dict_flatten(_get_cache_dict(dynamic_cache)),
+            _unflatten_dynamic_cache,
+            serialized_type_name=f"{DynamicCache.__module__}.{DynamicCache.__name__}",
+            flatten_with_keys_fn=lambda dynamic_cache: torch.utils._pytree._dict_flatten_with_keys(
+                _get_cache_dict(dynamic_cache)
+            ),
+        )
+        # TODO (team): This won't be needed in torch 2.7.
+        torch.fx._pytree.register_pytree_flatten_spec(
+            DynamicCache,
+            lambda cache, spec: torch.fx._pytree._dict_flatten_spec(_get_cache_dict(cache), spec),
+        )
+    # Catching this in case there are multiple runs for some test runs
+    except ValueError as e:
+        if "already registered as pytree node" not in str(e):
+            raise
+
+
+def _unflatten_dynamic_cache(values, context: torch.utils._pytree.Context):
+    from transformers.cache_utils import DynamicCache
+
+    dictionary = torch.utils._pytree._dict_unflatten(values, context)
+    cache = DynamicCache()
+    # Reconstruct layers from keys and values lists
+    cache_list = dictionary.get("cache", [])
+    for i, (key, value) in enumerate(cache_list):
+        cache.update(key, value, i)
+    return cache
+
+
 def _patch_dynamic_layer_for_export():
     """Patch DynamicLayer.lazy_initialization for torch.export compatibility (transformers >= 5.0).
 
@@ -115,7 +161,7 @@ def _convert_dynamic_shapes_for_dynamic_cache(dynamic_shapes: dict) -> dict:
 
     The old format is: [[key_shape, val_shape], ...] (one pair per layer)
     The DynamicCache pytree expects a flat list: [key0, val0, key1, val1, ...]
-    matching the flattened order from register_dynamic_cache_export_support().
+    matching the flattened order from _register_dynamic_cache_export_support().
     """
     pkv_shapes = dynamic_shapes.get("past_key_values")
     if pkv_shapes is None or not isinstance(pkv_shapes, (list, tuple)):
@@ -296,9 +342,8 @@ def _export_pytorch_model(
             # Apply patches for DynamicCache / past_key_values compatibility
             if version.parse(transformers.__version__) >= version.parse("5.0"):
                 # transformers >= 5.0: DynamicCache refactored to use DynamicLayer
-                from transformers.integrations.executorch import register_dynamic_cache_export_support
 
-                register_dynamic_cache_export_support()
+                _register_dynamic_cache_export_support()
                 _patch_dynamic_layer_for_export()
                 model_config = getattr(pytorch_model, "config", None)
                 dummy_kwargs = _convert_past_key_values_to_dynamic_cache(dummy_kwargs, config=model_config)
