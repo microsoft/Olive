@@ -314,8 +314,6 @@ def _export_pytorch_model(
     # is taken, the old export always writes a model to the disk. When that happens we need to
     # load the model back into IR and load all the external tensor to memory
     with tempfile.TemporaryDirectory(prefix="olive_tmp") as tmp_dir:
-        tmp_model_path = resolve_onnx_path(tmp_dir)
-
         if dynamo:
             # Take the "release" version so that dev builds like 2.5.0dev1234 are treated as 2.5.0
             if _torch_is_older_than("2.7.0") and (
@@ -374,7 +372,6 @@ def _export_pytorch_model(
             onnx_program = torch.onnx.export(  # pylint: disable=unexpected-keyword-arg,no-value-for-parameter
                 pytorch_model,
                 dummy_inputs,
-                tmp_model_path,  # needed for fallback=True
                 kwargs=dummy_kwargs,
                 opset_version=config.target_opset,
                 input_names=io_config.input_names,
@@ -382,7 +379,6 @@ def _export_pytorch_model(
                 dynamic_axes=dynamic_axes_for_export,
                 dynamic_shapes=io_config.dynamic_shapes,
                 dynamo=True,
-                fallback=False,
                 optimize=config.optimize,
                 report=logger.isEnabledFor(logging.DEBUG),
             )
@@ -398,6 +394,8 @@ def _export_pytorch_model(
             if not _torch_is_older_than("2.9.0"):
                 # default is True in 2.9.0 and later
                 dynamo_args["dynamo"] = False
+
+            tmp_model_path = resolve_onnx_path(tmp_dir)
 
             torch.onnx.export(
                 pytorch_model,
