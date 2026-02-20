@@ -229,10 +229,12 @@ class TelemetryCacheHandler:
             Optional[Path]: Path to cache file, or None if base directory unavailable.
 
         """
-        support_dir = get_telemetry_base_dir()
-        if not support_dir:
-            return None
-        return support_dir / "cache" / self._cache_file_name
+        telemetry_cache_dir = None
+        if "OLIVE_TELEMETRY_CACHE_DIR" in os.environ:
+           telemetry_cache_dir = os.environ["OLIVE_TELEMETRY_CACHE_DIR"]
+        if not telemetry_cache_dir:
+            telemetry_cache_dir = get_telemetry_base_dir() / "cache"
+        return telemetry_cache_dir / self._cache_file_name
 
     def _write_payload_to_cache(self, payload: bytes) -> None:
         """Write failed telemetry payload to cache for later retry.
