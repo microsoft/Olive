@@ -38,6 +38,8 @@ from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, ir_model_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam, get_user_script_data_config
 
+# pylint: disable=W0212
+
 logger = logging.getLogger(__name__)
 
 
