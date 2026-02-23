@@ -162,8 +162,8 @@ def _convert_dynamic_shapes_for_dynamic_cache(dynamic_shapes: dict) -> dict:
     """Convert dynamic_shapes for past_key_values from nested list to DynamicCache pytree format.
 
     The old format is: [[key_shape, val_shape], ...] (one pair per layer)
-    The DynamicCache pytree expects a flat list: [key0, val0, key1, val1, ...]
-    matching the flattened order from _register_dynamic_cache_export_support().
+    The DynamicCache pytree is: {"cache": [(key0, val0), (key1, val1), ...]}
+    matching the structure from _register_dynamic_cache_export_support().
     """
     pkv_shapes = dynamic_shapes.get("past_key_values")
     if pkv_shapes is None or not isinstance(pkv_shapes, (list, tuple)):
@@ -172,12 +172,11 @@ def _convert_dynamic_shapes_for_dynamic_cache(dynamic_shapes: dict) -> dict:
     if not pkv_shapes or not isinstance(pkv_shapes[0], (list, tuple)) or len(pkv_shapes[0]) != 2:
         return dynamic_shapes
 
-    # Convert [[key0, val0], [key1, val1], ...] -> [[key0, key1, ...], [val0, val1, ...]]
-    # matching DynamicCache pytree: _dict_flatten({"key_cache": [...], "value_cache": [...]})
-    dynamic_shapes["past_key_values"] = [
-        [layer[0] for layer in pkv_shapes],
-        [layer[1] for layer in pkv_shapes],
-    ]
+    # Convert [[key0, val0], [key1, val1], ...] -> {"cache": [(key0, val0), (key1, val1), ...]}
+    # matching DynamicCache pytree: _dict_flatten({"cache": [(keys, values), ...]})
+    dynamic_shapes["past_key_values"] = {
+        "cache": [tuple(layer) for layer in pkv_shapes],
+    }
     logger.debug("Converted dynamic_shapes for past_key_values to DynamicCache pytree format.")
     return dynamic_shapes
 
