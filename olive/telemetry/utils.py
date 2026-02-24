@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import base64
 import functools
 import os
 import platform
@@ -106,3 +107,21 @@ def _exclusive_file_lock(file_path: Path, mode: str):
     :return: Context manager that returns an open file handle.
     """
     return _ExclusiveFileLock(file_path, mode)
+
+
+def _encode_cache_line(plaintext: str) -> str:
+    """Encode a single cache line using base64.
+
+    :param plaintext: The plaintext string to encode.
+    :return: Base64-encoded string (safe for a single text line).
+    """
+    return base64.b64encode(plaintext.encode("utf-8")).decode("ascii")
+
+
+def _decode_cache_line(encoded: str) -> str:
+    """Decode a single base64-encoded cache line.
+
+    :param encoded: The base64-encoded string.
+    :return: The decoded plaintext string.
+    """
+    return base64.b64decode(encoded.encode("ascii")).decode("utf-8")

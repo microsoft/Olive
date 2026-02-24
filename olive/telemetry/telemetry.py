@@ -18,7 +18,12 @@ from olive.telemetry.constants import CONNECTION_STRING
 from olive.telemetry.deviceid import get_encrypted_device_id_and_status
 from olive.telemetry.library.event_source import event_source
 from olive.telemetry.library.telemetry_logger import TelemetryLogger, get_telemetry_logger
-from olive.telemetry.utils import _exclusive_file_lock, get_telemetry_base_dir
+from olive.telemetry.utils import (
+    _decode_cache_line,
+    _encode_cache_line,
+    _exclusive_file_lock,
+    get_telemetry_base_dir,
+)
 
 if TYPE_CHECKING:
     from olive.telemetry.library.callback_manager import PayloadTransmittedCallbackArgs
@@ -231,7 +236,7 @@ class TelemetryCacheHandler:
         """
         telemetry_cache_dir = None
         if "OLIVE_TELEMETRY_CACHE_DIR" in os.environ:
-           telemetry_cache_dir = os.environ["OLIVE_TELEMETRY_CACHE_DIR"]
+            telemetry_cache_dir = os.environ["OLIVE_TELEMETRY_CACHE_DIR"]
         if not telemetry_cache_dir:
             telemetry_cache_dir = get_telemetry_base_dir() / "cache"
         return telemetry_cache_dir / self._cache_file_name
@@ -279,13 +284,12 @@ class TelemetryCacheHandler:
                         if not entries:
                             return
 
-                    # Append newline-delimited JSON (human-readable, partial corruption recovery)
+                    # Append base64-encoded newline-delimited entries
                     # Use exclusive file lock for multi-process safety
                     with _exclusive_file_lock(cache_path, mode="a") as cache_file:
                         for entry in entries:
-                            # Write compact JSON on single line
-                            json.dump(entry, cache_file, ensure_ascii=False, separators=(",", ":"))
-                            cache_file.write("\n")
+                            plain = json.dumps(entry, ensure_ascii=False, separators=(",", ":"))
+                            cache_file.write(_encode_cache_line(plain) + "\n")
                     return
                 except OSError as exc:
                     # Retry only on transient access errors (file locked by another process)
@@ -352,7 +356,7 @@ class TelemetryCacheHandler:
                 # Cache already claimed by another flush or doesn't exist
                 return
 
-            # Read all cached entries
+            # Read all cached entries (base64-decoded)
             entries = _read_cache_entries(flush_path)
 
             if not entries:
@@ -688,15 +692,16 @@ def _set_nested_value(data: dict[str, Any], key: str, value: Any) -> None:
 
 
 def _read_cache_entries(cache_path: Path) -> list[dict[str, Any]]:
-    """Read all entries from a cache file.
+    """Read all entries from a cache file, decoding each line.
 
     Design decisions:
     - Use file locking for multi-process safety
     - Continue reading past malformed entries (partial data recovery)
     - Return empty list on complete read failure (fail gracefully)
+    - Each line is base64-decoded before JSON parsing.
 
     Assumptions:
-    - Cache file contains newline-delimited JSON (one event per line)
+    - Cache file contains newline-delimited base64-encoded entries (one per line)
     - Each line is independent (one malformed line doesn't affect others)
     - Empty or whitespace-only lines are skipped
     """
@@ -708,9 +713,9 @@ def _read_cache_entries(cache_path: Path) -> list[dict[str, Any]]:
                 if not line:
                     continue
                 try:
-                    entry = json.loads(line)
-                    if isinstance(entry, dict):
-                        entries.append(entry)
+                    line = _decode_cache_line(line)
+                    if isinstance(line, dict):
+                        entries.append(line)
                 except Exception:
                     # Malformed line, skip and continue
                     continue
