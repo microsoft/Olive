@@ -218,9 +218,9 @@ class NestedConfig(ConfigBase):
     @model_validator(mode="before")
     @classmethod
     def gather_nested_field(cls, values):
-        # In pydantic v2, values can be None when no arguments are provided
-        if values is None:
-            values = {}
+        # In pydantic v2, values can be non-dict types (e.g. bool, None) when validating Union fields
+        if not isinstance(values, dict):
+            return values
 
         all_fields = set(cls.model_fields.keys())
         for field in cls.model_fields.values():
@@ -308,11 +308,11 @@ def validate_enum(enum_class: type, value: str):
 
 
 # validator for object params. This ensures user_script is not None if value v is string
-def validate_object(v, values, field):
-    if "user_script" not in values:
+def validate_object(cls, v, info):
+    if "user_script" not in info.data:
         raise ValueError("Invalid user_script")
-    if isinstance(v, str) and values["user_script"] is None:
-        raise ValueError(f"user_script must be provided if {field.name} is a name string")
+    if isinstance(v, str) and info.data["user_script"] is None:
+        raise ValueError(f"user_script must be provided if {info.field_name} is a name string")
     return v
 
 
