@@ -1233,6 +1233,89 @@ class MatMulAddToGemm(ProtoSurgeon):
         return dag.model
 
 
+class GemmToMatMulAdd(ProtoSurgeon):
+    """Replace Gemm with MatMul (+ Add) for INT4 quantization compatibility.
+
+    The INT4 RTN quantizer only recognizes MatMul nodes.  This surgeon converts
+    Gemm nodes back to MatMul+Add so that the weight matrices become eligible
+    for block-wise quantization.
+
+    Handles transB by transposing constant weights in-place or inserting a
+    Transpose node for non-constant weights.  Skips Gemm nodes whose alpha/beta
+    are not 1.0 or whose transA is set.
+    """
+
+    def __call__(self, model: ModelProto):
+        from onnx import helper, numpy_helper
+
+        graph = model.graph
+        initializer_map = {init.name: init for init in graph.initializer}
+        nodes_to_remove = []
+        nodes_to_add = []
+
+        for node in graph.node:
+            if node.op_type != "Gemm":
+                continue
+
+            alpha = beta = 1.0
+            transA = transB = 0
+            for attr in node.attribute:
+                if attr.name == "alpha":
+                    alpha = attr.f
+                elif attr.name == "beta":
+                    beta = attr.f
+                elif attr.name == "transA":
+                    transA = attr.i
+                elif attr.name == "transB":
+                    transB = attr.i
+
+            if alpha != 1.0 or beta != 1.0 or transA != 0:
+                continue
+
+            A, B = node.input[0], node.input[1]
+            C = node.input[2] if len(node.input) > 2 else None
+            Y = node.output[0]
+
+            if transB:
+                if B in initializer_map:
+                    init = initializer_map[B]
+                    w_t = numpy_helper.to_array(init).T.copy()
+                    new_init = numpy_helper.from_array(w_t, name=B)
+                    for i, existing in enumerate(graph.initializer):
+                        if existing.name == B:
+                            graph.initializer[i].CopyFrom(new_init)
+                            break
+                    matmul_B = B
+                else:
+                    transpose_out = f"{node.name}_transpose_B"
+                    nodes_to_add.append(
+                        helper.make_node("Transpose", [B], [transpose_out], name=f"{node.name}_Transpose", perm=[1, 0])
+                    )
+                    matmul_B = transpose_out
+            else:
+                matmul_B = B
+
+            if C:
+                matmul_out = f"{node.name}_matmul_out"
+                nodes_to_add.append(
+                    helper.make_node("MatMul", [A, matmul_B], [matmul_out], name=f"{node.name}_MatMul")
+                )
+                nodes_to_add.append(helper.make_node("Add", [matmul_out, C], [Y], name=f"{node.name}_Add"))
+            else:
+                nodes_to_add.append(helper.make_node("MatMul", [A, matmul_B], [Y], name=f"{node.name}_MatMul"))
+
+            nodes_to_remove.append(node)
+
+        for node in nodes_to_remove:
+            graph.node.remove(node)
+        graph.node.extend(nodes_to_add)
+
+        if nodes_to_remove:
+            logger.debug("Replaced %d Gemm nodes with MatMul + Add nodes", len(nodes_to_remove))
+
+        return model
+
+
 class RemoveRopeMultiCache(ProtoSurgeon):
     """Remove the multi rope cache from the model."""
 

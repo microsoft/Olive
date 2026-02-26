@@ -104,6 +104,10 @@ class OnnxBlockWiseRtnQuantization(Pass):
         nodes_to_exclude = nodes_to_exclude or []
         nodes_to_include = nodes_to_include or []
 
+        # Track initializer names already registered across all nodes
+        # to handle shared weights (e.g., pos_embed used by multiple Gather nodes).
+        globally_registered = {}
+
         ir_model.graph.sort()
         for node in ir_model.graph.all_nodes():
             node_name = node.name
@@ -115,14 +119,19 @@ class OnnxBlockWiseRtnQuantization(Pass):
             elif node.op_type in (str(OpType.MatMul), str(OpType.Gather)) and (
                 node_name in nodes_to_include or not nodes_to_include
             ):
-                if (node.op_type == OpType.MatMul and not node.inputs[1].is_initializer()) or (
-                    node.op_type == OpType.Gather and not node.inputs[0].is_initializer()
-                ):
+                # MatMul weight is inputs[1], Gather weight (embedding table) is inputs[0]
+                weight_idx = 1 if node.op_type == str(OpType.MatMul) else 0
+                if not node.inputs[weight_idx].is_initializer():
                     logger.debug("skip to quantize %s as it has no initializer", node_name)
                     continue
 
-                if node.op_type == OpType.Gather and bits != 4:
-                    logger.warning("Gather only supports 4-bit quantization.")
+                if node.op_type == str(OpType.Gather) and bits != 4:
+                    logger.warning(
+                        "Gather quantization is currently only implemented for 4-bit. "
+                        "(GatherBlockQuantized op supports 4 or 8 bits, but the 8-bit path is not yet "
+                        "implemented here.) Skip node %s.",
+                        node_name,
+                    )
                     continue
 
                 quantized_node, initializer_graph = self._quantize(
@@ -133,9 +142,16 @@ class OnnxBlockWiseRtnQuantization(Pass):
                     registered = {}
                     for input_value in quantized_node.inputs:
                         if input_value.const_value is not None:
-                            if input_value.name not in registered:
+                            if input_value.name in globally_registered:
+                                # Already registered by a previous node (shared weight),
+                                # replace with the existing initializer.
+                                ir.convenience.replace_all_uses_with(
+                                    input_value, globally_registered[input_value.name]
+                                )
+                            elif input_value.name not in registered:
                                 initializer_graph.register_initializer(input_value)
                                 registered[input_value.name] = input_value
+                                globally_registered[input_value.name] = input_value
                             else:
                                 logger.debug(
                                     "Found duplicated initializer %s, replace all uses with the first one.",
@@ -148,6 +164,25 @@ class OnnxBlockWiseRtnQuantization(Pass):
                     )
             else:
                 logger.debug("skip to quantize %s ...", node_name)
+
+        # Remove initializers that are no longer referenced by any node.
+        # After quantization, the original FP32 weight initializers become orphaned
+        # because the old MatMul/Gather nodes were replaced with MatMulNBits/GatherBlockQuantized
+        # nodes that reference new INT4 weight initializers instead.
+        used_names: set[str] = set()
+        for node in ir_model.graph.all_nodes():
+            for inp in node.inputs:
+                if inp is not None and inp.name:
+                    used_names.add(inp.name)
+        for out in ir_model.graph.outputs:
+            if out is not None and out.name:
+                used_names.add(out.name)
+
+        unused = [name for name in ir_model.graph.initializers if name not in used_names]
+        for name in unused:
+            del ir_model.graph.initializers[name]
+        if unused:
+            logger.info("Removed %d unused initializers after quantization.", len(unused))
 
     def _quantize(
         self, node: ir.Node, bits: int, block_size: int, axis: int, accuracy_level: AccuracyLevel, is_symmetric: bool
@@ -221,7 +256,10 @@ class OnnxBlockWiseRtnQuantization(Pass):
         node_initializer = node.inputs[0]
         data_ndarray = node_initializer.const_value.numpy()
         data_rank = len(data_ndarray.shape)
-        quantize_axis = axis
+
+        # ORT GatherBlockQuantized requires quantize_axis == last dimension
+        # when data is packed as uint8 (two int4 values per byte).
+        quantize_axis = data_rank - 1
 
         assert -data_rank <= quantize_axis < data_rank, "Invalid quantize axis for Gather node."
         assert block_size >= 16, "Block size must be greater than or equal to 16."
@@ -250,6 +288,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
             "gather_axis": gather_axis,
             "quantize_axis": quantize_axis,
             "block_size": block_size,
+            "bits": bits,
         }
 
         node.outputs[0].name = node.outputs[0].name + f"_Q{bits}"
@@ -385,9 +424,25 @@ class OnnxBlockWiseRtnQuantization(Pass):
                 zero_point_int8[:, j : (j + 1), :] = zero_point_slice
 
         # pack int8 to int4
+        # ORT GatherBlockQuantized uses unsigned int4 representation [0, 15]
+        # where zero_point=8 is implied for symmetric quantization.
+        # Convert signed int8 [-8, 7] to unsigned [0, 15] by adding 8.
+        if is_symmetric:
+            quant_data_int8 = (quant_data_int8.astype(np.int16) + 8).astype(np.uint8)
         quant_data_int4 = self._pack_int8_to_int4(quant_data_int8)
         zero_point_int4 = None
         if not is_symmetric:
             zero_point_int4 = self._pack_int8_to_int4(zero_point_int8)
         scales = scales.reshape(scales_shape)
+
+        # Reshape packed data to match original rank (GatherBlockQuantized requires rank > 1).
+        # Two int4 values are packed per uint8, so the quantize_axis dimension is halved.
+        packed_shape = list(data.shape)
+        packed_shape[quantize_axis] = (packed_shape[quantize_axis] + 1) // 2
+        quant_data_int4 = quant_data_int4.reshape(packed_shape)
+        if zero_point_int4 is not None:
+            zp_shape = list(scales_shape)
+            zp_shape[quantize_axis] = (zp_shape[quantize_axis] + 1) // 2
+            zero_point_int4 = zero_point_int4.reshape(zp_shape)
+
         return quant_data_int4, scales, zero_point_int4
