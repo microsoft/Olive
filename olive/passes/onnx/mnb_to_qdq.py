@@ -51,6 +51,14 @@ class MatMulNBitsToQDQ(Pass):
                     " EPs such as DirectML."
                 ),
             ),
+            "use_fused_matmul": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Whether to fuse the Transpose operator into the MatMul operator as a Transpose input permutation."
+                    " Only valid when use_transpose_op is True. Default is False."
+                ),
+            ),
             "use_int4": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -261,7 +269,7 @@ class MatMulNBitsToQDQ(Pass):
                 )
             )
 
-            if config.use_transpose_op:
+            if config.use_transpose_op and not config.use_fused_matmul:
                 # Transpose
                 transpose_name = self._get_new_node_name(dag, node_name, "Transpose")
                 transpose_output = f"{transpose_name}/output_0"
@@ -278,15 +286,34 @@ class MatMulNBitsToQDQ(Pass):
                 matmul_input = dq_output
 
             # MatMul
-            matmul_name = self._get_new_node_name(dag, node_name, "MatMul")
+            use_fused_matmul = config.use_transpose_op and config.use_fused_matmul
+            matmul_name = self._get_new_node_name(
+                dag, node_name, "MatMul" + ("TransposeFusion" if use_fused_matmul else "")
+            )
             matmul_output = f"{matmul_name}/output_0"
             if matmul_output == node_output:
                 # rename the node_output to avoid conflicts, want to keep the matmul_output for consistency
                 node_output = f"{node_output}_renamed"
                 dag.rename_node_output(node_name, matmul_output, node_output)
-            new_nodes.append(
-                onnx.helper.make_node("MatMul", [node_inputs[0], matmul_input], [matmul_output], name=matmul_name)
-            )
+            if use_fused_matmul:
+                new_nodes.append(
+                    onnx.helper.make_node(
+                        "FusedMatMul",
+                        [node_inputs[0], matmul_input],
+                        [matmul_output],
+                        name=matmul_name,
+                        alpha=1.0,
+                        transA=0,
+                        transB=1,
+                        transBatchA=0,
+                        transBatchB=0,
+                        domain="com.microsoft",
+                    )
+                )
+            else:
+                new_nodes.append(
+                    onnx.helper.make_node("MatMul", [node_inputs[0], matmul_input], [matmul_output], name=matmul_name)
+                )
             if node_output_proto:
                 # the output shape is the same as the original MatMulNBits node
                 matmul_output_proto = onnx.ValueInfoProto()
