@@ -224,12 +224,13 @@ class ModelBuilder(Pass):
             if _models_dir not in sys.path:
                 sys.path.insert(0, _models_dir)
             from onnxruntime_genai.models.builder import create_model
-        except ImportError:
+        except Exception as _import_err:
             raise ImportError(
-                "onnxruntime-genai package is required to run ModelBuilder pass. Please install the package"
-                " corresponding to your onnxruntime installation using pip. cpu: onnxruntime-genai, cuda:"
-                " onnxruntime-genai-cuda, directml: onnxruntime-genai-directml"
-            ) from None
+                f"onnxruntime-genai package is required to run ModelBuilder pass."
+                f" Underlying error: {type(_import_err).__name__}: {_import_err}."
+                " Please install the package corresponding to your onnxruntime installation using pip."
+                " cpu: onnxruntime-genai, cuda: onnxruntime-genai-cuda, directml: onnxruntime-genai-directml"
+            ) from _import_err
         self.maybe_patch_quant()
 
         precision = config.precision
