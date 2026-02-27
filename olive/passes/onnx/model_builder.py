@@ -213,23 +213,13 @@ class ModelBuilder(Pass):
         output_model_path: str,
     ) -> ONNXModelHandler:
         try:
-            # ort-genai's builder.py uses bare `from builders import ...` (designed
-            # for script execution).  When imported as a module we must add the
-            # package's models/ directory to sys.path so that the sub-package is
-            # found correctly.
-            import sys
-            import onnxruntime_genai as _og
-            import os as _os
-            _models_dir = _os.path.join(_os.path.dirname(_og.__file__), "models")
-            if _models_dir not in sys.path:
-                sys.path.insert(0, _models_dir)
             from onnxruntime_genai.models.builder import create_model
-        except ImportError as _import_err:
+        except ImportError:
             raise ImportError(
                 "onnxruntime-genai package is required to run ModelBuilder pass. Please install the package"
                 " corresponding to your onnxruntime installation using pip. cpu: onnxruntime-genai, cuda:"
                 " onnxruntime-genai-cuda, directml: onnxruntime-genai-directml"
-            ) from _import_err
+            ) from None
         self.maybe_patch_quant()
 
         precision = config.precision
