@@ -14,6 +14,10 @@ MCP server for Microsoft Olive model optimization. Provides tools for model opti
 | `benchmark` | Model evaluation using lm-eval tasks |
 | `diffusion_lora` | Train LoRA adapters for diffusion models (SD 1.5, SDXL, Flux) |
 | `tune_session_params` | Auto-tune ONNX Runtime session parameters |
+| `list_outputs` | List previous optimization outputs |
+| `delete_outputs` | Delete old outputs to free disk space |
+| `get_job_status` | Check progress of a running job (long-poll) |
+| `cancel_job` | Cancel a running background job |
 
 Each tool runs in an **isolated Python environment** (managed by uv) with the appropriate dependencies, so different onnxruntime variants (CPU, CUDA, DirectML, OpenVINO, etc.) never conflict.
 
