@@ -19,14 +19,14 @@ Each tool runs in an **isolated Python environment** (managed by uv) with the ap
 
 ## Prerequisites
 
-- Python 3.10 - 3.12
+- Python 3.10+
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
 ## Installation
 
 ```bash
-git clone https://github.com/xiaoyu-work/olive-mcp.git
-cd olive-mcp
+git clone -b mcp https://github.com/microsoft/Olive.git
+cd Olive/mcp
 uv sync
 ```
 
@@ -39,11 +39,11 @@ All MCP clients use the same server config — only the config file location dif
 ```json
 {
   "command": "uv",
-  "args": ["run", "--directory", "/path/to/olive-mcp", "python", "-m", "olive_mcp"]
+  "args": ["run", "--directory", "/path/to/Olive/mcp", "python", "-m", "olive_mcp"]
 }
 ```
 
-> Replace `/path/to/olive-mcp` with your actual project path.
+> Replace `/path/to/Olive/mcp` with your actual project path.
 
 | Client | Config file | Key |
 |--------|------------|-----|
@@ -62,7 +62,7 @@ All MCP clients use the same server config — only the config file location dif
     "olive": {
       "type": "stdio",
       "command": "uv",
-      "args": ["run", "--directory", "/path/to/olive-mcp", "python", "-m", "olive_mcp"]
+      "args": ["run", "--directory", "/path/to/Olive/mcp", "python", "-m", "olive_mcp"]
     }
   }
 }
@@ -77,7 +77,7 @@ All MCP clients use the same server config — only the config file location dif
   "mcpServers": {
     "olive": {
       "command": "uv",
-      "args": ["run", "--directory", "/path/to/olive-mcp", "python", "-m", "olive_mcp"]
+      "args": ["run", "--directory", "/path/to/Olive/mcp", "python", "-m", "olive_mcp"]
     }
   }
 }
