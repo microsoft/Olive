@@ -15,31 +15,51 @@ mcp = FastMCP(
     name="olive",
     instructions="""Olive MCP server for Microsoft Olive model optimization.
 
-## CRITICAL: Ask before you run
-**NEVER start an optimization/quantization/finetune job without first confirming these with the user:**
-1. **Target device** — "Will you run this model on CPU, GPU (NVIDIA/AMD), or NPU?" This determines provider, precision support, and speed.
-2. **Goal** — "Do you want the smallest model, best quality, or a balance?" This determines precision and algorithm.
-3. **Model** — Confirm which model to use. If the user didn't specify, suggest options based on their use case.
+## How to interact with users
 
-**Do NOT assume CPU by default.** Do NOT guess and retry on failure. Ask the user first.
+**Be adaptive to the user's expertise level.** Not everyone knows what "int4", "GPTQ", or "execution provider" means.
 
-### Device constraints you MUST know:
-- **CPU**: Does NOT support fp16 precision. Use int4 or int8. Provider = CPUExecutionProvider.
+### If the user gives a specific request (e.g. "quantize Phi-4 to int4 for CPU"):
+- They know what they want. Just run it. No extra questions needed.
+
+### If the user gives a vague request (e.g. "optimize this model" or "make it smaller"):
+- Do NOT ask multiple technical questions (device, precision, algorithm, etc.).
+- Instead, ask ONE simple question with ready-to-go options. Each option should be a
+  complete plan described in plain language. Example:
+
+  "How do you want to optimize Phi-4-mini-instruct?"
+  1. **Make it as small as possible** — I'll quantize to 4-bit. Best for running on laptops or limited hardware.
+  2. **Balance size and quality** — I'll quantize to 8-bit. Good default for most use cases.
+  3. **Best quality on GPU** — I'll optimize with fp16. Requires a GPU with 8GB+ VRAM.
+  4. **You decide** — Tell me your target device, precision, etc.
+
+  Then run immediately based on their choice. No follow-up questions.
+
+### If the user just says "optimize <model>" with no other context:
+- Pick option 2 (balanced/int8) as the default, tell the user what you're doing and why, and run it.
+- The user can always ask for something different after seeing the result.
+
+**Key principle: minimize questions, maximize action.** It's better to run with good defaults
+and let the user adjust than to interrogate them before starting.
+
+## Device constraints (for YOUR decision-making, not for asking the user)
+- **CPU**: Does NOT support fp16. Use int4 or int8. Provider = CPUExecutionProvider.
 - **GPU (NVIDIA)**: Supports fp16, int4, int8. Provider = CUDAExecutionProvider.
 - **GPU (DirectML/Windows)**: Supports fp16, int4, int8. Provider = DmlExecutionProvider.
 - **NPU**: Provider = QNNExecutionProvider. Limited precision support.
+
+If unsure about the user's device, default to CPU — it works everywhere.
 
 ## Async job pattern
 All long-running tools run in the background and return a `job_id` immediately.
 Poll `get_job_status(job_id)` to check progress and get results.
 
 **Workflow:**
-1. **Ask the user** about target device, goal, and model (see above)
-2. Call the tool → returns `{"job_id": "xxx", "status": "running"}`
-3. Call `get_job_status("xxx")` — it blocks up to 30s waiting for new logs, no need to add delay
-4. **ALWAYS show `recent_logs` to the user** — this is the real olive output
-5. If status is "running", summarize what olive is doing, then call `get_job_status` again
-6. If status is "completed" or "error", show the final result
+1. Call the tool → returns `{"job_id": "xxx", "status": "running"}`
+2. Call `get_job_status("xxx")` — it blocks up to 30s waiting for new logs, no need to add delay
+3. **ALWAYS show `recent_logs` to the user** — this is the real olive output
+4. If status is "running", summarize what olive is doing, then call `get_job_status` again
+5. If status is "completed" or "error", show the final result
 
 **Optimization can take 5-30+ minutes depending on model size. This is normal.**
 
@@ -49,14 +69,14 @@ Some models (e.g. gated models like meta-llama) require a HuggingFace token to d
 - Token from: https://huggingface.co/settings/tokens
 - Passed as env var, NOT stored anywhere.
 
-## Choosing the right tool and parameters
+## Tool selection guide (for YOUR decision-making)
 
 ### optimize vs quantize for int4
 - `optimize` with int4 **always runs GPTQ calibration** — VERY SLOW on CPU (30min+).
 - For **fast int4 on CPU**, use `quantize` with `algorithm="rtn"`. Minutes vs hours.
 - Only use `optimize` + int4 when user has GPU or explicitly wants GPTQ quality.
 
-### User intent → tool choice
+### Intent → tool mapping
 - **Smallest model / fast inference on CPU** → `quantize(precision="int4", algorithm="rtn")`
 - **Smallest model / fast inference on GPU** → `optimize(precision="int4", provider="CUDAExecutionProvider")`
 - **Balanced size and quality** → `quantize(precision="int8")`
