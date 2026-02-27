@@ -246,8 +246,24 @@ def _resolve_packages(command: str, provider: str | None = None, **kwargs) -> li
 _jobs: dict[str, dict] = {}
 
 
+_JOB_TTL_SECONDS = 3600  # purge finished jobs after 1 hour
+
+
+def _purge_old_jobs():
+    """Remove completed/errored jobs older than _JOB_TTL_SECONDS."""
+    now = datetime.now()
+    to_delete = [
+        jid for jid, job in _jobs.items()
+        if job["status"] in ("completed", "error")
+        and (now - datetime.fromisoformat(job.get("last_activity", job["started_at"]))).total_seconds() > _JOB_TTL_SECONDS
+    ]
+    for jid in to_delete:
+        del _jobs[jid]
+
+
 def _create_job(command: str, description: str) -> str:
     """Create a new background job and return its ID."""
+    _purge_old_jobs()
     job_id = uuid.uuid4().hex[:8]
     _jobs[job_id] = {
         "status": "starting",
@@ -255,6 +271,7 @@ def _create_job(command: str, description: str) -> str:
         "description": description,
         "log_lines": [],
         "result": None,
+        "process": None,
         "started_at": datetime.now().isoformat(),
     }
     return job_id
@@ -366,6 +383,7 @@ async def _run_olive_background(
             env=env,
             limit=10 * 1024 * 1024,  # 10 MB line limit (default 64KB is too small for olive output)
         )
+        _jobs[job_id]["process"] = proc
 
         # Stream ALL stderr (olive logs) directly into job log
         while True:
@@ -387,6 +405,10 @@ async def _run_olive_background(
         stdout_bytes = await proc.stdout.read()
         await proc.wait()
         stdout_str = stdout_bytes.decode("utf-8", errors="replace")
+
+        # If the job was already cancelled, don't overwrite its status.
+        if _jobs[job_id]["status"] == "cancelled":
+            return
 
         if proc.returncode != 0:
             _jobs[job_id]["status"] = "error"
@@ -506,6 +528,30 @@ async def get_job_status(job_id: str, last_n_logs: int = 50) -> dict:
         response["result"] = job["result"]
 
     return response
+
+
+@mcp.tool()
+async def cancel_job(job_id: str) -> dict:
+    """Cancel a running background job.
+
+    Args:
+        job_id: The job ID to cancel.
+    """
+    if job_id not in _jobs:
+        return {"status": "not_found", "error": f"No job with id '{job_id}'"}
+
+    job = _jobs[job_id]
+    if job["status"] not in ("starting", "setting_up", "running"):
+        return {"status": job["status"], "message": f"Job already {job['status']}, cannot cancel."}
+
+    proc = job.get("process")
+    if proc and proc.returncode is None:
+        proc.terminate()
+        _job_log(job_id, "Job cancelled by user")
+
+    job["status"] = "cancelled"
+    job["result"] = {"status": "cancelled", "message": "Job was cancelled by user."}
+    return {"status": "cancelled", "job_id": job_id, "message": "Job cancelled."}
 
 
 @mcp.tool()
@@ -847,11 +893,22 @@ async def list_outputs(
 
         entry = {"name": d.name, "path": str(d)}
 
-        # Extract timestamp from dir name
-        parts = d.name.rsplit("_", 2)
-        if len(parts) >= 3:
-            entry["operation"] = parts[0]
-            entry["timestamp"] = f"{parts[-2]}_{parts[-1]}"
+        # Extract operation and timestamp from dir name.
+        # Format: {operation}_{model}_{YYYYMMDD}_{HHMMSS}
+        # Operation may contain underscores (e.g. diffusion_lora, tune_params),
+        # so match against known prefixes instead of naive splitting.
+        _KNOWN_PREFIXES = [
+            "diffusion_lora", "tune_params", "capture_onnx_graph",
+            "optimize", "quantize", "finetune", "capture", "benchmark",
+        ]
+        for op in _KNOWN_PREFIXES:
+            if d.name.startswith(op + "_"):
+                entry["operation"] = op
+                # Timestamp is always the last two _ segments: YYYYMMDD_HHMMSS
+                tail = d.name.rsplit("_", 2)
+                if len(tail) >= 3:
+                    entry["timestamp"] = f"{tail[-2]}_{tail[-1]}"
+                break
 
         # Find model files
         for ext in ("*.onnx", "*.pt", "*.safetensors", "*.bin"):
