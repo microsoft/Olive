@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
+import shutil
 import sys
 import uuid
 from datetime import datetime
@@ -949,6 +950,61 @@ async def list_outputs(
             break
 
     return {"outputs": entries, "total": len(entries)}
+
+
+@mcp.tool()
+async def delete_outputs(
+    names: list[str] | None = None,
+    prefix: str | None = None,
+    all: bool = False,
+) -> dict:
+    """Delete previous optimization outputs to free disk space.
+
+    **Always call `list_outputs` first** to show the user what exists, then confirm
+    which ones to delete before calling this tool.
+
+    Three ways to specify what to delete (exactly one required):
+    - `names`: Delete specific output directories by name (from list_outputs).
+    - `prefix`: Delete all outputs matching an operation type (e.g. "optimize", "quantize").
+    - `all`: Delete everything in the outputs directory.
+
+    Args:
+        names: List of output directory names to delete (e.g. ["optimize_Phi-4_20250227_153000"]).
+        prefix: Delete all outputs starting with this prefix.
+        all: Set to true to delete ALL outputs.
+    """
+    if not OUTPUT_BASE.exists():
+        return {"deleted": 0, "message": "No outputs directory found."}
+
+    if not names and not prefix and not all:
+        return {"deleted": 0, "error": "Specify names, prefix, or all=true."}
+
+    deleted = []
+    errors = []
+
+    for d in list(OUTPUT_BASE.iterdir()):
+        if not d.is_dir():
+            continue
+
+        should_delete = False
+        if all:
+            should_delete = True
+        elif names and d.name in names:
+            should_delete = True
+        elif prefix and d.name.startswith(prefix + "_"):
+            should_delete = True
+
+        if should_delete:
+            try:
+                shutil.rmtree(d)
+                deleted.append(d.name)
+            except Exception as e:
+                errors.append({"name": d.name, "error": str(e)})
+
+    result = {"deleted": len(deleted), "deleted_names": deleted}
+    if errors:
+        result["errors"] = errors
+    return result
 
 
 # ---------------------------------------------------------------------------
