@@ -1,9 +1,11 @@
 """Olive MCP Server - Model optimization via Microsoft Olive Python API."""
 
 import asyncio
+import ctypes
 import hashlib
 import json
 import os
+import platform
 import shutil
 import sys
 import uuid
@@ -49,7 +51,8 @@ and let the user adjust than to interrogate them before starting.
 - **GPU (DirectML/Windows)**: Supports fp16, int4, int8. Provider = DmlExecutionProvider.
 - **NPU**: Provider = QNNExecutionProvider. Limited precision support.
 
-If unsure about the user's device, default to CPU — it works everywhere.
+If unsure about the user's device, call `detect_hardware` to auto-detect GPU, RAM, and disk space.
+Use the result to pick the best provider and precision automatically — no need to ask the user.
 
 ## Async job pattern
 All long-running tools run in the background and return a `job_id` immediately.
@@ -104,6 +107,9 @@ WORKER_PATH = Path(__file__).parent / "worker.py"
 
 # Bump this when _resolve_packages logic changes to invalidate stale cached venvs.
 _VENV_CACHE_VERSION = "v2"
+
+# Auto-purge venvs not used within this many days.
+_VENV_MAX_AGE_DAYS = 14
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -334,8 +340,35 @@ def _build_kwargs(**kw) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _purge_old_venvs():
+    """Remove cached venvs not used within _VENV_MAX_AGE_DAYS."""
+    if not VENV_BASE.exists():
+        return
+    now = datetime.now()
+    for d in list(VENV_BASE.iterdir()):
+        if not d.is_dir():
+            continue
+        marker = d / ".last_used"
+        if marker.exists():
+            age = (now - datetime.fromtimestamp(marker.stat().st_mtime)).days
+        else:
+            # No marker — use directory mtime as fallback
+            age = (now - datetime.fromtimestamp(d.stat().st_mtime)).days
+        if age > _VENV_MAX_AGE_DAYS:
+            shutil.rmtree(d, ignore_errors=True)
+
+
+def _touch_venv(venv_path: Path):
+    """Update the last-used marker for a cached venv."""
+    marker = venv_path / ".last_used"
+    marker.touch()
+
+
 async def _get_or_create_venv(packages: list[str], job_id: str) -> Path:
     """Get or create a cached uv venv with the specified packages."""
+    # Periodically purge stale venvs
+    _purge_old_venvs()
+
     key = hashlib.md5(f"{_VENV_CACHE_VERSION}|{'|'.join(sorted(packages))}".encode()).hexdigest()[:12]
     venv_path = VENV_BASE / key
     python_path = _get_python_path(venv_path)
@@ -367,6 +400,7 @@ async def _get_or_create_venv(packages: list[str], job_id: str) -> Path:
     else:
         _job_log(job_id, f"Reusing cached venv ({key})")
 
+    _touch_venv(venv_path)
     return python_path
 
 
@@ -488,6 +522,189 @@ async def list_supported_configs() -> dict:
         "quantization_algorithms": SUPPORTED_QUANT_ALGORITHMS,
         "quantization_implementations": SUPPORTED_QUANT_IMPLEMENTATIONS,
         "device_to_default_provider": DEVICE_TO_DEFAULT_PROVIDER,
+    }
+
+
+@mcp.tool()
+async def detect_hardware() -> dict:
+    """Detect the user's hardware capabilities (CPU, RAM, GPU, disk space).
+
+    Call this to make smart optimization decisions without asking the user about their device.
+    The result tells you what providers and precisions are available on this machine.
+    """
+    info: dict = {}
+
+    # --- CPU ---
+    info["cpu"] = {
+        "cores": os.cpu_count(),
+        "arch": platform.machine(),
+    }
+
+    # --- RAM ---
+    try:
+        if sys.platform == "win32":
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+            mem = MEMORYSTATUSEX()
+            mem.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(mem))
+            info["ram"] = {
+                "total_gb": round(mem.ullTotalPhys / (1024 ** 3), 1),
+                "available_gb": round(mem.ullAvailPhys / (1024 ** 3), 1),
+            }
+        else:
+            # Linux / macOS — read /proc/meminfo or use sysctl
+            meminfo = Path("/proc/meminfo")
+            if meminfo.exists():
+                lines = meminfo.read_text().splitlines()
+                mem_total = mem_avail = 0
+                for line in lines:
+                    if line.startswith("MemTotal:"):
+                        mem_total = int(line.split()[1]) * 1024  # kB → bytes
+                    elif line.startswith("MemAvailable:"):
+                        mem_avail = int(line.split()[1]) * 1024
+                info["ram"] = {
+                    "total_gb": round(mem_total / (1024 ** 3), 1),
+                    "available_gb": round(mem_avail / (1024 ** 3), 1),
+                }
+            else:
+                # macOS fallback
+                proc = await asyncio.create_subprocess_exec(
+                    "sysctl", "-n", "hw.memsize",
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, _ = await proc.communicate()
+                if proc.returncode == 0:
+                    total = int(stdout.decode().strip())
+                    info["ram"] = {"total_gb": round(total / (1024 ** 3), 1)}
+    except Exception:
+        info["ram"] = {"error": "Could not detect RAM"}
+
+    # --- GPU (NVIDIA via nvidia-smi) ---
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "nvidia-smi", "--query-gpu=name,memory.total,memory.free,driver_version",
+            "--format=csv,noheader,nounits",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await proc.communicate()
+        if proc.returncode == 0:
+            gpus = []
+            for line in stdout.decode().strip().splitlines():
+                parts = [p.strip() for p in line.split(",")]
+                if len(parts) >= 4:
+                    gpus.append({
+                        "name": parts[0],
+                        "vram_total_mb": int(float(parts[1])),
+                        "vram_free_mb": int(float(parts[2])),
+                        "driver_version": parts[3],
+                    })
+            info["gpu"] = {"nvidia": gpus, "cuda_available": len(gpus) > 0}
+        else:
+            info["gpu"] = {"nvidia": [], "cuda_available": False}
+    except FileNotFoundError:
+        info["gpu"] = {"nvidia": [], "cuda_available": False}
+
+    # --- Disk space (output directory) ---
+    try:
+        check_path = OUTPUT_BASE if OUTPUT_BASE.exists() else Path.home()
+        usage = shutil.disk_usage(check_path)
+        info["disk"] = {
+            "total_gb": round(usage.total / (1024 ** 3), 1),
+            "free_gb": round(usage.free / (1024 ** 3), 1),
+        }
+    except Exception:
+        info["disk"] = {"error": "Could not detect disk space"}
+
+    # --- OS ---
+    info["os"] = {
+        "system": platform.system(),
+        "version": platform.version(),
+    }
+
+    # --- Recommendations ---
+    recs = []
+    cuda = info.get("gpu", {}).get("cuda_available", False)
+    gpus = info.get("gpu", {}).get("nvidia", [])
+    ram_gb = info.get("ram", {}).get("total_gb", 0)
+
+    if cuda and gpus:
+        vram = gpus[0].get("vram_total_mb", 0)
+        recs.append(f"NVIDIA GPU detected ({gpus[0]['name']}, {vram}MB VRAM). Use CUDAExecutionProvider for best performance.")
+        if vram >= 8000:
+            recs.append("GPU has enough VRAM for fp16 optimization and LoRA fine-tuning.")
+        elif vram >= 4000:
+            recs.append("GPU VRAM is limited. Prefer int4/int8 quantization. Use QLoRA for fine-tuning.")
+    else:
+        recs.append("No NVIDIA GPU detected. Use CPUExecutionProvider.")
+        recs.append("For CPU: use int4 (smallest) or int8 (balanced). fp16 is NOT supported on CPU.")
+        if sys.platform == "win32":
+            recs.append("On Windows, you may also try DmlExecutionProvider if you have a DirectX 12 GPU (AMD/Intel/NVIDIA).")
+
+    if ram_gb > 0 and ram_gb < 8:
+        recs.append(f"Low RAM ({ram_gb}GB). Prefer small models (e.g. Phi-4-mini) and int4 quantization.")
+
+    info["recommendations"] = recs
+    return info
+
+
+@mcp.tool()
+async def clean_venvs(
+    max_age_days: int | None = None,
+    all: bool = False,
+) -> dict:
+    """Clean up cached virtual environments to free disk space.
+
+    Olive MCP creates isolated venvs in ~/.olive-mcp/venvs/ for each unique package combination.
+    These can accumulate over time.
+
+    Args:
+        max_age_days: Delete venvs not used within this many days. Default: 14.
+        all: Set to true to delete ALL cached venvs.
+    """
+    if not VENV_BASE.exists():
+        return {"deleted": 0, "message": "No venvs directory found."}
+
+    cutoff_days = max_age_days if max_age_days is not None else _VENV_MAX_AGE_DAYS
+    now = datetime.now()
+    deleted = []
+    kept = []
+    freed_bytes = 0
+
+    for d in list(VENV_BASE.iterdir()):
+        if not d.is_dir():
+            continue
+
+        marker = d / ".last_used"
+        if marker.exists():
+            age = (now - datetime.fromtimestamp(marker.stat().st_mtime)).days
+        else:
+            age = (now - datetime.fromtimestamp(d.stat().st_mtime)).days
+
+        if all or age > cutoff_days:
+            # Calculate size before deleting
+            size = sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
+            freed_bytes += size
+            shutil.rmtree(d, ignore_errors=True)
+            deleted.append({"name": d.name, "age_days": age})
+        else:
+            kept.append({"name": d.name, "age_days": age})
+
+    return {
+        "deleted": len(deleted),
+        "deleted_venvs": deleted,
+        "kept": len(kept),
+        "freed_mb": round(freed_bytes / (1024 * 1024)),
     }
 
 
