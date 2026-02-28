@@ -237,9 +237,6 @@ def _resolve_packages(command: str, provider: str | None = None, **kwargs) -> li
         # lm-eval is the evaluation backend
         extra_packages.extend(["lm_eval", "datasets"])
 
-    elif command == "tune_session_params":
-        extras.add("tune-session-params")  # psutil
-
     elif command == "diffusion_lora":
         extras.add("diffusers")  # accelerate, peft, diffusers
         extra_packages.append("datasets")
@@ -510,22 +507,6 @@ async def _start_job(command: str, description: str, kwargs: dict, hf_token: str
 
 
 @mcp.tool()
-async def list_supported_configs() -> dict:
-    """List all supported devices, execution providers, precisions, and quantization algorithms.
-
-    Call this first to understand what options are available before running optimization.
-    """
-    return {
-        "devices": SUPPORTED_DEVICES,
-        "providers": SUPPORTED_PROVIDERS,
-        "precisions": SUPPORTED_PRECISIONS,
-        "quantization_algorithms": SUPPORTED_QUANT_ALGORITHMS,
-        "quantization_implementations": SUPPORTED_QUANT_IMPLEMENTATIONS,
-        "device_to_default_provider": DEVICE_TO_DEFAULT_PROVIDER,
-    }
-
-
-@mcp.tool()
 async def detect_hardware() -> dict:
     """Detect the user's hardware capabilities (CPU, RAM, GPU, disk space).
 
@@ -656,56 +637,6 @@ async def detect_hardware() -> dict:
 
     info["recommendations"] = recs
     return info
-
-
-@mcp.tool()
-async def clean_venvs(
-    max_age_days: int | None = None,
-    all: bool = False,
-) -> dict:
-    """Clean up cached virtual environments to free disk space.
-
-    Olive MCP creates isolated venvs in ~/.olive-mcp/venvs/ for each unique package combination.
-    These can accumulate over time.
-
-    Args:
-        max_age_days: Delete venvs not used within this many days. Default: 14.
-        all: Set to true to delete ALL cached venvs.
-    """
-    if not VENV_BASE.exists():
-        return {"deleted": 0, "message": "No venvs directory found."}
-
-    cutoff_days = max_age_days if max_age_days is not None else _VENV_MAX_AGE_DAYS
-    now = datetime.now()
-    deleted = []
-    kept = []
-    freed_bytes = 0
-
-    for d in list(VENV_BASE.iterdir()):
-        if not d.is_dir():
-            continue
-
-        marker = d / ".last_used"
-        if marker.exists():
-            age = (now - datetime.fromtimestamp(marker.stat().st_mtime)).days
-        else:
-            age = (now - datetime.fromtimestamp(d.stat().st_mtime)).days
-
-        if all or age > cutoff_days:
-            # Calculate size before deleting
-            size = sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
-            freed_bytes += size
-            shutil.rmtree(d, ignore_errors=True)
-            deleted.append({"name": d.name, "age_days": age})
-        else:
-            kept.append({"name": d.name, "age_days": age})
-
-    return {
-        "deleted": len(deleted),
-        "deleted_venvs": deleted,
-        "kept": len(kept),
-        "freed_mb": round(freed_bytes / (1024 * 1024)),
-    }
 
 
 @mcp.tool()
@@ -1077,50 +1008,64 @@ async def diffusion_lora(
 
 
 @mcp.tool()
-async def tune_session_params(
-    model_name_or_path: str,
-    cpu_cores: int | None = None,
-    io_bind: bool = False,
-    enable_cuda_graph: bool = False,
-    output_path: str | None = None,
-) -> dict:
-    """Tune ORT session params. Returns a job_id — use get_job_status() to poll.
-
-    Args:
-        model_name_or_path: Path to ONNX model.
-        cpu_cores: CPU cores for thread tuning.
-        io_bind: Enable IOBinding Search.
-        enable_cuda_graph: Enable CUDA Graph for CUDA EP.
-        output_path: Directory to save tuned parameters. Auto-generated if omitted.
-    """
-    if not output_path:
-        output_path = _make_output_path("tune_params", model_name_or_path)
-
-    kwargs = _build_kwargs(
-        model_name_or_path=model_name_or_path,
-        cpu_cores=cpu_cores,
-        io_bind=io_bind,
-        enable_cuda_graph=enable_cuda_graph,
-        output_path=output_path,
-    )
-    return await _start_job("tune_session_params", f"Tune session params for {model_name_or_path}", kwargs)
-
-
-@mcp.tool()
-async def list_outputs(
+async def manage_outputs(
+    action: str = "list",
     prefix: str | None = None,
+    names: list[str] | None = None,
+    delete_all: bool = False,
     limit: int = 20,
 ) -> dict:
-    """List previous optimization outputs saved by olive-mcp.
+    """List or delete previous optimization outputs saved by olive-mcp.
 
-    Use this to review past results, find model paths, or compare runs.
+    Actions:
+    - `list` (default): Show past optimization runs. Use `prefix` to filter by operation type.
+    - `delete`: Delete specific outputs. Specify `names`, `prefix`, or `delete_all`.
+      When deleting, always list first to confirm with the user.
 
     Args:
-        prefix: Filter by operation type (e.g. "optimize", "quantize", "finetune"). Show all if omitted.
-        limit: Maximum number of results to return. Default: 20.
+        action: "list" to browse outputs, "delete" to remove them.
+        prefix: Filter by operation type (e.g. "optimize", "quantize", "finetune").
+        names: List of output directory names to delete (from a previous list action).
+        delete_all: Set to true to delete ALL outputs (use with action="delete").
+        limit: Maximum number of results to return when listing. Default: 20.
     """
     if not OUTPUT_BASE.exists():
         return {"outputs": [], "message": "No outputs found. Run an optimization first."}
+
+    # --- DELETE ---
+    if action == "delete":
+        if not names and not prefix and not delete_all:
+            return {"deleted": 0, "error": "Specify names, prefix, or delete_all=true."}
+
+        deleted = []
+        errors = []
+        for d in list(OUTPUT_BASE.iterdir()):
+            if not d.is_dir():
+                continue
+            should_delete = False
+            if delete_all:
+                should_delete = True
+            elif names and d.name in names:
+                should_delete = True
+            elif prefix and d.name.startswith(prefix + "_"):
+                should_delete = True
+            if should_delete:
+                try:
+                    shutil.rmtree(d)
+                    deleted.append(d.name)
+                except Exception as e:
+                    errors.append({"name": d.name, "error": str(e)})
+
+        result = {"deleted": len(deleted), "deleted_names": deleted}
+        if errors:
+            result["errors"] = errors
+        return result
+
+    # --- LIST ---
+    _KNOWN_PREFIXES = [
+        "diffusion_lora", "capture_onnx_graph",
+        "optimize", "quantize", "finetune", "capture", "benchmark",
+    ]
 
     entries = []
     for d in sorted(OUTPUT_BASE.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
@@ -1131,18 +1076,9 @@ async def list_outputs(
 
         entry = {"name": d.name, "path": str(d)}
 
-        # Extract operation and timestamp from dir name.
-        # Format: {operation}_{model}_{YYYYMMDD}_{HHMMSS}
-        # Operation may contain underscores (e.g. diffusion_lora, tune_params),
-        # so match against known prefixes instead of naive splitting.
-        _KNOWN_PREFIXES = [
-            "diffusion_lora", "tune_params", "capture_onnx_graph",
-            "optimize", "quantize", "finetune", "capture", "benchmark",
-        ]
         for op in _KNOWN_PREFIXES:
             if d.name.startswith(op + "_"):
                 entry["operation"] = op
-                # Timestamp is always the last two _ segments: YYYYMMDD_HHMMSS
                 tail = d.name.rsplit("_", 2)
                 if len(tail) >= 3:
                     entry["timestamp"] = f"{tail[-2]}_{tail[-1]}"
@@ -1167,61 +1103,6 @@ async def list_outputs(
             break
 
     return {"outputs": entries, "total": len(entries)}
-
-
-@mcp.tool()
-async def delete_outputs(
-    names: list[str] | None = None,
-    prefix: str | None = None,
-    all: bool = False,
-) -> dict:
-    """Delete previous optimization outputs to free disk space.
-
-    **Always call `list_outputs` first** to show the user what exists, then confirm
-    which ones to delete before calling this tool.
-
-    Three ways to specify what to delete (exactly one required):
-    - `names`: Delete specific output directories by name (from list_outputs).
-    - `prefix`: Delete all outputs matching an operation type (e.g. "optimize", "quantize").
-    - `all`: Delete everything in the outputs directory.
-
-    Args:
-        names: List of output directory names to delete (e.g. ["optimize_Phi-4_20250227_153000"]).
-        prefix: Delete all outputs starting with this prefix.
-        all: Set to true to delete ALL outputs.
-    """
-    if not OUTPUT_BASE.exists():
-        return {"deleted": 0, "message": "No outputs directory found."}
-
-    if not names and not prefix and not all:
-        return {"deleted": 0, "error": "Specify names, prefix, or all=true."}
-
-    deleted = []
-    errors = []
-
-    for d in list(OUTPUT_BASE.iterdir()):
-        if not d.is_dir():
-            continue
-
-        should_delete = False
-        if all:
-            should_delete = True
-        elif names and d.name in names:
-            should_delete = True
-        elif prefix and d.name.startswith(prefix + "_"):
-            should_delete = True
-
-        if should_delete:
-            try:
-                shutil.rmtree(d)
-                deleted.append(d.name)
-            except Exception as e:
-                errors.append({"name": d.name, "error": str(e)})
-
-    result = {"deleted": len(deleted), "deleted_names": deleted}
-    if errors:
-        result["errors"] = errors
-    return result
 
 
 # ---------------------------------------------------------------------------

@@ -61,7 +61,6 @@ def main():
             finetune,
             optimize,
             quantize,
-            tune_session_params,
         )
 
         dispatch = {
@@ -71,7 +70,6 @@ def main():
             "capture_onnx_graph": capture_onnx_graph,
             "benchmark": benchmark,
             "diffusion_lora": diffusion_lora,
-            "tune_session_params": tune_session_params,
         }
 
         func = dispatch.get(command)
