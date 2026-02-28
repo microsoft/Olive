@@ -115,29 +115,19 @@ PROVIDER_TO_EXTRAS = {
 
 
 # ---------------------------------------------------------------------------
-# Lazy-loaded Olive imports (heavy, only import when needed)
+# Olive imports (loaded at startup so tool calls are instant)
 # ---------------------------------------------------------------------------
 
-_olive_config = None
-_pass_registry = None
+from olive.package_config import OlivePackageConfig  # noqa: E402
+from olive.passes.olive_pass import Pass  # noqa: E402
 
-
-def _load_olive():
-    """Lazy-load Olive modules to avoid slow startup."""
-    global _olive_config, _pass_registry
-    if _olive_config is None:
-        from olive.package_config import OlivePackageConfig
-
-        _olive_config = OlivePackageConfig.load_default_config()
-    if _pass_registry is None:
-        from olive.passes.olive_pass import Pass
-
-        _pass_registry = Pass.registry
+_olive_config = OlivePackageConfig.load_default_config()
+_pass_registry = Pass.registry
 
 
 def _get_pass_module_config(pass_name: str):
     """Get PassModuleConfig from olive_config.json by name (case-insensitive)."""
-    _load_olive()
+
     # olive_config.json keys are PascalCase, try exact match first
     for key in _olive_config.passes:
         if key.lower() == pass_name.lower():
@@ -147,7 +137,7 @@ def _get_pass_module_config(pass_name: str):
 
 def _get_pass_class(pass_name: str):
     """Get pass class by name. Tries registry first, then dynamic import via module_path."""
-    _load_olive()
+
     # Try registry first (already imported passes)
     cls = _pass_registry.get(pass_name.lower())
     if cls:
@@ -485,7 +475,7 @@ async def explore_passes(
         precision: Filter passes by supported precision (e.g. "int4", "int8", "fp16").
         accelerator: Filter passes by accelerator type (e.g. "cpu", "gpu", "npu").
     """
-    _load_olive()
+
 
     # --- Detail mode: get full schema for one pass ---
     if pass_name:
