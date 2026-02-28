@@ -486,8 +486,51 @@ async def _run_olive_background(
         _job_log(job_id, f"Exception: {exc}")
 
 
+_INCOMPATIBLE_PRECISION = {
+    "CPUExecutionProvider": {"fp16", "bf16"},
+}
+
+
+def _validate_params(command: str, kwargs: dict) -> str | None:
+    """Validate parameters before starting a job. Returns error message or None."""
+    provider = kwargs.get("provider")
+    precision = kwargs.get("precision")
+
+    # Check provider is recognized
+    if provider and provider not in SUPPORTED_PROVIDERS:
+        return f"Unknown provider '{provider}'. Supported: {', '.join(SUPPORTED_PROVIDERS)}"
+
+    # Check precision is recognized
+    if precision and precision not in SUPPORTED_PRECISIONS:
+        return f"Unknown precision '{precision}'. Supported: {', '.join(SUPPORTED_PRECISIONS)}"
+
+    # Check provider-precision compatibility
+    if provider and precision:
+        blocked = _INCOMPATIBLE_PRECISION.get(provider, set())
+        if precision in blocked:
+            return f"{provider} does not support {precision} precision. Use int4, int8, or fp32 instead."
+
+    # Check quantization algorithm
+    algorithm = kwargs.get("algorithm")
+    if algorithm and algorithm not in SUPPORTED_QUANT_ALGORITHMS:
+        return f"Unknown algorithm '{algorithm}'. Supported: {', '.join(SUPPORTED_QUANT_ALGORITHMS)}"
+
+    # Check finetune method
+    if command == "finetune":
+        method = kwargs.get("method")
+        if method and method not in ("lora", "qlora"):
+            return f"Unknown finetune method '{method}'. Supported: lora, qlora"
+
+    return None
+
+
 async def _start_job(command: str, description: str, kwargs: dict, hf_token: str | None = None) -> dict:
     """Create a job, resolve packages, launch background task, return immediately."""
+    # Validate before creating venv (saves minutes of wasted setup time)
+    error = _validate_params(command, kwargs)
+    if error:
+        return {"status": "error", "error": error}
+
     job_id = _create_job(command, description)
     packages = _resolve_packages(command, **kwargs)
     asyncio.create_task(
@@ -1112,19 +1155,20 @@ async def manage_outputs(
 
 @mcp.prompt(
     name="optimize-model",
-    description="Guided model optimization — helps you choose the right model, precision, and target device.",
+    description="Guided model optimization — detects your hardware and picks the best settings automatically.",
 )
 def prompt_optimize_model() -> list[dict]:
     return [
         {
             "role": "user",
             "content": (
-                "I want to optimize a model using Olive. Help me step by step:\n"
-                "1. Ask what I want to use the model for (chat, code, images, etc.)\n"
-                "2. Ask about my target device (CPU, GPU, NPU) and any size/speed/quality preference\n"
-                "3. Recommend a model and optimization settings based on my answers\n"
-                "4. Run the optimization with the `optimize` tool\n"
-                "5. Show me the results and suggest next steps (benchmark, deploy, etc.)"
+                "I want to optimize a model using Olive. Help me:\n"
+                "1. Run `detect_hardware` to see what I have (GPU, RAM, etc.)\n"
+                "2. Ask what I want to use the model for (chat, code, images, etc.)\n"
+                "3. Based on my hardware and use case, recommend a model and settings\n"
+                "4. Give me a few plain-language options (smallest, balanced, best quality)\n"
+                "5. Run the optimization based on my choice\n"
+                "6. Show me the results and suggest next steps"
             ),
         }
     ]
@@ -1132,7 +1176,7 @@ def prompt_optimize_model() -> list[dict]:
 
 @mcp.prompt(
     name="quantize-model",
-    description="Guided model quantization — helps you choose precision and algorithm.",
+    description="Guided model quantization — makes your model smaller and faster.",
 )
 def prompt_quantize_model() -> list[dict]:
     return [
@@ -1140,10 +1184,10 @@ def prompt_quantize_model() -> list[dict]:
             "role": "user",
             "content": (
                 "I want to quantize a model to make it smaller/faster. Help me:\n"
-                "1. Ask which model I want to quantize (or recommend one for my use case)\n"
-                "2. Ask about my priority: smallest size, best quality, or balanced\n"
-                "3. Choose the right precision and algorithm based on my answers\n"
-                "4. Run the quantization with the `quantize` tool\n"
+                "1. Run `detect_hardware` to see what I have\n"
+                "2. Ask which model I want to quantize (or recommend one for my use case)\n"
+                "3. Based on my hardware, pick the best precision and algorithm\n"
+                "4. Run the quantization\n"
                 "5. Show me the results (size reduction, etc.)"
             ),
         }
@@ -1152,7 +1196,7 @@ def prompt_quantize_model() -> list[dict]:
 
 @mcp.prompt(
     name="finetune-model",
-    description="Guided model fine-tuning — helps you set up LoRA/QLoRA training.",
+    description="Guided model fine-tuning — sets up LoRA/QLoRA training based on your hardware.",
 )
 def prompt_finetune_model() -> list[dict]:
     return [
@@ -1160,11 +1204,11 @@ def prompt_finetune_model() -> list[dict]:
             "role": "user",
             "content": (
                 "I want to fine-tune a model on my own data. Help me:\n"
-                "1. Ask what task I want the model to learn\n"
-                "2. Ask about my training data (HuggingFace dataset name or local path)\n"
-                "3. Ask about my GPU memory to decide between LoRA and QLoRA\n"
-                "4. Recommend a base model and training settings\n"
-                "5. Run fine-tuning with the `finetune` tool\n"
+                "1. Run `detect_hardware` to check my GPU and memory\n"
+                "2. Ask what task I want the model to learn\n"
+                "3. Ask about my training data (HuggingFace dataset name or local path)\n"
+                "4. Based on my hardware, pick LoRA or QLoRA and recommend a base model\n"
+                "5. Run fine-tuning\n"
                 "6. Suggest next steps (optimize the fine-tuned model, benchmark, etc.)"
             ),
         }
@@ -1181,7 +1225,7 @@ def prompt_compare_models() -> list[dict]:
             "role": "user",
             "content": (
                 "I want to compare my previous optimization results. Help me:\n"
-                "1. Use `list_outputs` to show my past optimization runs\n"
+                "1. Use `manage_outputs` to show my past optimization runs\n"
                 "2. Summarize each run (model, precision, size, metrics if available)\n"
                 "3. Recommend which result is best for my needs\n"
                 "4. If I haven't benchmarked yet, suggest running `benchmark` on the candidates"
