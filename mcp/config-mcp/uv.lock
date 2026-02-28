@@ -287,7 +287,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -1058,8 +1058,8 @@ wheels = [
 
 [[package]]
 name = "olive-ai"
-version = "0.11.0"
-source = { registry = "https://pypi.org/simple" }
+version = "0.11.0.dev0"
+source = { editable = "../../" }
 dependencies = [
     { name = "hf-xet" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -1076,9 +1076,61 @@ dependencies = [
     { name = "torchmetrics" },
     { name = "transformers" },
 ]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/67/bb5185960c6f027559b22d6dfd27124f3fbd42b8b7a40e2c5d8e04ab340e/olive_ai-0.11.0-py3-none-any.whl", hash = "sha256:24585ee35c78662fe9bb22f4cf451e1c1f64fd5d199ac29476f0a2810948b304", size = 764217, upload-time = "2026-01-29T22:32:04.312Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "accelerate", marker = "extra == 'diffusers'", specifier = ">=0.30.0" },
+    { name = "accelerate", marker = "extra == 'finetune'", specifier = ">=0.30.0" },
+    { name = "accelerate", marker = "extra == 'lora'", specifier = ">=0.30.0" },
+    { name = "aimet-onnx", marker = "extra == 'aimet-onnx'", specifier = ">=2.15.0" },
+    { name = "azure-ai-ml", marker = "extra == 'azureml'", specifier = ">=1.11.1" },
+    { name = "azure-identity", marker = "extra == 'azureml'" },
+    { name = "azure-identity", marker = "extra == 'shared-cache'" },
+    { name = "azure-storage-blob", marker = "extra == 'shared-cache'" },
+    { name = "bitsandbytes", marker = "extra == 'bnb'" },
+    { name = "bitsandbytes", marker = "extra == 'finetune'" },
+    { name = "diffusers", marker = "extra == 'diffusers'" },
+    { name = "docker", marker = "extra == 'docker'" },
+    { name = "flash-attn", marker = "extra == 'flash-attn'" },
+    { name = "hf-xet" },
+    { name = "neural-compressor", marker = "extra == 'inc'" },
+    { name = "nncf", marker = "extra == 'openvino'", specifier = ">=2.19.0" },
+    { name = "numpy" },
+    { name = "numpy", marker = "extra == 'openvino'", specifier = "<2.0" },
+    { name = "nvidia-modelopt", extras = ["onnx"], marker = "extra == 'nvmo'" },
+    { name = "onnx" },
+    { name = "onnx-ir", specifier = ">=0.1.2" },
+    { name = "onnxruntime", marker = "extra == 'cpu'" },
+    { name = "onnxruntime-directml", marker = "extra == 'directml'" },
+    { name = "onnxruntime-gpu", marker = "extra == 'gpu'" },
+    { name = "onnxruntime-openvino", marker = "extra == 'openvino'" },
+    { name = "onnxruntime-qnn", marker = "extra == 'qnn'" },
+    { name = "onnxscript", specifier = ">=0.3.0" },
+    { name = "openvino", marker = "extra == 'openvino'", specifier = ">=2025.4.1" },
+    { name = "optimum", marker = "extra == 'auto-opt'" },
+    { name = "optimum", marker = "extra == 'capture-onnx-graph'" },
+    { name = "optimum", marker = "extra == 'finetune'" },
+    { name = "optimum", marker = "extra == 'optimum'" },
+    { name = "optimum", extras = ["openvino"], marker = "extra == 'openvino'", specifier = ">=2.1.0" },
+    { name = "optuna" },
+    { name = "pandas" },
+    { name = "peft", marker = "extra == 'diffusers'" },
+    { name = "peft", marker = "extra == 'finetune'" },
+    { name = "peft", marker = "extra == 'lora'" },
+    { name = "psutil", marker = "extra == 'tune-session-params'" },
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "pyyaml" },
+    { name = "scipy", marker = "extra == 'finetune'" },
+    { name = "scipy", marker = "extra == 'lora'" },
+    { name = "tensorflow", marker = "extra == 'tf'", specifier = "==1.15.0" },
+    { name = "torch" },
+    { name = "torch-tensorrt", marker = "extra == 'torch-tensorrt'" },
+    { name = "torchmetrics", specifier = ">=1.0.0" },
+    { name = "transformers" },
+    { name = "triton", marker = "extra == 'bnb'" },
+    { name = "triton", marker = "extra == 'finetune'" },
 ]
+provides-extras = ["aimet-onnx", "auto-opt", "azureml", "bnb", "capture-onnx-graph", "cpu", "directml", "docker", "shared-cache", "finetune", "flash-attn", "gpu", "inc", "lora", "diffusers", "nvmo", "openvino", "optimum", "qnn", "tf", "torch-tensorrt", "tune-session-params"]
 
 [[package]]
 name = "olive-config-mcp"
@@ -1092,7 +1144,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "mcp", extras = ["cli"] },
-    { name = "olive-ai" },
+    { name = "olive-ai", editable = "../../" },
 ]
 
 [[package]]

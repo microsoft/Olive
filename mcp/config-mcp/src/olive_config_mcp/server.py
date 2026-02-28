@@ -146,9 +146,28 @@ def _get_pass_module_config(pass_name: str):
 
 
 def _get_pass_class(pass_name: str):
-    """Get pass class from registry (case-insensitive)."""
+    """Get pass class by name. Tries registry first, then dynamic import via module_path."""
     _load_olive()
-    return _pass_registry.get(pass_name.lower())
+    # Try registry first (already imported passes)
+    cls = _pass_registry.get(pass_name.lower())
+    if cls:
+        return cls
+
+    # Dynamic import using module_path from olive_config.json
+    _, module_config = _get_pass_module_config(pass_name)
+    if module_config and module_config.module_path:
+        import importlib
+
+        # module_path is like "olive.passes.onnx.quantization.OnnxQuantization"
+        parts = module_config.module_path.rsplit(".", 1)
+        if len(parts) == 2:
+            try:
+                mod = importlib.import_module(parts[0])
+                cls = getattr(mod, parts[1], None)
+                return cls
+            except Exception:
+                pass
+    return None
 
 
 def _serialize_type(type_annotation) -> str:
@@ -490,7 +509,8 @@ async def explore_passes(
         pass_cls = _get_pass_class(pass_name)
         if pass_cls:
             try:
-                from olive.hardware import AcceleratorSpec, Device, ExecutionProvider
+                from olive.hardware import AcceleratorSpec, Device
+                from olive.hardware.constants import ExecutionProvider
 
                 spec = AcceleratorSpec(
                     accelerator_type=Device.CPU,
@@ -499,12 +519,20 @@ async def explore_passes(
                 default_config = pass_cls._default_config(spec)
 
                 for param_name, param in default_config.items():
-                    result["parameters"][param_name] = {
-                        "type": _serialize_type(param.type_),
-                        "required": param.required,
-                        "default": _serialize_default(param.default_value),
-                        "description": param.description or "",
-                    }
+                    try:
+                        result["parameters"][param_name] = {
+                            "type": _serialize_type(getattr(param, "type_", None)),
+                            "required": getattr(param, "required", False),
+                            "default": _serialize_default(getattr(param, "default_value", None)),
+                            "description": getattr(param, "description", "") or "",
+                        }
+                    except Exception:
+                        result["parameters"][param_name] = {
+                            "type": "unknown",
+                            "required": False,
+                            "default": None,
+                            "description": "",
+                        }
             except Exception as e:
                 result["schema_error"] = f"Could not load parameter schema: {e}"
 
