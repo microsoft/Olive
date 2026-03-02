@@ -328,8 +328,8 @@ def _get_python_path(venv_path: Path) -> Path:
 
 
 def _build_kwargs(**kw) -> dict:
-    """Filter out None and False values from kwargs."""
-    return {k: v for k, v in kw.items() if v is not None and v is not False}
+    """Filter out None values from kwargs, preserving explicit False."""
+    return {k: v for k, v in kw.items() if v is not None}
 
 
 # ---------------------------------------------------------------------------
@@ -374,26 +374,31 @@ async def _get_or_create_venv(packages: list[str], job_id: str) -> Path:
         _job_log(job_id, f"Creating venv with: {', '.join(packages)}")
         VENV_BASE.mkdir(parents=True, exist_ok=True)
 
-        proc = await asyncio.create_subprocess_exec(
-            "uv", "venv", str(venv_path),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, stderr = await proc.communicate()
-        if proc.returncode != 0:
-            raise RuntimeError(f"Failed to create venv: {stderr.decode()}")
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "uv", "venv", str(venv_path),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise RuntimeError(f"Failed to create venv: {stderr.decode()}")
 
-        _job_log(job_id, f"Installing packages: {', '.join(packages)}")
-        proc = await asyncio.create_subprocess_exec(
-            "uv", "pip", "install", "--python", str(python_path), *packages,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, stderr = await proc.communicate()
-        if proc.returncode != 0:
-            raise RuntimeError(f"Failed to install packages: {stderr.decode()}")
+            _job_log(job_id, f"Installing packages: {', '.join(packages)}")
+            proc = await asyncio.create_subprocess_exec(
+                "uv", "pip", "install", "--python", str(python_path), *packages,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise RuntimeError(f"Failed to install packages: {stderr.decode()}")
 
-        _job_log(job_id, "Venv ready")
+            _job_log(job_id, "Venv ready")
+        except Exception:
+            # Clean up incomplete venv so it won't be cached in a broken state
+            shutil.rmtree(venv_path, ignore_errors=True)
+            raise
     else:
         _job_log(job_id, f"Reusing cached venv ({key})")
 

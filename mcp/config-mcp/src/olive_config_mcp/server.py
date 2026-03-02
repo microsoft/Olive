@@ -262,26 +262,31 @@ async def _get_or_create_venv(packages: list[str], job_id: str) -> Path:
         _job_log(job_id, f"Creating venv with: {', '.join(packages)}")
         VENV_BASE.mkdir(parents=True, exist_ok=True)
 
-        proc = await asyncio.create_subprocess_exec(
-            "uv", "venv", str(venv_path),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, stderr = await proc.communicate()
-        if proc.returncode != 0:
-            raise RuntimeError(f"Failed to create venv: {stderr.decode()}")
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "uv", "venv", str(venv_path),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise RuntimeError(f"Failed to create venv: {stderr.decode()}")
 
-        _job_log(job_id, f"Installing packages: {', '.join(packages)}")
-        proc = await asyncio.create_subprocess_exec(
-            "uv", "pip", "install", "--python", str(python_path), *packages,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, stderr = await proc.communicate()
-        if proc.returncode != 0:
-            raise RuntimeError(f"Failed to install packages: {stderr.decode()}")
+            _job_log(job_id, f"Installing packages: {', '.join(packages)}")
+            proc = await asyncio.create_subprocess_exec(
+                "uv", "pip", "install", "--python", str(python_path), *packages,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise RuntimeError(f"Failed to install packages: {stderr.decode()}")
 
-        _job_log(job_id, "Venv ready")
+            _job_log(job_id, "Venv ready")
+        except Exception:
+            # Clean up incomplete venv so it won't be cached in a broken state
+            shutil.rmtree(venv_path, ignore_errors=True)
+            raise
     else:
         _job_log(job_id, f"Reusing cached venv ({key})")
 
@@ -731,3 +736,27 @@ async def get_job_status(job_id: str, last_n_logs: int = 50) -> dict:
         response["result"] = job["result"]
 
     return response
+
+
+@mcp.tool()
+async def cancel_job(job_id: str) -> dict:
+    """Cancel a running background job.
+
+    Args:
+        job_id: The job ID to cancel.
+    """
+    if job_id not in _jobs:
+        return {"status": "not_found", "error": f"No job with id '{job_id}'"}
+
+    job = _jobs[job_id]
+    if job["status"] not in ("running",):
+        return {"status": job["status"], "message": f"Job already {job['status']}, cannot cancel."}
+
+    proc = job.get("process")
+    if proc and proc.returncode is None:
+        proc.terminate()
+        _job_log(job_id, "Job cancelled by user")
+
+    job["status"] = "cancelled"
+    job["result"] = {"status": "cancelled", "message": "Job was cancelled by user."}
+    return {"status": "cancelled", "job_id": job_id, "message": "Job cancelled."}
