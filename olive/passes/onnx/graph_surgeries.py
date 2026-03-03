@@ -2124,6 +2124,166 @@ class TieWordEmbeddings(ProtoSurgeon):
         return np.array_equal(arr0.ravel(), arr1.ravel())
 
 
+class ReciprocalMulToDiv(ProtoSurgeon):
+    """Replace Reciprocal(x) * a  with  Div(a, x).
+
+    Before:
+        [x] --> Reciprocal --> Mul --> [out]
+                               ^
+                               |
+                              [a]
+
+    After:
+        [a] --> Div --> [out]
+                 ^
+                 |
+                [x]
+
+    Why this is needed:
+        PyTorch's ``torch.rsqrt()`` (used by Qwen2.5-VL's ``Qwen2RMSNorm``) decomposes to
+        ``Sqrt -> Reciprocal -> Mul`` in ONNX.  ORT's ``SimplifiedLayerNormFusion`` only
+        matches the pattern ``Pow -> ReduceMean -> Add -> Sqrt -> Div -> Mul`` — it does
+        **not** recognize the ``Reciprocal -> Mul`` variant (confirmed on ORT main as of
+        2025-06).  This pass canonicalizes the graph so that the fusion fires, replacing
+        decomposed RMSNorm with a single ``SimplifiedLayerNormalization`` op.
+
+    When to use:
+        Run **before** ``OrtTransformersOptimization`` on models whose normalization layers
+        export ``rsqrt`` as ``Reciprocal`` (e.g. HuggingFace models using ``torch.rsqrt``).
+    """
+
+    def __call__(self, model: ModelProto):
+        modified = 0
+        nodes_to_remove = []
+
+        for node in model.graph.node:
+            if node.op_type != "Reciprocal":
+                continue
+
+            recip_input = node.input[0]  # x
+            recip_output = node.output[0]
+
+            # Find Mul consumers of this Reciprocal
+            mul_nodes = [
+                n for n in model.graph.node
+                if n.op_type == "Mul" and recip_output in n.input
+            ]
+
+            for mul_node in mul_nodes:
+                # Identify the other operand (not from Reciprocal)
+                if mul_node.input[0] == recip_output:
+                    other_input = mul_node.input[1]
+                else:
+                    other_input = mul_node.input[0]
+
+                # Convert Mul(a, Reciprocal(x)) to Div(a, x) in-place
+                mul_node.op_type = "Div"
+                mul_node.input[0] = other_input
+                mul_node.input[1] = recip_input
+                if mul_node.name:
+                    mul_node.name = self.create_new_name(mul_node.name, "Mul", "Div")
+                modified += 1
+
+            # If no more consumers of Reciprocal output, mark for removal
+            remaining = [n for n in model.graph.node if n != node and recip_output in n.input]
+            if not remaining:
+                nodes_to_remove.append(node)
+
+        for node in nodes_to_remove:
+            model.graph.node.remove(node)
+
+        if modified > 0:
+            logger.debug("Replaced %d Reciprocal+Mul patterns with Div", modified)
+
+        return model
+
+
+class DeduplicateSubgraphInitializers(ProtoSurgeon):
+    """Remove duplicate initializers in Loop / If / Scan subgraphs.
+
+    Why this is needed:
+        ORT's graph optimizer (constant folding, shape inference, etc.) may copy
+        initializers into subgraphs that already contain them, creating entries with
+        identical names.  ORT's ``ConstantSharing`` pass explicitly skips subgraph
+        usage (``constant_sharing.cc``: "If usage is from subgraph, skip it now"),
+        so these duplicates are never cleaned up.  Duplicate initializers violate
+        the ONNX spec's unique-name requirement and can cause validation failures
+        or silent data corruption.
+
+    What it does:
+        For every ``Loop`` / ``If`` / ``Scan`` subgraph, keeps the first initializer
+        with a given name and removes all subsequent duplicates.
+
+    When to use:
+        Run **after** ``OrtTransformersOptimization`` (which introduces the duplicates)
+        and **before** any pass that serializes or validates the model.
+    """
+
+    def __call__(self, model: ModelProto):
+        removed = 0
+        for node in model.graph.node:
+            for attr in node.attribute:
+                if attr.g and attr.g.initializer:
+                    seen = set()
+                    to_remove = []
+                    for init in attr.g.initializer:
+                        if init.name in seen:
+                            to_remove.append(init)
+                        else:
+                            seen.add(init.name)
+                    for init in to_remove:
+                        attr.g.initializer.remove(init)
+                        removed += 1
+        if removed > 0:
+            logger.debug("Removed %d duplicate subgraph initializers", removed)
+        return model
+
+
+class DeduplicateNodes(ProtoSurgeon):
+    """Remove nodes whose output tensors are already produced by an earlier node.
+
+    Before (invalid — two nodes define the same tensor ``/Cast_output_0``):
+        NodeA  -->  Cast  --> /Cast_output_0
+        NodeB  -->  Cast  --> /Cast_output_0   (duplicate, removed)
+
+    After:
+        NodeA  -->  Cast  --> /Cast_output_0
+
+    Why this is needed:
+        ORT's ``convert_float_to_float16`` (``float16.py``) may insert identical
+        ``Cast`` nodes in parallel branches that each declare the same output tensor
+        name.  The ONNX spec requires every tensor to have a unique producer; loading
+        a model with duplicate producers causes ``onnxruntime.InferenceSession`` to
+        fail with a duplicate-definition error.
+
+    What it does:
+        Scans nodes in graph order and records each output tensor name.  If a later
+        node produces a tensor name that was already seen, the entire node is removed.
+
+    When to use:
+        Run **after** ``OnnxFloatToFloat16`` as a cleanup step.
+    """
+
+    def __call__(self, model: ModelProto):
+        output_seen: set[str] = set()
+        indices_to_remove: list[int] = []
+        for i, node in enumerate(model.graph.node):
+            dup = False
+            for o in node.output:
+                if o and o in output_seen:
+                    dup = True
+                    break
+                if o:
+                    output_seen.add(o)
+            if dup:
+                indices_to_remove.append(i)
+        for i in reversed(indices_to_remove):
+            del model.graph.node[i]
+        if indices_to_remove:
+            logger.debug("Removed %d duplicate nodes", len(indices_to_remove))
+        return model
+
+
 class PackedAttentionToLoopMHA(Surgeon):
     """Replace custom::PackedAttention with a loop calling com.microsoft::MultiHeadAttention.
 
