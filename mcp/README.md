@@ -12,12 +12,17 @@ MCP server for Microsoft Olive model optimization. Provides tools for model opti
 | `capture_onnx_graph` | Capture ONNX graph via PyTorch Exporter or Model Builder |
 | `benchmark` | Model evaluation using lm-eval tasks |
 | `diffusion_lora` | Train LoRA adapters for diffusion models (SD 1.5, SDXL, Flux) |
+| `recommend` | Preview optimization recommendations instantly without running anything |
+| `explore_passes` | Browse available Olive passes and their parameter schemas |
+| `run_config` | Validate or run custom Olive workflow configs |
 | `detect_hardware` | Auto-detect CPU, RAM, GPU, and disk space for smart defaults |
 | `manage_outputs` | List or delete previous optimization outputs |
-| `get_job_status` | Check progress of a running job (long-poll) |
+| `get_job_status` | Check progress of a running job with structured phase detection |
 | `cancel_job` | Cancel a running background job |
 
 Each tool runs in an **isolated Python environment** (managed by uv) with the appropriate dependencies, so different onnxruntime variants (CPU, CUDA, DirectML, OpenVINO, etc.) never conflict.
+
+> **Note:** The `olive-config` MCP server has been merged into this server. If you were using `olive-config` separately, you can remove it and use `explore_passes` / `run_config` from this server instead.
 
 ## Prerequisites
 
@@ -107,8 +112,20 @@ Capture ONNX graph from microsoft/Phi-3-mini-4k-instruct
 Benchmark microsoft/Phi-3-mini-4k-instruct
 
 Train a LoRA for runwayml/stable-diffusion-v1-5 with dataset linoyts/Tuxemon
+
+What's the best way to optimize Phi-4-mini for my hardware?
+
+What passes are available for int4 quantization?
+
+Help me write a custom Olive config with OnnxQuantization and GraphSurgeries
 ```
 
 ## Output
 
 All optimization outputs are saved to `~/.olive-mcp/outputs/` with timestamped directories.
+
+Completed jobs include:
+- **Pass summary** — which passes ran and how long each took
+- **File sizes** — output model size (and input model size when available) for before/after comparison
+- **Structured progress** — `get_job_status` returns a `phase` field (e.g. "downloading", "quantizing", "saving") in addition to raw logs
+- **Smart error suggestions** — if a job fails, actionable suggestions are attached (e.g. "Out of GPU memory, try int4" or "CPU does not support fp16")

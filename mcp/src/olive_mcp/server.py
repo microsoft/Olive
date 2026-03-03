@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import sys
 import uuid
@@ -87,6 +88,34 @@ Some models (e.g. gated models like meta-llama) require a HuggingFace token to d
 - **Best quality on GPU** → `optimize(precision="fp16", provider="CUDAExecutionProvider")`
 - **Fine-tuning** → `finetune(method="qlora")` (less memory) or `finetune(method="lora")`
 - **Just convert to ONNX** → `capture_onnx_graph`
+- **Preview without running** → `recommend(model_name_or_path, goal)` — instant, no download
+- **Explore available passes** → `explore_passes()` or `explore_passes(pass_name="X")` for details
+- **Custom config workflow** → `run_config(config, validate_only=true)` then `run_config(config)`
+
+### Custom config workflow (advanced users)
+When a user wants to write a custom Olive config with specific passes:
+1. Call `explore_passes()` to list available passes, filtered by provider/precision/accelerator
+2. Call `explore_passes(pass_name="X")` for each pass to get parameter schemas
+3. Generate the config JSON
+4. Validate with `run_config(config, validate_only=true)`
+5. **Show the final config to the user and ask for confirmation before running**
+6. Run with `run_config(config)` only after user confirms
+
+Config file structure:
+```json
+{
+  "input_model": {"type": "HfModel", "model_path": "microsoft/Phi-4-mini-instruct"},
+  "systems": {"local": {"type": "LocalSystem", "config": {"accelerators": [{"device": "cpu"}]}}},
+  "passes": {"pass_name": [{"type": "PassClassName", "config": {...}}]},
+  "engine": {"host": "local", "target": "local"}
+}
+```
+
+Common pass pipelines:
+- **Quantize for CPU**: OnnxConversion → OnnxQuantization (or OnnxBlockWiseRtnQuantization for int4)
+- **Optimize for GPU**: OnnxConversion → OrtTransformersOptimization → OnnxFloatToFloat16
+- **Fine-tune + export**: LoRA → OnnxConversion → OnnxQuantization
+- **Model Builder (LLM)**: ModelBuilder (handles conversion + optimization in one pass)
 
 ## Popular model recommendations
 - **Text chat / general LLM**: microsoft/Phi-4-mini-instruct (small), microsoft/Phi-4 (powerful)
@@ -328,8 +357,8 @@ def _get_python_path(venv_path: Path) -> Path:
 
 
 def _build_kwargs(**kw) -> dict:
-    """Filter out None values from kwargs, preserving explicit False."""
-    return {k: v for k, v in kw.items() if v is not None}
+    """Filter out None and False values from kwargs."""
+    return {k: v for k, v in kw.items() if v is not None and v is not False}
 
 
 # ---------------------------------------------------------------------------
@@ -374,31 +403,26 @@ async def _get_or_create_venv(packages: list[str], job_id: str) -> Path:
         _job_log(job_id, f"Creating venv with: {', '.join(packages)}")
         VENV_BASE.mkdir(parents=True, exist_ok=True)
 
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "uv", "venv", str(venv_path),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            _, stderr = await proc.communicate()
-            if proc.returncode != 0:
-                raise RuntimeError(f"Failed to create venv: {stderr.decode()}")
+        proc = await asyncio.create_subprocess_exec(
+            "uv", "venv", str(venv_path),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"Failed to create venv: {stderr.decode()}")
 
-            _job_log(job_id, f"Installing packages: {', '.join(packages)}")
-            proc = await asyncio.create_subprocess_exec(
-                "uv", "pip", "install", "--python", str(python_path), *packages,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            _, stderr = await proc.communicate()
-            if proc.returncode != 0:
-                raise RuntimeError(f"Failed to install packages: {stderr.decode()}")
+        _job_log(job_id, f"Installing packages: {', '.join(packages)}")
+        proc = await asyncio.create_subprocess_exec(
+            "uv", "pip", "install", "--python", str(python_path), *packages,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"Failed to install packages: {stderr.decode()}")
 
-            _job_log(job_id, "Venv ready")
-        except Exception:
-            # Clean up incomplete venv so it won't be cached in a broken state
-            shutil.rmtree(venv_path, ignore_errors=True)
-            raise
+        _job_log(job_id, "Venv ready")
     else:
         _job_log(job_id, f"Reusing cached venv ({key})")
 
@@ -485,15 +509,121 @@ async def _run_olive_background(
             _jobs[job_id]["result"] = result
             _job_log(job_id, "Completed successfully" if _jobs[job_id]["status"] == "completed" else "Completed with errors")
 
+        # Attach smart error suggestions for failed jobs
+        if _jobs[job_id]["status"] == "error":
+            error_text = _jobs[job_id]["result"].get("error", "")
+            error_text += "\n" + "\n".join(_jobs[job_id]["log_lines"][-30:])
+            suggestions = _get_error_suggestions(error_text, command, kwargs)
+            if suggestions:
+                _jobs[job_id]["result"]["suggestions"] = suggestions
+
     except Exception as exc:
         _jobs[job_id]["status"] = "error"
         _jobs[job_id]["result"] = {"status": "error", "error": str(exc)}
+        error_text = str(exc) + "\n" + "\n".join(_jobs[job_id].get("log_lines", [])[-30:])
+        suggestions = _get_error_suggestions(error_text, command, kwargs)
+        if suggestions:
+            _jobs[job_id]["result"]["suggestions"] = suggestions
         _job_log(job_id, f"Exception: {exc}")
 
 
 _INCOMPATIBLE_PRECISION = {
     "CPUExecutionProvider": {"fp16", "bf16"},
 }
+
+
+# ---------------------------------------------------------------------------
+# Phase detection — structured progress from raw Olive logs
+# ---------------------------------------------------------------------------
+
+_PHASE_PATTERNS: list[tuple[re.Pattern, str, str]] = [
+    (re.compile(r"Saving|saving|output model|Output model", re.I), "saving", "Saving output model"),
+    (re.compile(r"Evaluating|evaluation|Running evaluation|lm_eval", re.I), "evaluating", "Evaluating model quality"),
+    (re.compile(r"Quantiz", re.I), "quantizing", "Quantizing model weights"),
+    (re.compile(r"Training|training|fine.?tun|Epoch \[", re.I), "training", "Training / fine-tuning"),
+    (re.compile(r"Running pass|Pass \[", re.I), "running_pass", "Running optimization pass"),
+    (re.compile(r"Conversion|Converting|exporting|capture", re.I), "converting", "Converting model format"),
+    (re.compile(r"Loading model|loading model|from_pretrained|Loading checkpoint", re.I), "loading_model", "Loading model into memory"),
+    (re.compile(r"[Dd]ownloading|Fetching.*model", re.I), "downloading", "Downloading model files"),
+    (re.compile(r"Creating venv|Installing packages|Venv ready", re.I), "setting_up_env", "Setting up environment"),
+]
+
+_PASS_NAME_RE = re.compile(r"Pass \[(\w+)\]|Running pass (\w+)", re.I)
+
+
+def _detect_phase(log_lines: list[str]) -> dict:
+    """Detect current execution phase from recent log lines."""
+    result: dict = {"phase": "processing", "phase_description": "Processing"}
+    for line in reversed(log_lines[-20:]):
+        for pattern, phase_key, description in _PHASE_PATTERNS:
+            if pattern.search(line):
+                result["phase"] = phase_key
+                result["phase_description"] = description
+                m = _PASS_NAME_RE.search(line)
+                if m:
+                    result["current_pass"] = m.group(1) or m.group(2)
+                return result
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Smart error suggestions
+# ---------------------------------------------------------------------------
+
+_ERROR_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"CUDA out of memory|OOM|OutOfMemoryError|torch\.OutOfMemoryError", re.I),
+     "Out of GPU memory. Try: (1) Use int4 precision instead of fp16, "
+     "(2) Use quantize with algorithm='rtn' instead of optimize, (3) Use a smaller model, "
+     "(4) Close other GPU applications."),
+    (re.compile(r"cuda.*not available|No CUDA GPUs|CUDAExecutionProvider.*not available|CUDA driver|CUDA error|cudnn", re.I),
+     "CUDA is not available. Use provider='CPUExecutionProvider' or "
+     "provider='DmlExecutionProvider' (Windows with DirectX 12 GPU)."),
+    (re.compile(r"401|403|authentication|gated|Access denied|forbidden", re.I),
+     "Authentication required. This model may be gated on HuggingFace. "
+     "Get a token at https://huggingface.co/settings/tokens and retry with hf_token."),
+    (re.compile(r"404|Repository Not Found|does not exist on the Hub", re.I),
+     "Model not found. Check the model name is spelled correctly and exists on HuggingFace. "
+     "For private models, provide hf_token."),
+    (re.compile(r"No module named|ModuleNotFoundError|ImportError", re.I),
+     "Missing Python dependency. The cached venv may be stale. "
+     "Try deleting ~/.olive-mcp/venvs and retrying, or use a different algorithm/implementation."),
+    (re.compile(r"fp16.*CPU|float16.*cpu|CPU.*does not support.*fp16|half precision.*cpu", re.I),
+     "CPU does not support fp16 precision. Use int4, int8, or fp32 instead."),
+    (re.compile(r"No space left|OSError.*Errno 28|disk.?space|DiskFull", re.I),
+     "Disk full. Free up space or use manage_outputs(action='delete') to remove old results."),
+    (re.compile(r"timed?\s*out|TimeoutError", re.I),
+     "Operation timed out. The model may be too large. Try a smaller model or increase resources."),
+    (re.compile(r"onnxruntime.*version|ort.*version|incompatible.*version", re.I),
+     "OnnxRuntime version conflict. Delete ~/.olive-mcp/venvs to force a fresh environment."),
+    (re.compile(r"ConnectionError|SSLError|network|NameResolutionError|MaxRetryError", re.I),
+     "Network error. Check your internet connection. If behind a proxy, set "
+     "HTTP_PROXY/HTTPS_PROXY environment variables."),
+]
+
+
+def _get_error_suggestions(error_str: str, command: str, kwargs: dict) -> list[str]:
+    """Match error text against known patterns and return actionable suggestions."""
+    suggestions = []
+    seen = set()
+    for pattern, suggestion in _ERROR_PATTERNS:
+        if pattern.search(error_str) and suggestion not in seen:
+            suggestions.append(suggestion)
+            seen.add(suggestion)
+
+    # Command-specific fallback
+    if not suggestions:
+        if command == "optimize" and kwargs.get("precision") in ("int4", "uint4"):
+            suggestions.append(
+                "int4 optimization with GPTQ can be very slow on CPU (30min+). "
+                "For faster int4, use quantize(algorithm='rtn') instead."
+            )
+        if command == "finetune" and kwargs.get("method") == "lora":
+            suggestions.append(
+                "If running out of memory during fine-tuning, try method='qlora' "
+                "which uses 4-bit quantization to reduce memory usage."
+            )
+
+    return suggestions
 
 
 def _validate_params(command: str, kwargs: dict) -> str | None:
@@ -740,6 +870,14 @@ async def get_job_status(job_id: str, last_n_logs: int = 50) -> dict:
         "recent_logs": job["log_lines"][-last_n_logs:],
         "total_log_lines": len(job["log_lines"]),
     }
+
+    # Structured phase detection for active jobs
+    if job["status"] in ("starting", "setting_up", "running") and job["log_lines"]:
+        phase_info = _detect_phase(job["log_lines"])
+        response["phase"] = phase_info["phase"]
+        response["phase_description"] = phase_info["phase_description"]
+        if "current_pass" in phase_info:
+            response["current_pass"] = phase_info["current_pass"]
 
     if job["result"] is not None:
         response["result"] = job["result"]
@@ -1151,6 +1289,303 @@ async def manage_outputs(
             break
 
     return {"outputs": entries, "total": len(entries)}
+
+
+# ---------------------------------------------------------------------------
+# Recommend tool — instant optimization preview
+# ---------------------------------------------------------------------------
+
+_RECOMMENDATION_RULES: dict[tuple[str, str], dict] = {
+    ("smallest", "cpu"): {
+        "tool": "quantize",
+        "params": {"algorithm": "rtn", "precision": "int4", "provider": "CPUExecutionProvider"},
+        "passes": ["OnnxConversion", "OnnxBlockWiseRtnQuantization"],
+        "estimated_size_reduction": "~4x smaller (fp32 → int4)",
+        "notes": "RTN is fastest for int4 on CPU. For better quality, use optimize with GPTQ (but much slower on CPU).",
+    },
+    ("smallest", "gpu"): {
+        "tool": "optimize",
+        "params": {"precision": "int4", "provider": "CUDAExecutionProvider"},
+        "passes": ["ModelBuilder (int4 GPTQ calibration)"],
+        "estimated_size_reduction": "~4x smaller with calibrated quantization",
+        "notes": "GPTQ provides better quality than RTN. Requires GPU for calibration.",
+    },
+    ("balanced", "cpu"): {
+        "tool": "quantize",
+        "params": {"algorithm": "rtn", "precision": "int8", "provider": "CPUExecutionProvider"},
+        "passes": ["OnnxConversion", "OnnxQuantization"],
+        "estimated_size_reduction": "~2x smaller (fp32 → int8)",
+        "notes": "Good balance of size and quality for CPU inference.",
+    },
+    ("balanced", "gpu"): {
+        "tool": "optimize",
+        "params": {"precision": "int8", "provider": "CUDAExecutionProvider"},
+        "passes": ["ModelBuilder (int8 quantization)"],
+        "estimated_size_reduction": "~2x smaller with GPU-optimized inference",
+        "notes": "Good balance for GPU. Use int4 for maximum compression.",
+    },
+    ("best_quality", "cpu"): {
+        "tool": "optimize",
+        "params": {"precision": "fp32", "provider": "CPUExecutionProvider"},
+        "passes": ["ModelBuilder → ORT graph optimizations"],
+        "estimated_size_reduction": "Same size, faster inference via graph optimizations",
+        "notes": "CPU does NOT support fp16. fp32 with graph optimizations is the best quality option.",
+    },
+    ("best_quality", "gpu"): {
+        "tool": "optimize",
+        "params": {"precision": "fp16", "provider": "CUDAExecutionProvider"},
+        "passes": ["ModelBuilder (fp16)"],
+        "estimated_size_reduction": "~2x smaller (fp32 → fp16), no quality loss",
+        "notes": "fp16 is lossless for most models and halves memory usage on GPU.",
+    },
+    ("finetune", "cpu"): {
+        "tool": "finetune",
+        "params": {"method": "lora"},
+        "passes": ["LoRA fine-tuning"],
+        "estimated_size_reduction": "Adds ~10-100MB LoRA adapter",
+        "notes": "LoRA on CPU is slow. Consider using a cloud GPU. QLoRA requires GPU.",
+    },
+    ("finetune", "gpu"): {
+        "tool": "finetune",
+        "params": {"method": "qlora"},
+        "passes": ["QLoRA fine-tuning (4-bit base model)"],
+        "estimated_size_reduction": "Adds ~10-100MB LoRA adapter",
+        "notes": "QLoRA uses 4-bit quantized base model to save GPU memory during training.",
+    },
+    ("convert", "cpu"): {
+        "tool": "capture_onnx_graph",
+        "params": {"provider": "CPUExecutionProvider"},
+        "passes": ["PyTorch → ONNX conversion"],
+        "estimated_size_reduction": "Same size, ONNX format for portable inference",
+        "notes": "Converts PyTorch model to ONNX format for use with ONNX Runtime.",
+    },
+    ("convert", "gpu"): {
+        "tool": "capture_onnx_graph",
+        "params": {"provider": "CUDAExecutionProvider"},
+        "passes": ["PyTorch → ONNX conversion"],
+        "estimated_size_reduction": "Same size, ONNX format for portable inference",
+        "notes": "Converts PyTorch model to ONNX format for use with ONNX Runtime.",
+    },
+}
+
+
+@mcp.tool()
+async def recommend(
+    model_name_or_path: str,
+    goal: str | None = None,
+    device: str | None = None,
+    provider: str | None = None,
+) -> dict:
+    """Preview optimization recommendations without running anything. Returns instantly.
+
+    Use this to show the user what Olive would do before committing to a long-running job.
+    Returns the recommended tool, parameters, expected passes, and estimated size impact.
+
+    Args:
+        model_name_or_path: HuggingFace model name or local path.
+        goal: What to achieve. Examples: "smallest", "balanced", "best quality",
+              "fine-tune", "convert to ONNX", "fastest inference", "int4", "fp16".
+        device: Target device - "cpu" or "gpu". Auto-detected if omitted.
+        provider: Execution provider. Auto-detected from device if omitted.
+    """
+    # Auto-detect hardware if needed
+    if not device and not provider:
+        hw = await detect_hardware()
+        device = "gpu" if hw.get("gpu", {}).get("cuda_available") else "cpu"
+        provider = DEVICE_TO_DEFAULT_PROVIDER.get(device, "CPUExecutionProvider")
+    elif device and not provider:
+        provider = DEVICE_TO_DEFAULT_PROVIDER.get(device, "CPUExecutionProvider")
+    elif provider and not device:
+        device = "gpu" if any(g in provider for g in ("CUDA", "Dml", "Tensorrt", "ROCM")) else "cpu"
+
+    # Classify goal
+    goal_lower = (goal or "balanced").lower()
+    if any(w in goal_lower for w in ["small", "tiny", "compress", "int4", "4-bit", "4bit"]):
+        goal_category = "smallest"
+    elif any(w in goal_lower for w in ["quality", "accurate", "best", "fp16", "half", "lossless"]):
+        goal_category = "best_quality"
+    elif any(w in goal_lower for w in ["fine-tune", "finetune", "train", "lora", "qlora"]):
+        goal_category = "finetune"
+    elif any(w in goal_lower for w in ["convert", "onnx", "export"]):
+        goal_category = "convert"
+    else:
+        goal_category = "balanced"
+
+    # Detect diffusion models
+    is_diffusion = any(k in model_name_or_path.lower()
+                       for k in ["stable-diffusion", "sdxl", "flux", "diffusion"])
+
+    if is_diffusion and goal_category == "finetune":
+        rec = {
+            "tool": "diffusion_lora",
+            "params": {"model_name_or_path": model_name_or_path},
+            "passes": ["Diffusion LoRA training"],
+            "estimated_size_reduction": "Adds ~10-100MB LoRA adapter",
+            "notes": "Fine-tunes a LoRA adapter for the diffusion model. Requires GPU with 8GB+ VRAM.",
+        }
+    else:
+        rec = _RECOMMENDATION_RULES.get((goal_category, device))
+        if not rec:
+            rec = _RECOMMENDATION_RULES[("balanced", "cpu")]
+
+    # Build the recommended call string
+    params = {"model_name_or_path": model_name_or_path, **rec.get("params", {})}
+    if rec["tool"] == "finetune":
+        params["data_name"] = "<your_dataset>"
+    param_str = ", ".join(
+        f'{k}="{v}"' if isinstance(v, str) else f"{k}={v}"
+        for k, v in params.items()
+    )
+    recommended_call = f'{rec["tool"]}({param_str})'
+
+    return {
+        "model": model_name_or_path,
+        "is_diffusion_model": is_diffusion,
+        "goal": goal_category,
+        "device": device,
+        "provider": provider,
+        "recommendation": rec,
+        "recommended_call": recommended_call,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Config-level tools (merged from config-mcp)
+# ---------------------------------------------------------------------------
+
+
+def _resolve_packages_from_config(config: dict) -> list[str]:
+    """Parse an Olive config dict to determine required packages."""
+    extras = set()
+    systems = config.get("systems", {})
+    for sys_config in systems.values():
+        inner = sys_config.get("config", {})
+        for acc in inner.get("accelerators", []):
+            ep = acc.get("execution_provider")
+            if ep and ep in PROVIDER_TO_EXTRAS:
+                extras.add(PROVIDER_TO_EXTRAS[ep])
+            device = acc.get("device", "").lower()
+            if not ep:
+                if device == "gpu":
+                    extras.add("gpu")
+                elif device == "npu":
+                    extras.add("qnn")
+    ORT_EXTRAS = {"cpu", "gpu", "directml", "openvino", "qnn"}
+    if not extras.intersection(ORT_EXTRAS):
+        extras.add("cpu")
+    return [f"olive-ai[{','.join(sorted(extras))}]"]
+
+
+async def _run_worker_sync(command: str, kwargs: dict, packages: list[str] | None = None) -> dict:
+    """Run a worker command synchronously and return parsed JSON result.
+
+    Used for fast, non-background operations like explore_passes and validate_config.
+    """
+    if packages is None:
+        packages = ["olive-ai[cpu]"]
+
+    # Create a temporary job for venv setup logging
+    job_id = _create_job(command, command)
+    try:
+        python_path = await _get_or_create_venv(packages, job_id)
+        proc = await asyncio.create_subprocess_exec(
+            str(python_path), "-u", str(WORKER_PATH), command, json.dumps(kwargs),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_bytes, stderr_bytes = await proc.communicate()
+        if proc.returncode == 0:
+            return json.loads(stdout_bytes.decode("utf-8", errors="replace"))
+        else:
+            error_msg = stderr_bytes.decode("utf-8", errors="replace")[-2000:]
+            return {"status": "error", "error": error_msg}
+    except json.JSONDecodeError:
+        return {"status": "error", "error": "Failed to parse worker output"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+    finally:
+        _jobs.pop(job_id, None)
+
+
+@mcp.tool()
+async def explore_passes(
+    pass_name: str | None = None,
+    provider: str | None = None,
+    precision: str | None = None,
+    accelerator: str | None = None,
+) -> dict:
+    """Explore available Olive passes and their parameter schemas.
+
+    Two modes:
+    - **List mode** (no pass_name): List all passes, optionally filtered by provider/precision/accelerator.
+      Returns pass names with their supported configurations and dataset requirements.
+    - **Detail mode** (with pass_name): Get full parameter schema for a specific pass,
+      including each parameter's type, default value, whether it's required, and description.
+
+    Args:
+        pass_name: If provided, get full parameter schema for this pass. If omitted, list all passes.
+        provider: Filter passes by execution provider (e.g. "CPUExecutionProvider", "CUDAExecutionProvider").
+        precision: Filter passes by supported precision (e.g. "int4", "int8", "fp16").
+        accelerator: Filter passes by accelerator type (e.g. "cpu", "gpu", "npu").
+    """
+    kwargs = {}
+    if pass_name is not None:
+        kwargs["pass_name"] = pass_name
+    if provider is not None:
+        kwargs["provider"] = provider
+    if precision is not None:
+        kwargs["precision"] = precision
+    if accelerator is not None:
+        kwargs["accelerator"] = accelerator
+    return await _run_worker_sync("explore_passes", kwargs)
+
+
+@mcp.tool()
+async def run_config(
+    config: dict,
+    validate_only: bool = False,
+    output_path: str | None = None,
+) -> dict:
+    """Validate or run an Olive workflow config.
+
+    Use `validate_only=true` to check if a config is valid without running it.
+    Always validate first before running, to catch errors instantly instead of
+    waiting for a long-running job to fail.
+
+    IMPORTANT: Before running (validate_only=false), always show the config to the user
+    and get confirmation. Runs can take minutes to hours.
+
+    Args:
+        config: The Olive workflow config as a JSON object.
+        validate_only: If true, only validate the config. If false, validate and run.
+        output_path: Directory to save results (auto-generated if omitted). Ignored when validate_only=true.
+    """
+    if validate_only:
+        packages = _resolve_packages_from_config(config)
+        return await _run_worker_sync("validate_config", {"config": config}, packages)
+
+    # Full run: write config file, launch background job
+    if not output_path:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = str(Path.home() / ".olive-mcp" / "config-outputs" / f"run_{ts}")
+        Path(output_path).mkdir(parents=True, exist_ok=True)
+
+    config_file = Path(output_path) / "olive_config.json"
+    config_file.write_text(json.dumps(config, indent=2))
+
+    packages = _resolve_packages_from_config(config)
+    job_id = _create_job("run_config", f"Run config → {output_path}")
+    _job_log(job_id, f"Config written to {config_file}")
+    asyncio.create_task(
+        _run_olive_background(job_id, "run_config", {"config_file": str(config_file)}, packages)
+    )
+    return {
+        "job_id": job_id,
+        "status": "running",
+        "config_file": str(config_file),
+        "output_path": output_path,
+        "message": f"Job started. Use get_job_status('{job_id}') to check progress.",
+    }
 
 
 # ---------------------------------------------------------------------------
