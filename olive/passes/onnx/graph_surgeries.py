@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 import onnx
 import onnxscript
-from onnx import ModelProto, TensorProto, numpy_helper
+from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
 from onnx_ir.passes.common import DeduplicateHashedInitializersPass, InlinePass, RemoveUnusedOpsetsPass
 from onnxscript import ir, rewriter
@@ -867,6 +867,9 @@ class SimplifiedLayerNormToRMSNorm(ProtoSurgeon):
     """
 
     def __call__(self, model: onnx.ModelProto):
+        from onnx import numpy_helper
+        from onnx.helper import tensor_dtype_to_np_dtype
+
         dag = OnnxDAG(model)
 
         # Determine the default ONNX opset for the main domain ("", "ai.onnx").
@@ -923,12 +926,15 @@ class SimplifiedLayerNormToRMSNorm(ProtoSurgeon):
             # The original primary output (normalized tensor)
             ln_output = outputs[0]
 
+            ln_elem_type = dag.get_io_elem_type(inputs[0]) or onnx.TensorProto.FLOAT
+            ln_np_dtype = tensor_dtype_to_np_dtype(ln_elem_type)
+
             # ---------------------------
             # Step 1: Pow(x, 2)
             # ---------------------------
             pow_name = self.create_new_name(node_name, op_type, "Pow")
             pow_out = f"{pow_name}_out"
-            pow_const = numpy_helper.from_array(np.array([2.0], dtype=np.float32), name=f"{pow_name}_const")
+            pow_const = numpy_helper.from_array(np.array([2.0], dtype=ln_np_dtype), name=f"{pow_name}_const")
             dag.add_initializer(pow_const, graph_idx)
             pow_node = onnx.helper.make_node(
                 "Pow",
@@ -976,7 +982,7 @@ class SimplifiedLayerNormToRMSNorm(ProtoSurgeon):
             add_eps_name = self.create_new_name(node_name, op_type, "AddEps")
             add_eps_out = f"{add_eps_name}_out"
 
-            eps_const = numpy_helper.from_array(np.array([eps_value], dtype=np.float32), name=f"{add_eps_name}_const")
+            eps_const = numpy_helper.from_array(np.array([eps_value], dtype=ln_np_dtype), name=f"{add_eps_name}_const")
             dag.add_initializer(eps_const, graph_idx)
 
             add_eps_node = onnx.helper.make_node(
