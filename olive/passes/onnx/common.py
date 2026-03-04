@@ -13,8 +13,8 @@ import onnx
 from onnx import external_data_helper
 from onnxscript import ir
 
-# TODO: Remove try/except once onnxscript >= 0.2.0 (which exports FOLDED_FROM_KEY) is the minimum required version.
-# After that, replace with: from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
+# TODO(sunghcho): Remove try/except once onnxscript >= 0.2.0 (which exports FOLDED_FROM_KEY) is the minimum
+# required version. After that, replace with: from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
 try:
     from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
 except ImportError:

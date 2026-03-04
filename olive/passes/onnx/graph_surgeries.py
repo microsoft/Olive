@@ -1258,51 +1258,55 @@ class GemmToMatMulAdd(ProtoSurgeon):
                 continue
 
             alpha = beta = 1.0
-            transA = transB = 0
+            trans_a = trans_b = 0
             for attr in node.attribute:
                 if attr.name == "alpha":
                     alpha = attr.f
                 elif attr.name == "beta":
                     beta = attr.f
                 elif attr.name == "transA":
-                    transA = attr.i
+                    trans_a = attr.i
                 elif attr.name == "transB":
-                    transB = attr.i
+                    trans_b = attr.i
 
-            if alpha != 1.0 or beta != 1.0 or transA != 0:
+            if alpha != 1.0 or beta != 1.0 or trans_a != 0:
                 continue
 
-            A, B = node.input[0], node.input[1]
-            C = node.input[2] if len(node.input) > 2 else None
-            Y = node.output[0]
+            inp_a, inp_b = node.input[0], node.input[1]
+            inp_c = node.input[2] if len(node.input) > 2 else None
+            out_y = node.output[0]
 
-            if transB:
-                if B in initializer_map:
-                    init = initializer_map[B]
+            if trans_b:
+                if inp_b in initializer_map:
+                    init = initializer_map[inp_b]
                     w_t = numpy_helper.to_array(init).T.copy()
-                    new_init = numpy_helper.from_array(w_t, name=B)
+                    new_init = numpy_helper.from_array(w_t, name=inp_b)
                     for i, existing in enumerate(graph.initializer):
-                        if existing.name == B:
+                        if existing.name == inp_b:
                             graph.initializer[i].CopyFrom(new_init)
                             break
-                    matmul_B = B
+                    matmul_rhs = inp_b
                 else:
                     transpose_out = f"{node.name}_transpose_B"
                     nodes_to_add.append(
-                        helper.make_node("Transpose", [B], [transpose_out], name=f"{node.name}_Transpose", perm=[1, 0])
+                        helper.make_node(
+                            "Transpose", [inp_b], [transpose_out], name=f"{node.name}_Transpose", perm=[1, 0]
+                        )
                     )
-                    matmul_B = transpose_out
+                    matmul_rhs = transpose_out
             else:
-                matmul_B = B
+                matmul_rhs = inp_b
 
-            if C:
+            if inp_c:
                 matmul_out = f"{node.name}_matmul_out"
                 nodes_to_add.append(
-                    helper.make_node("MatMul", [A, matmul_B], [matmul_out], name=f"{node.name}_MatMul")
+                    helper.make_node("MatMul", [inp_a, matmul_rhs], [matmul_out], name=f"{node.name}_MatMul")
                 )
-                nodes_to_add.append(helper.make_node("Add", [matmul_out, C], [Y], name=f"{node.name}_Add"))
+                nodes_to_add.append(helper.make_node("Add", [matmul_out, inp_c], [out_y], name=f"{node.name}_Add"))
             else:
-                nodes_to_add.append(helper.make_node("MatMul", [A, matmul_B], [Y], name=f"{node.name}_MatMul"))
+                nodes_to_add.append(
+                    helper.make_node("MatMul", [inp_a, matmul_rhs], [out_y], name=f"{node.name}_MatMul")
+                )
 
             nodes_to_remove.append(node)
 
@@ -2164,10 +2168,7 @@ class ReciprocalMulToDiv(ProtoSurgeon):
             recip_output = node.output[0]
 
             # Find Mul consumers of this Reciprocal
-            mul_nodes = [
-                n for n in model.graph.node
-                if n.op_type == "Mul" and recip_output in n.input
-            ]
+            mul_nodes = [n for n in model.graph.node if n.op_type == "Mul" and recip_output in n.input]
 
             for mul_node in mul_nodes:
                 # Identify the other operand (not from Reciprocal)
