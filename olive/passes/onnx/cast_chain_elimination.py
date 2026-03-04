@@ -19,6 +19,7 @@ This pass:
 2. Runs ORT ``ORT_ENABLE_BASIC`` optimization with Cast chain
    elimination explicitly enabled to produce a cleaned-up model.
 """
+
 import logging
 from pathlib import Path
 

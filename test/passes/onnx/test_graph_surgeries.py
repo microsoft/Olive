@@ -2313,9 +2313,7 @@ def test_gemm_to_matmul_add(tmp_path):
         numpy_helper.from_array(c_data, name="C"),
     ]
 
-    gemm_node = helper.make_node(
-        "Gemm", ["A", "B", "C"], ["Y"], name="Gemm0", transB=1, alpha=1.0, beta=1.0
-    )
+    gemm_node = helper.make_node("Gemm", ["A", "B", "C"], ["Y"], name="Gemm0", transB=1, alpha=1.0, beta=1.0)
 
     graph = helper.make_graph([gemm_node], "test", [input_tensor], [output_tensor], initializer=initializers)
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
@@ -2325,9 +2323,7 @@ def test_gemm_to_matmul_add(tmp_path):
     onnx.save(model, str(model_path))
     input_model = ONNXModelHandler(model_path=str(model_path))
 
-    p = create_pass_from_dict(
-        GraphSurgeries, {"surgeries": [{"surgeon": "GemmToMatMulAdd"}]}, disable_search=True
-    )
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "GemmToMatMulAdd"}]}, disable_search=True)
     output_model = p.run(input_model, str(tmp_path / "out"))
     out_proto = output_model.load_model()
 
@@ -2363,9 +2359,7 @@ def test_gemm_to_matmul_add_no_bias(tmp_path):
     onnx.save(model, str(model_path))
     input_model = ONNXModelHandler(model_path=str(model_path))
 
-    p = create_pass_from_dict(
-        GraphSurgeries, {"surgeries": [{"surgeon": "GemmToMatMulAdd"}]}, disable_search=True
-    )
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "GemmToMatMulAdd"}]}, disable_search=True)
     output_model = p.run(input_model, str(tmp_path / "out"))
     out_proto = output_model.load_model()
 
@@ -2392,9 +2386,7 @@ def test_gemm_to_matmul_add_skips_non_unit_alpha(tmp_path):
     onnx.save(model, str(model_path))
     input_model = ONNXModelHandler(model_path=str(model_path))
 
-    p = create_pass_from_dict(
-        GraphSurgeries, {"surgeries": [{"surgeon": "GemmToMatMulAdd"}]}, disable_search=True
-    )
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "GemmToMatMulAdd"}]}, disable_search=True)
     output_model = p.run(input_model, str(tmp_path / "out"))
     out_proto = output_model.load_model()
 
@@ -2424,9 +2416,7 @@ def test_reciprocal_mul_to_div(tmp_path):
     onnx.save(model, str(model_path))
     input_model = ONNXModelHandler(model_path=str(model_path))
 
-    p = create_pass_from_dict(
-        GraphSurgeries, {"surgeries": [{"surgeon": "ReciprocalMulToDiv"}]}, disable_search=True
-    )
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "ReciprocalMulToDiv"}]}, disable_search=True)
     output_model = p.run(input_model, str(tmp_path / "out"))
     out_proto = output_model.load_model()
 
@@ -2463,9 +2453,7 @@ def test_reciprocal_mul_to_div_reversed_order(tmp_path):
     onnx.save(model, str(model_path))
     input_model = ONNXModelHandler(model_path=str(model_path))
 
-    p = create_pass_from_dict(
-        GraphSurgeries, {"surgeries": [{"surgeon": "ReciprocalMulToDiv"}]}, disable_search=True
-    )
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "ReciprocalMulToDiv"}]}, disable_search=True)
     output_model = p.run(input_model, str(tmp_path / "out"))
     out_proto = output_model.load_model()
 
@@ -2498,7 +2486,10 @@ def test_deduplicate_subgraph_initializers(tmp_path):
     cond_node = helper.make_node("Identity", ["cond_true"], ["cond_out"])
 
     body_graph = helper.make_graph(
-        [cond_node, body_node], "body", [body_input, body_cond_in], [body_cond_out, body_out],
+        [cond_node, body_node],
+        "body",
+        [body_input, body_cond_in],
+        [body_cond_out, body_out],
         initializer=[init1, init2, cond_true],
     )
 
@@ -2551,9 +2542,7 @@ def test_deduplicate_nodes(tmp_path):
     onnx.save(model, str(model_path))
     input_model = ONNXModelHandler(model_path=str(model_path))
 
-    p = create_pass_from_dict(
-        GraphSurgeries, {"surgeries": [{"surgeon": "DeduplicateNodes"}]}, disable_search=True
-    )
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "DeduplicateNodes"}]}, disable_search=True)
     output_model = p.run(input_model, str(tmp_path / "out"))
     out_proto = output_model.load_model()
 

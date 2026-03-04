@@ -127,8 +127,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
 
                 if node.op_type == str(OpType.Gather) and bits not in (4, 8):
                     logger.warning(
-                        "Gather quantization is only implemented for 4-bit and 8-bit. "
-                        "Skip node %s (bits=%d).",
+                        "Gather quantization is only implemented for 4-bit and 8-bit. Skip node %s (bits=%d).",
                         node_name,
                         bits,
                     )
@@ -145,9 +144,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
                             if input_value.name in globally_registered:
                                 # Already registered by a previous node (shared weight),
                                 # replace with the existing initializer.
-                                ir.convenience.replace_all_uses_with(
-                                    input_value, globally_registered[input_value.name]
-                                )
+                                ir.convenience.replace_all_uses_with(input_value, globally_registered[input_value.name])
                             elif input_value.name not in registered:
                                 initializer_graph.register_initializer(input_value)
                                 registered[input_value.name] = input_value
@@ -346,8 +343,8 @@ class OnnxBlockWiseRtnQuantization(Pass):
 
     @staticmethod
     def _quant_slice_symmetric(data: np.ndarray, bits: int = 4) -> tuple[np.ndarray, np.ndarray]:
-        qmin = -(1 << (bits - 1))      # -8 for 4-bit, -128 for 8-bit
-        qmax = (1 << (bits - 1)) - 1   # 7 for 4-bit, 127 for 8-bit
+        qmin = -(1 << (bits - 1))  # -8 for 4-bit, -128 for 8-bit
+        qmax = (1 << (bits - 1)) - 1  # 7 for 4-bit, 127 for 8-bit
         max_val = np.max(data, axis=1, keepdims=True)
         min_val = np.min(data, axis=1, keepdims=True)
         abs_max = np.where(np.abs(max_val) > np.abs(min_val), max_val, min_val)
@@ -359,8 +356,8 @@ class OnnxBlockWiseRtnQuantization(Pass):
 
     @staticmethod
     def _quant_slice_asymmetric(data: np.ndarray, bits: int = 4) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        qmax = (1 << bits) - 1    # 15 for 4-bit, 255 for 8-bit
-        mid = 1 << (bits - 1)     # 8 for 4-bit, 128 for 8-bit
+        qmax = (1 << bits) - 1  # 15 for 4-bit, 255 for 8-bit
+        mid = 1 << (bits - 1)  # 8 for 4-bit, 128 for 8-bit
         min_val = np.minimum(data.min(axis=1, keepdims=True), 0)
         max_val = np.maximum(data.max(axis=1, keepdims=True), 0)
 
@@ -371,14 +368,20 @@ class OnnxBlockWiseRtnQuantization(Pass):
         return quantized_slice, scale, zero_point
 
     @staticmethod
-    def _pack_int8_to_int4(data: np.ndarray) -> np.ndarray:
-        """Pack int8 data to int4 and store in uint8 ndarray."""
-        data_flat = data.reshape(-1)
-        if len(data_flat) % 2 != 0:
-            data_flat = np.append(data_flat, 0)
-        quant_data_int4 = (data_flat[::2] & 0xF) | ((data_flat[1::2] & 0xF) << 4)
+    def _pack_int4_along_axis(data: np.ndarray, axis: int = 1) -> np.ndarray:
+        """Pack pairs of int4 values into uint8 along the specified axis.
 
-        return quant_data_int4.astype("uint8")
+        Unlike a flat pack, this correctly handles cases where the packing dimension is small
+        (e.g., zero_point with k_blocks=1) by only pairing values within the same axis slice.
+        """
+        k = data.shape[axis]
+        if k % 2 != 0:
+            pad_width = [(0, 0)] * len(data.shape)
+            pad_width[axis] = (0, 1)
+            data = np.pad(data, pad_width)
+        low = np.take(data, range(0, data.shape[axis], 2), axis=axis)
+        high = np.take(data, range(1, data.shape[axis], 2), axis=axis)
+        return ((low & 0xF) | ((high & 0xF) << 4)).astype("uint8")
 
     def _quantize_ndarray(
         self,
@@ -437,13 +440,15 @@ class OnnxBlockWiseRtnQuantization(Pass):
             # Convert signed int8 [-8, 7] to unsigned [0, 15] by adding 8.
             if is_symmetric:
                 quant_data_int8 = (quant_data_int8.astype(np.int16) + 8).astype(np.uint8)
-            quant_data_int4 = self._pack_int8_to_int4(quant_data_int8)
+
+            # Pack along axis=1 (the quantize_axis in the 3D view: m, k, n).
+            # This ensures packing pairs values within the same row, not across rows.
+            quant_data_int4 = self._pack_int4_along_axis(quant_data_int8, axis=1)
             zero_point_int4 = None
             if not is_symmetric:
-                zero_point_int4 = self._pack_int8_to_int4(zero_point_int8)
+                zero_point_int4 = self._pack_int4_along_axis(zero_point_int8, axis=1)
 
             # Reshape packed data to match original rank (GatherBlockQuantized requires rank > 1).
-            # Two int4 values are packed per uint8, so the quantize_axis dimension is halved.
             packed_shape = list(data.shape)
             packed_shape[quantize_axis] = (packed_shape[quantize_axis] + 1) // 2
             quant_data_int4 = quant_data_int4.reshape(packed_shape)

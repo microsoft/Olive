@@ -154,6 +154,8 @@ class TestRTNQuantization:
         ir_model = ir.load(quantized_model.model_path)
 
         # Assert
+        # ORT GatherBlockQuantized requires quantize_axis == last dimension (data_rank - 1).
+        # The gather model fixture uses 2D data [100, 64], so quantize_axis = 1.
         found_gather_block_quantized = False
         for node in ir_model.graph.all_nodes():
             if node.op_type == str(OpType.GatherBlockQuantized):
@@ -163,10 +165,7 @@ class TestRTNQuantization:
                     attr.name == "block_size" and attr.value == pass_config["block_size"]
                     for attr in node.attributes.values()
                 )
-                assert any(
-                    attr.name == "quantize_axis" and attr.value == pass_config["axis"]
-                    for attr in node.attributes.values()
-                )
+                assert any(attr.name == "quantize_axis" and attr.value == 1 for attr in node.attributes.values())
                 break
 
         assert found_gather_block_quantized, "No GatherBlockQuantized node found in quantized model"
@@ -231,15 +230,13 @@ class TestRTNQuantization:
                 found = True
                 assert node.domain == MSFT_DOMAIN
                 # bits attribute must be 8
-                assert any(
-                    attr.name == "bits" and attr.value == 8
-                    for attr in node.attributes.values()
-                ), "GatherBlockQuantized should have bits=8"
+                assert any(attr.name == "bits" and attr.value == 8 for attr in node.attributes.values()), (
+                    "GatherBlockQuantized should have bits=8"
+                )
                 # quantize_axis must be last dimension (data_rank - 1)
-                assert any(
-                    attr.name == "quantize_axis" and attr.value == 1
-                    for attr in node.attributes.values()
-                ), "quantize_axis should be forced to last dim (1 for 2-D embedding)"
+                assert any(attr.name == "quantize_axis" and attr.value == 1 for attr in node.attributes.values()), (
+                    "quantize_axis should be forced to last dim (1 for 2-D embedding)"
+                )
                 break
 
         assert found, "No GatherBlockQuantized node found for 8-bit quantization"
@@ -266,9 +263,7 @@ class TestRTNQuantization:
             if node.op_type == str(OpType.GatherBlockQuantized):
                 qa = [attr for attr in node.attributes.values() if attr.name == "quantize_axis"]
                 assert len(qa) == 1
-                assert qa[0].value == 1, (
-                    f"quantize_axis should be 1 (last dim of 2-D data), got {qa[0].value}"
-                )
+                assert qa[0].value == 1, f"quantize_axis should be 1 (last dim of 2-D data), got {qa[0].value}"
                 break
 
     def test_rtn_quantization_shared_gather_weights(self, tmp_path):
@@ -278,7 +273,9 @@ class TestRTNQuantization:
         data_name = "shared_data"
 
         data_init = onnx.helper.make_tensor(
-            name=data_name, data_type=onnx.TensorProto.FLOAT, dims=data_shape,
+            name=data_name,
+            data_type=onnx.TensorProto.FLOAT,
+            dims=data_shape,
             vals=data_tensor.flatten().tolist(),
         )
         indices1 = onnx.helper.make_tensor_value_info("indices1", onnx.TensorProto.INT64, [1, 5])
@@ -290,8 +287,10 @@ class TestRTNQuantization:
         gather2 = onnx.helper.make_node("Gather", [data_name, "indices2"], ["out2"], name="Gather2")
 
         graph = onnx.helper.make_graph(
-            [gather1, gather2], "shared_weight_test",
-            [indices1, indices2], [out1, out2],
+            [gather1, gather2],
+            "shared_weight_test",
+            [indices1, indices2],
+            [out1, out2],
             initializer=[data_init],
         )
         model = onnx.helper.make_model(graph, producer_name="olive-test")
@@ -302,7 +301,8 @@ class TestRTNQuantization:
 
         olive_model = ONNXModelHandler(model_path=str(model_path))
         accelerator_spec = AcceleratorSpec(
-            accelerator_type="CPU", execution_provider="CPUExecutionProvider",
+            accelerator_type="CPU",
+            execution_provider="CPUExecutionProvider",
         )
         p = create_pass_from_dict(
             OnnxBlockWiseRtnQuantization,
@@ -330,7 +330,8 @@ class TestRTNQuantization:
         """After quantization, original FP32 weight initializers should be removed."""
         olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
         accelerator_spec = AcceleratorSpec(
-            accelerator_type="CPU", execution_provider="CPUExecutionProvider",
+            accelerator_type="CPU",
+            execution_provider="CPUExecutionProvider",
         )
         p = create_pass_from_dict(
             OnnxBlockWiseRtnQuantization,
