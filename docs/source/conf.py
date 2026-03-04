@@ -132,6 +132,8 @@ linkcheck_ignore = [
     r"https://docs.qualcomm.com/*",
     # TODO(jambayk): remove this when the issue is fixed
     r"https://www.intel.com/*",
+    # TODO(sunghcho): remove this when the upstream repo restores the page
+    r"https://github.com/intel/neural-compressor/*",
     # TODO(team): html files are generated after doc build. Linkcheck doesn't work for them.
     # Remove this when linkcheck works for html files.
     r"^(?!https).*\.html$",
