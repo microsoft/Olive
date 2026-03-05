@@ -45,7 +45,13 @@ class TestQuantizeFlow:
         from olive.cli.init.wizard import SOURCE_HF
 
         mock_ask.return_value = QUANT_STATIC
-        mock_calib.return_value = {"source": SOURCE_HF, "data_name": "data", "subset": "", "split": "train", "num_samples": "128"}
+        mock_calib.return_value = {
+            "source": SOURCE_HF,
+            "data_name": "data",
+            "subset": "",
+            "split": "train",
+            "num_samples": "128",
+        }
         result = _quantize_flow("/model.onnx")
         cmd = result["command"]
         assert "--implementation ort" in cmd
@@ -68,11 +74,11 @@ class TestTuneSessionFlow:
         from olive.cli.init.onnx_flow import _tune_session_flow
 
         mock_ask.side_effect = [
-            "cpu",                        # device
-            ["CPUExecutionProvider"],      # providers
-            "4",                          # cpu_cores
-            False,                        # io_bind
-            False,                        # enable_cuda_graph
+            "cpu",  # device
+            ["CPUExecutionProvider"],  # providers
+            "4",  # cpu_cores
+            False,  # io_bind
+            False,  # enable_cuda_graph
         ]
         result = _tune_session_flow("/model.onnx")
         cmd = result["command"]
@@ -86,11 +92,11 @@ class TestTuneSessionFlow:
         from olive.cli.init.onnx_flow import _tune_session_flow
 
         mock_ask.side_effect = [
-            "gpu",                        # device
-            ["CUDAExecutionProvider"],     # providers
-            "",                           # cpu_cores (skip)
-            True,                         # io_bind
-            True,                         # enable_cuda_graph
+            "gpu",  # device
+            ["CUDAExecutionProvider"],  # providers
+            "",  # cpu_cores (skip)
+            True,  # io_bind
+            True,  # enable_cuda_graph
         ]
         result = _tune_session_flow("/model.onnx")
         cmd = result["command"]

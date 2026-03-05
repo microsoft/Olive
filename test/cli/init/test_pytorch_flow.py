@@ -146,14 +146,22 @@ class TestQuantizeFlow:
         assert "--implementation awq" in result["command"]
         mock_calib.assert_called_once()
 
-    @patch("olive.cli.init.pytorch_flow.build_calibration_args", return_value=" -d data --split train --max_samples 128")
+    @patch(
+        "olive.cli.init.pytorch_flow.build_calibration_args", return_value=" -d data --split train --max_samples 128"
+    )
     @patch("olive.cli.init.pytorch_flow.prompt_calibration_source")
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_gptq_with_calibration(self, mock_ask, mock_calib, mock_build):
         from olive.cli.init.pytorch_flow import _quantize_flow
         from olive.cli.init.wizard import SOURCE_HF
 
-        mock_calib.return_value = {"source": SOURCE_HF, "data_name": "data", "subset": "", "split": "train", "num_samples": "128"}
+        mock_calib.return_value = {
+            "source": SOURCE_HF,
+            "data_name": "data",
+            "subset": "",
+            "split": "train",
+            "num_samples": "128",
+        }
         mock_ask.side_effect = ["gptq", "int4"]
         result = _quantize_flow({"model_path": "my-model"})
         assert "--algorithm gptq" in result["command"]
@@ -212,18 +220,18 @@ class TestFinetuneFlow:
         from olive.cli.init.wizard import SOURCE_HF
 
         mock_ask.side_effect = [
-            "lora",       # method
-            "64",         # lora_r
-            "16",         # lora_alpha
-            SOURCE_HF,    # data_source
+            "lora",  # method
+            "64",  # lora_r
+            "16",  # lora_alpha
+            SOURCE_HF,  # data_source
             "tatsu-lab/alpaca",  # data_name
-            "train",      # train_split
-            "",           # eval_split (skip)
-            TEXT_FIELD,   # text_mode
-            "text",       # text_field
-            "1024",       # max_seq_len
-            "256",        # max_samples
-            "bfloat16",   # torch_dtype
+            "train",  # train_split
+            "",  # eval_split (skip)
+            TEXT_FIELD,  # text_mode
+            "text",  # text_field
+            "1024",  # max_seq_len
+            "256",  # max_samples
+            "bfloat16",  # torch_dtype
         ]
         result = _finetune_flow({"model_path": "my-model"})
         cmd = result["command"]
@@ -239,16 +247,16 @@ class TestFinetuneFlow:
         from olive.cli.init.wizard import SOURCE_LOCAL
 
         mock_ask.side_effect = [
-            "qlora",      # method
-            "16",         # lora_r
-            "16",         # lora_alpha
-            SOURCE_LOCAL, # data_source
+            "qlora",  # method
+            "16",  # lora_r
+            "16",  # lora_alpha
+            SOURCE_LOCAL,  # data_source
             "/data/train.json",  # data_files
             TEXT_TEMPLATE,  # text_mode
             "Q: {q} A: {a}",  # template
-            "512",        # max_seq_len
-            "100",        # max_samples
-            "float16",    # torch_dtype
+            "512",  # max_seq_len
+            "100",  # max_samples
+            "float16",  # torch_dtype
         ]
         result = _finetune_flow({"model_path": "my-model"})
         cmd = result["command"]
@@ -262,18 +270,18 @@ class TestFinetuneFlow:
         from olive.cli.init.wizard import SOURCE_HF
 
         mock_ask.side_effect = [
-            "lora",       # method
-            "64",         # lora_r
-            "16",         # lora_alpha
-            SOURCE_HF,    # data_source
+            "lora",  # method
+            "64",  # lora_r
+            "16",  # lora_alpha
+            SOURCE_HF,  # data_source
             "tatsu-lab/alpaca",  # data_name
-            "train",      # train_split
-            "test",       # eval_split (provided)
-            TEXT_FIELD,   # text_mode
-            "text",       # text_field
-            "1024",       # max_seq_len
-            "256",        # max_samples
-            "bfloat16",   # torch_dtype
+            "train",  # train_split
+            "test",  # eval_split (provided)
+            TEXT_FIELD,  # text_mode
+            "text",  # text_field
+            "1024",  # max_seq_len
+            "256",  # max_samples
+            "bfloat16",  # torch_dtype
         ]
         result = _finetune_flow({"model_path": "my-model"})
         assert "--eval_split test" in result["command"]
@@ -284,17 +292,17 @@ class TestFinetuneFlow:
         from olive.cli.init.wizard import SOURCE_HF
 
         mock_ask.side_effect = [
-            "lora",              # method
-            "64",                # lora_r
-            "16",                # lora_alpha
-            SOURCE_HF,           # data_source
-            "dataset",           # data_name
-            "train",             # train_split
-            "",                  # eval_split (skip)
+            "lora",  # method
+            "64",  # lora_r
+            "16",  # lora_alpha
+            SOURCE_HF,  # data_source
+            "dataset",  # data_name
+            "train",  # train_split
+            "",  # eval_split (skip)
             TEXT_CHAT_TEMPLATE,  # text_mode
-            "1024",              # max_seq_len
-            "256",               # max_samples
-            "bfloat16",          # torch_dtype
+            "1024",  # max_seq_len
+            "256",  # max_samples
+            "bfloat16",  # torch_dtype
         ]
         result = _finetune_flow({"model_path": "my-model"})
         assert "--use_chat_template" in result["command"]
@@ -306,12 +314,12 @@ class TestOptimizeCustomMode:
         from olive.cli.init.pytorch_flow import EXPORTER_DYNAMO, OP_EXPORT, OP_QUANTIZE, _optimize_custom_mode
 
         mock_ask.side_effect = [
-            [OP_EXPORT, OP_QUANTIZE],       # operations checkbox
-            EXPORTER_DYNAMO,                # exporter
-            "float32",                      # torch_dtype
-            "rtn",                          # algorithm
-            "int4",                         # precision
-            "CUDAExecutionProvider",        # provider
+            [OP_EXPORT, OP_QUANTIZE],  # operations checkbox
+            EXPORTER_DYNAMO,  # exporter
+            "float32",  # torch_dtype
+            "rtn",  # algorithm
+            "int4",  # precision
+            "CUDAExecutionProvider",  # provider
         ]
         result = _optimize_custom_mode({"model_path": "my-model"})
         cmd = result["command"]
@@ -324,26 +332,34 @@ class TestOptimizeCustomMode:
         from olive.cli.init.pytorch_flow import EXPORTER_DYNAMO, OP_EXPORT, _optimize_custom_mode
 
         mock_ask.side_effect = [
-            [OP_EXPORT],       # operations checkbox
-            EXPORTER_DYNAMO,   # exporter
-            "float16",         # torch_dtype
+            [OP_EXPORT],  # operations checkbox
+            EXPORTER_DYNAMO,  # exporter
+            "float16",  # torch_dtype
         ]
         result = _optimize_custom_mode({"model_path": "my-model"})
         assert "olive capture-onnx-graph" in result["command"]
         assert "--torch_dtype float16" in result["command"]
 
-    @patch("olive.cli.init.pytorch_flow.build_calibration_args", return_value=" -d data --split train --max_samples 128")
+    @patch(
+        "olive.cli.init.pytorch_flow.build_calibration_args", return_value=" -d data --split train --max_samples 128"
+    )
     @patch("olive.cli.init.pytorch_flow.prompt_calibration_source")
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_quantize_only(self, mock_ask, mock_calib, mock_build):
         from olive.cli.init.pytorch_flow import OP_QUANTIZE, _optimize_custom_mode
         from olive.cli.init.wizard import SOURCE_HF
 
-        mock_calib.return_value = {"source": SOURCE_HF, "data_name": "data", "subset": "", "split": "train", "num_samples": "128"}
+        mock_calib.return_value = {
+            "source": SOURCE_HF,
+            "data_name": "data",
+            "subset": "",
+            "split": "train",
+            "num_samples": "128",
+        }
         mock_ask.side_effect = [
             [OP_QUANTIZE],  # operations checkbox
-            "gptq",         # algorithm
-            "int4",         # precision
+            "gptq",  # algorithm
+            "int4",  # precision
         ]
         result = _optimize_custom_mode({"model_path": "my-model"})
         assert "olive quantize" in result["command"]
@@ -354,8 +370,8 @@ class TestOptimizeCustomMode:
         from olive.cli.init.pytorch_flow import OP_GRAPH_OPT, _optimize_custom_mode
 
         mock_ask.side_effect = [
-            [OP_GRAPH_OPT],              # operations checkbox
-            "CPUExecutionProvider",       # provider
+            [OP_GRAPH_OPT],  # operations checkbox
+            "CPUExecutionProvider",  # provider
         ]
         result = _optimize_custom_mode({"model_path": "my-model"})
         assert "olive optimize" in result["command"]
@@ -366,10 +382,10 @@ class TestOptimizeCustomMode:
         from olive.cli.init.pytorch_flow import EXPORTER_MODEL_BUILDER, OP_EXPORT, OP_GRAPH_OPT, _optimize_custom_mode
 
         mock_ask.side_effect = [
-            [OP_EXPORT, OP_GRAPH_OPT],     # operations checkbox
-            EXPORTER_MODEL_BUILDER,        # exporter
-            "fp16",                        # precision
-            "CPUExecutionProvider",        # provider
+            [OP_EXPORT, OP_GRAPH_OPT],  # operations checkbox
+            EXPORTER_MODEL_BUILDER,  # exporter
+            "fp16",  # precision
+            "CPUExecutionProvider",  # provider
         ]
         result = _optimize_custom_mode({"model_path": "my-model"})
         cmd = result["command"]
@@ -383,9 +399,9 @@ class TestOptimizeCustomMode:
 
         mock_ask.side_effect = [
             [OP_QUANTIZE, OP_GRAPH_OPT],  # operations checkbox
-            "rtn",                         # algorithm
-            "int4",                        # precision
-            "CUDAExecutionProvider",       # provider
+            "rtn",  # algorithm
+            "int4",  # precision
+            "CUDAExecutionProvider",  # provider
         ]
         result = _optimize_custom_mode({"model_path": "my-model"})
         cmd = result["command"]
@@ -430,8 +446,8 @@ class TestPromptExportOptionsInt4:
 
         mock_ask.side_effect = [
             EXPORTER_MODEL_BUILDER,  # exporter
-            PRECISION_INT4,          # precision
-            "64",                    # block_size
+            PRECISION_INT4,  # precision
+            "64",  # block_size
         ]
         config = _prompt_export_options()
         assert config == {"exporter": EXPORTER_MODEL_BUILDER, "precision": PRECISION_INT4, "int4_block_size": "64"}

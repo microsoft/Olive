@@ -34,21 +34,21 @@ class TestLoraFlow:
         from olive.cli.init.wizard import SOURCE_LOCAL, VARIANT_AUTO
 
         mock_ask.side_effect = [
-            "16",              # lora_r
-            "16",              # lora_alpha
-            "0.0",             # lora_dropout
-            SOURCE_LOCAL,      # data_source
-            "/images",         # data_dir
-            False,             # enable_dreambooth
-            "1000",            # max_train_steps
-            "1e-4",            # learning_rate
-            "1",               # train_batch_size
-            "4",               # gradient_accumulation
-            "bf16",            # mixed_precision
-            "constant",        # lr_scheduler
-            "0",               # warmup_steps
-            "",                # seed (skip)
-            False,             # merge_lora
+            "16",  # lora_r
+            "16",  # lora_alpha
+            "0.0",  # lora_dropout
+            SOURCE_LOCAL,  # data_source
+            "/images",  # data_dir
+            False,  # enable_dreambooth
+            "1000",  # max_train_steps
+            "1e-4",  # learning_rate
+            "1",  # train_batch_size
+            "4",  # gradient_accumulation
+            "bf16",  # mixed_precision
+            "constant",  # lr_scheduler
+            "0",  # warmup_steps
+            "",  # seed (skip)
+            False,  # merge_lora
         ]
         result = _lora_flow("my-model", VARIANT_AUTO)
         cmd = result["command"]
@@ -64,27 +64,27 @@ class TestLoraFlow:
         from olive.cli.init.wizard import SOURCE_LOCAL, VARIANT_FLUX
 
         mock_ask.side_effect = [
-            "16",                # lora_r
-            "16",                # lora_alpha
-            "0.1",               # lora_dropout
-            SOURCE_LOCAL,        # data_source
-            "/images",           # data_dir
-            True,                # enable_dreambooth
+            "16",  # lora_r
+            "16",  # lora_alpha
+            "0.1",  # lora_dropout
+            SOURCE_LOCAL,  # data_source
+            "/images",  # data_dir
+            True,  # enable_dreambooth
             "a photo of sks dog",  # instance_prompt
-            True,                # with_prior
+            True,  # with_prior
             "a photo of a dog",  # class_prompt
-            "",                  # class_data_dir (skip)
-            "200",               # num_class_images
-            "500",               # max_train_steps
-            "1e-4",              # learning_rate
-            "1",                 # train_batch_size
-            "4",                 # gradient_accumulation
-            "bf16",              # mixed_precision
-            "constant",          # lr_scheduler
-            "0",                 # warmup_steps
-            "",                  # seed (skip)
-            "3.5",               # guidance_scale (flux-specific)
-            True,                # merge_lora
+            "",  # class_data_dir (skip)
+            "200",  # num_class_images
+            "500",  # max_train_steps
+            "1e-4",  # learning_rate
+            "1",  # train_batch_size
+            "4",  # gradient_accumulation
+            "bf16",  # mixed_precision
+            "constant",  # lr_scheduler
+            "0",  # warmup_steps
+            "",  # seed (skip)
+            "3.5",  # guidance_scale (flux-specific)
+            True,  # merge_lora
         ]
         result = _lora_flow("my-flux-model", VARIANT_FLUX)
         cmd = result["command"]
@@ -101,24 +101,24 @@ class TestLoraFlow:
         from olive.cli.init.wizard import SOURCE_HF, VARIANT_AUTO
 
         mock_ask.side_effect = [
-            "16",             # lora_r
-            "16",             # lora_alpha
-            "0.0",            # lora_dropout
-            SOURCE_HF,        # data_source
+            "16",  # lora_r
+            "16",  # lora_alpha
+            "0.0",  # lora_dropout
+            SOURCE_HF,  # data_source
             "linoyts/Tuxemon",  # data_name
-            "train",          # data_split
-            "image",          # image_column
-            "caption",        # caption_column
-            False,            # enable_dreambooth
-            "1000",           # max_train_steps
-            "1e-4",           # learning_rate
-            "1",              # train_batch_size
-            "4",              # gradient_accumulation
-            "bf16",           # mixed_precision
-            "constant",       # lr_scheduler
-            "0",              # warmup_steps
-            "42",             # seed (provided)
-            False,            # merge_lora
+            "train",  # data_split
+            "image",  # image_column
+            "caption",  # caption_column
+            False,  # enable_dreambooth
+            "1000",  # max_train_steps
+            "1e-4",  # learning_rate
+            "1",  # train_batch_size
+            "4",  # gradient_accumulation
+            "bf16",  # mixed_precision
+            "constant",  # lr_scheduler
+            "0",  # warmup_steps
+            "42",  # seed (provided)
+            False,  # merge_lora
         ]
         result = _lora_flow("my-model", VARIANT_AUTO)
         cmd = result["command"]
@@ -134,22 +134,22 @@ class TestLoraFlow:
         from olive.cli.init.wizard import SOURCE_LOCAL, VARIANT_AUTO
 
         mock_ask.side_effect = [
-            "16",              # lora_r
-            "16",              # lora_alpha
-            "0.0",             # lora_dropout
-            SOURCE_LOCAL,      # data_source
-            "/images",         # data_dir
-            False,             # enable_dreambooth
+            "16",  # lora_r
+            "16",  # lora_alpha
+            "0.0",  # lora_dropout
+            SOURCE_LOCAL,  # data_source
+            "/images",  # data_dir
+            False,  # enable_dreambooth
             TRAIN_STEPS_CUSTOM,  # max_train_steps
-            "3000",            # custom value
-            "1e-4",            # learning_rate
-            "1",               # train_batch_size
-            "4",               # gradient_accumulation
-            "bf16",            # mixed_precision
-            "constant",        # lr_scheduler
-            "0",               # warmup_steps
-            "",                # seed (skip)
-            False,             # merge_lora
+            "3000",  # custom value
+            "1e-4",  # learning_rate
+            "1",  # train_batch_size
+            "4",  # gradient_accumulation
+            "bf16",  # mixed_precision
+            "constant",  # lr_scheduler
+            "0",  # warmup_steps
+            "",  # seed (skip)
+            False,  # merge_lora
         ]
         result = _lora_flow("my-model", VARIANT_AUTO)
         assert "--max_train_steps 3000" in result["command"]
@@ -160,26 +160,26 @@ class TestLoraFlow:
         from olive.cli.init.wizard import SOURCE_LOCAL, VARIANT_AUTO
 
         mock_ask.side_effect = [
-            "16",                    # lora_r
-            "16",                    # lora_alpha
-            "0.0",                   # lora_dropout
-            SOURCE_LOCAL,            # data_source
-            "/images",               # data_dir
-            True,                    # enable_dreambooth
-            "a photo of sks dog",    # instance_prompt
-            True,                    # with_prior
-            "a photo of a dog",      # class_prompt
-            "/class_images",         # class_data_dir (provided)
-            "200",                   # num_class_images
-            "1000",                  # max_train_steps
-            "1e-4",                  # learning_rate
-            "1",                     # train_batch_size
-            "4",                     # gradient_accumulation
-            "bf16",                  # mixed_precision
-            "constant",              # lr_scheduler
-            "0",                     # warmup_steps
-            "",                      # seed (skip)
-            False,                   # merge_lora
+            "16",  # lora_r
+            "16",  # lora_alpha
+            "0.0",  # lora_dropout
+            SOURCE_LOCAL,  # data_source
+            "/images",  # data_dir
+            True,  # enable_dreambooth
+            "a photo of sks dog",  # instance_prompt
+            True,  # with_prior
+            "a photo of a dog",  # class_prompt
+            "/class_images",  # class_data_dir (provided)
+            "200",  # num_class_images
+            "1000",  # max_train_steps
+            "1e-4",  # learning_rate
+            "1",  # train_batch_size
+            "4",  # gradient_accumulation
+            "bf16",  # mixed_precision
+            "constant",  # lr_scheduler
+            "0",  # warmup_steps
+            "",  # seed (skip)
+            False,  # merge_lora
         ]
         result = _lora_flow("my-model", VARIANT_AUTO)
         assert "--class_data_dir /class_images" in result["command"]
