@@ -247,7 +247,7 @@ class TestInitWizard:
         wizard = InitWizard()
         result = {"not_command": True}  # no "command" key
         with pytest.raises(GoBackError):
-            wizard._prompt_output(result)
+            wizard._prompt_output(result)  # pylint: disable=protected-access
 
     @patch("olive.cli.init.pytorch_flow._ask_select")
     @patch("olive.cli.init.pytorch_flow._optimize_flow", return_value={"command": "olive optimize -m m"})
@@ -291,7 +291,7 @@ class TestPromptPytorchSource:
 
         mock_select.return_value = SOURCE_HF
         mock_ask.return_value = "meta-llama/Llama-3.1-8B"
-        result = InitWizard()._prompt_pytorch_source()
+        result = InitWizard()._prompt_pytorch_source()  # pylint: disable=protected-access
         assert result == {"source_type": SOURCE_HF, "model_path": "meta-llama/Llama-3.1-8B"}
 
     @patch("olive.cli.init.wizard._ask")
@@ -301,7 +301,7 @@ class TestPromptPytorchSource:
 
         mock_select.return_value = SOURCE_LOCAL
         mock_ask.return_value = "./my-model/"
-        result = InitWizard()._prompt_pytorch_source()
+        result = InitWizard()._prompt_pytorch_source()  # pylint: disable=protected-access
         assert result == {"source_type": SOURCE_LOCAL, "model_path": "./my-model/"}
 
     @patch("olive.cli.init.wizard._ask")
@@ -311,7 +311,7 @@ class TestPromptPytorchSource:
 
         mock_select.return_value = SOURCE_AZUREML
         mock_ask.return_value = "azureml://registries/r/models/m/versions/1"
-        result = InitWizard()._prompt_pytorch_source()
+        result = InitWizard()._prompt_pytorch_source()  # pylint: disable=protected-access
         assert result == {"source_type": SOURCE_AZUREML, "model_path": "azureml://registries/r/models/m/versions/1"}
 
     @patch("olive.cli.init.wizard._ask")
@@ -321,7 +321,7 @@ class TestPromptPytorchSource:
 
         mock_select.return_value = SOURCE_SCRIPT
         mock_ask.side_effect = ["train.py", "./src", "my-model"]
-        result = InitWizard()._prompt_pytorch_source()
+        result = InitWizard()._prompt_pytorch_source()  # pylint: disable=protected-access
         assert result == {
             "source_type": SOURCE_SCRIPT,
             "model_script": "train.py",
@@ -336,7 +336,7 @@ class TestPromptPytorchSource:
 
         mock_select.return_value = SOURCE_SCRIPT
         mock_ask.side_effect = ["train.py", "", ""]  # no script_dir, no model_path
-        result = InitWizard()._prompt_pytorch_source()
+        result = InitWizard()._prompt_pytorch_source()  # pylint: disable=protected-access
         assert result == {"source_type": SOURCE_SCRIPT, "model_script": "train.py"}
         assert "script_dir" not in result
         assert "model_path" not in result
@@ -350,7 +350,7 @@ class TestPromptDiffusersSource:
 
         mock_select.return_value = "sdxl"
         mock_ask.return_value = "stabilityai/sdxl-base-1.0"
-        result = InitWizard()._prompt_diffusers_source()
+        result = InitWizard()._prompt_diffusers_source()  # pylint: disable=protected-access
         assert result == {
             "source_type": SOURCE_HF,
             "model_path": "stabilityai/sdxl-base-1.0",
@@ -362,13 +362,13 @@ class TestPromptModelSource:
     def test_unknown_model_type_returns_empty(self):
         from olive.cli.init.wizard import InitWizard
 
-        result = InitWizard()._prompt_model_source("unknown")
-        assert result == {}
+        result = InitWizard()._prompt_model_source("unknown")  # pylint: disable=protected-access
+        assert not result
 
 
 class TestRunModelFlow:
     def test_unknown_model_type_returns_empty(self):
         from olive.cli.init.wizard import InitWizard
 
-        result = InitWizard()._run_model_flow("unknown", {})
-        assert result == {}
+        result = InitWizard()._run_model_flow("unknown", {})  # pylint: disable=protected-access
+        assert not result

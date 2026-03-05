@@ -414,7 +414,7 @@ class TestOptimizeCustomMode:
 
         mock_ask.return_value = []  # empty checkbox
         result = _optimize_custom_mode({"model_path": "my-model"})
-        assert result == {}
+        assert not result
 
 
 class TestOptimizeFlow:
@@ -499,4 +499,4 @@ class TestRunPytorchFlowRouting:
         from olive.cli.init.pytorch_flow import run_pytorch_flow
 
         result = run_pytorch_flow({"model_path": "m"})
-        assert result == {}
+        assert not result
