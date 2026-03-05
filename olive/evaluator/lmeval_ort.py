@@ -167,6 +167,7 @@ class LMEvalOnnxBase(TemplateLM):
 
                     # Obtain log-probs at the corresponding continuation token indices
                     # last_token_slice = logits[:, -1, :].squeeze(0).tolist()
+
                     logits = torch.gather(logits, 2, cont_toks.unsqueeze(-1)).squeeze(-1)  # [1, seq]
 
                     # Answer: (log prob, is-exact-match)
@@ -551,6 +552,13 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             return torch.from_numpy(generator.get_output("logits")).to(self.device)
 
         # Model only returns logits for the last appended position.
+        if batch_size > 1 and cont_len > 1:
+            raise ValueError(
+                "batch_size > 1 is not supported when the model returns single-position logits"
+                " and continuation length > 1. Right-padding misaligns continuation positions across"
+                " batch elements. Use batch_size=1 instead."
+            )
+
         # Bulk-append context tokens, then step through the last cont_len tokens
         # one at a time to collect only the logits we actually need.
         n_logits = max(cont_len, 1)
