@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import questionary
 
-from olive.cli.init.wizard import (
+from olive.cli.init.helpers import (
     DEVICE_CHOICES,
     PRECISION_CHOICES,
     SOURCE_HF,
