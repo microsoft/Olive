@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import questionary
 
-from olive.cli.init.wizard import SOURCE_HF, SOURCE_LOCAL, VARIANT_AUTO, VARIANT_FLUX, _ask, _ask_select
+from olive.cli.init.helpers import SOURCE_HF, SOURCE_LOCAL, VARIANT_AUTO, VARIANT_FLUX, _ask, _ask_select
 
 # Diffusers operations
 OP_EXPORT = "export"
