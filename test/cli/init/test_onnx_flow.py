@@ -177,4 +177,4 @@ class TestRunOnnxFlowRouting:
         from olive.cli.init.onnx_flow import run_onnx_flow
 
         result = run_onnx_flow({"model_path": "/m.onnx"})
-        assert result == {}
+        assert not result

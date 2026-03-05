@@ -213,4 +213,4 @@ class TestRunDiffusersFlowRouting:
         from olive.cli.init.wizard import VARIANT_AUTO
 
         result = run_diffusers_flow({"model_path": "m", "variant": VARIANT_AUTO})
-        assert result == {}
+        assert not result
