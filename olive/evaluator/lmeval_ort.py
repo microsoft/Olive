@@ -568,12 +568,10 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             generator.append_tokens(input_ids[:, i : i + 1].tolist())
             all_logits.append(torch.from_numpy(generator.get_output("logits")).to(self.device))
 
-        # Pad with zeros for the prefix positions to keep shape [batch, seq, vocab]
-        if prefix_len > 0:
-            vocab = all_logits[0].shape[-1]
-            prefix_pad = torch.zeros(batch_size, prefix_len, vocab, dtype=all_logits[0].dtype, device=self.device)
-            return torch.cat([prefix_pad, *all_logits], dim=1)
-        return torch.cat(all_logits, dim=1)
+        # No need to pad to [batch, seq_len, vocab]. The slicing in _loglikelihood_tokens computes
+        # ctx_len = inplen + (logits.shape[0] - padding_len_inp), which adjusts for the shorter
+        # seq dimension so the continuation slice still lands on the correct positions.
+        return torch.cat(all_logits, dim=1)  # [batch, n_logits, vocab]
 
     def complete(self):
         pass
