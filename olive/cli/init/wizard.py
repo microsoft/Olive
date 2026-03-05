@@ -94,7 +94,13 @@ def prompt_calibration_source():
         subset = _ask(questionary.text("Subset (optional):", default="wikitext-2-raw-v1"))
         split = _ask(questionary.text("Split:", default="train"))
         num_samples = _ask(questionary.text("Number of samples:", default="128"))
-        return {"source": SOURCE_HF, "data_name": data_name, "subset": subset, "split": split, "num_samples": num_samples}
+        return {
+            "source": SOURCE_HF,
+            "data_name": data_name,
+            "subset": subset,
+            "split": split,
+            "num_samples": num_samples,
+        }
     else:
         data_files = _ask(questionary.text("Data file path:"))
         return {"source": SOURCE_LOCAL, "data_files": data_files}

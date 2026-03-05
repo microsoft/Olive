@@ -33,7 +33,7 @@ class TestBuildCalibrationArgs:
         }
         result = build_calibration_args(calib)
         assert "--subset" not in result
-        assert " -d Salesforce/wikitext --split train --max_samples 64" == result
+        assert result == " -d Salesforce/wikitext --split train --max_samples 64"
 
     def test_local_source(self):
         from olive.cli.init.wizard import SOURCE_LOCAL, build_calibration_args
