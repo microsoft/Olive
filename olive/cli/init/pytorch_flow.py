@@ -5,12 +5,12 @@
 import questionary
 
 from olive.cli.init.helpers import (
-    DEVICE_CHOICES,
-    PRECISION_CHOICES,
     SOURCE_HF,
     SOURCE_LOCAL,
     _ask,
     _ask_select,
+    _device_choices,
+    _precision_choices,
     build_calibration_args,
     prompt_calibration_source,
 )
@@ -108,8 +108,8 @@ def _optimize_flow(model_config):
 def _optimize_auto_mode(model_config):
     model_args = _build_model_args(model_config)
 
-    provider = _ask(questionary.select("Select target device:", choices=DEVICE_CHOICES))
-    precision = _ask(questionary.select("Select target precision:", choices=PRECISION_CHOICES))
+    provider = _ask(questionary.select("Select target device:", choices=_device_choices()))
+    precision = _ask(questionary.select("Select target precision:", choices=_precision_choices()))
 
     cmd = f"olive optimize {model_args} --provider {provider} --precision {precision}"
     return {"command": cmd}
@@ -151,7 +151,7 @@ def _optimize_custom_mode(model_config):
 
     if has_export and has_quantize:
         # Combined export + quantize (±graph_opt) → use olive optimize with --exporter
-        provider = _ask(questionary.select("Select target device:", choices=DEVICE_CHOICES))
+        provider = _ask(questionary.select("Select target device:", choices=_device_choices()))
         precision = quant_config["precision"] if quant_config else "fp32"
         cmd = f"olive optimize {model_args} --provider {provider} --precision {precision}"
         # Pass exporter choice to olive optimize
@@ -174,7 +174,7 @@ def _optimize_custom_mode(model_config):
             )
     elif has_export and has_graph_opt:
         # Export + graph_opt (no quantize) → olive optimize with fp32
-        provider = _ask(questionary.select("Select target device:", choices=DEVICE_CHOICES))
+        provider = _ask(questionary.select("Select target device:", choices=_device_choices()))
         cmd = f"olive optimize {model_args} --provider {provider} --precision fp32"
         if export_config:
             exporter_map = {
@@ -186,7 +186,7 @@ def _optimize_custom_mode(model_config):
             cmd += f" --exporter {exporter_arg}"
     elif has_quantize and has_graph_opt:
         # Quantize + graph_opt (no export, ONNX input assumed) → olive optimize
-        provider = _ask(questionary.select("Select target device:", choices=DEVICE_CHOICES))
+        provider = _ask(questionary.select("Select target device:", choices=_device_choices()))
         precision = quant_config["precision"] if quant_config else "fp32"
         cmd = f"olive optimize {model_args} --provider {provider} --precision {precision}"
     elif has_export and export_config:
@@ -197,7 +197,7 @@ def _optimize_custom_mode(model_config):
         cmd = _build_quantize_command(model_args, quant_config)
     elif has_graph_opt:
         # Graph opt only
-        provider = _ask(questionary.select("Select target device:", choices=DEVICE_CHOICES))
+        provider = _ask(questionary.select("Select target device:", choices=_device_choices()))
         cmd = f"olive optimize {model_args} --provider {provider} --precision fp32"
     else:
         return {}

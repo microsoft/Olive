@@ -6,26 +6,6 @@
 
 import sys
 
-import questionary
-
-# Common choices shared across flows — aligned with olive optimize --provider / --precision
-DEVICE_CHOICES = [
-    questionary.Choice("CPU", value="CPUExecutionProvider"),
-    questionary.Choice("GPU (NVIDIA CUDA)", value="CUDAExecutionProvider"),
-    questionary.Choice("GPU (NvTensorRTRTX)", value="NvTensorRTRTXExecutionProvider"),
-    questionary.Choice("NPU (Qualcomm QNN)", value="QNNExecutionProvider"),
-    questionary.Choice("NPU (Intel OpenVINO)", value="OpenVINOExecutionProvider"),
-    questionary.Choice("NPU (AMD Vitis AI)", value="VitisAIExecutionProvider"),
-    questionary.Choice("WebGPU", value="WebGpuExecutionProvider"),
-]
-
-PRECISION_CHOICES = [
-    questionary.Choice("INT4 (smallest size, best for LLMs)", value="int4"),
-    questionary.Choice("INT8 (balanced)", value="int8"),
-    questionary.Choice("FP16 (half precision)", value="fp16"),
-    questionary.Choice("FP32 (full precision)", value="fp32"),
-]
-
 # Source types (shared across flows)
 SOURCE_HF = "hf"
 SOURCE_LOCAL = "local"
@@ -45,6 +25,33 @@ class GoBackError(Exception):
 _BACK = "__back__"
 
 
+def _device_choices():
+    """Return device choices aligned with olive optimize --provider."""
+    import questionary
+
+    return [
+        questionary.Choice("CPU", value="CPUExecutionProvider"),
+        questionary.Choice("GPU (NVIDIA CUDA)", value="CUDAExecutionProvider"),
+        questionary.Choice("GPU (NvTensorRTRTX)", value="NvTensorRTRTXExecutionProvider"),
+        questionary.Choice("NPU (Qualcomm QNN)", value="QNNExecutionProvider"),
+        questionary.Choice("NPU (Intel OpenVINO)", value="OpenVINOExecutionProvider"),
+        questionary.Choice("NPU (AMD Vitis AI)", value="VitisAIExecutionProvider"),
+        questionary.Choice("WebGPU", value="WebGpuExecutionProvider"),
+    ]
+
+
+def _precision_choices():
+    """Return precision choices aligned with olive optimize --precision."""
+    import questionary
+
+    return [
+        questionary.Choice("INT4 (smallest size, best for LLMs)", value="int4"),
+        questionary.Choice("INT8 (balanced)", value="int8"),
+        questionary.Choice("FP16 (half precision)", value="fp16"),
+        questionary.Choice("FP32 (full precision)", value="fp32"),
+    ]
+
+
 def _ask(question):
     """Ask a questionary question and handle Ctrl+C (returns None)."""
     result = question.ask()
@@ -55,6 +62,8 @@ def _ask(question):
 
 def _ask_select(message, choices, allow_back=True):
     """Ask a select question with optional Back choice."""
+    import questionary
+
     all_choices = list(choices)
     if allow_back:
         all_choices.append(questionary.Choice("\u2190 Back", value=_BACK))
@@ -66,6 +75,8 @@ def _ask_select(message, choices, allow_back=True):
 
 def prompt_calibration_source():
     """Prompt for calibration data source. Returns dict or None (for default)."""
+    import questionary
+
     source = _ask(
         questionary.select(
             "Calibration data source:",
