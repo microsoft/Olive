@@ -5,10 +5,10 @@
 import questionary
 
 from olive.cli.init.helpers import (
-    DEVICE_CHOICES,
-    PRECISION_CHOICES,
     _ask,
     _ask_select,
+    _device_choices,
+    _precision_choices,
     build_calibration_args,
     prompt_calibration_source,
 )
@@ -56,8 +56,8 @@ def run_onnx_flow(model_config):
 
 
 def _optimize_flow(model_path):
-    provider = _ask(questionary.select("Select target device:", choices=DEVICE_CHOICES))
-    precision = _ask(questionary.select("Select target precision:", choices=PRECISION_CHOICES))
+    provider = _ask(questionary.select("Select target device:", choices=_device_choices()))
+    precision = _ask(questionary.select("Select target precision:", choices=_precision_choices()))
 
     cmd = f"olive optimize -m {model_path} --provider {provider} --precision {precision}"
     return {"command": cmd}
