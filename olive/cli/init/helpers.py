@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 """Shared constants, helpers and UI prompts used by the init wizard and flow modules."""
+
 import sys
 
 import questionary

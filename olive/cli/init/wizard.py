@@ -8,11 +8,8 @@ from pathlib import Path
 
 import questionary
 
-from olive.cli.init.helpers import (  # noqa: F401 — re-export for backward compatibility
-    DEVICE_CHOICES,
-    PRECISION_CHOICES,
+from olive.cli.init.helpers import (
     SOURCE_AZUREML,
-    SOURCE_DEFAULT,
     SOURCE_HF,
     SOURCE_LOCAL,
     SOURCE_SCRIPT,
@@ -21,8 +18,6 @@ from olive.cli.init.helpers import (  # noqa: F401 — re-export for backward co
     GoBackError,
     _ask,
     _ask_select,
-    build_calibration_args,
-    prompt_calibration_source,
 )
 
 # Model types

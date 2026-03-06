@@ -41,8 +41,8 @@ class TestQuantizeFlow:
     @patch("olive.cli.init.onnx_flow.prompt_calibration_source")
     @patch("olive.cli.init.onnx_flow._ask")
     def test_static_with_calibration_data(self, mock_ask, mock_calib, mock_build):
+        from olive.cli.init.helpers import SOURCE_HF
         from olive.cli.init.onnx_flow import QUANT_STATIC, _quantize_flow
-        from olive.cli.init.wizard import SOURCE_HF
 
         mock_ask.return_value = QUANT_STATIC
         mock_calib.return_value = {
