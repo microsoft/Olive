@@ -315,6 +315,14 @@
             "supported_quantization_encodings": [  ],
             "extra_dependencies": [ "onnxoptimizer", "onnxscript" ]
         },
+        "OnnxCastChainElimination": {
+            "module_path": "olive.passes.onnx.cast_chain_elimination.OnnxCastChainElimination",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "OnnxQuantization": {
             "module_path": "olive.passes.onnx.quantization.OnnxQuantization",
             "supported_providers": [ "CPUExecutionProvider" ],
