@@ -92,8 +92,8 @@ class TestBuildQuantizeCommand:
         assert "--implementation spinquant" in cmd
 
     def test_with_calibration(self):
+        from olive.cli.init.helpers import SOURCE_HF
         from olive.cli.init.pytorch_flow import _build_quantize_command
-        from olive.cli.init.wizard import SOURCE_HF
 
         config = {
             "algorithm": "gptq",
@@ -152,8 +152,8 @@ class TestQuantizeFlow:
     @patch("olive.cli.init.pytorch_flow.prompt_calibration_source")
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_gptq_with_calibration(self, mock_ask, mock_calib, mock_build):
+        from olive.cli.init.helpers import SOURCE_HF
         from olive.cli.init.pytorch_flow import _quantize_flow
-        from olive.cli.init.wizard import SOURCE_HF
 
         mock_calib.return_value = {
             "source": SOURCE_HF,
@@ -216,8 +216,8 @@ class TestExportFlow:
 class TestFinetuneFlow:
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_lora_hf_dataset(self, mock_ask):
+        from olive.cli.init.helpers import SOURCE_HF
         from olive.cli.init.pytorch_flow import TEXT_FIELD, _finetune_flow
-        from olive.cli.init.wizard import SOURCE_HF
 
         mock_ask.side_effect = [
             "lora",  # method
@@ -243,8 +243,8 @@ class TestFinetuneFlow:
 
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_qlora_local_data_template(self, mock_ask):
+        from olive.cli.init.helpers import SOURCE_LOCAL
         from olive.cli.init.pytorch_flow import TEXT_TEMPLATE, _finetune_flow
-        from olive.cli.init.wizard import SOURCE_LOCAL
 
         mock_ask.side_effect = [
             "qlora",  # method
@@ -266,8 +266,8 @@ class TestFinetuneFlow:
 
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_hf_with_eval_split(self, mock_ask):
+        from olive.cli.init.helpers import SOURCE_HF
         from olive.cli.init.pytorch_flow import TEXT_FIELD, _finetune_flow
-        from olive.cli.init.wizard import SOURCE_HF
 
         mock_ask.side_effect = [
             "lora",  # method
@@ -288,8 +288,8 @@ class TestFinetuneFlow:
 
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_chat_template(self, mock_ask):
+        from olive.cli.init.helpers import SOURCE_HF
         from olive.cli.init.pytorch_flow import TEXT_CHAT_TEMPLATE, _finetune_flow
-        from olive.cli.init.wizard import SOURCE_HF
 
         mock_ask.side_effect = [
             "lora",  # method
@@ -346,8 +346,8 @@ class TestOptimizeCustomMode:
     @patch("olive.cli.init.pytorch_flow.prompt_calibration_source")
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_quantize_only(self, mock_ask, mock_calib, mock_build):
+        from olive.cli.init.helpers import SOURCE_HF
         from olive.cli.init.pytorch_flow import OP_QUANTIZE, _optimize_custom_mode
-        from olive.cli.init.wizard import SOURCE_HF
 
         mock_calib.return_value = {
             "source": SOURCE_HF,

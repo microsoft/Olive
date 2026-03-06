@@ -20,7 +20,7 @@ class TestExportFlow:
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_export_auto_variant(self, mock_ask):
         from olive.cli.init.diffusers_flow import _export_flow
-        from olive.cli.init.wizard import VARIANT_AUTO
+        from olive.cli.init.helpers import VARIANT_AUTO
 
         mock_ask.return_value = "float32"
         result = _export_flow("my-model", VARIANT_AUTO)
@@ -31,7 +31,7 @@ class TestLoraFlow:
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_basic_lora_local_data(self, mock_ask):
         from olive.cli.init.diffusers_flow import _lora_flow
-        from olive.cli.init.wizard import SOURCE_LOCAL, VARIANT_AUTO
+        from olive.cli.init.helpers import SOURCE_LOCAL, VARIANT_AUTO
 
         mock_ask.side_effect = [
             "16",  # lora_r
@@ -61,7 +61,7 @@ class TestLoraFlow:
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_flux_with_dreambooth(self, mock_ask):
         from olive.cli.init.diffusers_flow import _lora_flow
-        from olive.cli.init.wizard import SOURCE_LOCAL, VARIANT_FLUX
+        from olive.cli.init.helpers import SOURCE_LOCAL, VARIANT_FLUX
 
         mock_ask.side_effect = [
             "16",  # lora_r
@@ -98,7 +98,7 @@ class TestLoraFlow:
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_hf_data_source_with_caption(self, mock_ask):
         from olive.cli.init.diffusers_flow import _lora_flow
-        from olive.cli.init.wizard import SOURCE_HF, VARIANT_AUTO
+        from olive.cli.init.helpers import SOURCE_HF, VARIANT_AUTO
 
         mock_ask.side_effect = [
             "16",  # lora_r
@@ -131,7 +131,7 @@ class TestLoraFlow:
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_custom_max_train_steps(self, mock_ask):
         from olive.cli.init.diffusers_flow import TRAIN_STEPS_CUSTOM, _lora_flow
-        from olive.cli.init.wizard import SOURCE_LOCAL, VARIANT_AUTO
+        from olive.cli.init.helpers import SOURCE_LOCAL, VARIANT_AUTO
 
         mock_ask.side_effect = [
             "16",  # lora_r
@@ -157,7 +157,7 @@ class TestLoraFlow:
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_dreambooth_with_class_data_dir(self, mock_ask):
         from olive.cli.init.diffusers_flow import _lora_flow
-        from olive.cli.init.wizard import SOURCE_LOCAL, VARIANT_AUTO
+        from olive.cli.init.helpers import SOURCE_LOCAL, VARIANT_AUTO
 
         mock_ask.side_effect = [
             "16",  # lora_r
@@ -200,7 +200,7 @@ class TestRunDiffusersFlowRouting:
     @patch("olive.cli.init.diffusers_flow._ask_select")
     def test_routes_to_lora(self, mock_select, mock_flow):
         from olive.cli.init.diffusers_flow import OP_LORA, run_diffusers_flow
-        from olive.cli.init.wizard import VARIANT_FLUX
+        from olive.cli.init.helpers import VARIANT_FLUX
 
         mock_select.return_value = OP_LORA
         mock_flow.return_value = {"command": "test"}
@@ -210,7 +210,7 @@ class TestRunDiffusersFlowRouting:
     @patch("olive.cli.init.diffusers_flow._ask_select", return_value="unknown")
     def test_unknown_operation_returns_empty(self, mock_select):
         from olive.cli.init.diffusers_flow import run_diffusers_flow
-        from olive.cli.init.wizard import VARIANT_AUTO
+        from olive.cli.init.helpers import VARIANT_AUTO
 
         result = run_diffusers_flow({"model_path": "m", "variant": VARIANT_AUTO})
         assert not result
