@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from copy import deepcopy
 from pathlib import Path
 
 import onnx
@@ -55,6 +56,14 @@ class StaticLLM(Pass):
                 type_=int,
                 default_value=64,
                 description="Input length of the context model.",
+            ),
+            "context_lengths": PassConfigParam(
+                type_=list[int],
+                default_value=None,
+                description=(
+                    "List of context lengths to generate static models QNN_GPU."
+                    "If None or empty, falls back to single 'context_length'."
+                ),
             ),
             "group_session_options": PassConfigParam(
                 type_=dict,
@@ -182,58 +191,142 @@ class StaticLLM(Pass):
         )
 
     def _run_qnn_gpu(self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: Path):
+        """QNN_GPU path: generate one or more static ONNX models for different context lengths.
+
+        - If config.context_lengths is None/empty: use config.context_length (single model).
+        - If config.context_lengths has 1 value: use that context length (single model).
+        - If config.context_lengths has >1 values: generate multiple models and return CompositeModelHandler.
+        """
         output_model_dir = Path(output_model_path).with_suffix("")
         model_path = Path(model.model_path)
 
         # --- Step 1: Load model (handle both single and external data) ---
         try:
-            model_proto = onnx.load(model_path, load_external_data=True)
+            base_model_proto = onnx.load(model_path, load_external_data=True)
         except Exception as e:
             raise RuntimeError(f"Failed to load ONNX model: {e}") from e
 
-        # --- Step 2: Fix symbolic dimensions ---
-        batch_size, sequence_length = OnnxDAG(model_proto).get_io_shape("input_ids")
+        # --- Step 2: Get symbolic batch and sequence dims once ---
+        batch_size, sequence_length = OnnxDAG(base_model_proto).get_io_shape("input_ids")
         if not (isinstance(batch_size, str) and isinstance(sequence_length, str)):
             raise ValueError("Input dimensions must be symbolic before static shape fixing.")
 
-        param_mapping = {batch_size: config.batch_size, sequence_length: config.context_length}
-        self.fix_shape(model_proto, param_mapping)
+        # --- Determine which context lengths to use ---
+        cfg_ctx_lengths = getattr(config, "context_lengths", None) or []
+        ctx_lengths_list = [int(x) for x in cfg_ctx_lengths if x is not None]
 
-        # --- Step 3: Save model as external-data format ---
-        output_model_file = Path(output_model_dir) / "model.onnx"
-        external_data_file = Path(output_model_dir) / "model.onnx.data"
+        if not ctx_lengths_list:
+            # Fall back to single context_length in config
+            ctx_lengths_list = [int(config.context_length)]
 
-        onnx.save(
-            model_proto,
-            str(output_model_file),
-            save_as_external_data=True,
-            all_tensors_to_one_file=True,
-            location=external_data_file.name,
-            convert_attribute=False,
+        # If only one context length, we still treat it uniformly but return a single handler.
+        multiple = len(ctx_lengths_list) > 1
+
+        generated_handlers: dict[int, ONNXModelHandler] = {}
+        generated_names: dict[int, str] = {}
+
+        for ctx_len in ctx_lengths_list:
+            # --- Clone base model proto for this variant ---
+            model_proto = onnx.ModelProto()
+            model_proto.CopyFrom(base_model_proto)
+
+            # --- Step 3: Fix symbolic dimensions for this context length ---
+            param_mapping = {batch_size: config.batch_size, sequence_length: ctx_len}
+            self.fix_shape(model_proto, param_mapping)
+
+            add_version_metadata_to_model_proto(model_proto)
+
+            # --- Step 4: Save as external-data ONNX ---
+            onnx_file_name = f"model_ctx{ctx_len}.onnx"
+            output_model_file = Path(output_model_dir) / onnx_file_name
+            external_data_file = Path(output_model_dir) / f"{onnx_file_name}.data"
+
+            output_model_dir.mkdir(parents=True, exist_ok=True)
+            onnx.save(
+                model_proto,
+                str(output_model_file),
+                save_as_external_data=True,
+                all_tensors_to_one_file=True,
+                location=external_data_file.name,
+                convert_attribute=False,
+            )
+
+            # Build handler for this static model
+            new_model_attributes = deepcopy(model.model_attributes) or {}
+            handler = ONNXModelHandler(
+                model_path=output_model_dir,
+                onnx_file_name=output_model_file.name,
+                model_attributes=new_model_attributes,
+            )
+
+            # Store handler + a logical component name (e.g., ctx_128)
+            generated_handlers[ctx_len] = handler
+            generated_names[ctx_len] = f"ctx_{ctx_len}"
+
+        # --- Step 5: Update genai_config.json ---
+        # For single model: pipeline with one component.
+        # For multiple models: pipeline with multiple components (composite).
+        if not multiple:
+            # Single context length
+            ctx_len = ctx_lengths_list[0]
+            handler = generated_handlers[ctx_len]
+
+            decoder_config_extra = {
+                "inputs": {
+                    "past_sequence_length": "past_seq_len",
+                    "total_sequence_length": "total_seq_len",
+                },
+                "sliding_window": {
+                    "window_size": ctx_len,
+                    "pad_value": 0,
+                    "alignment": "left",
+                    "slide_key_value_cache": False,
+                },
+            }
+
+            handler = update_llm_pipeline_genai_config_gpu(
+                model=handler,
+                output_model_dir=output_model_dir,
+                decoder_config_extra=decoder_config_extra,
+                composite_components=None,
+            )
+            return handler
+
+        # Multiple context lengths -> wrap in CompositeModelHandler and create composite pipeline
+        components = []
+        component_names = []
+        for ctx_len, handler in sorted(generated_handlers.items(), key=lambda kv: kv[0]):
+            components.append(handler)
+            component_names.append(generated_names[ctx_len])
+
+        new_model_attributes = deepcopy(model.model_attributes) or {}
+
+        composite = CompositeModelHandler(
+            model_components=components, model_component_names=component_names, model_attributes=new_model_attributes
         )
 
-        decoder_config_extra = {
+        # Build per-component sliding_window config keyed by name
+        composite_decoder_extra = {
             "inputs": {
                 "past_sequence_length": "past_seq_len",
                 "total_sequence_length": "total_seq_len",
             },
             "sliding_window": {
-                "window_size": config.context_length,
+                "window_size": max(ctx_lengths_list),
                 "pad_value": 0,
                 "alignment": "left",
                 "slide_key_value_cache": False,
             },
         }
 
-        input_model_path = model.model_path
-        model_static = ONNXModelHandler(model_path=output_model_dir, onnx_file_name=output_model_file.name)
-
-        return update_llm_pipeline_genai_config_gpu(
-            model_static,
-            output_model_dir,
-            input_model_path,
-            decoder_config_extra,
+        composite = update_llm_pipeline_genai_config_gpu(
+            model=composite,
+            output_model_dir=output_model_dir,
+            decoder_config_extra=composite_decoder_extra,
+            composite_components=list(zip(component_names, components)),
         )
+
+        return composite
 
     @staticmethod
     def fix_shape(model_proto: onnx.ModelProto, param_mapping: dict[str, int]):
