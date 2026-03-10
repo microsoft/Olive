@@ -19,6 +19,20 @@ _VENV_CACHE_VERSION = "v2"
 _VENV_MAX_AGE_DAYS = 14
 
 # ---------------------------------------------------------------------------
+# Command names
+# ---------------------------------------------------------------------------
+
+CMD_OPTIMIZE = "optimize"
+CMD_QUANTIZE = "quantize"
+CMD_FINETUNE = "finetune"
+CMD_CAPTURE_ONNX_GRAPH = "capture_onnx_graph"
+CMD_BENCHMARK = "benchmark"
+CMD_DIFFUSION_LORA = "diffusion_lora"
+CMD_EXPLORE_PASSES = "explore_passes"
+CMD_VALIDATE_CONFIG = "validate_config"
+CMD_RUN_CONFIG = "run_config"
+
+# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 

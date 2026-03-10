@@ -11,7 +11,15 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from olive_mcp.constants import OUTPUT_BASE
+from olive_mcp.constants import (
+    CMD_BENCHMARK,
+    CMD_CAPTURE_ONNX_GRAPH,
+    CMD_DIFFUSION_LORA,
+    CMD_FINETUNE,
+    CMD_OPTIMIZE,
+    CMD_QUANTIZE,
+    OUTPUT_BASE,
+)
 from olive_mcp.jobs import (
     _build_kwargs,
     _detect_phase,
@@ -310,7 +318,7 @@ async def optimize(
 
     """
     if not output_path:
-        output_path = _make_output_path("optimize", model_name_or_path)
+        output_path = _make_output_path(CMD_OPTIMIZE, model_name_or_path)
 
     kwargs = _build_kwargs(
         model_name_or_path=model_name_or_path,
@@ -327,7 +335,7 @@ async def optimize(
         output_path=output_path,
     )
     return await _start_job(
-        "optimize", f"Optimize {model_name_or_path} ({precision}, {provider})", kwargs, hf_token=hf_token
+        CMD_OPTIMIZE, f"Optimize {model_name_or_path} ({precision}, {provider})", kwargs, hf_token=hf_token
     )
 
 
@@ -358,7 +366,7 @@ async def quantize(
 
     """
     if not output_path:
-        output_path = _make_output_path("quantize", model_name_or_path)
+        output_path = _make_output_path(CMD_QUANTIZE, model_name_or_path)
 
     kwargs = _build_kwargs(
         model_name_or_path=model_name_or_path,
@@ -371,7 +379,7 @@ async def quantize(
         output_path=output_path,
     )
     return await _start_job(
-        "quantize", f"Quantize {model_name_or_path} ({algorithm}, {precision})", kwargs, hf_token=hf_token
+        CMD_QUANTIZE, f"Quantize {model_name_or_path} ({algorithm}, {precision})", kwargs, hf_token=hf_token
     )
 
 
@@ -436,7 +444,7 @@ async def finetune(
                 "error": "Either data_dir or data_name is required for diffusion model fine-tuning.",
             }
         if not output_path:
-            output_path = _make_output_path("finetune_diffusion", model_name_or_path)
+            output_path = _make_output_path(CMD_DIFFUSION_LORA, model_name_or_path)
         kwargs = _build_kwargs(
             model_name_or_path=model_name_or_path,
             data_dir=data_dir,
@@ -453,13 +461,15 @@ async def finetune(
             merge_lora=merge_lora,
             output_path=output_path,
         )
-        return await _start_job("diffusion_lora", f"Diffusion LoRA for {model_name_or_path}", kwargs, hf_token=hf_token)
+        return await _start_job(
+            CMD_DIFFUSION_LORA, f"Diffusion LoRA for {model_name_or_path}", kwargs, hf_token=hf_token
+        )
 
     # Text model fine-tuning
     if not data_name:
         return {"status": "error", "error": "data_name is required for text model fine-tuning."}
     if not output_path:
-        output_path = _make_output_path("finetune", model_name_or_path)
+        output_path = _make_output_path(CMD_FINETUNE, model_name_or_path)
     kwargs = _build_kwargs(
         model_name_or_path=model_name_or_path,
         data_name=data_name,
@@ -473,7 +483,7 @@ async def finetune(
         output_path=output_path,
     )
     return await _start_job(
-        "finetune", f"Finetune {model_name_or_path} ({method}) on {data_name}", kwargs, hf_token=hf_token
+        CMD_FINETUNE, f"Finetune {model_name_or_path} ({method}) on {data_name}", kwargs, hf_token=hf_token
     )
 
 
@@ -506,7 +516,7 @@ async def capture_onnx_graph(
 
     """
     if not output_path:
-        output_path = _make_output_path("capture", model_name_or_path)
+        output_path = _make_output_path(CMD_CAPTURE_ONNX_GRAPH, model_name_or_path)
 
     kwargs = _build_kwargs(
         model_name_or_path=model_name_or_path,
@@ -519,7 +529,9 @@ async def capture_onnx_graph(
         use_ort_genai=use_ort_genai,
         output_path=output_path,
     )
-    return await _start_job("capture_onnx_graph", f"Capture ONNX from {model_name_or_path}", kwargs, hf_token=hf_token)
+    return await _start_job(
+        CMD_CAPTURE_ONNX_GRAPH, f"Capture ONNX from {model_name_or_path}", kwargs, hf_token=hf_token
+    )
 
 
 @mcp.tool()
@@ -549,7 +561,7 @@ async def benchmark(
     if not tasks:
         tasks = ["hellaswag"]
     if not output_path:
-        output_path = _make_output_path("benchmark", model_name_or_path)
+        output_path = _make_output_path(CMD_BENCHMARK, model_name_or_path)
 
     kwargs = _build_kwargs(
         model_name_or_path=model_name_or_path,
@@ -561,7 +573,7 @@ async def benchmark(
         output_path=output_path,
     )
     return await _start_job(
-        "benchmark", f"Benchmark {model_name_or_path} on {', '.join(tasks)}", kwargs, hf_token=hf_token
+        CMD_BENCHMARK, f"Benchmark {model_name_or_path} on {', '.join(tasks)}", kwargs, hf_token=hf_token
     )
 
 
@@ -618,14 +630,12 @@ async def manage_outputs(
 
     # --- LIST ---
     _known_prefixes = [
-        "finetune_diffusion",
-        "diffusion_lora",
-        "capture_onnx_graph",
-        "optimize",
-        "quantize",
-        "finetune",
-        "capture",
-        "benchmark",
+        CMD_DIFFUSION_LORA,
+        CMD_CAPTURE_ONNX_GRAPH,
+        CMD_OPTIMIZE,
+        CMD_QUANTIZE,
+        CMD_FINETUNE,
+        CMD_BENCHMARK,
     ]
 
     entries = []

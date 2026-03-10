@@ -12,6 +12,8 @@ import uuid
 from datetime import datetime
 
 from olive_mcp.constants import (
+    CMD_FINETUNE,
+    CMD_OPTIMIZE,
     OUTPUT_BASE,
     SUPPORTED_PRECISIONS,
     SUPPORTED_PROVIDERS,
@@ -324,12 +326,12 @@ def _get_error_suggestions(error_str: str, command: str, kwargs: dict) -> list[s
 
     # Command-specific fallback
     if not suggestions:
-        if command == "optimize" and kwargs.get("precision") in ("int4", "uint4"):
+        if command == CMD_OPTIMIZE and kwargs.get("precision") in ("int4", "uint4"):
             suggestions.append(
                 "int4 optimization with GPTQ can be very slow on CPU (30min+). "
                 "For faster int4, use quantize(algorithm='rtn') instead."
             )
-        if command == "finetune" and kwargs.get("method") == "lora":
+        if command == CMD_FINETUNE and kwargs.get("method") == "lora":
             suggestions.append(
                 "If running out of memory during fine-tuning, try method='qlora' "
                 "which uses 4-bit quantization to reduce memory usage."
@@ -363,7 +365,7 @@ def _validate_params(command: str, kwargs: dict) -> str | None:
         return f"Unknown algorithm '{algorithm}'. Supported: {', '.join(SUPPORTED_QUANT_ALGORITHMS)}"
 
     # Check finetune method
-    if command == "finetune":
+    if command == CMD_FINETUNE:
         method = kwargs.get("method")
         if method and method not in ("lora", "qlora"):
             return f"Unknown finetune method '{method}'. Supported: lora, qlora"

@@ -2,7 +2,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive_mcp.constants import PROVIDER_TO_EXTRAS, PROVIDER_TO_GENAI
+from olive_mcp.constants import (
+    CMD_BENCHMARK,
+    CMD_CAPTURE_ONNX_GRAPH,
+    CMD_DIFFUSION_LORA,
+    CMD_FINETUNE,
+    CMD_OPTIMIZE,
+    CMD_QUANTIZE,
+    PROVIDER_TO_EXTRAS,
+    PROVIDER_TO_GENAI,
+)
 
 
 def _resolve_packages(command: str, provider: str | None = None, **kwargs) -> list[str]:
@@ -22,7 +31,7 @@ def _resolve_packages(command: str, provider: str | None = None, **kwargs) -> li
             extras.add(ep_extra)
 
     # 2. Command-specific extras
-    if command == "optimize":
+    if command == CMD_OPTIMIZE:
         exporter = kwargs.get("exporter") or "model_builder"
         precision = kwargs.get("precision", "fp32")
 
@@ -37,7 +46,7 @@ def _resolve_packages(command: str, provider: str | None = None, **kwargs) -> li
         if precision in ("int4", "uint4"):
             extra_packages.append("datasets")
 
-    elif command == "quantize":
+    elif command == CMD_QUANTIZE:
         algorithm = kwargs.get("algorithm", "rtn")
         impl = kwargs.get("implementation", "olive")
         if impl == "bnb":
@@ -52,7 +61,7 @@ def _resolve_packages(command: str, provider: str | None = None, **kwargs) -> li
         if algorithm != "rtn":
             extra_packages.append("datasets")
 
-    elif command == "finetune":
+    elif command == CMD_FINETUNE:
         method = kwargs.get("method", "lora")
         if method == "qlora":
             extras.add("finetune")  # includes bnb, peft, accelerate, etc.
@@ -61,14 +70,14 @@ def _resolve_packages(command: str, provider: str | None = None, **kwargs) -> li
         # Fine-tuning always loads datasets
         extra_packages.append("datasets")
 
-    elif command == "capture_onnx_graph":
+    elif command == CMD_CAPTURE_ONNX_GRAPH:
         extras.add("capture-onnx-graph")  # optimum only — does NOT include onnxruntime
         # Model builder variant for capture
         if kwargs.get("use_model_builder"):
             genai_pkg = PROVIDER_TO_GENAI.get(provider or "CPUExecutionProvider", "onnxruntime-genai")
             extra_packages.append(genai_pkg)
 
-    elif command == "benchmark":
+    elif command == CMD_BENCHMARK:
         device = kwargs.get("device", "cpu")
         if device == "gpu":
             extras.add("gpu")
@@ -77,7 +86,7 @@ def _resolve_packages(command: str, provider: str | None = None, **kwargs) -> li
         # lm-eval is the evaluation backend
         extra_packages.extend(["lm_eval", "datasets"])
 
-    elif command == "diffusion_lora":
+    elif command == CMD_DIFFUSION_LORA:
         extras.add("diffusers")  # accelerate, peft, diffusers
         extra_packages.append("datasets")
 
