@@ -82,7 +82,8 @@ def serialize_workflow_output(result):
         output["pass_summary"] = pass_summary
         output["total_duration_seconds"] = round(total_duration, 2)
     except Exception:
-        pass
+        # Optional enrichment — log but don't break serialization
+        traceback.print_exc(file=sys.stderr)
 
     # Input model info for before/after comparison
     try:
@@ -100,7 +101,8 @@ def serialize_workflow_output(result):
                     if input_size is not None:
                         output["input_model_size_mb"] = input_size
     except Exception:
-        pass
+        # Optional enrichment — log but don't break serialization
+        traceback.print_exc(file=sys.stderr)
 
     return output
 
@@ -180,7 +182,8 @@ def _handle_explore_passes(kwargs):
                     mod = importlib.import_module(parts[0])
                     cls = getattr(mod, parts[1], None)
                 except Exception:
-                    pass
+                    # Dynamic import may fail if deps are missing — skip schema
+                    cls = None
 
         if cls:
             try:
@@ -191,7 +194,7 @@ def _handle_explore_passes(kwargs):
                     accelerator_type=Device.CPU,
                     execution_provider=ExecutionProvider.CPUExecutionProvider,
                 )
-                default_config = cls._default_config(spec)
+                default_config = cls._default_config(spec)  # pylint: disable=protected-access
                 for param_name, param in default_config.items():
                     try:
                         result["parameters"][param_name] = {

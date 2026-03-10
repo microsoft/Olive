@@ -71,7 +71,7 @@ async def detect_hardware() -> dict:
                 ]
 
             mem = MEMORYSTATUSEX()
-            mem.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+            mem.dwLength = ctypes.sizeof(MEMORYSTATUSEX)  # pylint: disable=attribute-defined-outside-init
             ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(mem))
             info["ram"] = {
                 "total_gb": round(mem.ullTotalPhys / (1024**3), 1),

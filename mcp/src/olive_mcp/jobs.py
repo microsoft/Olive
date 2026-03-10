@@ -51,7 +51,8 @@ def _cleanup_jobs():
                 else:
                     proc.terminate()
             except Exception:
-                pass
+                # Best-effort cleanup at shutdown — nothing to do if termination fails
+                continue
 
 
 atexit.register(_cleanup_jobs)
