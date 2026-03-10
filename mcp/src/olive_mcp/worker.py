@@ -23,6 +23,7 @@ def _get_model_size_mb(model_path: str) -> float | None:
                     if any(f.endswith(ext) for ext in model_exts):
                         total += Path(dirpath, f).stat().st_size
             return round(total / (1024 * 1024), 2) if total > 0 else None
+        return None
     except Exception:
         return None
 

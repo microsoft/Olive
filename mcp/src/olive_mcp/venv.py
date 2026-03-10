@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from olive_mcp.constants import _VENV_CACHE_VERSION, _VENV_MAX_AGE_DAYS, VENV_BASE
+from olive_mcp.constants import _VENV_MAX_AGE_DAYS, VENV_BASE
 
 
 def _get_python_path(venv_path: Path) -> Path:
@@ -54,7 +54,7 @@ async def _get_or_create_venv(packages: list[str], job_id: str, job_log_fn) -> P
     # Periodically purge stale venvs
     _purge_old_venvs()
 
-    key = hashlib.md5(f"{_VENV_CACHE_VERSION}|{'|'.join(sorted(packages))}".encode()).hexdigest()[:12]
+    key = hashlib.md5("|".join(sorted(packages)).encode()).hexdigest()[:12]
     venv_path = VENV_BASE / key
     python_path = _get_python_path(venv_path)
 

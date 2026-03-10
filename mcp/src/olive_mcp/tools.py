@@ -177,7 +177,7 @@ async def detect_hardware() -> dict:
                 "On Windows, you may also try DmlExecutionProvider if you have a DirectX 12 GPU (AMD/Intel/NVIDIA)."
             )
 
-    if ram_gb > 0 and ram_gb < 8:
+    if 0 < ram_gb < 8:
         recs.append(f"Low RAM ({ram_gb}GB). Prefer small models (e.g. Phi-4-mini) and int4 quantization.")
 
     info["recommendations"] = recs
@@ -232,7 +232,7 @@ async def get_job_status(job_id: str, last_n_logs: int = 50) -> dict:
         "status": job["status"],
         "command": job["command"],
         "description": job["description"],
-        "elapsed": str(now - started).split(".")[0],  # e.g. "0:05:23"
+        "elapsed": str(now - started).split(".", maxsplit=1)[0],  # e.g. "0:05:23"
         "seconds_since_last_output": int((now - last_activity).total_seconds()),
         "new_lines": new_lines,
         "recent_logs": job["log_lines"][-last_n_logs:],

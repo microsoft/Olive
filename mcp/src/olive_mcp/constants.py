@@ -12,9 +12,6 @@ VENV_BASE = Path.home() / ".olive-mcp" / "venvs"
 OUTPUT_BASE = Path.home() / ".olive-mcp" / "outputs"
 WORKER_PATH = Path(__file__).parent / "worker.py"
 
-# Bump this when _resolve_packages logic changes to invalidate stale cached venvs.
-_VENV_CACHE_VERSION = "v2"
-
 # Auto-purge venvs not used within this many days.
 _VENV_MAX_AGE_DAYS = 14
 
