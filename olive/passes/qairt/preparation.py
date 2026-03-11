@@ -94,6 +94,7 @@ class QairtPreparation(Pass):
         # Prepare configuration for the script
         cache_dir_path = Path(config.cache_dir).resolve()
         script_config = {
+            "ADASCALE_DIR": str(cache_dir_path / "adascale"),
             "CACHE_DIR": str(cache_dir_path),
             "OUTPUT_DIR": str(output_model_path)
         }
