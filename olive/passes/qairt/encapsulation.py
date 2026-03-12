@@ -26,34 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class QairtEncapsulation(Pass):
-    """Encapsulates Qairt models with onnx context nodes."""
-
-    qairt_to_onnx_dtype: ClassVar[dict] = {
-        "f32": TensorProto.FLOAT,
-        "float32": TensorProto.FLOAT,
-        "f64": TensorProto.DOUBLE,
-        "float64": TensorProto.DOUBLE,
-        "f16": TensorProto.FLOAT16,
-        "bf16": TensorProto.BFLOAT16,
-        "i8": TensorProto.INT8,
-        "int8_t": TensorProto.INT8,
-        "i16": TensorProto.INT16,
-        "int16_t": TensorProto.INT16,
-        "i32": TensorProto.INT32,
-        "int32_t": TensorProto.INT32,
-        "i64": TensorProto.INT64,
-        "int64_t": TensorProto.INT64,
-        "u8": TensorProto.UINT8,
-        "uint8_t": TensorProto.UINT8,
-        "u16": TensorProto.UINT16,
-        "uint16_t": TensorProto.UINT16,
-        "u32": TensorProto.UINT32,
-        "uint32_t": TensorProto.UINT32,
-        "u64": TensorProto.UINT64,
-        "uint64_t": TensorProto.UINT64,
-        "bool": TensorProto.BOOL,
-        "boolean": TensorProto.BOOL,
-    }
+    """Encapsulates a QAIRT DLC model with an onnx protobuf."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -166,6 +139,7 @@ class QairtEncapsulation(Pass):
 
         # onnxruntime-genai requires certain source model files to be passed through
         passthrough_files = [
+            "chat_template.jinja",
             "config.json",
             "generation_config.json",
             "tokenizer.json",
@@ -174,13 +148,12 @@ class QairtEncapsulation(Pass):
         for file in passthrough_files:
             config_path = Path(model.model_path) / file
             dest_path = Path(output_model_path)
-            # TODO Remove once we have NB1 scripts for all models
             try:
                 hardlink_copy_file(config_path, dest_path, follow_symlinks=True)
             except:
+                # Not every model has all the files listed above
                 pass
 
-        # generate the genai_config.json file for GenAI models
         create_genai_config(context_model_output, output_model_path, config)
 
         return ONNXModelHandler(model_path=output_model_path)
@@ -302,7 +275,6 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
 
     genai_config["search"]["max_length"] = src_config.get("max_position_embeddings", -1)
 
-    # Step 2: Write to JSON file
     output_genai_config = Path(output_path) / "genai_config.json"
     with open(output_genai_config, "w") as f:
         json.dump(genai_config, f, indent=4)

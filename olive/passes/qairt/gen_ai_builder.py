@@ -58,13 +58,16 @@ class QairtGenAIBuilder(Pass):
                 " This option will be ignored if any device custom configurations are set."
                 "e.g. 'chipset:chipset:SC8380XP', 'dsp_arch:v73;soc_model:60' ",
             ),
-            # Model configs
-            "multi_graph": PassConfigParam(
+            "extended_udma": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Produces context binaries with additional context length combinations. "
-                "Improves token generation performance for different context lengths but increases preparation time. "
-                "HTP only."
+                description="Improves performance at the cost of memory by using UDMA. HTP only."
+            ),
+            # Model configs
+            "sequence_lengths": PassConfigParam(
+                type_=list[int],
+                default_value=None,
+                description="The sequence lengths of the final compiled graphs."
             ),
             "num_splits": PassConfigParam(
                 type_=int,
@@ -72,6 +75,13 @@ class QairtGenAIBuilder(Pass):
                 description="Number of model splits. Default value is -1 (value chosen by QAIRT based on model). " 
                 "HTP only.",
             ),
+            "multi_graph": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Produces context binaries with additional context length combinations. "
+                "Improves token generation performance for different context lengths but increases preparation time. "
+                "HTP only."
+            )
         }
 
     
@@ -83,11 +93,17 @@ class QairtGenAIBuilder(Pass):
     ) -> bool:
         
         if config.backend != qairt.BackendType.HTP.value:
-            if config.multi_graph:
-                logger.error("multi_graph is unsupported on non-HTP backends")
+            if config.extended_udma:
+                logger.error("extended_udma is unsupported on non-HTP backends")
+                return False
+            if config.sequence_lengths:
+                logger.error("sequence_lengths is unsupported on non-HTP backends")
                 return False
             if config.num_splits != -1:
                 logger.error("num_splits is unsupported on non-HTP backends")
+                return False
+            if config.multi_graph:
+                logger.error("multi_graph is unsupported on non-HTP backends")
                 return False
         
         return True
@@ -127,24 +143,37 @@ class QairtGenAIBuilder(Pass):
 
         # Can only set target and transformation configurations if the BE is HTP
         if config.backend == qairt.BackendType.HTP.value:
+            # Device configs
             gen_ai_builder.set_targets([config.soc_details])
-            gen_ai_builder.multi_graph = config.multi_graph
+
+            if config.extended_udma:
+                dev_cfg = gen_ai_builder._compilation_config.device_custom_configs[0]
+                arch_version = int(str(dev_cfg.dsp_arch).lstrip("v"))
+                if arch_version >= 81:
+                    gen_ai_builder._compilation_config.context_custom_configs[0].extended_udma = True
+                else:
+                    raise ValueError("extended_udma is unsupported on DSP architectures less than v81")
+
+            gen_ai_builder._compilation_config.graph_custom_configs[0].vtcm_size_in_mb = 8
+            gen_ai_builder._compilation_config.graph_custom_configs[0].hvx_threads = 8
+
+            logger.error(gen_ai_builder._compilation_config.model_dump_json(indent=2))
+
+            # Model configs
+            if config.sequence_lengths:
+                gen_ai_builder._transformation_config.model_transformer_config.arn_cl_options.auto_regression_number = config.sequence_lengths
+
             if config.num_splits != -1:
                 gen_ai_builder._transformation_config.model_transformer_config.split_model.num_splits = config.num_splits
 
+            gen_ai_builder.multi_graph = config.multi_graph
+
         gen_ai_container = gen_ai_builder.build()
-
-        # Handling of UDMA on LLMContainer
-        #if config.backend == qairt.BackendType.HTP.value:
-            # TODO fix index issue here where index should map to index
-            #htp_version = gen_ai_container._backend_extensions_config.device_custom_configs[0].dsp_arch
-            #if htp_version >= "v81":
-                #gen_ai_builder._backend_extensions_config.context_custom_configs[0].extended_udma = True
-
         gen_ai_container.save(output_model_path, exist_ok=True)
 
         # QairtModelHandler requires certain source model files to be passed through
         passthrough_files = [
+            "chat_template.jinja",
             "config.json",
             "generation_config.json",
             "tokenizer.json",
@@ -153,10 +182,10 @@ class QairtGenAIBuilder(Pass):
         for file in passthrough_files:
             config_path = Path(model.model_path) / file
             dest_path = Path(output_model_path)
-            # TODO Remove once we have NB1 scripts for all models
             try:
                 hardlink_copy_file(config_path, dest_path, follow_symlinks=True)
             except:
+                # Not every model has all the files listed above
                 pass
 
         return QairtModelHandler(model_path=output_model_path)
