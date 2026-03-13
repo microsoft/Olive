@@ -102,9 +102,8 @@ class TestOnnxCastChainElimination:
         output = p.run(olive_model, str(tmp_path / "out.onnx"))
 
         result_model = onnx.load(output.model_path)
-        # The pass should produce a valid, runnable model.
-        # Actual cast elimination depends on the ORT version; at minimum the
-        # output graph must not have *more* nodes than the input.
+        # The onnxscript optimizer should fold the redundant fp32→fp16→fp32
+        # chain into an identity (0 nodes) or at most leave the original 2.
         assert len(result_model.graph.node) <= 2
 
     def test_opset_fixup_applied(self, cast_chain_model_path, tmp_path):
