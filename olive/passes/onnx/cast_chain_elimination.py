@@ -23,6 +23,9 @@ from pathlib import Path
 
 import onnx
 from onnx import helper
+from onnxscript import ir
+from onnxscript.rewriter import RewriteRuleClassBase, rewrite
+from onnxscript.rewriter._basics import MatchResult
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -51,9 +54,6 @@ def _get_cast_chain_rewrite_rules():
     Returns a list of ``RewriteRule`` instances that target round-trip
     Cast patterns (e.g. fp32→fp16→fp32) produced by dynamo export.
     """
-    from onnxscript import ir
-    from onnxscript.rewriter import RewriteRuleClassBase
-    from onnxscript.rewriter._basics import MatchResult
 
     class _CastCastRoundTrip(RewriteRuleClassBase):
         """Collapse ``Cast(Cast(x, to=T2), to=T3)`` to ``Identity(x)`` when T3 matches x's type.
@@ -71,9 +71,7 @@ def _get_cast_chain_rewrite_rules():
             if x.dtype is None:
                 return check_result.fail("Input dtype unknown; cannot verify round-trip")
             if x.dtype != to.as_int():
-                return check_result.fail(
-                    f"Not a round-trip cast: input dtype {x.dtype} != final cast to={to.as_int()}"
-                )
+                return check_result.fail(f"Not a round-trip cast: input dtype {x.dtype} != final cast to={to.as_int()}")
             return check_result
 
         def rewrite(self, op, x: ir.Value, to: ir.Attr, to_ignored: ir.Attr):
@@ -122,8 +120,6 @@ class OnnxCastChainElimination(Pass):
 
         # Step 2: Cast chain elimination via targeted onnxscript rewrite rules
         if config.enable_cast_chain_elimination:
-            from onnxscript.rewriter import rewrite
-
             rules = _get_cast_chain_rewrite_rules()
             onnx_model = rewrite(onnx_model, pattern_rewrite_rules=rules)
 
