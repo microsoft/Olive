@@ -24,7 +24,7 @@ from pathlib import Path
 import onnx
 from onnx import helper
 from onnxscript import ir
-from onnxscript.rewriter import RewriteRuleClassBase, rewrite
+from onnxscript.rewriter import RewriteRule, rewrite
 from onnxscript.rewriter._basics import MatchResult
 
 from olive.hardware.accelerator import AcceleratorSpec
@@ -55,29 +55,31 @@ def _get_cast_chain_rewrite_rules():
     Cast patterns (e.g. fp32→fp16→fp32) produced by dynamo export.
     """
 
-    class _CastCastRoundTrip(RewriteRuleClassBase):
-        """Collapse ``Cast(Cast(x, to=T2), to=T3)`` to ``Identity(x)`` when T3 matches x's type.
+    def _cast_cast_round_trip_pattern(op, x, to, to_ignored):
+        """Match ``Cast(Cast(x, to=T2), to=T3)``."""
+        return op.Cast(op.Cast(x, to=to_ignored), to=to)
 
-        Dynamo-exported models frequently insert unnecessary cast round-trips
-        (e.g. fp32→fp16→fp32).  When the final cast type equals the original
-        input type the entire chain is a no-op and can be replaced by Identity.
-        """
+    def _cast_cast_round_trip_check(context, x: ir.Value, to: ir.Attr, to_ignored: ir.Attr) -> MatchResult:
+        """Only match when the final cast type equals the original input type (round-trip)."""
+        check_result = MatchResult()
+        if x.dtype is None:
+            return check_result.fail("Input dtype unknown; cannot verify round-trip")
+        if x.dtype != to.as_int():
+            return check_result.fail(f"Not a round-trip cast: input dtype {x.dtype} != final cast to={to.as_int()}")
+        return check_result
 
-        def pattern(self, op, x, to, to_ignored):
-            return op.Cast(op.Cast(x, to=to_ignored), to=to)
+    def _cast_cast_round_trip_replacement(op, x, **_):
+        """Replace the round-trip cast chain with Identity."""
+        return op.Identity(x)
 
-        def check(self, context, x: ir.Value, to: ir.Attr, to_ignored: ir.Attr) -> MatchResult:
-            check_result = MatchResult()
-            if x.dtype is None:
-                return check_result.fail("Input dtype unknown; cannot verify round-trip")
-            if x.dtype != to.as_int():
-                return check_result.fail(f"Not a round-trip cast: input dtype {x.dtype} != final cast to={to.as_int()}")
-            return check_result
-
-        def rewrite(self, op, x: ir.Value, to: ir.Attr, to_ignored: ir.Attr):
-            return op.Identity(x)
-
-    return [_CastCastRoundTrip().rule()]
+    return [
+        RewriteRule(
+            _cast_cast_round_trip_pattern,
+            _cast_cast_round_trip_replacement,
+            _cast_cast_round_trip_check,
+            name="CastCastRoundTrip",
+        )
+    ]
 
 
 class OnnxCastChainElimination(Pass):
