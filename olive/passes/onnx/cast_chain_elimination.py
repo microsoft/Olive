@@ -14,8 +14,8 @@ on every ONNX function scope, causing downstream failures.
 This pass:
 1. Ensures ``com.microsoft`` opset version 1 is declared on the model
    *and* on every ONNX function scope.
-2. Runs the ``onnxscript`` optimizer to fold or remove redundant Cast
-   chains and other constant-foldable patterns.
+2. Applies targeted onnxscript rewrite rules to eliminate redundant
+   round-trip Cast chains (e.g. fp32→fp16→fp32 → identity).
 """
 
 import logging
@@ -45,15 +45,52 @@ def _ensure_com_microsoft_opset(model: onnx.ModelProto):
             func.opset_import.append(helper.make_opsetid("com.microsoft", 1))
 
 
+def _get_cast_chain_rewrite_rules():
+    """Build onnxscript rewrite rules for eliminating redundant Cast chains.
+
+    Returns a list of ``RewriteRule`` instances that target round-trip
+    Cast patterns (e.g. fp32→fp16→fp32) produced by dynamo export.
+    """
+    from onnxscript import ir
+    from onnxscript.rewriter import RewriteRuleClassBase
+    from onnxscript.rewriter._basics import MatchResult
+
+    class _CastCastRoundTrip(RewriteRuleClassBase):
+        """Collapse ``Cast(Cast(x, to=T2), to=T3)`` to ``Identity(x)`` when T3 matches x's type.
+
+        Dynamo-exported models frequently insert unnecessary cast round-trips
+        (e.g. fp32→fp16→fp32).  When the final cast type equals the original
+        input type the entire chain is a no-op and can be replaced by Identity.
+        """
+
+        def pattern(self, op, x, to, to_ignored):
+            return op.Cast(op.Cast(x, to=to_ignored), to=to)
+
+        def check(self, context, x: ir.Value, to: ir.Attr, to_ignored: ir.Attr) -> MatchResult:
+            check_result = MatchResult()
+            if x.dtype is None:
+                return check_result.fail("Input dtype unknown; cannot verify round-trip")
+            if x.dtype != to.as_int():
+                return check_result.fail(
+                    f"Not a round-trip cast: input dtype {x.dtype} != final cast to={to.as_int()}"
+                )
+            return check_result
+
+        def rewrite(self, op, x: ir.Value, to: ir.Attr, to_ignored: ir.Attr):
+            return op.Identity(x)
+
+    return [_CastCastRoundTrip().rule()]
+
+
 class OnnxCastChainElimination(Pass):
     """Fix com.microsoft opset declarations and eliminate redundant Cast chains.
 
     This pass first ensures the ``com.microsoft`` opset version 1 is
     registered on the model graph and every ONNX function scope (needed
     after ``GraphSurgeries`` inserts custom ops into dynamo-exported
-    models).  It then runs the ``onnxscript`` optimizer to collapse
-    consecutive Cast operators that cancel out and perform other
-    peephole optimizations.
+    models).  It then applies targeted onnxscript rewrite rules to
+    collapse consecutive Cast operators that form a round-trip
+    (e.g. fp32→fp16→fp32 → identity).
     """
 
     @classmethod
@@ -67,7 +104,7 @@ class OnnxCastChainElimination(Pass):
             "enable_cast_chain_elimination": PassConfigParam(
                 type_=bool,
                 default_value=True,
-                description="Run onnxscript optimizer to eliminate redundant Cast chains.",
+                description="Apply rewrite rules to eliminate redundant round-trip Cast chains.",
             ),
             **get_external_data_config(),
         }
@@ -83,20 +120,11 @@ class OnnxCastChainElimination(Pass):
         if config.fix_opset:
             _ensure_com_microsoft_opset(onnx_model)
 
-        # Step 2: Cast chain elimination via onnxscript optimizer
+        # Step 2: Cast chain elimination via targeted onnxscript rewrite rules
         if config.enable_cast_chain_elimination:
-            import onnxscript
+            from onnxscript.rewriter import rewrite
 
-            try:
-                onnx_model = onnxscript.optimizer.optimize(onnx_model)
-            except Exception as e:
-                if "TypeInferenceError" in str(e):
-                    logger.info(
-                        "onnxscript optimizer failed with %s. Rerunning with shape inference disabled.",
-                        str(e),
-                    )
-                    onnx_model = onnxscript.optimizer.optimize(onnx_model, onnx_shape_inference=False)
-                else:
-                    raise
+            rules = _get_cast_chain_rewrite_rules()
+            onnx_model = rewrite(onnx_model, pattern_rewrite_rules=rules)
 
         return model_proto_to_olive_model(onnx_model, output_model_path, config)

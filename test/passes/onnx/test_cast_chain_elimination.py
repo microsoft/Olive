@@ -102,9 +102,10 @@ class TestOnnxCastChainElimination:
         output = p.run(olive_model, str(tmp_path / "out.onnx"))
 
         result_model = onnx.load(output.model_path)
-        # The onnxscript optimizer should fold the redundant fp32→fp16→fp32
-        # chain into an identity (0 nodes) or at most leave the original 2.
-        assert len(result_model.graph.node) <= 2
+        # The rewrite rule collapses the round-trip fp32→fp16→fp32 chain
+        # into a single Identity node.
+        assert len(result_model.graph.node) == 1
+        assert result_model.graph.node[0].op_type == "Identity"
 
     def test_opset_fixup_applied(self, cast_chain_model_path, tmp_path):
         olive_model = ONNXModelHandler(model_path=str(cast_chain_model_path))
