@@ -126,13 +126,25 @@ def get_global_config(global_config_dict: dict[str, Any]) -> None:
     elif not isinstance(global_config_dict, dict):
         raise ValueError("The global configuration should be a dictionary.")
 
-    convert_layer_config(global_config_dict)
+    copied_layer_config = copy.deepcopy(global_config_dict)
+    convert_layer_config(copied_layer_config)
 
-    return QLayerConfig.from_dict(global_config_dict)
+    return QLayerConfig.from_dict(copied_layer_config)
+
+
+def deep_merge_dicts(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
+    """Deep merge two dictionaries."""
+    for k, v in b.items():
+        if isinstance(v, dict) and isinstance(a.get(k), dict):
+            a[k] = deep_merge_dicts(a[k], v)
+        else:
+            a[k] = v
+    return a
 
 
 def convert_layer_config_list_to_dict(
     layer_config_list: list[list[dict[str, Any], list[str]]],
+    global_config_dict: dict[str, Any] | None,
 ) -> dict[QLayerConfig, list[str]]:
     """Convert the layer configuration list to a dictionary."""
     layer_config_dict: dict[QLayerConfig, list[str]] = {}
@@ -142,9 +154,13 @@ def convert_layer_config_list_to_dict(
             logger.warning("The element of layer configuration should be a list of two elements.")
             continue
 
-        convert_layer_config(layer_config_item[0])
+        if not global_config_dict:
+            copied_layer_config = copy.deepcopy(layer_config_item[0])
+        else:
+            copied_layer_config = deep_merge_dicts(copy.deepcopy(global_config_dict), layer_config_item[0])
+        convert_layer_config(copied_layer_config)
 
-        layer_config = QLayerConfig.from_dict(layer_config_item[0])
+        layer_config = QLayerConfig.from_dict(copied_layer_config)
         layer_config_dict[layer_config] = layer_config_item[1]
 
     return layer_config_dict
@@ -152,6 +168,7 @@ def convert_layer_config_list_to_dict(
 
 def get_layer_type_config(
     layer_type_config_list: list[list[str, dict[str, Any]]] | None,
+    global_config_dict: dict[str, Any] | None,
 ) -> dict[QLayerConfig, list[str]] | None:
     """Get the layer type configuration for the given layer type configuration list."""
     if layer_type_config_list is None:
@@ -159,11 +176,12 @@ def get_layer_type_config(
     elif not isinstance(layer_type_config_list, list):
         raise ValueError("The layer type configuration should be a list.")
 
-    return convert_layer_config_list_to_dict(layer_type_config_list)
+    return convert_layer_config_list_to_dict(layer_type_config_list, global_config_dict)
 
 
 def get_specific_layer_config(
     specific_layer_config_list: list[list[str, dict[str, Any]]] | None,
+    global_config_dict: dict[str, Any] | None,
 ) -> dict[QLayerConfig, list[str]] | None:
     """Get the specific layer configuration for the given specific layer configuration list."""
     if specific_layer_config_list is None:
@@ -171,7 +189,7 @@ def get_specific_layer_config(
     elif not isinstance(specific_layer_config_list, list):
         raise ValueError("The specific layer configuration should be a list.")
 
-    return convert_layer_config_list_to_dict(specific_layer_config_list)
+    return convert_layer_config_list_to_dict(specific_layer_config_list, global_config_dict)
 
 
 algorithm_mapping = {
