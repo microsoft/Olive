@@ -42,8 +42,6 @@ def test_onnx_peephole_optimizer_pass(tmp_path):
 
 # TODO(team): this test will creat an unnecessary intermediate model file. Need to optimize it.
 def test_onnx_peephole_optimizer_pass_fuse_reshape_operations(tmp_path, external_data_config):
-    import numpy as np
-
     X = helper.make_tensor_value_info("X", TensorProto.INT64, [None])  # noqa: N806
     Y = helper.make_tensor_value_info("Y", TensorProto.INT64, [None])  # noqa: N806
 
