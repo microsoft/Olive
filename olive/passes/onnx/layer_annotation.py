@@ -12,11 +12,7 @@ logger = logging.getLogger(__name__)
 
 def _flatten_annotations(layer_annotations: dict[str, list[str]]) -> list[tuple[str, str]]:
     """Flatten a dict of {layer_name: [substring, ...]} into [(substring, layer_name), ...]."""
-    return [
-        (substring, layer_name)
-        for layer_name, substrings in layer_annotations.items()
-        for substring in substrings
-    ]
+    return [(substring, layer_name) for layer_name, substrings in layer_annotations.items() for substring in substrings]
 
 
 # ---------------------------------------------------------------------------
