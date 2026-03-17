@@ -23,8 +23,8 @@ def run_quark_quantization(args: Namespace) -> None:
     calibration_data_reader = args.calibration_data_reader
 
     global_config = get_global_config(args.global_config)
-    specific_layer_config = get_specific_layer_config(args.specific_layer_config, args.global_config)
-    layer_type_config = get_layer_type_config(args.layer_type_config, args.global_config)
+    specific_layer_config = get_specific_layer_config(args.specific_layer_config)
+    layer_type_config = get_layer_type_config(args.layer_type_config)
     algo_config = get_algo_config(args.algo_config)
     extra_options = get_extra_options(args.extra_options)
 
