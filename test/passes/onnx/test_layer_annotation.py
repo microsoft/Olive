@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from onnxscript import ir
 
-from olive.passes.onnx.layer_annotation import _flatten_annotations, annotate_ir_model
+from olive.passes.onnx.layer_annotation import _flatten_annotations, annotate_ir_model, annotate_proto_model
 
 
 class TestFlattenAnnotations:
@@ -121,3 +121,40 @@ class TestAnnotateIrModel:
         layer_annotations = {"layer_linear": ["linear"]}
         # Should not raise any errors
         annotate_ir_model(model, layer_annotations)
+
+
+class TestAnnotateProtoModel:
+    """Test the annotate_proto_model function (onnx.ModelProto path)."""
+
+    @staticmethod
+    def _make_proto_model(node_names):
+        """Build a minimal onnx.ModelProto with nodes having the given names."""
+        from onnx import TensorProto, helper
+
+        nodes = [
+            helper.make_node("Relu", inputs=["x"], outputs=[f"y_{i}"], name=name) for i, name in enumerate(node_names)
+        ]
+        graph = helper.make_graph(nodes, "test", [helper.make_tensor_value_info("x", TensorProto.FLOAT, [1])], [])
+        return helper.make_model(graph, opset_imports=[helper.make_opsetid("", 11)])
+
+    def test_annotate_proto_simple(self):
+        model_proto = self._make_proto_model(["linear_1", "sigmoid_2"])
+        annotate_proto_model(model_proto, {"layer_linear": ["linear"], "layer_sigmoid": ["sigmoid"]})
+
+        props = {n.name: {p.key: p.value for p in n.metadata_props} for n in model_proto.graph.node}
+        assert props["linear_1"]["layer_ann"] == "layer_linear"
+        assert props["sigmoid_2"]["layer_ann"] == "layer_sigmoid"
+
+    def test_annotate_proto_no_match(self):
+        model_proto = self._make_proto_model(["add_1"])
+        annotate_proto_model(model_proto, {"layer_other": ["other"]})
+
+        assert len(model_proto.graph.node[0].metadata_props) == 0
+
+    def test_annotate_proto_skips_unnamed_nodes(self):
+        model_proto = self._make_proto_model(["", "linear_1"])
+        annotate_proto_model(model_proto, {"layer_linear": ["linear"]})
+
+        assert len(model_proto.graph.node[0].metadata_props) == 0
+        props = {p.key: p.value for p in model_proto.graph.node[1].metadata_props}
+        assert props["layer_ann"] == "layer_linear"

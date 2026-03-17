@@ -67,6 +67,9 @@ def annotate_ir_model(model: ir.Model, layer_annotations: dict[str, list[str]]) 
 def _annotate_proto_graph(graph: onnx.GraphProto, substring_annotations: list[tuple[str, str]]) -> None:
     """Annotate nodes in an onnx.GraphProto, recursing into subgraphs."""
     for node in graph.node:
+        if not node.name:
+            continue
+
         matched_annotation = None
         for substring, annotation in substring_annotations:
             if substring in node.name:

@@ -72,9 +72,10 @@ def test_model_builder_layer_annotations(tmp_path, layer_annotations):
 
     if layer_annotations:
         # Create layer annotations to be applied
+        # Keys are layer names, values are lists of node-name substrings to match
         annotations = {
-            "model.embed_tokens": {"layer_id": "0", "layer_type": "embedding"},
-            "model.norm": {"layer_id": "1", "layer_type": "layer_norm"},
+            "embedding_layer": ["embed_tokens"],
+            "norm_layer": ["norm"],
         }
         input_model.model_attributes = {"layer_annotations": annotations}
 
