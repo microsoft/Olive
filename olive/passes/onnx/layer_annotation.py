@@ -30,6 +30,7 @@ def _annotate_ir_graph(graph: ir.Graph, substring_annotations: list[tuple[str, s
         for substring, annotation in substring_annotations:
             if substring in node.name:
                 matched_annotation = annotation
+                break  # If multiple annotations match, the first one in the list wins (consistent with ORT reference implementation)
 
         if matched_annotation is not None:
             node.metadata_props["layer_ann"] = matched_annotation
@@ -48,7 +49,7 @@ def annotate_ir_model(model: ir.Model, layer_annotations: dict[str, list[str]]) 
 
     For each node whose name contains a configured substring, a metadata property
     ``layer_ann`` is set to the corresponding layer name.  If multiple substrings
-    match, the last one in iteration order wins (consistent with the ORT reference
+    match, the first one in iteration order wins (consistent with the ORT reference
     implementation).
 
     :param model: The onnxscript IR model to annotate.
@@ -70,6 +71,7 @@ def _annotate_proto_graph(graph: onnx.GraphProto, substring_annotations: list[tu
         for substring, annotation in substring_annotations:
             if substring in node.name:
                 matched_annotation = annotation
+                break  # If multiple annotations match, the first one in the list wins (consistent with ORT reference implementation)
 
         if matched_annotation is not None:
             entry = None
@@ -99,7 +101,7 @@ def annotate_proto_model(model: onnx.ModelProto, layer_annotations: dict[str, li
 
     For each node whose name contains a configured substring, a metadata property
     ``layer_ann`` is set to the corresponding layer name.  If multiple substrings
-    match, the last one in iteration order wins (consistent with the ORT reference
+    match, the first one in iteration order wins (consistent with the ORT reference
     implementation).
 
     :param model: The ONNX ModelProto to annotate.
