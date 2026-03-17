@@ -7,6 +7,10 @@ from pathlib import Path
 
 import numpy as np
 import onnx
+from onnx import helper
+from onnxscript import ir
+from onnxscript.rewriter import RewriteRule, rewrite
+from onnxscript.rewriter._basics import MatchResult
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -18,6 +22,40 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
+def _get_cast_chain_rewrite_rules():
+    """Build onnxscript rewrite rules for eliminating redundant Cast chains.
+
+    Returns a list of ``RewriteRule`` instances that target round-trip
+    Cast patterns (e.g. fp32→fp16→fp32) produced by dynamo export.
+    """
+
+    def _cast_cast_round_trip_pattern(op, x, to, to_ignored):
+        """Match ``Cast(Cast(x, to=T2), to=T3)``."""
+        return op.Cast(op.Cast(x, to=to_ignored), to=to)
+
+    def _cast_cast_round_trip_check(context, x: ir.Value, to: ir.Attr, to_ignored: ir.Attr) -> MatchResult:
+        """Only match when the final cast type equals the original input type (round-trip)."""
+        check_result = MatchResult()
+        if x.dtype is None:
+            return check_result.fail("Input dtype unknown; cannot verify round-trip")
+        if x.dtype != to.as_int():
+            return check_result.fail(f"Not a round-trip cast: input dtype {x.dtype} != final cast to={to.as_int()}")
+        return check_result
+
+    def _cast_cast_round_trip_replacement(op, x, **_):
+        """Replace the round-trip cast chain with Identity."""
+        return op.Identity(x)
+
+    return [
+        RewriteRule(
+            _cast_cast_round_trip_pattern,
+            _cast_cast_round_trip_replacement,
+            _cast_cast_round_trip_check,
+            name="CastCastRoundTrip",
+        )
+    ]
+
+
 # TODO(anyone): Move from onnxruntime.transformers.onnx_model.OnnxModel to OnnxDAG
 # or reimplement logic using onnx-rewriter
 # no need to create a new instance of OnnxModel for each optimization
@@ -25,6 +63,32 @@ class ModelOptimizer:
     def __init__(self, source_model_path):
         self.source_model_path = str(source_model_path)
         self.model = onnx.load(self.source_model_path)
+
+    def ensure_com_microsoft_opset(self):
+        """Ensure com.microsoft opset v1 is declared at model and function level.
+
+        Olive ``GraphSurgeries`` may insert ``com.microsoft`` operators (such as
+        ``LoopMHA``) without registering the custom opset on every ONNX function
+        scope.  This method fixes the declarations so that downstream passes and
+        validators do not fail.
+        """
+        existing = {op.domain for op in self.model.opset_import}
+        if "com.microsoft" not in existing:
+            self.model.opset_import.append(helper.make_opsetid("com.microsoft", 1))
+        for func in self.model.functions:
+            func_domains = {op.domain for op in func.opset_import}
+            if "com.microsoft" not in func_domains:
+                func.opset_import.append(helper.make_opsetid("com.microsoft", 1))
+
+    def eliminate_cast_chains(self):
+        """Eliminate redundant round-trip Cast chains (e.g. fp32→fp16→fp32).
+
+        Dynamo-exported ONNX models often contain unnecessary cast round-trips.
+        This method applies a targeted onnxscript rewrite rule to collapse them
+        into Identity nodes.
+        """
+        rules = _get_cast_chain_rewrite_rules()
+        self.model = rewrite(self.model, pattern_rewrite_rules=rules)
 
     def fuse_reshape_operations(self):
         # Remove unnecessary Reshape operator. Consecutive Reshape operators with latter's input being "[-1]"
@@ -85,11 +149,37 @@ class ModelOptimizer:
 
 
 class OnnxPeepholeOptimizer(Pass):
-    """Optimize ONNX model by fusing nodes."""
+    """Optimize ONNX model by fusing nodes.
+
+    Runs a combination of onnxscript optimizer, onnxoptimizer, reshape
+    fusion, and optionally:
+    - ``com.microsoft`` opset fixup (for models that use custom ops in
+      function scopes after ``GraphSurgeries``).
+    - Cast chain elimination (collapses round-trip Cast chains like
+      fp32→fp16→fp32 produced by dynamo export).
+    """
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        return get_external_data_config()
+        return {
+            "fix_com_microsoft_opset": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Ensure com.microsoft opset v1 is declared on the model and all function scopes. "
+                    "Enable this when GraphSurgeries inserts custom ops (e.g. LoopMHA) into function scopes."
+                ),
+            ),
+            "cast_chain_elimination": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Apply a targeted rewrite rule to eliminate redundant round-trip Cast chains "
+                    "(e.g. fp32→fp16→fp32 → identity) produced by dynamo export."
+                ),
+            ),
+            **get_external_data_config(),
+        }
 
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
@@ -101,6 +191,14 @@ class OnnxPeepholeOptimizer(Pass):
         peephole_optimizer.onnxscript_optimize()
         peephole_optimizer.onnxoptimizer_optimize()
         peephole_optimizer.fuse_reshape_operations()
+
+        # Optional: fix com.microsoft opset declarations
+        if config.fix_com_microsoft_opset:
+            peephole_optimizer.ensure_com_microsoft_opset()
+
+        # Optional: eliminate redundant round-trip Cast chains
+        if config.cast_chain_elimination:
+            peephole_optimizer.eliminate_cast_chains()
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(peephole_optimizer.model, output_model_path, config)
