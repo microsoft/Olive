@@ -155,6 +155,21 @@ class OnnxPeepholeOptimizer(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
+            "onnxscript_optimize": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Run onnxscript optimizer for general graph optimizations.",
+            ),
+            "onnxoptimizer_optimize": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Run onnxoptimizer for additional graph optimizations.",
+            ),
+            "fuse_reshape_operations": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Fuse consecutive Reshape operators where the latter flattens to [-1].",
+            ),
             "fix_com_microsoft_opset": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -179,17 +194,20 @@ class OnnxPeepholeOptimizer(Pass):
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        # optimize model
         peephole_optimizer = ModelOptimizer(model.model_path)
-        peephole_optimizer.onnxscript_optimize()
-        peephole_optimizer.onnxoptimizer_optimize()
-        peephole_optimizer.fuse_reshape_operations()
 
-        # Optional: fix com.microsoft opset declarations
+        if config.onnxscript_optimize:
+            peephole_optimizer.onnxscript_optimize()
+
+        if config.onnxoptimizer_optimize:
+            peephole_optimizer.onnxoptimizer_optimize()
+
+        if config.fuse_reshape_operations:
+            peephole_optimizer.fuse_reshape_operations()
+
         if config.fix_com_microsoft_opset:
             peephole_optimizer.ensure_com_microsoft_opset()
 
-        # Optional: eliminate redundant round-trip Cast chains
         if config.cast_chain_elimination:
             peephole_optimizer.eliminate_cast_chains()
 
