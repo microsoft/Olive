@@ -26,6 +26,11 @@ from quark.onnx.quantization.config.spec import (
     ScaleType,
 )
 
+try:
+    from quark.onnx.quantization.config.data_type import parse_data_type
+except ImportError:
+    parse_data_type = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,23 +60,41 @@ quant_granularity_mapping = {
 
 def convert_tensor_config(tensor_config_dict: dict[str, Any]) -> None:
     """Convert the old format string to the enum string."""
-    if "scale_type" in tensor_config_dict and tensor_config_dict["scale_type"] in scale_type_mapping:
+    if "symmetric" not in tensor_config_dict:
+        tensor_config_dict["symmetric"] = True
+
+    if "scale_type" not in tensor_config_dict:
+        obj = ScaleType.Float32
+    elif tensor_config_dict["scale_type"] not in scale_type_mapping:
+        logger.warning("The scale type %s is not supported.", tensor_config_dict["scale_type"])
+        obj = ScaleType.Float32
+    else:
         obj = scale_type_mapping[tensor_config_dict["scale_type"]]
-        tensor_config_dict["scale_type"] = f"{obj.__class__.__name__}.{obj.name}"
+    tensor_config_dict["scale_type"] = f"{obj.__class__.__name__}.{obj.name}"
 
-    if (
-        "calibration_method" in tensor_config_dict
-        and tensor_config_dict["calibration_method"] in calibration_method_mapping
-    ):
+    if "calibration_method" not in tensor_config_dict:
+        obj = CalibMethod.Percentile
+    elif tensor_config_dict["calibration_method"] not in calibration_method_mapping:
+        logger.warning("The calibration method %s is not supported.", tensor_config_dict["calibration_method"])
+        obj = CalibMethod.Percentile
+    else:
         obj = calibration_method_mapping[tensor_config_dict["calibration_method"]]
-        tensor_config_dict["calibration_method"] = f"{obj.__class__.__name__}.{obj.name}"
+    tensor_config_dict["calibration_method"] = f"{obj.__class__.__name__}.{obj.name}"
 
-    if (
-        "quant_granularity" in tensor_config_dict
-        and tensor_config_dict["quant_granularity"] in quant_granularity_mapping
-    ):
+    if "quant_granularity" not in tensor_config_dict:
+        obj = QuantGranularity.Tensor
+    elif tensor_config_dict["quant_granularity"] not in quant_granularity_mapping:
+        logger.warning("The quant granularity %s is not supported.", tensor_config_dict["quant_granularity"])
+        obj = QuantGranularity.Tensor
+    else:
         obj = quant_granularity_mapping[tensor_config_dict["quant_granularity"]]
-        tensor_config_dict["quant_granularity"] = f"{obj.__class__.__name__}.{obj.name}"
+    tensor_config_dict["quant_granularity"] = f"{obj.__class__.__name__}.{obj.name}"
+
+    if "data_type" not in tensor_config_dict:
+        tensor_config_dict["data_type"] = "Int8"
+    elif parse_data_type and parse_data_type(tensor_config_dict["data_type"]) is None:
+        logger.warning("The data type %s is not supported.", tensor_config_dict["data_type"])
+        tensor_config_dict["data_type"] = "Int8"
 
 
 def convert_layer_config(layer_config_dict: dict[str, Any]) -> None:
@@ -87,14 +110,20 @@ def convert_layer_config(layer_config_dict: dict[str, Any]) -> None:
 
     if "input_tensors" in layer_config_dict:
         convert_tensor_config(layer_config_dict["input_tensors"])
+    elif "activation" in layer_config_dict:
+        layer_config_dict["input_tensors"] = layer_config_dict["activation"]
 
     if "output_tensors" in layer_config_dict:
         convert_tensor_config(layer_config_dict["output_tensors"])
+    elif "activation" in layer_config_dict:
+        layer_config_dict["output_tensors"] = layer_config_dict["activation"]
 
 
 def get_global_config(global_config_dict: dict[str, Any]) -> None:
     """Get the global configuration for the given global configuration dictionary."""
-    if not isinstance(global_config_dict, dict):
+    if global_config_dict is None:
+        return None
+    elif not isinstance(global_config_dict, dict):
         raise ValueError("The global configuration should be a dictionary.")
 
     convert_layer_config(global_config_dict)
@@ -121,19 +150,25 @@ def convert_layer_config_list_to_dict(
     return layer_config_dict
 
 
-def get_layer_type_config(layer_type_config_list: list[list[str, dict[str, Any]]]) -> dict[QLayerConfig, list[str]]:
+def get_layer_type_config(
+    layer_type_config_list: list[list[str, dict[str, Any]]] | None,
+) -> dict[QLayerConfig, list[str]] | None:
     """Get the layer type configuration for the given layer type configuration list."""
-    if not isinstance(layer_type_config_list, list):
+    if layer_type_config_list is None:
+        return None
+    elif not isinstance(layer_type_config_list, list):
         raise ValueError("The layer type configuration should be a list.")
 
     return convert_layer_config_list_to_dict(layer_type_config_list)
 
 
 def get_specific_layer_config(
-    specific_layer_config_list: list[list[str, dict[str, Any]]],
-) -> dict[QLayerConfig, list[str]]:
+    specific_layer_config_list: list[list[str, dict[str, Any]]] | None,
+) -> dict[QLayerConfig, list[str]] | None:
     """Get the specific layer configuration for the given specific layer configuration list."""
-    if not isinstance(specific_layer_config_list, list):
+    if specific_layer_config_list is None:
+        return None
+    elif not isinstance(specific_layer_config_list, list):
         raise ValueError("The specific layer configuration should be a list.")
 
     return convert_layer_config_list_to_dict(specific_layer_config_list)
