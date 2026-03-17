@@ -82,3 +82,21 @@ class TestCaptureLayerAnnotations:
         out = p.run(_make_input_model(), str(tmp_path))
 
         assert out.model_attributes["layer_annotations"] == annotations
+
+    @pytest.mark.parametrize(
+        "bad_annotations",
+        [
+            {"enc": "attn"},  # value is a string, not a list
+            {"enc": []},  # empty list
+            {"": ["attn"]},  # empty key
+            {"enc": [""]},  # empty string in list
+            {"enc": [123]},  # non-string in list
+        ],
+    )
+    def test_validate_config_rejects_malformed_annotations(self, bad_annotations):
+        from olive.hardware import DEFAULT_CPU_ACCELERATOR
+
+        config = CaptureLayerAnnotations.generate_config(
+            DEFAULT_CPU_ACCELERATOR, {"layer_annotations": bad_annotations}
+        )
+        assert CaptureLayerAnnotations.validate_config(config, DEFAULT_CPU_ACCELERATOR) is False

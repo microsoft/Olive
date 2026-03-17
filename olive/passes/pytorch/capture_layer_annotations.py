@@ -52,6 +52,17 @@ class CaptureLayerAnnotations(Pass):
             logger.info("layer_annotations must be a non-empty dictionary.")
             return False
 
+        for key, value in config.layer_annotations.items():
+            if not isinstance(key, str) or not key:
+                logger.info("layer_annotations keys must be non-empty strings, got %r.", key)
+                return False
+            if not isinstance(value, list) or not value:
+                logger.info("layer_annotations[%r] must be a non-empty list of strings, got %r.", key, type(value))
+                return False
+            if not all(isinstance(s, str) and s for s in value):
+                logger.info("layer_annotations[%r] must contain only non-empty strings.", key)
+                return False
+
         return True
 
     def _run_for_config(
