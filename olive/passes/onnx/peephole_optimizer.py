@@ -22,40 +22,6 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-def _get_cast_chain_rewrite_rules():
-    """Build onnxscript rewrite rules for eliminating redundant Cast chains.
-
-    Returns a list of ``RewriteRule`` instances that target round-trip
-    Cast patterns (e.g. fp32→fp16→fp32) produced by dynamo export.
-    """
-
-    def _cast_cast_round_trip_pattern(op, x, to, to_ignored):
-        """Match ``Cast(Cast(x, to=T2), to=T3)``."""
-        return op.Cast(op.Cast(x, to=to_ignored), to=to)
-
-    def _cast_cast_round_trip_check(context, x: ir.Value, to: ir.Attr, to_ignored: ir.Attr) -> MatchResult:
-        """Only match when the final cast type equals the original input type (round-trip)."""
-        check_result = MatchResult()
-        if x.dtype is None:
-            return check_result.fail("Input dtype unknown; cannot verify round-trip")
-        if x.dtype != to.as_int():
-            return check_result.fail(f"Not a round-trip cast: input dtype {x.dtype} != final cast to={to.as_int()}")
-        return check_result
-
-    def _cast_cast_round_trip_replacement(op, x, **_):
-        """Replace the round-trip cast chain with Identity."""
-        return op.Identity(x)
-
-    return [
-        RewriteRule(
-            _cast_cast_round_trip_pattern,
-            _cast_cast_round_trip_replacement,
-            _cast_cast_round_trip_check,
-            name="CastCastRoundTrip",
-        )
-    ]
-
-
 # TODO(anyone): Move from onnxruntime.transformers.onnx_model.OnnxModel to OnnxDAG
 # or reimplement logic using onnx-rewriter
 # no need to create a new instance of OnnxModel for each optimization
@@ -87,8 +53,35 @@ class ModelOptimizer:
         This method applies a targeted onnxscript rewrite rule to collapse them
         into Identity nodes.
         """
-        rules = _get_cast_chain_rewrite_rules()
+        rules = self._get_cast_chain_rewrite_rules()
         self.model = rewrite(self.model, pattern_rewrite_rules=rules)
+
+    @staticmethod
+    def _get_cast_chain_rewrite_rules():
+        """Build onnxscript rewrite rules for eliminating redundant Cast chains."""
+
+        def _cast_cast_round_trip_pattern(op, x, to, to_ignored):
+            return op.Cast(op.Cast(x, to=to_ignored), to=to)
+
+        def _cast_cast_round_trip_check(context, x: ir.Value, to: ir.Attr, to_ignored: ir.Attr) -> MatchResult:
+            check_result = MatchResult()
+            if x.dtype is None:
+                return check_result.fail("Input dtype unknown; cannot verify round-trip")
+            if x.dtype != to.as_int():
+                return check_result.fail(f"Not a round-trip cast: input dtype {x.dtype} != final cast to={to.as_int()}")
+            return check_result
+
+        def _cast_cast_round_trip_replacement(op, x, **_):
+            return op.Identity(x)
+
+        return [
+            RewriteRule(
+                _cast_cast_round_trip_pattern,
+                _cast_cast_round_trip_replacement,
+                _cast_cast_round_trip_check,
+                name="CastCastRoundTrip",
+            )
+        ]
 
     def fuse_reshape_operations(self):
         # Remove unnecessary Reshape operator. Consecutive Reshape operators with latter's input being "[-1]"
