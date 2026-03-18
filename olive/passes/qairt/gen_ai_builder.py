@@ -58,6 +58,16 @@ class QairtGenAIBuilder(Pass):
                 " This option will be ignored if any device custom configurations are set."
                 "e.g. 'chipset:chipset:SC8380XP', 'dsp_arch:v73;soc_model:60' ",
             ),
+            "vtcm_size_in_mb": PassConfigParam(
+                type_=int,
+                default_value=0,
+                description="VTCM size in megabytes for HTP execution. HTP only."
+            ),
+            "hvx_threads": PassConfigParam(
+                type_=int,
+                default_value=0,
+                description="Number of HVX threads for parallel processing. HTP only."
+            ),
             "extended_udma": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -95,6 +105,12 @@ class QairtGenAIBuilder(Pass):
         if config.backend != qairt.BackendType.HTP.value:
             if config.extended_udma:
                 logger.error("extended_udma is unsupported on non-HTP backends")
+                return False
+            if config.vtcm_size_in_mb != 0:
+                logger.error("vtcm_size_in_mb is unsupported on non-HTP backends")
+                return False
+            if config.hvx_threads != 0:
+                logger.error("hvx_threads is unsupported on non-HTP backends")
                 return False
             if config.sequence_lengths:
                 logger.error("sequence_lengths is unsupported on non-HTP backends")
@@ -146,6 +162,12 @@ class QairtGenAIBuilder(Pass):
             # Device configs
             gen_ai_builder.set_targets([config.soc_details])
 
+            if config.vtcm_size_in_mb != 0:
+                gen_ai_builder._compilation_config.graph_custom_configs[0].vtcm_size_in_mb = config.vtcm_size_in_mb
+
+            if config.hvx_threads != 0:
+                gen_ai_builder._compilation_config.graph_custom_configs[0].hvx_threads = config.hvx_threads
+
             if config.extended_udma:
                 dev_cfg = gen_ai_builder._compilation_config.device_custom_configs[0]
                 arch_version = int(str(dev_cfg.dsp_arch).lstrip("v"))
@@ -153,11 +175,6 @@ class QairtGenAIBuilder(Pass):
                     gen_ai_builder._compilation_config.context_custom_configs[0].extended_udma = True
                 else:
                     raise ValueError("extended_udma is unsupported on DSP architectures less than v81")
-
-            gen_ai_builder._compilation_config.graph_custom_configs[0].vtcm_size_in_mb = 8
-            gen_ai_builder._compilation_config.graph_custom_configs[0].hvx_threads = 8
-
-            logger.error(gen_ai_builder._compilation_config.model_dump_json(indent=2))
 
             # Model configs
             if config.sequence_lengths:
