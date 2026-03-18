@@ -4,23 +4,18 @@
 # --------------------------------------------------------------------------
 
 import logging
-import numbers
 import os
-from collections.abc import Mapping, MutableMapping
 from pathlib import Path
-from typing import Any, ClassVar, Union
+from typing import Union
 
 import onnx.helper as helper
-from onnx import checker, TensorProto, save
+from onnx import TensorProto, checker, save
 
-from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
-from olive.hardware.accelerator import AcceleratorSpec, Device
+from olive.common.utils import hardlink_copy_file
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, QairtModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-
-import qairt
-import qairt.gen_ai_api as qairt_genai
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +40,7 @@ class QairtEncapsulation(Pass):
             "run_checker": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Runs the onnx checker on the model before it is encapsulated."
+                description="Runs the onnx checker on the model before it is encapsulated.",
             ),
             "opset_imports": PassConfigParam(
                 type_=list,
@@ -63,24 +58,32 @@ class QairtEncapsulation(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
+        try:
+            import qairt
+            import qairt.gen_ai_api as qairt_genai
+        except ImportError as exc:
+            raise ImportError(
+                "Failed to import QAIRT GenAIBuilder API - please install olive-ai[qairt] to use QAIRT passes."
+                "If already installed, please run `qairt-vm -i` for help troubleshooting issues."
+            ) from exc
 
         container: qairt_genai.LLMContainer = qairt_genai.LLMContainer.load(model.model_path)
 
         # Input/Ouptut metadata
         container.inputs = [("input_ids", TensorProto.INT32, ["batch_size", "sequence_length"])]
         container.outputs = [("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])]
-        
-        input_info = {input[0]: (input[1], input[2]) for input in container.inputs}
 
-        output_info = {output[0]: (output[1], output[2]) for output in container.outputs}
+        input_info = {inp[0]: (inp[1], inp[2]) for inp in container.inputs}
+
+        output_info = {out[0]: (out[1], out[2]) for out in container.outputs}
 
         # Input/Output tensor helpers
         inputs = []
-        for (name, datatype, shape) in container.inputs:
+        for name, datatype, shape in container.inputs:
             inputs.append(helper.make_tensor_value_info(name, datatype, shape))
 
         outputs = []
-        for (name, datatype, shape) in container.outputs:
+        for name, datatype, shape in container.outputs:
             outputs.append(helper.make_tensor_value_info(name, datatype, shape))
 
         container.export(output_model_path, export_format=qairt.ExportFormat.LM_EXECUTOR)
@@ -88,21 +91,23 @@ class QairtEncapsulation(Pass):
         # Find the .dlc file in the output directory
         output_path_obj = Path(output_model_path)
         dlc_files = list(output_path_obj.glob("*.dlc"))
-        
+
         if not dlc_files:
             raise FileNotFoundError(
                 f"No .dlc file found in {output_model_path} after export. "
                 "Expected at least one .dlc file to be generated."
             )
-        
+
         if len(dlc_files) > 1:
             logger.warning(
-                f"Multiple .dlc files found in {output_model_path}: {[f.name for f in dlc_files]}. "
-                f"Using the first one: {dlc_files[0].name}"
+                "Multiple .dlc files found in %s: %s. Using the first one: %s",
+                output_model_path,
+                [f.name for f in dlc_files],
+                dlc_files[0].name,
             )
-        
+
         dlc_filename = dlc_files[0].name
-        logger.info(f"Found DLC file: {dlc_filename}")
+        logger.info("Found DLC file: %s", dlc_filename)
 
         context_node = helper.make_node(
             "EPContext",
@@ -143,14 +148,14 @@ class QairtEncapsulation(Pass):
             "config.json",
             "generation_config.json",
             "tokenizer.json",
-            "tokenizer_config.json"
+            "tokenizer_config.json",
         ]
         for file in passthrough_files:
             config_path = Path(model.model_path) / file
             dest_path = Path(output_model_path)
             try:
                 hardlink_copy_file(config_path, dest_path, follow_symlinks=True)
-            except:
+            except (OSError, FileNotFoundError):
                 # Not every model has all the files listed above
                 pass
 
@@ -187,9 +192,7 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
                 "session_options": {
                     "log_id": "onnxruntime-genai",
                     "graph_optimization_level": "ORT_DISABLE_ALL",
-                    "provider_options": [
-                        {"QNN": {"backend_type": config.backend}, "genai_model": "True"}
-                    ],
+                    "provider_options": [{"QNN": {"backend_type": config.backend}, "genai_model": "True"}],
                 },
                 "filename": "qairt_model.onnx",
                 "head_size": -1,
@@ -233,9 +236,7 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
     try:
         import onnx
     except ImportError:
-        raise ImportError(
-            "Please install onnx to create genai_config.json for ONNX QAIRT Encapsulated model"
-        ) from None
+        raise ImportError("Please install onnx to create genai_config.json for ONNX QAIRT Encapsulated model") from None
 
     model_path = Path(output_path) / model_name
     model = onnx.load(model_path)

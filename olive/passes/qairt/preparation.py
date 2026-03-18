@@ -5,16 +5,13 @@
 
 import json
 import logging
-import re
 import subprocess
 import tempfile
 import threading
 from pathlib import Path
 from queue import Empty, Queue
-from typing import Union
 
 from olive.common.config_utils import ParamCategory
-from olive.common.utils import hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler, QairtPreparedModelHandler
 from olive.passes import Pass
@@ -55,7 +52,7 @@ class QairtPreparation(Pass):
                 default_value="./cache/qairt/preparation",
                 description="Directory to be used as the cache directory for subsequent QairtPreparation invocations."
                 "By default, saves to a similar location to the Olive cache.",
-            )
+            ),
         }
 
     def _run_for_config(
@@ -77,18 +74,17 @@ class QairtPreparation(Pass):
         Raises:
             ValueError: If input model is not HfModelHandler or script path is invalid
             RuntimeError: If script execution fails
+
         """
         # Validate input model type
         if not isinstance(model, HfModelHandler):
-            raise ValueError(
-                f"QairtPreparation requires HfModelHandler as input, got {type(model).__name__}"
-            )
+            raise ValueError(f"QairtPreparation requires HfModelHandler as input, got {type(model).__name__}")
 
         # Resolve and validate script path
         script_path = Path(config.script_path).resolve()
         if not script_path.exists():
             raise ValueError(f"Preparation script not found at: {script_path}")
-        if not script_path.suffix == ".py":
+        if script_path.suffix != ".py":
             raise ValueError(f"Script must be a Python file (.py), got: {script_path}")
 
         # Prepare configuration for the script
@@ -96,9 +92,9 @@ class QairtPreparation(Pass):
         script_config = {
             "ADASCALE_DIR": str(cache_dir_path / "adascale"),
             "CACHE_DIR": str(cache_dir_path),
-            "OUTPUT_DIR": str(output_model_path)
+            "OUTPUT_DIR": str(output_model_path),
         }
-        
+
         # Merge user-provided config
         if config.script_config:
             script_config.update(config.script_config)
@@ -107,85 +103,83 @@ class QairtPreparation(Pass):
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False, prefix="olive_qairt_prep_"
         ) as config_file:
-            logging.error(script_config)
             json.dump(script_config, config_file, indent=2)
             config_file_path = config_file.name
 
         try:
             logger.info("Executing script %s", script_path)
-            logger.debug("Script configuration: %s", script_config)
+            logger.info("Script configuration: %s", script_config)
 
             # Helper function to read from pipe in a separate thread
             def enqueue_output(pipe, queue):
                 """Read lines from pipe and put them in queue."""
-                for line in iter(pipe.readline, ''):
+                for line in iter(pipe.readline, ""):
                     queue.put(line)
                 pipe.close()
 
             # Execute the preparation script with streaming output
-            process = subprocess.Popen(
+            with subprocess.Popen(
                 ["python", str(script_path), "--config", config_file_path],
                 cwd=str(script_path.parent),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,  # Line buffered
-            )
+            ) as process:
+                # Create queues for stdout and stderr
+                stdout_queue = Queue()
+                stderr_queue = Queue()
 
-            # Create queues for stdout and stderr
-            stdout_queue = Queue()
-            stderr_queue = Queue()
+                # Start threads to read from stdout and stderr concurrently
+                stdout_thread = threading.Thread(target=enqueue_output, args=(process.stdout, stdout_queue))
+                stderr_thread = threading.Thread(target=enqueue_output, args=(process.stderr, stderr_queue))
 
-            # Start threads to read from stdout and stderr concurrently
-            stdout_thread = threading.Thread(target=enqueue_output, args=(process.stdout, stdout_queue))
-            stderr_thread = threading.Thread(target=enqueue_output, args=(process.stderr, stderr_queue))
-            
-            stdout_thread.daemon = True
-            stderr_thread.daemon = True
-            stdout_thread.start()
-            stderr_thread.start()
+                stdout_thread.daemon = True
+                stderr_thread.daemon = True
+                stdout_thread.start()
+                stderr_thread.start()
 
-            # Collect output for error reporting
-            stdout_lines = []
-            stderr_lines = []
+                # Collect output for error reporting
+                stdout_lines = []
+                stderr_lines = []
 
-            # Stream stdout and stderr in real-time from queues
-            while process.poll() is None or not stdout_queue.empty() or not stderr_queue.empty():
-                # Try to read from stdout queue
-                try:
-                    stdout_line = stdout_queue.get_nowait()
-                    line = stdout_line.rstrip()
-                    logger.info(line)
-                    stdout_lines.append(line)
-                except Empty:
-                    pass
-                
-                # Try to read from stderr queue
-                try:
-                    stderr_line = stderr_queue.get_nowait()
-                    line = stderr_line.rstrip()
-                    logger.debug(line)
-                    stderr_lines.append(line)
-                except Empty:
-                    pass
+                # Stream stdout and stderr in real-time from queues
+                while process.poll() is None or not stdout_queue.empty() or not stderr_queue.empty():
+                    # Try to read from stdout queue
+                    try:
+                        stdout_line = stdout_queue.get_nowait()
+                        line = stdout_line.rstrip()
+                        logger.info(line)
+                        stdout_lines.append(line)
+                    except Empty:
+                        pass
 
-            # Wait for process to complete and get return code
-            returncode = process.wait()
+                    # Try to read from stderr queue
+                    try:
+                        stderr_line = stderr_queue.get_nowait()
+                        line = stderr_line.rstrip()
+                        logger.debug(line)
+                        stderr_lines.append(line)
+                    except Empty:
+                        pass
 
-            # Check for errors
-            if returncode != 0:
-                stdout_text = "\n".join(stdout_lines)
-                stderr_text = "\n".join(stderr_lines)
-                error_msg = (
-                    f"QAIRT preparation script failed with exit code {returncode}.\n"
-                    f"Script: {script_path}\n"
-                    f"Working directory: {script_path.parent}\n"
-                    f"Stdout: {stdout_text}\n"
-                    f"Stderr: {stderr_text}"
-                )
-                raise RuntimeError(error_msg)
+                # Wait for process to complete and get return code
+                returncode = process.wait()
 
-            logger.info("QAIRT preparation script completed successfully")
+                # Check for errors
+                if returncode != 0:
+                    stdout_text = "\n".join(stdout_lines)
+                    stderr_text = "\n".join(stderr_lines)
+                    error_msg = (
+                        f"QAIRT preparation script failed with exit code {returncode}.\n"
+                        f"Script: {script_path}\n"
+                        f"Working directory: {script_path.parent}\n"
+                        f"Stdout: {stdout_text}\n"
+                        f"Stderr: {stderr_text}"
+                    )
+                    raise RuntimeError(error_msg)
+
+                logger.info("QAIRT preparation script completed successfully")
 
         finally:
             # Clean up temporary config file

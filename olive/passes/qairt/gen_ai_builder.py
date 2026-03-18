@@ -14,9 +14,6 @@ from olive.model import HfModelHandler, QairtModelHandler, QairtPreparedModelHan
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
-import qairt
-import qairt.gen_ai_api as qairt_genai
-
 logger = logging.getLogger(__name__)
 
 
@@ -59,30 +56,24 @@ class QairtGenAIBuilder(Pass):
                 "e.g. 'chipset:chipset:SC8380XP', 'dsp_arch:v73;soc_model:60' ",
             ),
             "vtcm_size_in_mb": PassConfigParam(
-                type_=int,
-                default_value=0,
-                description="VTCM size in megabytes for HTP execution. HTP only."
+                type_=int, default_value=0, description="VTCM size in megabytes for HTP execution. HTP only."
             ),
             "hvx_threads": PassConfigParam(
-                type_=int,
-                default_value=0,
-                description="Number of HVX threads for parallel processing. HTP only."
+                type_=int, default_value=0, description="Number of HVX threads for parallel processing. HTP only."
             ),
             "extended_udma": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Improves performance at the cost of memory by using UDMA. HTP only."
+                description="Improves performance at the cost of memory by using UDMA. HTP only.",
             ),
             # Model configs
             "sequence_lengths": PassConfigParam(
-                type_=list[int],
-                default_value=None,
-                description="The sequence lengths of the final compiled graphs."
+                type_=list[int], default_value=None, description="The sequence lengths of the final compiled graphs."
             ),
             "num_splits": PassConfigParam(
                 type_=int,
                 default_value=-1,
-                description="Number of model splits. Default value is -1 (value chosen by QAIRT based on model). " 
+                description="Number of model splits. Default value is -1 (value chosen by QAIRT based on model). "
                 "HTP only.",
             ),
             "multi_graph": PassConfigParam(
@@ -90,18 +81,24 @@ class QairtGenAIBuilder(Pass):
                 default_value=False,
                 description="Produces context binaries with additional context length combinations. "
                 "Improves token generation performance for different context lengths but increases preparation time. "
-                "HTP only."
-            )
+                "HTP only.",
+            ),
         }
 
-    
     @classmethod
     def validate_config(
         cls,
         config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
-        
+        try:
+            import qairt
+        except ImportError as exc:
+            raise ImportError(
+                "Failed to import QAIRT GenAIBuilder API - please install olive-ai[qairt] to use QAIRT passes."
+                "If already installed, please run `qairt-vm -i` for help troubleshooting issues."
+            ) from exc
+
         if config.backend != qairt.BackendType.HTP.value:
             if config.extended_udma:
                 logger.error("extended_udma is unsupported on non-HTP backends")
@@ -121,9 +118,8 @@ class QairtGenAIBuilder(Pass):
             if config.multi_graph:
                 logger.error("multi_graph is unsupported on non-HTP backends")
                 return False
-        
+
         return True
-        
 
     def _run_for_config(
         self,
@@ -131,6 +127,14 @@ class QairtGenAIBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> QairtModelHandler:
+        try:
+            import qairt
+            import qairt.gen_ai_api as qairt_genai
+        except ImportError as exc:
+            raise ImportError(
+                "Failed to import QAIRT GenAIBuilder API - please install olive-ai[qairt] to use QAIRT passes."
+                "If already installed, please run `qairt-vm -i` for help troubleshooting issues."
+            ) from exc
 
         if config.log_level:
             os.environ["QAIRT_LOG_LEVEL"] = config.log_level
@@ -142,7 +146,7 @@ class QairtGenAIBuilder(Pass):
 
         if config.backend == qairt.BackendType.CPU.value and not isinstance(model, HfModelHandler):
             raise ValueError("QAIRT CPU GenAIBuilder can only consume HfModelHandler")
-        
+
         if config.backend == qairt.BackendType.HTP.value and not isinstance(model, QairtPreparedModelHandler):
             raise ValueError("QAIRT HTP GenAIBuilder can only consume QairtPreparedModelHandler")
 
@@ -151,8 +155,11 @@ class QairtGenAIBuilder(Pass):
             backend_type=config.backend,
             cache_root=config.cache_dir,
             tokenizer_path=Path(model.model_path),
-            config_path=Path(model.model_path)
+            config_path=Path(model.model_path),
         )
+
+        # pylint: disable=protected-access
+        # QairtGenAIBuilder requires direct access to these configuration attributes
 
         # Embedding LUT is unsupported for now
         gen_ai_builder._prepare_embedding_lut = False
@@ -178,10 +185,14 @@ class QairtGenAIBuilder(Pass):
 
             # Model configs
             if config.sequence_lengths:
-                gen_ai_builder._transformation_config.model_transformer_config.arn_cl_options.auto_regression_number = config.sequence_lengths
+                gen_ai_builder._transformation_config.model_transformer_config.arn_cl_options.auto_regression_number = (
+                    config.sequence_lengths
+                )
 
             if config.num_splits != -1:
-                gen_ai_builder._transformation_config.model_transformer_config.split_model.num_splits = config.num_splits
+                gen_ai_builder._transformation_config.model_transformer_config.split_model.num_splits = (
+                    config.num_splits
+                )
 
             gen_ai_builder.multi_graph = config.multi_graph
 
@@ -194,14 +205,14 @@ class QairtGenAIBuilder(Pass):
             "config.json",
             "generation_config.json",
             "tokenizer.json",
-            "tokenizer_config.json"
+            "tokenizer_config.json",
         ]
         for file in passthrough_files:
             config_path = Path(model.model_path) / file
             dest_path = Path(output_model_path)
             try:
                 hardlink_copy_file(config_path, dest_path, follow_symlinks=True)
-            except:
+            except (OSError, FileNotFoundError):
                 # Not every model has all the files listed above
                 pass
 
