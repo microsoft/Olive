@@ -76,14 +76,14 @@ class QuarkQuantization(Pass):
                 description="Global quantization configuration applied to all layers unless overridden.",
             ),
             "specific_layer_config": PassConfigParam(
-                type_=dict,
+                type_=list,
                 default_value=None,
-                description="Dictionary mapping specific layer names to their quantization configuration. Default is None.",
+                description="List of specific layer configurations. Default is None.",
             ),
             "layer_type_config": PassConfigParam(
-                type_=dict,
+                type_=list,
                 default_value=None,
-                description="Dictionary mapping layer types (e.g., Conv, Gemm) to quantization configurations. Default is None.",
+                description="List of layer type configurations. Default is None.",
             ),
             "exclude": PassConfigParam(
                 type_=list,
@@ -116,8 +116,8 @@ class QuarkQuantization(Pass):
     ) -> ONNXModelHandler:
         from quark import __version__ as QuarkVersion
 
-        if version.parse(QuarkVersion) < version.parse("0.10.0"):
-            raise ValueError("Quark onnx Quantization is only supported for amd-quark>=0.10.0")
+        if version.parse(QuarkVersion) < version.parse("0.11.0"):
+            raise ValueError("Quark onnx Quantization is only supported for amd-quark>=0.11.0")
 
         from olive.passes.quark_quantizer.onnx.quantize_quark import run_quark_quantization
 
