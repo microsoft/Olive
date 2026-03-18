@@ -152,6 +152,7 @@ class QairtPreparation(Pass):
                         logger.info(line)
                         stdout_lines.append(line)
                     except Empty:
+                        # stdout empty
                         pass
 
                     # Try to read from stderr queue
@@ -161,6 +162,7 @@ class QairtPreparation(Pass):
                         logger.debug(line)
                         stderr_lines.append(line)
                     except Empty:
+                        # stderr empty
                         pass
 
                 # Wait for process to complete and get return code
