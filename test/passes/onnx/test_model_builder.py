@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 from pathlib import Path
 
+import onnx
 import pytest
 
 from olive.model import ONNXModelHandler
@@ -62,3 +63,40 @@ def test_model_builder_olive_quant(tmp_path, embeds, group_size):
     assert isinstance(output_model, ONNXModelHandler)
     assert Path(output_model.model_path).exists()
     assert Path(output_folder / "genai_config.json").exists()
+
+
+@pytest.mark.parametrize("layer_annotations", [True, False])
+def test_model_builder_layer_annotations(tmp_path, layer_annotations):
+    """Test that layer annotations are correctly applied to the output ONNX model."""
+    input_model = make_local_tiny_llama(tmp_path / "input_model", "hf")
+
+    if layer_annotations:
+        # Create layer annotations to be applied
+        # Keys are layer names, values are lists of node-name substrings to match
+        annotations = {
+            "embedding_layer": ["embed_tokens"],
+            "norm_layer": ["norm"],
+        }
+        input_model.model_attributes = {"layer_annotations": annotations}
+
+    p = create_pass_from_dict(
+        ModelBuilder,
+        {"precision": "fp32"},
+        disable_search=True,
+    )
+    output_folder = tmp_path / "output_model"
+
+    # execute the pass
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    assert isinstance(output_model, ONNXModelHandler)
+    assert Path(output_model.model_path).exists()
+
+    if layer_annotations:
+        # Verify that metadata properties were applied to nodes
+        model_proto = onnx.load(output_model.model_path, load_external_data=False)
+        node_names_with_metadata = {node.name for node in model_proto.graph.node if node.metadata_props}
+        assert len(node_names_with_metadata) > 0, (
+            "Expected nodes with metadata_props when layer_annotations are provided"
+        )

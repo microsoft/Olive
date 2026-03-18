@@ -283,17 +283,25 @@ class ModelBuilder(Pass):
                 **extra_args,
             )
 
-            # add split information if present
-            split_assignments = model_attributes.get("split_assignments")
-            if not metadata_only and split_assignments:
-                # NOTE: currently the model builder renames modules to it's own naming convention
-                # so the assignments for the renamed modules won't match
-                split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
+            # Apply post-processing annotations (split assignments and/or layer annotations)
+            # in a single load/save cycle to avoid redundant disk I/O.
+            split_assignments = model_attributes.get("split_assignments") if not metadata_only else None
+            layer_annotations = model_attributes.get("layer_annotations") if not metadata_only else None
 
-                # load the model and set the split_assignments as model properties
-                # without the external data so that they can be used as is with the resaved model
+            if split_assignments or layer_annotations:
                 model_proto = onnx.load(output_model_filepath, load_external_data=False)
-                onnx.helper.set_model_props(model_proto, {"split_assignments": split_assignment_str})
+
+                if split_assignments:
+                    # NOTE: currently the model builder renames modules to it's own naming convention
+                    # so the assignments for the renamed modules won't match
+                    split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
+                    onnx.helper.set_model_props(model_proto, {"split_assignments": split_assignment_str})
+
+                if layer_annotations:
+                    from olive.passes.onnx.layer_annotation import annotate_proto_model
+
+                    annotate_proto_model(model_proto, layer_annotations)
+
                 onnx.save(model_proto, output_model_filepath)
         except Exception:
             # if model building fails, clean up the intermediate files in the cache_dir
