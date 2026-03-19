@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 #
 
+import copy
 import logging
 from typing import Any
 
@@ -19,20 +20,16 @@ from quark.onnx.quantization.config.algorithm import (
     SmoothQuantConfig,
 )
 from quark.onnx.quantization.config.spec import (
-    BFloat16Spec,
-    BFP16Spec,
     CalibMethod,
-    Int8Spec,
-    Int16Spec,
-    Int32Spec,
     QLayerConfig,
     QuantGranularity,
     ScaleType,
-    UInt8Spec,
-    UInt16Spec,
-    UInt32Spec,
-    XInt8Spec,
 )
+
+try:
+    from quark.onnx.quantization.config.data_type import parse_data_type
+except ImportError:
+    parse_data_type = None
 
 logger = logging.getLogger(__name__)
 
@@ -61,55 +58,122 @@ quant_granularity_mapping = {
 }
 
 
-data_type_mapping = {
-    "Int8": Int8Spec,
-    "UInt8": UInt8Spec,
-    "XInt8": XInt8Spec,
-    "Int16": Int16Spec,
-    "UInt16": UInt16Spec,
-    "Int32": Int32Spec,
-    "UInt32": UInt32Spec,
-    "BFloat16": BFloat16Spec,
-    "BFP16": BFP16Spec,
-}
+def convert_tensor_config(tensor_config_dict: dict[str, Any]) -> None:
+    """Convert the old format string to the enum string."""
+    if "symmetric" not in tensor_config_dict:
+        tensor_config_dict["symmetric"] = True
+
+    if "scale_type" not in tensor_config_dict:
+        obj = ScaleType.Float32
+    elif tensor_config_dict["scale_type"] not in scale_type_mapping:
+        logger.warning("The scale type %s is not supported.", tensor_config_dict["scale_type"])
+        obj = ScaleType.Float32
+    else:
+        obj = scale_type_mapping[tensor_config_dict["scale_type"]]
+    tensor_config_dict["scale_type"] = f"{obj.__class__.__name__}.{obj.name}"
+
+    if "calibration_method" not in tensor_config_dict:
+        obj = CalibMethod.Percentile
+    elif tensor_config_dict["calibration_method"] not in calibration_method_mapping:
+        logger.warning("The calibration method %s is not supported.", tensor_config_dict["calibration_method"])
+        obj = CalibMethod.Percentile
+    else:
+        obj = calibration_method_mapping[tensor_config_dict["calibration_method"]]
+    tensor_config_dict["calibration_method"] = f"{obj.__class__.__name__}.{obj.name}"
+
+    if "quant_granularity" not in tensor_config_dict:
+        obj = QuantGranularity.Tensor
+    elif tensor_config_dict["quant_granularity"] not in quant_granularity_mapping:
+        logger.warning("The quant granularity %s is not supported.", tensor_config_dict["quant_granularity"])
+        obj = QuantGranularity.Tensor
+    else:
+        obj = quant_granularity_mapping[tensor_config_dict["quant_granularity"]]
+    tensor_config_dict["quant_granularity"] = f"{obj.__class__.__name__}.{obj.name}"
+
+    if "data_type" not in tensor_config_dict:
+        tensor_config_dict["data_type"] = "Int8"
+    elif parse_data_type and parse_data_type(tensor_config_dict["data_type"]) is None:
+        logger.warning("The data type %s is not supported.", tensor_config_dict["data_type"])
+        tensor_config_dict["data_type"] = "Int8"
 
 
-def get_global_config(global_config_dict: dict[str, Any]) -> QLayerConfig:
-    activation_spec = UInt8Spec()
-    if isinstance(global_config_dict, dict) and "activation" in global_config_dict:
-        if "symmetric" in global_config_dict["activation"]:
-            activation_spec.set_symmetric(global_config_dict["activation"]["symmetric"])
-        if "scale_type" in global_config_dict["activation"]:
-            activation_spec.set_scale_type(scale_type_mapping[global_config_dict["activation"]["scale_type"]])
-        if "calibration_method" in global_config_dict["activation"]:
-            activation_spec.set_calibration_method(
-                calibration_method_mapping[global_config_dict["activation"]["calibration_method"]]
-            )
-        if "quant_granularity" in global_config_dict["activation"]:
-            activation_spec.set_quant_granularity(
-                quant_granularity_mapping[global_config_dict["activation"]["quant_granularity"]]
-            )
-        if "data_type" in global_config_dict["activation"]:
-            activation_spec.set_data_type(data_type_mapping[global_config_dict["activation"]["data_type"]]().data_type)
+def convert_layer_config(layer_config_dict: dict[str, Any]) -> None:
+    """Convert the old format string to the enum string in each item of the config."""
+    if "activation" in layer_config_dict:
+        convert_tensor_config(layer_config_dict["activation"])
 
-    weight_spec = Int8Spec()
-    if isinstance(global_config_dict, dict) and "weight" in global_config_dict:
-        if "symmetric" in global_config_dict["weight"]:
-            weight_spec.set_symmetric(global_config_dict["weight"]["symmetric"])
-        if "scale_type" in global_config_dict["weight"]:
-            weight_spec.set_scale_type(scale_type_mapping[global_config_dict["weight"]["scale_type"]])
-        if "calibration_method" in global_config_dict["weight"]:
-            weight_spec.set_calibration_method(
-                calibration_method_mapping[global_config_dict["weight"]["calibration_method"]]
-            )
-        if "quant_granularity" in global_config_dict["weight"]:
-            weight_spec.set_quant_granularity(
-                quant_granularity_mapping[global_config_dict["weight"]["quant_granularity"]]
-            )
-        if "data_type" in global_config_dict["weight"]:
-            weight_spec.set_data_type(data_type_mapping[global_config_dict["weight"]["data_type"]]().data_type)
+    if "weight" in layer_config_dict:
+        convert_tensor_config(layer_config_dict["weight"])
 
-    return QLayerConfig(activation=activation_spec, weight=weight_spec)
+    if "bias" in layer_config_dict:
+        convert_tensor_config(layer_config_dict["bias"])
+
+    if "input_tensors" in layer_config_dict:
+        convert_tensor_config(layer_config_dict["input_tensors"])
+
+    if "output_tensors" in layer_config_dict:
+        convert_tensor_config(layer_config_dict["output_tensors"])
+
+
+def get_global_config(global_config_dict: dict[str, Any]) -> None:
+    """Get the global configuration for the given global configuration dictionary."""
+    if global_config_dict is None:
+        return None
+    elif not isinstance(global_config_dict, dict):
+        raise ValueError("The global configuration should be a dictionary.")
+
+    copied_layer_config = copy.deepcopy(global_config_dict)
+    convert_layer_config(copied_layer_config)
+
+    # This is for the backward compatibility
+    if "activation" in copied_layer_config and "input_tensors" not in copied_layer_config:
+        copied_layer_config["input_tensors"] = copied_layer_config["activation"]
+
+    return QLayerConfig.from_dict(copied_layer_config)
+
+
+def convert_layer_config_list_to_dict(
+    layer_config_list: list[list[dict[str, Any], list[str]]],
+) -> dict[QLayerConfig, list[str]]:
+    """Convert the layer configuration list to a dictionary."""
+    layer_config_dict: dict[QLayerConfig, list[str]] = {}
+
+    for layer_config_item in layer_config_list:
+        if not isinstance(layer_config_item, list) or len(layer_config_item) != 2:
+            logger.warning("The element of layer configuration should be a list of two elements.")
+            continue
+
+        copied_layer_config = copy.deepcopy(layer_config_item[0])
+        convert_layer_config(copied_layer_config)
+
+        layer_config = QLayerConfig.from_dict(copied_layer_config)
+        layer_config_dict[layer_config] = layer_config_item[1]
+
+    return layer_config_dict
+
+
+def get_layer_type_config(
+    layer_type_config_list: list[list[str, dict[str, Any]]] | None,
+) -> dict[QLayerConfig, list[str]] | None:
+    """Get the layer type configuration for the given layer type configuration list."""
+    if layer_type_config_list is None:
+        return None
+    elif not isinstance(layer_type_config_list, list):
+        raise ValueError("The layer type configuration should be a list.")
+
+    return convert_layer_config_list_to_dict(layer_type_config_list)
+
+
+def get_specific_layer_config(
+    specific_layer_config_list: list[list[str, dict[str, Any]]] | None,
+) -> dict[QLayerConfig, list[str]] | None:
+    """Get the specific layer configuration for the given specific layer configuration list."""
+    if specific_layer_config_list is None:
+        return None
+    elif not isinstance(specific_layer_config_list, list):
+        raise ValueError("The specific layer configuration should be a list.")
+
+    return convert_layer_config_list_to_dict(specific_layer_config_list)
 
 
 algorithm_mapping = {
@@ -125,6 +189,7 @@ algorithm_mapping = {
 
 
 def update_algo_config(algo_config: AlgoConfig, config_dict: dict[str, Any]) -> None:
+    """Update the algorithm configuration for the given algorithm configuration dictionary."""
     if isinstance(algo_config, (AdaRoundConfig, AdaQuantConfig)):
         if "optim_device" in config_dict:
             algo_config.optim_device = config_dict["optim_device"]
@@ -201,6 +266,7 @@ def update_algo_config(algo_config: AlgoConfig, config_dict: dict[str, Any]) -> 
 
 
 def get_algo_config(algo_config_list: list[dict[str, Any]] | None) -> list[AlgoConfig]:
+    """Get the algorithm configuration for the given algorithm configuration list."""
     algo_configs: list[AlgoConfig] = []
 
     if algo_config_list is None:
@@ -238,12 +304,14 @@ quant_type_mapping = {
 
 
 def get_extra_options(extra_options_dict: dict[str, Any] | None) -> dict[str, Any]:
+    """Get the extra options for the given extra options dictionary."""
     extra_options: dict[str, Any] = {}
 
     if extra_options_dict is None:
         return extra_options
 
     for key, value in extra_options_dict.items():
+        # This option is deprecated and will be removed in the next AMD Quark release
         if key == "MixedPrecisionTensor":
             if not isinstance(value, dict):
                 logger.warning("The value for extra option 'MixedPrecisionTensor' should be a dict.")
@@ -254,6 +322,31 @@ def get_extra_options(extra_options_dict: dict[str, Any] | None) -> dict[str, An
                 quant_type = quant_type_mapping[k]
                 mixed_precision_tensor[quant_type] = v
             extra_options[key] = mixed_precision_tensor
+
+        # This option is for standard tensor-wise mixed precision quantization
+        elif key == "TensorQuantOverrides":
+            if not isinstance(value, dict):
+                logger.warning("The value for extra option 'TensorQuantOverrides' should be a dict.")
+                continue
+
+            extra_options[key] = copy.deepcopy(value)
+            for tensor_name, quant_overrides in extra_options[key].items():
+                if not isinstance(quant_overrides, list):
+                    logger.warning("The quant overrides for %s should be a list.", tensor_name)
+                    continue
+
+                for quant_override in quant_overrides:
+                    if not isinstance(quant_override, dict):
+                        logger.warning("The quant override %s should be a dict.", quant_override)
+                        continue
+
+                    if quant_override["quant_type"] not in quant_type_mapping:
+                        logger.warning("The quant type %s is not supported.", quant_override["quant_type"])
+                        continue
+
+                    quant_override["quant_type"] = quant_type_mapping[quant_override["quant_type"]]
+
+        # Other options are kept as is
         else:
             extra_options[key] = value
 
