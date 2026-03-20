@@ -12,7 +12,13 @@ from typing import Any, Callable, Optional, Union
 import onnx
 from onnx import external_data_helper
 from onnxscript import ir
-from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
+
+# TODO(sunghcho): Remove try/except once onnxscript >= 0.2.0 (which exports FOLDED_FROM_KEY) is the minimum
+# required version. After that, replace with: from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
+try:
+    from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
+except ImportError:
+    FOLDED_FROM_KEY = "pkg.onnxscript.optimizer.constant_folding.folded_from"
 
 from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
