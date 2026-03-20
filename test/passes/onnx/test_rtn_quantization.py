@@ -259,12 +259,16 @@ class TestRTNQuantization:
 
         ir_model = ir.load(quantized_model.model_path)
 
+        found = False
         for node in ir_model.graph.all_nodes():
             if node.op_type == str(OpType.GatherBlockQuantized):
+                found = True
                 qa = [attr for attr in node.attributes.values() if attr.name == "quantize_axis"]
                 assert len(qa) == 1
                 assert qa[0].value == 1, f"quantize_axis should be 1 (last dim of 2-D data), got {qa[0].value}"
                 break
+
+        assert found, "No GatherBlockQuantized node found for axis/quantize_axis test"
 
     def test_rtn_quantization_shared_gather_weights(self, tmp_path):
         """Two Gather nodes sharing the same weight should not duplicate initializers."""

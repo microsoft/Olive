@@ -1250,8 +1250,15 @@ class GemmToMatMulAdd(ProtoSurgeon):
 
         graph = model.graph
         initializer_map = {init.name: init for init in graph.initializer}
+        existing_names = (
+            {init.name for init in graph.initializer}
+            | {vi.name for vi in graph.input}
+            | {vi.name for vi in graph.output}
+            | {vi.name for vi in graph.value_info}
+        )
         nodes_to_remove = []
         nodes_to_add = []
+        gemm_rewrite_idx = 0
 
         for node in graph.node:
             if node.op_type != "Gemm":
@@ -1276,21 +1283,30 @@ class GemmToMatMulAdd(ProtoSurgeon):
             inp_c = node.input[2] if len(node.input) > 2 else None
             out_y = node.output[0]
 
+            # Derive a stable base name for new nodes/tensors.
+            base_name = node.name or out_y or f"gemm_rewrite_{gemm_rewrite_idx}"
+
             if trans_b:
                 if inp_b in initializer_map:
+                    # Create a new transposed initializer to avoid mutating
+                    # a potentially shared initializer in-place.
                     init = initializer_map[inp_b]
                     w_t = numpy_helper.to_array(init).T.copy()
-                    new_init = numpy_helper.from_array(w_t, name=inp_b)
-                    for i, existing in enumerate(graph.initializer):
-                        if existing.name == inp_b:
-                            graph.initializer[i].CopyFrom(new_init)
-                            break
-                    matmul_rhs = inp_b
+                    new_name = f"{inp_b}_transposed"
+                    suffix = 0
+                    while new_name in existing_names:
+                        suffix += 1
+                        new_name = f"{inp_b}_transposed_{suffix}"
+                    new_init = numpy_helper.from_array(w_t, name=new_name)
+                    graph.initializer.append(new_init)
+                    initializer_map[new_name] = new_init
+                    existing_names.add(new_name)
+                    matmul_rhs = new_name
                 else:
-                    transpose_out = f"{node.name}_transpose_B"
+                    transpose_out = f"{base_name}_transpose_B"
                     nodes_to_add.append(
                         helper.make_node(
-                            "Transpose", [inp_b], [transpose_out], name=f"{node.name}_Transpose", perm=[1, 0]
+                            "Transpose", [inp_b], [transpose_out], name=f"{base_name}_Transpose", perm=[1, 0]
                         )
                     )
                     matmul_rhs = transpose_out
@@ -1298,17 +1314,18 @@ class GemmToMatMulAdd(ProtoSurgeon):
                 matmul_rhs = inp_b
 
             if inp_c:
-                matmul_out = f"{node.name}_matmul_out"
+                matmul_out = f"{base_name}_matmul_out"
                 nodes_to_add.append(
-                    helper.make_node("MatMul", [inp_a, matmul_rhs], [matmul_out], name=f"{node.name}_MatMul")
+                    helper.make_node("MatMul", [inp_a, matmul_rhs], [matmul_out], name=f"{base_name}_MatMul")
                 )
-                nodes_to_add.append(helper.make_node("Add", [matmul_out, inp_c], [out_y], name=f"{node.name}_Add"))
+                nodes_to_add.append(helper.make_node("Add", [matmul_out, inp_c], [out_y], name=f"{base_name}_Add"))
             else:
                 nodes_to_add.append(
-                    helper.make_node("MatMul", [inp_a, matmul_rhs], [out_y], name=f"{node.name}_MatMul")
+                    helper.make_node("MatMul", [inp_a, matmul_rhs], [out_y], name=f"{base_name}_MatMul")
                 )
 
             nodes_to_remove.append(node)
+            gemm_rewrite_idx += 1
 
         for node in nodes_to_remove:
             graph.node.remove(node)
@@ -2157,8 +2174,17 @@ class ReciprocalMulToDiv(ProtoSurgeon):
     """
 
     def __call__(self, model: ModelProto):
+        from collections import defaultdict
+
         modified = 0
         nodes_to_remove = []
+
+        # Build a map from tensor name to consuming nodes (avoids O(N^2) scans).
+        consumers: dict[str, list] = defaultdict(list)
+        for n in model.graph.node:
+            for input_name in n.input:
+                if input_name:
+                    consumers[input_name].append(n)
 
         for node in model.graph.node:
             if node.op_type != "Reciprocal":
@@ -2167,8 +2193,8 @@ class ReciprocalMulToDiv(ProtoSurgeon):
             recip_input = node.input[0]  # x
             recip_output = node.output[0]
 
-            # Find Mul consumers of this Reciprocal
-            mul_nodes = [n for n in model.graph.node if n.op_type == "Mul" and recip_output in n.input]
+            # Find Mul consumers of this Reciprocal using the precomputed consumer map
+            mul_nodes = [n for n in consumers.get(recip_output, []) if n.op_type == "Mul"]
 
             for mul_node in mul_nodes:
                 # Identify the other operand (not from Reciprocal)
@@ -2185,8 +2211,10 @@ class ReciprocalMulToDiv(ProtoSurgeon):
                     mul_node.name = self.create_new_name(mul_node.name, "Mul", "Div")
                 modified += 1
 
-            # If no more consumers of Reciprocal output, mark for removal
-            remaining = [n for n in model.graph.node if n != node and recip_output in n.input]
+            # If no more consumers of Reciprocal output, mark for removal.
+            # Note: consumer map may be stale after in-place input rewrites,
+            # so re-check actual inputs of remaining consumers.
+            remaining = [n for n in consumers.get(recip_output, []) if n is not node and recip_output in list(n.input)]
             if not remaining:
                 nodes_to_remove.append(node)
 
