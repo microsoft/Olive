@@ -295,6 +295,7 @@ class TestRTNQuantization:
         )
         model = onnx.helper.make_model(graph, producer_name="olive-test")
         model.opset_import[0].version = 13
+        model.ir_version = 10
 
         model_path = tmp_path / "shared_gather.onnx"
         onnx.save(model, str(model_path))

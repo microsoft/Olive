@@ -235,6 +235,7 @@ class TestCastChainElimination:
 
         graph = helper.make_graph([cast_to_fp16, cast_back], "cast_chain", [input_tensor], [output_tensor])
         model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+        model.ir_version = 10  # Compatible with ORT version in CI
         onnx.checker.check_model(model)
 
         path = tmp_path / "cast_chain.onnx"

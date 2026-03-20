@@ -2317,6 +2317,7 @@ def test_gemm_to_matmul_add(tmp_path):
 
     graph = helper.make_graph([gemm_node], "test", [input_tensor], [output_tensor], initializer=initializers)
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
     onnx.checker.check_model(model)
 
     model_path = tmp_path / "gemm.onnx"
@@ -2353,6 +2354,7 @@ def test_gemm_to_matmul_add_no_bias(tmp_path):
 
     graph = helper.make_graph([gemm_node], "test", [input_tensor], [output_tensor], initializer=initializers)
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
     onnx.checker.check_model(model)
 
     model_path = tmp_path / "gemm_no_bias.onnx"
@@ -2381,6 +2383,7 @@ def test_gemm_to_matmul_add_skips_non_unit_alpha(tmp_path):
 
     graph = helper.make_graph([gemm_node], "test", [input_tensor], [output_tensor], initializer=initializers)
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
 
     model_path = tmp_path / "gemm_alpha.onnx"
     onnx.save(model, str(model_path))
@@ -2410,6 +2413,7 @@ def test_reciprocal_mul_to_div(tmp_path):
 
     graph = helper.make_graph(nodes, "test", [input_x, input_a], [output_tensor])
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 10
     onnx.checker.check_model(model)
 
     model_path = tmp_path / "recip_mul.onnx"
@@ -2448,6 +2452,7 @@ def test_reciprocal_mul_to_div_reversed_order(tmp_path):
 
     graph = helper.make_graph(nodes, "test", [input_x, input_a], [output_tensor])
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 10
 
     model_path = tmp_path / "recip_mul_rev.onnx"
     onnx.save(model, str(model_path))
@@ -2502,6 +2507,7 @@ def test_deduplicate_subgraph_initializers(tmp_path):
 
     main_graph = helper.make_graph([loop_node], "main", [trip_count, cond], [output])
     model = helper.make_model(main_graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 10
 
     model_path = tmp_path / "loop_dup.onnx"
     onnx.save(model, str(model_path))
@@ -2537,6 +2543,7 @@ def test_deduplicate_nodes(tmp_path):
 
     graph = helper.make_graph([cast1, cast2, identity], "test", [input_tensor], [output_tensor])
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 10
 
     model_path = tmp_path / "dup_nodes.onnx"
     onnx.save(model, str(model_path))
