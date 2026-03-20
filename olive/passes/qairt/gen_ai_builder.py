@@ -212,7 +212,7 @@ class QairtGenAIBuilder(Pass):
             dest_path = Path(output_model_path)
             try:
                 hardlink_copy_file(config_path, dest_path, follow_symlinks=True)
-            except (OSError, FileNotFoundError):
+            except (FileNotFoundError, OSError, ValueError):
                 # Not every model has all the files listed above
                 pass
 
