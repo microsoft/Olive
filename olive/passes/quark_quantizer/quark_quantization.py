@@ -4,116 +4,178 @@
 #
 
 import logging
-import os
-import sys
+import tempfile
+from argparse import Namespace
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
-import torch
+import onnx
+from packaging import version
 
+from olive.common.config_utils import validate_config
+from olive.common.utils import exclude_keys
+from olive.data.config import DataConfig
 from olive.model import HfModelHandler, ONNXModelHandler
+from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.search.search_parameter import Categorical
 
 logger = logging.getLogger(__name__)
 
 
 class QuarkQuantization(Pass):
-    """Quark 0.11 Quantization Pass for Olive."""
+    """Quark Quantization Pass for Olive.
+
+    Routes to the appropriate backend based on input model type:
+    - ONNXModelHandler  -> Quark-ONNX quantization (quark.onnx)
+    - HfModelHandler    -> Quark-Torch quantization (quark.torch, Quark 0.11 API)
+    """
 
     @classmethod
     def _default_config(cls, accelerator_spec=None):
         return {
+            # ── Torch-specific configs ───────────────────────────────────
             "quant_scheme": PassConfigParam(
                 type_=str,
                 default_value="uint4_wo_128",
-                description="Quantization scheme: uint4_wo_128, int4_wo_128, int8, fp8, mxfp4",
+                description="[Torch] Quantization scheme: uint4_wo_128, int4_wo_128, int8, fp8, mxfp4",
             ),
             "quant_algo": PassConfigParam(
                 type_=Union[str, list],
                 default_value="awq",
-                description="Quantization algorithm(s): awq, gptq, smoothquant, rotation",
+                description="[Torch] Quantization algorithm(s): awq, gptq, smoothquant, rotation",
             ),
             "dataset": PassConfigParam(
                 type_=str,
                 default_value="pileval_for_awq_benchmark",
-                description="Calibration dataset",
+                description="[Torch] Calibration dataset",
             ),
             "data_type": PassConfigParam(
                 type_=str,
                 default_value="bfloat16",
-                description="Model data type: auto, float16, bfloat16, float32",
+                description="[Torch] Model data type: auto, float16, bfloat16, float32",
             ),
             "num_calib_data": PassConfigParam(
                 type_=int,
                 default_value=128,
-                description="Number of calibration samples",
+                description="[Torch] Number of calibration samples",
             ),
             "model_export": PassConfigParam(
                 type_=Union[str, list],
                 default_value="hf_format",
-                description="Export format(s): hf_format, onnx, gguf",
+                description="[Torch] Export format(s): hf_format, onnx, gguf",
             ),
             "exclude_layers": PassConfigParam(
                 type_=list,
                 default_value=None,
-                description="Layers to exclude from quantization",
+                description="[Torch] Layers to exclude from quantization",
             ),
             "layer_quant_scheme": PassConfigParam(
                 type_=list,
                 default_value=None,
-                description="Layer-specific schemes: [['lm_head', 'int8']]",
+                description="[Torch] Layer-specific schemes: [['lm_head', 'int8']]",
             ),
             "kv_cache_dtype": PassConfigParam(
                 type_=str,
                 default_value=None,
-                description="KV cache dtype: fp8 or None",
+                description="[Torch] KV cache dtype: fp8 or None",
             ),
             "min_kv_scale": PassConfigParam(
                 type_=float,
                 default_value=0.0,
-                description="Minimum scale for KV cache quantization",
+                description="[Torch] Minimum scale for KV cache quantization",
             ),
             "kv_cache_post_rope": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Quantize KV cache after RoPE",
+                description="[Torch] Quantize KV cache after RoPE",
             ),
             "attention_dtype": PassConfigParam(
                 type_=str,
                 default_value=None,
-                description="Attention quantization dtype: fp8 or None",
+                description="[Torch] Attention quantization dtype: fp8 or None",
             ),
             "seq_len": PassConfigParam(
                 type_=int,
                 default_value=512,
-                description="Sequence length for calibration",
+                description="[Torch] Sequence length for calibration",
             ),
             "batch_size": PassConfigParam(
                 type_=int,
                 default_value=1,
-                description="Batch size for calibration",
+                description="[Torch] Batch size for calibration",
             ),
             "pack_method": PassConfigParam(
                 type_=str,
                 default_value="reorder",
-                description="Pack method: order or reorder",
+                description="[Torch] Pack method: order or reorder",
             ),
             "export_weight_format": PassConfigParam(
                 type_=str,
                 default_value="real_quantized",
-                description="Weight format: fake_quantized or real_quantized",
+                description="[Torch] Weight format: fake_quantized or real_quantized",
             ),
             "custom_mode": PassConfigParam(
                 type_=str,
                 default_value="quark",
-                description="Export mode: quark, awq, fp8",
+                description="[Torch] Export mode: quark, awq, fp8",
             ),
             "trust_remote_code": PassConfigParam(
                 type_=bool,
                 default_value=True,
-                description="Trust remote code from HuggingFace",
+                description="[Torch] Trust remote code from HuggingFace",
             ),
+            # ── ONNX-specific configs ────────────────────────────────────
+            "quant_mode": PassConfigParam(
+                type_=str,
+                default_value="static",
+                search_defaults=Categorical(["dynamic", "static"]),
+                description="[ONNX] Onnx Quantization mode. 'dynamic' for dynamic quantization, 'static' for static quantization. Default is 'static'",
+            ),
+            "quant_format": PassConfigParam(
+                type_=str,
+                default_value="QDQ",
+                search_defaults=Categorical(["QOperator", "QDQ"]),
+                description="[ONNX] Onnx Quantization format. 'QOperator' for quantizing models using QOperators, 'QDQ' for using Q/DQ. Default is 'QDQ'",
+            ),
+            "data_config": PassConfigParam(
+                type_=Optional[Union[DataConfig, dict]],
+                default_value=None,
+                description="[ONNX] Data config for calibration.",
+            ),
+            "global_config": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                description="[ONNX] Global quantization configuration applied to all layers unless overridden.",
+            ),
+            "specific_layer_config": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description="[ONNX] List of specific layer configurations. Default is None.",
+            ),
+            "layer_type_config": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description="[ONNX] List of layer type configurations. Default is None.",
+            ),
+            "exclude": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description="[ONNX] List of nodes or subgraphs excluded from quantization. Default is None.",
+            ),
+            "algo_config": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description="[ONNX] Algorithm configuration, can be a list of algorithm configurations. Default is None.",
+            ),
+            "extra_options": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                description="[ONNX] Extra options for quantization. Default is {}.",
+            ),
+            **get_external_data_config(),
         }
 
     def _run_for_config(
@@ -123,10 +185,62 @@ class QuarkQuantization(Pass):
         output_model_path: str,
     ) -> Union[HfModelHandler, ONNXModelHandler]:
         if isinstance(model, ONNXModelHandler):
-            raise ValueError("ONNX model quantization is not supported. Use HfModelHandler.")
+            logger.info("[INFO] Running QuarkQuantization using Quark-ONNX API")
+            return self._run_quark_onnx(model, config, output_model_path)
+        else:
+            logger.info("[INFO] Running QuarkQuantization using Quark-Torch 0.11 API")
+            return self._run_quark_torch(model, config, output_model_path)
 
-        logger.info("[INFO] Running QuarkQuantization using Quark 0.11 API")
-        return self._run_quark_torch(model, config, output_model_path)
+    # ── ONNX path ───────────────────────────────────────────
+
+    def _run_quark_onnx(
+        self,
+        model: ONNXModelHandler,
+        config: BasePassConfig,
+        output_model_path: str,
+    ) -> ONNXModelHandler:
+        from quark import __version__ as QuarkVersion
+
+        if version.parse(QuarkVersion) < version.parse("0.11.0"):
+            raise ValueError("Quark ONNX Quantization is only supported for amd-quark>=0.11.0")
+
+        from olive.passes.quark_quantizer.onnx.quantize_quark import run_quark_quantization
+
+        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+
+        # Run quantizer to a temp dir, then reload and save with the external data config
+        new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")  # pylint: disable=R1732
+        tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
+
+        data_reader = None
+        if config.data_config:
+            data_config = validate_config(config.data_config, DataConfig)
+            data_reader = data_config.to_data_container().create_calibration_dataloader()
+
+        run_config = config.model_dump()
+        to_delete = [
+            "data_config",
+            "quant_preprocess",
+        ]
+        to_delete += list(get_external_data_config().keys())
+        run_config = exclude_keys(run_config, to_delete)
+
+        args = Namespace(
+            model_input=model.model_path,
+            model_output=tmp_model_path,
+            calibration_data_reader=data_reader,
+            **run_config,
+        )
+
+        run_quark_quantization(args)
+        logger.info("[INFO] Quark ONNX quantized model saved to: %s", tmp_model_path)
+
+        onnx_model = onnx.load(tmp_model_path)
+        new_tmp_dir.cleanup()
+
+        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+
+    # ── Torch path (delegates to torch module) ───────────────────────────
 
     def _run_quark_torch(
         self,
@@ -134,171 +248,6 @@ class QuarkQuantization(Pass):
         config: BasePassConfig,
         output_model_path: str,
     ) -> HfModelHandler:
-        """Run Quark 0.11 torch quantization."""
-        # Disable torch dynamo on Windows (Triton not available)
-        if sys.platform == "win32":
-            os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
+        from olive.passes.quark_quantizer.torch.quark_torch_quantization import run_quark_torch_quantization
 
-        from quark.torch import (
-            LLMTemplate,
-            ModelQuantizer,
-            export_gguf,
-            export_onnx,
-            export_safetensors,
-        )
-        from quark.torch.utils.llm import (
-            get_calib_dataloader,
-            get_model,
-            get_tokenizer,
-            prepare_for_moe_quant,
-            revert_model_patching,
-        )
-
-        output_dir = Path(output_model_path)
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-
-        # 1. Load model
-        logger.info("[INFO] Loading model from: %s", model.model_path)
-        torch_model, _ = get_model(
-            str(model.model_path),
-            config.data_type,
-            device,
-            multi_gpu=True,
-            multi_device=True,
-            attn_implementation="eager",
-            trust_remote_code=config.trust_remote_code,
-        )
-
-        prepare_for_moe_quant(torch_model)
-
-        model_type = (
-            torch_model.config.model_type
-            if hasattr(torch_model.config, "model_type")
-            else torch_model.config.architectures[0]
-        )
-
-        tokenizer = get_tokenizer(
-            str(model.model_path),
-            max_seq_len=config.seq_len,
-            model_type=model_type,
-            trust_remote_code=config.trust_remote_code,
-        )
-
-        # 2. Prepare calibration data
-        logger.info("[INFO] Loading calibration dataset: %s", config.dataset)
-        main_device = torch_model.device
-        calib_dataloader = get_calib_dataloader(
-            dataset_name=config.dataset,
-            processor=None,
-            tokenizer=tokenizer,
-            batch_size=config.batch_size,
-            num_calib_data=config.num_calib_data,
-            seqlen=config.seq_len,
-            device=main_device,
-        )
-
-        # 3. Setup quantization config
-        logger.info("[INFO] Setting up quantization with scheme: %s", config.quant_scheme)
-
-        if model_type not in LLMTemplate.list_available():
-            raise ValueError(f"Model type '{model_type}' is not supported. Available: {LLMTemplate.list_available()}")
-
-        template = LLMTemplate.get(model_type)
-
-        # Handle quant_algo as string or list
-        quant_algo_list = None
-        if config.quant_algo:
-            if isinstance(config.quant_algo, str):
-                quant_algo_list = config.quant_algo.split(",") if "," in config.quant_algo else [config.quant_algo]
-            elif isinstance(config.quant_algo, list):
-                quant_algo_list = config.quant_algo
-
-        # Build layer-specific config
-        layer_config = dict(config.layer_quant_scheme) if config.layer_quant_scheme else {}
-
-        # Get quantization config from template
-        quant_config = template.get_config(
-            scheme=config.quant_scheme,
-            algorithm=quant_algo_list,
-            kv_cache_scheme=config.kv_cache_dtype,
-            min_kv_scale=config.min_kv_scale,
-            layer_config=layer_config if layer_config else None,
-            attention_scheme=config.attention_dtype,
-            exclude_layers=config.exclude_layers,
-        )
-
-        # Handle kv_cache_post_rope flag
-        if config.kv_cache_post_rope:
-            if hasattr(quant_config, "kv_cache_post_rope"):
-                quant_config.kv_cache_post_rope = True
-            else:
-                logger.warning("kv_cache_post_rope not supported by quant_config")
-
-        # 4. Quantize model
-        logger.info("[INFO] Starting model quantization")
-        quantizer = ModelQuantizer(quant_config, multi_device=True)
-        torch_model = quantizer.quantize_model(torch_model, calib_dataloader)
-
-        # 5. Freeze model
-        logger.info("[INFO] Freezing quantized model")
-        torch_model = quantizer.freeze(torch_model)
-
-        # 6. Revert model patching
-        logger.info("[INFO] Reverting model patching")
-        revert_model_patching(torch_model)
-
-        # 7. Validate export configuration
-        if config.custom_mode != "quark" and config.export_weight_format == "fake_quantized":
-            raise ValueError("'fake_quantized' only supports custom_mode='quark'")
-
-        # 8. Export model
-        logger.info("[INFO] Exporting quantized model to: %s", output_dir)
-
-        export_formats = config.model_export
-        if isinstance(export_formats, str):
-            export_formats = [export_formats]
-        elif export_formats is None:
-            export_formats = ["hf_format"]
-
-        for export_format in export_formats:
-            if export_format == "hf_format":
-                with torch.no_grad():
-                    export_safetensors(
-                        model=torch_model,
-                        output_dir=str(output_dir),
-                        custom_mode=config.custom_mode,
-                        weight_format=config.export_weight_format,
-                        pack_method=config.pack_method,
-                    )
-                    tokenizer.save_pretrained(str(output_dir))
-                logger.info("[INFO] Exported HF format to: %s", output_dir)
-
-            elif export_format == "onnx":
-                with torch.inference_mode():
-                    batch_iter = iter(calib_dataloader)
-                    input_args = next(batch_iter)
-                    uint4_int4_flag = "uint4" in config.quant_scheme or "int4" in config.quant_scheme
-
-                    onnx_output_dir = output_dir / "onnx"
-                    onnx_output_dir.mkdir(exist_ok=True)
-                    export_onnx(
-                        model=torch_model,
-                        output_dir=str(onnx_output_dir),
-                        input_args=input_args,
-                        uint4_int4_flag=uint4_int4_flag,
-                    )
-                logger.info("[INFO] Exported ONNX format to: %s", onnx_output_dir)
-
-            elif export_format == "gguf":
-                with torch.inference_mode():
-                    export_gguf(
-                        torch_model,
-                        output_dir=str(output_dir),
-                        model_type=model_type,
-                        tokenizer_path=str(model.model_path),
-                    )
-                logger.info("[INFO] Exported GGUF format to: %s", output_dir)
-
-        return HfModelHandler(str(output_dir))
+        return run_quark_torch_quantization(model, config, output_model_path)
