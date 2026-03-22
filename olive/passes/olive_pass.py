@@ -9,8 +9,9 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Optional, Union, get_args
 
+from pydantic import BaseModel, ValidationError, create_model
+
 from olive.common.config_utils import ParamCategory, validate_config
-from olive.common.pydantic_v1 import BaseModel, ValidationError, create_model
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
@@ -137,7 +138,7 @@ class Pass(ABC):
         assert set(point.keys()).intersection(set(search_params.keys())) == point.keys(), (
             "Search point is not in the search space."
         )
-        return config_class.parse_obj({**fixed_values, **search_params, **point})
+        return config_class.model_validate({**fixed_values, **search_params, **point})
 
     @classmethod
     def _identify_search_values(
@@ -449,7 +450,7 @@ class Pass(ABC):
         default_config: dict[str, PassConfigParam],
     ) -> dict[str, Any]:
         """Resolve config to BasePassConfig."""
-        config = input_config.dict()
+        config = input_config.model_dump()
         config = cls._resolve_defaults(config, default_config)
         if "user_script" in config:
             user_module_loader = UserModuleLoader(config["user_script"], config["script_dir"])
@@ -474,7 +475,7 @@ class FullPassConfig(AbstractPassConfig):
     reconstruct the pass from the JSON file.
     """
 
-    accelerator: dict[str, str] = None
+    accelerator: Optional[dict[str, str]] = None
     host_device: Optional[str] = None
 
     def create_pass(self):
@@ -491,9 +492,9 @@ class FullPassConfig(AbstractPassConfig):
 # instead of using the default argument.
 def create_pass_from_dict(
     pass_cls: type[Pass],
-    config: dict[str, Any] = None,
+    config: Optional[dict[str, Any]] = None,
     disable_search=False,
-    accelerator_spec: AcceleratorSpec = None,
+    accelerator_spec: Optional[AcceleratorSpec] = None,
     host_device=None,
 ) -> Pass:
     """Create a pass from a dictionary."""

@@ -7,10 +7,12 @@ import time
 from collections.abc import Generator
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union
+
+from pydantic import Field, field_validator
+from pydantic_core import PydanticUndefined
 
 from olive.common.config_utils import CaseInsensitiveEnum, ConfigBase, NestedConfig, validate_config, validate_enum
-from olive.common.pydantic_v1 import validator
 from olive.search.samplers import REGISTRY, SearchSampler
 from olive.search.search_parameter import Categorical
 from olive.search.search_results import SearchResults
@@ -32,41 +34,48 @@ class SearchStrategyExecutionOrder(CaseInsensitiveEnum):
 
 
 class SearchStrategyConfig(NestedConfig):
-    _nested_field_name = "sampler_config"
-    execution_order: Union[str, SearchStrategyExecutionOrder] = None
-    sampler: str = None
-    sampler_config: ConfigBase = None
-    output_model_num: int = None
+    _nested_field_name: ClassVar[str] = "sampler_config"
+    execution_order: Optional[Union[str, SearchStrategyExecutionOrder]] = None
+    sampler: Optional[str] = None
+    sampler_config: Optional[ConfigBase] = Field(default=None, validate_default=True)
+    output_model_num: Optional[int] = None
     stop_when_goals_met: bool = False
-    max_iter: int = None
-    max_time: int = None
+    max_iter: Optional[int] = None
+    max_time: Optional[int] = None
     include_pass_params: bool = True
 
-    @validator("execution_order", pre=True)
+    @field_validator("execution_order", mode="before")
+    @classmethod
     def _validate_execution_order(cls, v):
         return validate_enum(SearchStrategyExecutionOrder, v)
 
-    @validator("sampler", pre=True)
+    @field_validator("sampler", mode="before")
+    @classmethod
     def _validate_sampler(cls, v):
         if v not in REGISTRY:
             raise ValueError(f"Unknown sampler: {v}")
         return v
 
-    @validator("sampler_config", pre=True, always=True)
-    def _validate_sampler_config(cls, v, values):
-        if "sampler" not in values:
+    @field_validator("sampler_config", mode="before")
+    @classmethod
+    def _validate_sampler_config(cls, v, info):
+        if "sampler" not in info.data:
             raise ValueError("Invalid sampler")
 
-        config_class = REGISTRY[values["sampler"]].get_config_class()
+        config_class = REGISTRY[info.data["sampler"]].get_config_class()
         return validate_config(v, config_class)
 
-    @validator("stop_when_goals_met", "max_iter", "max_time", pre=True)
-    def _validate_stop_when_goals_met(cls, v, values, field):
-        if "execution_order" not in values:
+    @field_validator("stop_when_goals_met", "max_iter", "max_time", mode="before")
+    @classmethod
+    def _validate_stop_when_goals_met(cls, v, info):
+        if "execution_order" not in info.data:
             raise ValueError("Invalid execution_order")
-        if v and values["execution_order"] != SearchStrategyExecutionOrder.JOINT:
-            logger.info("%s is only supported for joint execution order. Ignoring...", field.name)
-            return field.default
+        if v and info.data["execution_order"] != SearchStrategyExecutionOrder.JOINT:
+            logger.info("%s is only supported for joint execution order. Ignoring...", info.field_name)
+            field_info = cls.model_fields.get(info.field_name)
+            if field_info and field_info.default is not PydanticUndefined:
+                return field_info.default
+            return None
         return v
 
 
@@ -102,13 +111,13 @@ class SearchStrategy:
         self.config: SearchStrategyConfig = validate_config(config, SearchStrategyConfig)
 
         # Initialization variables
-        self._search_spaces: list[SearchSpace] = None
-        self._objectives: dict[str, dict[str, Any]] = None
-        self._init_model_id: str = None
+        self._search_spaces: Optional[list[SearchSpace]] = None
+        self._objectives: Optional[dict[str, dict[str, Any]]] = None
+        self._init_model_id: Optional[str] = None
 
         # State variables
-        self._path: list[int] = None
-        self._state: dict[tuple, SearchWalkState] = None
+        self._path: Optional[list[int]] = None
+        self._state: Optional[dict[tuple, SearchWalkState]] = None
 
         # self._iteration_count and self._num_samples_suggested include counts across all search spaces.
         # For specific counts, query the sampler corresponding to the specific search space

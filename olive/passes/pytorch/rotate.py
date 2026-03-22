@@ -10,10 +10,10 @@ from functools import partial
 from typing import Any, Optional, Union
 
 import torch
+from pydantic import Field
 from torch import nn
 
 from olive.common.hf.wrapper import ModelWrapper
-from olive.common.pydantic_v1 import Field
 from olive.common.utils import StrEnumBase, cleanup_memory, replace_submodules, set_attr
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import HfModelHandler
@@ -261,7 +261,7 @@ class HFTrainingArguments(BaseHFTrainingArguments):
     Has the same fields as transformers.TrainingArguments with recommended default values for SpinQuant
     """
 
-    bf16 = Field(
+    bf16: bool = Field(
         True, description="Whether to use bfloat16 precision. Recommended for performance on supported hardware."
     )
     per_device_train_batch_size: int = Field(
@@ -332,7 +332,7 @@ class SpinQuant(RotateBase):
 
         from olive.passes.pytorch.sgdg import SGDG
 
-        training_args = HFTrainingArguments.parse_obj(config.training_args or {})
+        training_args = HFTrainingArguments.model_validate(config.training_args or {})
 
         # rotate the model
         model_wrapper, rotation_params, save_replacements = self.rotate_model(

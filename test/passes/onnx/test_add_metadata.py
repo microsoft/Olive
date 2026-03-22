@@ -41,12 +41,12 @@ class TestAddOliveMetadata:
     def test_add_metadata_missing_graph_name(self, tmp_path):
         """Test that missing graph_name raises ValidationError during pass creation."""
         # Setup
-        from olive.common.pydantic_v1 import ValidationError
+        from pydantic import ValidationError
 
         config = {}  # Missing required graph_name
 
         # Execute and Assert - Should fail during pass creation, not execution
-        with pytest.raises(ValidationError, match="field required"):
+        with pytest.raises(ValidationError, match="Field required"):
             create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
 
     def test_add_metadata_with_custom_metadata(self, tmp_path):
@@ -325,10 +325,10 @@ class TestAddOliveMetadata:
             "graph_name": "test_graph_hash_error",
         }
 
-        # Create pass and patch the ModelConfig.parse_obj method to raise an exception
+        # Create pass and patch the ModelConfig.model_validate method to raise an exception
         p = create_pass_from_dict(AddOliveMetadata, config, disable_search=True)
 
-        with patch("olive.model.config.model_config.ModelConfig.parse_obj", side_effect=Exception("Hash error")):
+        with patch("olive.model.config.model_config.ModelConfig.model_validate", side_effect=Exception("Hash error")):
             output_folder = str(tmp_path / "onnx")
 
             # Execute - should not fail despite hash calculation error
@@ -352,10 +352,10 @@ class TestAddOliveMetadata:
         # Calculate hash twice for same model using the actual implementation approach
         from olive.model.config.model_config import ModelConfig
 
-        model_config1 = ModelConfig.parse_obj(input_model.to_json())
+        model_config1 = ModelConfig.model_validate(input_model.to_json())
         hash1 = model_config1.get_model_identifier()
 
-        model_config2 = ModelConfig.parse_obj(input_model.to_json())
+        model_config2 = ModelConfig.model_validate(input_model.to_json())
         hash2 = model_config2.get_model_identifier()
 
         # Hashes should be identical

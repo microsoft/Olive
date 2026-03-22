@@ -26,9 +26,14 @@ class AcceleratorNormalizer:
         self.system_supported_eps = None
 
     def normalize(self) -> "SystemConfig":
-        if not self.system_config.config.accelerators:
+        # Handle None config by creating default config
+        if not self.system_config.config or not self.system_config.config.accelerators:
             # default to cpu, available on all ort packages, most general
             logger.info("No accelerators specified. Defaulting to cpu.")
+            if not self.system_config.config:
+                from olive.systems.system_config import LocalTargetUserConfig
+
+                self.system_config.config = LocalTargetUserConfig()
             self.system_config.config.accelerators = [
                 {"device": "cpu", **({"execution_providers": ["CPUExecutionProvider"]} if self.is_ep_required else {})}
             ]

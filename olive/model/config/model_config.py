@@ -6,9 +6,10 @@ import logging
 from copy import deepcopy
 from pathlib import Path
 
+from pydantic import Field, field_validator
+
 from olive.common.config_utils import NestedConfig
 from olive.common.constants import LOCAL_INPUT_MODEL_ID
-from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import hash_dict, hash_file, hash_string
 from olive.model.config.registry import get_model_handler, is_valid_model_type
 from olive.resource_path import create_resource_path
@@ -22,7 +23,8 @@ class ModelConfig(NestedConfig):
     type: str = Field(description="The type of the model handler.")
     config: dict = Field(description="The config for the model handler. Used to initialize the model handler.")
 
-    @validator("type")
+    @field_validator("type")
+    @classmethod
     def validate_type(cls, v):
         if not is_valid_model_type(v):
             raise ValueError(f"Unknown model type {v}")
@@ -53,7 +55,7 @@ class ModelConfig(NestedConfig):
         if model_config.config.get("model_attributes"):
             model_config.config["model_attributes"].pop("additional_files", None)
             model_config.config["model_attributes"].pop("_name_or_path", None)
-        return hash_dict({"model_identifier": model_identifier, "model_config": model_config.dict()})[:8]
+        return hash_dict({"model_identifier": model_identifier, "model_config": model_config.model_dump()})[:8]
 
     def get_model_identifier(self):
         model_path = self.config.get("model_path")

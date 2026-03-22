@@ -618,7 +618,7 @@ class TestSearchStrategy:
             ]
         )
 
-        signal1 = MetricResult.parse_obj(
+        signal1 = MetricResult.model_validate(
             {
                 "accuracy-accuracy_custom": {
                     "value": 0.96,
@@ -628,7 +628,7 @@ class TestSearchStrategy:
                 "latency-avg": {"value": 4.5, "priority": 2, "higher_is_better": False},
             }
         )
-        signal2 = MetricResult.parse_obj(
+        signal2 = MetricResult.model_validate(
             {
                 "accuracy-accuracy_custom": {
                     "value": 0.72,
@@ -638,7 +638,7 @@ class TestSearchStrategy:
                 "latency-avg": {"value": 55.9, "priority": 2, "higher_is_better": False},
             }
         )
-        signal3 = MetricResult.parse_obj(
+        signal3 = MetricResult.model_validate(
             {
                 "accuracy-accuracy_custom": {
                     "value": 0.73,
@@ -648,7 +648,7 @@ class TestSearchStrategy:
                 "latency-avg": {"value": 8.9, "priority": 2, "higher_is_better": False},
             }
         )
-        signal4 = MetricResult.parse_obj(
+        signal4 = MetricResult.model_validate(
             {
                 "accuracy-accuracy_custom": {
                     "value": 0.91,
@@ -658,7 +658,7 @@ class TestSearchStrategy:
                 "latency-avg": {"value": 13.9, "priority": 2, "higher_is_better": False},
             }
         )
-        signal5 = MetricResult.parse_obj(
+        signal5 = MetricResult.model_validate(
             {
                 "accuracy-accuracy_custom": {
                     "value": 0.82,
@@ -669,7 +669,7 @@ class TestSearchStrategy:
                 "latency-max": {"value": 60.1, "priority": 2, "higher_is_better": False},
             }
         )
-        signal6 = MetricResult.parse_obj(
+        signal6 = MetricResult.model_validate(
             {
                 "accuracy-accuracy_custom": {
                     "value": 0.76,

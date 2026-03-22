@@ -4,11 +4,13 @@
 # --------------------------------------------------------------------------
 import functools
 import importlib
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from pydantic import Field, field_validator
+
 from olive.common.config_utils import ConfigBase
-from olive.common.pydantic_v1 import Field, validator
 from olive.passes import PassModuleConfig
 
 if TYPE_CHECKING:
@@ -26,7 +28,8 @@ class OlivePackageConfig(ConfigBase):
 
     _pass_modules: ClassVar[dict[str, type["Pass"]]] = {}
 
-    @validator("passes")
+    @field_validator("passes")
+    @classmethod
     def validate_passes(cls, values):
         return {key.lower(): value for key, value in values.items()}
 
@@ -38,7 +41,10 @@ class OlivePackageConfig(ConfigBase):
     @staticmethod
     @functools.lru_cache
     def load_default_config() -> "OlivePackageConfig":
-        return OlivePackageConfig.parse_file(OlivePackageConfig.get_default_config_path())
+        config_path = Path(OlivePackageConfig.get_default_config_path())
+        with open(config_path) as f:
+            data = json.load(f)
+        return OlivePackageConfig.model_validate(data)
 
     def import_pass_module(self, pass_type: str):
         if pass_type not in self._pass_modules:

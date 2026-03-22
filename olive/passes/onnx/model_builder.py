@@ -25,6 +25,7 @@ from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pass_config import BasePassConfig
+from olive.search.search_parameter import Boolean, Categorical
 
 logger = logging.getLogger(__name__)
 
@@ -83,11 +84,15 @@ class ModelBuilder(Pass):
             "int4_block_size": PassConfigParam(
                 type_=ModelBuilder.BlockSize,
                 required=False,
+                search_defaults=Categorical(
+                    [ModelBuilder.BlockSize.B32, ModelBuilder.BlockSize.B64, ModelBuilder.BlockSize.B128]
+                ),
                 description="Specify the block_size for int4 quantization. Acceptable values: 16/32/64/128/256.",
             ),
             "int4_is_symmetric": PassConfigParam(
                 type_=bool,
                 required=False,
+                search_defaults=Boolean(),
                 description="Specify whether symmetric or asymmetric INT4 quantization needs to be used.",
             ),
             "int4_op_types_to_quantize": PassConfigParam(
@@ -106,6 +111,14 @@ class ModelBuilder(Pass):
             "int4_algo_config": PassConfigParam(
                 type_=str,
                 required=False,
+                search_defaults=Categorical(
+                    [
+                        "default",
+                        "rtn",
+                        "k_quant_mixed",
+                        "k_quant_last",
+                    ]
+                ),
                 description="Specify the INT4 quantization algorithm to use in GenAI Model Builder",
             ),
             "use_qdq": PassConfigParam(
@@ -242,7 +255,7 @@ class ModelBuilder(Pass):
         extra_args.update(
             {
                 key: value.value if isinstance(value, IntEnum) else value
-                for key, value in config.dict().items()
+                for key, value in config.model_dump().items()
                 if value is not None and key not in {"precision", "metadata_only", "search", "extra_options"}
             }
         )
@@ -270,17 +283,25 @@ class ModelBuilder(Pass):
                 **extra_args,
             )
 
-            # add split information if present
-            split_assignments = model_attributes.get("split_assignments")
-            if not metadata_only and split_assignments:
-                # NOTE: currently the model builder renames modules to it's own naming convention
-                # so the assignments for the renamed modules won't match
-                split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
+            # Apply post-processing annotations (split assignments and/or layer annotations)
+            # in a single load/save cycle to avoid redundant disk I/O.
+            split_assignments = model_attributes.get("split_assignments") if not metadata_only else None
+            layer_annotations = model_attributes.get("layer_annotations") if not metadata_only else None
 
-                # load the model and set the split_assignments as model properties
-                # without the external data so that they can be used as is with the resaved model
+            if split_assignments or layer_annotations:
                 model_proto = onnx.load(output_model_filepath, load_external_data=False)
-                onnx.helper.set_model_props(model_proto, {"split_assignments": split_assignment_str})
+
+                if split_assignments:
+                    # NOTE: currently the model builder renames modules to it's own naming convention
+                    # so the assignments for the renamed modules won't match
+                    split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
+                    onnx.helper.set_model_props(model_proto, {"split_assignments": split_assignment_str})
+
+                if layer_annotations:
+                    from olive.passes.onnx.layer_annotation import annotate_proto_model
+
+                    annotate_proto_model(model_proto, layer_annotations)
+
                 onnx.save(model_proto, output_model_filepath)
         except Exception:
             # if model building fails, clean up the intermediate files in the cache_dir
@@ -355,6 +376,7 @@ class ModelBuilder(Pass):
 
         builder = importlib.import_module("onnxruntime_genai.models.builder")
         builder.Model.make_packed_matmul_int4 = patched_make_packed_matmul_int4
+        builder.Model.make_embedding = patched_make_embedding
 
 
 class OliveQuantizedModel:
@@ -406,13 +428,14 @@ class OliveQuantizedModel:
                 for q_attr, q_value in [("bits", local_bits), ("_group_size", local_group_size)]:
                     setattr(submodule, q_attr, q_value)
                 # in_features is always a multiple of group_size, group_size is a power of 2
-                if tensor_name.endswith("scales"):
-                    submodule.out_features = tensor_value.shape[0]
-                    submodule.in_features = tensor_value.shape[1] * local_group_size
-                elif tensor_name.endswith("qweight"):
-                    tensor_value = tensor_value.reshape(
-                        tensor_value.shape[0], (tensor_value.shape[1] * 8 // local_bits) // local_group_size, -1
-                    )
+                # assumes no padding
+                if tensor_name.endswith("qweight"):
+                    out_features, in_features_packed = tensor_value.shape
+                    in_features = in_features_packed * 8 // local_bits
+                    submodule.in_features = in_features
+                    submodule.out_features = out_features
+                    num_blocks = in_features // local_group_size if local_group_size != -1 else 1
+                    tensor_value = tensor_value.reshape(out_features, num_blocks, -1)
             setattr(submodule, tensor_name.split(".")[-1], tensor_value)
 
         for weight_file in Path(input_path).iterdir():
@@ -456,6 +479,14 @@ class OliveQuantizedModel:
         if isinstance(self.lm_head, TensorModule) and self.lm_head.weight is None:
             self.lm_head.weight = self.embedding.weight
 
+        if isinstance(self.embedding, QuantizedTensorModule):
+            # nest the module into .weight since the builder expects that
+            class EmbeddingWrapper:
+                def __init__(self, embedding):
+                    self.weight = embedding
+
+            self.embedding = EmbeddingWrapper(self.embedding)
+
 
 def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename, root_input, **kwargs):
     if not hasattr(q_matmul, "qweight"):
@@ -483,3 +514,70 @@ def patched_make_packed_matmul_int4(self, q_matmul, k_matmul, v_matmul, basename
 
     matmul = PackedMatMul()
     return self.make_matmul_int4(matmul, basename, root_input, **kwargs)
+
+
+def patched_make_embedding(self, embedding):
+    import onnx_ir as ir
+
+    basename = "/model/embed_tokens"
+    if getattr(self, "int4_tied_embeddings", False) or getattr(self, "shared_embeddings", False):
+        logger.debug(
+            "int4_tied_embedding/shared_embeddings is set to True but will be ignored. Use TieWordEmbeddings graph surgery to tie"
+            " embeddings."
+        )
+
+    if hasattr(embedding, "qweight"):
+        qweight = "model.embed_tokens.qweight"
+        self.make_initializer(embedding.qweight.reshape([embedding.qweight.shape[0], -1]), qweight)
+        scales = "model.embed_tokens.scales"
+        self.make_initializer(embedding.scales, scales, to=self.io_dtype)
+        if embedding.qzeros is not None:
+            qzeros = "model.embed_tokens.qzeros"
+            self.make_initializer(embedding.qzeros, qzeros)
+
+        gather_name = f"{basename}/GatherBlockQuantized"
+        gather_output = f"{gather_name}/output_0"
+        self.make_node(
+            "GatherBlockQuantized",
+            inputs=[qweight, "input_ids", scales] + ([qzeros] if embedding.qzeros is not None else []),
+            outputs=[gather_output],
+            name=gather_name,
+            domain="com.microsoft",
+            bits=embedding.bits,
+            block_size=embedding.group_size,
+        )
+    else:
+        weight = "model.embed_tokens.weight"
+        self.make_initializer(embedding, weight, to=self.io_dtype)
+
+        gather_name = f"{basename}/Gather"
+        gather_output = f"{gather_name}/output_0"
+        self.make_node("Gather", inputs=[weight, "input_ids"], outputs=[gather_output], name=gather_name)
+
+    self.make_value(gather_output, self.io_dtype, shape=["batch_size", "sequence_length", self.hidden_size])
+
+    if self.embed_attrs["scale"] != 1:
+        # Scale the embeddings
+        mul_name = f"{basename}/Mul"
+        mul_inputs = [gather_output, f"/model/constants/{self.to_str_dtype(self.io_dtype)}/{self.embed_attrs['scale']}"]
+        mul_output = f"{mul_name}/output_0"
+        self.make_node("Mul", inputs=mul_inputs, outputs=[mul_output], name=mul_name)
+        self.make_value(mul_output, self.io_dtype, shape=["batch_size", "sequence_length", self.hidden_size])
+
+        layernorm_attrs_value = mul_output
+    else:
+        layernorm_attrs_value = gather_output
+
+    if self.layernorm_attrs["cast"]["use_fp32"] and self.io_dtype != ir.DataType.FLOAT:
+        # Insert output Cast node
+        cast_name = f"{basename}/Cast"
+        self.make_cast(
+            cast_name,
+            layernorm_attrs_value,
+            ir.DataType.FLOAT,
+            shape=["batch_size", "sequence_length", self.hidden_size],
+        )
+        layernorm_attrs_value = f"{cast_name}/output_0"
+
+    self.layernorm_attrs["root_input"] = layernorm_attrs_value
+    self.layernorm_attrs["skip_input"] = layernorm_attrs_value

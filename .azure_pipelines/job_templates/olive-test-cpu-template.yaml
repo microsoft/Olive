@@ -7,6 +7,8 @@ parameters:
   onnxruntime_nightly: false
   torch: 'torch'
   requirements_file: 'requirements-test-cpu.txt'
+  pytest_marker: ''
+  test_path: 'test'
 
 jobs:
 - job: ${{parameters.name}}
@@ -17,6 +19,8 @@ jobs:
     WINDOWS: ${{ parameters.windows}}
     python_version: ${{ parameters.python_version }}
     requirements_file: ${{ parameters.requirements_file }}
+    pytest_marker: ${{ parameters.pytest_marker }}
+    test_path: ${{ parameters.test_path }}
     PIP_CACHE_DIR: $(Pipeline.Workspace)/.cache/pip
     HF_HOME: $(Pipeline.Workspace)/.cache/huggingface
     PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
@@ -39,7 +43,7 @@ jobs:
         python -m pip install pytest
         python -m pip install -r $(Build.SourcesDirectory)/test/$(requirements_file)
         python -m pip list
-        coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test --basetemp $(PYTEST_BASETEMP)
+        coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml -m "$(pytest_marker)" $(Build.SourcesDirectory)/$(test_path) --basetemp $(PYTEST_BASETEMP)
         coverage xml
     displayName: Test Olive
 

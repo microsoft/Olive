@@ -13,6 +13,8 @@ parameters:
   requirements_file: 'requirements-test-gpu.txt'
   test_script: 'run_test.sh'
   onnxruntime_nightly: false
+  pytest_marker: ''
+  test_path: 'test'
 
 jobs:
 - job: ${{parameters.name}}
@@ -68,9 +70,10 @@ jobs:
       ${{ parameters.onnxruntime }} \
       ${{ parameters.onnxruntime_nightly }} \
       test/${{ parameters.requirements_file }} \
-      test \
+      ${{ parameters.test_path }} \
       false \
-      $(hf_token)
+      $(hf_token) \
+      "${{ parameters.pytest_marker }}"
     displayName: Run Tests in Docker
 
   - task: CredScan@3

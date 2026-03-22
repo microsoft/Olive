@@ -75,7 +75,7 @@ def test_load_from_loader(user_module_loader, model_scripts):
 
 def test_io_config(io_config):
     olive_model = PyTorchModelHandler(model_path="dummy", io_config=io_config)
-    assert olive_model.io_config == IoConfig(**io_config).dict(exclude_none=True)
+    assert olive_model.io_config == IoConfig(**io_config).model_dump(exclude_none=True)
 
 
 @patch("olive.data.template.dummy_data_config_template")

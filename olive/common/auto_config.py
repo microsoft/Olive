@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import inspect
 from abc import ABC, abstractmethod
-from typing import Any, Callable, ClassVar, Union
+from typing import Any, Callable, ClassVar, Optional, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, create_config_class, validate_config
 
@@ -33,7 +33,7 @@ class AutoConfigClass(ABC):
     Additional validators
     Sub-class developer can also add additional validators by implementing the static method _validators
     E.g.,
-        from olive.common.pydantic_v1 import validator
+        from pydantic import field_validator
 
         def validate_func_param(v, values):
             ...
@@ -41,11 +41,11 @@ class AutoConfigClass(ABC):
 
         @classmethod
         def _validators(cls):
-            return {"validate_func_param": validator("func_param", allow_reuse=True)(validate_func_param)}
+            return {"validate_func_param": field_validator("func_param", allow_reuse=True)(validate_func_param)}
     """
 
     registry: ClassVar[dict[str, type]] = {}
-    name: str = None
+    name: Optional[str] = None
     _config_base: type[ConfigBase] = ConfigBase
 
     @classmethod

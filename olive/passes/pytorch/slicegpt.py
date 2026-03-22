@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 class SliceGPT(Pass):
     """Run SliceGPT on a Hugging Face PyTorch model.
 
-    See https://arxiv.org/pdf/2401.15024.pdf for more details on the algorithm.
+    See https://arxiv.org/pdf/2401.15024 for more details on the algorithm.
 
     This pass only supports HfModelHandler.
     """

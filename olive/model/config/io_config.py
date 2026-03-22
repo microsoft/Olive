@@ -5,9 +5,10 @@
 from copy import deepcopy
 from typing import Any, Optional, Union
 
+from pydantic import field_validator
+
 from olive.common.config_utils import ConfigBase, get_the_flattened_and_tree_spec
 from olive.common.hf.wrapper import ModelWrapper
-from olive.common.pydantic_v1 import validator
 from olive.model.config.kv_cache_config import KVCacheConfig
 
 
@@ -39,12 +40,12 @@ class IoConfig(ConfigBase):
     output_names: list[str]
     output_shapes: Optional[list[list[int]]] = None
     output_types: Optional[list[str]] = None
-    dynamic_axes: Optional[dict[str, dict[int, str]]] = None
+    dynamic_axes: Optional[dict[str, Optional[dict[int, str]]]] = None
     # dynamic_shapes is different from dynamic_axes, it is nested.
     # We need to post-process its keys to int under onnx/conversion.py
     # for example, {"input_ids": {"0": "batch"}}
     dynamic_shapes: Optional[Union[list[Any], dict[str, Any]]] = None
-    # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
+    # ONNX exporter might mark dimension like 'Transpose present_value_self_1_dim_2' in shape inference
     # even though we want the dimension to be a constant int.
     # We use a workaround here: first use dim_param like "1" to represent the dimension, and then
     # convert it to int in the onnx model.
@@ -54,39 +55,44 @@ class IoConfig(ConfigBase):
     # if KVCacheConfig, use the provided KVCacheConfig
     kv_cache: Union[bool, dict[str, Any], KVCacheConfig] = False
 
-    @validator("input_shapes", "input_types")
-    def check_input_shapes(cls, v, values):
+    @field_validator("input_shapes", "input_types")
+    @classmethod
+    def check_input_shapes(cls, v, info):
         if not v:
             return v
 
-        if "input_names" not in values:
+        if "input_names" not in info.data:
             raise ValueError("Invalid input_names")
-        if len(v) != len(values["input_names"]):
+        if len(v) != len(info.data["input_names"]):
             raise ValueError("input_names and input_shapes must have the same length")
         return v
 
-    @validator("output_shapes", "output_types")
-    def check_output_shapes(cls, v, values):
+    @field_validator("output_shapes", "output_types")
+    @classmethod
+    def check_output_shapes(cls, v, info):
         if not v:
             return v
 
-        if "output_names" not in values:
+        if "output_names" not in info.data:
             raise ValueError("Invalid output_names")
-        if len(v) != len(values["output_names"]):
+        if len(v) != len(info.data["output_names"]):
             raise ValueError("output_names and output_shapes must have the same length")
         return v
 
-    @validator("dynamic_axes")
+    @field_validator("dynamic_axes")
+    @classmethod
     def convert_dynamic_axes(cls, v):
         if not v:
             return v
 
         dynamic_axes = v
         for k, value in dynamic_axes.items():
-            dynamic_axes[k] = {int(kk): vv for kk, vv in value.items()}
+            if value:
+                dynamic_axes[k] = {int(kk): vv for kk, vv in value.items()}
         return dynamic_axes
 
-    @validator("dynamic_shapes")
+    @field_validator("dynamic_shapes")
+    @classmethod
     def convert_dynamic_shapes(cls, v):
         if not v:
             return v
@@ -103,7 +109,8 @@ class IoConfig(ConfigBase):
                 new_flattened.append(axes)
         return tree_spec.unflatten(new_flattened)
 
-    @validator("string_to_int_dim_params")
+    @field_validator("string_to_int_dim_params")
+    @classmethod
     def check_string_to_int_dim_params(cls, v):
         if not v:
             return v
@@ -165,7 +172,7 @@ def complete_kv_cache_with_model_attributes(kv_cache, model_attributes):
                 "world_size": kv_cache.get("world_size") or world_size,
             }
         )
-        kv_cache_obj = KVCacheConfig.parse_obj(kv_cache_dict)
+        kv_cache_obj = KVCacheConfig.model_validate(kv_cache_dict)
     elif isinstance(kv_cache, KVCacheConfig):
         # as num_hidden_layers, num_attention_heads, hidden_size are required for kv_cache
         # there is no need to update them
@@ -204,7 +211,7 @@ def extend_io_config_with_kv_cache(io_config, kv_cache_config: KVCacheConfig):
 
 def is_io_config_static(config: Union[IoConfig, dict]):
     if isinstance(config, IoConfig):
-        config = config.dict()
+        config = config.model_dump()
     if not config.get("input_shapes"):
         return False
     return all(all(isinstance(dim, int) for dim in shape) for shape in config["input_shapes"])

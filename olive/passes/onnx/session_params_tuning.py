@@ -13,7 +13,6 @@ import onnxruntime as ort
 
 from olive.common.config_utils import validate_config
 from olive.common.ort_inference import check_and_normalize_provider_args, get_ort_available_providers
-from olive.common.pydantic_v1 import Extra
 from olive.data.config import DataConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.metric_result import joint_metric_key
@@ -186,13 +185,13 @@ class OrtSessionParamsTuning(Pass):
             return False
 
         # Rename the search parameters with atomic/singular names for clarity
-        config.__class__.__config__.extra = Extra.allow
-        config.execution_provider = config.providers_list
-        config.provider_options = config.provider_options_list
-        config.execution_mode = config.execution_mode_list
-        config.opt_level = config.opt_level_list
-        config.intra_op_thread_count = config.intra_thread_num_list
-        config.inter_op_thread_count = config.inter_thread_num_list
+        # In pydantic v2, we can't modify model_config at runtime, so we use object.__setattr__ to bypass validation
+        object.__setattr__(config, "execution_provider", config.providers_list)
+        object.__setattr__(config, "provider_options", config.provider_options_list)
+        object.__setattr__(config, "execution_mode", config.execution_mode_list)
+        object.__setattr__(config, "opt_level", config.opt_level_list)
+        object.__setattr__(config, "intra_op_thread_count", config.intra_thread_num_list)
+        object.__setattr__(config, "inter_op_thread_count", config.inter_thread_num_list)
 
         if config.execution_provider == "CUDAExecutionProvider" and not config.io_bind:
             # if enable_cuda_graph is True but the io_bind is False, the following errors will be raised.
@@ -268,14 +267,14 @@ class OrtSessionParamsTuning(Pass):
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         # Rename the search parameters with atomic/singular names for clarity
-        config.__class__.__config__.extra = Extra.allow
-        config = config.copy()
-        config.execution_provider = config.providers_list
-        config.provider_options = config.provider_options_list
-        config.execution_mode = config.execution_mode_list
-        config.opt_level = config.opt_level_list
-        config.intra_op_thread_count = config.intra_thread_num_list
-        config.inter_op_thread_count = config.inter_thread_num_list
+        # In pydantic v2, we can't modify model_config at runtime, so we use object.__setattr__ to bypass validation
+        config = config.model_copy()
+        object.__setattr__(config, "execution_provider", config.providers_list)
+        object.__setattr__(config, "provider_options", config.provider_options_list)
+        object.__setattr__(config, "execution_mode", config.execution_mode_list)
+        object.__setattr__(config, "opt_level", config.opt_level_list)
+        object.__setattr__(config, "intra_op_thread_count", config.intra_thread_num_list)
+        object.__setattr__(config, "inter_op_thread_count", config.inter_thread_num_list)
 
         if config.execution_provider == ExecutionProvider.TensorrtExecutionProvider:
             config.provider_options["trt_fp16_enable"] = config.trt_fp16_enable
@@ -285,7 +284,8 @@ class OrtSessionParamsTuning(Pass):
         # TODO(jambayk): decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model
         # otherwise save or symlink the original model to the output_model_path
-        if config.data_config:
+        if config.data_config and not isinstance(config.data_config, DataConfig):
+            # Check if data_config is already a DataConfig instance
             config.data_config = validate_config(config.data_config, DataConfig)
 
         latency_metric_config = {
@@ -373,8 +373,14 @@ class OrtSessionParamsTuning(Pass):
         with tempfile.TemporaryDirectory() as temp_dir:
             enable_rocm_op_tuning(inference_settings, tuning_op_result, temp_dir)
             # set the session_options for metrics so that the evaluate will use them by default
-            latency_metric.user_config.io_bind = io_bind
-            latency_metric.user_config.inference_settings = {"onnx": inference_settings}
+            # Initialize user_config if it doesn't exist
+            if latency_metric.user_config is None:
+                from olive.common.config_utils import ConfigBase
+
+                object.__setattr__(latency_metric, "user_config", ConfigBase())
+            # Use object.__setattr__ to bypass pydantic validation for dynamic attributes
+            object.__setattr__(latency_metric.user_config, "io_bind", io_bind)
+            object.__setattr__(latency_metric.user_config, "inference_settings", {"onnx": inference_settings})
 
             joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
 

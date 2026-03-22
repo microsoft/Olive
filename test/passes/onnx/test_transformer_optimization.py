@@ -22,7 +22,7 @@ def test_fusion_options():
     config = {"model_type": "bart", "optimization_options": {"use_multi_head_attention": True}}
     config = OrtTransformersOptimization.generate_config(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
     transformer_optimization = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
-    run_config = config.dict()
+    run_config = config.model_dump()
     del (
         run_config["float16"],
         run_config["input_int32"],

@@ -12,6 +12,8 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.quark_quantizer.quark_quantization import QuarkQuantization
 from test.utils import get_onnx_model, get_pytorch_model_dummy_input
 
+pytestmark = pytest.mark.amd
+
 
 class DummyCalibrationDataReader(CalibrationDataReader):
     # pylint: disable=W0223
@@ -37,7 +39,6 @@ def _test_quant_dataloader(dataset, batch_size, **kwargs):
     return DummyCalibrationDataReader(batch_size=batch_size)
 
 
-@pytest.mark.skip(reason="Quark Quantizer tests are skipped due to package conflicts with onnxruntime-genai.")
 def test_static_qdq_u8s8_quantization(tmp_path):
     input_model = get_onnx_model()
     config = {
@@ -68,8 +69,7 @@ def test_static_qdq_u8s8_quantization(tmp_path):
     assert out is not None
 
 
-@pytest.mark.skip(reason="Quark Quantizer tests are skipped due to package conflicts with onnxruntime-genai.")
-def test_static_qdq_u8s8_with_mp_quantization(tmp_path):
+def test_static_qdq_u8s8_with_tensorwise_mixed_precision_quantization(tmp_path):
     input_model = get_onnx_model()
     config = {
         "quant_mode": "static",
@@ -89,8 +89,102 @@ def test_static_qdq_u8s8_with_mp_quantization(tmp_path):
             },
         },
         "extra_options": {
-            "MixedPrecisionTensor": {"UInt16": ["/fc1/Gemm_output_0"]},
+            "TensorQuantOverrides": {"linear": [{"quant_type": "UInt16"}]},
         },
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
+        ),
+    }
+    p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
+    out = p.run(input_model, tmp_path)
+    assert out is not None
+
+
+def test_static_qdq_u8s8_with_opwise_mixed_precision_quantization(tmp_path):
+    input_model = get_onnx_model()
+    config = {
+        "quant_mode": "static",
+        "quant_format": "QDQ",
+        "global_config": {
+            "activation": {
+                "symmetric": False,
+                "calibration_method": "MinMax",
+                "quant_granularity": "Tensor",
+                "data_type": "UInt8",
+            },
+            "weight": {
+                "symmetric": True,
+                "calibration_method": "MinMax",
+                "quant_granularity": "Tensor",
+                "data_type": "Int8",
+            },
+        },
+        "layer_type_config": [
+            [
+                {
+                    "activation": {
+                        "data_type": "UInt16",
+                        "symmetric": False,
+                    },
+                    "weight": {
+                        "data_type": "UInt8",
+                        "symmetric": False,
+                    },
+                },
+                ["Gemm"],
+            ]
+        ],
+        "data_config": DataConfig(
+            name="test_quant_dc_config",
+            load_dataset_config=DataComponentConfig(type="simple_dataset"),
+            dataloader_config=DataComponentConfig(type="_test_quant_dataloader"),
+        ),
+    }
+    p = create_pass_from_dict(QuarkQuantization, config, disable_search=True)
+    out = p.run(input_model, tmp_path)
+    assert out is not None
+
+
+def test_static_qdq_u8s8_with_layerwise_mixed_precision_quantization(tmp_path):
+    input_model = get_onnx_model()
+    config = {
+        "quant_mode": "static",
+        "quant_format": "QDQ",
+        "global_config": {
+            "activation": {
+                "symmetric": False,
+                "calibration_method": "MinMax",
+                "quant_granularity": "Tensor",
+                "data_type": "UInt8",
+            },
+            "weight": {
+                "symmetric": True,
+                "calibration_method": "MinMax",
+                "quant_granularity": "Tensor",
+                "data_type": "Int8",
+            },
+        },
+        "specific_layer_config": [
+            [
+                {
+                    "input_tensors": {
+                        "data_type": "UInt16",
+                        "symmetric": False,
+                    },
+                    "output_tensors": {
+                        "data_type": "Int8",
+                        "symmetric": True,
+                    },
+                    "weight": {
+                        "data_type": "UInt8",
+                        "symmetric": False,
+                    },
+                },
+                ["node_linear"],
+            ]
+        ],
         "data_config": DataConfig(
             name="test_quant_dc_config",
             load_dataset_config=DataComponentConfig(type="simple_dataset"),

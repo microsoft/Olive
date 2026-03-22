@@ -347,7 +347,7 @@ class AimetQuantization(Pass):
         if version.parse(OrtVersion) < version.parse("1.19.0"):
             raise ValueError("AIMET Quantization is only supported for onnxruntime>=1.19.0")
 
-        run_config = config.dict()
+        run_config = config.model_dump()
         param_type = precision_to_qtype(run_config.get("precision"))
         act_type = precision_to_qtype(run_config.get("activation_type"))
 

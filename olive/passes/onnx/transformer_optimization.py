@@ -213,7 +213,7 @@ class OrtTransformersOptimization(Pass):
         num_kv_heads = config.num_key_value_heads
 
         # start with a copy of the config
-        run_config = config.dict()
+        run_config = config.model_dump()
         keys_to_remove = [
             "float16",
             "keep_io_types",

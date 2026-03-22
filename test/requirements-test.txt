@@ -1,6 +1,4 @@
 accelerate
-# package conflict with onnxruntime-genai
-# amd-quark==0.10
 azure-identity
 azure-storage-blob
 coverage
@@ -14,18 +12,18 @@ marshmallow
 ml_dtypes
 mlflow
 neural-compressor<2.4
-nncf>=2.18.0
+nncf>=2.19.0
 numpy<2.0.0
 nvidia-modelopt
-onnx==1.18.0
+onnx
 onnx-graphsurgeon
 onnxconverter_common
 onnxmltools
 onnxoptimizer
 onnxruntime_extensions
-onnxscript>=0.2.4
+onnxscript>=0.2.4, <0.6.1
 onnxsim
-openvino>=2025.3.0
+openvino>=2025.4.1
 optuna
 pandas
 peft
@@ -39,5 +37,3 @@ sentencepiece
 soundfile
 tabulate
 torchvision
-# Remove version pin when the tests are fixed
-transformers<5.0.0

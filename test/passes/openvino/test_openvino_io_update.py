@@ -5,10 +5,14 @@
 import shutil
 from pathlib import Path
 
+import pytest
+
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.io_update import OpenVINOIoUpdate
 from test.utils import get_pytorch_model, get_pytorch_model_dummy_input
+
+pytestmark = pytest.mark.openvino
 
 
 def convert_pt_to_ov_model(tmp_path, output_folder=None):

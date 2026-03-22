@@ -16,8 +16,8 @@ import numpy as np
 import onnx
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
+from pydantic import field_validator
 
-from olive.common.pydantic_v1 import validator
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import DistributedOnnxModelHandler, ONNXModelHandler
 from olive.passes import Pass
@@ -294,7 +294,7 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
 
         if self.debug:
             basename = Path(self.input_filepath).stem
-            output_dirpath = Path(output_dirpath)
+            output_dirpath: Path = Path(output_dirpath)
             OnnxModel.graph_topological_sort(model.model.graph)
             MoEExpertDistributionPatternMatcher._dump_graph(model.model, str(output_dirpath / f"{basename}.graph"))
 
@@ -316,11 +316,11 @@ class MoEExpertDistributionPatternMatcherA(MoEExpertDistributionPatternMatcher):
                 if not num_experts:
                     num_experts = len(consumers[div_node_oname])
                     if (num_experts % self.world_size) != 0:
-                        raise f"""Number of expert paths on node "{div_node.name}" should be a multiple of
-                                input world-size={self.world_size} but found {len(consumers[div_node_oname])}"""
+                        raise ValueError(f"""Number of expert paths on node "{div_node.name}" should be a multiple of
+                                input world-size={self.world_size} but found {len(consumers[div_node_oname])}""")
                 elif len(consumers[div_node_oname]) != num_experts:
-                    raise f"""Inconsistent number of expert across layers.
-                            expected={num_experts}, found={len(consumers[div_node_oname])}"""
+                    raise ValueError(f"""Inconsistent number of expert across layers.
+                            expected={num_experts}, found={len(consumers[div_node_oname])}""")
 
                 experts.append([n.name for n in path])
 
@@ -391,7 +391,11 @@ class MoEExpertsDistributor(Pass):
 
     @classmethod
     def _validators(cls) -> dict[str, Callable]:
-        return {"validate_distributor_config": validator("world_size", allow_reuse=True)(cls._validate_world_size)}
+        return {
+            "validate_distributor_config": field_validator("world_size", mode="before", allow_reuse=True)(
+                cls._validate_world_size
+            )
+        }
 
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str

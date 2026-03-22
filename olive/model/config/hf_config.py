@@ -4,13 +4,13 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Any, Optional, Union
+from typing import Any, ClassVar, Optional, Union
 
 import torch
 import transformers
+from pydantic import Field, field_validator
 
 from olive.common.config_utils import NestedConfig
-from olive.common.pydantic_v1 import Field, validator
 from olive.common.utils import exclude_keys, resolve_torch_dtype
 
 logger = logging.getLogger(__name__)
@@ -22,9 +22,9 @@ class HfLoadKwargs(NestedConfig):
     Refer to https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained
     """
 
-    _nested_field_name = "extra_args"
+    _nested_field_name: ClassVar[str] = "extra_args"
 
-    torch_dtype: str = Field(
+    torch_dtype: Optional[str] = Field(
         None,
         description=(
             "torch dtype to load the model under. Refer to `torch_dtype` in the docstring of"
@@ -32,7 +32,7 @@ class HfLoadKwargs(NestedConfig):
         ),
     )
     # str suffices for torch.dtype, otherwise serializer won't recognize it
-    device_map: Union[int, str, dict] = Field(
+    device_map: Optional[Union[int, str, dict]] = Field(
         None,
         description=(
             "A map that specifies where each submodule should go. Refer to `device_map` in the docstring of"
@@ -40,7 +40,7 @@ class HfLoadKwargs(NestedConfig):
         ),
     )
     # A dictionary device identifier to maximum memory
-    max_memory: dict = Field(
+    max_memory: Optional[dict] = Field(
         None,
         description=(
             "A dictionary that specifies the maximum memory that can be used by each device. Refer to `max_memory`"
@@ -48,7 +48,7 @@ class HfLoadKwargs(NestedConfig):
         ),
     )
     # analog to transformers.utils.quantization_config.QuantizationMethod
-    quantization_method: str = Field(
+    quantization_method: Optional[str] = Field(
         None,
         description=(
             "Quantization method to use. Currently supported methods are ['bitsandbytes', 'gptq']. Must be provided if"
@@ -56,16 +56,17 @@ class HfLoadKwargs(NestedConfig):
         ),
     )
     # A dictionary of configuration parameters for quantization
-    quantization_config: dict = Field(
+    quantization_config: Optional[dict] = Field(
         None,
         description=(
             "A dictionary of configuration parameters for quantization. Must be provided if quantization_config is"
             " provided. Please refer to `transformers.BitsAndBytesConfig` and `transformers.GPTQConfig` for more"
             " details for the supported parameters."
         ),
+        validate_default=True,
     )
     # whether to trust remote code
-    trust_remote_code: bool = Field(
+    trust_remote_code: Optional[bool] = Field(
         None,
         description=(
             "Whether to trust remote code. Refer to `trust_remote_code` in the docstring of"
@@ -73,7 +74,7 @@ class HfLoadKwargs(NestedConfig):
         ),
     )
     # other kwargs to pass during model loading
-    extra_args: dict = Field(
+    extra_args: Optional[dict] = Field(
         None,
         description=(
             "Other kwargs to pass to the .from_pretrained method of the model class. Values can be provided directly to"
@@ -83,13 +84,15 @@ class HfLoadKwargs(NestedConfig):
         ),
     )
 
-    @validator("torch_dtype", pre=True)
+    @field_validator("torch_dtype", mode="before")
+    @classmethod
     def validate_torch_dtype(cls, v):
         if isinstance(v, torch.dtype):
             v = str(v).replace("torch.", "")
         return v
 
-    @validator("device_map", pre=True)
+    @field_validator("device_map", mode="before")
+    @classmethod
     def validate_device_map(cls, v):
         if isinstance(v, torch.device):
             v = cls.device_to_str(v)
@@ -97,18 +100,19 @@ class HfLoadKwargs(NestedConfig):
             v = {k: cls.device_to_str(v) for k, v in v.items()}
         return v
 
-    @validator("quantization_config", pre=True, always=True)
-    def validate_quantization_config(cls, v, values):
-        if "quantization_method" not in values:
+    @field_validator("quantization_config", mode="before")
+    @classmethod
+    def validate_quantization_config(cls, v, info):
+        if "quantization_method" not in info.data:
             # to ensure we don't get a KeyError
             raise ValueError("Invalid quantization_config")
-        if (values["quantization_method"] and not v) or (not values["quantization_method"] and v):
+        if (info.data["quantization_method"] and not v) or (not info.data["quantization_method"] and v):
             raise ValueError("quantization_config and quantization_method must be provided together")
         if not v:
             return v
 
         try:
-            full_config = cls.dict_to_quantization_config(values["quantization_method"], v).to_dict()
+            full_config = cls.dict_to_quantization_config(info.data["quantization_method"], v).to_dict()
             # in newer versions to_dict has extra keys quant_method, _load_in_4bit and _load_in_8bit
             # which are internal attributes and not part of init params
             for key in ["quant_method", "_load_in_4bit", "_load_in_8bit"]:
@@ -118,7 +122,7 @@ class HfLoadKwargs(NestedConfig):
             # we don't want to fail since the pass target might have the correct transformers version
             logger.warning(
                 "Could not import the config class for quantization method %s. Skipping validation",
-                values["quantization_method"],
+                info.data["quantization_method"],
             )
             return v
 

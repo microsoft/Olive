@@ -45,7 +45,7 @@ class OliveModelHandler(ABC, ResourceMixin, IoConfigMixin, JsonMixin):
         self.composite_parent = None
         self.model_attributes = model_attributes
         self._io_config = (
-            validate_config(io_config, IoConfig).dict(exclude_none=True)
+            validate_config(io_config, IoConfig).model_dump(exclude_none=True)
             if isinstance(io_config, (IoConfig, dict))
             else io_config
         )

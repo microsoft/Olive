@@ -20,6 +20,7 @@ from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.passes.pytorch.train_utils import get_calibration_dataset, kl_div_loss, load_hf_base_model
+from olive.search.search_parameter import Categorical
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
@@ -65,7 +66,14 @@ class SelectiveMixedPrecision(Pass):
         return {
             "algorithm": PassConfigParam(
                 type_=SelectiveMixedPrecision.Algorithm,
-                required=True,
+                required=False,
+                search_defaults=Categorical(
+                    [
+                        SelectiveMixedPrecision.Algorithm.K_QUANT_DOWN,
+                        SelectiveMixedPrecision.Algorithm.K_QUANT_MIXED,
+                        SelectiveMixedPrecision.Algorithm.K_QUANT_LAST,
+                    ]
+                ),
                 description="The algorithm to use for mixed precision.",
             ),
             "bits": PassConfigParam(

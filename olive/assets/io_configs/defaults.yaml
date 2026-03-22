@@ -33,6 +33,7 @@ visual_seq_length: 16
 text_batch_size: 2
 image_batch_size: 2
 projection_dim: 512
+text_encoder_projection_dim: 1280
 
 # Audio
 feature_size: 80

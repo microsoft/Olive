@@ -5,7 +5,9 @@
 
 import logging
 from collections import OrderedDict, defaultdict
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple, Optional
+
+from pydantic import Field
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric_result import MetricResult
@@ -36,21 +38,21 @@ class FootprintNodeMetric(ConfigBase):
     if_goals_met: if the goals set by users are met
     """
 
-    value: MetricResult = None
-    cmp_direction: defaultdict[str, int] = None
+    value: Optional[MetricResult] = None
+    cmp_direction: Optional[defaultdict[str, int]] = None
     if_goals_met: bool = False
 
 
 class FootprintNode(ConfigBase):
     # None for no parent which means current model is the input model
-    parent_model_id: str = None
+    parent_model_id: Optional[str] = None
     model_id: str
-    model_config: dict = None
-    from_pass: str = None
-    pass_run_config: dict = None
+    model_config_data: Optional[dict] = Field(default=None, alias="model_config")
+    from_pass: Optional[str] = None
+    pass_run_config: Optional[dict] = None
     is_pareto_frontier: bool = False
     # TODO(trajep): add EP/accelerators for same_model_id metrics
-    metrics: FootprintNodeMetric = None
+    metrics: Optional[FootprintNodeMetric] = None
 
     start_time: float = 0
     end_time: float = 0
@@ -70,7 +72,7 @@ class Footprint:
     def __init__(
         self,
         nodes=None,
-        objective_dict: dict = None,
+        objective_dict: Optional[dict] = None,
         is_marked_pareto_frontier: bool = False,
     ):
         self.nodes: dict[str, FootprintNode] = nodes or OrderedDict()
@@ -86,7 +88,7 @@ class Footprint:
     def record_objective_dict(self, objective_dict):
         self.objective_dict = objective_dict
 
-    def record(self, foot_print_node: FootprintNode = None, is_input_model: bool = False, **kwargs):
+    def record(self, foot_print_node: Optional[FootprintNode] = None, is_input_model: bool = False, **kwargs):
         _model_id = kwargs.get("model_id")
         if is_input_model:
             self.input_model_id = _model_id
@@ -190,7 +192,7 @@ class Footprint:
         return self.get_model_path(self.get_output_model_id())
 
     def get_model_config(self, model_id):
-        model_config = self.nodes[model_id].model_config
+        model_config = self.nodes[model_id].model_config_data
         if model_config is None:
             return {}
 
@@ -203,7 +205,7 @@ class Footprint:
         return self.get_model_config(model_id).get("model_path", None)
 
     def get_model_type(self, model_id):
-        model_config = self.nodes[model_id].model_config
+        model_config = self.nodes[model_id].model_config_data
         if model_config is None:
             return None
 

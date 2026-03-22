@@ -12,7 +12,13 @@ from typing import Any, Callable, Optional, Union
 import onnx
 from onnx import external_data_helper
 from onnxscript import ir
-from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
+
+# TODO(sunghcho): Remove try/except once onnxscript >= 0.2.0 (which exports FOLDED_FROM_KEY) is the minimum
+# required version. After that, replace with: from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
+try:
+    from onnxscript.optimizer._constant_folding import FOLDED_FROM_KEY
+except ImportError:
+    FOLDED_FROM_KEY = "pkg.onnxscript.optimizer.constant_folding.folded_from"
 
 from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -130,15 +136,25 @@ def model_proto_to_file(
     output_dir = output_path.parent
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    model_size = model.ByteSize()
-    # model size for large models might be negative (overflow?) on Windows
-    # see https://github.com/onnx/onnx/issues/5861
-    if not save_as_external_data and (model_size <= 0 or model_size >= onnx.checker.MAXIMUM_PROTOBUF):
-        save_as_external_data = True
-        logger.debug(
-            "Model is too large to save as a single file but 'save_as_external_data' is False. Saving tensors as"
-            " external data, regardless."
-        )
+    # model size probing may fail for very large models/external data. Only probe when needed.
+    if not save_as_external_data:
+        try:
+            model_size = model.ByteSize()
+        except Exception as e:
+            logger.warning(
+                "Failed to compute model size with ByteSize (%s). Saving tensors as external data.",
+                e,
+            )
+            save_as_external_data = True
+        else:
+            # model size for large models might be negative (overflow?) on Windows
+            # see https://github.com/onnx/onnx/issues/5861
+            if model_size <= 0 or model_size >= onnx.checker.MAXIMUM_PROTOBUF:
+                save_as_external_data = True
+                logger.debug(
+                    "Model is too large to save as a single file but 'save_as_external_data' is False. Saving"
+                    " tensors as external data, regardless."
+                )
 
     if not save_as_external_data:
         # Add olive version to metadata
@@ -210,7 +226,7 @@ def model_proto_to_olive_model(
         "convert_attribute",
     ]
     if not isinstance(external_data_config, dict):
-        external_data_config = external_data_config.dict()
+        external_data_config = external_data_config.model_dump()
     has_external_data = model_proto_to_file(
         model_proto, output_model_path, **{k: external_data_config[k] for k in config_keys if k in external_data_config}
     )
@@ -259,7 +275,7 @@ def ir_model_to_olive_model(
     :return: The ONNXModelHandler.
     """
     if not isinstance(external_data_config, dict):
-        external_data_config = external_data_config.dict()
+        external_data_config = external_data_config.model_dump()
 
     save_as_external_data = external_data_config.get("save_as_external_data")
     # Save as external data if requested or if the model is large

@@ -6,19 +6,20 @@ import importlib
 from pathlib import Path
 from typing import Optional, Union
 
+from pydantic import ConfigDict, Field, field_validator
+
 from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
-from olive.common.pydantic_v1 import validator
 from olive.systems.common import AcceleratorConfig, SystemType
 
 
 class TargetUserConfig(ConfigBase):
-    accelerators: list[AcceleratorConfig] = None
-    hf_token: bool = None
+    model_config = ConfigDict(validate_assignment=True)
 
-    class Config:
-        validate_assignment = True
+    accelerators: Optional[list[AcceleratorConfig]] = None
+    hf_token: Optional[bool] = None
 
-    @validator("accelerators", pre=True)
+    @field_validator("accelerators", mode="before")
+    @classmethod
     def validate_accelerators(cls, v):
         if v and len(v) > 1:
             raise ValueError("Only one accelerator is supported currently.")
@@ -38,11 +39,13 @@ class DockerTargetUserConfig(TargetUserConfig):
     run_params: Optional[dict] = None
     clean_image: bool = True
 
-    @validator("build_context_path")
+    @field_validator("build_context_path")
+    @classmethod
     def _get_abspath(cls, v):
         return str(Path(v).resolve()) if v else None
 
-    @validator("work_dir")
+    @field_validator("work_dir")
+    @classmethod
     def _validate_work_dir(cls, v):
         if not v.startswith("/"):
             raise ValueError(f"work_dir must be an absolute path, got: {v}")
@@ -51,12 +54,15 @@ class DockerTargetUserConfig(TargetUserConfig):
 
 class PythonEnvironmentTargetUserConfig(TargetUserConfig):
     # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/
-    python_environment_path: Union[Path, str] = None
-    environment_variables: dict[str, str] = None  # os.environ will be updated with these variables
-    prepend_to_path: list[str] = None  # paths to prepend to os.environ["PATH"]
+    python_environment_path: Optional[Union[Path, str]] = None
+    environment_variables: Optional[dict[str, str]] = None  # os.environ will be updated with these variables
+    prepend_to_path: Optional[list[str]] = None  # paths to prepend to os.environ["PATH"]
 
-    @validator("python_environment_path", "prepend_to_path", pre=True, each_item=True)
+    @field_validator("python_environment_path", "prepend_to_path", mode="before")
+    @classmethod
     def _get_abspath(cls, v):
+        if isinstance(v, list):
+            return [str(Path(item).resolve()) if item else None for item in v]
         return str(Path(v).resolve()) if v else None
 
 
@@ -82,17 +88,18 @@ def import_system_from_type(system_type: SystemType):
 
 class SystemConfig(NestedConfig):
     type: SystemType
-    config: TargetUserConfig = None
+    config: Optional[TargetUserConfig] = Field(default=None, validate_default=True)
 
-    @validator("config", pre=True, always=True)
-    def validate_config(cls, v, values):
-        if "type" not in values:
+    @field_validator("config", mode="before")
+    @classmethod
+    def validate_config(cls, v, info):
+        if "type" not in info.data:
             raise ValueError("Invalid type")
 
-        system_type = values["type"]
-        config_class = _type_to_config[system_type]
+        config_class = _type_to_config[info.data["type"]]
         return validate_config(v, config_class)
 
     def create_system(self):
         system_class = import_system_from_type(self.type)
-        return system_class(**self.config.dict())
+        config_dict = self.config.model_dump() if self.config else {}
+        return system_class(**config_dict)

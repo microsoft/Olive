@@ -6,7 +6,8 @@
 import logging
 from typing import Any, Callable
 
-from olive.common.pydantic_v1 import root_validator
+from pydantic import model_validator
+
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
@@ -62,7 +63,7 @@ class DynamicToFixedShape(Pass):
     @classmethod
     def _validators(cls) -> dict[str, Callable[..., Any]]:
         return {
-            "validate_configs": root_validator(allow_reuse=True)(_jointly_validate_configs),
+            "validate_configs": model_validator(mode="before")(_jointly_validate_configs),
         }
 
     def _run_for_config(
@@ -90,18 +91,18 @@ def _jointly_validate_configs(cls, values):
 
     # cannot use if values["dim_param"] ^ values["dim_value"] because the value could be list
     # and list cannot be used in xor operation
-    if (not values["dim_param"]) ^ (not values["dim_value"]):
+    if (not values.get("dim_param")) ^ (not values.get("dim_value")):
         raise ValueError("dim_param and dim_value must be both provided or both None.")
-    if (not values["input_name"]) ^ (not values["input_shape"]):
+    if (not values.get("input_name")) ^ (not values.get("input_shape")):
         raise ValueError("input_name and input_shape must be both provided or both None.")
 
-    if values["dim_param"] and values["dim_value"]:
+    if values.get("dim_param") and values.get("dim_value"):
         if len(values["dim_param"]) != len(values["dim_value"]):
             raise ValueError("dim_param and dim_value must have the same number of elements.")
         if any(i < 0 for i in values["dim_value"]):
             raise ValueError("dim_value must be all >= 0 when dim_param is provided.")
 
-    if values["input_name"] and values["input_shape"]:
+    if values.get("input_name") and values.get("input_shape"):
         if len(values["input_name"]) != len(values["input_shape"]):
             raise ValueError("input_name and input_shape must have the same number of elements.")
         if any(any(i <= 0 for i in shape) for shape in values["input_shape"]):

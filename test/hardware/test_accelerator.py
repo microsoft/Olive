@@ -372,7 +372,7 @@ def test_normalize_accelerators(
 
     system_config = validate_config(system_config, SystemConfig)
     python_mock = None
-    has_accelerators = system_config.config.accelerators is not None
+    has_accelerators = system_config.config and system_config.config.accelerators is not None
     if system_config.type == SystemType.Local:
         get_available_providers_mock.return_value = available_providers
     elif system_config.type == SystemType.PythonEnvironment:
@@ -543,19 +543,19 @@ def test_create_accelerator_without_ep(system_config, expected_acc_specs):
 
 def test_accelerator_config():
     # only device
-    acc_cfg1 = AcceleratorConfig.parse_obj({"device": "cpu"})
+    acc_cfg1 = AcceleratorConfig.model_validate({"device": "cpu"})
     assert acc_cfg1.execution_providers is None
     # only ep
-    acc_cfg2 = AcceleratorConfig.parse_obj({"execution_providers": [ExecutionProvider.CPUExecutionProvider]})
+    acc_cfg2 = AcceleratorConfig.model_validate({"execution_providers": [ExecutionProvider.CPUExecutionProvider]})
     assert acc_cfg2.device is None
     # neither device nor ep
     with pytest.raises(ValueError, match="Either device or execution_providers must be provided"):
-        _ = AcceleratorConfig.parse_obj({})
+        _ = AcceleratorConfig.model_validate({})
     # device and memory
-    acc_cfg3 = AcceleratorConfig.parse_obj({"device": "cpu", "memory": "1MB"})
+    acc_cfg3 = AcceleratorConfig.model_validate({"device": "cpu", "memory": "1MB"})
     assert acc_cfg3.memory == 1e6
     # with ep library path
-    acc_cfg4 = AcceleratorConfig.parse_obj(
+    acc_cfg4 = AcceleratorConfig.model_validate(
         {
             "device": "gpu",
             "execution_providers": [(ExecutionProvider.CUDAExecutionProvider, "onnxruntime_providers_cuda.dll")],
