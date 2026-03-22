@@ -35,6 +35,7 @@ def run_quark_torch_quantization(
 
     Returns:
         HfModelHandler pointing to the quantized model output directory.
+
     """
     # Disable torch dynamo on Windows (Triton not available)
     if sys.platform == "win32":
@@ -105,8 +106,7 @@ def run_quark_torch_quantization(
 
     if model_type not in LLMTemplate.list_available():
         raise ValueError(
-            f"Model type '{model_type}' is not supported by LLMTemplate. "
-            f"Available: {LLMTemplate.list_available()}"
+            f"Model type '{model_type}' is not supported by LLMTemplate. Available: {LLMTemplate.list_available()}"
         )
 
     template = LLMTemplate.get(model_type)
@@ -211,4 +211,3 @@ def _parse_quant_algo(quant_algo):
     if isinstance(quant_algo, str):
         return quant_algo.split(",") if "," in quant_algo else [quant_algo]
     return None
-

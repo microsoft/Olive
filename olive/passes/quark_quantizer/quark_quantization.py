@@ -208,7 +208,9 @@ class QuarkQuantization(Pass):
 
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
 
-        # Run quantizer to a temp dir, then reload and save with the external data config
+        # to be safe, run the quantizer with use_external_data_format set to `True` and
+        # `model_output` to a temporary directory
+        # reload the model and save to output_model_path using the external data config
         new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")  # pylint: disable=R1732
         tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
 
@@ -235,9 +237,12 @@ class QuarkQuantization(Pass):
         run_quark_quantization(args)
         logger.info("[INFO] Quark ONNX quantized model saved to: %s", tmp_model_path)
 
+        # load the model
         onnx_model = onnx.load(tmp_model_path)
+        # the model is loaded into memory, so it's safe to delete previously exported files
         new_tmp_dir.cleanup()
 
+        # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
     # ── Torch path (delegates to torch module) ───────────────────────────
