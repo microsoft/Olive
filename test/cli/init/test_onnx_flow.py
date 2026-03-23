@@ -8,10 +8,10 @@ from unittest.mock import patch
 class TestQuantizeFlow:
     @patch("olive.cli.init.onnx_flow._ask")
     def test_static_quantization_default_calib(self, mock_ask):
-        from olive.cli.init.onnx_flow import QUANT_STATIC, _quantize_flow
+        from olive.cli.init.onnx_flow import QuantizationType, _quantize_flow
 
         with patch("olive.cli.init.onnx_flow.prompt_calibration_source", return_value=None):
-            mock_ask.return_value = QUANT_STATIC
+            mock_ask.return_value = QuantizationType.STATIC
             result = _quantize_flow("/model.onnx")
         cmd = result["command"]
         assert "--implementation ort" in cmd
@@ -19,9 +19,9 @@ class TestQuantizeFlow:
 
     @patch("olive.cli.init.onnx_flow._ask")
     def test_dynamic_quantization(self, mock_ask):
-        from olive.cli.init.onnx_flow import QUANT_DYNAMIC, _quantize_flow
+        from olive.cli.init.onnx_flow import QuantizationType, _quantize_flow
 
-        mock_ask.return_value = QUANT_DYNAMIC
+        mock_ask.return_value = QuantizationType.DYNAMIC
         result = _quantize_flow("/model.onnx")
         cmd = result["command"]
         assert "--algorithm rtn" in cmd
@@ -29,9 +29,9 @@ class TestQuantizeFlow:
 
     @patch("olive.cli.init.onnx_flow._ask")
     def test_bnb_quantization(self, mock_ask):
-        from olive.cli.init.onnx_flow import QUANT_BNB, _quantize_flow
+        from olive.cli.init.onnx_flow import QuantizationType, _quantize_flow
 
-        mock_ask.return_value = QUANT_BNB
+        mock_ask.return_value = QuantizationType.BNB
         result = _quantize_flow("/model.onnx")
         cmd = result["command"]
         assert "--implementation bnb" in cmd
@@ -41,12 +41,12 @@ class TestQuantizeFlow:
     @patch("olive.cli.init.onnx_flow.prompt_calibration_source")
     @patch("olive.cli.init.onnx_flow._ask")
     def test_static_with_calibration_data(self, mock_ask, mock_calib, mock_build):
-        from olive.cli.init.helpers import SOURCE_HF
-        from olive.cli.init.onnx_flow import QUANT_STATIC, _quantize_flow
+        from olive.cli.init.helpers import SourceType
+        from olive.cli.init.onnx_flow import QuantizationType, _quantize_flow
 
-        mock_ask.return_value = QUANT_STATIC
+        mock_ask.return_value = QuantizationType.STATIC
         mock_calib.return_value = {
-            "source": SOURCE_HF,
+            "source": SourceType.HF,
             "data_name": "data",
             "subset": "",
             "split": "train",
@@ -125,9 +125,9 @@ class TestRunOnnxFlowRouting:
     @patch("olive.cli.init.onnx_flow._optimize_flow")
     @patch("olive.cli.init.onnx_flow._ask_select")
     def test_routes_to_optimize(self, mock_select, mock_flow):
-        from olive.cli.init.onnx_flow import OP_OPTIMIZE, run_onnx_flow
+        from olive.cli.init.onnx_flow import OnnxOperation, run_onnx_flow
 
-        mock_select.return_value = OP_OPTIMIZE
+        mock_select.return_value = OnnxOperation.OPTIMIZE
         mock_flow.return_value = {"command": "test"}
         run_onnx_flow({"model_path": "/m.onnx"})
         mock_flow.assert_called_once_with("/m.onnx")
@@ -135,9 +135,9 @@ class TestRunOnnxFlowRouting:
     @patch("olive.cli.init.onnx_flow._quantize_flow")
     @patch("olive.cli.init.onnx_flow._ask_select")
     def test_routes_to_quantize(self, mock_select, mock_flow):
-        from olive.cli.init.onnx_flow import OP_QUANTIZE, run_onnx_flow
+        from olive.cli.init.onnx_flow import OnnxOperation, run_onnx_flow
 
-        mock_select.return_value = OP_QUANTIZE
+        mock_select.return_value = OnnxOperation.QUANTIZE
         mock_flow.return_value = {"command": "test"}
         run_onnx_flow({"model_path": "/m.onnx"})
         mock_flow.assert_called_once()
@@ -145,9 +145,9 @@ class TestRunOnnxFlowRouting:
     @patch("olive.cli.init.onnx_flow._graph_opt_flow")
     @patch("olive.cli.init.onnx_flow._ask_select")
     def test_routes_to_graph_opt(self, mock_select, mock_flow):
-        from olive.cli.init.onnx_flow import OP_GRAPH_OPT, run_onnx_flow
+        from olive.cli.init.onnx_flow import OnnxOperation, run_onnx_flow
 
-        mock_select.return_value = OP_GRAPH_OPT
+        mock_select.return_value = OnnxOperation.GRAPH_OPT
         mock_flow.return_value = {"command": "test"}
         run_onnx_flow({"model_path": "/m.onnx"})
         mock_flow.assert_called_once_with("/m.onnx")
@@ -155,9 +155,9 @@ class TestRunOnnxFlowRouting:
     @patch("olive.cli.init.onnx_flow._convert_precision_flow")
     @patch("olive.cli.init.onnx_flow._ask_select")
     def test_routes_to_convert_precision(self, mock_select, mock_flow):
-        from olive.cli.init.onnx_flow import OP_CONVERT_PRECISION, run_onnx_flow
+        from olive.cli.init.onnx_flow import OnnxOperation, run_onnx_flow
 
-        mock_select.return_value = OP_CONVERT_PRECISION
+        mock_select.return_value = OnnxOperation.CONVERT_PRECISION
         mock_flow.return_value = {"command": "test"}
         run_onnx_flow({"model_path": "/m.onnx"})
         mock_flow.assert_called_once()
@@ -165,9 +165,9 @@ class TestRunOnnxFlowRouting:
     @patch("olive.cli.init.onnx_flow._tune_session_flow")
     @patch("olive.cli.init.onnx_flow._ask_select")
     def test_routes_to_tune_session(self, mock_select, mock_flow):
-        from olive.cli.init.onnx_flow import OP_TUNE_SESSION, run_onnx_flow
+        from olive.cli.init.onnx_flow import OnnxOperation, run_onnx_flow
 
-        mock_select.return_value = OP_TUNE_SESSION
+        mock_select.return_value = OnnxOperation.TUNE_SESSION
         mock_flow.return_value = {"command": "test"}
         run_onnx_flow({"model_path": "/m.onnx"})
         mock_flow.assert_called_once()

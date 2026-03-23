@@ -9,26 +9,29 @@ from pathlib import Path
 import questionary
 
 from olive.cli.init.helpers import (
-    SOURCE_AZUREML,
-    SOURCE_HF,
-    SOURCE_LOCAL,
-    SOURCE_SCRIPT,
-    VARIANT_AUTO,
-    VARIANT_FLUX,
+    DiffuserVariant,
     GoBackError,
+    SourceType,
     _ask,
     _ask_select,
 )
+from olive.common.utils import StrEnumBase
 
-# Model types
-MODEL_PYTORCH = "pytorch"
-MODEL_ONNX = "onnx"
-MODEL_DIFFUSERS = "diffusers"
 
-# Output actions
-ACTION_COMMAND = "command"
-ACTION_CONFIG = "config"
-ACTION_RUN = "run"
+class ModelType(StrEnumBase):
+    """Model types."""
+
+    PYTORCH = "pytorch"
+    ONNX = "onnx"
+    DIFFUSERS = "diffusers"
+
+
+class OutputAction(StrEnumBase):
+    """Output actions."""
+
+    COMMAND = "command"
+    CONFIG = "config"
+    RUN = "run"
 
 
 class InitWizard:
@@ -66,19 +69,19 @@ class InitWizard:
         return _ask_select(
             "What type of model do you want to optimize?",
             choices=[
-                questionary.Choice("PyTorch (HuggingFace or local)", value=MODEL_PYTORCH),
-                questionary.Choice("ONNX", value=MODEL_ONNX),
-                questionary.Choice("Diffuser (Stable Diffusion, SDXL, Flux, etc.)", value=MODEL_DIFFUSERS),
+                questionary.Choice("PyTorch (HuggingFace or local)", value=ModelType.PYTORCH),
+                questionary.Choice("ONNX", value=ModelType.ONNX),
+                questionary.Choice("Diffusers (Stable Diffusion, SDXL, Flux, etc.)", value=ModelType.DIFFUSERS),
             ],
             allow_back=False,
         )
 
     def _prompt_model_source(self, model_type):
-        if model_type == MODEL_PYTORCH:
+        if model_type == ModelType.PYTORCH:
             return self._prompt_pytorch_source()
-        elif model_type == MODEL_ONNX:
+        elif model_type == ModelType.ONNX:
             return self._prompt_onnx_source()
-        elif model_type == MODEL_DIFFUSERS:
+        elif model_type == ModelType.DIFFUSERS:
             return self._prompt_diffusers_source()
         return {}
 
@@ -86,16 +89,16 @@ class InitWizard:
         source_type = _ask_select(
             "How would you like to specify your model?",
             choices=[
-                questionary.Choice("HuggingFace model name (e.g., meta-llama/Llama-3.1-8B)", value=SOURCE_HF),
-                questionary.Choice("Local directory path", value=SOURCE_LOCAL),
-                questionary.Choice("AzureML registry path", value=SOURCE_AZUREML),
-                questionary.Choice("PyTorch model with custom script", value=SOURCE_SCRIPT),
+                questionary.Choice("HuggingFace model name (e.g., meta-llama/Llama-3.1-8B)", value=SourceType.HF),
+                questionary.Choice("Local directory path", value=SourceType.LOCAL),
+                questionary.Choice("AzureML registry path", value=SourceType.AZUREML),
+                questionary.Choice("PyTorch model with custom script", value=SourceType.SCRIPT),
             ],
         )
 
         config = {"source_type": source_type}
 
-        if source_type == SOURCE_SCRIPT:
+        if source_type == SourceType.SCRIPT:
             config["model_script"] = _ask(
                 questionary.path(
                     "Path to model script (.py):",
@@ -118,9 +121,9 @@ class InitWizard:
             if model_path:
                 config["model_path"] = model_path
         else:
-            if source_type == SOURCE_HF:
+            if source_type == SourceType.HF:
                 placeholder = "e.g., meta-llama/Llama-3.1-8B"
-            elif source_type == SOURCE_AZUREML:
+            elif source_type == SourceType.AZUREML:
                 placeholder = "e.g., azureml://registries/<registry>/models/<model>/versions/<version>"
             else:
                 placeholder = "e.g., ./my-model/"
@@ -141,17 +144,17 @@ class InitWizard:
                 validate=lambda x: True if x.strip() else "Please enter a model path",
             )
         )
-        return {"source_type": SOURCE_LOCAL, "model_path": model_path}
+        return {"source_type": SourceType.LOCAL, "model_path": model_path}
 
     def _prompt_diffusers_source(self):
         variant = _ask_select(
             "Select diffuser model variant:",
             choices=[
-                questionary.Choice("Auto-detect", value=VARIANT_AUTO),
+                questionary.Choice("Auto-detect", value=DiffuserVariant.AUTO),
                 questionary.Choice("Stable Diffusion (SD 1.x/2.x)", value="sd"),
                 questionary.Choice("Stable Diffusion XL (SDXL)", value="sdxl"),
                 questionary.Choice("Stable Diffusion 3 (SD3)", value="sd3"),
-                questionary.Choice("Flux", value=VARIANT_FLUX),
+                questionary.Choice("Flux", value=DiffuserVariant.FLUX),
                 questionary.Choice("Sana", value="sana"),
             ],
         )
@@ -164,18 +167,18 @@ class InitWizard:
             )
         )
 
-        return {"source_type": SOURCE_HF, "model_path": model_path, "variant": variant}
+        return {"source_type": SourceType.HF, "model_path": model_path, "variant": variant}
 
     def _run_model_flow(self, model_type, model_config):
-        if model_type == MODEL_PYTORCH:
+        if model_type == ModelType.PYTORCH:
             from olive.cli.init.pytorch_flow import run_pytorch_flow
 
             return run_pytorch_flow(model_config)
-        elif model_type == MODEL_ONNX:
+        elif model_type == ModelType.ONNX:
             from olive.cli.init.onnx_flow import run_onnx_flow
 
             return run_onnx_flow(model_config)
-        elif model_type == MODEL_DIFFUSERS:
+        elif model_type == ModelType.DIFFUSERS:
             from olive.cli.init.diffusers_flow import run_diffusers_flow
 
             return run_diffusers_flow(model_config)
@@ -202,20 +205,20 @@ class InitWizard:
         action = _ask_select(
             "What would you like to do?",
             choices=[
-                questionary.Choice("Generate CLI command (copy and run later)", value=ACTION_COMMAND),
-                questionary.Choice("Generate configuration file (JSON, for olive run)", value=ACTION_CONFIG),
-                questionary.Choice("Run optimization now", value=ACTION_RUN),
+                questionary.Choice("Generate CLI command (copy and run later)", value=OutputAction.COMMAND),
+                questionary.Choice("Generate configuration file (JSON, for olive run)", value=OutputAction.CONFIG),
+                questionary.Choice("Run optimization now", value=OutputAction.RUN),
             ],
         )
 
-        if action == ACTION_COMMAND:
+        if action == OutputAction.COMMAND:
             print(f"\nGenerated command:\n\n  {command_str}\n")
             run_now = _ask(questionary.confirm("Run this command now?", default=False))
             if run_now:
                 print(f"\nRunning: {command_str}\n")
                 subprocess.run(command_str, shell=True, check=False)
 
-        elif action == ACTION_CONFIG:
+        elif action == OutputAction.CONFIG:
             config_cmd = command_str + " --save_config_file --dry_run"
             print("\nGenerating configuration file...\n")
             subprocess.run(config_cmd, shell=True, check=False)
@@ -223,6 +226,6 @@ class InitWizard:
             if config_path.exists():
                 print(f"\nYou can run it later with:\n  olive run --config {config_path}\n")
 
-        elif action == ACTION_RUN:
+        elif action == OutputAction.RUN:
             print(f"\nRunning: {command_str}\n")
             subprocess.run(command_str, shell=True, check=False)

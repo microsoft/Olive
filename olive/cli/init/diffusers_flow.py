@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import questionary
 
-from olive.cli.init.helpers import SOURCE_HF, SOURCE_LOCAL, VARIANT_AUTO, VARIANT_FLUX, _ask, _ask_select
+from olive.cli.init.helpers import DiffuserVariant, SourceType, _ask, _ask_select
 
 # Diffusers operations
 OP_EXPORT = "export"
@@ -16,7 +16,7 @@ TRAIN_STEPS_CUSTOM = "custom"
 
 def run_diffusers_flow(model_config):
     model_path = model_config.get("model_path", "")
-    variant = model_config.get("variant", VARIANT_AUTO)
+    variant = model_config.get("variant", DiffuserVariant.AUTO)
 
     operation = _ask_select(
         "What do you want to do?",
@@ -45,7 +45,7 @@ def _export_flow(model_path, variant):
     )
 
     cmd = f"olive capture-onnx-graph -m {model_path} --torch_dtype {torch_dtype}"
-    if variant != VARIANT_AUTO:
+    if variant != DiffuserVariant.AUTO:
         cmd += f" --model_variant {variant}"
 
     return {"command": cmd}
@@ -80,14 +80,14 @@ def _lora_flow(model_path, variant):
         questionary.select(
             "Training data source:",
             choices=[
-                questionary.Choice("Local image folder", value=SOURCE_LOCAL),
-                questionary.Choice("HuggingFace dataset", value=SOURCE_HF),
+                questionary.Choice("Local image folder", value=SourceType.LOCAL),
+                questionary.Choice("HuggingFace dataset", value=SourceType.HF),
             ],
         )
     )
 
     data_args = ""
-    if data_source == SOURCE_LOCAL:
+    if data_source == SourceType.LOCAL:
         data_dir = _ask(
             questionary.text(
                 "Path to image folder:",
@@ -190,7 +190,7 @@ def _lora_flow(model_path, variant):
 
     # Flux-specific
     flux_args = ""
-    if variant == VARIANT_FLUX:
+    if variant == DiffuserVariant.FLUX:
         guidance_scale = _ask(questionary.text("Guidance scale (Flux-specific):", default="3.5"))
         flux_args = f" --guidance_scale {guidance_scale}"
 
@@ -199,7 +199,7 @@ def _lora_flow(model_path, variant):
 
     # Build command
     cmd = f"olive diffusion-lora -m {model_path}"
-    if variant != VARIANT_AUTO:
+    if variant != DiffuserVariant.AUTO:
         cmd += f" --model_variant {variant}"
     cmd += f" -r {lora_r} --alpha {lora_alpha} --lora_dropout {lora_dropout}"
     cmd += data_args

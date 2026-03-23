@@ -5,8 +5,7 @@
 import questionary
 
 from olive.cli.init.helpers import (
-    SOURCE_HF,
-    SOURCE_LOCAL,
+    SourceType,
     _ask,
     _ask_select,
     _device_choices,
@@ -397,15 +396,15 @@ def _finetune_flow(model_config):
         questionary.select(
             "Training dataset:",
             choices=[
-                questionary.Choice("HuggingFace dataset", value=SOURCE_HF),
-                questionary.Choice("Local file", value=SOURCE_LOCAL),
+                questionary.Choice("HuggingFace dataset", value=SourceType.HF),
+                questionary.Choice("Local file", value=SourceType.LOCAL),
             ],
         )
     )
 
     cmd = f"olive finetune {model_args} --method {method} --lora_r {lora_r} --lora_alpha {lora_alpha}"
 
-    if data_source == SOURCE_HF:
+    if data_source == SourceType.HF:
         data_name = _ask(
             questionary.text(
                 "Dataset name:",

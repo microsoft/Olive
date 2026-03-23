@@ -12,20 +12,27 @@ from olive.cli.init.helpers import (
     build_calibration_args,
     prompt_calibration_source,
 )
+from olive.common.utils import StrEnumBase
 
-# ONNX operations
-OP_OPTIMIZE = "optimize"
-OP_QUANTIZE = "quantize"
-OP_GRAPH_OPT = "graph_opt"
-OP_CONVERT_PRECISION = "convert_precision"
-OP_TUNE_SESSION = "tune_session"
 
-# Quantization types
-QUANT_STATIC = "static"
-QUANT_DYNAMIC = "dynamic"
-QUANT_BLOCKWISE_RTN = "blockwise_rtn"
-QUANT_HQQ = "hqq"
-QUANT_BNB = "bnb"
+class OnnxOperation(StrEnumBase):
+    """ONNX operations."""
+
+    OPTIMIZE = "optimize"
+    QUANTIZE = "quantize"
+    GRAPH_OPT = "graph_opt"
+    CONVERT_PRECISION = "convert_precision"
+    TUNE_SESSION = "tune_session"
+
+
+class QuantizationType(StrEnumBase):
+    """Quantization types."""
+
+    STATIC = "static"
+    DYNAMIC = "dynamic"
+    BLOCKWISE_RTN = "blockwise_rtn"
+    HQQ = "hqq"
+    BNB = "bnb"
 
 
 def run_onnx_flow(model_config):
@@ -34,23 +41,25 @@ def run_onnx_flow(model_config):
     operation = _ask_select(
         "What do you want to do?",
         choices=[
-            questionary.Choice("Optimize model (auto-select best passes for target hardware)", value=OP_OPTIMIZE),
-            questionary.Choice("Quantize", value=OP_QUANTIZE),
-            questionary.Choice("Graph optimization", value=OP_GRAPH_OPT),
-            questionary.Choice("Convert precision (FP32 \u2192 FP16)", value=OP_CONVERT_PRECISION),
-            questionary.Choice("Tune session parameters", value=OP_TUNE_SESSION),
+            questionary.Choice(
+                "Optimize model (auto-select best passes for target hardware)", value=OnnxOperation.OPTIMIZE
+            ),
+            questionary.Choice("Quantize", value=OnnxOperation.QUANTIZE),
+            questionary.Choice("Graph optimization", value=OnnxOperation.GRAPH_OPT),
+            questionary.Choice("Convert precision (FP32 \u2192 FP16)", value=OnnxOperation.CONVERT_PRECISION),
+            questionary.Choice("Tune session parameters", value=OnnxOperation.TUNE_SESSION),
         ],
     )
 
-    if operation == OP_OPTIMIZE:
+    if operation == OnnxOperation.OPTIMIZE:
         return _optimize_flow(model_path)
-    elif operation == OP_QUANTIZE:
+    elif operation == OnnxOperation.QUANTIZE:
         return _quantize_flow(model_path)
-    elif operation == OP_GRAPH_OPT:
+    elif operation == OnnxOperation.GRAPH_OPT:
         return _graph_opt_flow(model_path)
-    elif operation == OP_CONVERT_PRECISION:
+    elif operation == OnnxOperation.CONVERT_PRECISION:
         return _convert_precision_flow(model_path)
-    elif operation == OP_TUNE_SESSION:
+    elif operation == OnnxOperation.TUNE_SESSION:
         return _tune_session_flow(model_path)
     return {}
 
@@ -68,22 +77,28 @@ def _quantize_flow(model_path):
         questionary.select(
             "Select quantization type:",
             choices=[
-                questionary.Choice("Static Quantization (INT8) - requires calibration data", value=QUANT_STATIC),
-                questionary.Choice("Dynamic Quantization (INT8) - no calibration needed", value=QUANT_DYNAMIC),
-                questionary.Choice("Block-wise RTN (INT4) - no calibration needed", value=QUANT_BLOCKWISE_RTN),
-                questionary.Choice("HQQ Quantization (INT4) - no calibration needed", value=QUANT_HQQ),
-                questionary.Choice("BnB Quantization (FP4/NF4) - no calibration needed", value=QUANT_BNB),
+                questionary.Choice(
+                    "Static Quantization (INT8) - requires calibration data", value=QuantizationType.STATIC
+                ),
+                questionary.Choice(
+                    "Dynamic Quantization (INT8) - no calibration needed", value=QuantizationType.DYNAMIC
+                ),
+                questionary.Choice(
+                    "Block-wise RTN (INT4) - no calibration needed", value=QuantizationType.BLOCKWISE_RTN
+                ),
+                questionary.Choice("HQQ Quantization (INT4) - no calibration needed", value=QuantizationType.HQQ),
+                questionary.Choice("BnB Quantization (FP4/NF4) - no calibration needed", value=QuantizationType.BNB),
             ],
         )
     )
 
     # Map to olive quantize CLI args
     quant_map = {
-        QUANT_STATIC: {"implementation": "ort", "precision": "int8"},
-        QUANT_DYNAMIC: {"implementation": "ort", "precision": "int8"},
-        QUANT_BLOCKWISE_RTN: {"implementation": "ort", "precision": "int4"},
-        QUANT_HQQ: {"implementation": "ort", "precision": "int4"},
-        QUANT_BNB: {"implementation": "bnb", "precision": "nf4"},
+        QuantizationType.STATIC: {"implementation": "ort", "precision": "int8"},
+        QuantizationType.DYNAMIC: {"implementation": "ort", "precision": "int8"},
+        QuantizationType.BLOCKWISE_RTN: {"implementation": "ort", "precision": "int4"},
+        QuantizationType.HQQ: {"implementation": "ort", "precision": "int4"},
+        QuantizationType.BNB: {"implementation": "bnb", "precision": "nf4"},
     }
 
     params = quant_map[quant_type]
@@ -91,11 +106,11 @@ def _quantize_flow(model_path):
         f"olive quantize -m {model_path} --precision {params['precision']} --implementation {params['implementation']}"
     )
 
-    if quant_type == QUANT_DYNAMIC:
+    if quant_type == QuantizationType.DYNAMIC:
         cmd += " --algorithm rtn"
 
     # Calibration for static quantization
-    if quant_type == QUANT_STATIC:
+    if quant_type == QuantizationType.STATIC:
         calib = prompt_calibration_source()
         if calib:
             cmd += build_calibration_args(calib)

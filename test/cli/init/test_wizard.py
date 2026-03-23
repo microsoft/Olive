@@ -9,10 +9,10 @@ import pytest
 
 class TestBuildCalibrationArgs:
     def test_hf_source_with_subset(self):
-        from olive.cli.init.helpers import SOURCE_HF, build_calibration_args
+        from olive.cli.init.helpers import SourceType, build_calibration_args
 
         calib = {
-            "source": SOURCE_HF,
+            "source": SourceType.HF,
             "data_name": "Salesforce/wikitext",
             "subset": "wikitext-2-raw-v1",
             "split": "train",
@@ -22,10 +22,10 @@ class TestBuildCalibrationArgs:
         assert result == " -d Salesforce/wikitext --subset wikitext-2-raw-v1 --split train --max_samples 128"
 
     def test_hf_source_without_subset(self):
-        from olive.cli.init.helpers import SOURCE_HF, build_calibration_args
+        from olive.cli.init.helpers import SourceType, build_calibration_args
 
         calib = {
-            "source": SOURCE_HF,
+            "source": SourceType.HF,
             "data_name": "Salesforce/wikitext",
             "subset": "",
             "split": "train",
@@ -36,9 +36,9 @@ class TestBuildCalibrationArgs:
         assert result == " -d Salesforce/wikitext --split train --max_samples 64"
 
     def test_local_source(self):
-        from olive.cli.init.helpers import SOURCE_LOCAL, build_calibration_args
+        from olive.cli.init.helpers import SourceType, build_calibration_args
 
-        calib = {"source": SOURCE_LOCAL, "data_files": "/data/calib.json"}
+        calib = {"source": SourceType.LOCAL, "data_files": "/data/calib.json"}
         result = build_calibration_args(calib)
         assert result == " --data_files /data/calib.json"
 
@@ -52,20 +52,20 @@ class TestBuildCalibrationArgs:
 class TestPromptCalibrationSource:
     @patch("olive.cli.init.helpers._ask")
     def test_default_returns_none(self, mock_ask):
-        from olive.cli.init.helpers import SOURCE_DEFAULT, prompt_calibration_source
+        from olive.cli.init.helpers import SourceType, prompt_calibration_source
 
-        mock_ask.return_value = SOURCE_DEFAULT
+        mock_ask.return_value = SourceType.DEFAULT
         result = prompt_calibration_source()
         assert result is None
 
     @patch("olive.cli.init.helpers._ask")
     def test_hf_source(self, mock_ask):
-        from olive.cli.init.helpers import SOURCE_HF, prompt_calibration_source
+        from olive.cli.init.helpers import SourceType, prompt_calibration_source
 
-        mock_ask.side_effect = [SOURCE_HF, "my_dataset", "my_subset", "validation", "64"]
+        mock_ask.side_effect = [SourceType.HF, "my_dataset", "my_subset", "validation", "64"]
         result = prompt_calibration_source()
         assert result == {
-            "source": SOURCE_HF,
+            "source": SourceType.HF,
             "data_name": "my_dataset",
             "subset": "my_subset",
             "split": "validation",
@@ -74,11 +74,11 @@ class TestPromptCalibrationSource:
 
     @patch("olive.cli.init.helpers._ask")
     def test_local_source(self, mock_ask):
-        from olive.cli.init.helpers import SOURCE_LOCAL, prompt_calibration_source
+        from olive.cli.init.helpers import SourceType, prompt_calibration_source
 
-        mock_ask.side_effect = [SOURCE_LOCAL, "/data/calib.json"]
+        mock_ask.side_effect = [SourceType.LOCAL, "/data/calib.json"]
         result = prompt_calibration_source()
-        assert result == {"source": SOURCE_LOCAL, "data_files": "/data/calib.json"}
+        assert result == {"source": SourceType.LOCAL, "data_files": "/data/calib.json"}
 
 
 class TestAskHelpers:
@@ -135,11 +135,11 @@ class TestInitWizard:
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_full_flow_generate_command(self, mock_select, mock_ask, mock_subprocess, mock_onnx_select):
-        from olive.cli.init.onnx_flow import OP_CONVERT_PRECISION
-        from olive.cli.init.wizard import ACTION_COMMAND, MODEL_ONNX, InitWizard
+        from olive.cli.init.onnx_flow import OnnxOperation
+        from olive.cli.init.wizard import InitWizard, ModelType, OutputAction
 
-        mock_onnx_select.return_value = OP_CONVERT_PRECISION
-        mock_select.side_effect = [MODEL_ONNX, ACTION_COMMAND]
+        mock_onnx_select.return_value = OnnxOperation.CONVERT_PRECISION
+        mock_select.side_effect = [ModelType.ONNX, OutputAction.COMMAND]
         mock_ask.side_effect = ["/model.onnx", "./output", False]
 
         InitWizard().start()
@@ -150,11 +150,11 @@ class TestInitWizard:
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_full_flow_run_now(self, mock_select, mock_ask, mock_subprocess, mock_onnx_select):
-        from olive.cli.init.onnx_flow import OP_CONVERT_PRECISION
-        from olive.cli.init.wizard import ACTION_RUN, MODEL_ONNX, InitWizard
+        from olive.cli.init.onnx_flow import OnnxOperation
+        from olive.cli.init.wizard import InitWizard, ModelType, OutputAction
 
-        mock_onnx_select.return_value = OP_CONVERT_PRECISION
-        mock_select.side_effect = [MODEL_ONNX, ACTION_RUN]
+        mock_onnx_select.return_value = OnnxOperation.CONVERT_PRECISION
+        mock_select.side_effect = [ModelType.ONNX, OutputAction.RUN]
         mock_ask.side_effect = ["/model.onnx", "./output"]
 
         InitWizard().start()
@@ -165,11 +165,11 @@ class TestInitWizard:
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_full_flow_generate_config(self, mock_select, mock_ask, mock_subprocess, mock_onnx_select):
-        from olive.cli.init.onnx_flow import OP_CONVERT_PRECISION
-        from olive.cli.init.wizard import ACTION_CONFIG, MODEL_ONNX, InitWizard
+        from olive.cli.init.onnx_flow import OnnxOperation
+        from olive.cli.init.wizard import InitWizard, ModelType, OutputAction
 
-        mock_onnx_select.return_value = OP_CONVERT_PRECISION
-        mock_select.side_effect = [MODEL_ONNX, ACTION_CONFIG]
+        mock_onnx_select.return_value = OnnxOperation.CONVERT_PRECISION
+        mock_select.side_effect = [ModelType.ONNX, OutputAction.CONFIG]
         mock_ask.side_effect = ["/model.onnx", "./output"]
 
         InitWizard().start()
@@ -183,11 +183,11 @@ class TestInitWizard:
     @patch("olive.cli.init.wizard._ask_select")
     def test_go_back(self, mock_select, mock_ask, mock_onnx_select):
         from olive.cli.init.helpers import GoBackError
-        from olive.cli.init.onnx_flow import OP_CONVERT_PRECISION
-        from olive.cli.init.wizard import ACTION_COMMAND, MODEL_ONNX, InitWizard
+        from olive.cli.init.onnx_flow import OnnxOperation
+        from olive.cli.init.wizard import InitWizard, ModelType, OutputAction
 
-        mock_onnx_select.return_value = OP_CONVERT_PRECISION
-        select_values = [MODEL_ONNX, GoBackError, MODEL_ONNX, ACTION_COMMAND]
+        mock_onnx_select.return_value = OnnxOperation.CONVERT_PRECISION
+        select_values = [ModelType.ONNX, GoBackError, ModelType.ONNX, OutputAction.COMMAND]
 
         def select_with_goback(*args, **kwargs):
             val = select_values.pop(0)
@@ -214,11 +214,11 @@ class TestInitWizard:
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_command_then_run_now(self, mock_select, mock_ask, mock_subprocess, mock_onnx_select):
-        from olive.cli.init.onnx_flow import OP_CONVERT_PRECISION
-        from olive.cli.init.wizard import ACTION_COMMAND, MODEL_ONNX, InitWizard
+        from olive.cli.init.onnx_flow import OnnxOperation
+        from olive.cli.init.wizard import InitWizard, ModelType, OutputAction
 
-        mock_onnx_select.return_value = OP_CONVERT_PRECISION
-        mock_select.side_effect = [MODEL_ONNX, ACTION_COMMAND]
+        mock_onnx_select.return_value = OnnxOperation.CONVERT_PRECISION
+        mock_select.side_effect = [ModelType.ONNX, OutputAction.COMMAND]
         mock_ask.side_effect = ["/model.onnx", "./output", True]
 
         InitWizard().start()
@@ -230,11 +230,11 @@ class TestInitWizard:
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_config_with_existing_file(self, mock_select, mock_ask, mock_subprocess, mock_onnx_select, mock_path):
-        from olive.cli.init.onnx_flow import OP_CONVERT_PRECISION
-        from olive.cli.init.wizard import ACTION_CONFIG, MODEL_ONNX, InitWizard
+        from olive.cli.init.onnx_flow import OnnxOperation
+        from olive.cli.init.wizard import InitWizard, ModelType, OutputAction
 
-        mock_onnx_select.return_value = OP_CONVERT_PRECISION
-        mock_select.side_effect = [MODEL_ONNX, ACTION_CONFIG]
+        mock_onnx_select.return_value = OnnxOperation.CONVERT_PRECISION
+        mock_select.side_effect = [ModelType.ONNX, OutputAction.CONFIG]
         mock_ask.side_effect = ["/model.onnx", "./output"]
         mock_path.return_value.__truediv__ = lambda self, x: MagicMock(exists=lambda: True)
 
@@ -257,12 +257,12 @@ class TestInitWizard:
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_pytorch_flow_dispatch(self, mock_select, mock_ask, mock_subprocess, mock_opt, mock_pt_select):
-        from olive.cli.init.helpers import SOURCE_HF
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.pytorch_flow import OP_OPTIMIZE
-        from olive.cli.init.wizard import ACTION_RUN, MODEL_PYTORCH, InitWizard
+        from olive.cli.init.wizard import InitWizard, ModelType, OutputAction
 
         mock_pt_select.return_value = OP_OPTIMIZE
-        mock_select.side_effect = [MODEL_PYTORCH, SOURCE_HF, ACTION_RUN]
+        mock_select.side_effect = [ModelType.PYTORCH, SourceType.HF, OutputAction.RUN]
         mock_ask.side_effect = ["meta-llama/Llama-3.1-8B", "./output"]
 
         InitWizard().start()
@@ -275,11 +275,11 @@ class TestInitWizard:
     @patch("olive.cli.init.wizard._ask_select")
     def test_diffusers_flow_dispatch(self, mock_select, mock_ask, mock_subprocess, mock_diff_ask, mock_diff_select):
         from olive.cli.init.diffusers_flow import OP_EXPORT
-        from olive.cli.init.helpers import VARIANT_AUTO
-        from olive.cli.init.wizard import ACTION_RUN, MODEL_DIFFUSERS, InitWizard
+        from olive.cli.init.helpers import DiffuserVariant
+        from olive.cli.init.wizard import InitWizard, ModelType, OutputAction
 
         mock_diff_select.return_value = OP_EXPORT
-        mock_select.side_effect = [MODEL_DIFFUSERS, VARIANT_AUTO, ACTION_RUN]
+        mock_select.side_effect = [ModelType.DIFFUSERS, DiffuserVariant.AUTO, OutputAction.RUN]
         mock_ask.side_effect = ["my-model", "./output"]
         mock_diff_ask.return_value = "float16"
 
@@ -291,47 +291,47 @@ class TestPromptPytorchSource:
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_hf_source(self, mock_select, mock_ask):
-        from olive.cli.init.helpers import SOURCE_HF
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.wizard import InitWizard
 
-        mock_select.return_value = SOURCE_HF
+        mock_select.return_value = SourceType.HF
         mock_ask.return_value = "meta-llama/Llama-3.1-8B"
         result = InitWizard()._prompt_pytorch_source()  # pylint: disable=protected-access
-        assert result == {"source_type": SOURCE_HF, "model_path": "meta-llama/Llama-3.1-8B"}
+        assert result == {"source_type": SourceType.HF, "model_path": "meta-llama/Llama-3.1-8B"}
 
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_local_source(self, mock_select, mock_ask):
-        from olive.cli.init.helpers import SOURCE_LOCAL
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.wizard import InitWizard
 
-        mock_select.return_value = SOURCE_LOCAL
+        mock_select.return_value = SourceType.LOCAL
         mock_ask.return_value = "./my-model/"
         result = InitWizard()._prompt_pytorch_source()  # pylint: disable=protected-access
-        assert result == {"source_type": SOURCE_LOCAL, "model_path": "./my-model/"}
+        assert result == {"source_type": SourceType.LOCAL, "model_path": "./my-model/"}
 
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_azureml_source(self, mock_select, mock_ask):
-        from olive.cli.init.helpers import SOURCE_AZUREML
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.wizard import InitWizard
 
-        mock_select.return_value = SOURCE_AZUREML
+        mock_select.return_value = SourceType.AZUREML
         mock_ask.return_value = "azureml://registries/r/models/m/versions/1"
         result = InitWizard()._prompt_pytorch_source()  # pylint: disable=protected-access
-        assert result == {"source_type": SOURCE_AZUREML, "model_path": "azureml://registries/r/models/m/versions/1"}
+        assert result == {"source_type": SourceType.AZUREML, "model_path": "azureml://registries/r/models/m/versions/1"}
 
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_script_source_full(self, mock_select, mock_ask):
-        from olive.cli.init.helpers import SOURCE_SCRIPT
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.wizard import InitWizard
 
-        mock_select.return_value = SOURCE_SCRIPT
+        mock_select.return_value = SourceType.SCRIPT
         mock_ask.side_effect = ["train.py", "./src", "my-model"]
         result = InitWizard()._prompt_pytorch_source()  # pylint: disable=protected-access
         assert result == {
-            "source_type": SOURCE_SCRIPT,
+            "source_type": SourceType.SCRIPT,
             "model_script": "train.py",
             "script_dir": "./src",
             "model_path": "my-model",
@@ -340,13 +340,13 @@ class TestPromptPytorchSource:
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_script_source_minimal(self, mock_select, mock_ask):
-        from olive.cli.init.helpers import SOURCE_SCRIPT
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.wizard import InitWizard
 
-        mock_select.return_value = SOURCE_SCRIPT
+        mock_select.return_value = SourceType.SCRIPT
         mock_ask.side_effect = ["train.py", "", ""]  # no script_dir, no model_path
         result = InitWizard()._prompt_pytorch_source()  # pylint: disable=protected-access
-        assert result == {"source_type": SOURCE_SCRIPT, "model_script": "train.py"}
+        assert result == {"source_type": SourceType.SCRIPT, "model_script": "train.py"}
         assert "script_dir" not in result
         assert "model_path" not in result
 
@@ -355,14 +355,14 @@ class TestPromptDiffusersSource:
     @patch("olive.cli.init.wizard._ask")
     @patch("olive.cli.init.wizard._ask_select")
     def test_diffusers_source(self, mock_select, mock_ask):
-        from olive.cli.init.helpers import SOURCE_HF
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.wizard import InitWizard
 
         mock_select.return_value = "sdxl"
         mock_ask.return_value = "stabilityai/sdxl-base-1.0"
         result = InitWizard()._prompt_diffusers_source()  # pylint: disable=protected-access
         assert result == {
-            "source_type": SOURCE_HF,
+            "source_type": SourceType.HF,
             "model_path": "stabilityai/sdxl-base-1.0",
             "variant": "sdxl",
         }

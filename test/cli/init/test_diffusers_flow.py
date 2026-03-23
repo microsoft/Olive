@@ -20,10 +20,10 @@ class TestExportFlow:
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_export_auto_variant(self, mock_ask):
         from olive.cli.init.diffusers_flow import _export_flow
-        from olive.cli.init.helpers import VARIANT_AUTO
+        from olive.cli.init.helpers import DiffuserVariant
 
         mock_ask.return_value = "float32"
-        result = _export_flow("my-model", VARIANT_AUTO)
+        result = _export_flow("my-model", DiffuserVariant.AUTO)
         assert "--model_variant" not in result["command"]
 
 
@@ -31,13 +31,13 @@ class TestLoraFlow:
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_basic_lora_local_data(self, mock_ask):
         from olive.cli.init.diffusers_flow import _lora_flow
-        from olive.cli.init.helpers import SOURCE_LOCAL, VARIANT_AUTO
+        from olive.cli.init.helpers import DiffuserVariant, SourceType
 
         mock_ask.side_effect = [
             "16",  # lora_r
             "16",  # lora_alpha
             "0.0",  # lora_dropout
-            SOURCE_LOCAL,  # data_source
+            SourceType.LOCAL,  # data_source
             "/images",  # data_dir
             False,  # enable_dreambooth
             "1000",  # max_train_steps
@@ -50,7 +50,7 @@ class TestLoraFlow:
             "",  # seed (skip)
             False,  # merge_lora
         ]
-        result = _lora_flow("my-model", VARIANT_AUTO)
+        result = _lora_flow("my-model", DiffuserVariant.AUTO)
         cmd = result["command"]
         assert "olive diffusion-lora -m my-model" in cmd
         assert "-r 16 --alpha 16" in cmd
@@ -61,13 +61,13 @@ class TestLoraFlow:
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_flux_with_dreambooth(self, mock_ask):
         from olive.cli.init.diffusers_flow import _lora_flow
-        from olive.cli.init.helpers import SOURCE_LOCAL, VARIANT_FLUX
+        from olive.cli.init.helpers import DiffuserVariant, SourceType
 
         mock_ask.side_effect = [
             "16",  # lora_r
             "16",  # lora_alpha
             "0.1",  # lora_dropout
-            SOURCE_LOCAL,  # data_source
+            SourceType.LOCAL,  # data_source
             "/images",  # data_dir
             True,  # enable_dreambooth
             "a photo of sks dog",  # instance_prompt
@@ -86,9 +86,9 @@ class TestLoraFlow:
             "3.5",  # guidance_scale (flux-specific)
             True,  # merge_lora
         ]
-        result = _lora_flow("my-flux-model", VARIANT_FLUX)
+        result = _lora_flow("my-flux-model", DiffuserVariant.FLUX)
         cmd = result["command"]
-        assert f"--model_variant {VARIANT_FLUX}" in cmd
+        assert f"--model_variant {DiffuserVariant.FLUX}" in cmd
         assert "--dreambooth" in cmd
         assert '--instance_prompt "a photo of sks dog"' in cmd
         assert "--with_prior_preservation" in cmd
@@ -98,13 +98,13 @@ class TestLoraFlow:
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_hf_data_source_with_caption(self, mock_ask):
         from olive.cli.init.diffusers_flow import _lora_flow
-        from olive.cli.init.helpers import SOURCE_HF, VARIANT_AUTO
+        from olive.cli.init.helpers import DiffuserVariant, SourceType
 
         mock_ask.side_effect = [
             "16",  # lora_r
             "16",  # lora_alpha
             "0.0",  # lora_dropout
-            SOURCE_HF,  # data_source
+            SourceType.HF,  # data_source
             "linoyts/Tuxemon",  # data_name
             "train",  # data_split
             "image",  # image_column
@@ -120,7 +120,7 @@ class TestLoraFlow:
             "42",  # seed (provided)
             False,  # merge_lora
         ]
-        result = _lora_flow("my-model", VARIANT_AUTO)
+        result = _lora_flow("my-model", DiffuserVariant.AUTO)
         cmd = result["command"]
         assert "--data_name linoyts/Tuxemon" in cmd
         assert "--data_split train" in cmd
@@ -131,13 +131,13 @@ class TestLoraFlow:
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_custom_max_train_steps(self, mock_ask):
         from olive.cli.init.diffusers_flow import TRAIN_STEPS_CUSTOM, _lora_flow
-        from olive.cli.init.helpers import SOURCE_LOCAL, VARIANT_AUTO
+        from olive.cli.init.helpers import DiffuserVariant, SourceType
 
         mock_ask.side_effect = [
             "16",  # lora_r
             "16",  # lora_alpha
             "0.0",  # lora_dropout
-            SOURCE_LOCAL,  # data_source
+            SourceType.LOCAL,  # data_source
             "/images",  # data_dir
             False,  # enable_dreambooth
             TRAIN_STEPS_CUSTOM,  # max_train_steps
@@ -151,19 +151,19 @@ class TestLoraFlow:
             "",  # seed (skip)
             False,  # merge_lora
         ]
-        result = _lora_flow("my-model", VARIANT_AUTO)
+        result = _lora_flow("my-model", DiffuserVariant.AUTO)
         assert "--max_train_steps 3000" in result["command"]
 
     @patch("olive.cli.init.diffusers_flow._ask")
     def test_dreambooth_with_class_data_dir(self, mock_ask):
         from olive.cli.init.diffusers_flow import _lora_flow
-        from olive.cli.init.helpers import SOURCE_LOCAL, VARIANT_AUTO
+        from olive.cli.init.helpers import DiffuserVariant, SourceType
 
         mock_ask.side_effect = [
             "16",  # lora_r
             "16",  # lora_alpha
             "0.0",  # lora_dropout
-            SOURCE_LOCAL,  # data_source
+            SourceType.LOCAL,  # data_source
             "/images",  # data_dir
             True,  # enable_dreambooth
             "a photo of sks dog",  # instance_prompt
@@ -181,7 +181,7 @@ class TestLoraFlow:
             "",  # seed (skip)
             False,  # merge_lora
         ]
-        result = _lora_flow("my-model", VARIANT_AUTO)
+        result = _lora_flow("my-model", DiffuserVariant.AUTO)
         assert "--class_data_dir /class_images" in result["command"]
 
 
@@ -200,17 +200,17 @@ class TestRunDiffusersFlowRouting:
     @patch("olive.cli.init.diffusers_flow._ask_select")
     def test_routes_to_lora(self, mock_select, mock_flow):
         from olive.cli.init.diffusers_flow import OP_LORA, run_diffusers_flow
-        from olive.cli.init.helpers import VARIANT_FLUX
+        from olive.cli.init.helpers import DiffuserVariant
 
         mock_select.return_value = OP_LORA
         mock_flow.return_value = {"command": "test"}
-        run_diffusers_flow({"model_path": "m", "variant": VARIANT_FLUX})
-        mock_flow.assert_called_once_with("m", VARIANT_FLUX)
+        run_diffusers_flow({"model_path": "m", "variant": DiffuserVariant.FLUX})
+        mock_flow.assert_called_once_with("m", DiffuserVariant.FLUX)
 
     @patch("olive.cli.init.diffusers_flow._ask_select", return_value="unknown")
     def test_unknown_operation_returns_empty(self, mock_select):
         from olive.cli.init.diffusers_flow import run_diffusers_flow
-        from olive.cli.init.helpers import VARIANT_AUTO
+        from olive.cli.init.helpers import DiffuserVariant
 
-        result = run_diffusers_flow({"model_path": "m", "variant": VARIANT_AUTO})
+        result = run_diffusers_flow({"model_path": "m", "variant": DiffuserVariant.AUTO})
         assert not result

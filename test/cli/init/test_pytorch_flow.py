@@ -92,14 +92,14 @@ class TestBuildQuantizeCommand:
         assert "--implementation spinquant" in cmd
 
     def test_with_calibration(self):
-        from olive.cli.init.helpers import SOURCE_HF
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.pytorch_flow import _build_quantize_command
 
         config = {
             "algorithm": "gptq",
             "precision": "int4",
             "calibration": {
-                "source": SOURCE_HF,
+                "source": SourceType.HF,
                 "data_name": "Salesforce/wikitext",
                 "subset": "wikitext-2-raw-v1",
                 "split": "train",
@@ -152,11 +152,11 @@ class TestQuantizeFlow:
     @patch("olive.cli.init.pytorch_flow.prompt_calibration_source")
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_gptq_with_calibration(self, mock_ask, mock_calib, mock_build):
-        from olive.cli.init.helpers import SOURCE_HF
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.pytorch_flow import _quantize_flow
 
         mock_calib.return_value = {
-            "source": SOURCE_HF,
+            "source": SourceType.HF,
             "data_name": "data",
             "subset": "",
             "split": "train",
@@ -216,14 +216,14 @@ class TestExportFlow:
 class TestFinetuneFlow:
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_lora_hf_dataset(self, mock_ask):
-        from olive.cli.init.helpers import SOURCE_HF
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.pytorch_flow import TEXT_FIELD, _finetune_flow
 
         mock_ask.side_effect = [
             "lora",  # method
             "64",  # lora_r
             "16",  # lora_alpha
-            SOURCE_HF,  # data_source
+            SourceType.HF,  # data_source
             "tatsu-lab/alpaca",  # data_name
             "train",  # train_split
             "",  # eval_split (skip)
@@ -243,14 +243,14 @@ class TestFinetuneFlow:
 
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_qlora_local_data_template(self, mock_ask):
-        from olive.cli.init.helpers import SOURCE_LOCAL
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.pytorch_flow import TEXT_TEMPLATE, _finetune_flow
 
         mock_ask.side_effect = [
             "qlora",  # method
             "16",  # lora_r
             "16",  # lora_alpha
-            SOURCE_LOCAL,  # data_source
+            SourceType.LOCAL,  # data_source
             "/data/train.json",  # data_files
             TEXT_TEMPLATE,  # text_mode
             "Q: {q} A: {a}",  # template
@@ -266,14 +266,14 @@ class TestFinetuneFlow:
 
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_hf_with_eval_split(self, mock_ask):
-        from olive.cli.init.helpers import SOURCE_HF
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.pytorch_flow import TEXT_FIELD, _finetune_flow
 
         mock_ask.side_effect = [
             "lora",  # method
             "64",  # lora_r
             "16",  # lora_alpha
-            SOURCE_HF,  # data_source
+            SourceType.HF,  # data_source
             "tatsu-lab/alpaca",  # data_name
             "train",  # train_split
             "test",  # eval_split (provided)
@@ -288,14 +288,14 @@ class TestFinetuneFlow:
 
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_chat_template(self, mock_ask):
-        from olive.cli.init.helpers import SOURCE_HF
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.pytorch_flow import TEXT_CHAT_TEMPLATE, _finetune_flow
 
         mock_ask.side_effect = [
             "lora",  # method
             "64",  # lora_r
             "16",  # lora_alpha
-            SOURCE_HF,  # data_source
+            SourceType.HF,  # data_source
             "dataset",  # data_name
             "train",  # train_split
             "",  # eval_split (skip)
@@ -346,11 +346,11 @@ class TestOptimizeCustomMode:
     @patch("olive.cli.init.pytorch_flow.prompt_calibration_source")
     @patch("olive.cli.init.pytorch_flow._ask")
     def test_quantize_only(self, mock_ask, mock_calib, mock_build):
-        from olive.cli.init.helpers import SOURCE_HF
+        from olive.cli.init.helpers import SourceType
         from olive.cli.init.pytorch_flow import OP_QUANTIZE, _optimize_custom_mode
 
         mock_calib.return_value = {
-            "source": SOURCE_HF,
+            "source": SourceType.HF,
             "data_name": "data",
             "subset": "",
             "split": "train",

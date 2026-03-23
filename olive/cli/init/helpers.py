@@ -2,20 +2,26 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""Shared constants, helpers and UI prompts used by the init wizard and flow modules."""
-
 import sys
 
-# Source types (shared across flows)
-SOURCE_HF = "hf"
-SOURCE_LOCAL = "local"
-SOURCE_AZUREML = "azureml"
-SOURCE_SCRIPT = "script"
-SOURCE_DEFAULT = "default"
+from olive.common.utils import StrEnumBase
 
-# Diffuser variants (only those used in routing)
-VARIANT_AUTO = "auto"
-VARIANT_FLUX = "flux"
+
+class SourceType(StrEnumBase):
+    """Source types (shared across flows)."""
+
+    HF = "hf"
+    LOCAL = "local"
+    AZUREML = "azureml"
+    SCRIPT = "script"
+    DEFAULT = "default"
+
+
+class DiffuserVariant(StrEnumBase):
+    """Diffuser variants (only those used in routing)."""
+
+    AUTO = "auto"
+    FLUX = "flux"
 
 
 class GoBackError(Exception):
@@ -81,22 +87,22 @@ def prompt_calibration_source():
         questionary.select(
             "Calibration data source:",
             choices=[
-                questionary.Choice("Use default (wikitext-2)", value=SOURCE_DEFAULT),
-                questionary.Choice("HuggingFace dataset", value=SOURCE_HF),
-                questionary.Choice("Local file", value=SOURCE_LOCAL),
+                questionary.Choice("Use default (wikitext-2)", value=SourceType.DEFAULT),
+                questionary.Choice("HuggingFace dataset", value=SourceType.HF),
+                questionary.Choice("Local file", value=SourceType.LOCAL),
             ],
         )
     )
 
-    if source == SOURCE_DEFAULT:
+    if source == SourceType.DEFAULT:
         return None
-    elif source == SOURCE_HF:
+    elif source == SourceType.HF:
         data_name = _ask(questionary.text("Dataset name:", default="Salesforce/wikitext"))
         subset = _ask(questionary.text("Subset (optional):", default="wikitext-2-raw-v1"))
         split = _ask(questionary.text("Split:", default="train"))
         num_samples = _ask(questionary.text("Number of samples:", default="128"))
         return {
-            "source": SOURCE_HF,
+            "source": SourceType.HF,
             "data_name": data_name,
             "subset": subset,
             "split": split,
@@ -104,17 +110,17 @@ def prompt_calibration_source():
         }
     else:
         data_files = _ask(questionary.text("Data file path:"))
-        return {"source": SOURCE_LOCAL, "data_files": data_files}
+        return {"source": SourceType.LOCAL, "data_files": data_files}
 
 
 def build_calibration_args(calibration):
     """Build CLI args string from calibration config dict."""
-    if calibration["source"] == SOURCE_HF:
+    if calibration["source"] == SourceType.HF:
         result = f" -d {calibration['data_name']}"
         if calibration.get("subset"):
             result += f" --subset {calibration['subset']}"
         result += f" --split {calibration['split']} --max_samples {calibration['num_samples']}"
         return result
-    elif calibration["source"] == SOURCE_LOCAL:
+    elif calibration["source"] == SourceType.LOCAL:
         return f" --data_files {calibration['data_files']}"
     return ""
