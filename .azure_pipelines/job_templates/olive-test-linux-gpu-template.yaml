@@ -62,9 +62,13 @@ jobs:
       docker run \
       --shm-size=4g \
       --gpus=all \
+      -e CUDA_LAUNCH_BLOCKING=1 \
       -v /var/run/docker.sock:/var/run/docker.sock \
       -v $(Build.SourcesDirectory)/logs:/logs \
       ${{ parameters.docker_image }} \
+      bash -c "
+      python -c 'import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0)); print(torch.cuda.get_device_capability(0))' && \
+      nvidia-smi && \
       bash .azure_pipelines/scripts/${{ parameters.test_script }} \
       ${{ parameters.torch }} \
       ${{ parameters.onnxruntime }} \
@@ -73,7 +77,8 @@ jobs:
       ${{ parameters.test_path }} \
       false \
       $(hf_token) \
-      "${{ parameters.pytest_marker }}"
+      '${{ parameters.pytest_marker }}'
+      "
     displayName: Run Tests in Docker
 
   - task: CredScan@3
