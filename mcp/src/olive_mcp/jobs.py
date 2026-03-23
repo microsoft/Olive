@@ -12,13 +12,12 @@ import uuid
 from datetime import datetime
 
 from olive_mcp.constants import (
-    CMD_FINETUNE,
-    CMD_OPTIMIZE,
     OUTPUT_BASE,
-    SUPPORTED_PRECISIONS,
-    SUPPORTED_PROVIDERS,
     SUPPORTED_QUANT_ALGORITHMS,
     WORKER_PATH,
+    Command,
+    SupportedPrecision,
+    SupportedProvider,
 )
 from olive_mcp.packages import _resolve_packages
 from olive_mcp.venv import _get_or_create_venv
@@ -327,12 +326,12 @@ def _get_error_suggestions(error_str: str, command: str, kwargs: dict) -> list[s
 
     # Command-specific fallback
     if not suggestions:
-        if command == CMD_OPTIMIZE and kwargs.get("precision") in ("int4", "uint4"):
+        if command == Command.OPTIMIZE and kwargs.get("precision") in ("int4", "uint4"):
             suggestions.append(
                 "int4 optimization with GPTQ can be very slow on CPU (30min+). "
                 "For faster int4, use quantize(algorithm='rtn') instead."
             )
-        if command == CMD_FINETUNE and kwargs.get("method") == "lora":
+        if command == Command.FINETUNE and kwargs.get("method") == "lora":
             suggestions.append(
                 "If running out of memory during fine-tuning, try method='qlora' "
                 "which uses 4-bit quantization to reduce memory usage."
@@ -347,12 +346,12 @@ def _validate_params(command: str, kwargs: dict) -> str | None:
     precision = kwargs.get("precision")
 
     # Check provider is recognized
-    if provider and provider not in SUPPORTED_PROVIDERS:
-        return f"Unknown provider '{provider}'. Supported: {', '.join(SUPPORTED_PROVIDERS)}"
+    if provider and provider not in SupportedProvider:
+        return f"Unknown provider '{provider}'. Supported: {', '.join(SupportedProvider)}"
 
     # Check precision is recognized
-    if precision and precision not in SUPPORTED_PRECISIONS:
-        return f"Unknown precision '{precision}'. Supported: {', '.join(SUPPORTED_PRECISIONS)}"
+    if precision and precision not in SupportedPrecision:
+        return f"Unknown precision '{precision}'. Supported: {', '.join(SupportedPrecision)}"
 
     # Check provider-precision compatibility
     if provider and precision:
@@ -366,7 +365,7 @@ def _validate_params(command: str, kwargs: dict) -> str | None:
         return f"Unknown algorithm '{algorithm}'. Supported: {', '.join(SUPPORTED_QUANT_ALGORITHMS)}"
 
     # Check finetune method
-    if command == CMD_FINETUNE:
+    if command == Command.FINETUNE:
         method = kwargs.get("method")
         if method and method not in ("lora", "qlora"):
             return f"Unknown finetune method '{method}'. Supported: lora, qlora"

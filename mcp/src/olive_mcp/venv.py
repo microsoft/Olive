@@ -92,5 +92,19 @@ async def _get_or_create_venv(packages: list[str], job_id: str, job_log_fn) -> P
     else:
         job_log_fn(job_id, f"Reusing cached venv ({key})")
 
+    # Log installed packages for debugging
+    proc = await asyncio.create_subprocess_exec(
+        "uv",
+        "pip",
+        "list",
+        "--python",
+        str(python_path),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, _ = await proc.communicate()
+    if proc.returncode == 0:
+        job_log_fn(job_id, f"Installed packages:\n{stdout.decode().strip()}")
+
     _touch_venv(venv_path)
     return python_path

@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from enum import StrEnum
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -19,46 +20,50 @@ _VENV_MAX_AGE_DAYS = 14
 # Command names
 # ---------------------------------------------------------------------------
 
-CMD_OPTIMIZE = "optimize"
-CMD_QUANTIZE = "quantize"
-CMD_FINETUNE = "finetune"
-CMD_CAPTURE_ONNX_GRAPH = "capture_onnx_graph"
-CMD_BENCHMARK = "benchmark"
-CMD_DIFFUSION_LORA = "diffusion_lora"
-CMD_EXPLORE_PASSES = "explore_passes"
-CMD_VALIDATE_CONFIG = "validate_config"
-CMD_RUN_CONFIG = "run_config"
+
+class Command(StrEnum):
+    OPTIMIZE = "optimize"
+    QUANTIZE = "quantize"
+    FINETUNE = "finetune"
+    CAPTURE_ONNX_GRAPH = "capture_onnx_graph"
+    BENCHMARK = "benchmark"
+    DIFFUSION_LORA = "diffusion_lora"
+    EXPLORE_PASSES = "explore_passes"
+    VALIDATE_CONFIG = "validate_config"
+    RUN_CONFIG = "run_config"
+
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-SUPPORTED_PROVIDERS = [
-    "CPUExecutionProvider",
-    "CUDAExecutionProvider",
-    "DmlExecutionProvider",
-    "OpenVINOExecutionProvider",
-    "TensorrtExecutionProvider",
-    "ROCMExecutionProvider",
-    "QNNExecutionProvider",
-    "VitisAIExecutionProvider",
-    "WebGpuExecutionProvider",
-    "NvTensorRTRTXExecutionProvider",
-]
 
-SUPPORTED_PRECISIONS = [
-    "fp32",
-    "fp16",
-    "bf16",
-    "int4",
-    "int8",
-    "int16",
-    "int32",
-    "uint4",
-    "uint8",
-    "uint16",
-    "uint32",
-]
+class SupportedProvider(StrEnum):
+    CPU = "CPUExecutionProvider"
+    CUDA = "CUDAExecutionProvider"
+    DML = "DmlExecutionProvider"
+    OPENVINO = "OpenVINOExecutionProvider"
+    TENSORRT = "TensorrtExecutionProvider"
+    ROCM = "ROCMExecutionProvider"
+    QNN = "QNNExecutionProvider"
+    VITISAI = "VitisAIExecutionProvider"
+    WEBGPU = "WebGpuExecutionProvider"
+    NV_TENSORRT_RTX = "NvTensorRTRTXExecutionProvider"
+
+
+class SupportedPrecision(StrEnum):
+    FP32 = "fp32"
+    FP16 = "fp16"
+    BF16 = "bf16"
+    INT4 = "int4"
+    INT8 = "int8"
+    INT16 = "int16"
+    INT32 = "int32"
+    UINT4 = "uint4"
+    UINT8 = "uint8"
+    UINT16 = "uint16"
+    UINT32 = "uint32"
+
 
 SUPPORTED_QUANT_ALGORITHMS = ["rtn", "gptq", "awq", "hqq"]
 

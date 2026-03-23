@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import asyncio
-import ctypes
 import os
 import platform
 import shutil
@@ -11,14 +10,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import psutil
+
 from olive_mcp.constants import (
-    CMD_BENCHMARK,
-    CMD_CAPTURE_ONNX_GRAPH,
-    CMD_DIFFUSION_LORA,
-    CMD_FINETUNE,
-    CMD_OPTIMIZE,
-    CMD_QUANTIZE,
     OUTPUT_BASE,
+    Command,
 )
 from olive_mcp.jobs import (
     _build_kwargs,
@@ -55,56 +51,11 @@ async def detect_hardware() -> dict:
 
     # --- RAM ---
     try:
-        if sys.platform == "win32":
-
-            class MEMORYSTATUSEX(ctypes.Structure):
-                _fields_ = [  # noqa: RUF012
-                    ("dwLength", ctypes.c_ulong),
-                    ("dwMemoryLoad", ctypes.c_ulong),
-                    ("ullTotalPhys", ctypes.c_ulonglong),
-                    ("ullAvailPhys", ctypes.c_ulonglong),
-                    ("ullTotalPageFile", ctypes.c_ulonglong),
-                    ("ullAvailPageFile", ctypes.c_ulonglong),
-                    ("ullTotalVirtual", ctypes.c_ulonglong),
-                    ("ullAvailVirtual", ctypes.c_ulonglong),
-                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
-                ]
-
-            mem = MEMORYSTATUSEX()
-            mem.dwLength = ctypes.sizeof(MEMORYSTATUSEX)  # pylint: disable=attribute-defined-outside-init
-            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(mem))
-            info["ram"] = {
-                "total_gb": round(mem.ullTotalPhys / (1024**3), 1),
-                "available_gb": round(mem.ullAvailPhys / (1024**3), 1),
-            }
-        else:
-            # Linux / macOS — read /proc/meminfo or use sysctl
-            meminfo = Path("/proc/meminfo")
-            if meminfo.exists():
-                lines = meminfo.read_text().splitlines()
-                mem_total = mem_avail = 0
-                for line in lines:
-                    if line.startswith("MemTotal:"):
-                        mem_total = int(line.split()[1]) * 1024  # kB → bytes
-                    elif line.startswith("MemAvailable:"):
-                        mem_avail = int(line.split()[1]) * 1024
-                info["ram"] = {
-                    "total_gb": round(mem_total / (1024**3), 1),
-                    "available_gb": round(mem_avail / (1024**3), 1),
-                }
-            else:
-                # macOS fallback
-                proc = await asyncio.create_subprocess_exec(
-                    "sysctl",
-                    "-n",
-                    "hw.memsize",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                stdout, _ = await proc.communicate()
-                if proc.returncode == 0:
-                    total = int(stdout.decode().strip())
-                    info["ram"] = {"total_gb": round(total / (1024**3), 1)}
+        mem = psutil.virtual_memory()
+        info["ram"] = {
+            "total_gb": round(mem.total / (1024**3), 1),
+            "available_gb": round(mem.available / (1024**3), 1),
+        }
     except Exception:
         info["ram"] = {"error": "Could not detect RAM"}
 
@@ -318,7 +269,7 @@ async def optimize(
 
     """
     if not output_path:
-        output_path = _make_output_path(CMD_OPTIMIZE, model_name_or_path)
+        output_path = _make_output_path(Command.OPTIMIZE, model_name_or_path)
 
     kwargs = _build_kwargs(
         model_name_or_path=model_name_or_path,
@@ -335,7 +286,7 @@ async def optimize(
         output_path=output_path,
     )
     return await _start_job(
-        CMD_OPTIMIZE, f"Optimize {model_name_or_path} ({precision}, {provider})", kwargs, hf_token=hf_token
+        Command.OPTIMIZE, f"Optimize {model_name_or_path} ({precision}, {provider})", kwargs, hf_token=hf_token
     )
 
 
@@ -366,7 +317,7 @@ async def quantize(
 
     """
     if not output_path:
-        output_path = _make_output_path(CMD_QUANTIZE, model_name_or_path)
+        output_path = _make_output_path(Command.QUANTIZE, model_name_or_path)
 
     kwargs = _build_kwargs(
         model_name_or_path=model_name_or_path,
@@ -379,7 +330,7 @@ async def quantize(
         output_path=output_path,
     )
     return await _start_job(
-        CMD_QUANTIZE, f"Quantize {model_name_or_path} ({algorithm}, {precision})", kwargs, hf_token=hf_token
+        Command.QUANTIZE, f"Quantize {model_name_or_path} ({algorithm}, {precision})", kwargs, hf_token=hf_token
     )
 
 
@@ -444,7 +395,7 @@ async def finetune(
                 "error": "Either data_dir or data_name is required for diffusion model fine-tuning.",
             }
         if not output_path:
-            output_path = _make_output_path(CMD_DIFFUSION_LORA, model_name_or_path)
+            output_path = _make_output_path(Command.DIFFUSION_LORA, model_name_or_path)
         kwargs = _build_kwargs(
             model_name_or_path=model_name_or_path,
             data_dir=data_dir,
@@ -462,14 +413,14 @@ async def finetune(
             output_path=output_path,
         )
         return await _start_job(
-            CMD_DIFFUSION_LORA, f"Diffusion LoRA for {model_name_or_path}", kwargs, hf_token=hf_token
+            Command.DIFFUSION_LORA, f"Diffusion LoRA for {model_name_or_path}", kwargs, hf_token=hf_token
         )
 
     # Text model fine-tuning
     if not data_name:
         return {"status": "error", "error": "data_name is required for text model fine-tuning."}
     if not output_path:
-        output_path = _make_output_path(CMD_FINETUNE, model_name_or_path)
+        output_path = _make_output_path(Command.FINETUNE, model_name_or_path)
     kwargs = _build_kwargs(
         model_name_or_path=model_name_or_path,
         data_name=data_name,
@@ -483,7 +434,7 @@ async def finetune(
         output_path=output_path,
     )
     return await _start_job(
-        CMD_FINETUNE, f"Finetune {model_name_or_path} ({method}) on {data_name}", kwargs, hf_token=hf_token
+        Command.FINETUNE, f"Finetune {model_name_or_path} ({method}) on {data_name}", kwargs, hf_token=hf_token
     )
 
 
@@ -516,7 +467,7 @@ async def capture_onnx_graph(
 
     """
     if not output_path:
-        output_path = _make_output_path(CMD_CAPTURE_ONNX_GRAPH, model_name_or_path)
+        output_path = _make_output_path(Command.CAPTURE_ONNX_GRAPH, model_name_or_path)
 
     kwargs = _build_kwargs(
         model_name_or_path=model_name_or_path,
@@ -530,7 +481,7 @@ async def capture_onnx_graph(
         output_path=output_path,
     )
     return await _start_job(
-        CMD_CAPTURE_ONNX_GRAPH, f"Capture ONNX from {model_name_or_path}", kwargs, hf_token=hf_token
+        Command.CAPTURE_ONNX_GRAPH, f"Capture ONNX from {model_name_or_path}", kwargs, hf_token=hf_token
     )
 
 
@@ -561,7 +512,7 @@ async def benchmark(
     if not tasks:
         tasks = ["hellaswag"]
     if not output_path:
-        output_path = _make_output_path(CMD_BENCHMARK, model_name_or_path)
+        output_path = _make_output_path(Command.BENCHMARK, model_name_or_path)
 
     kwargs = _build_kwargs(
         model_name_or_path=model_name_or_path,
@@ -573,7 +524,7 @@ async def benchmark(
         output_path=output_path,
     )
     return await _start_job(
-        CMD_BENCHMARK, f"Benchmark {model_name_or_path} on {', '.join(tasks)}", kwargs, hf_token=hf_token
+        Command.BENCHMARK, f"Benchmark {model_name_or_path} on {', '.join(tasks)}", kwargs, hf_token=hf_token
     )
 
 
@@ -630,12 +581,12 @@ async def manage_outputs(
 
     # --- LIST ---
     _known_prefixes = [
-        CMD_DIFFUSION_LORA,
-        CMD_CAPTURE_ONNX_GRAPH,
-        CMD_OPTIMIZE,
-        CMD_QUANTIZE,
-        CMD_FINETUNE,
-        CMD_BENCHMARK,
+        Command.DIFFUSION_LORA,
+        Command.CAPTURE_ONNX_GRAPH,
+        Command.OPTIMIZE,
+        Command.QUANTIZE,
+        Command.FINETUNE,
+        Command.BENCHMARK,
     ]
 
     entries = []
