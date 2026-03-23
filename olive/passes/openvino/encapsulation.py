@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 import os
+from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar, Union
 
@@ -13,6 +14,7 @@ from onnx import TensorProto, save
 from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, OpenVINOModelHandler
+from olive.model.handler.multi_target import MultiTargetModelHandler
 from olive.passes import Pass
 from olive.passes.openvino.ov_utils import create_genai_config
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -21,7 +23,11 @@ logger = logging.getLogger(__name__)
 
 
 class OpenVINOEncapsulation(Pass):
-    """Encapsulates OpenVINO models with onnx context nodes."""
+    """Encapsulates OpenVINO models with onnx context nodes.
+
+    When ov_version is a list of strings, generates encapsulated models for each version
+    and returns a MultiTargetModelHandler.
+    """
 
     openvino_to_onnx_dtype: ClassVar[dict] = {
         "f32": TensorProto.FLOAT,
@@ -62,12 +68,14 @@ class OpenVINOEncapsulation(Pass):
                 description=("Device the encapsulated model should run on. Available devices are cpu, gpu, npu."),
             ),
             "ov_version": PassConfigParam(
-                type_=str,
+                type_=Union[str, list],
                 default_value=None,
                 required=False,
                 description=(
-                    "Name of the OpenVINO version to override in model SDK version."
-                    "Requires a minimum version of OpenVINO 2025.1"
+                    "OpenVINO version to override in model SDK version. Can be a single string or a list"
+                    " of strings for multi-target generation. When a list is provided, encapsulated models"
+                    " are generated for each version and returned as a MultiTargetModelHandler."
+                    " Requires a minimum version of OpenVINO 2025.1"
                 ),
             ),
             "opset_imports": PassConfigParam(
@@ -114,7 +122,63 @@ class OpenVINOEncapsulation(Pass):
         model: Union[OpenVINOModelHandler],
         config: type[BasePassConfig],
         output_model_path: str,
+    ) -> Union[ONNXModelHandler, MultiTargetModelHandler]:
+        # Multi-target mode: ov_version is a list of strings
+        if isinstance(config.ov_version, list):
+            return self._run_multi_target(model, config, output_model_path)
+
+        # Single-target mode: existing behavior
+        return self._run_single_target(model, config, output_model_path)
+
+    def _run_multi_target(
+        self,
+        model: Union[OpenVINOModelHandler],
+        config: type[BasePassConfig],
+        output_model_path: str,
+    ) -> MultiTargetModelHandler:
+        """Generate encapsulated models for multiple OpenVINO versions.
+
+        Each entry in config.ov_version is a separate version string.
+        The result is a MultiTargetModelHandler wrapping per-version outputs.
+        """
+        ov_version_list = config.ov_version
+        assert all(isinstance(v, str) for v in ov_version_list), "Each entry in ov_version list must be a string"
+
+        output_dir = Path(output_model_path).with_suffix("")
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        targets = []
+        target_names = []
+        for ov_ver in ov_version_list:
+            target_name = f"ov_{ov_ver}"
+            target_output_path = str(output_dir / target_name)
+
+            single_config = deepcopy(config)
+            object.__setattr__(single_config, "ov_version", ov_ver)
+
+            result = self._run_single_target(model, single_config, target_output_path)
+            # Store target-specific metadata
+            result.model_attributes = result.model_attributes or {}
+            result.model_attributes["sdk_version"] = ov_ver
+            result.model_attributes["architecture"] = str(config.target_device).upper()
+
+            targets.append(result)
+            target_names.append(target_name)
+
+        return MultiTargetModelHandler(
+            targets,
+            target_names,
+            model_path=output_dir,
+            model_attributes=model.model_attributes,
+        )
+
+    def _run_single_target(
+        self,
+        model: Union[OpenVINOModelHandler],
+        config: type[BasePassConfig],
+        output_model_path: str,
     ) -> ONNXModelHandler:
+        """Encapsulate a single OpenVINO model. This is the original logic."""
         try:
             import openvino as ov
         except ImportError:

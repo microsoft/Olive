@@ -48,6 +48,9 @@ class Pass(ABC):
     # True if the pass processes a composite model at once. Otherwise, the components of the
     # composite model will be processed individually.
     _accepts_composite_model: bool = False
+    # True if the pass processes a multi-target model at once. Otherwise, each target
+    # will be processed independently.
+    _accepts_multi_target_model: bool = False
 
     @classmethod
     def __init_subclass__(cls, **kwargs) -> None:
@@ -206,6 +209,7 @@ class Pass(ABC):
     def run(self, model: OliveModelHandler, output_model_path: str) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
         from olive.model import CompositeModelHandler, DistributedOnnxModelHandler
+        from olive.model.handler.multi_target import MultiTargetModelHandler
 
         if not self._initialized:
             self._initialize()
@@ -226,6 +230,20 @@ class Pass(ABC):
                 num_ranks=model.num_ranks,
                 inference_settings=model.inference_settings,
                 model_attributes=model.model_attributes,
+            )
+        elif isinstance(model, MultiTargetModelHandler) and not self._accepts_multi_target_model:
+            # Run the pass independently for each hardware target
+            targets = []
+            target_names = []
+            model_dir = Path(output_model_path).with_suffix("")
+            model_dir.mkdir(parents=True, exist_ok=True)
+            for target_name, target_model in model.get_target_models():
+                target_output_path = model_dir / target_name
+                output_target = self.run(target_model, str(target_output_path))
+                targets.append(output_target)
+                target_names.append(target_name)
+            output_model = MultiTargetModelHandler(
+                targets, target_names, model_path=model_dir, model_attributes=model.model_attributes
             )
         elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
             components = []

@@ -195,15 +195,13 @@ class Engine:
             self.initialize(log_to_file, log_severity_level)
 
         output_dir: Path = (Path(output_dir) if output_dir else Path.cwd()).resolve()
-        if output_dir.suffix:
+        # Check if output_dir is an existing file; otherwise treat as directory
+        if output_dir.is_file():
             output_dir.parent.mkdir(parents=True, exist_ok=True)
+            artifacts_dir = output_dir.parent
         else:
             output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Determine the directory for artifacts (run_history, etc.)
-        # If output_dir is a file path (has suffix), use parent directory
-        # Otherwise use output_dir itself
-        artifacts_dir = output_dir.parent if output_dir.suffix else output_dir
+            artifacts_dir = output_dir
 
         logger.info("Running Olive on accelerator: %s", accelerator_spec)
         with self._create_system():
@@ -255,9 +253,8 @@ class Engine:
         self.footprint.record(is_input_model=True, model_id=input_model_id)
 
         # Determine the directory for artifacts
-        # If output_dir is a file path (has suffix like .onnx), use parent directory
-        # Otherwise use output_dir itself
-        artifacts_dir = output_dir.parent if output_dir.suffix else output_dir
+        # If output_dir is an existing file, use its parent; otherwise use output_dir itself
+        artifacts_dir = output_dir.parent if output_dir.is_file() else output_dir
 
         try:
             if evaluate_input_model and not self.evaluator_config:

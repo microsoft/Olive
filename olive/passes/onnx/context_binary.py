@@ -13,6 +13,7 @@ from packaging import version
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
+from olive.model.handler.multi_target import MultiTargetModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (
@@ -26,7 +27,11 @@ logger = logging.getLogger(__name__)
 
 
 class EPContextBinaryGenerator(Pass):
-    """Generate EP specific context binary for the model."""
+    """Generate EP specific context binary for the model.
+
+    When provider_options is a list of dicts, generates context binaries for each set of provider options
+    (e.g., multiple SoC models) and returns a MultiTargetModelHandler.
+    """
 
     _accepts_composite_model = True
 
@@ -47,9 +52,13 @@ class EPContextBinaryGenerator(Pass):
                 ),
             ),
             "provider_options": PassConfigParam(
-                type_=dict,
+                type_=Union[dict, list],
                 default_value=None,
-                description="Provider options for the EP.",
+                description=(
+                    "Provider options for the EP. Can be a single dict or a list of dicts for multi-target"
+                    " generation (e.g., multiple SoC models). When a list is provided, context binaries are"
+                    " generated for each set of options and returned as a MultiTargetModelHandler."
+                ),
             ),
             "session_options": PassConfigParam(
                 type_=dict,
@@ -73,9 +82,7 @@ class EPContextBinaryGenerator(Pass):
         model: Union[ONNXModelHandler, CompositeModelHandler],
         config: type[BasePassConfig],
         output_model_path: str,
-    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
-        from onnxruntime import __version__ as OrtVersion
-
+    ) -> Union[ONNXModelHandler, CompositeModelHandler, MultiTargetModelHandler]:
         # session created using providers argument so will use the ort.get_available_providers()
         # TODO(jambayk): consider switching to the new EP API for Windows
         from onnxruntime import get_available_providers
@@ -88,6 +95,68 @@ class EPContextBinaryGenerator(Pass):
             f"Execution provider {self.accelerator_spec.execution_provider} is not available. Available providers:"
             f" {get_available_providers()}"
         )
+
+        # Multi-target mode: provider_options is a list of dicts
+        if isinstance(config.provider_options, list):
+            return self._run_multi_target(model, config, output_model_path)
+
+        # Single-target mode: existing behavior
+        return self._run_single_target(model, config, output_model_path)
+
+    def _run_multi_target(
+        self,
+        model: Union[ONNXModelHandler, CompositeModelHandler],
+        config: type[BasePassConfig],
+        output_model_path: str,
+    ) -> MultiTargetModelHandler:
+        """Generate context binaries for multiple hardware targets.
+
+        Each entry in config.provider_options is a separate set of provider options
+        (e.g., different soc_model values). The result is a MultiTargetModelHandler
+        wrapping per-target outputs.
+        """
+        provider_options_list = config.provider_options
+        assert all(isinstance(po, dict) for po in provider_options_list), (
+            "Each entry in provider_options list must be a dict"
+        )
+
+        output_dir = Path(output_model_path).with_suffix("")
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        targets = []
+        target_names = []
+        for idx, provider_options in enumerate(provider_options_list):
+            target_name = f"soc_{provider_options.get('soc_model', idx)}"
+            target_output_path = str(output_dir / target_name)
+
+            # Create a shallow copy of config with this specific provider_options
+            single_config = deepcopy(config)
+            object.__setattr__(single_config, "provider_options", provider_options)
+
+            result = self._run_single_target(model, single_config, target_output_path)
+            # Store target-specific metadata
+            result.model_attributes = result.model_attributes or {}
+            result.model_attributes["provider_options"] = provider_options
+            result.model_attributes["architecture"] = provider_options.get("soc_model")
+
+            targets.append(result)
+            target_names.append(target_name)
+
+        return MultiTargetModelHandler(
+            targets,
+            target_names,
+            model_path=output_dir,
+            model_attributes=model.model_attributes,
+        )
+
+    def _run_single_target(
+        self,
+        model: Union[ONNXModelHandler, CompositeModelHandler],
+        config: type[BasePassConfig],
+        output_model_path: str,
+    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+        """Generate context binary for a single target. This is the original logic."""
+        from onnxruntime import __version__ as OrtVersion
 
         generate_kwargs = {
             "execution_provider": self.accelerator_spec.execution_provider,
