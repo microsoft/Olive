@@ -8,21 +8,15 @@ MCP server for Microsoft Olive model optimization. Provides tools for model opti
 |------|-------------|
 | `optimize` | End-to-end optimization with automatic pass scheduling |
 | `quantize` | Model quantization (RTN, GPTQ, AWQ, HQQ, and more) |
-| `finetune` | LoRA / QLoRA fine-tuning |
+| `finetune` | LoRA / QLoRA fine-tuning (including diffusion LoRA for SD 1.5, SDXL, Flux) |
 | `capture_onnx_graph` | Capture ONNX graph via PyTorch Exporter or Model Builder |
 | `benchmark` | Model evaluation using lm-eval tasks |
-| `diffusion_lora` | Train LoRA adapters for diffusion models (SD 1.5, SDXL, Flux) |
-| `recommend` | Preview optimization recommendations instantly without running anything |
-| `explore_passes` | Browse available Olive passes and their parameter schemas |
-| `run_config` | Validate or run custom Olive workflow configs |
 | `detect_hardware` | Auto-detect CPU, RAM, GPU, and disk space for smart defaults |
 | `manage_outputs` | List or delete previous optimization outputs |
 | `get_job_status` | Check progress of a running job with structured phase detection |
 | `cancel_job` | Cancel a running background job |
 
 Each tool runs in an **isolated Python environment** (managed by uv) with the appropriate dependencies, so different onnxruntime variants (CPU, CUDA, DirectML, OpenVINO, etc.) never conflict.
-
-> **Note:** The `olive-config` MCP server has been merged into this server. If you were using `olive-config` separately, you can remove it and use `explore_passes` / `run_config` from this server instead.
 
 ## Prerequisites
 
