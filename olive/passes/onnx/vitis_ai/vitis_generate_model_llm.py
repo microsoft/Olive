@@ -4,8 +4,8 @@
 #
 
 import logging
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes import Pass
@@ -30,7 +30,7 @@ class VitisGenerateModelLLM(Pass):
                 type_=str,
                 required=False,
                 description="Path to the filtered.zip file to copy to the output directory.",
-            )
+            ),
         }
 
     def _run_for_config(
@@ -55,10 +55,12 @@ class VitisGenerateModelLLM(Pass):
             cpu_only=config.cpu_only,
         )
 
-        if(config.filtered_zip_path):
+        if config.filtered_zip_path:
             source = Path(config.filtered_zip_path).resolve()
             if not source.exists():
-                raise FileNotFoundError(f"file not found at: {source}")
+                raise FileNotFoundError(
+                    f"filtered_zip_path '{source}' does not exist. Please verify the path in the pass config."
+                )
 
             dest = output_dir
             logger.info("[VitisAICopyFilteredData] Copying %s to %s", source, dest)
