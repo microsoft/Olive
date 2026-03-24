@@ -3,3 +3,4 @@ auto-gptq==0.7.1
 bitsandbytes
 onnxruntime-genai-cuda
 triton
+torch<2.11.0
