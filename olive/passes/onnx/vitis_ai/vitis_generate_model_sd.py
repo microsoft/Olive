@@ -27,20 +27,10 @@ def _get_sd_registry():
     from model_generate import _SD_CONFIG_REGISTRY
     return _SD_CONFIG_REGISTRY
 
-
-def _build_fixed_shapes(dim_param: Optional[list], dim_value: Optional[list]) -> Optional[list[str]]:
-    """Build --fixed-shapes style list (e.g. ['batch=1', 'height=64']) from dim_param and dim_value."""
-    if not dim_param or not dim_value:
-        return None
-    if len(dim_param) != len(dim_value):
-        raise ValueError("dim_param and dim_value must have the same length.")
-    return [f"{p}={v}" for p, v in zip(dim_param, dim_value)]
-
-
 class VitisGenerateModelSD(Pass):
     """Generate Vitis NPU-ready SD submodel (unet or vae_decoder) from ONNX input.
     Use OnnxConversion (PyTorchModel + olive user_script) upstream to produce ONNX.
-    Optional dim_param / dim_value override the default fixed shapes used in preprocess (like DynamicToFixedShape).
+    Optional resolutions override the default fixed shapes used in preprocess. Default is [512x512].
     """
 
     @classmethod
@@ -50,25 +40,13 @@ class VitisGenerateModelSD(Pass):
             "model_type": PassConfigParam(
                 type_=str,
                 required=True,
-                description="SD submodel type, must be a key from SD config registry (e.g. sd_unet, sd_vae_decoder, sd_vae_encoder).",
+                description=f"SD submodel type, must be a key from SD config registry (e.g. {list(registry.keys())}).",
             ),
-            "fixed_shapes_dim_param": PassConfigParam(
-                type_=list,
-                default_value=None,
+            "resolutions": PassConfigParam(
+                type_=list[str],
+                default_value=["512x512"],
                 required=False,
-                description=(
-                    "Symbolic dimension names for fixed shapes (e.g. ['batch','channels','height','width']). "
-                ),
-            ),
-            "fixed_shapes_dim_value": PassConfigParam(
-                type_=list,
-                default_value=None,
-                required=False,
-                description=(
-                    "Defines the values for dimensions listed in fixed_shapes_dim_param (e.g., [1, 4, 64, 64]). "
-                    "Use 'x' to preserve a dynamic dimension (e.g., [1, 4, 'x', 'x']). "
-                    "The length must match fixed_shapes_dim_param if specified."
-                ),
+                description="List of resolutions (e.g. ['512x512', '1024x1024']) Default is [512x512].",
             ),
         }
 
@@ -108,13 +86,11 @@ class VitisGenerateModelSD(Pass):
         onnx_input_path = self._resolve_onnx_input_path(model)
         logger.info("[VitisGenerateModelSD] ONNX input path: %s", onnx_input_path)
 
-        fixed_shapes = _build_fixed_shapes(
-            getattr(config, "fixed_shapes_dim_param", None), getattr(config, "fixed_shapes_dim_value", None)
-        )
-        if fixed_shapes:
+        resolutions = getattr(config, "resolutions", None)
+        if resolutions:
             logger.info(
-                "[VitisGenerateModelSD] Overriding fixed shapes: %s",
-                fixed_shapes,
+                "[VitisGenerateModelSD] Using resolutions: %s",
+                resolutions,
             )
 
         from model_generate import generate_sd_model
@@ -123,7 +99,7 @@ class VitisGenerateModelSD(Pass):
             input_model=str(onnx_input_path),
             output_dir=str(output_dir),
             model_type=model_type,
-            fixed_shapes=fixed_shapes,
+            resolutions=resolutions,
         )
 
         self._ensure_model_onnx(output_dir)

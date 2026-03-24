@@ -631,7 +631,7 @@
             "module_path": "olive.passes.onnx.vitis_ai.vitis_generate_model_sd.VitisGenerateModelSD",
             "supported_providers": [ "CPUExecutionProvider" ],
             "supported_accelerators": [ "cpu" ],
-            "supported_precisions": [ "bf16", "bfp16" ],
+            "supported_precisions": [ "int8" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ],
             "run_on_target": true
