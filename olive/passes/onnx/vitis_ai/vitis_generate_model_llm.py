@@ -62,7 +62,9 @@ class VitisGenerateModelLLM(Pass):
                     f"filtered_zip_path '{source}' does not exist. Please verify the path in the pass config."
                 )
 
-            dest = output_dir
+            cache_dir = output_dir / "cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            dest = cache_dir / source.name
             logger.info("[VitisAICopyFilteredData] Copying %s to %s", source, dest)
             shutil.copy2(str(source), str(dest))
 
