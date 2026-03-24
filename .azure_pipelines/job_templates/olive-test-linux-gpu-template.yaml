@@ -67,6 +67,7 @@ jobs:
       -v $(Build.SourcesDirectory)/logs:/logs \
       ${{ parameters.docker_image }} \
       bash -c "
+      source olive-venv/bin/activate && \
       python -c 'import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0)); print(torch.cuda.get_device_capability(0))' && \
       nvidia-smi && \
       bash .azure_pipelines/scripts/${{ parameters.test_script }} \
