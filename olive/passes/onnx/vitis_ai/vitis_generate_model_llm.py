@@ -5,6 +5,7 @@
 
 import logging
 from pathlib import Path
+import shutil
 
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.passes import Pass
@@ -25,6 +26,11 @@ class VitisGenerateModelLLM(Pass):
                 default_value=False,
                 description="Run only model builder OGA CPU only model, skip NPU-related steps.",
             ),
+            "filtered_zip_path": PassConfigParam(
+                type_=str,
+                required=False,
+                description="Path to the filtered.zip file to copy to the output directory.",
+            )
         }
 
     def _run_for_config(
@@ -48,6 +54,16 @@ class VitisGenerateModelLLM(Pass):
             packed_const=config.packed_const,
             cpu_only=config.cpu_only,
         )
+
+        if(config.filtered_zip_path):
+            source = Path(config.filtered_zip_path).resolve()
+            if not source.exists():
+                raise FileNotFoundError(f"file not found at: {source}")
+
+            dest = output_dir
+            logger.info("[VitisAICopyFilteredData] Copying %s to %s", source, dest)
+            shutil.copy2(str(source), str(dest))
+
         return ONNXModelHandler(
             model_path=output_dir,
             onnx_file_name="model.onnx",
