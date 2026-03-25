@@ -4,6 +4,7 @@
 #
 
 """Olive Pass for Vitis NPU Stable Diffusion submodel generation (UNet / VAE decoder).
+
 Accepts ONNX input only; run OnnxConversion (e.g. from PyTorchModel + olive user_script) first,
 then this pass runs generate_sd_model for preprocess + partition.
 """
@@ -13,7 +14,6 @@ from __future__ import annotations
 import logging
 import shutil
 from pathlib import Path
-from typing import Optional
 
 from olive.model import ONNXModelHandler
 from olive.passes import Pass
@@ -25,12 +25,15 @@ logger = logging.getLogger(__name__)
 def _get_sd_registry():
     """Import registry from npu_model_gen to keep model_type choices in sync."""
     import model_generate
+
     return model_generate.SUPPORTED_SD_MODEL_TYPES
+
 
 class VitisGenerateModelSD(Pass):
     """Generate Vitis NPU-ready SD submodel (unet or vae_decoder) from ONNX input.
-    Use OnnxConversion (PyTorchModel + olive user_script) upstream to produce ONNX.
-    Optional resolutions override the default fixed shapes used in preprocess. Default is [512x512].
+
+    Use OnnxConversion to produce ONNX input model.
+    Optional resolutions to generate NPU-ready models. Default is [512x512].
     """
 
     @classmethod
@@ -54,9 +57,7 @@ class VitisGenerateModelSD(Pass):
     def _validate_model_type(model_type: str) -> None:
         registry = _get_sd_registry()
         if model_type not in registry:
-            raise ValueError(
-                f"model_type must be one of {list(registry.keys())}, got {model_type!r}"
-            )
+            raise ValueError(f"model_type must be one of {list(registry.keys())}, got {model_type!r}")
 
     def _run_for_config(
         self,
@@ -66,8 +67,7 @@ class VitisGenerateModelSD(Pass):
     ) -> ONNXModelHandler:
         if not isinstance(model, ONNXModelHandler):
             raise TypeError(
-                "VitisGenerateModelSD requires ONNXModelHandler (run OnnxConversion first). "
-                f"Got {type(model).__name__}"
+                f"VitisGenerateModelSD requires ONNXModelHandler (run OnnxConversion first). Got {type(model).__name__}"
             )
         model_type = config.model_type
         self._validate_model_type(model_type)
