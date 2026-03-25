@@ -101,7 +101,17 @@ class EPContextBinaryGenerator(Pass):
             return self._run_multi_target(model, config, output_model_path)
 
         # Single-target mode: existing behavior
-        return self._run_single_target(model, config, output_model_path)
+        result = self._run_single_target(model, config, output_model_path)
+
+        # Populate model_attributes with context binary metadata so it persists in model_config.json
+        result.model_attributes = {**(model.model_attributes or {}), **(result.model_attributes or {})}
+        result.model_attributes["ep"] = self.accelerator_spec.execution_provider
+        result.model_attributes["device"] = str(self.accelerator_spec.accelerator_type).upper()
+        if config.provider_options:
+            result.model_attributes["provider_options"] = config.provider_options
+            result.model_attributes["architecture"] = config.provider_options.get("soc_model")
+
+        return result
 
     def _run_multi_target(
         self,
@@ -135,7 +145,9 @@ class EPContextBinaryGenerator(Pass):
 
             result = self._run_single_target(model, single_config, target_output_path)
             # Store target-specific metadata
-            result.model_attributes = result.model_attributes or {}
+            result.model_attributes = {**(model.model_attributes or {}), **(result.model_attributes or {})}
+            result.model_attributes["ep"] = self.accelerator_spec.execution_provider
+            result.model_attributes["device"] = str(self.accelerator_spec.accelerator_type).upper()
             result.model_attributes["provider_options"] = provider_options
             result.model_attributes["architecture"] = provider_options.get("soc_model")
 

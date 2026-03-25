@@ -14,6 +14,7 @@ from olive.cli.convert_adapters import ConvertAdaptersCommand
 from olive.cli.diffusion_lora import DiffusionLoraCommand
 from olive.cli.extract_adapters import ExtractAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
+from olive.cli.merge_context_binary import MergeContextBinaryCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
 from olive.cli.optimize import OptimizeCommand
@@ -52,6 +53,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     ConfigureQualcommSDKCommand.register_subcommand(commands_parser)
     SharedCacheCommand.register_subcommand(commands_parser)
     ExtractAdaptersCommand.register_subcommand(commands_parser)
+    MergeContextBinaryCommand.register_subcommand(commands_parser)
     BenchmarkCommand.register_subcommand(commands_parser)
 
     return parser

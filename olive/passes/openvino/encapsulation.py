@@ -157,10 +157,6 @@ class OpenVINOEncapsulation(Pass):
             object.__setattr__(single_config, "ov_version", ov_ver)
 
             result = self._run_single_target(model, single_config, target_output_path)
-            # Store target-specific metadata
-            result.model_attributes = result.model_attributes or {}
-            result.model_attributes["sdk_version"] = ov_ver
-            result.model_attributes["architecture"] = str(config.target_device).upper()
 
             targets.append(result)
             target_names.append(target_name)
@@ -309,7 +305,15 @@ class OpenVINOEncapsulation(Pass):
         # generate the genai_config.json file for GenAI models
         create_genai_config(context_model_output, output_model_path, config)
 
-        return ONNXModelHandler(model_path=output_model_path)
+        # Populate model_attributes with context binary metadata so it persists in model_config.json
+        context_binary_attrs = {
+            **(model.model_attributes or {}),
+            "ep": "OpenVINOExecutionProvider",
+            "device": str(config.target_device).upper(),
+            "sdk_version": ov_version,
+        }
+
+        return ONNXModelHandler(model_path=output_model_path, model_attributes=context_binary_attrs)
 
 
 def extract_shape_list(shape, config, prefix: str = "input_0_") -> list:
