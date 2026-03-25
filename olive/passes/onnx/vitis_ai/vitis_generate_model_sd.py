@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 def _get_sd_registry():
     """Import registry from npu_model_gen to keep model_type choices in sync."""
-    from model_generate import _SD_CONFIG_REGISTRY
-    return _SD_CONFIG_REGISTRY
+    import model_generate
+    return model_generate.SUPPORTED_SD_MODEL_TYPES
 
 class VitisGenerateModelSD(Pass):
     """Generate Vitis NPU-ready SD submodel (unet or vae_decoder) from ONNX input.
@@ -40,7 +40,7 @@ class VitisGenerateModelSD(Pass):
             "model_type": PassConfigParam(
                 type_=str,
                 required=True,
-                description=f"SD submodel type, must be a key from SD config registry (e.g. {list(registry.keys())}).",
+                description=f"SD submodel type, must be one of {', '.join(registry)}.",
             ),
             "resolutions": PassConfigParam(
                 type_=list[str],
