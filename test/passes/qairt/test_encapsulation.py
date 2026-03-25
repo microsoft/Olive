@@ -548,3 +548,92 @@ def test_encapsulation_passthrough_files(tmp_path, mock_qairt_model, mock_qairt_
         assert (Path(output_path) / "chat_template.jinja").exists()
         assert (Path(output_path) / "tokenizer.json").exists()
         assert (Path(output_path) / "tokenizer_config.json").exists()
+
+
+def test_encapsulation_sdk_version_check_old_version(tmp_path, mock_qairt_model, mock_qairt_modules):
+    """Test that OSError is raised for QAIRT SDK version < 2.45.0."""
+    output_path = tmp_path / "output"
+
+    # Mock SDK version to be less than 2.45.0
+    mock_qairt_modules["qairt"].__sdk_version__ = "2.44.0"
+
+    encap_pass = create_pass_from_dict(
+        QairtEncapsulation,
+        {"backend": "CPU"},
+        disable_search=True,
+    )
+
+    with pytest.raises(OSError, match="QairtGenAIBuilder pass is unsupported for QAIRT versions < 2.45.0"):
+        encap_pass.run(mock_qairt_model, str(output_path))
+
+
+def test_encapsulation_sdk_version_check_valid_version(tmp_path, mock_qairt_model, mock_qairt_modules):
+    """Test that encapsulation works with QAIRT SDK version >= 2.45.0."""
+    output_path = tmp_path / "output"
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # Mock SDK version to be >= 2.45.0
+    mock_qairt_modules["qairt"].__sdk_version__ = "2.45.0"
+
+    # Create required config files
+    model_path = Path(mock_qairt_model.model_path)
+    config_data = {
+        "model_type": "llama",
+        "hidden_size": 4096,
+        "num_attention_heads": 32,
+        "num_hidden_layers": 32,
+        "num_key_value_heads": 32,
+        "max_position_embeddings": 2048,
+        "bos_token_id": 1,
+        "vocab_size": 32000,
+    }
+    (model_path / "config.json").write_text(json.dumps(config_data))
+    (model_path / "generation_config.json").write_text('{"eos_token_id": 2}')
+
+    # Mock LLMContainer
+    mock_container = MagicMock()
+    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
+    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
+
+    def mock_export(output_dir, export_format):
+        output_dir_path = Path(output_dir)
+        output_dir_path.mkdir(parents=True, exist_ok=True)
+        (output_dir_path / "model.dlc").write_text("dummy dlc")
+
+    mock_container.export.side_effect = mock_export
+    mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
+
+    def mock_save_func(model_def, path):
+        import onnx
+        from onnx import TensorProto
+
+        input_tensor = onnx.helper.make_tensor_value_info(
+            "input_ids", TensorProto.INT32, ["batch_size", "sequence_length"]
+        )
+        output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])
+        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
+        graph = onnx.helper.make_graph([node], "test_graph", [input_tensor], [output_tensor])
+        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
+        onnx.save(model, path)
+
+    with (
+        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
+        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.checker"),
+    ):
+        mock_helper.make_node.return_value = MagicMock()
+        mock_helper.make_attribute.return_value = MagicMock()
+        mock_helper.make_tensor_value_info.return_value = MagicMock()
+        mock_helper.make_graph.return_value = MagicMock()
+        mock_helper.make_opsetid.return_value = MagicMock()
+        mock_helper.make_model.return_value = MagicMock()
+
+        encap_pass = create_pass_from_dict(
+            QairtEncapsulation,
+            {"backend": "CPU"},
+            disable_search=True,
+        )
+
+        # Should not raise an error
+        result = encap_pass.run(mock_qairt_model, str(output_path))
+        assert result is not None

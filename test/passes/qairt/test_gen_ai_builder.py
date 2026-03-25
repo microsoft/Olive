@@ -353,3 +353,111 @@ def test_gen_ai_builder_passthrough_files(tmp_path, mock_hf_model, mock_qairt_mo
     assert (Path(output_path) / "chat_template.jinja").exists()
     assert (Path(output_path) / "tokenizer.json").exists()
     assert (Path(output_path) / "tokenizer_config.json").exists()
+
+
+def test_gen_ai_builder_sdk_version_check_old_version(tmp_path, mock_hf_model, mock_qairt_modules):
+    """Test that OSError is raised for QAIRT SDK version < 2.45.0."""
+    output_path = tmp_path / "output"
+
+    # Mock SDK version to be less than 2.45.0
+    mock_qairt_modules["qairt"].__sdk_version__ = "2.44.0"
+
+    gen_ai_pass = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {"backend": "CPU"},
+        disable_search=True,
+    )
+
+    with pytest.raises(OSError, match="QairtGenAIBuilder pass is unsupported for QAIRT versions < 2.45.0"):
+        gen_ai_pass.run(mock_hf_model, str(output_path))
+
+
+def test_gen_ai_builder_sdk_version_check_valid_version(tmp_path, mock_hf_model, mock_qairt_modules):
+    """Test that gen_ai_builder works with QAIRT SDK version >= 2.45.0."""
+    output_path = tmp_path / "output"
+
+    # Mock SDK version to be >= 2.45.0
+    mock_qairt_modules["qairt"].__sdk_version__ = "2.45.0"
+
+    # Mock GenAIBuilderFactory and container
+    mock_builder = MagicMock()
+    mock_container = MagicMock()
+    mock_builder.build.return_value = mock_container
+
+    mock_qairt_modules["gen_ai_api"].GenAIBuilderFactory.create.return_value = mock_builder
+
+    gen_ai_pass = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {"backend": "CPU"},
+        disable_search=True,
+    )
+
+    # Should not raise an error
+    result = gen_ai_pass.run(mock_hf_model, str(output_path))
+    assert result is not None
+
+
+def test_gen_ai_builder_native_kv_configuration(tmp_path, mock_qairt_prepared_model, mock_qairt_modules):
+    """Test that native_kv is properly set when enabled with valid sequence_lengths."""
+    output_path = tmp_path / "output"
+
+    # Mock builder
+    mock_builder = MagicMock()
+    mock_container = MagicMock()
+    mock_builder.build.return_value = mock_container
+    mock_builder._compilation_config = MagicMock()
+    mock_builder._compilation_config.graph_custom_configs = [MagicMock()]
+    mock_builder._compilation_config.device_custom_configs = [MagicMock()]
+    mock_builder._compilation_config.context_custom_configs = [MagicMock()]
+    mock_builder._transformation_config = MagicMock()
+    mock_builder._transformation_config.model_transformer_config = MagicMock()
+    mock_builder._transformation_config.model_transformer_config.arn_cl_options = MagicMock()
+    mock_builder._transformation_config.model_transformer_config.split_model = MagicMock()
+
+    mock_qairt_modules["gen_ai_api"].GenAIBuilderFactory.create.return_value = mock_builder
+
+    gen_ai_pass = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {
+            "backend": "HTP",
+            "sequence_lengths": [32, 128],
+            "native_kv": True,
+        },
+        disable_search=True,
+    )
+
+    result = gen_ai_pass.run(mock_qairt_prepared_model, str(output_path))
+
+    # Verify native_kv was set
+    assert mock_builder.native_kv is True
+    assert result is not None
+
+
+def test_gen_ai_builder_native_kv_validation_invalid_sequence_lengths(mock_accelerator_spec, mock_qairt_modules):
+    """Test that validation fails for native_kv with invalid sequence_lengths."""
+    config = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {
+            "backend": "HTP",
+            "sequence_lengths": [64, 256],  # Invalid for native_kv
+            "native_kv": True,
+        },
+        disable_search=True,
+    ).config
+
+    assert QairtGenAIBuilder.validate_config(config, mock_accelerator_spec) is False
+
+
+def test_gen_ai_builder_native_kv_validation_valid_sequence_lengths(mock_accelerator_spec, mock_qairt_modules):
+    """Test that validation passes for native_kv with valid sequence_lengths."""
+    config = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {
+            "backend": "HTP",
+            "sequence_lengths": [32, 128],  # Valid for native_kv
+            "native_kv": True,
+        },
+        disable_search=True,
+    ).config
+
+    assert QairtGenAIBuilder.validate_config(config, mock_accelerator_spec) is True

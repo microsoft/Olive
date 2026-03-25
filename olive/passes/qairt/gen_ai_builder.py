@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 from typing import Union
 
+from packaging.version import Version
+
 from olive.common.utils import hardlink_copy_file
 from olive.hardware import AcceleratorSpec
 from olive.model import HfModelHandler, QairtModelHandler, QairtPreparedModelHandler
@@ -70,6 +72,11 @@ class QairtGenAIBuilder(Pass):
             "sequence_lengths": PassConfigParam(
                 type_=list[int], default_value=None, description="The sequence lengths of the final compiled graphs."
             ),
+            "native_kv": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Utilizes native buffers for KVCache updates. Only compatible with sequence_lengths: [32, 128]. HTP only.",
+            ),
             "num_splits": PassConfigParam(
                 type_=int,
                 default_value=-1,
@@ -112,12 +119,23 @@ class QairtGenAIBuilder(Pass):
             if config.sequence_lengths:
                 logger.error("sequence_lengths is unsupported on non-HTP backends")
                 return False
+            if config.native_kv:
+                logger.error("native_kv is unsupported on non-HTP backends")
+                return False
             if config.num_splits != -1:
                 logger.error("num_splits is unsupported on non-HTP backends")
                 return False
             if config.multi_graph:
                 logger.error("multi_graph is unsupported on non-HTP backends")
                 return False
+
+        native_kv_supported_sequence_lengths = [[32, 128]]
+        if config.native_kv and config.sequence_lengths not in native_kv_supported_sequence_lengths:
+            logger.error(
+                "native_kv is only supported for the following sequence lengths: %s",
+                native_kv_supported_sequence_lengths,
+            )
+            return False
 
         return True
 
@@ -135,6 +153,11 @@ class QairtGenAIBuilder(Pass):
                 "Failed to import QAIRT GenAIBuilder API - please install olive-ai[qairt] to use QAIRT passes."
                 "If already installed, please run `qairt-vm -i` for help troubleshooting issues."
             ) from exc
+
+        from qairt import __sdk_version__ as sdk_version
+
+        if Version(sdk_version) < Version("2.45.0"):
+            raise OSError("QairtGenAIBuilder pass is unsupported for QAIRT versions < 2.45.0")
 
         if config.log_level:
             os.environ["QAIRT_LOG_LEVEL"] = config.log_level
@@ -157,6 +180,10 @@ class QairtGenAIBuilder(Pass):
             tokenizer_path=Path(model.model_path),
             config_path=Path(model.model_path),
         )
+
+        # QAIRT 2.45.0 requires the following environment variable for advanced functionality
+        if sdk_version == "2.45.0":
+            os.environ["QAIRT_USE_NEW_ARCL_ALGO"] = os.getenv("QAIRT_USE_NEW_ARCL_ALGO", "1")
 
         # pylint: disable=protected-access
         # QairtGenAIBuilder requires direct access to these configuration attributes
@@ -188,6 +215,10 @@ class QairtGenAIBuilder(Pass):
                 gen_ai_builder._transformation_config.model_transformer_config.arn_cl_options.auto_regression_number = (
                     config.sequence_lengths
                 )
+
+            # NativeKV should be enabled after sequence lengths are modified
+            if config.native_kv:
+                gen_ai_builder.native_kv = config.native_kv
 
             if config.num_splits != -1:
                 gen_ai_builder._transformation_config.model_transformer_config.split_model.num_splits = (

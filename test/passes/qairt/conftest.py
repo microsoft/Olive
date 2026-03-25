@@ -26,6 +26,9 @@ def mock_qairt_modules_fixture():
     mock_qairt.ExportFormat = MagicMock()
     mock_qairt.ExportFormat.LM_EXECUTOR = MagicMock()
 
+    # Mock SDK version (required for version checks in passes)
+    mock_qairt.__sdk_version__ = "2.45.0"
+
     # Make gen_ai_api part of qairt module hierarchy
     mock_qairt.gen_ai_api = mock_gen_ai_api
 

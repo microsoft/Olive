@@ -10,6 +10,7 @@ from typing import Union
 
 import onnx.helper as helper
 from onnx import TensorProto, checker, save
+from packaging.version import Version
 
 from olive.common.utils import hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec
@@ -66,6 +67,11 @@ class QairtEncapsulation(Pass):
                 "Failed to import QAIRT GenAIBuilder API - please install olive-ai[qairt] to use QAIRT passes."
                 "If already installed, please run `qairt-vm -i` for help troubleshooting issues."
             ) from exc
+
+        from qairt import __sdk_version__ as sdk_version
+
+        if Version(sdk_version) < Version("2.45.0"):
+            raise OSError("QairtGenAIBuilder pass is unsupported for QAIRT versions < 2.45.0")
 
         container: qairt_genai.LLMContainer = qairt_genai.LLMContainer.load(model.model_path)
 
@@ -192,7 +198,7 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
                 "session_options": {
                     "log_id": "onnxruntime-genai",
                     "graph_optimization_level": "ORT_DISABLE_ALL",
-                    "provider_options": [{"QNN": {"backend_type": config.backend}, "genai_model": "True"}],
+                    "provider_options": [{"QNN": {"backend_type": config.backend, "genie_model": "True"}}],
                 },
                 "filename": "qairt_model.onnx",
                 "head_size": -1,
