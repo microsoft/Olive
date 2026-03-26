@@ -137,7 +137,7 @@ def run_quark_torch_quantization(
 
     # 4. Quantize model
     logger.info("[INFO] Starting model quantization")
-    quantizer = ModelQuantizer(quant_config, multi_device=True)
+    quantizer = ModelQuantizer(quant_config, multi_device=is_gpu)
     torch_model = quantizer.quantize_model(torch_model, calib_dataloader)
 
     # 5. Freeze model
