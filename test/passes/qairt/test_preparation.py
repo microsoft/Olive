@@ -25,7 +25,7 @@ def test_preparation_default_config(mock_accelerator_spec):
     assert config["cache_dir"].default_value == "./cache/qairt/preparation"
 
 
-def test_preparation_successful_execution(tmp_path, mock_hf_model):
+def test_preparation_successful_execution(tmp_path, mock_hf_model, mock_qairt_modules):
     """Test successful execution of the preparation script."""
     # Create a mock script file
     script_path = tmp_path / "prep_script.py"
@@ -76,7 +76,7 @@ def test_preparation_successful_execution(tmp_path, mock_hf_model):
         assert result.model_path == str(output_path)
 
 
-def test_preparation_invalid_input_model(tmp_path):
+def test_preparation_invalid_input_model(tmp_path, mock_qairt_modules):
     """Test that ValueError is raised for non-HfModelHandler input."""
     script_path = tmp_path / "prep_script.py"
     script_path.write_text("# Mock script")
@@ -98,7 +98,7 @@ def test_preparation_invalid_input_model(tmp_path):
         prep_pass.run(onnx_model, str(output_path))
 
 
-def test_preparation_script_not_found(tmp_path, mock_hf_model):
+def test_preparation_script_not_found(tmp_path, mock_hf_model, mock_qairt_modules):
     """Test that ValueError is raised when script path doesn't exist."""
     script_path = tmp_path / "nonexistent_script.py"
     output_path = tmp_path / "output"
@@ -113,7 +113,7 @@ def test_preparation_script_not_found(tmp_path, mock_hf_model):
         prep_pass.run(mock_hf_model, str(output_path))
 
 
-def test_preparation_invalid_script_extension(tmp_path, mock_hf_model):
+def test_preparation_invalid_script_extension(tmp_path, mock_hf_model, mock_qairt_modules):
     """Test that ValueError is raised for non-Python script."""
     script_path = tmp_path / "prep_script.sh"
     script_path.write_text("#!/bin/bash")
@@ -129,7 +129,7 @@ def test_preparation_invalid_script_extension(tmp_path, mock_hf_model):
         prep_pass.run(mock_hf_model, str(output_path))
 
 
-def test_preparation_script_execution_failure(tmp_path, mock_hf_model):
+def test_preparation_script_execution_failure(tmp_path, mock_hf_model, mock_qairt_modules):
     """Test that RuntimeError is raised when script fails."""
     script_path = tmp_path / "prep_script.py"
     script_path.write_text("# Mock script")
@@ -170,7 +170,7 @@ def test_preparation_script_execution_failure(tmp_path, mock_hf_model):
             prep_pass.run(mock_hf_model, str(output_path))
 
 
-def test_preparation_config_merging(tmp_path, mock_hf_model):
+def test_preparation_config_merging(tmp_path, mock_hf_model, mock_qairt_modules):
     """Test that script config is properly merged with defaults."""
     script_path = tmp_path / "prep_script.py"
     script_path.write_text("# Mock script")
@@ -233,7 +233,7 @@ def test_preparation_config_merging(tmp_path, mock_hf_model):
         assert captured_config["custom_param"] == "value"
 
 
-def test_preparation_streaming_output(tmp_path, mock_hf_model):
+def test_preparation_streaming_output(tmp_path, mock_hf_model, mock_qairt_modules):
     """Test that stdout and stderr are properly streamed."""
     script_path = tmp_path / "prep_script.py"
     script_path.write_text("# Mock script")
@@ -277,7 +277,7 @@ def test_preparation_streaming_output(tmp_path, mock_hf_model):
         assert isinstance(result, QairtPreparedModelHandler)
 
 
-def test_preparation_temp_config_cleanup(tmp_path, mock_hf_model):
+def test_preparation_temp_config_cleanup(tmp_path, mock_hf_model, mock_qairt_modules):
     """Test that temporary config file is cleaned up."""
     script_path = tmp_path / "prep_script.py"
     script_path.write_text("# Mock script")
@@ -327,3 +327,65 @@ def test_preparation_temp_config_cleanup(tmp_path, mock_hf_model):
 
         # Verify temp file would be cleaned up (unlink called)
         # Note: In actual implementation, cleanup happens in finally block
+
+
+def test_preparation_uses_sys_executable_and_env(tmp_path, mock_hf_model, mock_qairt_modules):
+    """Test that subprocess uses sys.executable and passes environment."""
+    import os
+    import sys
+
+    script_path = tmp_path / "prep_script.py"
+    script_path.write_text("# Mock script")
+    output_path = tmp_path / "output"
+
+    captured_popen_args = {}
+
+    def mock_popen(*args, **kwargs):
+        # Capture the arguments passed to Popen
+        captured_popen_args["args"] = args
+        captured_popen_args["kwargs"] = kwargs
+
+        # Return a successful mock process
+        mock_process = MagicMock()
+        mock_process.poll.side_effect = [None, 0]
+        mock_process.wait.return_value = 0
+        mock_process.__enter__ = Mock(return_value=mock_process)
+        mock_process.__exit__ = Mock(return_value=False)
+        mock_process.stdout = MagicMock()
+
+        def stdout_generator():
+            yield "Done\n"
+            while True:
+                yield ""
+
+        mock_process.stdout.readline = Mock(side_effect=stdout_generator())
+        mock_process.stderr = MagicMock()
+
+        def stderr_generator():
+            while True:
+                yield ""
+
+        mock_process.stderr.readline = Mock(side_effect=stderr_generator())
+        return mock_process
+
+    with patch("subprocess.Popen", side_effect=mock_popen):
+        prep_pass = create_pass_from_dict(
+            QairtPreparation,
+            {"script_path": str(script_path)},
+            disable_search=True,
+        )
+
+        prep_pass.run(mock_hf_model, str(output_path))
+
+        # Verify sys.executable was used instead of "python"
+        cmd = captured_popen_args["args"][0]
+        assert cmd[0] == sys.executable, f"Expected {sys.executable}, got {cmd[0]}"
+
+        # Verify environment was passed
+        assert "env" in captured_popen_args["kwargs"]
+        passed_env = captured_popen_args["kwargs"]["env"]
+        assert isinstance(passed_env, dict)
+        # Verify it's a copy of os.environ (should have similar keys)
+        assert len(passed_env) > 0
+        # Check that some common environment variables are present
+        assert any(key in passed_env for key in ["PATH", "HOME", "USER"])

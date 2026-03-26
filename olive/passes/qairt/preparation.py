@@ -5,7 +5,9 @@
 
 import json
 import logging
+import os
 import subprocess
+import sys
 import tempfile
 import threading
 from pathlib import Path
@@ -126,14 +128,19 @@ class QairtPreparation(Pass):
                     queue.put(line)
                 pipe.close()
 
+            # Capture current environment to pass qairt-related paths to subprocess
+            env = os.environ.copy()
+
             # Execute the preparation script with streaming output
+            # Use sys.executable to ensure subprocess uses same Python interpreter
             with subprocess.Popen(
-                ["python", str(script_path), "--config", config_file_path],
+                [sys.executable, str(script_path), "--config", config_file_path],
                 cwd=str(script_path.parent),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,  # Line buffered
+                env=env,
             ) as process:
                 # Create queues for stdout and stderr
                 stdout_queue = Queue()
