@@ -37,7 +37,7 @@ jobs:
 - template: job_templates/olive-test-linux-gpu-template.yaml
   parameters:
     name: Linux_GPU_CI_Unit_Test
-    pool: $(OLIVE_POOL_UBUNTU2004_GPU_V100)
+    pool: $(ONNXRUNTIME-LINUX-GPU-A10)
     pytest_marker: 'not openvino and not amd'
 
 # Windows unit tests
