@@ -689,7 +689,7 @@
             "onnxruntime-openvino"
         ],
         "optimum": [ "optimum" ],
-        "qairt": [ "qairt-dev" ],
+        "qairt": [ "qairt-dev[onnx]" ],
         "qnn": [ "onnxruntime-qnn" ],
         "tf": [ "tensorflow==1.15.0" ],
         "torch-tensorrt": [ "torch-tensorrt" ],
