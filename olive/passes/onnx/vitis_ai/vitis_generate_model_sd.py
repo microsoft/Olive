@@ -38,12 +38,11 @@ class VitisGenerateModelSD(Pass):
 
     @classmethod
     def _default_config(cls, accelerator_spec):
-        registry = _get_sd_registry()
         return {
             "model_type": PassConfigParam(
                 type_=str,
                 required=True,
-                description=f"SD submodel type, must be one of {', '.join(registry)}.",
+                description=f"SD submodel type, must be one of {', '.join(_get_sd_registry())}.",
             ),
             "resolutions": PassConfigParam(
                 type_=list[str],
@@ -67,8 +66,7 @@ class VitisGenerateModelSD(Pass):
     ) -> ONNXModelHandler:
         if not isinstance(model, ONNXModelHandler):
             raise TypeError(
-                "VitisGenerateModelSD requires ONNXModelHandler (run OnnxConversion first). "
-                f"Got {type(model).__name__}"
+                f"VitisGenerateModelSD requires ONNXModelHandler (run OnnxConversion first). Got {type(model).__name__}"
             )
         model_type = config.model_type
         self._validate_model_type(model_type)
