@@ -1,12 +1,12 @@
 #
-# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 
 """Olive Pass for Vitis NPU Stable Diffusion submodel generation (UNet / VAE decoder).
 
-Accepts ONNX input only; run OnnxConversion (e.g. from PyTorchModel + olive user_script) first,
-then this pass runs generate_sd_model for preprocess + partition.
+Accepts ONNX input only; run OnnxConversion to produce ONNX input model first,
+then this pass runs generate_sd_model to generate NPU-ready models.
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ class VitisGenerateModelSD(Pass):
     def _validate_model_type(model_type: str) -> None:
         registry = _get_sd_registry()
         if model_type not in registry:
-            raise ValueError(f"model_type must be one of {list(registry.keys())}, got {model_type!r}")
+            raise ValueError(f"model_type must be one of {', '.join(registry)}, got {model_type!r}")
 
     def _run_for_config(
         self,
@@ -67,7 +67,8 @@ class VitisGenerateModelSD(Pass):
     ) -> ONNXModelHandler:
         if not isinstance(model, ONNXModelHandler):
             raise TypeError(
-                f"VitisGenerateModelSD requires ONNXModelHandler (run OnnxConversion first). Got {type(model).__name__}"
+                "VitisGenerateModelSD requires ONNXModelHandler (run OnnxConversion first). "
+                f"Got {type(model).__name__}"
             )
         model_type = config.model_type
         self._validate_model_type(model_type)
