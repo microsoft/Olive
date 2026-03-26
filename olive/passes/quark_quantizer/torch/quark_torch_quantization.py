@@ -63,12 +63,13 @@ def run_quark_torch_quantization(
 
     # 1. Load model
     logger.info("[INFO] Loading model from: %s", model.model_path)
+    is_gpu = torch.cuda.is_available()
     torch_model, _ = get_model(
         str(model.model_path),
         config.data_type,
         device,
-        multi_gpu=True,
-        multi_device=True,
+        multi_gpu=is_gpu,
+        multi_device=is_gpu,
         attn_implementation="eager",
         trust_remote_code=config.trust_remote_code,
     )
