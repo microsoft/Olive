@@ -76,6 +76,15 @@ class QairtPreparation(Pass):
             RuntimeError: If script execution fails
 
         """
+        try:
+            # Required for proper Python environment configuration of qairt-dev
+            import qairt  # noqa: F401  # pylint: disable=unused-import
+        except ImportError as exc:
+            raise ImportError(
+                "Failed to import QAIRT SDK - please install olive-ai[qairt] to use QAIRT passes."
+                "If already installed, please run `qairt-vm -i` for help troubleshooting issues."
+            ) from exc
+
         # Validate input model type
         if not isinstance(model, HfModelHandler):
             raise ValueError(f"QairtPreparation requires HfModelHandler as input, got {type(model).__name__}")
