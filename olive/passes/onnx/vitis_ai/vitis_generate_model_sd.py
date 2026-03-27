@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-"""Olive Pass for Vitis NPU Stable Diffusion submodel generation (UNet / VAE decoder).
+"""Olive Pass for Vitis NPU Stable Diffusion submodel generation.
 
 Accepts ONNX input only; run OnnxConversion to produce ONNX input model first,
 then this pass runs generate_sd_model to generate NPU-ready models.
@@ -15,6 +15,8 @@ import logging
 import shutil
 from pathlib import Path
 
+from model_generate import SUPPORTED_SD_MODEL_TYPES, generate_sd_model
+
 from olive.model import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -22,15 +24,8 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-def _get_sd_registry():
-    """Import registry from npu_model_gen to keep model_type choices in sync."""
-    import model_generate
-
-    return model_generate.SUPPORTED_SD_MODEL_TYPES
-
-
 class VitisGenerateModelSD(Pass):
-    """Generate Vitis NPU-ready SD submodel (unet or vae_decoder) from ONNX input.
+    """Generate Vitis NPU-ready SD submodel from ONNX input.
 
     Use OnnxConversion to produce ONNX input model.
     Optional resolutions to generate NPU-ready models. Default is [512x512].
@@ -42,7 +37,7 @@ class VitisGenerateModelSD(Pass):
             "model_type": PassConfigParam(
                 type_=str,
                 required=True,
-                description=f"SD submodel type, must be one of {', '.join(_get_sd_registry())}.",
+                description=f"SD submodel type, must be one of {', '.join(SUPPORTED_SD_MODEL_TYPES)}.",
             ),
             "resolutions": PassConfigParam(
                 type_=list[str],
@@ -54,9 +49,8 @@ class VitisGenerateModelSD(Pass):
 
     @staticmethod
     def _validate_model_type(model_type: str) -> None:
-        registry = _get_sd_registry()
-        if model_type not in registry:
-            raise ValueError(f"model_type must be one of {', '.join(registry)}, got {model_type!r}")
+        if model_type not in SUPPORTED_SD_MODEL_TYPES:
+            raise ValueError(f"model_type must be one of {', '.join(SUPPORTED_SD_MODEL_TYPES)}, got {model_type!r}")
 
     def _run_for_config(
         self,
@@ -91,8 +85,6 @@ class VitisGenerateModelSD(Pass):
                 "[VitisGenerateModelSD] Using resolutions: %s",
                 resolutions,
             )
-
-        from model_generate import generate_sd_model
 
         generate_sd_model(
             input_model=str(onnx_input_path),
