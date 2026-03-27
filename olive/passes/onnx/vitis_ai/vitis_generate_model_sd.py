@@ -1,7 +1,7 @@
-#
+# -------------------------------------------------------------------------
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
-#
+# -------------------------------------------------------------------------
 
 """Olive Pass for Vitis NPU Stable Diffusion submodel generation.
 
