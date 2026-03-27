@@ -2711,10 +2711,16 @@ def test_remove_memcpy_main_graph(tmp_path):
     assert "Relu" in op_types
     assert len(output_model_def.graph.node) == 1
 
-    # Verify inference still works
+    # Public output name should be preserved
+    assert output_model_def.graph.output[0].name == "output"
+
+    # Verify inference still works and the session exposes the same output name
     sess = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
+    sess_outputs = sess.get_outputs()
+    assert sess_outputs[0].name == "output"
+
     x = np.random.randn(4, 8).astype(np.float32)
-    result = sess.run(None, {"input": x})[0]
+    result = sess.run(["output"], {"input": x})[0]
     np.testing.assert_allclose(result, np.maximum(x, 0), atol=1e-6)
 
 
@@ -2840,3 +2846,58 @@ def test_remove_memcpy_topo_sort(tmp_path):
     result = sess.run(None, {"input": x})[0]
     expected = 1.0 / (1.0 + np.exp(-np.maximum(x, 0)))
     np.testing.assert_allclose(result, expected, atol=1e-6)
+
+
+def test_remove_memcpy_chained(tmp_path):
+    """Test that RemoveMemcpy handles chained Memcpy nodes and preserves output names."""
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [4, 8])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [4, 8])
+
+    # Build: input -> MemcpyToHost -> MemcpyToHost -> Relu -> MemcpyFromHost -> MemcpyFromHost -> output
+    memcpy_to_1 = helper.make_node("MemcpyToHost", inputs=["input"], outputs=["cpu1"], name="MemcpyTo1")
+    memcpy_to_2 = helper.make_node("MemcpyToHost", inputs=["cpu1"], outputs=["cpu2"], name="MemcpyTo2")
+    relu = helper.make_node("Relu", inputs=["cpu2"], outputs=["relu_out"], name="Relu")
+    memcpy_from_1 = helper.make_node("MemcpyFromHost", inputs=["relu_out"], outputs=["gpu1"], name="MemcpyFrom1")
+    memcpy_from_2 = helper.make_node("MemcpyFromHost", inputs=["gpu1"], outputs=["output"], name="MemcpyFrom2")
+
+    graph = helper.make_graph(
+        nodes=[memcpy_to_1, memcpy_to_2, relu, memcpy_from_1, memcpy_from_2],
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveMemcpy"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+
+    op_types = [n.op_type for n in output_model_def.graph.node]
+    assert "MemcpyToHost" not in op_types
+    assert "MemcpyFromHost" not in op_types
+    assert "Relu" in op_types
+    assert len(output_model_def.graph.node) == 1
+
+    # Public output name must be preserved
+    assert output_model_def.graph.output[0].name == "output"
+
+    # Verify inference with preserved output name
+    sess = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
+    sess_outputs = sess.get_outputs()
+    assert sess_outputs[0].name == "output"
+
+    x = np.random.randn(4, 8).astype(np.float32)
+    result = sess.run(["output"], {"input": x})[0]
+    np.testing.assert_allclose(result, np.maximum(x, 0), atol=1e-6)

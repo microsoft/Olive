@@ -2557,14 +2557,21 @@ class RemoveMemcpy(ProtoSurgeon):
         """Remove MemcpyToHost/MemcpyFromHost from a graph, then topo-sort."""
         removed = 0
 
-        # Build output→input bypass mapping for all Memcpy nodes
+        # Build output→input bypass mapping for 1-in/1-out Memcpy nodes only
         bypass: dict[str, str] = {}
         for node in graph.node:
-            if node.op_type in ("MemcpyToHost", "MemcpyFromHost"):
-                if len(node.input) == 1 and len(node.output) == 1:
-                    bypass[node.output[0]] = node.input[0]
+            if node.op_type in ("MemcpyToHost", "MemcpyFromHost") and len(node.input) == 1 and len(node.output) == 1:
+                bypass[node.output[0]] = node.input[0]
 
         if bypass:
+            # Resolve chained Memcpy transitively: if A→B→C are both Memcpy,
+            # bypass = {B: A, C: B}.  Follow the chain so C maps to A.
+            for key, value in bypass.items():
+                target = value
+                while target in bypass:
+                    target = bypass[target]
+                bypass[key] = target
+
             # Rewrite consumer references: replace memcpy output with its input
             for node in graph.node:
                 if node.op_type in ("MemcpyToHost", "MemcpyFromHost"):
@@ -2577,15 +2584,28 @@ class RemoveMemcpy(ProtoSurgeon):
                     if attr.g:
                         RemoveMemcpy._rewrite_subgraph_refs(attr.g, bypass)
 
-            # Rewrite graph outputs
+            # Preserve graph output names: if a Memcpy sits on the output
+            # boundary, rename the upstream producer's output to match the
+            # original graph output name instead of changing the public name.
             for out in graph.output:
                 if out.name in bypass:
-                    out.name = bypass[out.name]
+                    src = bypass[out.name]
+                    # Rename the producer node's output to keep the public name
+                    for node in graph.node:
+                        for j, o in enumerate(node.output):
+                            if o == src:
+                                node.output[j] = out.name
+                    # Also update any other consumers of `src` to use the output name
+                    for node in graph.node:
+                        for j, inp in enumerate(node.input):
+                            if inp == src:
+                                node.input[j] = out.name
 
-            # Remove the Memcpy nodes
+            # Remove only 1-in/1-out Memcpy nodes (the ones we built bypass for)
             indices = [
-                i for i, n in enumerate(graph.node)
-                if n.op_type in ("MemcpyToHost", "MemcpyFromHost")
+                i
+                for i, n in enumerate(graph.node)
+                if n.op_type in ("MemcpyToHost", "MemcpyFromHost") and len(n.input) == 1 and len(n.output) == 1
             ]
             for i in reversed(indices):
                 del graph.node[i]
@@ -2630,9 +2650,7 @@ class RemoveMemcpy(ProtoSurgeon):
 
         # Build producer map: tensor_name → node_index
         nodes = list(graph.node)
-        node_outputs: list[set[str]] = []
-        for n in nodes:
-            node_outputs.append({o for o in n.output if o})
+        node_outputs: list[set[str]] = [{o for o in n.output if o} for n in nodes]
 
         # Build adjacency: which node indices each node depends on
         n = len(nodes)
@@ -2657,6 +2675,7 @@ class RemoveMemcpy(ProtoSurgeon):
 
         # Kahn's algorithm
         from collections import deque
+
         queue: deque[int] = deque()
         for idx in range(n):
             if in_degree[idx] == 0:
@@ -2676,9 +2695,9 @@ class RemoveMemcpy(ProtoSurgeon):
 
         if len(sorted_indices) != n:
             logger.warning(
-                "Topo-sort could not order all nodes (%d/%d). "
-                "Keeping original order for unresolved nodes.",
-                len(sorted_indices), n,
+                "Topo-sort could not order all nodes (%d/%d). Keeping original order for unresolved nodes.",
+                len(sorted_indices),
+                n,
             )
             # Append any remaining nodes in original order
             remaining = set(range(n)) - set(sorted_indices)
@@ -2732,28 +2751,18 @@ class RenameInputDims(Surgeon):
             target = next((v for v in inputs if v.name == self.input_name), None)
             if target is None:
                 available = [v.name for v in inputs]
-                raise ValueError(
-                    f"Input '{self.input_name}' not found in graph. "
-                    f"Available inputs: {available}"
-                )
+                raise ValueError(f"Input '{self.input_name}' not found in graph. Available inputs: {available}")
         else:
             if self.input_idx >= len(inputs):
-                raise ValueError(
-                    f"input_idx {self.input_idx} is out of range. "
-                    f"Model has {len(inputs)} inputs."
-                )
+                raise ValueError(f"input_idx {self.input_idx} is out of range. Model has {len(inputs)} inputs.")
             target = inputs[self.input_idx]
 
         if target.shape is None:
-            raise ValueError(
-                f"Input '{target.name}' has no shape information; "
-                "cannot rename dimensions."
-            )
+            raise ValueError(f"Input '{target.name}' has no shape information; cannot rename dimensions.")
 
         if self.dim_idx >= len(target.shape):
             raise ValueError(
-                f"dim_idx {self.dim_idx} is out of range. "
-                f"Input '{target.name}' has {len(target.shape)} dimensions."
+                f"dim_idx {self.dim_idx} is out of range. Input '{target.name}' has {len(target.shape)} dimensions."
             )
 
         new_dims = list(target.shape)
