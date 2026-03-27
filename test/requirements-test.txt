@@ -37,3 +37,4 @@ sentencepiece
 soundfile
 tabulate
 torchvision
+transformers<5.4.0
