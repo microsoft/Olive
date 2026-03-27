@@ -93,9 +93,7 @@ class EPContextBinaryPackager(Pass):
                 "file": model_path,
                 "constraints": {
                     "ep": self.accelerator_spec.execution_provider,
-                    "device": target_attrs.get(
-                        "target_device", str(self.accelerator_spec.accelerator_type).upper()
-                    ),
+                    "device": target_attrs.get("target_device", str(self.accelerator_spec.accelerator_type).upper()),
                     "architecture": target_attrs.get("architecture", target_name),
                 },
             }

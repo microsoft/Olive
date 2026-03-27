@@ -10,7 +10,6 @@ from olive.cli.merge_context_binary import MergeContextBinaryCommand
 
 
 def _create_source_dir(tmp_path, name, model_attributes, model_type="ONNXModel"):
-    """Helper to create a fake context binary output directory with model_config.json."""
     source_dir = tmp_path / name
     source_dir.mkdir(parents=True)
 
@@ -33,7 +32,6 @@ def _create_source_dir(tmp_path, name, model_attributes, model_type="ONNXModel")
 
 class TestMergeContextBinaryCommand:
     def _run_command(self, args):
-        """Helper to parse args and run the command."""
         from argparse import ArgumentParser
 
         parser = ArgumentParser()
@@ -67,12 +65,17 @@ class TestMergeContextBinaryCommand:
         )
 
         output_dir = tmp_path / "output"
-        self._run_command([
-            "merge-context-binary",
-            "--source", f"soc_60={soc_60}",
-            "--source", f"soc_73={soc_73}",
-            "-o", str(output_dir),
-        ])
+        self._run_command(
+            [
+                "merge-context-binary",
+                "--source",
+                f"soc_60={soc_60}",
+                "--source",
+                f"soc_73={soc_73}",
+                "-o",
+                str(output_dir),
+            ]
+        )
 
         # Check manifest.json
         manifest_path = output_dir / "manifest.json"
@@ -108,12 +111,17 @@ class TestMergeContextBinaryCommand:
         )
 
         output_dir = tmp_path / "output"
-        self._run_command([
-            "merge-context-binary",
-            "--source", str(soc_60),
-            "--source", str(soc_73),
-            "-o", str(output_dir),
-        ])
+        self._run_command(
+            [
+                "merge-context-binary",
+                "--source",
+                str(soc_60),
+                "--source",
+                str(soc_73),
+                "-o",
+                str(output_dir),
+            ]
+        )
 
         with open(output_dir / "manifest.json") as f:
             manifest = json.load(f)
@@ -145,12 +153,17 @@ class TestMergeContextBinaryCommand:
         )
 
         output_dir = tmp_path / "output"
-        self._run_command([
-            "merge-context-binary",
-            "--source", f"ov_2025.1={ov_2025_1}",
-            "--source", f"ov_2025.2={ov_2025_2}",
-            "-o", str(output_dir),
-        ])
+        self._run_command(
+            [
+                "merge-context-binary",
+                "--source",
+                f"ov_2025.1={ov_2025_1}",
+                "--source",
+                f"ov_2025.2={ov_2025_2}",
+                "-o",
+                str(output_dir),
+            ]
+        )
 
         with open(output_dir / "manifest.json") as f:
             manifest = json.load(f)
@@ -163,15 +176,21 @@ class TestMergeContextBinaryCommand:
     def test_merge_rejects_single_source(self, tmp_path):
         """Test that merging with a single source raises an error."""
         soc_60 = _create_source_dir(
-            tmp_path, "soc_60", {"ep": "QNNExecutionProvider"},
+            tmp_path,
+            "soc_60",
+            {"ep": "QNNExecutionProvider"},
         )
 
         with pytest.raises(ValueError, match="At least two"):
-            self._run_command([
-                "merge-context-binary",
-                "--source", str(soc_60),
-                "-o", str(tmp_path / "output"),
-            ])
+            self._run_command(
+                [
+                    "merge-context-binary",
+                    "--source",
+                    str(soc_60),
+                    "-o",
+                    str(tmp_path / "output"),
+                ]
+            )
 
     def test_merge_rejects_missing_model_config(self, tmp_path):
         """Test that merging rejects a directory without model_config.json."""
@@ -179,30 +198,44 @@ class TestMergeContextBinaryCommand:
         source_dir.mkdir()
 
         another = _create_source_dir(
-            tmp_path, "valid", {"ep": "QNNExecutionProvider"},
+            tmp_path,
+            "valid",
+            {"ep": "QNNExecutionProvider"},
         )
 
         with pytest.raises(ValueError, match="model_config.json"):
-            self._run_command([
-                "merge-context-binary",
-                "--source", str(source_dir),
-                "--source", str(another),
-                "-o", str(tmp_path / "output"),
-            ])
+            self._run_command(
+                [
+                    "merge-context-binary",
+                    "--source",
+                    str(source_dir),
+                    "--source",
+                    str(another),
+                    "-o",
+                    str(tmp_path / "output"),
+                ]
+            )
 
     def test_merge_rejects_nonexistent_path(self, tmp_path):
         """Test that merging rejects a nonexistent path."""
         valid = _create_source_dir(
-            tmp_path, "valid", {"ep": "QNNExecutionProvider"},
+            tmp_path,
+            "valid",
+            {"ep": "QNNExecutionProvider"},
         )
 
         with pytest.raises(ValueError, match="does not exist"):
-            self._run_command([
-                "merge-context-binary",
-                "--source", "/nonexistent/path",
-                "--source", str(valid),
-                "-o", str(tmp_path / "output"),
-            ])
+            self._run_command(
+                [
+                    "merge-context-binary",
+                    "--source",
+                    "/nonexistent/path",
+                    "--source",
+                    str(valid),
+                    "-o",
+                    str(tmp_path / "output"),
+                ]
+            )
 
     def test_merge_optional_fields_omitted(self, tmp_path):
         """Test that optional fields are omitted from manifest when not in model_attributes."""
@@ -218,12 +251,17 @@ class TestMergeContextBinaryCommand:
         )
 
         output_dir = tmp_path / "output"
-        self._run_command([
-            "merge-context-binary",
-            "--source", str(soc_60),
-            "--source", str(soc_73),
-            "-o", str(output_dir),
-        ])
+        self._run_command(
+            [
+                "merge-context-binary",
+                "--source",
+                str(soc_60),
+                "--source",
+                str(soc_73),
+                "-o",
+                str(output_dir),
+            ]
+        )
 
         with open(output_dir / "manifest.json") as f:
             manifest = json.load(f)

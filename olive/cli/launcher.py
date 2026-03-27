@@ -14,9 +14,9 @@ from olive.cli.convert_adapters import ConvertAdaptersCommand
 from olive.cli.diffusion_lora import DiffusionLoraCommand
 from olive.cli.extract_adapters import ExtractAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
-from olive.cli.merge_context_binary import MergeContextBinaryCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
+from olive.cli.merge_context_binary import MergeContextBinaryCommand
 from olive.cli.optimize import OptimizeCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand

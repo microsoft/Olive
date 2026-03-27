@@ -14,7 +14,6 @@ from olive.model.handler.multi_target import MultiTargetModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.ep_context_packager import EPContextBinaryPackager
 
-
 # region: Helpers
 
 
@@ -179,7 +178,7 @@ class TestEPContextBinaryPackager:
 
         p = self._create_packager()
         output_path = str(tmp_path / "output.onnx")
-        result = p.run(mt, output_path)
+        p.run(mt, output_path)
 
         manifest_path = tmp_path / "output" / "manifest.json"
         with open(manifest_path) as f:
@@ -277,6 +276,7 @@ class TestPassRunMultiTarget:
 
         # Mock _run_for_config to just return a new handler (avoid real ONNX ops)
         with patch.object(OnnxFloatToFloat16, "_run_for_config") as mock_run:
+
             def side_effect(model, config, output_model_path):
                 out_file = Path(output_model_path)
                 out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -285,9 +285,7 @@ class TestPassRunMultiTarget:
 
             mock_run.side_effect = side_effect
 
-            p = create_pass_from_dict(
-                OnnxFloatToFloat16, {}, disable_search=True, accelerator_spec=accelerator_spec
-            )
+            p = create_pass_from_dict(OnnxFloatToFloat16, {}, disable_search=True, accelerator_spec=accelerator_spec)
             output_path = str(tmp_path / "output.onnx")
             result = p.run(mt, output_path)
 
@@ -303,15 +301,6 @@ class TestPassRunMultiTarget:
 # ===========================================================================
 
 
-try:
-    import onnxruntime
-
-    _ort_available = True
-except ImportError:
-    _ort_available = False
-
-
-@pytest.mark.skipif(not _ort_available, reason="onnxruntime is not installed")
 class TestQNNMultiTarget:
     @staticmethod
     def _mock_get_available_providers():
@@ -321,9 +310,7 @@ class TestQNNMultiTarget:
         """When provider_options is a list, result should be MultiTargetModelHandler."""
         from olive.passes.onnx.context_binary import EPContextBinaryGenerator
 
-        accelerator_spec = AcceleratorSpec(
-            accelerator_type="NPU", execution_provider="QNNExecutionProvider"
-        )
+        accelerator_spec = AcceleratorSpec(accelerator_type="NPU", execution_provider="QNNExecutionProvider")
 
         p = create_pass_from_dict(
             EPContextBinaryGenerator,
@@ -338,8 +325,11 @@ class TestQNNMultiTarget:
         )
 
         # Mock _run_single_target to avoid real QNN invocation, and get_available_providers
-        with patch.object(EPContextBinaryGenerator, "_run_single_target") as mock_single, \
-             patch("onnxruntime.get_available_providers", self._mock_get_available_providers):
+        with (
+            patch.object(EPContextBinaryGenerator, "_run_single_target") as mock_single,
+            patch("onnxruntime.get_available_providers", self._mock_get_available_providers),
+        ):
+
             def side_effect(model, config, output_model_path):
                 out_dir = Path(output_model_path)
                 out_dir.mkdir(parents=True, exist_ok=True)
@@ -358,7 +348,7 @@ class TestQNNMultiTarget:
         assert mock_single.call_count == 2
 
         # Check model_attributes on targets
-        for name, target in result.get_target_models():
+        for _, target in result.get_target_models():
             assert target.model_attributes["ep"] == "QNNExecutionProvider"
             assert target.model_attributes["device"] == "NPU"
             assert "provider_options" in target.model_attributes
@@ -367,9 +357,7 @@ class TestQNNMultiTarget:
         """Single-target mode should also populate model_attributes."""
         from olive.passes.onnx.context_binary import EPContextBinaryGenerator
 
-        accelerator_spec = AcceleratorSpec(
-            accelerator_type="NPU", execution_provider="QNNExecutionProvider"
-        )
+        accelerator_spec = AcceleratorSpec(accelerator_type="NPU", execution_provider="QNNExecutionProvider")
 
         p = create_pass_from_dict(
             EPContextBinaryGenerator,
@@ -383,8 +371,11 @@ class TestQNNMultiTarget:
             accelerator_spec=accelerator_spec,
         )
 
-        with patch.object(EPContextBinaryGenerator, "_run_single_target") as mock_single, \
-             patch("onnxruntime.get_available_providers", self._mock_get_available_providers):
+        with (
+            patch.object(EPContextBinaryGenerator, "_run_single_target") as mock_single,
+            patch("onnxruntime.get_available_providers", self._mock_get_available_providers),
+        ):
+
             def side_effect(model, config, output_model_path):
                 out_path = Path(output_model_path)
                 out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -414,9 +405,7 @@ class TestOpenVINOMultiTarget:
         """When ov_version is a list, result should be MultiTargetModelHandler."""
         from olive.passes.openvino.encapsulation import OpenVINOEncapsulation
 
-        accelerator_spec = AcceleratorSpec(
-            accelerator_type=Device.NPU, execution_provider="OpenVINOExecutionProvider"
-        )
+        accelerator_spec = AcceleratorSpec(accelerator_type=Device.NPU, execution_provider="OpenVINOExecutionProvider")
 
         p = create_pass_from_dict(
             OpenVINOEncapsulation,
@@ -426,6 +415,7 @@ class TestOpenVINOMultiTarget:
         )
 
         with patch.object(OpenVINOEncapsulation, "_run_single_target") as mock_single:
+
             def side_effect(model, config, output_model_path):
                 out_dir = Path(output_model_path)
                 out_dir.mkdir(parents=True, exist_ok=True)
@@ -456,9 +446,7 @@ class TestOpenVINOMultiTarget:
         """Single-target mode should populate model_attributes with OV metadata."""
         from olive.passes.openvino.encapsulation import OpenVINOEncapsulation
 
-        accelerator_spec = AcceleratorSpec(
-            accelerator_type=Device.NPU, execution_provider="OpenVINOExecutionProvider"
-        )
+        accelerator_spec = AcceleratorSpec(accelerator_type=Device.NPU, execution_provider="OpenVINOExecutionProvider")
 
         p = create_pass_from_dict(
             OpenVINOEncapsulation,
@@ -468,6 +456,7 @@ class TestOpenVINOMultiTarget:
         )
 
         with patch.object(OpenVINOEncapsulation, "_run_single_target") as mock_single:
+
             def side_effect(model, config, output_model_path):
                 out_dir = Path(output_model_path)
                 out_dir.parent.mkdir(parents=True, exist_ok=True)

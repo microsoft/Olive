@@ -424,7 +424,9 @@ class OliveCache:
 
             # Update manifest_path
             if model_attributes.get("manifest_path"):
-                model_attributes["manifest_path"] = str(actual_output_dir / Path(model_attributes["manifest_path"]).name)
+                model_attributes["manifest_path"] = str(
+                    actual_output_dir / Path(model_attributes["manifest_path"]).name
+                )
 
             # Update manifest name: if pass config set model_name explicitly, keep it;
             # otherwise update to the output directory name (e.g., "qwen_2.5_1.5b_Instruct")
