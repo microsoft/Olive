@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from olive.cli.merge_context_binary import MergeContextBinaryCommand
+from olive.cli.model_package import ModelPackageCommand
 
 
 def _create_source_dir(tmp_path, name, model_attributes, model_type="ONNXModel"):
@@ -30,13 +30,13 @@ def _create_source_dir(tmp_path, name, model_attributes, model_type="ONNXModel")
     return source_dir
 
 
-class TestMergeContextBinaryCommand:
+class TestModelPackageCommand:
     def _run_command(self, args):
         from argparse import ArgumentParser
 
         parser = ArgumentParser()
         commands_parser = parser.add_subparsers()
-        MergeContextBinaryCommand.register_subcommand(commands_parser)
+        ModelPackageCommand.register_subcommand(commands_parser)
         parsed_args, unknown = parser.parse_known_args(args)
         cmd = parsed_args.func(parser, parsed_args, unknown)
         cmd.run()
@@ -67,7 +67,7 @@ class TestMergeContextBinaryCommand:
         output_dir = tmp_path / "output"
         self._run_command(
             [
-                "merge-context-binary",
+                "model-package",
                 "--source",
                 f"soc_60={soc_60}",
                 "--source",
@@ -113,7 +113,7 @@ class TestMergeContextBinaryCommand:
         output_dir = tmp_path / "output"
         self._run_command(
             [
-                "merge-context-binary",
+                "model-package",
                 "--source",
                 str(soc_60),
                 "--source",
@@ -155,7 +155,7 @@ class TestMergeContextBinaryCommand:
         output_dir = tmp_path / "output"
         self._run_command(
             [
-                "merge-context-binary",
+                "model-package",
                 "--source",
                 f"ov_2025.1={ov_2025_1}",
                 "--source",
@@ -184,7 +184,7 @@ class TestMergeContextBinaryCommand:
         with pytest.raises(ValueError, match="At least two"):
             self._run_command(
                 [
-                    "merge-context-binary",
+                    "model-package",
                     "--source",
                     str(soc_60),
                     "-o",
@@ -206,7 +206,7 @@ class TestMergeContextBinaryCommand:
         with pytest.raises(ValueError, match="model_config.json"):
             self._run_command(
                 [
-                    "merge-context-binary",
+                    "model-package",
                     "--source",
                     str(source_dir),
                     "--source",
@@ -227,7 +227,7 @@ class TestMergeContextBinaryCommand:
         with pytest.raises(ValueError, match="does not exist"):
             self._run_command(
                 [
-                    "merge-context-binary",
+                    "model-package",
                     "--source",
                     "/nonexistent/path",
                     "--source",
@@ -253,7 +253,7 @@ class TestMergeContextBinaryCommand:
         output_dir = tmp_path / "output"
         self._run_command(
             [
-                "merge-context-binary",
+                "model-package",
                 "--source",
                 str(soc_60),
                 "--source",

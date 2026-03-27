@@ -15,17 +15,18 @@ logger = logging.getLogger(__name__)
 
 
 @action
-class MergeContextBinaryCommand(BaseOliveCLICommand):
+class ModelPackageCommand(BaseOliveCLICommand):
     """Merge multiple single-target context binary outputs into a multi-target package with manifest.json."""
 
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
-            "merge-context-binary",
+            "model-package",
             help="Merge multiple context binary outputs into a multi-target package with manifest.json",
         )
 
         sub_parser.add_argument(
+            "-s",
             "--source",
             type=str,
             action="append",
@@ -46,7 +47,7 @@ class MergeContextBinaryCommand(BaseOliveCLICommand):
 
         add_logging_options(sub_parser)
         add_telemetry_options(sub_parser)
-        sub_parser.set_defaults(func=MergeContextBinaryCommand)
+        sub_parser.set_defaults(func=ModelPackageCommand)
 
     def run(self):
         log_level_map = {0: logging.DEBUG, 1: logging.INFO, 2: logging.WARNING, 3: logging.ERROR, 4: logging.CRITICAL}
