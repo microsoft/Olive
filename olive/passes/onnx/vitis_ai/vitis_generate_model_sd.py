@@ -15,13 +15,15 @@ import logging
 import shutil
 from pathlib import Path
 
-from model_generate import SUPPORTED_SD_MODEL_TYPES, generate_sd_model
+from model_generate import generate_model
+from model_generate.recipes import get_supported_sd_model_types
 
 from olive.model import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
+SUPPORTED_SD_MODEL_TYPES = get_supported_sd_model_types()
 
 
 class VitisGenerateModelSD(Pass):
@@ -86,11 +88,11 @@ class VitisGenerateModelSD(Pass):
                 resolutions,
             )
 
-        generate_sd_model(
+        generate_model(
+            mode="sd",
             input_model=str(onnx_input_path),
             output_dir=str(output_dir),
-            model_type=model_type,
-            resolutions=resolutions,
+            extra_options={"model_type": model_type, "resolutions": ",".join(resolutions)},
         )
 
         self._ensure_model_onnx(output_dir)
