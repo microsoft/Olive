@@ -239,6 +239,15 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "NVModelOptGraphSurgery": {
+            "module_path": "olive.passes.onnx.nvmo_graph_surgery.NVModelOptGraphSurgery",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "nvmo" ]
+        },
         "NVModelOptQuantization": {
             "module_path": "olive.passes.onnx.nvmo_quantization.NVModelOptQuantization",
             "supported_providers": [ "CUDAExecutionProvider" ],
