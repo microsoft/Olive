@@ -113,7 +113,7 @@ class NVModelOptGraphSurgery(Pass):
                 # Call ModelOpt's unified dispatcher
                 result = run_graph_surgery(
                     surgery_name=surgery_type,
-                    input_path=temp_input_path,
+                    model_path=temp_input_path,
                     output_path=temp_output_path,
                     **surgery_params,
                 )
