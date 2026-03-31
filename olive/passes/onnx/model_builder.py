@@ -53,6 +53,7 @@ class ModelBuilder(Pass):
         ExecutionProvider.CPUExecutionProvider: "cpu",
         ExecutionProvider.CUDAExecutionProvider: "cuda",
         ExecutionProvider.DmlExecutionProvider: "dml",
+        ExecutionProvider.MIGraphXExecutionProvider: "migraphx",
         ExecutionProvider.WebGpuExecutionProvider: "webgpu",
         ExecutionProvider.JsExecutionProvider: "web",
         ExecutionProvider.NvTensorRTRTXExecutionProvider: "NvTensorRtRtx",
