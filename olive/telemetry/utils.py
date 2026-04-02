@@ -23,6 +23,9 @@ def _resolve_home_dir() -> Path:
     try:
         return Path.home()
     except (RuntimeError, KeyError):
+        # /var/tmp persists across reboots unlike /tmp (FHS spec)
+        if platform.system() != "Windows":
+            return Path("/var/tmp")
         return Path(tempfile.gettempdir())
 
 
