@@ -6,12 +6,24 @@ import base64
 import functools
 import os
 import platform
+import tempfile
 import traceback
 from pathlib import Path
 from types import TracebackType
 from typing import Optional
 
 ORT_SUPPORT_DIR = r"Microsoft/DeveloperTools/.onnxruntime"
+
+
+def _resolve_home_dir() -> Path:
+    """Resolve the user home directory with fallbacks for container environments."""
+    home = os.getenv("HOME")
+    if home:
+        return Path(home)
+    try:
+        return Path.home()
+    except (RuntimeError, KeyError):
+        return Path(tempfile.gettempdir())
 
 
 @functools.lru_cache(maxsize=1)
@@ -24,19 +36,15 @@ def get_telemetry_base_dir() -> Path:
         return Path(base_dir) / "Microsoft" / ".onnxruntime"
 
     if os_name == "Darwin":
-        home = os.getenv("HOME")
-        if home is None:
-            raise ValueError("HOME environment variable not set")
-        return Path(home) / "Library" / "Application Support" / ORT_SUPPORT_DIR
+        home = _resolve_home_dir()
+        return home / "Library" / "Application Support" / ORT_SUPPORT_DIR
 
     # Use XDG_CACHE_HOME if set, otherwise fall back to $HOME/.cache
-    home = os.getenv("XDG_CACHE_HOME") or os.getenv("HOME")
-    if not home:
-        raise ValueError("HOME environment variable not set")
-    if not os.getenv("XDG_CACHE_HOME"):
-        home = f"{home}/.cache"
+    cache_dir = os.getenv("XDG_CACHE_HOME")
+    if not cache_dir:
+        cache_dir = str(_resolve_home_dir() / ".cache")
 
-    return Path(home) / ORT_SUPPORT_DIR
+    return Path(cache_dir) / ORT_SUPPORT_DIR
 
 
 def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = None) -> str:
