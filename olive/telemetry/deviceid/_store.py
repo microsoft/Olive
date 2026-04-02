@@ -34,12 +34,7 @@ class Store:
         :type device_id: str
         """
         # create the folder location if it does not exist
-        try:
-            self._file_path.parent.mkdir(parents=True)
-        except FileExistsError:
-            # This is unexpected, but is not an issue,
-            # since we want this file path to exist.
-            pass
+        self._file_path.parent.mkdir(parents=True, exist_ok=True)
 
         self._file_path.touch()
         self._file_path.write_text(device_id, encoding="utf-8")
