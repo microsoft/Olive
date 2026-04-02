@@ -14,7 +14,6 @@ from typing import Optional
 ORT_SUPPORT_DIR = r"Microsoft/DeveloperTools/.onnxruntime"
 
 
-@property
 @functools.lru_cache(maxsize=1)
 def get_telemetry_base_dir() -> Path:
     os_name = platform.system()
@@ -30,9 +29,12 @@ def get_telemetry_base_dir() -> Path:
             raise ValueError("HOME environment variable not set")
         return Path(home) / "Library" / "Application Support" / ORT_SUPPORT_DIR
 
-    home = os.getenv("XDG_CACHE_HOME", f"{os.getenv('HOME')}/.cache")
+    # Use XDG_CACHE_HOME if set, otherwise fall back to $HOME/.cache
+    home = os.getenv("XDG_CACHE_HOME") or os.getenv("HOME")
     if not home:
         raise ValueError("HOME environment variable not set")
+    if not os.getenv("XDG_CACHE_HOME"):
+        home = f"{home}/.cache"
 
     return Path(home) / ORT_SUPPORT_DIR
 
