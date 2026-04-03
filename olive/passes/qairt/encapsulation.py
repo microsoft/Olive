@@ -27,11 +27,6 @@ class QairtEncapsulation(Pass):
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
-            "backend": PassConfigParam(
-                type_=str,
-                default_value="CPU",
-                description="Target accelerator backend. Accepted values are 'CPU' and 'HTP'.",
-            ),
             "log_level": PassConfigParam(
                 type_=str,
                 default_value=None,
@@ -198,7 +193,15 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
                 "session_options": {
                     "log_id": "onnxruntime-genai",
                     "graph_optimization_level": "ORT_DISABLE_ALL",
-                    "provider_options": [{"QNN": {"backend_type": config.backend, "genie_model": "True"}}],
+                    "provider_options": [
+                        {
+                            "QNN": {
+                                "genie_model": "True",
+                                "enable_htp_shared_memory_allocator": "1",
+							    "genie_log_level": "error"
+                            }
+                        }
+                    ],
                 },
                 "filename": "qairt_model.onnx",
                 "head_size": -1,
@@ -210,12 +213,12 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
                 "num_key_value_heads": -1,
             },
             "eos_token_id": -1,
-            "type": "",
+            "type": "decoder",
             "vocab_size": -1,
         },
         "search": {
             "diversity_penalty": 0.0,
-            "do_sample": False,
+            "do_sample": True,
             "early_stopping": True,
             "length_penalty": 1.0,
             "max_length": -1,
@@ -277,7 +280,6 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
         if isinstance(gen_config["eos_token_id"], list)
         else gen_config["eos_token_id"]
     )
-    genai_config["model"]["type"] = src_config.get("model_type", "")
     genai_config["model"]["vocab_size"] = src_config.get("vocab_size", -1)
 
     genai_config["search"]["max_length"] = src_config.get("max_position_embeddings", -1)
