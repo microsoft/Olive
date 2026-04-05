@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -24,12 +25,28 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
+class RtnAlgorithm(str, Enum):
+    """Algorithm for block-wise weight-only quantization."""
+
+    RTN = "rtn"
+    KQUANT = "kquant"
+
+
 class OnnxBlockWiseRtnQuantization(Pass):
     """Quantize ONNX models with weight-only block-wise RTN algorithm."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
+            "algorithm": PassConfigParam(
+                type_=RtnAlgorithm,
+                default_value=RtnAlgorithm.RTN,
+                description=(
+                    "Quantization algorithm. 'rtn' uses Olive's built-in Round-To-Nearest implementation."
+                    " 'kquant' uses OnnxRuntime's MatMulNBitsQuantizer with KQuantWeightOnlyQuantConfig,"
+                    " which may yield better accuracy for some models. Default: 'rtn'."
+                ),
+            ),
             "bits": PassConfigParam(
                 type_=int,
                 default_value=4,
@@ -76,6 +93,10 @@ class OnnxBlockWiseRtnQuantization(Pass):
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+
+        if config.algorithm == RtnAlgorithm.KQUANT:
+            return self._run_kquant(model, config, output_model_path)
+
         ir_model = model.load_ir_model()
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
         self._quantize_model(
@@ -89,6 +110,37 @@ class OnnxBlockWiseRtnQuantization(Pass):
             config.accuracy_level,
         )
         return ir_model_to_olive_model(ir_model, output_model_path, config)
+
+    def _run_kquant(
+        self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> ONNXModelHandler:
+        """Quantize using OnnxRuntime's MatMulNBitsQuantizer with k-quant algorithm."""
+        import onnx
+        from onnxruntime.quantization.matmul_nbits_quantizer import (
+            KQuantWeightOnlyQuantConfig,
+            MatMulNBitsQuantizer,
+        )
+
+        logger.info(
+            "Running k-quant quantization (block_size=%d, symmetric=%s)", config.block_size, config.is_symmetric
+        )
+
+        onnx_model = onnx.load(str(model.model_path), load_external_data=True)
+
+        accuracy_level = config.accuracy_level
+        accuracy_level = None if accuracy_level == AccuracyLevel.unset else int(accuracy_level)
+
+        quantizer = MatMulNBitsQuantizer(
+            model=onnx_model,
+            block_size=config.block_size,
+            is_symmetric=config.is_symmetric,
+            accuracy_level=accuracy_level,
+            algo_config=KQuantWeightOnlyQuantConfig(),
+        )
+        quantizer.process()
+        quantizer.model.save_model_to_file(str(output_model_path), use_external_data_format=True)
+
+        return ONNXModelHandler(model_path=output_model_path)
 
     def _quantize_model(
         self,
