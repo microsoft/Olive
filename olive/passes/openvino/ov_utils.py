@@ -368,3 +368,61 @@ def create_genai_config(model_name: str, output_path: str, config: BasePassConfi
     output_genai_config = Path(output_path) / "genai_config.json"
     with open(output_genai_config, "w") as f:
         json.dump(genai_config, f, indent=4)
+
+
+def model_graph_uses_external_data(graph) -> bool:
+    """Return True when any tensor in an ONNX graph (or its subgraphs) is stored as external data."""
+    try:
+        import onnx
+    except ImportError:
+        raise ImportError("Please install onnx to check for external data in ONNX models") from None
+
+    for tensor in graph.initializer:
+        if onnx.external_data_helper.uses_external_data(tensor):
+            logger.debug("Model uses external data due to initializer: %s", tensor.name)
+            return True
+
+    for sparse_initializer in graph.sparse_initializer:
+        if onnx.external_data_helper.uses_external_data(sparse_initializer.values):
+            logger.debug("Model uses external data due to sparse initializer: %s", sparse_initializer.values.name)
+            return True
+
+    for node in graph.node:
+        for attribute in node.attribute:
+            if attribute.type == onnx.AttributeProto.TENSOR and onnx.external_data_helper.uses_external_data(
+                attribute.t
+            ):
+                logger.debug(
+                    "Model uses external data due to node attribute tensor: %s in node %s",
+                    attribute.t.name,
+                    node.name,
+                )
+                return True
+            if attribute.type == onnx.AttributeProto.TENSORS:
+                for tensor in attribute.tensors:
+                    if onnx.external_data_helper.uses_external_data(tensor):
+                        logger.debug(
+                            "Model uses external data due to node attribute tensors: %s in node %s",
+                            tensor.name,
+                            node.name,
+                        )
+                        return True
+            if attribute.type == onnx.AttributeProto.GRAPH and model_graph_uses_external_data(attribute.g):
+                logger.debug(
+                    "Model uses external data due to subgraph in node attribute: %s in node %s",
+                    attribute.g.name,
+                    node.name,
+                )
+                return True
+            if attribute.type == onnx.AttributeProto.GRAPHS:
+                for subgraph in attribute.graphs:
+                    if model_graph_uses_external_data(subgraph):
+                        logger.debug(
+                            "Model uses external data due to subgraph in node attribute: %s in node %s",
+                            subgraph.name,
+                            node.name,
+                        )
+                        return True
+
+    logger.debug("No external data found in the model.")
+    return False

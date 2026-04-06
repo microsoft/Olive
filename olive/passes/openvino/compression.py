@@ -21,6 +21,7 @@ from olive.passes.openvino.ov_utils import (
     _validate_enum_value,
     create_genai_config,
     infer_library_name,
+    model_graph_uses_external_data,
 )
 from olive.passes.pass_config import BasePassConfig, ParamCategory, PassConfigParam, get_user_script_data_config
 
@@ -445,6 +446,7 @@ class OpenVINOWeightCompression(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
         tokenizer: Optional[Any] = None,
+        model_source_dir: Optional[str] = None,
     ) -> Any:
         """Apply NNCF weight compression to a model.
 
@@ -453,6 +455,9 @@ class OpenVINOWeightCompression(Pass):
             config: The pass configuration.
             output_model_path: Path where the output model will be saved.
             tokenizer: Optional tokenizer for dataset transform (used in HF path).
+            model_source_dir: Optional directory where the source ONNX model and its external data
+                files (e.g., model.onnx.data) reside. Required when the model is loaded from cache
+                and CWD != model directory.
 
         Returns:
             The compressed model object from nncf.compress_weights().
@@ -496,6 +501,19 @@ class OpenVINOWeightCompression(Pass):
                 adv_par.pop("_external_dir")
 
             advanced_params = nncf.AdvancedCompressionParameters(**adv_par)
+
+        # For ONNX models with external data (e.g., model.onnx.data): when a model is loaded from
+        # cache, CWD != model directory, so NNCF cannot find the external data files using its
+        # default Path.cwd() lookup. Set EXTERNAL_DATA_DIR to the model's source directory.
+        if model_source_dir is not None:
+            if advanced_params is None:
+                adv_par = {}
+                adv_par["backend_params"] = {BackendParameters.EXTERNAL_DATA_DIR: model_source_dir}
+                advanced_params = nncf.AdvancedCompressionParameters(**adv_par)
+            elif not hasattr(advanced_params, "backend_params") or advanced_params.backend_params is None:
+                advanced_params.backend_params = {BackendParameters.EXTERNAL_DATA_DIR: model_source_dir}
+            elif BackendParameters.EXTERNAL_DATA_DIR not in advanced_params.backend_params:
+                advanced_params.backend_params[BackendParameters.EXTERNAL_DATA_DIR] = model_source_dir
 
         # perform weight compression
         return nncf.compress_weights(
@@ -733,19 +751,28 @@ class OpenVINOWeightCompression(Pass):
         if loaded_model.opset_import[0].version != target_opset:
             loaded_model = onnx.version_converter.convert_version(loaded_model, target_opset)
 
+        # Detect external data from model metadata.
+        # When loading from cache, CWD differs from the model directory, so NNCF needs the explicit
+        # source directory if any tensor is marked with external data.
+        model_source_dir = None
+        if model_graph_uses_external_data(loaded_model.graph):
+            model_source_dir = str(Path(model.model_path).parent.resolve())
+
         # perform weight compression using shared compression logic
-        output_model = self._apply_compression(loaded_model, config, output_model_path)
+        output_model = self._apply_compression(
+            loaded_model, config, output_model_path, model_source_dir=model_source_dir
+        )
 
         # save to output_model_path
         model_name = Path(model.model_path).name.replace(".onnx", "_compressed.onnx")
-        model_dir = Path(output_model_path)
+        output_dir = Path(output_model_path)
 
-        if Path(output_model_path).is_dir():
-            output_model_path = Path(output_model_path) / model_name
+        if output_dir.is_dir():
+            output_model_path = output_dir / model_name
         onnx.save(output_model, output_model_path, save_as_external_data=True)
 
         # generate the genai_config.json file for GenAI ONNX models
-        create_genai_config(model_name, model_dir, config)
+        create_genai_config(model_name, output_dir, config)
 
         return ONNXModelHandler(model_path=output_model_path)
 
