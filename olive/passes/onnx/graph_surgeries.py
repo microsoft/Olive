@@ -2523,6 +2523,254 @@ class RenameOutputDims(Surgeon):
         return model
 
 
+class RemoveMemcpy(ProtoSurgeon):
+    """Remove MemcpyToHost and MemcpyFromHost nodes from the graph.
+
+    These nodes are inserted by ORT's ``OrtTransformersOptimization`` when it
+    pre-partitions the graph for a GPU execution provider.  They represent
+    explicit GPU↔CPU data copies for tensors whose consumers require CPU memory
+    (e.g. shape arguments to Reshape, start/end for Slice, trip counts for Loop).
+
+    Removing them is safe because ORT's runtime ``MemcpyTransformer`` will
+    re-insert only the truly necessary copies when the session is created.
+    The runtime also has a ``GetCpuPreferredNodes`` heuristic that may keep
+    entire shape-computation subgraphs on CPU, potentially avoiding some
+    copies entirely.
+
+    This surgery processes both the main graph and all Loop/If subgraphs
+    recursively.  After removal the graph nodes are topologically re-sorted
+    to satisfy the ONNX requirement that every input is produced before use.
+
+    When to use:
+        Run **after** ``OrtTransformersOptimization`` to remove pre-baked memcpy
+        nodes and let ORT's runtime re-partition optimally.
+    """
+
+    def __call__(self, model: ModelProto):
+        total = self._remove_from_graph(model.graph)
+        if total:
+            logger.debug("Removed %d Memcpy nodes total", total)
+        return model
+
+    @staticmethod
+    def _remove_from_graph(graph) -> int:
+        """Remove MemcpyToHost/MemcpyFromHost from a graph, then topo-sort."""
+        removed = 0
+
+        # Build output→input bypass mapping for 1-in/1-out Memcpy nodes only
+        bypass: dict[str, str] = {}
+        for node in graph.node:
+            if node.op_type in ("MemcpyToHost", "MemcpyFromHost") and len(node.input) == 1 and len(node.output) == 1:
+                bypass[node.output[0]] = node.input[0]
+
+        if bypass:
+            # Resolve chained Memcpy transitively: if A→B→C are both Memcpy,
+            # bypass = {B: A, C: B}.  Follow the chain so C maps to A.
+            for key, value in bypass.items():
+                target = value
+                while target in bypass:
+                    target = bypass[target]
+                bypass[key] = target
+
+            # Rewrite consumer references: replace memcpy output with its input
+            for node in graph.node:
+                if node.op_type in ("MemcpyToHost", "MemcpyFromHost"):
+                    continue
+                for i, inp in enumerate(node.input):
+                    if inp in bypass:
+                        node.input[i] = bypass[inp]
+                # Also rewrite inputs inside Loop/If subgraph body references
+                for attr in node.attribute:
+                    if attr.g:
+                        RemoveMemcpy._rewrite_subgraph_refs(attr.g, bypass)
+
+            # Preserve graph output names: if a Memcpy sits on the output
+            # boundary, rename the upstream producer's output to match the
+            # original graph output name instead of changing the public name.
+            for out in graph.output:
+                if out.name in bypass:
+                    src = bypass[out.name]
+                    # Rename the producer node's output to keep the public name
+                    for node in graph.node:
+                        for j, o in enumerate(node.output):
+                            if o == src:
+                                node.output[j] = out.name
+                    # Also update any other consumers of `src` to use the output name
+                    for node in graph.node:
+                        for j, inp in enumerate(node.input):
+                            if inp == src:
+                                node.input[j] = out.name
+
+            # Remove only 1-in/1-out Memcpy nodes (the ones we built bypass for)
+            indices = [
+                i
+                for i, n in enumerate(graph.node)
+                if n.op_type in ("MemcpyToHost", "MemcpyFromHost") and len(n.input) == 1 and len(n.output) == 1
+            ]
+            for i in reversed(indices):
+                del graph.node[i]
+            removed += len(indices)
+
+            # Topological re-sort to fix ordering after node removal
+            RemoveMemcpy._topo_sort(graph)
+
+        # Recurse into Loop/If subgraphs
+        for node in list(graph.node):
+            for attr in node.attribute:
+                if attr.g:
+                    removed += RemoveMemcpy._remove_from_graph(attr.g)
+
+        return removed
+
+    @staticmethod
+    def _rewrite_subgraph_refs(subgraph, bypass: dict[str, str]):
+        """Rewrite implicit references inside a subgraph body.
+
+        Loop/If subgraphs can reference outer-scope tensors by name in their
+        node inputs.  If an outer Memcpy was removed, those references must
+        be updated too.
+        """
+        for node in subgraph.node:
+            for i, inp in enumerate(node.input):
+                if inp in bypass:
+                    node.input[i] = bypass[inp]
+            for attr in node.attribute:
+                if attr.g:
+                    RemoveMemcpy._rewrite_subgraph_refs(attr.g, bypass)
+
+    @staticmethod
+    def _topo_sort(graph):
+        """Topologically sort graph.node in place using Kahn's algorithm."""
+        # Collect all tensor names produced by graph inputs + initializers
+        available: set[str] = set()
+        for inp in graph.input:
+            available.add(inp.name)
+        for init in graph.initializer:
+            available.add(init.name)
+
+        # Build producer map: tensor_name → node_index
+        nodes = list(graph.node)
+        node_outputs: list[set[str]] = [{o for o in n.output if o} for n in nodes]
+
+        # Build adjacency: which node indices each node depends on
+        n = len(nodes)
+        in_degree = [0] * n
+        dependents: list[list[int]] = [[] for _ in range(n)]
+
+        # Map output name → producing node index
+        output_to_idx: dict[str, int] = {}
+        for idx, outs in enumerate(node_outputs):
+            for o in outs:
+                output_to_idx[o] = idx
+
+        for idx, node in enumerate(nodes):
+            seen_deps: set[int] = set()
+            for inp in node.input:
+                if inp and inp not in available and inp in output_to_idx:
+                    dep = output_to_idx[inp]
+                    if dep != idx and dep not in seen_deps:
+                        seen_deps.add(dep)
+                        in_degree[idx] += 1
+                        dependents[dep].append(idx)
+
+        # Kahn's algorithm
+        from collections import deque
+
+        queue: deque[int] = deque()
+        for idx in range(n):
+            if in_degree[idx] == 0:
+                queue.append(idx)
+
+        sorted_indices: list[int] = []
+        while queue:
+            idx = queue.popleft()
+            sorted_indices.append(idx)
+            # Mark outputs as available
+            for o in node_outputs[idx]:
+                available.add(o)
+            for dep_idx in dependents[idx]:
+                in_degree[dep_idx] -= 1
+                if in_degree[dep_idx] == 0:
+                    queue.append(dep_idx)
+
+        if len(sorted_indices) != n:
+            logger.warning(
+                "Topo-sort could not order all nodes (%d/%d). Keeping original order for unresolved nodes.",
+                len(sorted_indices),
+                n,
+            )
+            # Append any remaining nodes in original order
+            remaining = set(range(n)) - set(sorted_indices)
+            sorted_indices.extend(sorted(remaining))
+
+        # Rewrite graph.node in sorted order
+        sorted_nodes = [nodes[i] for i in sorted_indices]
+        del graph.node[:]
+        graph.node.extend(sorted_nodes)
+
+
+class RenameInputDims(Surgeon):
+    """Rename / promote a dimension in an input tensor's shape to a named symbolic dim.
+
+    This surgery replaces a concrete dim_value (e.g. ``1``) with a symbolic
+    dim_param string (e.g. ``"num_images"``).  Useful when torch.export
+    specialises a batch-like input dimension to a concrete value because its
+    shape is algebraically derived from another symbolic dimension, yet ONNX
+    Runtime must accept a variable-length tensor at inference time.
+
+    Specify the target input either by name (preferred) or by index.
+
+    Example usage:
+        {
+            "surgeon": "RenameInputDims",
+            "input_name": "image_grid_thw",
+            "dim_idx": 0,
+            "dim_name": "num_images"
+        }
+    """
+
+    def __init__(
+        self,
+        dim_idx: int,
+        dim_name: str,
+        input_name: str | None = None,
+        input_idx: int | None = None,
+    ):
+        super().__init__()
+        if input_name is None and input_idx is None:
+            raise ValueError("Either 'input_name' or 'input_idx' must be provided.")
+        self.input_name = input_name
+        self.input_idx = input_idx
+        self.dim_idx = dim_idx
+        self.dim_name = dim_name
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        inputs = list(model.graph.inputs)
+
+        if self.input_name is not None:
+            target = next((v for v in inputs if v.name == self.input_name), None)
+            if target is None:
+                available = [v.name for v in inputs]
+                raise ValueError(f"Input '{self.input_name}' not found in graph. Available inputs: {available}")
+        else:
+            if self.input_idx >= len(inputs):
+                raise ValueError(f"input_idx {self.input_idx} is out of range. Model has {len(inputs)} inputs.")
+            target = inputs[self.input_idx]
+
+        if target.shape is None:
+            raise ValueError(f"Input '{target.name}' has no shape information; cannot rename dimensions.")
+
+        if self.dim_idx >= len(target.shape):
+            raise ValueError(
+                f"dim_idx {self.dim_idx} is out of range. Input '{target.name}' has {len(target.shape)} dimensions."
+            )
+
+        new_dims = list(target.shape)
+        new_dims[self.dim_idx] = self.dim_name
+        target.shape = ir.Shape(new_dims)
+        return model
+
+
 class GraphSurgeries(Pass):
     """ONNX graph surgeries collections.
 

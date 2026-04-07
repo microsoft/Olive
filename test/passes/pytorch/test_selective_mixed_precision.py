@@ -17,7 +17,7 @@ from test.utils import get_tiny_phi3
 def input_model_fixture(tmp_path_factory):
     save_path = tmp_path_factory.mktemp("selective-mixed-precision-test")
     model = LlamaForCausalLM(
-        LlamaConfig(
+        LlamaConfig(  # pylint: disable=unexpected-keyword-arg
             hidden_size=16,
             intermediate_size=64,
             num_hidden_layers=8,

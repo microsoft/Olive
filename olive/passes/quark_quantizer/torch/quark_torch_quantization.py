@@ -8,6 +8,7 @@
 Uses LLMTemplate + ModelQuantizer from the Quark public API.
 """
 
+import json
 import logging
 import os
 import sys
@@ -63,12 +64,13 @@ def run_quark_torch_quantization(
 
     # 1. Load model
     logger.info("[INFO] Loading model from: %s", model.model_path)
+    is_gpu = torch.cuda.is_available()
     torch_model, _ = get_model(
         str(model.model_path),
         config.data_type,
         device,
-        multi_gpu=True,
-        multi_device=True,
+        multi_gpu=is_gpu,
+        multi_device=is_gpu,
         attn_implementation="eager",
         trust_remote_code=config.trust_remote_code,
     )
@@ -136,7 +138,7 @@ def run_quark_torch_quantization(
 
     # 4. Quantize model
     logger.info("[INFO] Starting model quantization")
-    quantizer = ModelQuantizer(quant_config, multi_device=True)
+    quantizer = ModelQuantizer(quant_config, multi_device=is_gpu)
     torch_model = quantizer.quantize_model(torch_model, calib_dataloader)
 
     # 5. Freeze model
@@ -172,6 +174,12 @@ def run_quark_torch_quantization(
                 )
                 tokenizer.save_pretrained(str(output_dir))
             logger.info("[INFO] Exported HF format to: %s", output_dir)
+
+            # Workaround for QUARK-476: strip auto_map from exported config.json
+            # when trust_remote_code is False, since Quark preserves it from the
+            # original model but doesn't copy the referenced .py files.
+            if not config.trust_remote_code:
+                _strip_auto_map(output_dir)
 
         elif export_format == "onnx":
             with torch.inference_mode():
@@ -211,3 +219,30 @@ def _parse_quant_algo(quant_algo):
     if isinstance(quant_algo, str):
         return quant_algo.split(",") if "," in quant_algo else [quant_algo]
     return None
+
+
+def _strip_auto_map(output_dir: Path):
+    """Remove auto_map from exported config.json (QUARK-476 workaround).
+
+    Quark's export_safetensors preserves auto_map from the original model's
+    config.json but doesn't copy the referenced auxiliary .py files (e.g.,
+    configuration_phi3.py, modeling_phi3.py) to the output directory. This
+    causes downstream consumers like onnxruntime_genai builder to fail.
+
+    When trust_remote_code is False, auto_map is unnecessary since
+    transformers loads the model natively via model_type.
+    """
+    config_path = output_dir / "config.json"
+    if not config_path.exists():
+        return
+
+    with open(config_path) as f:
+        config_data = json.load(f)
+
+    if "auto_map" not in config_data:
+        return
+
+    auto_map = config_data.pop("auto_map")
+    with open(config_path, "w") as f:
+        json.dump(config_data, f, indent=2)
+    logger.info("[INFO] Stripped auto_map from config.json (QUARK-476 workaround): %s", list(auto_map.keys()))
