@@ -838,12 +838,12 @@ def test_create_genai_config_search_fields_defaults_when_absent(tmp_path):
 
     assert result["search"]["do_sample"] is True
     assert result["search"]["temperature"] == 1.0
-    assert result["search"]["top_k"] == 1
+    assert result["search"]["top_k"] == 50
     assert result["search"]["top_p"] == 1.0
 
 
 def test_create_genai_config_max_length_with_sequence_lengths(tmp_path):
-    """max_length = max_position_embeddings - min(sequence_lengths) when sequence_lengths provided."""
+    """max_length = MAX_GENIE_CONTEXT_LENGTH - min(sequence_lengths) when sequence_lengths provided."""
     from olive.passes.qairt.encapsulation import create_genai_config
 
     model_name = "model.onnx"
@@ -860,7 +860,7 @@ def test_create_genai_config_max_length_with_sequence_lengths(tmp_path):
 
 
 def test_create_genai_config_max_length_without_sequence_lengths(tmp_path):
-    """max_length falls back to max_position_embeddings when sequence_lengths not provided."""
+    """max_length falls back to MAX_GENIE_CONTEXT_LENGTH when sequence_lengths not provided."""
     from olive.passes.qairt.encapsulation import create_genai_config
 
     model_name = "model.onnx"

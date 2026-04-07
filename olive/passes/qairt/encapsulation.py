@@ -21,6 +21,8 @@ from olive.passes.qairt.utils import QairtLogLevel
 
 logger = logging.getLogger(__name__)
 
+MAX_GENIE_CONTEXT_LENGTH = 4096
+
 
 class QairtEncapsulation(Pass):
     """Encapsulates a QAIRT DLC model with an onnx protobuf."""
@@ -240,7 +242,7 @@ def create_genai_config(
             "past_present_share_buffer": True,
             "repetition_penalty": 1.0,
             "temperature": 1.0,
-            "top_k": 1,
+            "top_k": 50,
             "top_p": 1.0,
         },
     }
@@ -321,12 +323,11 @@ def create_genai_config(
         if field in gen_config:
             genai_config["search"][field] = gen_config[field]
 
-    # max_length = context_length - min(sequence_lengths) to avoid runtime crash with AR decode
-    context_length = src_config.get("max_position_embeddings", -1)
-    if sequence_lengths and context_length != -1:
-        genai_config["search"]["max_length"] = context_length - min(sequence_lengths)
+    # max_length = MAX_GENIE_CONTEXT_LENGTH - min(sequence_lengths) to avoid runtime crash with AR decode
+    if sequence_lengths:
+        genai_config["search"]["max_length"] = MAX_GENIE_CONTEXT_LENGTH - min(sequence_lengths)
     else:
-        genai_config["search"]["max_length"] = context_length
+        genai_config["search"]["max_length"] = MAX_GENIE_CONTEXT_LENGTH
 
     output_genai_config = Path(output_path) / "genai_config.json"
     with open(output_genai_config, "w") as f:
