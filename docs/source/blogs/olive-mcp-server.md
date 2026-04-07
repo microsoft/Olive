@@ -126,7 +126,7 @@ You: Optimize microsoft/Phi-4-mini-instruct for my machine
 
 Copilot: I'll start by detecting your hardware...
          [Calls detect_hardware — Click "Allow" to confirm]
-         
+
          You have an NVIDIA RTX 4090 with 24GB VRAM. Here are your options:
          1. **Smallest model (int4)** — ~2GB, fastest inference
          2. **Balanced (int8)** — ~4GB, good quality/speed tradeoff
@@ -137,8 +137,8 @@ You: Go with int4
 Copilot: Starting int4 optimization with GPTQ...
          [Calls optimize — Click "Allow" to confirm]
          [Polls get_job_status and streams progress]
-         
-         ✅ Done! Model saved to ~/.olive-mcp/outputs/optimize-phi-4-mini-...
+
+         ✅ Done!Model saved to ~/.olive-mcp/outputs/optimize-phi-4-mini-...
          Size: 7.6GB → 2.1GB (72% reduction)
 ```
 
