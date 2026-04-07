@@ -382,6 +382,72 @@ def test_openvino_weight_compression_onnx_to_onnx_multi_ignore_scope(tmp_path):
     shutil.rmtree(q_dir)
 
 
+def test_openvino_weight_compression_onnx_to_onnx_auto_detect_external_data(tmp_path):
+    import numpy as np
+    import onnx
+    from nncf.parameters import CompressWeightsMode
+    from nncf.quantization.advanced_parameters import GroupSizeFallbackMode
+
+    from olive.model.handler.onnx import ONNXModelHandler
+
+    # sample ONNX model with external data creation
+    input_shape = [1, 64]
+    weight_shape = [64, 128]
+    weight_data = np.random.randn(*weight_shape).astype(np.float32)
+
+    input_vi = onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, input_shape)
+    output_vi = onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, 128])
+    # Use numpy_helper.from_array so data is stored as raw_data bytes,
+    # which onnx.save will externalize (make_tensor uses float_data repeated field and won't).
+    weight_init = onnx.numpy_helper.from_array(weight_data, name="weight")
+    matmul_node = onnx.helper.make_node("MatMul", inputs=["input", "weight"], outputs=["output"], name="MatMul_0")
+
+    graph = onnx.helper.make_graph(
+        nodes=[matmul_node],
+        name="external-data-test",
+        inputs=[input_vi],
+        outputs=[output_vi],
+        initializer=[weight_init],
+    )
+    model_def = onnx.helper.make_model(graph, producer_name="olive-test")
+    model_def.opset_import[0].version = 21
+
+    # save generated ONNX model with external data
+    model_dir = tmp_path / "source_model"
+    model_dir.mkdir()
+    model_path = model_dir / "model.onnx"
+    onnx.save(model_def, str(model_path), save_as_external_data=True, location="model.onnx.data")
+
+    # verify external data file creation
+    assert (model_dir / "model.onnx.data").exists()
+
+    input_onnx_model = ONNXModelHandler(model_path=str(model_path))
+
+    # NNCF compression pass
+    openvino_weight_compression_config = {
+        "compress_config": {"mode": CompressWeightsMode.INT4_SYM, "ratio": 1.0, "all_layers": True},
+        "extra_args": {
+            "use_onnx": True,
+            "advanced_compression_parameters": {
+                "group_size_fallback_mode": GroupSizeFallbackMode.IGNORE,
+            },
+        },
+    }
+    p = create_pass_from_dict(
+        OpenVINOWeightCompression,
+        openvino_weight_compression_config,
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
+    )
+    output_folder = str(tmp_path / "openvino_wc_output")
+    compressed_model = p.run(input_onnx_model, output_folder)
+
+    # test if the model file is created
+    assert Path(compressed_model.model_path).exists()
+    assert Path(compressed_model.model_path).is_file()
+    assert Path(compressed_model.model_path.replace(".onnx", ".onnx.data")).exists()
+
+
 @pytest.mark.skipif(
     not package_version_at_least("optimum", "2.1.0"),
     reason="Requires optimum >= 2.1.0",
