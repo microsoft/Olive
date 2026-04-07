@@ -2,11 +2,105 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import functools
+import json
+from pathlib import Path
+
 from olive_mcp.constants import (
     PROVIDER_TO_EXTRAS,
     PROVIDER_TO_GENAI,
     Command,
 )
+
+# Maps the MCP "implementation" parameter to the candidate pass types that
+# olive/cli/quantize.py would select.  This is *structural* routing info —
+# the actual package dependencies come from olive_config.json at runtime.
+_IMPL_TO_PASS_TYPES: dict[str, list[str]] = {
+    "bnb": ["OnnxBnb4Quantization"],
+    "inc": ["IncDynamicQuantization", "IncQuantization", "IncStaticQuantization"],
+    "autogptq": ["GptqQuantizer"],
+    "awq": ["AutoAWQQuantizer"],
+    "olive": [
+        "Gptq",
+        "Rtn",
+        "OnnxBlockWiseRtnQuantization",
+        "OnnxHqqQuantization",
+    ],
+    "ort": ["OnnxDynamicQuantization", "OnnxStaticQuantization"],
+    "nvmo": ["NVModelOptQuantization"],
+    "aimet": ["AimetQuantization"],
+    "quarot": ["QuaRot"],
+    "spinquant": ["SpinQuant"],
+}
+
+
+@functools.lru_cache
+def _load_olive_config() -> dict | None:
+    """Load olive_config.json as raw JSON.
+
+    Tries the installed ``olive`` package first, then falls back to the
+    repo-relative path (for development).
+    """
+    config_path: Path | None = None
+    try:
+        from olive.package_config import OlivePackageConfig
+
+        config_path = Path(OlivePackageConfig.get_default_config_path())
+    except ImportError:
+        config_path = Path(__file__).resolve().parents[3] / "olive" / "olive_config.json"
+
+    if config_path and config_path.exists():
+        with open(config_path) as f:
+            return json.load(f)
+    return None
+
+
+def _resolve_quantize_packages(
+    algorithm: str, implementation: str
+) -> tuple[set[str], list[str]]:
+    """Derive quantize dependencies from olive_config.json.
+
+    Returns ``(extras, extra_packages)`` where *extras* are olive-ai extras
+    keys (e.g. ``"bnb"``, ``"inc"``) and *extra_packages* are direct pip
+    package names (e.g. ``"autoawq"``).
+    """
+    extras: set[str] = set()
+    extra_packages: list[str] = []
+
+    config = _load_olive_config()
+    if config is None:
+        return extras, extra_packages
+
+    passes_cfg = config.get("passes", {})
+    extra_deps_map = config.get("extra_dependencies", {})
+
+    candidate_pass_types = _IMPL_TO_PASS_TYPES.get(implementation, [])
+    for pass_type in candidate_pass_types:
+        pass_info = passes_cfg.get(pass_type)
+        if pass_info is None:
+            continue
+
+        # Skip passes that do not support the requested algorithm.
+        supported_algos = pass_info.get("supported_algorithms", [])
+        if supported_algos and "*" not in supported_algos and algorithm not in supported_algos:
+            continue
+
+        # extra_dependencies are olive-ai extras keys (resolved via setup.py)
+        for dep_key in pass_info.get("extra_dependencies", []):
+            if dep_key in extra_deps_map:
+                extras.add(dep_key)
+            else:
+                extra_packages.append(dep_key)
+
+        # module_dependencies are direct pip packages
+        extra_packages.extend(pass_info.get("module_dependencies", []))
+
+        # If the pass may need a dataset, pre-install the datasets package.
+        dataset_req = pass_info.get("dataset", "dataset_not_required")
+        if dataset_req in ("dataset_required", "dataset_optional", "dataset"):
+            extra_packages.append("datasets")
+
+    return extras, extra_packages
 
 
 def _resolve_packages(command: str, provider: str | None = None, **kwargs) -> list[str]:
@@ -44,17 +138,9 @@ def _resolve_packages(command: str, provider: str | None = None, **kwargs) -> li
     elif command == Command.QUANTIZE:
         algorithm = kwargs.get("algorithm", "rtn")
         impl = kwargs.get("implementation", "olive")
-        if impl == "bnb":
-            extras.add("bnb")
-        elif impl == "inc":
-            extras.add("inc")
-        elif impl == "autogptq" or algorithm == "gptq":
-            extra_packages.extend(["auto-gptq", "optimum", "datasets"])
-        elif impl == "awq" or algorithm == "awq":
-            extra_packages.append("autoawq")
-        # Static quantization needs calibration data
-        if algorithm != "rtn":
-            extra_packages.append("datasets")
+        q_extras, q_packages = _resolve_quantize_packages(algorithm, impl)
+        extras.update(q_extras)
+        extra_packages.extend(q_packages)
 
     elif command == Command.FINETUNE:
         method = kwargs.get("method", "lora")

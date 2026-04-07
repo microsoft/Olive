@@ -262,7 +262,8 @@
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "fp4", "nf4" ],
             "supported_algorithms": [ "rtn" ],
-            "supported_quantization_encodings": [  ]
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "bnb" ]
         },
         "OnnxConversion": {
             "module_path": "olive.passes.onnx.conversion.OnnxConversion",
