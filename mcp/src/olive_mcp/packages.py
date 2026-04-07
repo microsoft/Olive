@@ -55,9 +55,7 @@ def _load_olive_config() -> dict | None:
     return None
 
 
-def _resolve_quantize_packages(
-    algorithm: str, implementation: str
-) -> tuple[set[str], list[str]]:
+def _resolve_quantize_packages(algorithm: str, implementation: str) -> tuple[set[str], list[str]]:
     """Derive quantize dependencies from olive_config.json.
 
     Returns ``(extras, extra_packages)`` where *extras* are olive-ai extras
