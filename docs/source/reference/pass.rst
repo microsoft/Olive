@@ -313,12 +313,6 @@ Rtn
 ----------------
 .. autoconfigclass:: olive.passes.Rtn
 
-.. _torch_trt_conversion:
-
-TorchTRTConversion
-------------------
-.. autoconfigclass:: olive.passes.TorchTRTConversion
-
 OpenVINO
 =================================
 
