@@ -259,4 +259,5 @@ class QairtGenAIBuilder(Pass):
                 # Not every model has all the files listed above
                 pass
 
-        return QairtModelHandler(model_path=output_model_path)
+        model_attrs = {"sequence_lengths": config.sequence_lengths} if config.sequence_lengths else {}
+        return QairtModelHandler(model_path=output_model_path, model_attributes=model_attrs)

@@ -31,5 +31,5 @@ def test_to_genie_log_level(log_level, expected):
 
 def test_qairt_log_level_invalid_value():
     """Invalid values are rejected by the enum."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="'WARN' is not a valid QairtLogLevel"):
         QairtLogLevel("WARN")

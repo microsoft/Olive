@@ -164,12 +164,18 @@ class QairtEncapsulation(Pass):
                 # Not every model has all the files listed above
                 pass
 
-        create_genai_config(context_model_output, output_model_path, config.log_level)
+        sequence_lengths = (model.model_attributes or {}).get("sequence_lengths", None)
+        create_genai_config(context_model_output, output_model_path, config.log_level, sequence_lengths)
 
         return ONNXModelHandler(model_path=output_model_path)
 
 
-def create_genai_config(model_name: str, output_path: str, log_level: "QairtLogLevel | None") -> None:
+def create_genai_config(
+    model_name: str,
+    output_path: str,
+    log_level: "QairtLogLevel | None",
+    sequence_lengths: "list[int] | None" = None,
+) -> None:
     """Generate the genai_config.json from the model config files.
 
     This is only for Generative AI models for which the config.json and generation_config.json files exist
@@ -177,6 +183,7 @@ def create_genai_config(model_name: str, output_path: str, log_level: "QairtLogL
         model_name: name of model ONNX file that is generated
         output_path: path to the output directory where the genai_config.json file will be created
         log_level: log level for underlying QAIRT components
+        sequence_lengths: AR sequence lengths from QairtGenAIBuilder, used to compute max_length
         return: None
     """
     source_config_path = Path(output_path) / "config.json"
@@ -199,7 +206,7 @@ def create_genai_config(model_name: str, output_path: str, log_level: "QairtLogL
                     "graph_optimization_level": "ORT_DISABLE_ALL",
                     "provider_options": [
                         {
-                            "QNN": {
+                            "qnn": {
                                 "genie_model": "True",
                                 "enable_htp_shared_memory_allocator": "1",
                                 "genie_log_level": log_level.to_genie_log_level() if log_level else "error",
@@ -309,7 +316,17 @@ def create_genai_config(model_name: str, output_path: str, log_level: "QairtLogL
         genai_config["model"]["pad_token_id"] = -1
     genai_config["model"]["vocab_size"] = src_config.get("vocab_size", -1)
 
-    genai_config["search"]["max_length"] = src_config.get("max_position_embeddings", -1)
+    # Populate search parameters from generation_config.json (if present)
+    for field in ("do_sample", "temperature", "top_k", "top_p"):
+        if field in gen_config:
+            genai_config["search"][field] = gen_config[field]
+
+    # max_length = context_length - min(sequence_lengths) to avoid runtime crash with AR decode
+    context_length = src_config.get("max_position_embeddings", -1)
+    if sequence_lengths and context_length != -1:
+        genai_config["search"]["max_length"] = context_length - min(sequence_lengths)
+    else:
+        genai_config["search"]["max_length"] = context_length
 
     output_genai_config = Path(output_path) / "genai_config.json"
     with open(output_genai_config, "w") as f:

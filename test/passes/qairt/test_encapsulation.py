@@ -798,3 +798,99 @@ def test_create_genai_config_pad_token_id_absent_no_eos(tmp_path):
         result = json.load(f)
 
     assert result["model"]["pad_token_id"] == -1
+
+
+def test_create_genai_config_search_fields_from_gen_config(tmp_path):
+    """Search fields do_sample, temperature, top_k, top_p are read from generation_config.json."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(json.dumps({"model_type": "llama"}))
+    (tmp_path / "generation_config.json").write_text(
+        json.dumps({"eos_token_id": 2, "do_sample": True, "temperature": 0.8, "top_k": 50, "top_p": 0.95})
+    )
+
+    create_genai_config(model_name, str(tmp_path), None)
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["search"]["do_sample"] is True
+    assert result["search"]["temperature"] == 0.8
+    assert result["search"]["top_k"] == 50
+    assert result["search"]["top_p"] == 0.95
+
+
+def test_create_genai_config_search_fields_defaults_when_absent(tmp_path):
+    """Search fields retain template defaults when absent from generation_config.json."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(json.dumps({"model_type": "llama"}))
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    create_genai_config(model_name, str(tmp_path), None)
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["search"]["do_sample"] is True
+    assert result["search"]["temperature"] == 1.0
+    assert result["search"]["top_k"] == 1
+    assert result["search"]["top_p"] == 1.0
+
+
+def test_create_genai_config_max_length_with_sequence_lengths(tmp_path):
+    """max_length = max_position_embeddings - min(sequence_lengths) when sequence_lengths provided."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(json.dumps({"model_type": "llama", "max_position_embeddings": 4096}))
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    create_genai_config(model_name, str(tmp_path), None, sequence_lengths=[32, 128])
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["search"]["max_length"] == 4096 - 32
+
+
+def test_create_genai_config_max_length_without_sequence_lengths(tmp_path):
+    """max_length falls back to max_position_embeddings when sequence_lengths not provided."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(json.dumps({"model_type": "llama", "max_position_embeddings": 4096}))
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    create_genai_config(model_name, str(tmp_path), None)
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["search"]["max_length"] == 4096
+
+
+def test_create_genai_config_provider_options_key_lowercase(tmp_path):
+    """Provider options key is 'qnn' (lowercase), not 'QNN'."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(json.dumps({"model_type": "llama"}))
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    create_genai_config(model_name, str(tmp_path), None)
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    provider_options = result["model"]["decoder"]["session_options"]["provider_options"]
+    assert len(provider_options) == 1
+    assert "qnn" in provider_options[0]
+    assert "QNN" not in provider_options[0]
