@@ -144,7 +144,7 @@ Copilot: Starting int4 optimization with GPTQ...
 
 ### Tips for VS Code Copilot
 
-- **Multi-step workflows**: You can chain requests naturally — *"Quantize Phi-4-mini to int4, then benchmark it on hellaswag"*.
+- **Auto-allow tools**: If you trust the Olive tools, you can click the dropdown on the "Allow" button and select "Always allow" to skip confirmation for future calls.
 - **Check progress**: If optimization is running, just ask *"What's the status?"* — Copilot will poll `get_job_status` for you.
 
 ---
