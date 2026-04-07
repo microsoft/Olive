@@ -331,7 +331,6 @@ def test_preparation_temp_config_cleanup(tmp_path, mock_hf_model, mock_qairt_mod
 
 def test_preparation_uses_sys_executable_and_env(tmp_path, mock_hf_model, mock_qairt_modules):
     """Test that subprocess uses sys.executable and passes environment."""
-    import os
     import sys
 
     script_path = tmp_path / "prep_script.py"

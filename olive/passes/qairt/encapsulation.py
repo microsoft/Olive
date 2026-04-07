@@ -17,6 +17,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, QairtModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.qairt.utils import QairtLogLevel
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class QairtEncapsulation(Pass):
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "log_level": PassConfigParam(
-                type_=str,
+                type_=QairtLogLevel,
                 default_value=None,
                 description="Log level to be used within underlying QAIRT components."
                 "Valid values: DEBUG, INFO, WARN, ERROR.",
@@ -68,9 +69,12 @@ class QairtEncapsulation(Pass):
         if Version(sdk_version) < Version("2.45.0"):
             raise OSError("QairtGenAIBuilder pass is unsupported for QAIRT versions < 2.45.0")
 
+        if config.log_level:
+            os.environ["QAIRT_LOG_LEVEL"] = config.log_level
+
         container: qairt_genai.LLMContainer = qairt_genai.LLMContainer.load(model.model_path)
 
-        # Input/Ouptut metadata
+        # Input/Output metadata
         container.inputs = [("input_ids", TensorProto.INT32, ["batch_size", "sequence_length"])]
         container.outputs = [("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])]
 
@@ -160,19 +164,19 @@ class QairtEncapsulation(Pass):
                 # Not every model has all the files listed above
                 pass
 
-        create_genai_config(context_model_output, output_model_path, config)
+        create_genai_config(context_model_output, output_model_path, config.log_level)
 
         return ONNXModelHandler(model_path=output_model_path)
 
 
-def create_genai_config(model_name: str, output_path: str, config: type[BasePassConfig]) -> None:
+def create_genai_config(model_name: str, output_path: str, log_level: "QairtLogLevel | None") -> None:
     """Generate the genai_config.json from the model config files.
 
     This is only for Generative AI models for which the config.json and generation_config.json files exist
     Args:
         model_name: name of model ONNX file that is generated
         output_path: path to the output directory where the genai_config.json file will be created
-        config: pass configuration containing backend and other settings
+        log_level: log level for underlying QAIRT components
         return: None
     """
     source_config_path = Path(output_path) / "config.json"
@@ -198,7 +202,7 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
                             "QNN": {
                                 "genie_model": "True",
                                 "enable_htp_shared_memory_allocator": "1",
-							    "genie_log_level": "error"
+                                "genie_log_level": log_level.to_genie_log_level() if log_level else "error",
                             }
                         }
                     ],
@@ -257,9 +261,29 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
     genai_config["model"]["bos_token_id"] = src_config.get("bos_token_id", -1)
     genai_config["model"]["context_length"] = src_config.get("max_position_embeddings", -1)
     genai_config["model"]["decoder"]["filename"] = model_name
-    genai_config["model"]["decoder"]["head_size"] = src_config.get("hidden_size", -1) // src_config.get(
-        "num_attention_heads", -1
-    )
+
+    # Safe head_size computation
+    num_attention_heads = src_config.get("num_attention_heads", -1)
+    hidden_size = src_config.get("hidden_size", -1)
+    if (
+        isinstance(num_attention_heads, int)
+        and isinstance(hidden_size, int)
+        and num_attention_heads > 0
+        and hidden_size >= 0
+    ):
+        genai_config["model"]["decoder"]["head_size"] = hidden_size // num_attention_heads
+    else:
+        if not isinstance(num_attention_heads, int):
+            logger.warning("num_attention_heads is not an int: %s found in src_config", num_attention_heads)
+        elif num_attention_heads <= 0:
+            logger.warning("Invalid num_attention_heads (<= 0) %s found in src_config", num_attention_heads)
+        if not isinstance(hidden_size, int):
+            logger.warning("hidden_size is not an int: %s found in src_config", hidden_size)
+        elif hidden_size < 0:
+            logger.warning("Invalid hidden_size (< 0) %s found in src_config", hidden_size)
+        logger.warning("Setting genai_config['model']['decoder']['head_size'] to -1")
+        genai_config["model"]["decoder"]["head_size"] = -1
+
     genai_config["model"]["decoder"]["hidden_size"] = src_config.get("hidden_size", -1)
 
     for name in inputs:
@@ -272,14 +296,17 @@ def create_genai_config(model_name: str, output_path: str, config: type[BasePass
     genai_config["model"]["decoder"]["num_hidden_layers"] = src_config.get("num_hidden_layers", -1)
     genai_config["model"]["decoder"]["num_key_value_heads"] = src_config.get("num_key_value_heads", -1)
 
-    genai_config["model"]["eos_token_id"] = gen_config.get("eos_token_id", -1)
-    genai_config["model"]["pad_token_id"] = (
-        gen_config["pad_token_id"]
-        if hasattr(gen_config, "pad_token_id") and gen_config["pad_token_id"] is not None
-        else gen_config["eos_token_id"][0]
-        if isinstance(gen_config["eos_token_id"], list)
-        else gen_config["eos_token_id"]
-    )
+    eos_token_id = gen_config.get("eos_token_id", -1)
+    genai_config["model"]["eos_token_id"] = eos_token_id
+    pad_token_id = gen_config.get("pad_token_id", None)
+    if pad_token_id is not None:
+        genai_config["model"]["pad_token_id"] = pad_token_id
+    elif eos_token_id != -1:
+        genai_config["model"]["pad_token_id"] = (
+            eos_token_id[0] if isinstance(eos_token_id, list) and len(eos_token_id) > 0 else eos_token_id
+        )
+    else:
+        genai_config["model"]["pad_token_id"] = -1
     genai_config["model"]["vocab_size"] = src_config.get("vocab_size", -1)
 
     genai_config["search"]["max_length"] = src_config.get("max_position_embeddings", -1)

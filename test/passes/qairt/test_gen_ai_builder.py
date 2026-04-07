@@ -64,7 +64,7 @@ def test_gen_ai_builder_cpu_backend_success(tmp_path, mock_hf_model, mock_qairt_
     # Verify GenAIBuilderFactory was called correctly
     mock_qairt_modules["gen_ai_api"].GenAIBuilderFactory.create.assert_called_once()
     call_kwargs = mock_qairt_modules["gen_ai_api"].GenAIBuilderFactory.create.call_args.kwargs
-    assert "pretrained_model_path" in call_kwargs
+    assert call_kwargs["pretrained_model_path"] == Path(mock_hf_model.model_path)
     assert call_kwargs["backend_type"] == "CPU"
 
     # Verify build and save were called
@@ -107,6 +107,10 @@ def test_gen_ai_builder_htp_backend_success(tmp_path, mock_qairt_prepared_model,
     # Verify result
     assert isinstance(result, QairtModelHandler)
     assert result.model_path == str(output_path)
+
+    # Verify GenAIBuilderFactory was called with base/onnx path for HTP
+    call_kwargs = mock_qairt_modules["gen_ai_api"].GenAIBuilderFactory.create.call_args.kwargs
+    assert call_kwargs["pretrained_model_path"] == Path(mock_qairt_prepared_model.model_path) / "base" / "onnx"
 
     # Verify HTP-specific configurations were set
     mock_builder.set_targets.assert_called_once_with(["chipset:SC8380XP"])
@@ -446,6 +450,36 @@ def test_gen_ai_builder_native_kv_validation_invalid_sequence_lengths(mock_accel
     ).config
 
     assert QairtGenAIBuilder.validate_config(config, mock_accelerator_spec) is False
+
+
+def test_gen_ai_builder_htp_no_soc_details_skips_set_targets(tmp_path, mock_qairt_prepared_model, mock_qairt_modules):
+    """Test that set_targets is not called when soc_details is None (relies on QAIRT defaults)."""
+    output_path = tmp_path / "output"
+
+    mock_builder = MagicMock()
+    mock_container = MagicMock()
+    mock_builder.build.return_value = mock_container
+    mock_builder._compilation_config = MagicMock()
+    mock_builder._compilation_config.graph_custom_configs = [MagicMock()]
+    mock_builder._compilation_config.device_custom_configs = [MagicMock()]
+    mock_builder._compilation_config.context_custom_configs = [MagicMock()]
+    mock_builder._transformation_config = MagicMock()
+    mock_builder._transformation_config.model_transformer_config = MagicMock()
+    mock_builder._transformation_config.model_transformer_config.arn_cl_options = MagicMock()
+    mock_builder._transformation_config.model_transformer_config.split_model = MagicMock()
+
+    mock_qairt_modules["gen_ai_api"].GenAIBuilderFactory.create.return_value = mock_builder
+
+    gen_ai_pass = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {"backend": "HTP"},  # soc_details not set (defaults to None)
+        disable_search=True,
+    )
+
+    result = gen_ai_pass.run(mock_qairt_prepared_model, str(output_path))
+
+    mock_builder.set_targets.assert_not_called()
+    assert isinstance(result, QairtModelHandler)
 
 
 def test_gen_ai_builder_native_kv_validation_valid_sequence_lengths(mock_accelerator_spec, mock_qairt_modules):

@@ -19,8 +19,6 @@ def test_encapsulation_default_config(mock_accelerator_spec):
     """Test that the default config is correctly generated."""
     config = QairtEncapsulation._default_config(mock_accelerator_spec)  # pylint: disable=protected-access
 
-    assert "backend" in config
-    assert config["backend"].default_value == "CPU"
     assert "log_level" in config
     assert "run_checker" in config
     assert config["run_checker"].default_value is False
@@ -637,3 +635,166 @@ def test_encapsulation_sdk_version_check_valid_version(tmp_path, mock_qairt_mode
         # Should not raise an error
         result = encap_pass.run(mock_qairt_model, str(output_path))
         assert result is not None
+
+
+def _make_minimal_onnx(path):
+    """Write a minimal ONNX model to *path* so create_genai_config can load it."""
+    import onnx
+    from onnx import TensorProto
+
+    input_tensor = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
+    output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
+    node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
+    graph = onnx.helper.make_graph([node], "g", [input_tensor], [output_tensor])
+    model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
+    onnx.save(model, path)
+
+
+def test_create_genai_config_head_size_valid(tmp_path):
+    """Valid hidden_size and num_attention_heads → head_size == hidden_size // num_attention_heads."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(
+        json.dumps({"hidden_size": 4096, "num_attention_heads": 32, "model_type": "llama"})
+    )
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    create_genai_config(model_name, str(tmp_path), None)
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["model"]["decoder"]["head_size"] == 4096 // 32
+
+
+def test_create_genai_config_head_size_missing_keys(tmp_path):
+    """Missing hidden_size and num_attention_heads → head_size == -1, warning logged."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(json.dumps({"model_type": "llama"}))
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    with patch("olive.passes.qairt.encapsulation.logger") as mock_logger:
+        create_genai_config(model_name, str(tmp_path), None)
+        mock_logger.warning.assert_called()
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["model"]["decoder"]["head_size"] == -1
+
+
+def test_create_genai_config_head_size_zero_attention_heads(tmp_path):
+    """num_attention_heads == 0 → head_size == -1, warning logged."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(
+        json.dumps({"hidden_size": 4096, "num_attention_heads": 0, "model_type": "llama"})
+    )
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    with patch("olive.passes.qairt.encapsulation.logger") as mock_logger:
+        create_genai_config(model_name, str(tmp_path), None)
+        warning_messages = [str(call) for call in mock_logger.warning.call_args_list]
+        assert any("num_attention_heads" in msg for msg in warning_messages)
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["model"]["decoder"]["head_size"] == -1
+
+
+def test_create_genai_config_head_size_non_int(tmp_path):
+    """Non-int num_attention_heads → head_size == -1, warning logged."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(
+        json.dumps({"hidden_size": 4096, "num_attention_heads": "32", "model_type": "llama"})
+    )
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    with patch("olive.passes.qairt.encapsulation.logger") as mock_logger:
+        create_genai_config(model_name, str(tmp_path), None)
+        warning_messages = [str(call) for call in mock_logger.warning.call_args_list]
+        assert any("num_attention_heads" in msg for msg in warning_messages)
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["model"]["decoder"]["head_size"] == -1
+
+
+def test_create_genai_config_pad_token_id_present(tmp_path):
+    """pad_token_id in generation_config.json → written as-is to genai_config.json."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(json.dumps({"model_type": "llama"}))
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2, "pad_token_id": 0}))
+
+    create_genai_config(model_name, str(tmp_path), None)
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["model"]["pad_token_id"] == 0
+
+
+def test_create_genai_config_pad_token_id_absent_scalar_eos(tmp_path):
+    """No pad_token_id, scalar eos_token_id → pad_token_id falls back to eos_token_id."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(json.dumps({"model_type": "llama"}))
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    create_genai_config(model_name, str(tmp_path), None)
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["model"]["pad_token_id"] == 2
+
+
+def test_create_genai_config_pad_token_id_absent_list_eos(tmp_path):
+    """No pad_token_id, list eos_token_id → pad_token_id falls back to first element."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(json.dumps({"model_type": "llama"}))
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": [2, 3]}))
+
+    create_genai_config(model_name, str(tmp_path), None)
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["model"]["pad_token_id"] == 2
+
+
+def test_create_genai_config_pad_token_id_absent_no_eos(tmp_path):
+    """No pad_token_id and no eos_token_id → pad_token_id == -1."""
+    from olive.passes.qairt.encapsulation import create_genai_config
+
+    model_name = "model.onnx"
+    _make_minimal_onnx(tmp_path / model_name)
+    (tmp_path / "config.json").write_text(json.dumps({"model_type": "llama"}))
+    (tmp_path / "generation_config.json").write_text(json.dumps({}))
+
+    create_genai_config(model_name, str(tmp_path), None)
+
+    with open(tmp_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["model"]["pad_token_id"] == -1

@@ -10,13 +10,19 @@ from typing import Union
 
 from packaging.version import Version
 
-from olive.common.utils import hardlink_copy_file
+from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.hardware import AcceleratorSpec
 from olive.model import HfModelHandler, QairtModelHandler, QairtPreparedModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.qairt.utils import QairtLogLevel
 
 logger = logging.getLogger(__name__)
+
+
+class QairtBackend(StrEnumBase):
+    CPU = "CPU"
+    HTP = "HTP"
 
 
 class QairtGenAIBuilder(Pass):
@@ -38,15 +44,15 @@ class QairtGenAIBuilder(Pass):
                 "By default, saves to a similar location to the Olive cache.",
             ),
             "log_level": PassConfigParam(
-                type_=str,
+                type_=QairtLogLevel,
                 default_value=None,
                 description="Log level to be used within underlying QAIRT components."
                 "Valid values: DEBUG, INFO, WARN, ERROR.",
             ),
             # Device configs
             "backend": PassConfigParam(
-                type_=str,
-                default_value="CPU",
+                type_=QairtBackend,
+                default_value=QairtBackend.CPU,
                 description="Target accelerator to prepare the model for. Accepted values are 'CPU' and 'HTP'.",
             ),
             "soc_details": PassConfigParam(
@@ -173,8 +179,13 @@ class QairtGenAIBuilder(Pass):
         if config.backend == qairt.BackendType.HTP.value and not isinstance(model, QairtPreparedModelHandler):
             raise ValueError("QAIRT HTP GenAIBuilder can only consume QairtPreparedModelHandler")
 
+        if isinstance(model, QairtPreparedModelHandler):
+            pretrained_model_path = Path(model.model_path) / "base" / "onnx"
+        else:
+            pretrained_model_path = Path(model.model_path)
+
         gen_ai_builder = qairt_genai.GenAIBuilderFactory.create(
-            pretrained_model_path=Path(model.model_path) / "base" / "onnx",
+            pretrained_model_path=pretrained_model_path,
             backend_type=config.backend,
             cache_root=config.cache_dir,
             tokenizer_path=Path(model.model_path),
@@ -194,7 +205,8 @@ class QairtGenAIBuilder(Pass):
         # Can only set target and transformation configurations if the BE is HTP
         if config.backend == qairt.BackendType.HTP.value:
             # Device configs
-            gen_ai_builder.set_targets([config.soc_details])
+            if config.soc_details:
+                gen_ai_builder.set_targets([config.soc_details])
 
             if config.vtcm_size_in_mb != 0:
                 gen_ai_builder._compilation_config.graph_custom_configs[0].vtcm_size_in_mb = config.vtcm_size_in_mb
