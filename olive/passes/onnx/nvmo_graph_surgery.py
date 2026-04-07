@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
 import logging
-import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -96,8 +95,8 @@ class NVModelOptGraphSurgery(Pass):
 
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
-                temp_input_path = os.path.join(temp_dir, "input_model.onnx")
-                temp_output_path = os.path.join(temp_dir, "output_model.onnx")
+                temp_input_path = Path(temp_dir) / "input_model.onnx"
+                temp_output_path = Path(temp_dir) / "output_model.onnx"
 
                 # Save input model to temp directory
                 model_proto = model.load_model()
@@ -121,15 +120,15 @@ class NVModelOptGraphSurgery(Pass):
                 # Load modified model (without external data — we'll copy the file separately)
                 if isinstance(result, ModelProto):
                     modified_model_proto = result
-                    temp_ext_data_file = os.path.join(temp_dir, "output_model.onnx_data")
-                    if os.path.exists(temp_ext_data_file):
+                    temp_ext_data_file = Path(temp_dir) / "output_model.onnx_data"
+                    if temp_ext_data_file.exists():
                         modified_model_proto = onnx.load(temp_output_path, load_external_data=False)
                 else:
                     modified_model_proto = onnx.load(temp_output_path, load_external_data=False)
 
                 # Check for external data file
-                temp_ext_data_file = os.path.join(temp_dir, "output_model.onnx_data")
-                has_external_data = os.path.exists(temp_ext_data_file)
+                temp_ext_data_file = Path(temp_dir) / "output_model.onnx_data"
+                has_external_data = temp_ext_data_file.exists()
 
                 # Resolve final output path
                 output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
