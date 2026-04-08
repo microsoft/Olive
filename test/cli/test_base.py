@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -259,3 +260,63 @@ def test_insert_input_model_cli_output_model():
 
     # assert
     assert config == expected_config
+
+
+def test_get_input_model_config_rewrites_stale_model_path(tmp_path):
+    """Test that model_path is rewritten when the stored path is from a different machine/location."""
+    onnx_file_name = "model.onnx"
+    # Create the ONNX file locally in tmp_path (content doesn't matter, only existence is checked)
+    (tmp_path / onnx_file_name).touch()
+
+    # Write model_config.json with a stale absolute model_path from a different location
+    stale_model_path = "/some/other/machine/path/to/model"
+    model_config = {
+        "type": "OnnxModel",
+        "config": {
+            "model_path": stale_model_path,
+            "onnx_file_name": onnx_file_name,
+        },
+    }
+    (tmp_path / "model_config.json").write_text(json.dumps(model_config))
+
+    args = SimpleNamespace(
+        model_name_or_path=str(tmp_path),
+        trust_remote_code=False,
+        task=None,
+        model_script=None,
+        script_dir=None,
+    )
+
+    # execute
+    config = get_input_model_config(args)
+
+    # assert that model_path has been rewritten to the current (local) directory
+    assert config["config"]["model_path"] == str(tmp_path)
+    assert config["config"]["onnx_file_name"] == onnx_file_name
+
+
+def test_get_input_model_config_no_crash_without_onnx_file_name(tmp_path):
+    """Test that get_input_model_config does not crash when onnx_file_name is missing from config."""
+    stale_model_path = "/some/other/machine/path/to/model"
+    model_config = {
+        "type": "OnnxModel",
+        "config": {
+            "model_path": stale_model_path,
+            # onnx_file_name intentionally omitted
+        },
+    }
+    (tmp_path / "model_config.json").write_text(json.dumps(model_config))
+
+    args = SimpleNamespace(
+        model_name_or_path=str(tmp_path),
+        trust_remote_code=False,
+        task=None,
+        model_script=None,
+        script_dir=None,
+    )
+
+    # execute - should not raise
+    config = get_input_model_config(args)
+
+    # model_path should remain unchanged since no onnx_file_name to guide rewriting
+    assert config["config"]["model_path"] == stale_model_path

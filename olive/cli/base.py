@@ -237,6 +237,14 @@ def get_input_model_config(args: Namespace, required: bool = True) -> Optional[d
         with open(model_path / "model_config.json") as f:
             model_config = json.load(f)
 
+        config = model_config.get("config", {})
+        onnx_file_name = config.get("onnx_file_name")
+        if onnx_file_name and (model_path / onnx_file_name).exists():
+            # For cases where the model was not exported on the same machine/location,
+            # update the model path to match the current environment.
+            config["model_path"] = str(model_path)
+            model_config["config"] = config
+
         if adapter_path := getattr(args, "adapter_path", None):
             assert model_config["type"].lower() == "hfmodel", "Only HfModel supports adapter_path."
             model_config["config"]["adapter_path"] = adapter_path
