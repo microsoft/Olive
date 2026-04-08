@@ -196,14 +196,6 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
-        "MoEExpertsDistributor": {
-            "module_path": "olive.passes.onnx.moe_experts_distributor.MoEExpertsDistributor",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
         "LoftQ": {
             "module_path": "olive.passes.pytorch.lora.LoftQ",
             "supported_providers": [ "*" ],
