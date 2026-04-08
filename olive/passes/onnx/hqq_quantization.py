@@ -72,6 +72,7 @@ class OnnxHqqQuantization(Pass):
             return model
         output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
         ir_model = model.load_ir_model()
+        ir.external_data.load_to_model(ir_model)
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1
         self._quantize_model(
             ir_model,
