@@ -59,7 +59,7 @@ class DiffusersModelHandler(OliveModelHandler):
 
         super().__init__(
             framework=Framework.PYTORCH,
-            model_file_format=ModelFileFormat.PYTORCH_ENTIRE_MODEL,
+            model_file_format=ModelFileFormat.PYTORCH_DIFFUSERS,
             model_path=model_path,
             model_attributes=model_attributes or {},
         )

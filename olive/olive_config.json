@@ -637,15 +637,6 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
-        "TorchTRTConversion": {
-            "module_path": "olive.passes.pytorch.torch_trt_conversion.TorchTRTConversion",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "extra_dependencies": [ "torch-tensorrt" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
         "VitisAIAddMetaData": {
             "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIAddMetaData",
             "supported_providers": [ "CPUExecutionProvider" ],
