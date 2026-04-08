@@ -297,4 +297,3 @@ That's it. The AI handles the rest.
 
 - [Olive GitHub Repository](https://github.com/microsoft/Olive)
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/)
-- [Olive MCP Server README](https://github.com/microsoft/Olive/tree/main/mcp)
