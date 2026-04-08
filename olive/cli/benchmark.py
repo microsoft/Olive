@@ -68,6 +68,14 @@ class BenchmarkCommand(BaseOliveCLICommand):
             help="Number (or percentage of dataset) of samples to use for evaluation.",
         )
 
+        lmeval_group.add_argument(
+            "--backend",
+            type=str,
+            default="auto",
+            choices=["auto", "ort", "ortgenai"],
+            help="Backend for ONNX model evaluation. Use 'auto' to infer backend from model type.",
+        )
+
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
         add_shared_cache_options(sub_parser)
@@ -88,6 +96,9 @@ class BenchmarkCommand(BaseOliveCLICommand):
             "onnxmodel",
         }, "Only HfModel, PyTorchModel and OnnxModel are supported in benchmark command."
 
+        if self.args.backend != "auto" and input_model_config["type"].lower() != "onnxmodel":
+            raise ValueError("--backend is only supported for ONNX input models.")
+
         to_replace = [
             ("input_model", input_model_config),
             ("output_dir", self.args.output_path),
@@ -103,6 +114,10 @@ class BenchmarkCommand(BaseOliveCLICommand):
             (("evaluators", "evaluator", "max_length"), self.args.max_length),
             (("evaluators", "evaluator", "device"), self.args.device),
             (("evaluators", "evaluator", "limit"), self.args.limit),
+            (
+                ("evaluators", "evaluator", "model_class"),
+                None if self.args.backend == "auto" else self.args.backend,
+            ),
         ]
 
         for keys, value in to_replace:
