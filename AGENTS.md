@@ -24,7 +24,7 @@ If you need to run tests, install the appropriate dependencies from `test/requir
 ## Repository map
 
 - `olive/`: main package
-  - `cli/`: CLI commands such as `optimize`, `auto_opt`, `quantize`, `finetune`, `capture_onnx`, plus the shared launcher and base CLI logic.
+  - `cli/`: CLI commands such as `optimize`, `quantize`, `finetune`, `capture-onnx-graph`, plus the shared launcher and base CLI logic.
   - `common/`: shared helpers for config loading, Hugging Face integration, quantization helpers, ONNX/ORT utilities, and user module loading.
   - `data/`: data configuration and registry.
     - `component/`: dataset, dataloader, dataset loading, and pre/post-processing components.
