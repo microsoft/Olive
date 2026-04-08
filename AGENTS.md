@@ -4,7 +4,11 @@
 
 Olive is a Python toolkit for AI model optimization on ONNX Runtime. The main package is in `olive/`, tests are in `test/`, and the CLI entry point is `olive`.
 
-## Setup and validation
+## User guide
+
+Olive users should install `olive-ai` with `pip install olive-ai`, and follow `README.md`.
+
+## Developer setup and validation
 
 1. `pip install -r requirements.txt`
 2. `pip install -e .`
@@ -16,6 +20,7 @@ Use the smallest relevant check for your change:
 - `python -c "import olive; print(olive.__version__)"`
 - `olive --help`
 - `lintrunner`
+- `lintrunner --skip PYLINT` for faster local linting while iterating; run PYLINT at the end when changes are ready for a PR
 - `lintrunner -a` to apply available autofixes
 - `lintrunner --all-files` when you need to match CI
 
@@ -58,6 +63,7 @@ If you need to run tests, install the appropriate dependencies from `test/requir
 - Follow Black-compatible formatting with a 120 character line length.
 - Prefer existing repository patterns before adding new abstractions.
 - Use absolute imports.
+- Use `pathlib` for path handling.
 - Keep changes focused and avoid unrelated refactors.
 
 ## Testing
