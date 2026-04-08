@@ -19,10 +19,7 @@ Use the smallest relevant check for your change:
 
 - `python -c "import olive; print(olive.__version__)"`
 - `olive --help`
-- `lintrunner`
-- `lintrunner --skip PYLINT` for faster local linting while iterating; run PYLINT at the end when changes are ready for a PR
-- `lintrunner -a` to apply available autofixes
-- `lintrunner --all-files` when you need to match CI
+- `lintrunner --all-files -a --skip PYLINT` for faster local linting while iterating; run PYLINT at the end when changes are ready for a PR
 
 If you need to run tests, install the appropriate dependencies from `test/requirements-test.txt` or one of the platform-specific files in `test/`.
 
