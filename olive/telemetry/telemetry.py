@@ -19,8 +19,6 @@ from olive.telemetry.deviceid import get_encrypted_device_id_and_status
 from olive.telemetry.library.event_source import event_source
 from olive.telemetry.library.telemetry_logger import TelemetryLogger, get_telemetry_logger
 from olive.telemetry.utils import (
-    _decode_cache_line,
-    _encode_cache_line,
     _exclusive_file_lock,
     get_telemetry_base_dir,
 )
@@ -292,12 +290,11 @@ class TelemetryCacheHandler:
                         if not entries:
                             return
 
-                    # Append base64-encoded newline-delimited entries
+                    # Append newline-delimited JSON entries
                     # Use exclusive file lock for multi-process safety
                     with _exclusive_file_lock(cache_path, mode="a") as cache_file:
                         for entry in entries:
-                            plain = json.dumps(entry, ensure_ascii=False, separators=(",", ":"))
-                            cache_file.write(_encode_cache_line(plain) + "\n")
+                            cache_file.write(json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n")
                     return
                 except OSError as exc:
                     # Retry only on transient access errors (file locked by another process)
@@ -322,59 +319,28 @@ class TelemetryCacheHandler:
     def _flush_cache_file(self, cache_path: Path) -> None:
         """Flush cached events back to telemetry service.
 
-        Approach:
-        1. Atomically rename cache → .flush (claims ownership, prevents concurrent flushes)
-        2. Read all events from .flush file
-        3. Queue all events for sending via telemetry logger
-        4. Force flush with 2-second timeout
-        5. On success: delete .flush file
-        6. On failure: restore .flush → cache for retry
-
-        Multi-process coordination:
-        - `replace()` is atomic; only one process can successfully rename the cache file
-        - If another process already renamed it, we get FileNotFoundError and abort
-        - Stale .flush files from crashes are overwritten by the atomic rename
-
-        Shutdown handling:
-        - If shutdown flag set during flush, restore cache before returning
-        - This preserves events even if callbacks don't fire during shutdown
-
-        Callback behavior:
-        - Queued events trigger callbacks with success/failure
-        - Failed events are automatically re-cached via callbacks (unless shutting down)
-        - The _is_flushing flag prevents re-caching of replayed events during flush
+        Uses atomic rename to claim the cache file, preventing duplicate
+        sends when multiple processes flush concurrently.
         """
         flush_path = None
         try:
-            # Check shutdown before starting (under lock to prevent race)
             with self._condition:
                 if self._shutdown:
                     return
 
-            if not cache_path.exists():
-                return
-
-            # Atomically rename to .flush file to claim ownership
-            # Overwrite any stale .flush file from crashed process (C# pattern)
-            flush_path = cache_path.with_name(f"{cache_path.name}.flush")
+            # Atomically rename to claim ownership — only one process can succeed
+            flush_path = cache_path.with_suffix(".flush")
             try:
-                # On Windows/POSIX, replace() overwrites existing files atomically
                 cache_path.replace(flush_path)
             except FileNotFoundError:
-                # Cache already claimed by another flush or doesn't exist
                 return
 
-            # Read all cached entries (base64-decoded)
             entries = _read_cache_entries(flush_path)
-
             if not entries:
-                # Empty cache, just delete the flush file
                 flush_path.unlink(missing_ok=True)
                 return
 
-            # Replay all events through telemetry logger
-            # Note: _is_flushing flag (set by caller) prevents these callbacks from re-caching or triggering nested flushes
-            # (unlikely since we just successfully sent an event, indicating network is available)
+            # Replay cached events — _is_flushing flag prevents re-caching
             for entry in entries:
                 try:
                     event_name = entry["event_name"]
@@ -384,46 +350,24 @@ class TelemetryCacheHandler:
                     attributes = json.loads(event_data)
                     if not isinstance(attributes, dict):
                         continue
-                    # Preserve original timestamp
                     attributes["initTs"] = entry.get("initTs", entry["ts"])
                     self._telemetry.log(event_name, attributes, None)
                 except Exception:
-                    # Skip malformed entries
                     continue
 
-            # Check if shutdown happened during flush
-            with self._condition:
-                if self._shutdown:
-                    # Restore cache to avoid data loss during shutdown
-                    if flush_path and flush_path.exists():
-                        try:
-                            cache_path.parent.mkdir(parents=True, exist_ok=True)
-                            flush_path.replace(cache_path)
-                        except Exception:
-                            # Silently ignore errors during cleanup
-                            pass
-                    return
-
-            # Wait for in-flight callbacks to complete before deciding success/failure
             flush_success = self.wait_for_callbacks(timeout_sec=5.0, during_flush=True)
             if flush_success:
-                # Success: delete the flush file (events were sent)
-                if flush_path:
-                    flush_path.unlink(missing_ok=True)
-            elif flush_path and flush_path.exists():
-                # Failure: restore cache for retry later
-                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                flush_path.unlink(missing_ok=True)
+            else:
+                # Restore cache for next retry
                 flush_path.replace(cache_path)
         except Exception:
-            # Best-effort restore on any exception to prevent data loss
-            if flush_path and flush_path.exists():
-                try:
-                    cache_path.parent.mkdir(parents=True, exist_ok=True)
+            # Best-effort restore on failure
+            try:
+                if flush_path and flush_path.exists():
                     flush_path.replace(cache_path)
-                except Exception:
-                    # If restore fails, we lose the data (acceptable for telemetry)
-                    pass
-            return
+            except Exception:
+                pass
 
     @property
     def is_flushing(self) -> bool:
@@ -442,17 +386,12 @@ class Telemetry:
     _lock = threading.Lock()
 
     def __new__(cls):
-        """Create or return the singleton instance.
-
-        Thread-safe singleton implementation using double-checked locking.
-        """
-        if cls._instance is None:
-            with cls._lock:
-                # Double-check pattern to prevent race conditions
-                if cls._instance is None:
-                    instance = super().__new__(cls)
-                    instance._initialized = False
-                    cls._instance = instance
+        """Create or return the singleton instance."""
+        with cls._lock:
+            if cls._instance is None:
+                instance = super().__new__(cls)
+                instance._initialized = False
+                cls._instance = instance
         return cls._instance
 
     def __init__(self):
@@ -740,18 +679,10 @@ def _set_nested_value(data: dict[str, Any], key: str, value: Any) -> None:
 
 
 def _read_cache_entries(cache_path: Path) -> list[dict[str, Any]]:
-    """Read all entries from a cache file, decoding each line.
+    """Read all JSON-line entries from a cache file.
 
-    Design decisions:
-    - Use file locking for multi-process safety
-    - Continue reading past malformed entries (partial data recovery)
-    - Return empty list on complete read failure (fail gracefully)
-    - Each line is base64-decoded before JSON parsing.
-
-    Assumptions:
-    - Cache file contains newline-delimited base64-encoded entries (one per line)
-    - Each line is independent (one malformed line doesn't affect others)
-    - Empty or whitespace-only lines are skipped
+    Each line is independent — malformed lines are skipped without
+    affecting other entries. Returns empty list on read failure.
     """
     entries = []
     try:
@@ -761,13 +692,11 @@ def _read_cache_entries(cache_path: Path) -> list[dict[str, Any]]:
                 if not line:
                     continue
                 try:
-                    line = json.loads(_decode_cache_line(line))
-                    if isinstance(line, dict):
-                        entries.append(line)
+                    parsed = json.loads(line)
+                    if isinstance(parsed, dict):
+                        entries.append(parsed)
                 except Exception:
-                    # Malformed line, skip and continue
                     continue
     except Exception:
-        # If file cannot be opened or read, return empty list
         return []
     return entries
