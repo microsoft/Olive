@@ -146,8 +146,8 @@ class HttpJsonPostTransport(ITransport):
                 response = self.session.post(
                     url=self.endpoint, data=compressed_payload, headers=headers, timeout=timeout_sec
                 )
-            except requests.exceptions.ConnectionError:
-                # Retry once on connection error
+            except requests.exceptions.RequestException:
+                # Retry once on any request error (connection, timeout, etc.)
                 response = self.session.post(
                     url=self.endpoint, data=compressed_payload, headers=headers, timeout=timeout_sec
                 )

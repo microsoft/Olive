@@ -93,16 +93,21 @@ class _ExclusiveFileLock:
     def __enter__(self):
         self.file = open(self.file_path, self.mode, encoding="utf-8")
 
-        # Platform-specific locking
-        if os.name == "posix":
-            import fcntl
+        try:
+            # Platform-specific locking
+            if os.name == "posix":
+                import fcntl
 
-            fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
-        elif os.name == "nt":
-            import msvcrt
+                fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
+            elif os.name == "nt":
+                import msvcrt
 
-            # Lock 1 byte at position 0
-            msvcrt.locking(self.file.fileno(), msvcrt.LK_LOCK, 1)
+                # Lock 1 byte at position 0
+                msvcrt.locking(self.file.fileno(), msvcrt.LK_LOCK, 1)
+        except Exception:
+            self.file.close()
+            self.file = None
+            raise
 
         return self.file
 
