@@ -170,6 +170,17 @@ Run benchmarking using llm-eval.
     :prog: olive
     :path: benchmark
 
+Model Package
+=============
+
+Merge multiple context binary outputs into a model package with manifest and per-component metadata.
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: model-package
+
 Providing Input Models
 ======================
 
