@@ -93,8 +93,12 @@ def test_is_not_accelerator_agnostic():
 def test_ep_map_covers_common_providers():
     assert ExecutionProvider.CPUExecutionProvider in MobiusModelBuilder.EP_MAP
     assert ExecutionProvider.CUDAExecutionProvider in MobiusModelBuilder.EP_MAP
+    assert ExecutionProvider.DmlExecutionProvider in MobiusModelBuilder.EP_MAP
+    assert ExecutionProvider.WebGpuExecutionProvider in MobiusModelBuilder.EP_MAP
     assert MobiusModelBuilder.EP_MAP[ExecutionProvider.CPUExecutionProvider] == "cpu"
     assert MobiusModelBuilder.EP_MAP[ExecutionProvider.CUDAExecutionProvider] == "cuda"
+    assert MobiusModelBuilder.EP_MAP[ExecutionProvider.DmlExecutionProvider] == "dml"
+    assert MobiusModelBuilder.EP_MAP[ExecutionProvider.WebGpuExecutionProvider] == "webgpu"
 
 
 # ---------------------------------------------------------------------------

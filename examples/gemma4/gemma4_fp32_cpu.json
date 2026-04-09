@@ -1,0 +1,32 @@
+{
+    "comment": "Build google/gemma-4-2b-it as a float32 ONNX model using mobius, targeting CPU execution.",
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "google/gemma-4-2b-it",
+        "task": "text-generation"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "cpu",
+                    "execution_providers": ["CPUExecutionProvider"]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "mobius_build": {
+            "type": "MobiusModelBuilder",
+            "precision": "fp32"
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "output_dir": "models/gemma4-fp32-cpu",
+        "output_name": "gemma4_fp32",
+        "clean_cache": false,
+        "system": "local_system"
+    }
+}
