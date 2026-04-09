@@ -353,7 +353,7 @@ def get_attr(module, attr, fail_on_not_found=False):
             module = module[a]
             continue
         except (KeyError, IndexError, TypeError) as e:
-            not_found_message = f"Attribute {parts} not found."
+            not_found_message = f"Attribute {'.'.join(parts)} not found."
             if fail_on_not_found:
                 raise AttributeError(not_found_message) from e
             else:
