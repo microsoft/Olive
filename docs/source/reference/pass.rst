@@ -116,6 +116,12 @@ GraphSurgeries
 --------------------
 .. autoconfigclass:: olive.passes.GraphSurgeries
 
+.. _nvmodelopt_graph_surgery:
+
+NVModelOptGraphSurgery
+----------------------
+.. autoconfigclass:: olive.passes.NVModelOptGraphSurgery
+
 .. _matmulnbits_to_qdq:
 
 MatMulNBitsToQDQ

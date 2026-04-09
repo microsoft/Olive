@@ -2100,6 +2100,81 @@ Two cases are supported:
 ```
 
 
+## NVIDIA ModelOpt Graph Surgeries
+
+`NVModelOptGraphSurgery` provides access to graph-level transformations from [NVIDIA ModelOpt](https://github.com/NVIDIA/TensorRT-Model-Optimizer). These surgeries are designed for optimizing LLM and encoder-decoder ONNX models for deployment with ONNX Runtime and TensorRT.
+
+Available surgery types:
+
+| Surgery | Description |
+|---------|-------------|
+| `replace-gqa` | Replace standard multi-head attention with ORT's GroupQueryAttention (GQA) operator |
+| `transpose-dq` | Transpose DequantizeLinear weights for column-major storage optimization |
+| `add-cross-kv` | Add cross-attention KV cache outputs to Whisper encoder models |
+| `convert-bf16` | Convert FP16 model initializers and I/O to BF16 |
+
+Please refer to [NVModelOptGraphSurgery](../reference/pass.rst#nvmodelopt_graph_surgery) for more details about the pass and its config parameters.
+
+### Replace Attention with GQA
+
+Replaces the native multi-head attention subgraph (Q/K/V projections, RoPE, KV cache, scaled dot-product attention) with ORT's fused `GroupQueryAttention` operator. Supports models exported via Optimum or similar tools.
+
+```json
+{
+    "type": "NVModelOptGraphSurgery",
+    "surgery_type": "replace-gqa",
+    "surgery_params": {
+        "hf_model_id": "meta-llama/Llama-2-7b-hf",
+        "max_seq_len": 4096,
+        "io_dtype": "float16"
+    }
+}
+```
+
+Key `surgery_params`:
+
+- `hf_model_id`: HuggingFace model ID (used to compute RoPE caches and read model config).
+- `max_seq_len`: Maximum sequence length for the KV cache.
+- `io_dtype`: I/O data type. Use `"float16"` or `"bfloat16"`. If `"bfloat16"` is specified and the model has FP16 initializers, they are automatically converted to BF16.
+
+### Transpose DequantizeLinear Weights
+
+Transposes quantized weight initializers feeding `DequantizeLinear` nodes and inserts a `Transpose` node before `MatMul`. This enables column-major weight storage for improved memory access patterns.
+
+```json
+{
+    "type": "NVModelOptGraphSurgery",
+    "surgery_type": "transpose-dq",
+    "surgery_params": {}
+}
+```
+
+### Add Cross-Attention KV to Encoder
+
+Adds cross-attention key/value cache outputs to a Whisper encoder model, making it compatible with ONNX Runtime GenAI pipelines.
+
+```json
+{
+    "type": "NVModelOptGraphSurgery",
+    "surgery_type": "add-cross-kv",
+    "surgery_params": {
+        "hf_model_id": "openai/whisper-large-v3-turbo"
+    }
+}
+```
+
+### Convert FP16 to BF16
+
+Standalone precision conversion from FP16 to BF16 for all model initializers and I/O tensors.
+
+```json
+{
+    "type": "NVModelOptGraphSurgery",
+    "surgery_type": "convert-bf16",
+    "surgery_params": {}
+}
+```
+
 ### `RenameOutputDims`
 
 #### Description
