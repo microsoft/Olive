@@ -475,8 +475,11 @@ class Telemetry:
         self._cache_handler = TelemetryCacheHandler(self)
         self._initialized = True
         self._setup_payload_callbacks()
+        if self._is_ci_environment():
+            self.disable_telemetry()
+            return
         self._log_heartbeat()
-        if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1" or self._is_ci_environment():
+        if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1":
             self.disable_telemetry()
 
     @staticmethod
