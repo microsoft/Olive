@@ -41,7 +41,7 @@ def inherit_distributed_hf_from_hf(
 def inherit_pytorch_from_hf(
     model: HfModelHandler,
     model_path: Union[str, Path],
-    model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
+    model_file_format: ModelFileFormat,
     **extra_attributes,
 ) -> PyTorchModelHandler:
     # keep original io_config if present otherwise use the hf onnx_config
@@ -96,10 +96,3 @@ def inherit_pytorch_from_hf(
         io_config=io_config,
         model_attributes={**model.model_attributes, **extra_attributes},
     )
-
-
-def inherit_pytorch_from_pytorch(model: PyTorchModelHandler, model_path: Union[str, Path]) -> PyTorchModelHandler:
-    model_config = model.to_json()["config"]
-    model_config["model_path"] = model_path
-    model_config.pop("model_loader", None)
-    return PyTorchModelHandler(**model_config)

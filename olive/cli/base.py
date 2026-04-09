@@ -149,8 +149,11 @@ def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
 
     user_module_loader = UserModuleLoader(args.model_script, args.script_dir)
 
-    if not model_path and not user_module_loader.has_function("_model_loader"):
-        raise ValueError("Either _model_loader or model_name_or_path is required for PyTorch model.")
+    if not user_module_loader.has_function("_model_loader"):
+        raise ValueError(
+            "_model_loader function is required in model_script for PyTorch model."
+            " Define a function that takes model_path and returns a loaded PyTorch model."
+        )
 
     input_model_config = {
         "type": "PyTorchModel",
@@ -164,9 +167,8 @@ def _get_pt_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
         print("Loading PyTorch model from", model_path)
         input_model_config["model_path"] = model_path
 
-    if user_module_loader.has_function("_model_loader"):
-        print("Loading PyTorch model from function: _model_loader.")
-        input_model_config["model_loader"] = "_model_loader"
+    print("Loading PyTorch model from function: _model_loader.")
+    input_model_config["model_loader"] = "_model_loader"
 
     model_funcs = [
         ("io_config", "_io_config"),
@@ -236,6 +238,14 @@ def get_input_model_config(args: Namespace, required: bool = True) -> Optional[d
     if model_path.is_dir() and (model_path / "model_config.json").exists():
         with open(model_path / "model_config.json") as f:
             model_config = json.load(f)
+
+        config = model_config.get("config", {})
+        onnx_file_name = config.get("onnx_file_name")
+        if onnx_file_name and (model_path / onnx_file_name).exists():
+            # For cases where the model was not exported on the same machine/location,
+            # update the model path to match the current environment.
+            config["model_path"] = str(model_path)
+            model_config["config"] = config
 
         if adapter_path := getattr(args, "adapter_path", None):
             assert model_config["type"].lower() == "hfmodel", "Only HfModel supports adapter_path."

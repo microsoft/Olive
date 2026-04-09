@@ -2175,6 +2175,91 @@ Standalone precision conversion from FP16 to BF16 for all model initializers and
 }
 ```
 
+### `RenameOutputDims`
+
+#### Description
+
+Renames a dimension in an output tensor's shape. Useful for restoring meaningful symbolic dimension names after graph transformations that may have changed them (e.g. after `OrtTransformersOptimization`).
+
+#### Configurations
+
+- `output_idx`: Index of the output tensor to modify.
+- `dim_idx`: Index of the dimension within the output's shape.
+- `dim_name`: New symbolic name for the dimension.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RenameOutputDims",
+            "output_idx": 0,
+            "dim_idx": 0,
+            "dim_name": "num_logical_patches"
+        }
+    ]
+}
+```
+
+### `RenameInputDims`
+
+#### Description
+
+Renames or promotes a dimension in an input tensor's shape to a named symbolic dimension. Useful when `torch.export` specializes a batch-like input dimension to a concrete value but ONNX Runtime needs to accept a variable-length tensor at inference time. The target input can be specified by name (preferred) or by index.
+
+#### Configurations
+
+- `dim_idx`: Index of the dimension within the input's shape.
+- `dim_name`: New symbolic name for the dimension.
+- `input_name` *(optional)*: Name of the input tensor to modify.
+- `input_idx` *(optional)*: Index of the input tensor to modify. Either `input_name` or `input_idx` must be provided.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RenameInputDims",
+            "input_name": "image_grid_thw",
+            "dim_idx": 0,
+            "dim_name": "num_images"
+        }
+    ]
+}
+```
+
+### `RemoveMemcpy`
+
+#### Description
+
+Removes `MemcpyToHost` and `MemcpyFromHost` nodes that are inserted by ORT's `OrtTransformersOptimization` pass when it pre-partitions a graph for a GPU execution provider. These nodes represent explicit GPU↔CPU data copies for tensors whose consumers require CPU memory (e.g. shape arguments to `Reshape`, start/end for `Slice`, trip counts for `Loop`).
+
+Removing them is safe because ORT's runtime `MemcpyTransformer` will re-insert only the truly necessary copies when the session is created. The runtime also has a `GetCpuPreferredNodes` heuristic that may keep entire shape-computation subgraphs on CPU, potentially avoiding some copies entirely.
+
+The surgery processes both the main graph and all Loop/If subgraphs recursively. After removal the graph nodes are topologically re-sorted to satisfy the ONNX requirement that every input is produced before use.
+
+#### Configurations
+
+No parameters required.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RemoveMemcpy"
+        }
+    ]
+}
+```
+
+
 ## ORT Performance Tuning
 
 ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
