@@ -5,6 +5,7 @@
 import pytest
 
 from olive.model import ONNXModelHandler
+from olive.model.handler.composite import CompositeModelHandler
 from olive.model.handler.model_package import ModelPackageModelHandler
 
 
@@ -74,3 +75,40 @@ class TestModelPackageModelHandler:
         h1 = _make_onnx_handler(tmp_path, "t1")
         with pytest.raises(AssertionError, match="Number of target models and names must match"):
             ModelPackageModelHandler([h1], ["t1", "t2"], model_path=tmp_path)
+
+    def test_is_composite_false_for_plain_targets(self, tmp_path):
+        # setup
+        h1 = _make_onnx_handler(tmp_path, "t1")
+        h2 = _make_onnx_handler(tmp_path, "t2")
+        mt = ModelPackageModelHandler([h1, h2], ["t1", "t2"], model_path=tmp_path)
+
+        # execute / assert
+        assert mt.is_composite is False
+
+    def test_is_composite_true_for_composite_targets(self, tmp_path):
+        # setup
+        c1 = CompositeModelHandler([_make_onnx_handler(tmp_path, "enc1")], ["encoder"], model_path=str(tmp_path / "c1"))
+        c2 = CompositeModelHandler([_make_onnx_handler(tmp_path, "enc2")], ["encoder"], model_path=str(tmp_path / "c2"))
+        mt = ModelPackageModelHandler([c1, c2], ["soc_a", "soc_b"], model_path=tmp_path)
+
+        # execute / assert
+        assert mt.is_composite is True
+
+    def test_is_composite_empty_targets(self, tmp_path):
+        # setup
+        mt = ModelPackageModelHandler([], [], model_path=tmp_path)
+
+        # execute / assert
+        assert mt.is_composite is False
+
+    def test_is_composite_mixed_types_raises(self, tmp_path):
+        # setup
+        plain = _make_onnx_handler(tmp_path, "plain")
+        composite = CompositeModelHandler(
+            [_make_onnx_handler(tmp_path, "enc")], ["encoder"], model_path=str(tmp_path / "comp")
+        )
+        mt = ModelPackageModelHandler([plain, composite], ["t1", "t2"], model_path=tmp_path)
+
+        # execute / assert
+        with pytest.raises(AssertionError, match="All target models must be the same type"):
+            _ = mt.is_composite

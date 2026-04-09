@@ -87,12 +87,20 @@ class ModelPackageModelHandler(OliveModelHandler):
 
     @property
     def is_composite(self) -> bool:
-        """Check if the target models are CompositeModelHandlers."""
+        """Check if the target models are CompositeModelHandlers.
+
+        All targets are expected to be the same type: either all composite or all non-composite.
+        """
         from olive.model.handler.composite import CompositeModelHandler
 
-        for m in self._target_models:
-            return isinstance(m, CompositeModelHandler)
-        return False
+        if not self._target_models:
+            return False
+
+        checks = [isinstance(m, CompositeModelHandler) for m in self._target_models]
+        assert all(c == checks[0] for c in checks), (
+            "All target models must be the same type: either all CompositeModelHandler or all non-composite"
+        )
+        return checks[0]
 
     def load_model(self, rank: int = None, cache_model: bool = True):
         raise NotImplementedError
