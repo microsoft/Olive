@@ -30,10 +30,8 @@
         }
     },
     "engine": {
-        "log_severity_level": 0,
+        "target": "local_system",
         "output_dir": "models/gemma4-e2b-int4-cuda",
-        "output_name": "gemma4_e2b_int4",
-        "clean_cache": false,
-        "system": "local_system"
+        "log_severity_level": 1
     }
 }

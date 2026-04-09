@@ -23,10 +23,8 @@
         }
     },
     "engine": {
-        "log_severity_level": 0,
+        "target": "local_system",
         "output_dir": "models/gemma4-e2b-fp32-cpu",
-        "output_name": "gemma4_e2b_fp32",
-        "clean_cache": false,
-        "system": "local_system"
+        "log_severity_level": 1
     }
 }
