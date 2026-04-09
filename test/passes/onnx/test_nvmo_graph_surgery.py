@@ -356,6 +356,7 @@ def _build_quantized_model() -> onnx.ModelProto:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skip(reason="Disabled pending onnx-graphsurgeon compatibility with onnx>=1.20")
 def test_replace_gqa(tmp_path):
     """Run real replace-gqa surgery through Olive pass, verify output structure."""
     hidden, heads, kv, hd = _get_config()
@@ -398,6 +399,7 @@ def test_replace_gqa(tmp_path):
     assert attrs["do_rotary"] == 1
 
 
+@pytest.mark.skip(reason="Disabled pending onnx-graphsurgeon compatibility with onnx>=1.20")
 def test_transpose_dq(tmp_path):
     """Run real transpose-dq surgery through Olive pass, verify transposed weights."""
     before_proto = _build_quantized_model()
