@@ -48,6 +48,12 @@ class Pass(ABC):
     # True if the pass processes a composite model at once. Otherwise, the components of the
     # composite model will be processed individually.
     _accepts_composite_model: bool = False
+    # True if the pass processes a model package model at once. Otherwise, each target
+    # will be processed independently.
+    _accepts_model_package_model: bool = False
+    # When True, skip automatic carry-forward of additional_files in run().
+    # Passes that manage config/additional files themselves (e.g., ModelPackager) should set this.
+    _skip_additional_files_carry_forward: bool = False
 
     @classmethod
     def __init_subclass__(cls, **kwargs) -> None:
@@ -206,6 +212,7 @@ class Pass(ABC):
     def run(self, model: OliveModelHandler, output_model_path: str) -> OliveModelHandler:
         """Run the pass on the model at a specific point in the search space."""
         from olive.model import CompositeModelHandler, DistributedOnnxModelHandler
+        from olive.model.handler.model_package import ModelPackageModelHandler
 
         if not self._initialized:
             self._initialize()
@@ -227,6 +234,20 @@ class Pass(ABC):
                 inference_settings=model.inference_settings,
                 model_attributes=model.model_attributes,
             )
+        elif isinstance(model, ModelPackageModelHandler) and not self._accepts_model_package_model:
+            # Run the pass independently for each hardware target
+            targets = []
+            target_names = []
+            model_dir = Path(output_model_path).with_suffix("")
+            model_dir.mkdir(parents=True, exist_ok=True)
+            for target_name, target_model in model.get_target_models():
+                target_output_path = model_dir / target_name
+                output_target = self.run(target_model, str(target_output_path))
+                targets.append(output_target)
+                target_names.append(target_name)
+            output_model = ModelPackageModelHandler(
+                targets, target_names, model_path=model_dir, model_attributes=model.model_attributes
+            )
         elif isinstance(model, CompositeModelHandler) and not self._accepts_composite_model:
             components = []
             component_names = []
@@ -246,7 +267,8 @@ class Pass(ABC):
         # the input model attributes, we should not update/extend anymore outside of the pass run
         output_model.model_attributes = output_model.model_attributes or model.model_attributes
         # save and carry forward additional files into the the output model path
-        Pass._carry_forward_additional_files(model, output_model)
+        if not self._skip_additional_files_carry_forward:
+            Pass._carry_forward_additional_files(model, output_model)
         return output_model
 
     @staticmethod
@@ -287,7 +309,10 @@ class Pass(ABC):
             output_filepath = output_model_path / input_filepath.name
             if not output_filepath.exists():
                 # TODO(team): Use symlinks instead of copying the files.
-                shutil.copy(str(input_filepath), str(output_filepath))
+                if input_filepath.is_dir():
+                    shutil.copytree(str(input_filepath), str(output_filepath))
+                else:
+                    shutil.copy(str(input_filepath), str(output_filepath))
             # always add the file_path to the output model's additional files
             # this covers the case where the output model_path is the same as the input model_path
             # like for perf-tuning pass

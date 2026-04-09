@@ -583,7 +583,7 @@ class OptimizeCommand(BaseOliveCLICommand):
             "add_zero_point": "true",
             "save_as_external_data": "true",
         }
-        config["nodes_to_exclude"] = ["/lm_head/MatMul_Q4"]
+        config["nodes_to_exclude"] = ["/lm_head/MatMulNBits"]
         if precision.value == Precision.INT4:
             config["use_int4"] = "true"
         return config
