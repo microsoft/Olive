@@ -349,7 +349,7 @@ def get_attr(module, attr, fail_on_not_found=False):
             module = module[int(a)]
             continue
         except (ValueError, KeyError, IndexError, TypeError):
-            pass
+            logger.debug("Failed integer index access for '%s'; trying string-key access.", a)
         try:
             module = module[a]
             continue
