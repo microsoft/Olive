@@ -86,7 +86,7 @@ def _lora_flow(model_path, variant):
         )
     )
 
-    data_args = ""
+    data_args = []
     if data_source == SourceType.LOCAL:
         data_dir = _ask(
             questionary.text(
@@ -94,7 +94,7 @@ def _lora_flow(model_path, variant):
                 validate=lambda x: True if x.strip() else "Please enter a path",
             )
         )
-        data_args = f" -d {data_dir}"
+        data_args.append(f"-d {data_dir}")
     else:
         data_name = _ask(
             questionary.text(
@@ -106,15 +106,21 @@ def _lora_flow(model_path, variant):
         image_column = _ask(questionary.text("Image column name:", default="image"))
         caption_column = _ask(questionary.text("Caption column name (optional):", default=""))
 
-        data_args = f" --data_name {data_name} --data_split {data_split} --image_column {image_column}"
+        data_args.extend(
+            [
+                f"--data_name {data_name}",
+                f"--data_split {data_split}",
+                f"--image_column {image_column}",
+            ]
+        )
         if caption_column:
-            data_args += f" --caption_column {caption_column}"
+            data_args.append(f"--caption_column {caption_column}")
 
     # DreamBooth
-    dreambooth_args = ""
+    dreambooth_args = []
     enable_dreambooth = _ask(questionary.confirm("Enable DreamBooth training?", default=False))
     if enable_dreambooth:
-        dreambooth_args = " --dreambooth"
+        dreambooth_args.append("--dreambooth")
 
         instance_prompt = _ask(
             questionary.text(
@@ -122,7 +128,7 @@ def _lora_flow(model_path, variant):
                 validate=lambda x: True if x.strip() else "Instance prompt is required for DreamBooth",
             )
         )
-        dreambooth_args += f' --instance_prompt "{instance_prompt}"'
+        dreambooth_args.append(f'--instance_prompt "{instance_prompt}"')
 
         with_prior = _ask(questionary.confirm("Enable prior preservation?", default=True))
         if with_prior:
@@ -132,14 +138,19 @@ def _lora_flow(model_path, variant):
                     validate=lambda x: True if x.strip() else "Class prompt is required for prior preservation",
                 )
             )
-            dreambooth_args += f' --with_prior_preservation --class_prompt "{class_prompt}"'
+            dreambooth_args.extend(
+                [
+                    "--with_prior_preservation",
+                    f'--class_prompt "{class_prompt}"',
+                ]
+            )
 
             class_data_dir = _ask(questionary.text("Class data directory (optional):", default=""))
             if class_data_dir:
-                dreambooth_args += f" --class_data_dir {class_data_dir}"
+                dreambooth_args.append(f"--class_data_dir {class_data_dir}")
 
             num_class_images = _ask(questionary.text("Number of class images:", default="200"))
-            dreambooth_args += f" --num_class_images {num_class_images}"
+            dreambooth_args.append(f"--num_class_images {num_class_images}")
 
     # Training parameters
     max_train_steps = _ask(
@@ -189,32 +200,40 @@ def _lora_flow(model_path, variant):
     seed = _ask(questionary.text("Random seed (optional, press Enter to skip):", default=""))
 
     # Flux-specific
-    flux_args = ""
+    flux_args = []
     if variant == DiffuserVariant.FLUX:
         guidance_scale = _ask(questionary.text("Guidance scale (Flux-specific):", default="3.5"))
-        flux_args = f" --guidance_scale {guidance_scale}"
+        flux_args.append(f"--guidance_scale {guidance_scale}")
 
     # Merge LoRA
     merge_lora = _ask(questionary.confirm("Merge LoRA into base model?", default=False))
 
     # Build command
-    cmd = f"olive diffusion-lora -m {model_path}"
+    cmd_parts = ["olive diffusion-lora", f"-m {model_path}"]
     if variant != DiffuserVariant.AUTO:
-        cmd += f" --model_variant {variant}"
-    cmd += f" -r {lora_r} --alpha {lora_alpha} --lora_dropout {lora_dropout}"
-    cmd += data_args
-    cmd += dreambooth_args
-    cmd += f" --max_train_steps {max_train_steps}"
-    cmd += f" --learning_rate {learning_rate}"
-    cmd += f" --train_batch_size {train_batch_size}"
-    cmd += f" --gradient_accumulation_steps {gradient_accumulation}"
-    cmd += f" --mixed_precision {mixed_precision}"
-    cmd += f" --lr_scheduler {lr_scheduler}"
-    cmd += f" --lr_warmup_steps {warmup_steps}"
+        cmd_parts.append(f"--model_variant {variant}")
+    cmd_parts.extend(
+        [
+            f"-r {lora_r}",
+            f"--alpha {lora_alpha}",
+            f"--lora_dropout {lora_dropout}",
+            *data_args,
+            *dreambooth_args,
+            f"--max_train_steps {max_train_steps}",
+            f"--learning_rate {learning_rate}",
+            f"--train_batch_size {train_batch_size}",
+            f"--gradient_accumulation_steps {gradient_accumulation}",
+            f"--mixed_precision {mixed_precision}",
+            f"--lr_scheduler {lr_scheduler}",
+            f"--lr_warmup_steps {warmup_steps}",
+        ]
+    )
     if seed:
-        cmd += f" --seed {seed}"
-    cmd += flux_args
+        cmd_parts.append(f"--seed {seed}")
+    cmd_parts.extend(flux_args)
     if merge_lora:
-        cmd += " --merge_lora"
+        cmd_parts.append("--merge_lora")
+
+    cmd = " ".join(cmd_parts)
 
     return {"command": cmd}

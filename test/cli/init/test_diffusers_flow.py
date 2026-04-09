@@ -52,6 +52,13 @@ class TestLoraFlow:
         ]
         result = _lora_flow("my-model", DiffuserVariant.AUTO)
         cmd = result["command"]
+        assert (
+            cmd
+            == "olive diffusion-lora -m my-model -r 16 --alpha 16 --lora_dropout 0.0 -d /images "
+            "--max_train_steps 1000 --learning_rate 1e-4 --train_batch_size 1 "
+            "--gradient_accumulation_steps 4 --mixed_precision bf16 --lr_scheduler constant "
+            "--lr_warmup_steps 0"
+        )
         assert "olive diffusion-lora -m my-model" in cmd
         assert "-r 16 --alpha 16" in cmd
         assert "-d /images" in cmd
