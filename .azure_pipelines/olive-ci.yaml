@@ -25,7 +25,6 @@ pr:
 variables:
   runCodesignValidationInjection: false
   skipComponentGovernanceDetection: true
-  OLIVE_DISABLE_TELEMETRY: 1
 
 jobs:
 # Linux unit tests

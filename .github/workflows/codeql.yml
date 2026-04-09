@@ -11,9 +11,6 @@
 #
 name: "CodeQL"
 
-env:
-  OLIVE_DISABLE_TELEMETRY: "1"
-
 on:
   push:
     branches: [ "main" ]
