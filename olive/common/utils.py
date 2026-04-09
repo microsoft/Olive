@@ -342,7 +342,8 @@ def get_attr(module, attr, fail_on_not_found=False):
             module = getattr(module, a)
             continue
         except AttributeError:
-            pass
+            # Expected for non-attribute containers; fall back to index/key access below.
+            _ = None
         # Fall back to index/key access for lists, tuples, dicts, etc.
         try:
             module = module[int(a)]
