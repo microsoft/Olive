@@ -327,6 +327,8 @@ def get_attr(module, attr, fail_on_not_found=False):
 
     :param module: module to get attribute from.
     :param attr: attribute name, can be a string with dot notation. If empty, return module.
+        Each component is first tried as a regular attribute name. If that fails, it is tried as
+        an integer index and then as a string key, to support list and dict access respectively.
     :param fail_on_not_found: if True, raise AttributeError if attribute is not found.
     :return: attribute
     """
@@ -334,12 +336,25 @@ def get_attr(module, attr, fail_on_not_found=False):
         # return module if attr is empty
         return module
 
-    attr = attr.split(".")
-    for a in attr:
+    parts = attr.split(".")
+    for a in parts:
         try:
             module = getattr(module, a)
-        except AttributeError as e:
-            not_found_message = f"Attribute {attr} not found."
+            continue
+        except AttributeError:
+            # Expected for non-attribute containers; fall back to index/key access below.
+            _ = None
+        # Fall back to index/key access for lists, tuples, dicts, etc.
+        try:
+            module = module[int(a)]
+            continue
+        except (ValueError, KeyError, IndexError, TypeError):
+            logger.debug("Failed integer index access for '%s'; trying string-key access.", a)
+        try:
+            module = module[a]
+            continue
+        except (KeyError, IndexError, TypeError) as e:
+            not_found_message = f"Attribute {'.'.join(parts)} not found."
             if fail_on_not_found:
                 raise AttributeError(not_found_message) from e
             else:
