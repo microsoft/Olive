@@ -24,6 +24,7 @@ jobs:
   variables:
     PIP_CACHE_DIR: /mnt/storage/.cache/pip
     HF_HOME: /mnt/storage/.cache/huggingface
+    OLIVE_DISABLE_TELEMETRY: 1
 
   steps:
   - script: |
