@@ -37,8 +37,7 @@ class ModelPackage(Pass):
     Variant constraints include:
     - ep (required): execution provider name
     - device (optional): target device type (cpu, gpu, npu)
-    - architecture (optional): hardware architecture hint
-    - ep_compatibility_info (optional): EP-specific compatibility string
+    - ep_compatibility_info (always present): EP-specific compatibility string, empty if unavailable
     """
 
     _accepts_composite_model = True
@@ -96,8 +95,12 @@ class ModelPackage(Pass):
         # Copy config files (genai_config.json, chat_template) to configs/
         config_file_names = self._copy_config_files(model, output_dir)
 
-        # Build model_variants dict and copy files into models/<model_name>/
-        component_dir = output_dir / "models" / model_name
+        # Extract task from HF config and derive component name
+        task = self._extract_task(output_dir)
+        component_name = self._task_to_component_name(task)
+
+        # Build model_variants dict and copy files into models/<component_name>/
+        component_dir = output_dir / "models" / component_name
         component_dir.mkdir(parents=True, exist_ok=True)
 
         model_variants = {}
@@ -117,20 +120,18 @@ class ModelPackage(Pass):
         self._remove_config_files(component_dir, config_file_names)
 
         # Write metadata.json in the component directory
-        metadata = {"name": model_name, "model_variants": model_variants}
+        metadata = {"name": component_name, "model_variants": model_variants}
         metadata_path = component_dir / "metadata.json"
         with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
         logger.info("Generated metadata at %s", metadata_path)
-
-        # Extract task from HF config
-        task = self._extract_task(output_dir)
 
         # Write manifest.json at package root
         manifest = {
             "name": model_name,
             "model_version": config.model_version,
             "task": task,
+            "component_models": [component_name],
         }
         manifest_path = output_dir / "manifest.json"
         with open(manifest_path, "w") as f:
@@ -170,6 +171,9 @@ class ModelPackage(Pass):
         models_dir = output_dir / "models"
         component_names = list(component_data.keys())
 
+        # Get base model path for copying pre-optimized files
+        base_model_path = (model.model_attributes or {}).get("base_model_path")
+
         for comp_name in component_names:
             comp_dir = models_dir / comp_name
             comp_dir.mkdir(parents=True, exist_ok=True)
@@ -181,6 +185,10 @@ class ModelPackage(Pass):
 
                 file_path = f"{target_name}/{Path(comp_handler.model_path).name}"
                 model_variants[target_name] = {"file": file_path, "constraints": constraints}
+
+            # Copy base model for this component
+            if base_model_path:
+                self._copy_base_component(Path(base_model_path), comp_name, comp_dir, config_file_names)
 
             # Remove config files from component variant directories
             self._remove_config_files(comp_dir, config_file_names)
@@ -218,12 +226,8 @@ class ModelPackage(Pass):
         device = target_attrs.get("device")
         if device:
             constraints["device"] = device
-        architecture = target_attrs.get("architecture")
-        if architecture:
-            constraints["architecture"] = architecture
         ep_compat = self._extract_ep_compatibility_from_onnx(target_model, self.accelerator_spec.execution_provider)
-        if ep_compat:
-            constraints["ep_compatibility_info"] = ep_compat
+        constraints["ep_compatibility_info"] = ep_compat or ""
         return constraints
 
     @staticmethod
@@ -418,6 +422,58 @@ class ModelPackage(Pass):
             if f.is_file() and f.name not in config_file_names and f.suffix in model_suffixes:
                 shutil.copy2(str(f), str(base_dir / f.name))
                 logger.info("Copied base model file %s to %s", f.name, base_dir)
+
+    @staticmethod
+    def _copy_base_component(base_model_path, comp_name, comp_dir, config_file_names):
+        """Copy the base model files for a specific component to the ``base/`` subdirectory.
+
+        Searches the base model directory for a subdirectory matching *comp_name*
+        and copies model files from it.
+        """
+        base_dir = comp_dir / "base"
+        if base_dir.exists():
+            return
+
+        base_model_path = Path(base_model_path)
+        if not base_model_path.is_dir():
+            logger.warning("Base model path %s not found, skipping base model copy for %s", base_model_path, comp_name)
+            return
+
+        # For composite models the base path is the parent directory containing component subdirs
+        comp_src = base_model_path / comp_name
+        if not comp_src.is_dir():
+            logger.debug("No base directory found for component %s at %s", comp_name, comp_src)
+            return
+
+        base_dir.mkdir(parents=True, exist_ok=True)
+        model_suffixes = {".onnx", ".data", ".xml", ".bin"}
+        for f in sorted(comp_src.iterdir()):
+            if f.is_file() and f.name not in config_file_names and f.suffix in model_suffixes:
+                shutil.copy2(str(f), str(base_dir / f.name))
+                logger.info("Copied base model file %s to %s for component %s", f.name, base_dir, comp_name)
+
+    @staticmethod
+    def _task_to_component_name(tasks: list[str]) -> str:
+        """Map task list to a component name for single-component models.
+
+        Used when the model is not a composite pipeline but still needs
+        a component directory name in the package structure.
+        """
+        task_component_map = {
+            "text_generation": "decoder",
+            "text2text_generation": "encoder_decoder",
+            "text_classification": "classifier",
+            "token_classification": "token_classifier",
+            "question_answering": "qa_model",
+            "image_generation": "image_generator",
+            "image_classification": "image_classifier",
+            "object_detection": "object_detector",
+            "automatic_speech_recognition": "speech_recognizer",
+        }
+        for task in tasks:
+            if task in task_component_map:
+                return task_component_map[task]
+        return "model"
 
     @staticmethod
     def _extract_task(output_dir: Path) -> list[str]:

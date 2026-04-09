@@ -75,8 +75,8 @@ class TestModelPackage:
         mt = _make_model_package(
             tmp_path,
             [
-                ("soc_60", {"architecture": "60", "device": "NPU"}),
-                ("soc_73", {"architecture": "73", "device": "NPU"}),
+                ("soc_60", {"device": "NPU"}),
+                ("soc_73", {"device": "NPU"}),
             ],
         )
         p = self._create_packager()
@@ -88,31 +88,31 @@ class TestModelPackage:
         # assert: result type
         assert isinstance(result, ModelPackageModelHandler)
 
-        # assert: manifest.json has exactly the expected fields (no component_models for non-composite)
+        # assert: manifest.json always has component_models
         manifest_path = tmp_path / "output" / "manifest.json"
         assert manifest_path.exists()
         with open(manifest_path) as f:
             manifest = json.load(f)
-        assert set(manifest.keys()) == {"name", "model_version", "task"}
+        assert set(manifest.keys()) == {"name", "model_version", "task", "component_models"}
         assert manifest["name"] == "output"
         assert manifest["model_version"] == "1.0"
         assert manifest["task"] == []
+        assert manifest["component_models"] == ["model"]
 
-        # assert: metadata.json has exactly the expected fields
-        metadata_path = tmp_path / "output" / "models" / "output" / "metadata.json"
+        # assert: metadata.json under task-derived component dir ("model" when no HF config)
+        metadata_path = tmp_path / "output" / "models" / "model" / "metadata.json"
         assert metadata_path.exists()
         with open(metadata_path) as f:
             metadata = json.load(f)
         assert set(metadata.keys()) == {"name", "model_variants"}
-        assert metadata["name"] == "output"
+        assert metadata["name"] == "model"
 
         # assert: model_variants contain per-target constraints
         variants = metadata["model_variants"]
         assert "soc_60" in variants
         assert "soc_73" in variants
-        assert variants["soc_60"]["constraints"]["architecture"] == "60"
-        assert variants["soc_73"]["constraints"]["architecture"] == "73"
         assert variants["soc_60"]["constraints"]["ep"] == "QNNExecutionProvider"
+        assert variants["soc_60"]["constraints"]["ep_compatibility_info"] == ""
 
     def test_packager_ep_compatibility_from_onnx_metadata(self, tmp_path):
         """ep_compatibility_info is extracted from ONNX model custom metadata."""
@@ -120,7 +120,7 @@ class TestModelPackage:
         h1 = _make_onnx_handler_with_metadata(
             tmp_path,
             "soc_60",
-            model_attributes={"architecture": "60"},
+            model_attributes={},
             onnx_metadata={
                 "ep_compatibility_info.QNNExecutionProvider": "QNNExecutionProvider;version=0.1.0;soc=60",
             },
@@ -128,7 +128,7 @@ class TestModelPackage:
         h2 = _make_onnx_handler_with_metadata(
             tmp_path,
             "soc_73",
-            model_attributes={"architecture": "73"},
+            model_attributes={},
             onnx_metadata={
                 "ep_compatibility_info.QNNExecutionProvider": "QNNExecutionProvider;version=0.1.0;soc=73",
             },
@@ -141,25 +141,25 @@ class TestModelPackage:
         p.run(mt, output_path)
 
         # assert: ep_compatibility_info is extracted from ONNX metadata
-        with open(tmp_path / "output" / "models" / "output" / "metadata.json") as f:
+        with open(tmp_path / "output" / "models" / "model" / "metadata.json") as f:
             metadata = json.load(f)
         variants = metadata["model_variants"]
         assert variants["soc_60"]["constraints"]["ep_compatibility_info"] == "QNNExecutionProvider;version=0.1.0;soc=60"
         assert variants["soc_73"]["constraints"]["ep_compatibility_info"] == "QNNExecutionProvider;version=0.1.0;soc=73"
 
-    def test_packager_ep_compat_absent_without_onnx_metadata(self, tmp_path):
-        """ep_compatibility_info is absent when ONNX metadata has no such entry."""
+    def test_packager_ep_compat_empty_without_onnx_metadata(self, tmp_path):
+        """ep_compatibility_info is empty string when ONNX metadata has no such entry."""
         # setup: real ONNX models without ep_compatibility_info metadata
         h1 = _make_onnx_handler_with_metadata(
             tmp_path,
             "soc_60",
-            model_attributes={"architecture": "60"},
+            model_attributes={},
             onnx_metadata={},
         )
         h2 = _make_onnx_handler_with_metadata(
             tmp_path,
             "soc_73",
-            model_attributes={"architecture": "73"},
+            model_attributes={},
             onnx_metadata={},
         )
         mt = ModelPackageModelHandler([h1, h2], ["soc_60", "soc_73"], model_path=tmp_path)
@@ -169,12 +169,12 @@ class TestModelPackage:
         output_path = str(tmp_path / "output.onnx")
         p.run(mt, output_path)
 
-        # assert: ep_compatibility_info is not in constraints
-        with open(tmp_path / "output" / "models" / "output" / "metadata.json") as f:
+        # assert: ep_compatibility_info is empty string
+        with open(tmp_path / "output" / "models" / "model" / "metadata.json") as f:
             metadata = json.load(f)
         variants = metadata["model_variants"]
-        assert "ep_compatibility_info" not in variants["soc_60"]["constraints"]
-        assert "ep_compatibility_info" not in variants["soc_73"]["constraints"]
+        assert variants["soc_60"]["constraints"]["ep_compatibility_info"] == ""
+        assert variants["soc_73"]["constraints"]["ep_compatibility_info"] == ""
 
     def test_packager_custom_model_name(self, tmp_path):
         # setup
@@ -192,12 +192,12 @@ class TestModelPackage:
         with open(tmp_path / "output" / "manifest.json") as f:
             manifest = json.load(f)
         assert manifest["name"] == "my_model"
-        assert set(manifest.keys()) == {"name", "model_version", "task"}
+        assert set(manifest.keys()) == {"name", "model_version", "task", "component_models"}
 
-        # assert: metadata.json is created under the custom name directory
-        with open(tmp_path / "output" / "models" / "my_model" / "metadata.json") as f:
+        # assert: metadata.json uses task-derived component name (not model_name)
+        with open(tmp_path / "output" / "models" / "model" / "metadata.json") as f:
             metadata = json.load(f)
-        assert metadata["name"] == "my_model"
+        assert metadata["name"] == "model"
 
     def test_packager_copies_config_files_to_configs_dir(self, tmp_path):
         """All additional_files (genai_config, tokenizer, etc.) are moved to configs/."""
@@ -316,7 +316,7 @@ class TestModelPackage:
 
         # assert: model files are copied to base/
         pkg_root = tmp_path / "output"
-        base_out = pkg_root / "models" / "output" / "base"
+        base_out = pkg_root / "models" / "model" / "base"
         assert base_out.is_dir()
         assert (base_out / "embeddings.onnx").exists()
         assert (base_out / "context_0.onnx").exists()
@@ -344,7 +344,7 @@ class TestModelPackage:
         p.run(mt, output_path)
 
         # assert
-        assert not (tmp_path / "output" / "models" / "output" / "base").exists()
+        assert not (tmp_path / "output" / "models" / "model" / "base").exists()
 
     def test_packager_rejects_non_model_package(self, tmp_path):
         # setup
@@ -360,7 +360,7 @@ class TestModelPackage:
         # setup
         mt = _make_model_package(
             tmp_path,
-            [("soc_60", {"architecture": "60"}), ("soc_73", {"architecture": "73"})],
+            [("soc_60", {}), ("soc_73", {})],
         )
         p = self._create_packager()
 
@@ -368,9 +368,9 @@ class TestModelPackage:
         output_path = str(tmp_path / "output.onnx")
         p.run(mt, output_path)
 
-        # assert: variant directories exist under models/<model_name>/
-        assert (tmp_path / "output" / "models" / "output" / "soc_60").is_dir()
-        assert (tmp_path / "output" / "models" / "output" / "soc_73").is_dir()
+        # assert: variant directories exist under models/<component_name>/
+        assert (tmp_path / "output" / "models" / "model" / "soc_60").is_dir()
+        assert (tmp_path / "output" / "models" / "model" / "soc_73").is_dir()
 
     def test_packager_default_model_name_from_dir(self, tmp_path):
         # setup
@@ -393,7 +393,7 @@ class TestModelPackage:
         # setup: t1 has device="GPU", t2 has no device
         mt = _make_model_package(
             tmp_path,
-            [("t1", {"architecture": "a", "device": "GPU"}), ("t2", {"architecture": "b"})],
+            [("t1", {"device": "GPU"}), ("t2", {})],
         )
         p = self._create_packager(device="NPU")
 
@@ -402,14 +402,14 @@ class TestModelPackage:
         p.run(mt, output_path)
 
         # assert: device constraint only present for t1
-        with open(tmp_path / "output" / "models" / "output" / "metadata.json") as f:
+        with open(tmp_path / "output" / "models" / "model" / "metadata.json") as f:
             metadata = json.load(f)
         variants = metadata["model_variants"]
         assert variants["t1"]["constraints"]["device"] == "GPU"
         assert "device" not in variants["t2"]["constraints"]
 
-    def test_packager_optional_fields_omitted_when_absent(self, tmp_path):
-        # setup: targets with no optional attributes
+    def test_packager_constraints_without_device(self, tmp_path):
+        # setup: targets with no device attribute
         mt = _make_model_package(
             tmp_path,
             [("t1", {}), ("t2", {})],
@@ -420,14 +420,13 @@ class TestModelPackage:
         output_path = str(tmp_path / "output.onnx")
         p.run(mt, output_path)
 
-        # assert: optional fields not in constraints
-        with open(tmp_path / "output" / "models" / "output" / "metadata.json") as f:
+        # assert: device not in constraints, ep_compatibility_info is empty string
+        with open(tmp_path / "output" / "models" / "model" / "metadata.json") as f:
             metadata = json.load(f)
         variants = metadata["model_variants"]
         for v in variants.values():
             assert "device" not in v["constraints"]
-            assert "architecture" not in v["constraints"]
-            assert "ep_compatibility_info" not in v["constraints"]
+            assert v["constraints"]["ep_compatibility_info"] == ""
 
     def test_packager_manifest_path_in_result_attributes(self, tmp_path):
         # setup
@@ -530,8 +529,8 @@ class TestModelPackage:
         assert ctx_metadata["name"] == "context_ctx"
         assert "soc_60" in ctx_metadata["model_variants"]
         assert "soc_73" in ctx_metadata["model_variants"]
-        assert ctx_metadata["model_variants"]["soc_60"]["constraints"]["architecture"] == "60"
-        assert ctx_metadata["model_variants"]["soc_73"]["constraints"]["architecture"] == "73"
+        assert ctx_metadata["model_variants"]["soc_60"]["constraints"]["ep"] == "QNNExecutionProvider"
+        assert ctx_metadata["model_variants"]["soc_60"]["constraints"]["ep_compatibility_info"] == ""
 
         with open(embed_dir / "metadata.json") as f:
             embed_metadata = json.load(f)
@@ -573,7 +572,7 @@ class TestModelPackage:
         assert manifest["model_version"] == "2.5"
 
     def test_manifest_includes_task_from_hf_config(self, tmp_path):
-        """Task is extracted from HF config.json when available."""
+        """Task is extracted from HF config.json and component name is derived from it."""
         # setup: pre-create configs/config.json with HF architectures before running packager
         mt = _make_model_package(
             tmp_path,
@@ -592,11 +591,17 @@ class TestModelPackage:
         output_path = str(tmp_path / "output.onnx")
         p.run(mt, output_path)
 
-        # assert
+        # assert: task mapped to component name "decoder"
         with open(output_dir / "manifest.json") as f:
             manifest = json.load(f)
         assert manifest["task"] == ["text_generation"]
-        assert manifest["model_version"] == "1.0"
+        assert manifest["component_models"] == ["decoder"]
+
+        # assert: metadata.json under decoder/ directory
+        assert (output_dir / "models" / "decoder" / "metadata.json").exists()
+        with open(output_dir / "models" / "decoder" / "metadata.json") as f:
+            metadata = json.load(f)
+        assert metadata["name"] == "decoder"
 
     def test_manifest_empty_task_without_config(self, tmp_path):
         """Task is empty when no HF config.json exists."""
@@ -620,9 +625,9 @@ class TestModelPackage:
         # setup
         mt = _make_model_package(
             tmp_path,
-            [("soc_60", {"architecture": "60"})],
+            [("soc_60", {})],
         )
-        h2 = _make_onnx_handler(tmp_path, name="soc_73", model_attributes={"architecture": "73"})
+        h2 = _make_onnx_handler(tmp_path, name="soc_73", model_attributes={})
         mt = ModelPackageModelHandler(
             [next(t for _, t in mt.get_target_models()), h2],
             ["soc_60", "soc_73"],
@@ -635,7 +640,7 @@ class TestModelPackage:
         p.run(mt, output_path)
 
         # assert: file field uses "<target>/<filename>.onnx" format
-        with open(tmp_path / "output" / "models" / "output" / "metadata.json") as f:
+        with open(tmp_path / "output" / "models" / "model" / "metadata.json") as f:
             metadata = json.load(f)
         variants = metadata["model_variants"]
         assert variants["soc_60"]["file"] == "soc_60/soc_60.onnx"
