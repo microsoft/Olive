@@ -52,7 +52,7 @@ class Pass(ABC):
     # (e.g., different SoC, device, or runtime version) will be processed independently.
     _accepts_model_package_model: bool = False
     # When True, skip automatic carry-forward of additional_files in run().
-    # Passes that manage config/additional files themselves (e.g., ModelPackager) should set this.
+    # Passes that manage config/additional files themselves (e.g., ModelPackage) should set this.
     _skip_additional_files_carry_forward: bool = False
 
     @classmethod

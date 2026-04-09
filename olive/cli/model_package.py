@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 
 @action
 class ModelPackageCommand(BaseOliveCLICommand):
-    """Merge multiple single-target context binary outputs into a model package with manifest.json."""
+    """Merge multiple model outputs into a model package with manifest.json."""
 
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
-            "model-package",
-            help="Merge multiple context binary outputs into a model package with manifest.json",
+            "generate-model-package",
+            help="Merge multiple model outputs into a model package with manifest.json",
         )
 
         sub_parser.add_argument(

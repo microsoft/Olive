@@ -154,7 +154,7 @@ class EPContextBinaryGenerator(Pass):
             targets.append(result)
             target_names.append(target_name)
 
-        # Preserve base model path so ModelPackager can include the pre-optimized model
+        # Preserve base model path so ModelPackage can include the pre-optimized model
         parent_attrs = dict(model.model_attributes or {})
         parent_attrs["base_model_path"] = str(model.model_path)
 

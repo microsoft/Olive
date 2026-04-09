@@ -18,20 +18,20 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-class ModelPackager(Pass):
-    """Generate an ORT model package with manifest.json and per-component metadata.json.
+class ModelPackage(Pass):
+    """Generate a model package with manifest.json and per-component metadata.json.
 
-    This pass takes a ModelPackageModelHandler (produced by EPContextBinaryGenerator with
-    a list of provider_options) and generates a model package following the ORT spec:
+    This pass takes a ModelPackageModelHandler (containing model variants for different
+    deployment targets) and generates a structured model package:
 
-    - manifest.json at package root with component_models and model_variants
-    - metadata.json per component model directory with variant descriptors
+    - manifest.json at package root with model version, task, and component list
+    - metadata.json per component with variant descriptors for each deployment target
     - configs/ directory for genai_config.json and chat_template files
 
     For composite models (where each target contains multiple ONNX components), the package
-    is organized by component first, then by SoC target:
+    is organized by component first, then by target:
 
-        models/<component_name>/<soc_target>/  (files)
+        models/<component_name>/<target>/  (files)
         models/<component_name>/metadata.json
 
     Variant constraints include:
@@ -70,9 +70,7 @@ class ModelPackager(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ModelPackageModelHandler:
-        assert isinstance(model, ModelPackageModelHandler), (
-            "ModelPackager requires a ModelPackageModelHandler as input."
-        )
+        assert isinstance(model, ModelPackageModelHandler), "ModelPackage requires a ModelPackageModelHandler as input."
 
         output_dir = Path(output_model_path).with_suffix("")
         output_dir.mkdir(parents=True, exist_ok=True)

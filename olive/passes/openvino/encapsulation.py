@@ -161,7 +161,7 @@ class OpenVINOEncapsulation(Pass):
             targets.append(result)
             target_names.append(target_name)
 
-        # Preserve additional_files from the first target so ModelPackager can extract configs
+        # Preserve additional_files from the first target so ModelPackage can extract configs
         additional_files = []
         if targets:
             additional_files = (targets[0].model_attributes or {}).get("additional_files", [])
@@ -315,7 +315,7 @@ class OpenVINOEncapsulation(Pass):
         # generate the genai_config.json file for GenAI models
         create_genai_config(context_model_output, output_model_path, config)
 
-        # Collect config files (non-model files) for downstream ModelPackager
+        # Collect config files (non-model files) for downstream ModelPackage
         output_path = Path(output_model_path)
         model_suffixes = {".onnx", ".xml", ".bin"}
         additional_files = [

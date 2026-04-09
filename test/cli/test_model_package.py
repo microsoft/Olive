@@ -69,7 +69,7 @@ class TestModelPackageCommand:
         # execute
         self._run_command(
             [
-                "model-package",
+                "generate-model-package",
                 "--source",
                 str(soc_60),
                 "--source",
@@ -127,7 +127,7 @@ class TestModelPackageCommand:
         # execute
         self._run_command(
             [
-                "model-package",
+                "generate-model-package",
                 "--source",
                 str(soc_60),
                 "--source",
@@ -172,7 +172,7 @@ class TestModelPackageCommand:
         # execute
         self._run_command(
             [
-                "model-package",
+                "generate-model-package",
                 "--source",
                 str(ov_2025_1),
                 "--source",
@@ -204,7 +204,7 @@ class TestModelPackageCommand:
         with pytest.raises(ValueError, match="At least two"):
             self._run_command(
                 [
-                    "model-package",
+                    "generate-model-package",
                     "--source",
                     str(soc_60),
                     "-o",
@@ -227,7 +227,7 @@ class TestModelPackageCommand:
         with pytest.raises(ValueError, match="model_config.json"):
             self._run_command(
                 [
-                    "model-package",
+                    "generate-model-package",
                     "--source",
                     str(source_dir),
                     "--source",
@@ -250,7 +250,7 @@ class TestModelPackageCommand:
         with pytest.raises(ValueError, match="does not exist"):
             self._run_command(
                 [
-                    "model-package",
+                    "generate-model-package",
                     "--source",
                     "/nonexistent/path",
                     "--source",
@@ -278,7 +278,7 @@ class TestModelPackageCommand:
         # execute
         self._run_command(
             [
-                "model-package",
+                "generate-model-package",
                 "--source",
                 str(soc_60),
                 "--source",
@@ -335,7 +335,7 @@ class TestModelPackageCommand:
         # execute
         self._run_command(
             [
-                "model-package",
+                "generate-model-package",
                 "--source",
                 str(tmp_path / "soc_60"),
                 "--source",
@@ -386,7 +386,7 @@ class TestModelPackageCommand:
         # execute
         self._run_command(
             [
-                "model-package",
+                "generate-model-package",
                 "--source",
                 str(tmp_path / "soc_60"),
                 "--source",
@@ -451,7 +451,7 @@ class TestModelPackageCommand:
         # execute
         self._run_command(
             [
-                "model-package",
+                "generate-model-package",
                 "--source",
                 str(tmp_path / "soc_60"),
                 "--source",
@@ -509,7 +509,7 @@ class TestModelPackageCommand:
         # execute
         self._run_command(
             [
-                "model-package",
+                "generate-model-package",
                 "--source",
                 str(soc_60),
                 "--source",

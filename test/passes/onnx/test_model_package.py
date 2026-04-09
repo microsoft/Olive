@@ -12,7 +12,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.model.handler.model_package import ModelPackageModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.model_packager import ModelPackager
+from olive.passes.onnx.model_package import ModelPackage
 
 
 def _make_onnx_handler(tmp_path, name="model", model_attributes=None):
@@ -56,15 +56,15 @@ def _make_model_package(tmp_path, target_configs):
 
 
 # ===========================================================================
-# ModelPackager tests
+# ModelPackage tests
 # ===========================================================================
 
 
-class TestModelPackager:
+class TestModelPackage:
     def _create_packager(self, ep="QNNExecutionProvider", device="NPU", config=None):
         accelerator_spec = AcceleratorSpec(accelerator_type=device, execution_provider=ep)
         return create_pass_from_dict(
-            ModelPackager,
+            ModelPackage,
             config or {},
             disable_search=True,
             accelerator_spec=accelerator_spec,
