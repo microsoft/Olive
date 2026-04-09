@@ -7,6 +7,9 @@ on:
       - rel-*
   pull_request:
 
+env:
+  OLIVE_DISABLE_TELEMETRY: "1"
+
 jobs:
   optional-lint:
     name: Optional Lint
