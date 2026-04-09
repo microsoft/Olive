@@ -103,9 +103,10 @@ class TelemetryCacheHandler:
         # Single shared cache file for all processes
         self._cache_file_name = CACHE_FILE_NAME
         self._shutdown = False
-        # Protects all shared state to prevent race conditions
-        self._lock = threading.Lock()
-        self._callback_condition = threading.Condition()
+        # Single condition protects all shared state: _shutdown, _is_flushing,
+        # _callbacks_item_count, _events_logged. Using one lock eliminates
+        # lock ordering issues that arise with separate locks.
+        self._condition = threading.Condition()
         self._callbacks_item_count = 0
         self._events_logged = 0
         # Prevents concurrent flush operations
@@ -118,7 +119,7 @@ class TelemetryCacheHandler:
         offline resilience. If network is working, success callbacks already
         flushed. If network is down, flushing would fail anyway.
         """
-        with self._lock:
+        with self._condition:
             self._shutdown = True
 
     def __del__(self):
@@ -150,7 +151,7 @@ class TelemetryCacheHandler:
             payload = None
             should_flush = False
 
-            with self._lock:
+            with self._condition:
                 if self._shutdown:
                     return
 
@@ -159,9 +160,8 @@ class TelemetryCacheHandler:
                 # so it's unlikely that an event would suddenly fail and need to be cached
                 # and we don't need to flush again.
                 if self._is_flushing:
-                    with self._callback_condition:
-                        self._callbacks_item_count += args.item_count
-                        self._callback_condition.notify_all()
+                    self._callbacks_item_count += args.item_count
+                    self._condition.notify_all()
                     return
 
                 if args.succeeded:
@@ -182,26 +182,24 @@ class TelemetryCacheHandler:
             # Fail silently - telemetry should never crash the application
             pass
         finally:
-            with self._callback_condition:
+            with self._condition:
                 self._callbacks_item_count += args.item_count
-                self._callback_condition.notify_all()
+                self._condition.notify_all()
 
     def wait_for_callbacks(self, timeout_sec: float, during_flush: bool = False) -> bool:
         deadline = time.time() + timeout_sec
         while True:
-            with self._callback_condition:
-                callbacks_item_count = self._callbacks_item_count
-                expected_items = self._events_logged
-                if (during_flush or not self.is_flushing) and callbacks_item_count >= expected_items:
+            with self._condition:
+                if (during_flush or not self._is_flushing) and self._callbacks_item_count >= self._events_logged:
                     return True
             remaining = deadline - time.time()
             if remaining <= 0:
                 return False
-            with self._callback_condition:
-                self._callback_condition.wait(timeout=remaining)
+            with self._condition:
+                self._condition.wait(timeout=remaining)
 
     def record_event_logged(self, count: int = 1) -> None:
-        with self._callback_condition:
+        with self._condition:
             self._events_logged += count
 
     def _schedule_flush(self) -> None:
@@ -218,7 +216,7 @@ class TelemetryCacheHandler:
         - Daemon thread is acceptable (flush is best-effort)
         """
         # Check before spawning thread to avoid unnecessary thread creation
-        with self._lock:
+        with self._condition:
             if self._shutdown or self._is_flushing:
                 return
             self._is_flushing = True
@@ -231,7 +229,7 @@ class TelemetryCacheHandler:
                 pass
             finally:
                 # Always clear flag, even on exception
-                with self._lock:
+                with self._condition:
                     self._is_flushing = False
 
         thread = threading.Thread(target=flush_task, daemon=True)
@@ -350,7 +348,7 @@ class TelemetryCacheHandler:
         flush_path = None
         try:
             # Check shutdown before starting (under lock to prevent race)
-            with self._lock:
+            with self._condition:
                 if self._shutdown:
                     return
 
@@ -395,7 +393,7 @@ class TelemetryCacheHandler:
                     continue
 
             # Check if shutdown happened during flush
-            with self._lock:
+            with self._condition:
                 if self._shutdown:
                     # Restore cache to avoid data loss during shutdown
                     if flush_path and flush_path.exists():
@@ -430,7 +428,7 @@ class TelemetryCacheHandler:
 
     @property
     def is_flushing(self) -> bool:
-        with self._lock:
+        with self._condition:
             return self._is_flushing
 
 
