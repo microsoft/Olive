@@ -186,13 +186,13 @@ class TelemetryCacheHandler:
                 self._callbacks_item_count += args.item_count
                 self._callback_condition.notify_all()
 
-    def wait_for_callbacks(self, timeout_sec: float) -> bool:
+    def wait_for_callbacks(self, timeout_sec: float, during_flush: bool = False) -> bool:
         deadline = time.time() + timeout_sec
         while True:
             with self._callback_condition:
                 callbacks_item_count = self._callbacks_item_count
                 expected_items = self._events_logged
-                if not self.is_flushing and callbacks_item_count >= expected_items:
+                if (during_flush or not self.is_flushing) and callbacks_item_count >= expected_items:
                     return True
             remaining = deadline - time.time()
             if remaining <= 0:
@@ -408,7 +408,7 @@ class TelemetryCacheHandler:
                     return
 
             # Wait for in-flight callbacks to complete before deciding success/failure
-            flush_success = self.wait_for_callbacks(timeout_sec=5.0)
+            flush_success = self.wait_for_callbacks(timeout_sec=5.0, during_flush=True)
             if flush_success:
                 # Success: delete the flush file (events were sent)
                 if flush_path:
@@ -464,22 +464,26 @@ class Telemetry:
         if self._initialized:
             return
 
+        self._logger = None
+        self._cache_handler = None
+
         try:
             self._logger = self._create_logger()
             event_source.disable()
 
             self._cache_handler = TelemetryCacheHandler(self)
-            self._initialized = True
             self._setup_payload_callbacks()
             if self._is_ci_environment():
                 self.disable_telemetry()
+                self._initialized = True
                 return
             self._log_heartbeat()
             if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1":
                 self.disable_telemetry()
+            self._initialized = True
         except Exception:
             # Fail silently — telemetry must never crash the host application
-            pass
+            self._initialized = True
 
     @staticmethod
     def _is_ci_environment() -> bool:

@@ -19,7 +19,7 @@ def _resolve_home_dir() -> Path:
     """Resolve the user home directory with fallbacks for container environments."""
     home = os.getenv("HOME")
     if home:
-        return Path(home)
+        return Path(home).expanduser()
     try:
         return Path.home()
     except (RuntimeError, KeyError):
@@ -47,7 +47,7 @@ def get_telemetry_base_dir() -> Path:
     if not cache_dir:
         cache_dir = str(_resolve_home_dir() / ".cache")
 
-    return Path(cache_dir) / ORT_SUPPORT_DIR
+    return Path(cache_dir).expanduser() / ORT_SUPPORT_DIR
 
 
 def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = None) -> str:

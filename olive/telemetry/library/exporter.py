@@ -74,8 +74,10 @@ class OneCollectorLogExporter(LogRecordExporter):
         # Create or get HTTP session
         if transport_opts.http_client_factory:
             self._session = transport_opts.http_client_factory()
+            self._owns_session = False
         else:
             self._session = requests.Session()
+            self._owns_session = True
 
         try:
             # Build iKey with tenant prefix
@@ -107,7 +109,8 @@ class OneCollectorLogExporter(LogRecordExporter):
             # Cache for resource (populated on first export)
             self._resource: Optional[Resource] = None
         except Exception:
-            self._session.close()
+            if self._owns_session:
+                self._session.close()
             raise
 
     def add_metadata(self, metadata: dict[str, Any]) -> None:
@@ -323,8 +326,8 @@ class OneCollectorLogExporter(LogRecordExporter):
             self._shutdown = True
             self._shutdown_event.set()
 
-        # Close HTTP session
-        if hasattr(self, "_session"):
+        # Close HTTP session (only if we own it)
+        if hasattr(self, "_session") and getattr(self, "_owns_session", True):
             self._session.close()
 
         # Close callback manager
