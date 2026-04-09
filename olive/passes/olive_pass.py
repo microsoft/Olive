@@ -48,8 +48,8 @@ class Pass(ABC):
     # True if the pass processes a composite model at once. Otherwise, the components of the
     # composite model will be processed individually.
     _accepts_composite_model: bool = False
-    # True if the pass processes a model package model at once. Otherwise, each target
-    # will be processed independently.
+    # True if the pass processes a model package model at once. Otherwise, each variant
+    # (e.g., different SoC, device, or runtime version) will be processed independently.
     _accepts_model_package_model: bool = False
     # When True, skip automatic carry-forward of additional_files in run().
     # Passes that manage config/additional files themselves (e.g., ModelPackager) should set this.
@@ -235,7 +235,7 @@ class Pass(ABC):
                 model_attributes=model.model_attributes,
             )
         elif isinstance(model, ModelPackageModelHandler) and not self._accepts_model_package_model:
-            # Run the pass independently for each hardware target
+            # Run the pass independently for each deployment variant
             targets = []
             target_names = []
             model_dir = Path(output_model_path).with_suffix("")
