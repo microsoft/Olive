@@ -82,7 +82,7 @@ olive optimize \
 >[!TIP]
 ><details>
 ><summary>PowerShell Users</summary>
->Line continuation between Bash and PowerShell are not interchangeable. If you are using PowerShell, then you can copy-and-paste the following command that uses compatible line continuation.
+>Line continuations between Bash and PowerShell are not interchangeable. If you are using PowerShell, then you can copy-and-paste the following command that uses compatible line continuation.
 >
 >```powershell
 >olive optimize `
