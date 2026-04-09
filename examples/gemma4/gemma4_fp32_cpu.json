@@ -1,8 +1,8 @@
 {
-    "comment": "Build google/gemma-4-2b-it as a float32 ONNX model using mobius, targeting CPU execution.",
+    "comment": "Build google/gemma-4-E2B-it as a float32 ONNX model using mobius, targeting CPU execution. E2B and E4B are Any-to-Any (vision + audio + text). For Image-Text-to-Text only models (no audio encoder), use google/gemma-4-26B-A4B-it or google/gemma-4-31B-it.",
     "input_model": {
         "type": "HfModel",
-        "model_path": "google/gemma-4-2b-it",
+        "model_path": "google/gemma-4-E2B-it",
         "task": "text-generation"
     },
     "systems": {
@@ -24,8 +24,8 @@
     },
     "engine": {
         "log_severity_level": 0,
-        "output_dir": "models/gemma4-fp32-cpu",
-        "output_name": "gemma4_fp32",
+        "output_dir": "models/gemma4-e2b-fp32-cpu",
+        "output_name": "gemma4_e2b_fp32",
         "clean_cache": false,
         "system": "local_system"
     }
