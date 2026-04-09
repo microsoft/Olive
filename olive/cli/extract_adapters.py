@@ -159,9 +159,10 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
                 adapter_sets[adapter_name] = {}
 
             prefix = "base_model.model.model" if is_peft else "model"
-            scale_val = eval(  # pylint: disable=eval-used
-                f"peft_model.{prefix}.layers[{layer_id}].{class_name}.{class_attr_name}.scaling['{adapter_name}']"
-            )
+            obj = peft_model
+            for attr in prefix.split("."):
+                obj = getattr(obj, attr)
+            scale_val = getattr(getattr(obj.layers[int(layer_id)], class_name), class_attr_name).scaling[adapter_name]
             for new_key, new_val in new_dict.items():
                 np_data = new_val.detach().cpu().to(torch_dtype).numpy().transpose()
                 np_data *= scale_val if lora_name == "lora_B" else 1
