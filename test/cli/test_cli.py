@@ -678,11 +678,14 @@ def test_benchmark_command_onnxmodel_with_ortgenai_backend(mock_run, tmp_path):
 
 
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_benchmark_command_non_onnx_model_with_backend_option_raises(_):
+def test_benchmark_command_non_onnx_model_with_backend_option_raises(_, tmp_path):
+    output_dir = tmp_path / "output_dir"
     command_args = [
         "benchmark",
         "-m",
         "dummy-model-id",
+        "--output_path",
+        str(output_dir),
         "--tasks",
         "arc_easy",
         "--backend",
