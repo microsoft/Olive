@@ -1,0 +1,39 @@
+{
+    "comment": "Build google/gemma-4-2b-it as a float16 ONNX model using mobius, then apply INT4 weight-only quantization (GPTQ) for a compact deployment model.",
+    "input_model": {
+        "type": "HfModel",
+        "model_path": "google/gemma-4-2b-it",
+        "task": "text-generation"
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "accelerators": [
+                {
+                    "device": "gpu",
+                    "execution_providers": ["CUDAExecutionProvider"]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "mobius_build": {
+            "type": "MobiusModelBuilder",
+            "precision": "fp16",
+            "execution_provider": "cuda"
+        },
+        "int4_quantize": {
+            "type": "GptqQuantizer",
+            "bits": 4,
+            "group_size": 128,
+            "sym": true
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "output_dir": "models/gemma4-int4-cuda",
+        "output_name": "gemma4_int4",
+        "clean_cache": false,
+        "system": "local_system"
+    }
+}
