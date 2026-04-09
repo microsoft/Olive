@@ -55,7 +55,7 @@ pip install transformers onnxruntime-genai
 > Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.
 > ```
 >
-> You can fix this warning using one of the 4 options below. Note that option 1, 2 and 3 saves diskspace, while option 4 only suppresses the warning
+> You can fix this warning using one of the 4 options below. Note that options 1, 2, and 3 save disk space, while option 4 only suppresses the warning.
 >
 > 1. Enable Developer Mode on Windows (one-time setup) documented in the [Microsoft Developer Tools Docs](https://learn.microsoft.com/en-us/windows/advanced-settings/developer-mode).
 > 2. Run Python as administrator when using Olive with the huggingface_hub library.
