@@ -173,7 +173,7 @@ class TestOlivePythonAPI:
         """Test capture_onnx_graph integration with a tiny model."""
         from olive import capture_onnx_graph
 
-        # Use a tiny stub model to minimise download / conversion time
+        # Use a tiny stub model to minimize download / conversion time
         model_id = "hf-internal-testing/tiny-random-bert"
 
         output_dir = tmp_path / "onnx-model"
