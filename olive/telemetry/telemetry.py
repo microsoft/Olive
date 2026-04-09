@@ -188,14 +188,13 @@ class TelemetryCacheHandler:
 
     def wait_for_callbacks(self, timeout_sec: float, during_flush: bool = False) -> bool:
         deadline = time.time() + timeout_sec
-        while True:
-            with self._condition:
+        with self._condition:
+            while True:
                 if (during_flush or not self._is_flushing) and self._callbacks_item_count >= self._events_logged:
                     return True
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                return False
-            with self._condition:
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    return False
                 self._condition.wait(timeout=remaining)
 
     def record_event_logged(self, count: int = 1) -> None:
