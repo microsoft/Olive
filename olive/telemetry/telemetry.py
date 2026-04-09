@@ -478,7 +478,8 @@ class Telemetry:
             if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1":
                 self.disable_telemetry()
         except Exception:
-            self._initialized = True
+            # Fail silently — telemetry must never crash the host application
+            pass
 
     @staticmethod
     def _is_ci_environment() -> bool:
@@ -518,6 +519,7 @@ class Telemetry:
                 return
             self._logger.add_global_metadata(metadata)
         except Exception:
+            # Fail silently — telemetry must never crash the host application
             pass
 
     def log(
@@ -546,6 +548,7 @@ class Telemetry:
             if self._cache_handler:
                 self._cache_handler.record_event_logged()
         except Exception:
+            # Fail silently — telemetry must never crash the host application
             pass
 
     def _log_heartbeat(
@@ -572,6 +575,7 @@ class Telemetry:
             }
             self.log(HEARTBEAT_EVENT_NAME, attributes, metadata)
         except Exception:
+            # Fail silently — telemetry must never crash the host application
             pass
 
     def disable_telemetry(self) -> None:
@@ -585,6 +589,7 @@ class Telemetry:
                 return
             self._logger.disable_telemetry()
         except Exception:
+            # Fail silently — telemetry must never crash the host application
             pass
 
     def shutdown(self, timeout_millis: float = 10_000, callback_timeout_millis: float = 2_000) -> None:
@@ -613,6 +618,7 @@ class Telemetry:
             if self._logger is not None:
                 self._logger.shutdown()
         except Exception:
+            # Fail silently — telemetry must never crash the host application
             pass
 
     def __del__(self):
