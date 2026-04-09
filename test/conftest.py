@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import os
 import shutil
 from unittest.mock import patch
 
@@ -45,5 +44,4 @@ def maybe_patch_inc():
 
 @pytest.fixture(scope="session", autouse=True)
 def disable_telemetry():
-    os.environ["OLIVE_DISABLE_TELEMETRY"] = "1"
     Telemetry().disable_telemetry()

@@ -19,7 +19,6 @@ on:
 
 env:
   PYTHON_VERSION: "3.10"
-  OLIVE_DISABLE_TELEMETRY: "1"
 
 
 jobs:

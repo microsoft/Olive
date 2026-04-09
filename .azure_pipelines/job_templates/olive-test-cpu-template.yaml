@@ -26,7 +26,6 @@ jobs:
     PYTEST_BASETEMP: $(Pipeline.Workspace)/.pytest_basetemp
     PYTHONIOENCODING: utf-8
     PYTHONUTF8: 1
-    OLIVE_DISABLE_TELEMETRY: 1
 
   steps:
   - template: olive-setup-template.yaml
