@@ -2,4 +2,5 @@
 auto-gptq==0.7.1
 bitsandbytes
 onnxruntime-genai-cuda
+torch<2.11.0 # torch 2.11.0 is not compatible with CI v100 GPU
 triton

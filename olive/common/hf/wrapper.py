@@ -134,7 +134,11 @@ class LayerWrapper:
         self.layer = layer
         self.model_type = model_type
 
-        self.attn, self.attn_name = get_submodules(layer, self.ATTENTION, self.model_type, return_name=True)
+        # Use fail_on_not_found=False to support hybrid architectures (e.g., Qwen3.5)
+        # where some layers use linear attention instead of standard self-attention
+        self.attn, self.attn_name = get_submodules(
+            layer, self.ATTENTION, self.model_type, return_name=True, fail_on_not_found=False
+        )
         self.mlp, self.mlp_name = get_submodules(layer, self.MLP, self.model_type, return_name=True)
 
     def get_first_layer_norm(self, return_name: bool = True):
@@ -144,6 +148,8 @@ class LayerWrapper:
         return get_submodules(self.layer, self.SECOND_LAYER_NORM, self.model_type, return_name=return_name)
 
     def get_attention_inputs(self, return_name: bool = True):
+        if self.attn is None:
+            return ([], []) if return_name else []
         attention_inputs, names = get_submodules(
             self.attn, self.ATTENTION_INPUTS, self.model_type, return_name=True, return_name_prefix=f"{self.attn_name}."
         )
@@ -153,6 +159,8 @@ class LayerWrapper:
         return attention_inputs if not return_name else (attention_inputs, names)
 
     def get_attention_outputs(self, return_name: bool = True):
+        if self.attn is None:
+            return ([], []) if return_name else []
         return get_submodules(
             self.attn,
             self.ATTENTION_OUTPUTS,
@@ -274,6 +282,8 @@ class ModelWrapper:
     def maybe_unpack_qkv(self):
         """Unpack the QKV projection matrix into separate projections for models like phi3."""
         for layer_wrapper in self.get_layer_wrappers():
+            if layer_wrapper.attn is None:
+                continue
             attn_inputs, attn_input_names = layer_wrapper.get_attention_inputs()
 
             if len(attn_inputs) != 1 or not isinstance(attn_inputs[0], nn.Linear):

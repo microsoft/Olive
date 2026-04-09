@@ -36,6 +36,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "CaptureLayerAnnotations": {
+            "module_path": "olive.passes.pytorch.capture_layer_annotations.CaptureLayerAnnotations",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "ComposeOnnxModels": {
             "module_path": "olive.passes.onnx.compose.ComposeOnnxModels",
             "supported_providers": [ "*" ],
@@ -188,14 +196,6 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
-        "MoEExpertsDistributor": {
-            "module_path": "olive.passes.onnx.moe_experts_distributor.MoEExpertsDistributor",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
         "LoftQ": {
             "module_path": "olive.passes.pytorch.lora.LoftQ",
             "supported_providers": [ "*" ],
@@ -254,7 +254,8 @@
             "supported_accelerators": [ "cpu" ],
             "supported_precisions": [ "fp4", "nf4" ],
             "supported_algorithms": [ "rtn" ],
-            "supported_quantization_encodings": [  ]
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "bnb" ]
         },
         "OnnxConversion": {
             "module_path": "olive.passes.onnx.conversion.OnnxConversion",
@@ -465,13 +466,41 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "QairtEncapsulation": {
+            "module_path": "olive.passes.qairt.encapsulation.QairtEncapsulation",
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "qairt-dev" ]
+        },
+        "QairtGenAIBuilder": {
+            "module_path": "olive.passes.qairt.gen_ai_builder.QairtGenAIBuilder",
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "qairt-dev" ]
+        },
         "QairtMHA2SHA": {
             "module_path": "olive.passes.onnx.qairt.mha2sha.QairtMHA2SHA",
             "supported_providers": [ "QNNExecutionProvider" ],
             "supported_accelerators": [ "npu" ],
             "supported_precisions": [ "*" ],
             "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "qairt-dev" ]
+        },
+        "QairtPreparation": {
+            "module_path": "olive.passes.qairt.preparation.QairtPreparation",
+            "supported_providers": [ "QNNExecutionProvider" ],
+            "supported_accelerators": [ "npu" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "qairt-dev" ]
         },
         "QLoRA": {
             "module_path": "olive.passes.pytorch.lora.QLoRA",
@@ -601,15 +630,6 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
-        "TorchTRTConversion": {
-            "module_path": "olive.passes.pytorch.torch_trt_conversion.TorchTRTConversion",
-            "supported_providers": [ "*" ],
-            "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "*" ],
-            "extra_dependencies": [ "torch-tensorrt" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ]
-        },
         "VitisAIAddMetaData": {
             "module_path": "olive.passes.onnx.vitis_ai.meta_data.VitisAIAddMetaData",
             "supported_providers": [ "CPUExecutionProvider" ],
@@ -662,6 +682,7 @@
             "onnxruntime-openvino"
         ],
         "optimum": [ "optimum" ],
+        "qairt": [ "qairt-dev[onnx]" ],
         "qnn": [ "onnxruntime-qnn" ],
         "tf": [ "tensorflow==1.15.0" ],
         "torch-tensorrt": [ "torch-tensorrt" ],

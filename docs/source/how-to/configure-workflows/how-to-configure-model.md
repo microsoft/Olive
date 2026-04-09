@@ -27,17 +27,7 @@ If optimum is installed, Olive will use it to automatically obtain the model's i
 ### PytorchModel
 Pytorch Model is a model type that is used to load PyTorch models. It can be used to load any PyTorch model.
 
-#### Entire Model
-If the `model_path` is a file with the full model (e.g. `model.pt`) and can be loaded directly using the `torch.load` method:
-```json
-{
-    "type": "PytorchModel",
-    "model_path": "model_path"
-}
-```
-
-#### Custom Model
-If the `model_path` is a file/folder/string with model artifaces (e.g. `model_dir`) and requires a custom loading function:
+A `model_loader` function is required to load PyTorch models. The `model_script` specifies the script containing the loading function, and `model_loader` is the name of that function.
 ```json
 {
     "type": "PytorchModel",

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "olive": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/Olive/mcp", "python", "-m", "olive_mcp"]
+    }
+  }
+}
