@@ -30,6 +30,17 @@ if TYPE_CHECKING:
 
 # Default event names used by the high-level telemetry helpers.
 HEARTBEAT_EVENT_NAME = "OliveHeartbeat"
+
+# CI/CD environment variables whose presence indicates an automated pipeline.
+_CI_ENV_VARS = (
+    "CI",  # GitHub Actions, GitLab CI, Travis CI, CircleCI, generic
+    "TF_BUILD",  # Azure Pipelines
+    "GITHUB_ACTIONS",  # GitHub Actions
+    "JENKINS_URL",  # Jenkins
+    "CODEBUILD_BUILD_ID",  # AWS CodeBuild
+    "BUILDKITE",  # Buildkite
+    "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI",  # Azure DevOps
+)
 ACTION_EVENT_NAME = "OliveAction"
 ERROR_EVENT_NAME = "OliveError"
 
@@ -465,8 +476,13 @@ class Telemetry:
         self._initialized = True
         self._setup_payload_callbacks()
         self._log_heartbeat()
-        if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1":
+        if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1" or self._is_ci_environment():
             self.disable_telemetry()
+
+    @staticmethod
+    def _is_ci_environment() -> bool:
+        """Detect CI/CD environments by checking well-known environment variables."""
+        return any(os.environ.get(var) for var in _CI_ENV_VARS)
 
     def _create_logger(self) -> Optional[TelemetryLogger]:
         try:
