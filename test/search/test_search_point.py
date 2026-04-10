@@ -55,8 +55,7 @@ class TestSearchPoint:
         assert point.is_valid() is True
 
     def test_is_valid_false_with_invalid(self):
-        # is_valid checks for OrderedDict values recursively, and checks
-        # non-OrderedDict values against SpecialParamValue.INVALID
+        # Verify that a SearchPoint with an invalid parameter value is detected as invalid
         values = OrderedDict(
             {
                 "pass1": OrderedDict(
