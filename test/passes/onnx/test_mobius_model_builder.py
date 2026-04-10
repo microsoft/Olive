@@ -66,9 +66,8 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
 
 
 def _patch_build(pkg: MagicMock):
-    """Patch mobius.build — correct target because _run_for_config uses a lazy import
-    ('from mobius import build' inside the function body).  When the patch is active,
-    that import resolves to the mock, so patching the module attribute is the right level."""
+    # Patch mobius.build directly — lazy import inside _run_for_config means
+    # patching the module attribute, not the local binding.
     return patch("mobius.build", return_value=pkg)
 
 
