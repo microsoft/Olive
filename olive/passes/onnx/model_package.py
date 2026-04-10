@@ -115,6 +115,9 @@ class ModelPackage(Pass):
         base_model_path = (model.model_attributes or {}).get("base_model_path")
         if base_model_path:
             self._copy_base_model(Path(base_model_path), component_dir, config_file_names)
+            base_file = self._get_base_model_file(component_dir / "base")
+            if base_file:
+                model_variants["base"] = {"file": f"base/{base_file}", "constraints": {}}
 
         # Remove config files from variant directories (they belong in configs/)
         self._remove_config_files(component_dir, config_file_names)
@@ -189,6 +192,9 @@ class ModelPackage(Pass):
             # Copy base model for this component
             if base_model_path:
                 self._copy_base_component(Path(base_model_path), comp_name, comp_dir, config_file_names)
+                base_file = self._get_base_model_file(comp_dir / "base")
+                if base_file:
+                    model_variants["base"] = {"file": f"base/{base_file}", "constraints": {}}
 
             # Remove config files from component variant directories
             self._remove_config_files(comp_dir, config_file_names)
@@ -451,6 +457,21 @@ class ModelPackage(Pass):
             if f.is_file() and f.name not in config_file_names and f.suffix in model_suffixes:
                 shutil.copy2(str(f), str(base_dir / f.name))
                 logger.info("Copied base model file %s to %s for component %s", f.name, base_dir, comp_name)
+
+    @staticmethod
+    def _get_base_model_file(base_dir: Path) -> Optional[str]:
+        """Find the primary model file in the base/ directory.
+
+        Returns the filename of the first ``.onnx`` or ``.xml`` file found,
+        or ``None`` if the directory does not exist or contains no model files.
+        """
+        if not base_dir.is_dir():
+            return None
+        for suffix in (".onnx", ".xml"):
+            for f in sorted(base_dir.iterdir()):
+                if f.is_file() and f.suffix == suffix:
+                    return f.name
+        return None
 
     @staticmethod
     def _task_to_component_name(tasks: list[str]) -> str:

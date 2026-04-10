@@ -330,6 +330,13 @@ class TestModelPackage:
         assert (pkg_root / "configs" / "genai_config.json").exists()
         assert (pkg_root / "configs" / "tokenizer.json").exists()
 
+        # assert: base variant is in metadata model_variants
+        with open(pkg_root / "models" / "model" / "metadata.json") as f:
+            metadata = json.load(f)
+        assert "base" in metadata["model_variants"]
+        assert metadata["model_variants"]["base"]["file"] == "base/context_0.onnx"
+        assert metadata["model_variants"]["base"]["constraints"] == {}
+
     def test_packager_no_base_model_when_path_missing(self, tmp_path):
         """No base/ dir is created when base_model_path is not set."""
         # setup
