@@ -53,8 +53,8 @@ class MobiusModelBuilder(Pass):
     See https://github.com/microsoft/mobius
     """
 
-    # Maps Olive ExecutionProvider strings to mobius EP names.
-    EP_MAP: ClassVar[dict[str, str]] = {
+    # Maps Olive ExecutionProvider enum values to mobius EP names.
+    EP_MAP: ClassVar[dict[ExecutionProvider, str]] = {
         ExecutionProvider.CPUExecutionProvider: "cpu",
         ExecutionProvider.CUDAExecutionProvider: "cuda",
         ExecutionProvider.DmlExecutionProvider: "dml",
