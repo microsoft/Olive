@@ -28,6 +28,15 @@
             "dataset": "dataset_optional",
             "module_dependencies": [ "autoawq" ]
         },
+        "AutoClip": {
+            "module_path": "olive.passes.pytorch.autoclip.AutoClip",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [  ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "dataset": "dataset_optional"
+        },
         "CaptureSplitInfo": {
             "module_path": "olive.passes.pytorch.capture_split_info.CaptureSplitInfo",
             "supported_providers": [ "*" ],
