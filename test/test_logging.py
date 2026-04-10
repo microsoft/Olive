@@ -24,6 +24,15 @@ from olive.logging import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _restore_logger_level():
+    """Save and restore the olive logger level between tests."""
+    logger = get_olive_logger()
+    original_level = logger.level
+    yield
+    logger.setLevel(original_level)
+
+
 class TestGetOliveLogger:
     def test_returns_olive_logger(self):
         # execute
@@ -91,7 +100,8 @@ class TestSetVerbosityFromEnv:
         with patch.dict("os.environ", {}, clear=True):
             set_verbosity_from_env()
 
-        # assert (no exception raised)
+        # assert
+        assert get_olive_logger().level == logging.INFO
 
     def test_set_verbosity_from_env_custom(self):
         # execute
@@ -157,18 +167,25 @@ class TestEnableFilelog:
     def test_enable_filelog_creates_handler(self, tmp_path):
         # setup
         workflow_id = "test_workflow"
-
-        # execute
-        enable_filelog(1, str(tmp_path), workflow_id)
-
-        # assert
         logger = get_olive_logger()
-        log_file_path = tmp_path / f"{workflow_id}.log"
-        file_handlers = [h for h in logger.handlers if isinstance(h, logging.FileHandler)]
-        assert len(file_handlers) > 0
+        original_handler_ids = {id(h) for h in logger.handlers}
+        log_file_path = (tmp_path / f"{workflow_id}.log").resolve()
 
-        # cleanup
-        for h in file_handlers:
-            if Path(h.baseFilename) == log_file_path.resolve():
+        try:
+            # execute
+            enable_filelog(1, str(tmp_path), workflow_id)
+
+            # assert
+            new_handlers = [h for h in logger.handlers if id(h) not in original_handler_ids]
+            matching_handlers = [
+                h
+                for h in new_handlers
+                if isinstance(h, logging.FileHandler) and Path(h.baseFilename).resolve() == log_file_path
+            ]
+            assert matching_handlers, f"Expected a FileHandler for {log_file_path}, but none was added."
+            assert log_file_path.exists()
+        finally:
+            # cleanup
+            for h in [h for h in logger.handlers if id(h) not in original_handler_ids]:
                 logger.removeHandler(h)
                 h.close()

@@ -68,6 +68,8 @@ class TestGetTelemetryBaseDir:
 class TestFormatExceptionMessage:
     def test_basic_exception(self):
         # setup
+        exception = None
+        traceback = None
         try:
             1 / 0  # noqa: B018
         except ZeroDivisionError as ex:

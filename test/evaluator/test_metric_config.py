@@ -206,7 +206,7 @@ class TestGetUserConfigClass:
         assert hasattr(instance, "user_script")
         assert hasattr(instance, "evaluate_func")
 
-    def test_unknown_metric_type(self):
+    def test_non_custom_metric_type_includes_common_fields(self):
         # execute
         cls = get_user_config_class("latency")
         instance = cls()
