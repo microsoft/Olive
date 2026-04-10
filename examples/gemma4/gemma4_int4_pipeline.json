@@ -19,8 +19,7 @@
     "passes": {
         "mobius_build": {
             "type": "MobiusModelBuilder",
-            "precision": "fp16",
-            "execution_provider": "cuda"
+            "precision": "fp16"
         },
         "int4_quantize": {
             "type": "GptqQuantizer",

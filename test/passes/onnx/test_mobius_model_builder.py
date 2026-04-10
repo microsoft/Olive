@@ -43,7 +43,7 @@ def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider) -> MobiusModelB
     )
 
 
-def _fake_pkg(keys: list[str], output_dir: Path) -> MagicMock:
+def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
     """Create a fake ModelPackage that writes dummy .onnx files when .save() is called."""
 
     def _save(directory: str, **_kwargs):
@@ -77,7 +77,9 @@ def _patch_build(pkg: MagicMock):
 
 def test_default_config_params():
     """MobiusModelBuilder must declare precision, execution_provider, trust_remote_code."""
-    accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider)
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
     config = MobiusModelBuilder._default_config(accelerator_spec)
     assert "precision" in config
     assert "execution_provider" in config
@@ -86,7 +88,9 @@ def test_default_config_params():
 
 def test_is_not_accelerator_agnostic():
     """Pass must be EP-specific because it chooses fused ops based on the EP."""
-    accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider)
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
     assert MobiusModelBuilder.is_accelerator_agnostic(accelerator_spec) is False
 
 
@@ -229,6 +233,5 @@ def test_non_hf_model_raises(tmp_path):
 def test_import_error_raised_when_mobius_missing(tmp_path):
     """ImportError must surface clearly when mobius is not installed."""
     p = _make_pass()
-    with patch.dict(sys.modules, {"mobius": None}):
-        with pytest.raises(ImportError, match="mobius"):
-            p.run(_make_hf_model("org/model"), tmp_path / "out")
+    with patch.dict(sys.modules, {"mobius": None}), pytest.raises(ImportError, match="mobius"):
+        p.run(_make_hf_model("org/model"), tmp_path / "out")

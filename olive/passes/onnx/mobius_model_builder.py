@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Union
+from typing import TYPE_CHECKING, ClassVar
 
 from olive.constants import Precision
-from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import ExecutionProvider
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
@@ -19,11 +18,17 @@ from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
 if TYPE_CHECKING:
+    from olive.hardware.accelerator import AcceleratorSpec
     from olive.passes.pass_config import BasePassConfig
 
 logger = logging.getLogger(__name__)
 
-# Map Olive Precision values to mobius dtype strings.
+# Maps Olive Precision values to mobius dtype strings.
+# "f32" = 32-bit float (torch.float32), standard full precision.
+# "f16" = 16-bit float (torch.float16), half precision — good for GPU inference.
+# "bf16" = bfloat16 (torch.bfloat16), brain float — preferred over f16 on newer hardware.
+# For INT4/INT8 quantization, use a downstream Olive quantization pass (e.g. OnnxMatMulNBits)
+# after this pass rather than setting precision here.
 _PRECISION_TO_DTYPE: dict[str, str] = {
     Precision.FP32: "f32",
     Precision.FP16: "f16",
@@ -41,7 +46,7 @@ class MobiusModelBuilder(Pass):
     whose components are individual :class:`~olive.model.ONNXModelHandler` objects.
     Single-component models return a plain :class:`~olive.model.ONNXModelHandler`.
 
-    Requires ``mobius`` and ``onnx_ir`` to be installed::
+    Requires ``mobius-genai`` to be installed::
 
         pip install mobius-genai
 
@@ -98,13 +103,12 @@ class MobiusModelBuilder(Pass):
         model: HfModelHandler,
         config: type[BasePassConfig],
         output_model_path: str,
-    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+    ) -> ONNXModelHandler | CompositeModelHandler:
         try:
-            import onnx_ir  # noqa: F401
             from mobius import build
         except ImportError as exc:
             raise ImportError(
-                "mobius and onnx_ir are required to run MobiusModelBuilder. "
+                "mobius-genai is required to run MobiusModelBuilder. "
                 "Install with: pip install mobius-genai"
             ) from exc
 
