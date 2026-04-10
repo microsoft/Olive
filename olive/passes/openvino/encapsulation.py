@@ -123,11 +123,16 @@ class OpenVINOEncapsulation(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[ONNXModelHandler, ModelPackageModelHandler]:
-        # Model package mode: ov_version is a list of strings
-        if isinstance(config.ov_version, list):
+        # Model package mode: ov_version is a list with multiple entries
+        if isinstance(config.ov_version, list) and len(config.ov_version) > 1:
             return self._run_model_package(model, config, output_model_path)
 
-        # Single-target mode: existing behavior
+        # Single-target mode: unwrap single-element list if needed
+        if isinstance(config.ov_version, list):
+            single_config = deepcopy(config)
+            object.__setattr__(single_config, "ov_version", config.ov_version[0])
+            return self._run_single_target(model, single_config, output_model_path)
+
         return self._run_single_target(model, config, output_model_path)
 
     def _run_model_package(

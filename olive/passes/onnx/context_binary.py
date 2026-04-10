@@ -96,9 +96,15 @@ class EPContextBinaryGenerator(Pass):
             f" {get_available_providers()}"
         )
 
-        # Model package mode: provider_options is a list of dicts
-        if isinstance(config.provider_options, list):
+        # Model package mode: provider_options is a list with multiple entries
+        if isinstance(config.provider_options, list) and len(config.provider_options) > 1:
             return self._run_model_package(model, config, output_model_path)
+
+        # Single-target mode: unwrap single-element list if needed
+        if isinstance(config.provider_options, list):
+            single_config = deepcopy(config)
+            object.__setattr__(single_config, "provider_options", config.provider_options[0])
+            return self._run_for_config(model, single_config, output_model_path)
 
         # Single-target mode: existing behavior
         result = self._run_single_target(model, config, output_model_path)

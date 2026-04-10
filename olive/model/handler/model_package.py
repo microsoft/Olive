@@ -20,23 +20,11 @@ logger = logging.getLogger(__name__)
 
 @model_handler_registry("ModelPackageModel")
 class ModelPackageModelHandler(OliveModelHandler):
-    """ModelPackageModel represents the same model optimized for multiple deployment variants.
+    """Olive handler for the ORT Model Package format.
 
-    Each variant is identified by a target name and may differ by hardware target (e.g., SoC model),
-    execution provider, device type, runtime version, or any other deployment dimension.
-
-    Unlike CompositeModelHandler, which holds different component models (e.g., encoder and decoder
-    in a pipeline), ModelPackageModelHandler holds the same logical model built for different
-    deployment configurations.
-
-    Examples of target variants:
-        - Different QNN SoC models: "soc_qcs8550", "soc_qcs6490"
-        - Different OpenVINO versions: "ov_2025_0", "ov_2024_5"
-        - Different devices or EPs: "npu_qnn", "cpu_onnx"
-
-    When a downstream pass encounters a ModelPackageModelHandler and does not set
-    ``_accepts_model_package_model = True``, the framework automatically runs the pass
-    independently on each variant and reassembles the results.
+    Holds model variants for different deployment targets (e.g., SoC, runtime version,
+    execution provider). The ModelPackage pass consumes this handler to produce the
+    final packaged output with manifest.json and per-component metadata.
     """
 
     resource_keys: tuple[str, ...] = ("model_path",)
