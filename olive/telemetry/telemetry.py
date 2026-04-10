@@ -158,8 +158,6 @@ class TelemetryCacheHandler:
                 # so it's unlikely that an event would suddenly fail and need to be cached
                 # and we don't need to flush again.
                 if self._is_flushing:
-                    self._callbacks_item_count += args.item_count
-                    self._condition.notify_all()
                     return
 
                 if args.succeeded:
@@ -316,6 +314,29 @@ class TelemetryCacheHandler:
 
         self._flush_cache_file(cache_path)
 
+    def _restore_flush_file(self, flush_path: Optional[Path], cache_path: Path) -> None:
+        """Restore a claimed flush file back into the cache without overwriting new entries.
+
+        Another process may create a fresh cache file while this process is flushing.
+        Appending the old flush contents preserves both sets of entries.
+        """
+        if not flush_path or not flush_path.exists():
+            return
+
+        try:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            with (
+                _exclusive_file_lock(cache_path, mode="a") as cache_file,
+                _exclusive_file_lock(flush_path, mode="r") as flush_file,
+            ):
+                for raw_line in flush_file:
+                    line = raw_line.rstrip("\n")
+                    if line:
+                        cache_file.write(line + "\n")
+            flush_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
     def _flush_cache_file(self, cache_path: Path) -> None:
         """Flush cached events back to telemetry service.
 
@@ -360,14 +381,10 @@ class TelemetryCacheHandler:
                 flush_path.unlink(missing_ok=True)
             else:
                 # Restore cache for next retry
-                flush_path.replace(cache_path)
+                self._restore_flush_file(flush_path, cache_path)
         except Exception:
             # Best-effort restore on failure
-            try:
-                if flush_path and flush_path.exists():
-                    flush_path.replace(cache_path)
-            except Exception:
-                pass
+            self._restore_flush_file(flush_path, cache_path)
 
     @property
     def is_flushing(self) -> bool:
