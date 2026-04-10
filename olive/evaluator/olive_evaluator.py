@@ -1186,9 +1186,7 @@ class MTEBEvaluator(OliveEvaluator):
                     "'hf', 'ort', or 'ortgenai'."
                 )
 
-        logger.info(
-            "Running MTEB evaluation with model_class=%s, tasks=%s", model_class, self.tasks
-        )
+        logger.info("Running MTEB evaluation with model_class=%s, tasks=%s", model_class, self.tasks)
 
         # Build the MTEB-compatible model wrapper
         if model_class == "hf":
@@ -1201,7 +1199,8 @@ class MTEBEvaluator(OliveEvaluator):
                 model_path=model.model_path,
                 batch_size=self.batch_size,
                 max_length=self.max_length,
-                ep=self.ep or (execution_providers[0] if isinstance(execution_providers, list) else execution_providers),
+                ep=self.ep
+                or (execution_providers[0] if isinstance(execution_providers, list) else execution_providers),
                 ep_options=self.ep_options,
             )
         elif model_class == "ortgenai":
@@ -1209,7 +1208,8 @@ class MTEBEvaluator(OliveEvaluator):
                 pretrained=str(Path(model.model_path).parent),
                 batch_size=self.batch_size,
                 max_length=self.max_length,
-                ep=self.ep or (execution_providers[0] if isinstance(execution_providers, list) else execution_providers)
+                ep=self.ep
+                or (execution_providers[0] if isinstance(execution_providers, list) else execution_providers)
                 or "follow_config",
                 ep_options=self.ep_options,
             )
@@ -1239,9 +1239,7 @@ class MTEBEvaluator(OliveEvaluator):
         for task_result in task_results:
             task_name = task_result.task_name
             task_metrics = {
-                "main_score": SubMetricResult(
-                    value=task_result.main_score, priority=-1, higher_is_better=True
-                ),
+                "main_score": SubMetricResult(value=task_result.main_score, priority=-1, higher_is_better=True),
             }
             for split_name, split_scores in task_result.scores.items():
                 for lang_score in split_scores:
