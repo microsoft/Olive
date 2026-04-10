@@ -237,3 +237,80 @@ def test_import_error_raised_when_mobius_missing(tmp_path):
     p = _make_pass()
     with patch.dict(sys.modules, {"mobius": None}), pytest.raises(ImportError, match="mobius"):
         p.run(_make_hf_model("org/model"), tmp_path / "out")
+
+
+# ---------------------------------------------------------------------------
+# Output validation tests
+# ---------------------------------------------------------------------------
+
+
+def test_missing_output_file_raises_runtime_error(tmp_path):
+    """RuntimeError must be raised if pkg.save() does not produce model.onnx."""
+    out = tmp_path / "out"
+    # _fake_pkg normally writes the file; use a pkg whose save() does nothing.
+    pkg = MagicMock()
+    pkg.keys.return_value = ["model"]
+    pkg.__iter__ = MagicMock(return_value=iter(["model"]))
+    pkg.save.return_value = None  # save() succeeds but writes nothing
+
+    with _patch_build(pkg), pytest.raises(RuntimeError, match="expected output file not found"):
+        _make_pass().run(_make_hf_model("org/model"), out)
+
+
+def test_missing_component_file_raises_runtime_error(tmp_path):
+    """RuntimeError for multi-component if any component's model.onnx is missing."""
+    out = tmp_path / "out"
+    keys = ["model", "vision", "embedding"]
+    pkg = MagicMock()
+    pkg.keys.return_value = keys
+    pkg.__iter__ = MagicMock(return_value=iter(keys))
+    # save() only creates 'model' component, skips 'vision' and 'embedding'
+    def _partial_save(directory: str, **_kwargs):
+        d = Path(directory) / "model"
+        d.mkdir(parents=True)
+        (d / "model.onnx").write_text("dummy")
+    pkg.save.side_effect = _partial_save
+
+    with _patch_build(pkg), pytest.raises(RuntimeError, match="expected output file not found"):
+        _make_pass().run(_make_hf_model("org/vlm"), out)
+
+
+# ---------------------------------------------------------------------------
+# Security / trust_remote_code tests
+# ---------------------------------------------------------------------------
+
+
+def test_trust_remote_code_warning_logged(tmp_path):
+    """trust_remote_code=True must emit a warning about trusted model sources."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+    p = create_pass_from_dict(
+        MobiusModelBuilder,
+        {"precision": "fp32", "trust_remote_code": True},
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec(
+            accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+        ),
+    )
+    with (
+        _patch_build(pkg),
+        patch("olive.passes.onnx.mobius_model_builder.logger") as mock_logger,
+    ):
+        p.run(_make_hf_model("org/model"), out)
+
+    warning_messages = [call.args[0] for call in mock_logger.warning.call_args_list]
+    assert any("trust_remote_code" in msg for msg in warning_messages)
+
+
+def test_no_warning_when_trust_remote_code_false(tmp_path):
+    """No trust_remote_code warning must be emitted when flag is False (default)."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+    with (
+        _patch_build(pkg),
+        patch("olive.passes.onnx.mobius_model_builder.logger") as mock_logger,
+    ):
+        _make_pass().run(_make_hf_model("org/model"), out)
+
+    warning_messages = [call.args[0] for call in mock_logger.warning.call_args_list]
+    assert not any("trust_remote_code" in msg for msg in warning_messages)

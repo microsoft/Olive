@@ -132,6 +132,11 @@ class MobiusModelBuilder(Pass):
             dtype_str,
         )
 
+        if config.trust_remote_code:
+            logger.warning(
+                "MobiusModelBuilder: trust_remote_code=True — only use with trusted model sources."
+            )
+
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -153,6 +158,12 @@ class MobiusModelBuilder(Pass):
 
         if len(package_keys) == 1:
             # Single-component model (most LLMs): return a plain ONNXModelHandler.
+            onnx_path = output_dir / "model.onnx"
+            if not onnx_path.exists():
+                raise RuntimeError(
+                    f"MobiusModelBuilder: expected output file not found: {onnx_path}. "
+                    "mobius.build() may have failed silently or saved to an unexpected path."
+                )
             return ONNXModelHandler(
                 model_path=str(output_dir),
                 onnx_file_name="model.onnx",
@@ -167,6 +178,12 @@ class MobiusModelBuilder(Pass):
         components = []
         for key in package_keys:
             component_dir = output_dir / key
+            onnx_path = component_dir / "model.onnx"
+            if not onnx_path.exists():
+                raise RuntimeError(
+                    f"MobiusModelBuilder: expected output file not found: {onnx_path}. "
+                    f"mobius.build() may have failed silently for component '{key}'."
+                )
             components.append(
                 ONNXModelHandler(
                     model_path=str(component_dir),
