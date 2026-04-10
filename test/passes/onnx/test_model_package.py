@@ -96,10 +96,10 @@ class TestModelPackage:
         assert set(manifest.keys()) == {"name", "model_version", "task", "component_models"}
         assert manifest["name"] == "output"
         assert manifest["model_version"] == "1.0"
-        assert manifest["task"] == []
+        assert manifest["task"] == ""
         assert manifest["component_models"] == ["model"]
 
-        # assert: metadata.json under task-derived component dir ("model" when no HF config)
+        # assert: metadata.json under task-derived component dir ("model" when no _name_or_path)
         metadata_path = tmp_path / "output" / "models" / "model" / "metadata.json"
         assert metadata_path.exists()
         with open(metadata_path) as f:
@@ -578,30 +578,29 @@ class TestModelPackage:
             manifest = json.load(f)
         assert manifest["model_version"] == "2.5"
 
-    def test_manifest_includes_task_from_hf_config(self, tmp_path):
-        """Task is extracted from HF config.json and component name is derived from it."""
-        # setup: pre-create configs/config.json with HF architectures before running packager
+    def test_manifest_includes_task_from_hf_hub(self, tmp_path):
+        """Task is extracted via HuggingFace Hub API and component name is derived from it."""
+        # setup: model with _name_or_path in attributes
         mt = _make_model_package(
             tmp_path,
-            [("soc_60", {}), ("soc_73", {})],
+            [
+                ("soc_60", {"_name_or_path": "Qwen/Qwen2.5-1.5B-Instruct"}),
+                ("soc_73", {"_name_or_path": "Qwen/Qwen2.5-1.5B-Instruct"}),
+            ],
         )
         p = self._create_packager()
-        output_dir = tmp_path / "output"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        configs_dir = output_dir / "configs"
-        configs_dir.mkdir(parents=True, exist_ok=True)
-        hf_config = {"architectures": ["Qwen2ForCausalLM"], "model_type": "qwen2"}
-        with open(configs_dir / "config.json", "w") as f:
-            json.dump(hf_config, f)
 
-        # execute
-        output_path = str(tmp_path / "output.onnx")
-        p.run(mt, output_path)
+        # mock the HF API call
+        mock_info = type("MockInfo", (), {"pipeline_tag": "text-generation"})()
+        with patch("olive.passes.onnx.model_package.model_info", return_value=mock_info):
+            output_path = str(tmp_path / "output.onnx")
+            p.run(mt, output_path)
 
         # assert: task mapped to component name "decoder"
+        output_dir = tmp_path / "output"
         with open(output_dir / "manifest.json") as f:
             manifest = json.load(f)
-        assert manifest["task"] == ["text_generation"]
+        assert manifest["task"] == "text_generation"
         assert manifest["component_models"] == ["decoder"]
 
         # assert: metadata.json under decoder/ directory
@@ -610,8 +609,8 @@ class TestModelPackage:
             metadata = json.load(f)
         assert metadata["name"] == "decoder"
 
-    def test_manifest_empty_task_without_config(self, tmp_path):
-        """Task is empty when no HF config.json exists."""
+    def test_manifest_empty_task_without_name_or_path(self, tmp_path):
+        """Task is empty when no _name_or_path exists in model attributes."""
         # setup
         mt = _make_model_package(
             tmp_path,
@@ -626,7 +625,7 @@ class TestModelPackage:
         # assert
         with open(tmp_path / "output" / "manifest.json") as f:
             manifest = json.load(f)
-        assert manifest["task"] == []
+        assert manifest["task"] == ""
 
     def test_packager_onnx_model_uses_filename_in_file_field(self, tmp_path):
         # setup

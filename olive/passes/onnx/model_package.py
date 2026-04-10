@@ -9,6 +9,8 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Optional, Union
 
+from huggingface_hub import model_info
+
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
 from olive.model.handler.model_package import ModelPackageModelHandler
@@ -95,8 +97,8 @@ class ModelPackage(Pass):
         # Copy config files (genai_config.json, chat_template) to configs/
         config_file_names = self._copy_config_files(model, output_dir)
 
-        # Extract task from HF config and derive component name
-        task = self._extract_task(output_dir)
+        # Extract task and derive component name
+        task = self._extract_task(model)
         component_name = self._task_to_component_name(task)
 
         # Build model_variants dict and copy files into models/<component_name>/
@@ -205,8 +207,8 @@ class ModelPackage(Pass):
                 json.dump(metadata, f, indent=2)
             logger.info("Generated metadata for component %s", comp_name)
 
-        # Extract task from HF config
-        task = self._extract_task(output_dir)
+        # Extract task
+        task = self._extract_task(model)
 
         # Write manifest.json at package root
         manifest = {
@@ -473,8 +475,8 @@ class ModelPackage(Pass):
         return None
 
     @staticmethod
-    def _task_to_component_name(tasks: list[str]) -> str:
-        """Map task list to a component name for single-component models.
+    def _task_to_component_name(task: str) -> str:
+        """Map a task string to a component name for single-component models.
 
         Used when the model is not a composite pipeline but still needs
         a component directory name in the package structure.
@@ -490,53 +492,36 @@ class ModelPackage(Pass):
             "object_detection": "object_detector",
             "automatic_speech_recognition": "speech_recognizer",
         }
-        for task in tasks:
-            if task in task_component_map:
-                return task_component_map[task]
-        return "model"
+        return task_component_map.get(task, "model")
 
     @staticmethod
-    def _extract_task(output_dir: Path) -> list[str]:
-        """Extract task from HuggingFace config.json in the configs/ directory.
+    def _extract_task(model: ModelPackageModelHandler) -> str:
+        """Extract the task for this model using the HuggingFace Hub API.
 
-        Maps model architectures (e.g., ``Qwen2ForCausalLM``) to task names
-        (e.g., ``text_generation``). Returns an empty list if no config is found.
+        Reads ``_name_or_path`` from the model attributes and queries
+        ``huggingface_hub.model_info`` for the ``pipeline_tag``.
+        Returns an empty string if the task cannot be determined.
         """
-        config_path = output_dir / "configs" / "config.json"
-        if not config_path.is_file():
-            return []
+        attrs = model.model_attributes or {}
+        # Try the first target's attributes as fallback
+        if "_name_or_path" not in attrs:
+            for _, target_model in model.get_target_models():
+                attrs = target_model.model_attributes or {}
+                if "_name_or_path" in attrs:
+                    break
+
+        model_name_or_path = attrs.get("_name_or_path", "")
+        if not model_name_or_path:
+            return ""
 
         try:
-            with open(config_path) as f:
-                hf_config = json.load(f)
-        except (json.JSONDecodeError, OSError):
-            logger.debug("Could not read HF config from %s", config_path, exc_info=True)
-            return []
-
-        architectures = hf_config.get("architectures", [])
-        tasks = set()
-        for arch in architectures:
-            arch_lower = arch.lower()
-            if "causal" in arch_lower or "forgenerating" in arch_lower:
-                tasks.add("text_generation")
-            elif "seq2seq" in arch_lower or "conditional" in arch_lower:
-                tasks.add("text2text_generation")
-            elif "sequenceclassification" in arch_lower:
-                tasks.add("text_classification")
-            elif "tokenclassification" in arch_lower:
-                tasks.add("token_classification")
-            elif "questionanswering" in arch_lower:
-                tasks.add("question_answering")
-            elif "imagegeneration" in arch_lower or "diffusion" in arch_lower:
-                tasks.add("image_generation")
-            elif "imageclassification" in arch_lower:
-                tasks.add("image_classification")
-            elif "objectdetection" in arch_lower:
-                tasks.add("object_detection")
-            elif "speechseq2seq" in arch_lower or "ctc" in arch_lower:
-                tasks.add("automatic_speech_recognition")
-
-        return sorted(tasks) if tasks else []
+            info = model_info(model_name_or_path)
+            tag = info.pipeline_tag or ""
+            # HF uses hyphens (e.g., "text-generation"); normalize to underscores
+            return tag.replace("-", "_")
+        except Exception:
+            logger.debug("Could not fetch task from HuggingFace Hub for %s", model_name_or_path, exc_info=True)
+            return ""
 
     @staticmethod
     def _extract_ep_compatibility_from_onnx(
