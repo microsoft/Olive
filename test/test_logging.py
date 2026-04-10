@@ -26,56 +26,111 @@ from olive.logging import (
 
 class TestGetOliveLogger:
     def test_returns_olive_logger(self):
+        # setup
+
+        # execute
         logger = get_olive_logger()
+
+        # assert
         assert logger.name == "olive"
 
     def test_returns_same_logger_instance(self):
+        # setup
+
+        # execute
         logger1 = get_olive_logger()
         logger2 = get_olive_logger()
+
+        # assert
         assert logger1 is logger2
 
 
 class TestSetVerbosity:
     def test_set_verbosity_info(self):
+        # setup
+
+        # execute
         set_verbosity_info()
+
+        # assert
         assert get_olive_logger().level == logging.INFO
 
     def test_set_verbosity_warning(self):
+        # setup
+
+        # execute
         set_verbosity_warning()
+
+        # assert
         assert get_olive_logger().level == logging.WARNING
 
     def test_set_verbosity_debug(self):
+        # setup
+
+        # execute
         set_verbosity_debug()
+
+        # assert
         assert get_olive_logger().level == logging.DEBUG
 
     def test_set_verbosity_error(self):
+        # setup
+
+        # execute
         set_verbosity_error()
+
+        # assert
         assert get_olive_logger().level == logging.ERROR
 
     def test_set_verbosity_critical(self):
+        # setup
+
+        # execute
         set_verbosity_critical()
+
+        # assert
         assert get_olive_logger().level == logging.CRITICAL
 
     def test_set_verbosity_custom_level(self):
+        # setup
+
+        # execute
         set_verbosity(logging.WARNING)
+
+        # assert
         assert get_olive_logger().level == logging.WARNING
 
 
 class TestSetVerbosityFromEnv:
     def test_set_verbosity_from_env_default(self):
+        # setup
+
+        # execute
         with patch.dict("os.environ", {}, clear=True):
             set_verbosity_from_env()
 
+        # assert (no exception raised)
+
     def test_set_verbosity_from_env_custom(self):
+        # setup
+
+        # execute
         with patch.dict("os.environ", {"OLIVE_LOG_LEVEL": "DEBUG"}):
             set_verbosity_from_env()
+
+            # assert
             assert get_olive_logger().level == logging.DEBUG
 
 
 class TestGetVerbosity:
     def test_get_verbosity_returns_int(self):
+        # setup
         set_verbosity_info()
+
+        # execute
         level = get_verbosity()
+
+        # assert
         assert isinstance(level, int)
         assert level == logging.INFO
 
@@ -92,10 +147,19 @@ class TestGetLoggerLevel:
         ],
     )
     def test_valid_levels(self, level_int, expected):
-        assert get_logger_level(level_int) == expected
+        # setup
+
+        # execute
+        result = get_logger_level(level_int)
+
+        # assert
+        assert result == expected
 
     @pytest.mark.parametrize("invalid_level", [-1, 5, 10, 100])
     def test_invalid_levels_raise_value_error(self, invalid_level):
+        # setup
+
+        # execute & assert
         with pytest.raises(ValueError, match="Invalid level"):
             get_logger_level(invalid_level)
 
@@ -103,24 +167,31 @@ class TestGetLoggerLevel:
 class TestSetDefaultLoggerSeverity:
     @pytest.mark.parametrize("level", [0, 1, 2, 3, 4])
     def test_set_default_logger_severity(self, level):
-        set_default_logger_severity(level)
+        # setup
         expected = get_logger_level(level)
+
+        # execute
+        set_default_logger_severity(level)
+
+        # assert
         assert get_olive_logger().level == expected
 
 
 class TestEnableFilelog:
     def test_enable_filelog_creates_handler(self, tmp_path):
+        # setup
         workflow_id = "test_workflow"
+
+        # execute
         enable_filelog(1, str(tmp_path), workflow_id)
 
+        # assert
         logger = get_olive_logger()
         log_file_path = tmp_path / f"{workflow_id}.log"
-
-        # Check that a file handler was added
         file_handlers = [h for h in logger.handlers if isinstance(h, logging.FileHandler)]
         assert len(file_handlers) > 0
 
-        # Clean up: remove the handler we added
+        # cleanup
         for h in file_handlers:
             if Path(h.baseFilename) == log_file_path.resolve():
                 logger.removeHandler(h)

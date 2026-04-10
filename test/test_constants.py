@@ -23,41 +23,92 @@ from olive.constants import (
 
 class TestFramework:
     def test_framework_values(self):
-        assert Framework.ONNX == "ONNX"
-        assert Framework.PYTORCH == "PyTorch"
-        assert Framework.OPENVINO == "OpenVINO"
+        # setup
+
+        # execute
+        onnx = Framework.ONNX
+        pytorch = Framework.PYTORCH
+        openvino = Framework.OPENVINO
+
+        # assert
+        assert onnx == "ONNX"
+        assert pytorch == "PyTorch"
+        assert openvino == "OpenVINO"
 
     def test_framework_str(self):
-        assert str(Framework.ONNX) == "ONNX"
+        # setup
+
+        # execute
+        result = str(Framework.ONNX)
+
+        # assert
+        assert result == "ONNX"
 
     def test_framework_all_members(self):
+        # setup
         expected = {"ONNX", "PYTORCH", "QAIRT", "QNN", "TENSORFLOW", "OPENVINO"}
-        assert set(Framework.__members__.keys()) == expected
+
+        # execute
+        result = set(Framework.__members__.keys())
+
+        # assert
+        assert result == expected
 
 
 class TestModelFileFormat:
     def test_model_file_format_values(self):
-        assert ModelFileFormat.ONNX == "ONNX"
-        assert ModelFileFormat.PYTORCH_STATE_DICT == "PyTorch.StateDict"
-        assert ModelFileFormat.COMPOSITE_MODEL == "Composite"
+        # setup
+
+        # execute
+        onnx = ModelFileFormat.ONNX
+        state_dict = ModelFileFormat.PYTORCH_STATE_DICT
+        composite = ModelFileFormat.COMPOSITE_MODEL
+
+        # assert
+        assert onnx == "ONNX"
+        assert state_dict == "PyTorch.StateDict"
+        assert composite == "Composite"
 
     def test_model_file_format_str(self):
-        assert str(ModelFileFormat.OPENVINO_IR) == "OpenVINO.IR"
+        # setup
+
+        # execute
+        result = str(ModelFileFormat.OPENVINO_IR)
+
+        # assert
+        assert result == "OpenVINO.IR"
 
 
 class TestPrecision:
     def test_precision_values(self):
-        assert Precision.INT4 == "int4"
-        assert Precision.FP16 == "fp16"
-        assert Precision.BF16 == "bf16"
+        # setup
+
+        # execute
+        int4 = Precision.INT4
+        fp16 = Precision.FP16
+        bf16 = Precision.BF16
+
+        # assert
+        assert int4 == "int4"
+        assert fp16 == "fp16"
+        assert bf16 == "bf16"
 
     def test_precision_all_members(self):
+        # setup
         expected_count = 14
-        assert len(Precision) == expected_count
+
+        # execute
+        result = len(Precision)
+
+        # assert
+        assert result == expected_count
 
 
 class TestPrecisionBits:
     def test_precision_bits_values(self):
+        # setup
+
+        # execute & assert
         assert PrecisionBits.BITS2 == 2
         assert PrecisionBits.BITS4 == 4
         assert PrecisionBits.BITS8 == 8
@@ -65,46 +116,99 @@ class TestPrecisionBits:
         assert PrecisionBits.BITS32 == 32
 
     def test_precision_bits_is_int(self):
-        assert isinstance(PrecisionBits.BITS4.value, int)
+        # setup
+
+        # execute
+        result = isinstance(PrecisionBits.BITS4.value, int)
+
+        # assert
+        assert result
 
 
 class TestQuantAlgorithm:
     def test_quant_algorithm_case_insensitive(self):
-        assert QuantAlgorithm("awq") == QuantAlgorithm.AWQ
-        assert QuantAlgorithm("AWQ") == QuantAlgorithm.AWQ
-        assert QuantAlgorithm("Awq") == QuantAlgorithm.AWQ
+        # setup
+
+        # execute
+        lower = QuantAlgorithm("awq")
+        upper = QuantAlgorithm("AWQ")
+        mixed = QuantAlgorithm("Awq")
+
+        # assert
+        assert lower == QuantAlgorithm.AWQ
+        assert upper == QuantAlgorithm.AWQ
+        assert mixed == QuantAlgorithm.AWQ
 
     def test_quant_algorithm_values(self):
-        assert QuantAlgorithm.GPTQ == "gptq"
-        assert QuantAlgorithm.RTN == "rtn"
+        # setup
+
+        # execute
+        gptq = QuantAlgorithm.GPTQ
+        rtn = QuantAlgorithm.RTN
+
+        # assert
+        assert gptq == "gptq"
+        assert rtn == "rtn"
 
     def test_quant_algorithm_all_members(self):
+        # setup
         expected = {"AWQ", "GPTQ", "HQQ", "RTN", "SPINQUANT", "QUAROT", "LPBQ", "SEQMSE", "ADAROUND"}
-        assert set(QuantAlgorithm.__members__.keys()) == expected
+
+        # execute
+        result = set(QuantAlgorithm.__members__.keys())
+
+        # assert
+        assert result == expected
 
 
 class TestQuantEncoding:
     def test_quant_encoding_values(self):
-        assert QuantEncoding.QDQ == "qdq"
-        assert QuantEncoding.QOP == "qop"
+        # setup
+
+        # execute
+        qdq = QuantEncoding.QDQ
+        qop = QuantEncoding.QOP
+
+        # assert
+        assert qdq == "qdq"
+        assert qop == "qop"
 
 
 class TestDatasetRequirement:
     def test_dataset_requirement_values(self):
-        assert DatasetRequirement.REQUIRED == "dataset_required"
-        assert DatasetRequirement.OPTIONAL == "dataset_optional"
-        assert DatasetRequirement.NOT_REQUIRED == "dataset_not_required"
+        # setup
+
+        # execute
+        required = DatasetRequirement.REQUIRED
+        optional = DatasetRequirement.OPTIONAL
+        not_required = DatasetRequirement.NOT_REQUIRED
+
+        # assert
+        assert required == "dataset_required"
+        assert optional == "dataset_optional"
+        assert not_required == "dataset_not_required"
 
 
 class TestOpType:
     def test_op_type_values(self):
-        assert OpType.MatMul == "MatMul"
-        assert OpType.Add == "Add"
-        assert OpType.Custom == "custom"
+        # setup
+
+        # execute
+        matmul = OpType.MatMul
+        add = OpType.Add
+        custom = OpType.Custom
+
+        # assert
+        assert matmul == "MatMul"
+        assert add == "Add"
+        assert custom == "custom"
 
 
 class TestAccuracyLevel:
     def test_accuracy_level_values(self):
+        # setup
+
+        # execute & assert
         assert AccuracyLevel.unset == 0
         assert AccuracyLevel.fp32 == 1
         assert AccuracyLevel.fp16 == 2
@@ -113,16 +217,32 @@ class TestAccuracyLevel:
 
 class TestDiffusersModelVariant:
     def test_diffusers_variant_values(self):
-        assert DiffusersModelVariant.AUTO == "auto"
-        assert DiffusersModelVariant.SD == "sd"
-        assert DiffusersModelVariant.FLUX == "flux"
+        # setup
+
+        # execute
+        auto = DiffusersModelVariant.AUTO
+        sd = DiffusersModelVariant.SD
+        flux = DiffusersModelVariant.FLUX
+
+        # assert
+        assert auto == "auto"
+        assert sd == "sd"
+        assert flux == "flux"
 
 
 class TestDiffusersComponent:
     def test_diffusers_component_values(self):
-        assert DiffusersComponent.TEXT_ENCODER == "text_encoder"
-        assert DiffusersComponent.UNET == "unet"
-        assert DiffusersComponent.VAE_DECODER == "vae_decoder"
+        # setup
+
+        # execute
+        text_encoder = DiffusersComponent.TEXT_ENCODER
+        unet = DiffusersComponent.UNET
+        vae_decoder = DiffusersComponent.VAE_DECODER
+
+        # assert
+        assert text_encoder == "text_encoder"
+        assert unet == "unet"
+        assert vae_decoder == "vae_decoder"
 
 
 class TestPrecisionBitsFromPrecision:
@@ -140,13 +260,31 @@ class TestPrecisionBitsFromPrecision:
         ],
     )
     def test_precision_to_bits_mapping(self, precision, expected):
-        assert precision_bits_from_precision(precision) == expected
+        # setup
+
+        # execute
+        result = precision_bits_from_precision(precision)
+
+        # assert
+        assert result == expected
 
     @pytest.mark.parametrize("precision", [Precision.FP16, Precision.FP32, Precision.BF16, Precision.NF4])
     def test_precision_without_bits_mapping_returns_none(self, precision):
-        assert precision_bits_from_precision(precision) is None
+        # setup
+
+        # execute
+        result = precision_bits_from_precision(precision)
+
+        # assert
+        assert result is None
 
 
 class TestMsftDomain:
     def test_msft_domain_value(self):
-        assert MSFT_DOMAIN == "com.microsoft"
+        # setup
+
+        # execute
+        result = MSFT_DOMAIN
+
+        # assert
+        assert result == "com.microsoft"

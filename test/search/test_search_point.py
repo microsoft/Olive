@@ -27,35 +27,69 @@ class TestSearchPoint:
         return SearchPoint(index=index, values=values)
 
     def test_creation(self):
+        # setup
+
+        # execute
         point = self._make_point()
+
+        # assert
         assert point.index == 0
 
     def test_repr(self):
+        # setup
         point = self._make_point()
+
+        # execute
         result = repr(point)
+
+        # assert
         assert "SearchPoint" in result
         assert "0" in result
 
     def test_equality_same(self):
+        # setup
         point1 = self._make_point()
         point2 = self._make_point()
-        assert point1 == point2
+
+        # execute
+        result = point1 == point2
+
+        # assert
+        assert result
 
     def test_equality_different_index(self):
+        # setup
         point1 = self._make_point(index=0)
         point2 = self._make_point(index=1)
-        assert point1 != point2
+
+        # execute
+        result = point1 == point2
+
+        # assert
+        assert not result
 
     def test_equality_different_type(self):
+        # setup
         point = self._make_point()
-        assert point != "not a search point"
+
+        # execute
+        result = point == "not a search point"
+
+        # assert
+        assert not result
 
     def test_is_valid_true(self):
+        # setup
         point = self._make_point()
-        assert point.is_valid() is True
+
+        # execute
+        result = point.is_valid()
+
+        # assert
+        assert result is True
 
     def test_is_valid_false_with_invalid(self):
-        # Verify that a SearchPoint with an invalid parameter value is detected as invalid
+        # setup
         values = OrderedDict(
             {
                 "pass1": OrderedDict(
@@ -66,17 +100,32 @@ class TestSearchPoint:
             }
         )
         point = SearchPoint(index=0, values=values)
-        assert point.is_valid() is False
+
+        # execute
+        result = point.is_valid()
+
+        # assert
+        assert result is False
 
     def test_to_json(self):
+        # setup
         point = self._make_point(index=5)
+
+        # execute
         result = point.to_json()
+
+        # assert
         assert result["index"] == 5
         assert "values" in result
 
     def test_from_json_roundtrip(self):
+        # setup
         point = self._make_point(index=3)
         json_data = point.to_json()
+
+        # execute
         restored = SearchPoint.from_json(json_data)
+
+        # assert
         assert restored.index == 3
         assert restored == point

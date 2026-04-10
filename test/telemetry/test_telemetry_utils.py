@@ -20,73 +20,134 @@ from olive.telemetry.utils import (
 
 class TestResolveHomeDir:
     def test_returns_path(self):
+        # setup
+
+        # execute
         result = _resolve_home_dir()
+
+        # assert
         assert isinstance(result, Path)
 
     def test_with_home_env_set(self):
+        # setup
+
+        # execute
         with patch.dict(os.environ, {"HOME": "/tmp/test_home"}):
             result = _resolve_home_dir()
-            assert isinstance(result, Path)
+
+        # assert
+        assert isinstance(result, Path)
 
     def test_without_home_env(self):
+        # setup
+
+        # execute
         with patch.dict(os.environ, {}, clear=True):
             result = _resolve_home_dir()
-            assert isinstance(result, Path)
+
+        # assert
+        assert isinstance(result, Path)
 
 
 class TestGetTelemetryBaseDir:
     def test_returns_path(self):
-        # Clear the lru_cache before test
+        # setup
         get_telemetry_base_dir.cache_clear()
+
+        # execute
         result = get_telemetry_base_dir()
+
+        # assert
         assert isinstance(result, Path)
 
     def test_path_contains_onnxruntime(self):
+        # setup
         get_telemetry_base_dir.cache_clear()
+
+        # execute
         result = get_telemetry_base_dir()
+
+        # assert
         assert ".onnxruntime" in str(result)
 
 
 class TestFormatExceptionMessage:
     def test_basic_exception(self):
+        # setup
         try:
             1 / 0  # noqa: B018
         except ZeroDivisionError as ex:
-            result = _format_exception_message(ex, ex.__traceback__)
-            assert "ZeroDivisionError" in result
+            exception = ex
+            traceback = ex.__traceback__
+
+        # execute
+        result = _format_exception_message(exception, traceback)
+
+        # assert
+        assert "ZeroDivisionError" in result
 
     def test_exception_without_traceback(self):
+        # setup
         ex = ValueError("test error")
+
+        # execute
         result = _format_exception_message(ex)
+
+        # assert
         assert "test error" in result
 
 
 class TestEncodeCacheLine:
     def test_encode_basic_string(self):
-        result = _encode_cache_line("hello")
+        # setup
         expected = base64.b64encode(b"hello").decode("ascii")
+
+        # execute
+        result = _encode_cache_line("hello")
+
+        # assert
         assert result == expected
 
     def test_encode_empty_string(self):
-        result = _encode_cache_line("")
+        # setup
         expected = base64.b64encode(b"").decode("ascii")
+
+        # execute
+        result = _encode_cache_line("")
+
+        # assert
         assert result == expected
 
     def test_encode_unicode_string(self):
-        result = _encode_cache_line("hello 世界")
+        # setup
+
+        # execute
+        result = _encode_cache_line("hello \u4e16\u754c")
         decoded = base64.b64decode(result).decode("utf-8")
-        assert decoded == "hello 世界"
+
+        # assert
+        assert decoded == "hello \u4e16\u754c"
 
 
 class TestDecodeCacheLine:
     def test_decode_basic_string(self):
+        # setup
         encoded = base64.b64encode(b"hello").decode("ascii")
+
+        # execute
         result = _decode_cache_line(encoded)
+
+        # assert
         assert result == "hello"
 
     def test_decode_empty_string(self):
+        # setup
         encoded = base64.b64encode(b"").decode("ascii")
+
+        # execute
         result = _decode_cache_line(encoded)
+
+        # assert
         assert result == ""
 
 
@@ -102,6 +163,11 @@ class TestEncodeDecodeRoundtrip:
         ],
     )
     def test_roundtrip(self, text):
+        # setup
+
+        # execute
         encoded = _encode_cache_line(text)
         decoded = _decode_cache_line(encoded)
+
+        # assert
         assert decoded == text
