@@ -1168,7 +1168,6 @@ class MTEBEvaluator(OliveEvaluator):
     ) -> MetricResult:
         import mteb
 
-        import olive.evaluator.mteb_ort  # noqa: F401 # pylint: disable=unused-import
         from olive.evaluator.mteb_ort import MTEBORTEvaluator, MTEBORTGenAIEvaluator
 
         # Auto-detect model class from the model handler
