@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-# ruff: noqa: T201
 
 from argparse import ArgumentParser, Namespace
 from collections import OrderedDict

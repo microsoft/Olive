@@ -105,7 +105,7 @@ class MobiusModelBuilder(Pass):
         output_model_path: str,
     ) -> ONNXModelHandler | CompositeModelHandler:
         try:
-            from mobius import build  # noqa: PLC0415
+            from mobius import build
         except ImportError as exc:
             raise ImportError(
                 "mobius-ai is required to run MobiusModelBuilder. Install with: pip install mobius-ai"
