@@ -45,12 +45,19 @@ def mock_hf_config():
     """Prevent HfModelHandler.__init__ from making network calls to resolve model configs."""
     mock_cfg = MagicMock()
     mock_cfg.to_dict.return_value = {}
-    with patch.object(HfModelHandler, "get_hf_model_config", return_value=mock_cfg):
+    with (
+        patch.object(HfModelHandler, "get_hf_model_config", return_value=mock_cfg),
+        patch.object(HfModelHandler, "get_load_kwargs", return_value={}),
+    ):
         yield
 
 
-def _make_hf_model(model_path: str) -> HfModelHandler:
-    return HfModelHandler(model_path=model_path)
+def _make_hf_model(model_path: str, load_kwargs: dict | None = None) -> HfModelHandler:
+    model = HfModelHandler(model_path=model_path)
+    if load_kwargs:
+        # Patch get_load_kwargs on the instance to return the given kwargs.
+        model.get_load_kwargs = lambda: load_kwargs
+    return model
 
 
 def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider) -> MobiusModelBuilder:
@@ -97,14 +104,14 @@ def _patch_build(pkg: MagicMock):
 
 
 def test_default_config_params():
-    """MobiusModelBuilder must declare precision, execution_provider, trust_remote_code."""
+    """MobiusModelBuilder must declare precision and execution_provider."""
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
     config = MobiusModelBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
     assert "precision" in config
     assert "execution_provider" in config
-    assert "trust_remote_code" in config
+    assert "trust_remote_code" not in config
 
 
 def test_is_not_accelerator_agnostic():
@@ -302,12 +309,12 @@ def test_missing_component_file_raises_runtime_error(tmp_path):
 
 
 def test_trust_remote_code_warning_logged(tmp_path):
-    """trust_remote_code=True must emit a warning about trusted model sources."""
+    """trust_remote_code=True on the model must emit a warning about trusted model sources."""
     out = tmp_path / "out"
     pkg = _fake_pkg(["model"], out)
     p = create_pass_from_dict(
         MobiusModelBuilder,
-        {"precision": "fp32", "trust_remote_code": True},
+        {"precision": "fp32"},
         disable_search=True,
         accelerator_spec=AcceleratorSpec(
             accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
@@ -317,14 +324,14 @@ def test_trust_remote_code_warning_logged(tmp_path):
         _patch_build(pkg),
         patch("olive.passes.onnx.mobius_model_builder.logger") as mock_logger,
     ):
-        p.run(_make_hf_model("org/model"), out)
+        p.run(_make_hf_model("org/model", load_kwargs={"trust_remote_code": True}), out)
 
     warning_messages = [call.args[0] for call in mock_logger.warning.call_args_list]
     assert any("trust_remote_code" in msg for msg in warning_messages)
 
 
 def test_no_warning_when_trust_remote_code_false(tmp_path):
-    """No trust_remote_code warning must be emitted when flag is False (default)."""
+    """No trust_remote_code warning must be emitted when the model does not set trust_remote_code."""
     out = tmp_path / "out"
     pkg = _fake_pkg(["model"], out)
     with (

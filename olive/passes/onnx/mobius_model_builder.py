@@ -90,12 +90,6 @@ class MobiusModelBuilder(Pass):
                     "accelerator spec."
                 ),
             ),
-            "trust_remote_code": PassConfigParam(
-                type_=bool,
-                required=False,
-                default_value=False,
-                description="Pass trust_remote_code=True to the HuggingFace config loader.",
-            ),
         }
 
     def _run_for_config(
@@ -120,6 +114,9 @@ class MobiusModelBuilder(Pass):
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path
 
+        # Read trust_remote_code from the model's HuggingFace load kwargs.
+        trust_remote_code: bool = model.get_load_kwargs().get("trust_remote_code") or False
+
         logger.info(
             "MobiusModelBuilder: building '%s' (ep=%s, dtype=%s)",
             model_id,
@@ -127,7 +124,7 @@ class MobiusModelBuilder(Pass):
             dtype_str,
         )
 
-        if config.trust_remote_code:
+        if trust_remote_code:
             logger.warning("MobiusModelBuilder: trust_remote_code=True — only use with trusted model sources.")
 
         output_dir = Path(output_model_path)
@@ -138,7 +135,7 @@ class MobiusModelBuilder(Pass):
             dtype=dtype_str,
             execution_provider=ep_str,
             load_weights=True,
-            trust_remote_code=config.trust_remote_code,
+            trust_remote_code=trust_remote_code,
         )
 
         # ModelPackage.save() handles both single and multi-component layouts:
@@ -157,11 +154,15 @@ class MobiusModelBuilder(Pass):
                     f"MobiusModelBuilder: expected output file not found: {onnx_path}. "
                     "mobius.build() may have failed silently or saved to an unexpected path."
                 )
+            additional_files = sorted(
+                {str(fp) for fp in output_dir.iterdir()} - {str(onnx_path), str(onnx_path) + ".data"}
+            )
             return ONNXModelHandler(
                 model_path=str(output_dir),
                 onnx_file_name="model.onnx",
                 model_attributes={
                     "mobius_package_keys": package_keys,
+                    "additional_files": additional_files,
                     **(model.model_attributes or {}),
                 },
             )
@@ -177,11 +178,18 @@ class MobiusModelBuilder(Pass):
                     f"MobiusModelBuilder: expected output file not found: {onnx_path}. "
                     f"mobius.build() may have failed silently for component '{key}'."
                 )
+            additional_files = sorted(
+                {str(fp) for fp in component_dir.iterdir()} - {str(onnx_path), str(onnx_path) + ".data"}
+            )
             components.append(
                 ONNXModelHandler(
                     model_path=str(component_dir),
                     onnx_file_name="model.onnx",
-                    model_attributes={"mobius_component": key},
+                    model_attributes={
+                        "mobius_component": key,
+                        "additional_files": additional_files,
+                        **(model.model_attributes or {}),
+                    },
                 )
             )
 
