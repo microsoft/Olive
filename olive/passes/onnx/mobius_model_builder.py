@@ -105,22 +105,17 @@ class MobiusModelBuilder(Pass):
         output_model_path: str,
     ) -> ONNXModelHandler | CompositeModelHandler:
         try:
-            from mobius import build
+            from mobius import build  # noqa: PLC0415
         except ImportError as exc:
             raise ImportError(
-                "mobius-genai is required to run MobiusModelBuilder. "
-                "Install with: pip install mobius-genai"
+                "mobius-genai is required to run MobiusModelBuilder. Install with: pip install mobius-genai"
             ) from exc
 
         if not isinstance(model, HfModelHandler):
-            raise ValueError(
-                f"MobiusModelBuilder requires an HfModelHandler input, got {type(model).__name__}."
-            )
+            raise ValueError(f"MobiusModelBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
         # Resolve EP: explicit config override > accelerator spec > fallback to cpu.
-        ep_str: str = config.execution_provider or self.EP_MAP.get(
-            self.accelerator_spec.execution_provider, "cpu"
-        )
+        ep_str: str = config.execution_provider or self.EP_MAP.get(self.accelerator_spec.execution_provider, "cpu")
 
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path
@@ -133,9 +128,7 @@ class MobiusModelBuilder(Pass):
         )
 
         if config.trust_remote_code:
-            logger.warning(
-                "MobiusModelBuilder: trust_remote_code=True — only use with trusted model sources."
-            )
+            logger.warning("MobiusModelBuilder: trust_remote_code=True — only use with trusted model sources.")
 
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)

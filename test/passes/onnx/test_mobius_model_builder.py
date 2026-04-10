@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import sys
+import types
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -18,6 +19,25 @@ from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.mobius_model_builder import MobiusModelBuilder
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _stub_mobius_module():
+    """Stub the optional mobius package into sys.modules for the duration of this module.
+
+    patch("mobius.build") resolves the module via sys.modules, so it works correctly
+    even in environments where mobius-genai is not installed (e.g. Olive CI).
+    The stub is only injected when mobius is absent; if the real package is installed,
+    this fixture is a no-op.
+    """
+    if "mobius" in sys.modules:
+        yield
+        return
+    fake = types.ModuleType("mobius")
+    fake.build = None  # overridden per-test by patch("mobius.build")
+    sys.modules["mobius"] = fake
+    yield
+    sys.modules.pop("mobius", None)
 
 
 @pytest.fixture(autouse=True)
@@ -81,7 +101,7 @@ def test_default_config_params():
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
-    config = MobiusModelBuilder._default_config(accelerator_spec)
+    config = MobiusModelBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
     assert "precision" in config
     assert "execution_provider" in config
     assert "trust_remote_code" in config
@@ -263,11 +283,13 @@ def test_missing_component_file_raises_runtime_error(tmp_path):
     pkg = MagicMock()
     pkg.keys.return_value = keys
     pkg.__iter__ = MagicMock(return_value=iter(keys))
+
     # save() only creates 'model' component, skips 'vision' and 'embedding'
     def _partial_save(directory: str, **_kwargs):
         d = Path(directory) / "model"
         d.mkdir(parents=True)
         (d / "model.onnx").write_text("dummy")
+
     pkg.save.side_effect = _partial_save
 
     with _patch_build(pkg), pytest.raises(RuntimeError, match="expected output file not found"):
