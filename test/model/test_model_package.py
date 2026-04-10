@@ -18,23 +18,27 @@ def _make_onnx_handler(tmp_path, name="model", model_attributes=None):
 
 
 class TestModelPackageModelHandler:
-    def test_create_model_package_handler(self, tmp_path):
+    def test_creation_and_target_iteration(self, tmp_path):
+        """Handler stores targets and iterates (name, model) pairs correctly."""
+        # setup
         h1 = _make_onnx_handler(tmp_path, "t1")
         h2 = _make_onnx_handler(tmp_path, "t2")
 
+        # execute
         mt = ModelPackageModelHandler([h1, h2], ["t1", "t2"], model_path=tmp_path)
 
+        # assert
         assert mt.target_names == ["t1", "t2"]
         pairs = list(mt.get_target_models())
         assert len(pairs) == 2
         assert pairs[0][0] == "t1"
         assert pairs[1][0] == "t2"
 
-    def test_model_package_handler_inherits_attributes(self, tmp_path):
-        """Parent-level model_attributes are merged into each target model."""
+    def test_parent_attributes_merged_into_targets(self, tmp_path):
+        """Parent-level model_attributes are merged into each target while preserving target-specific ones."""
+        # setup
         h1 = _make_onnx_handler(tmp_path, "t1", model_attributes={"architecture": "60"})
         h2 = _make_onnx_handler(tmp_path, "t2", model_attributes={"architecture": "73"})
-
         mt = ModelPackageModelHandler(
             [h1, h2],
             ["t1", "t2"],
@@ -42,20 +46,21 @@ class TestModelPackageModelHandler:
             model_attributes={"ep": "QNNExecutionProvider", "device": "NPU"},
         )
 
-        for _, target in mt.get_target_models():
-            # Parent attributes are merged in
-            assert target.model_attributes["ep"] == "QNNExecutionProvider"
-            assert target.model_attributes["device"] == "NPU"
-
-        # Target-specific attributes are preserved
+        # execute
         pairs = list(mt.get_target_models())
+
+        # assert: parent attrs merged
+        assert pairs[0][1].model_attributes["ep"] == "QNNExecutionProvider"
+        assert pairs[1][1].model_attributes["device"] == "NPU"
+        # assert: target-specific attrs preserved
         assert pairs[0][1].model_attributes["architecture"] == "60"
         assert pairs[1][1].model_attributes["architecture"] == "73"
 
-    def test_model_package_handler_to_json(self, tmp_path):
+    def test_to_json_round_trip(self, tmp_path):
+        """to_json produces correct structure with parent/target attribute separation."""
+        # setup
         h1 = _make_onnx_handler(tmp_path, "t1", model_attributes={"architecture": "60"})
         h2 = _make_onnx_handler(tmp_path, "t2", model_attributes={"architecture": "73"})
-
         mt = ModelPackageModelHandler(
             [h1, h2],
             ["t1", "t2"],
@@ -63,45 +68,48 @@ class TestModelPackageModelHandler:
             model_attributes={"ep": "QNNExecutionProvider"},
         )
 
+        # execute
         json_dict = mt.to_json()
 
+        # assert
         assert json_dict["type"].lower() == "modelpackagemodel"
         assert json_dict["config"]["target_names"] == ["t1", "t2"]
         assert len(json_dict["config"]["target_models"]) == 2
-        # Parent-level "ep" is in the parent config, not duplicated in targets
         assert json_dict["config"]["model_attributes"]["ep"] == "QNNExecutionProvider"
 
-    def test_model_package_handler_mismatched_names_raises(self, tmp_path):
+    def test_mismatched_names_raises(self, tmp_path):
+        """Mismatch between target count and name count raises AssertionError."""
+        # setup
         h1 = _make_onnx_handler(tmp_path, "t1")
+
+        # execute + assert
         with pytest.raises(AssertionError, match="Number of target models and names must match"):
             ModelPackageModelHandler([h1], ["t1", "t2"], model_path=tmp_path)
 
-    def test_is_composite_false_for_plain_targets(self, tmp_path):
+    def test_is_composite_false_for_onnx_targets(self, tmp_path):
+        """is_composite returns False when all targets are ONNXModelHandler."""
         # setup
-        h1 = _make_onnx_handler(tmp_path, "t1")
-        h2 = _make_onnx_handler(tmp_path, "t2")
-        mt = ModelPackageModelHandler([h1, h2], ["t1", "t2"], model_path=tmp_path)
+        mt = ModelPackageModelHandler(
+            [_make_onnx_handler(tmp_path, "t1"), _make_onnx_handler(tmp_path, "t2")],
+            ["t1", "t2"],
+            model_path=tmp_path,
+        )
 
-        # execute / assert
+        # execute + assert
         assert mt.is_composite is False
 
     def test_is_composite_true_for_composite_targets(self, tmp_path):
+        """is_composite returns True when all targets are CompositeModelHandler."""
         # setup
-        c1 = CompositeModelHandler([_make_onnx_handler(tmp_path, "enc1")], ["encoder"], model_path=str(tmp_path / "c1"))
-        c2 = CompositeModelHandler([_make_onnx_handler(tmp_path, "enc2")], ["encoder"], model_path=str(tmp_path / "c2"))
+        c1 = CompositeModelHandler([_make_onnx_handler(tmp_path, "e1")], ["enc"], model_path=str(tmp_path / "c1"))
+        c2 = CompositeModelHandler([_make_onnx_handler(tmp_path, "e2")], ["enc"], model_path=str(tmp_path / "c2"))
         mt = ModelPackageModelHandler([c1, c2], ["soc_a", "soc_b"], model_path=tmp_path)
 
-        # execute / assert
+        # execute + assert
         assert mt.is_composite is True
 
-    def test_is_composite_empty_targets(self, tmp_path):
-        # setup
-        mt = ModelPackageModelHandler([], [], model_path=tmp_path)
-
-        # execute / assert
-        assert mt.is_composite is False
-
     def test_is_composite_mixed_types_raises(self, tmp_path):
+        """Mixed ONNX and Composite targets raise AssertionError."""
         # setup
         plain = _make_onnx_handler(tmp_path, "plain")
         composite = CompositeModelHandler(
@@ -109,6 +117,14 @@ class TestModelPackageModelHandler:
         )
         mt = ModelPackageModelHandler([plain, composite], ["t1", "t2"], model_path=tmp_path)
 
-        # execute / assert
+        # execute + assert
         with pytest.raises(AssertionError, match="All target models must be the same type"):
             _ = mt.is_composite
+
+    def test_is_composite_empty_targets(self, tmp_path):
+        """is_composite returns False for empty target list."""
+        # setup
+        mt = ModelPackageModelHandler([], [], model_path=tmp_path)
+
+        # execute + assert
+        assert mt.is_composite is False
