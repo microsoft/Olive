@@ -20,8 +20,6 @@ from olive.telemetry.utils import (
 
 class TestResolveHomeDir:
     def test_returns_path(self):
-        # setup
-
         # execute
         result = _resolve_home_dir()
 
@@ -29,8 +27,6 @@ class TestResolveHomeDir:
         assert isinstance(result, Path)
 
     def test_with_home_env_set(self):
-        # setup
-
         # execute
         with patch.dict(os.environ, {"HOME": "/tmp/test_home"}):
             result = _resolve_home_dir()
@@ -39,8 +35,6 @@ class TestResolveHomeDir:
         assert isinstance(result, Path)
 
     def test_without_home_env(self):
-        # setup
-
         # execute
         with patch.dict(os.environ, {}, clear=True):
             result = _resolve_home_dir()
@@ -119,8 +113,6 @@ class TestEncodeCacheLine:
         assert result == expected
 
     def test_encode_unicode_string(self):
-        # setup
-
         # execute
         result = _encode_cache_line("hello \u4e16\u754c")
         decoded = base64.b64decode(result).decode("utf-8")
@@ -163,8 +155,6 @@ class TestEncodeDecodeRoundtrip:
         ],
     )
     def test_roundtrip(self, text):
-        # setup
-
         # execute
         encoded = _encode_cache_line(text)
         decoded = _decode_cache_line(encoded)

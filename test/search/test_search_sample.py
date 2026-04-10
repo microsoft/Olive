@@ -34,8 +34,6 @@ class TestSearchSample:
         return SearchSample(search_point=point, model_ids=["model_0"])
 
     def test_creation(self):
-        # setup
-
         # execute
         sample = self._make_sample()
 

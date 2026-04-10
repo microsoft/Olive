@@ -17,8 +17,6 @@ from olive.evaluator.metric_config import (
 
 class TestLatencyMetricConfig:
     def test_defaults(self):
-        # setup
-
         # execute
         config = LatencyMetricConfig()
 
@@ -28,8 +26,6 @@ class TestLatencyMetricConfig:
         assert config.sleep_num == 0
 
     def test_custom_values(self):
-        # setup
-
         # execute
         config = LatencyMetricConfig(warmup_num=5, repeat_test_num=100, sleep_num=2)
 
@@ -41,8 +37,6 @@ class TestLatencyMetricConfig:
 
 class TestThroughputMetricConfig:
     def test_defaults(self):
-        # setup
-
         # execute
         config = ThroughputMetricConfig()
 
@@ -52,8 +46,6 @@ class TestThroughputMetricConfig:
         assert config.sleep_num == 0
 
     def test_custom_values(self):
-        # setup
-
         # execute
         config = ThroughputMetricConfig(warmup_num=3, repeat_test_num=50, sleep_num=1)
 
@@ -65,8 +57,6 @@ class TestThroughputMetricConfig:
 
 class TestSizeOnDiskMetricConfig:
     def test_creation(self):
-        # setup
-
         # execute
         config = SizeOnDiskMetricConfig()
 
@@ -76,8 +66,6 @@ class TestSizeOnDiskMetricConfig:
 
 class TestMetricGoal:
     def test_threshold_type(self):
-        # setup
-
         # execute
         goal = MetricGoal(type="threshold", value=0.9)
 
@@ -86,8 +74,6 @@ class TestMetricGoal:
         assert goal.value == 0.9
 
     def test_min_improvement_type(self):
-        # setup
-
         # execute
         goal = MetricGoal(type="min-improvement", value=0.05)
 
@@ -96,8 +82,6 @@ class TestMetricGoal:
         assert goal.value == 0.05
 
     def test_max_degradation_type(self):
-        # setup
-
         # execute
         goal = MetricGoal(type="max-degradation", value=0.1)
 
@@ -106,8 +90,6 @@ class TestMetricGoal:
         assert goal.value == 0.1
 
     def test_percent_min_improvement_type(self):
-        # setup
-
         # execute
         goal = MetricGoal(type="percent-min-improvement", value=5.0)
 
@@ -115,8 +97,6 @@ class TestMetricGoal:
         assert goal.type == "percent-min-improvement"
 
     def test_percent_max_degradation_type(self):
-        # setup
-
         # execute
         goal = MetricGoal(type="percent-max-degradation", value=10.0)
 
@@ -124,43 +104,31 @@ class TestMetricGoal:
         assert goal.type == "percent-max-degradation"
 
     def test_invalid_type_raises(self):
-        # setup
-
         # execute & assert
         with pytest.raises(ValidationError, match="Metric goal type must be one of"):
             MetricGoal(type="invalid_type", value=0.5)
 
     def test_negative_value_for_min_improvement_raises(self):
-        # setup
-
         # execute & assert
         with pytest.raises(ValidationError, match="Value must be nonnegative"):
             MetricGoal(type="min-improvement", value=-0.5)
 
     def test_negative_value_for_max_degradation_raises(self):
-        # setup
-
         # execute & assert
         with pytest.raises(ValidationError, match="Value must be nonnegative"):
             MetricGoal(type="max-degradation", value=-0.1)
 
     def test_negative_value_for_percent_min_improvement_raises(self):
-        # setup
-
         # execute & assert
         with pytest.raises(ValidationError, match="Value must be nonnegative"):
             MetricGoal(type="percent-min-improvement", value=-5.0)
 
     def test_negative_value_for_percent_max_degradation_raises(self):
-        # setup
-
         # execute & assert
         with pytest.raises(ValidationError, match="Value must be nonnegative"):
             MetricGoal(type="percent-max-degradation", value=-10.0)
 
     def test_threshold_allows_negative_value(self):
-        # setup
-
         # execute
         goal = MetricGoal(type="threshold", value=-1.0)
 
@@ -230,8 +198,6 @@ class TestMetricGoal:
 
 class TestGetUserConfigClass:
     def test_custom_metric_type(self):
-        # setup
-
         # execute
         cls = get_user_config_class("custom")
         instance = cls()
@@ -241,8 +207,6 @@ class TestGetUserConfigClass:
         assert hasattr(instance, "evaluate_func")
 
     def test_unknown_metric_type(self):
-        # setup
-
         # execute
         cls = get_user_config_class("latency")
         instance = cls()

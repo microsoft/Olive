@@ -15,8 +15,6 @@ from olive.evaluator.metric_result import (
 
 class TestSubMetricResult:
     def test_creation(self):
-        # setup
-
         # execute
         result = SubMetricResult(value=0.95, priority=1, higher_is_better=True)
 
@@ -26,8 +24,6 @@ class TestSubMetricResult:
         assert result.higher_is_better is True
 
     def test_integer_value(self):
-        # setup
-
         # execute
         result = SubMetricResult(value=100, priority=2, higher_is_better=False)
 
@@ -35,8 +31,6 @@ class TestSubMetricResult:
         assert result.value == 100
 
     def test_float_value(self):
-        # setup
-
         # execute
         result = SubMetricResult(value=0.001, priority=0, higher_is_better=True)
 
@@ -119,8 +113,6 @@ class TestMetricResult:
         assert item.value == 0.95
 
     def test_delimiter(self):
-        # setup
-
         # execute
         delimiter = MetricResult.delimiter
 
@@ -130,8 +122,6 @@ class TestMetricResult:
 
 class TestJointMetricKey:
     def test_basic(self):
-        # setup
-
         # execute
         result = joint_metric_key("accuracy", "top1")
 
@@ -139,8 +129,6 @@ class TestJointMetricKey:
         assert result == "accuracy-top1"
 
     def test_with_special_names(self):
-        # setup
-
         # execute
         result = joint_metric_key("latency", "p99")
 

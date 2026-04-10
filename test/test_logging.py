@@ -26,8 +26,6 @@ from olive.logging import (
 
 class TestGetOliveLogger:
     def test_returns_olive_logger(self):
-        # setup
-
         # execute
         logger = get_olive_logger()
 
@@ -35,8 +33,6 @@ class TestGetOliveLogger:
         assert logger.name == "olive"
 
     def test_returns_same_logger_instance(self):
-        # setup
-
         # execute
         logger1 = get_olive_logger()
         logger2 = get_olive_logger()
@@ -47,8 +43,6 @@ class TestGetOliveLogger:
 
 class TestSetVerbosity:
     def test_set_verbosity_info(self):
-        # setup
-
         # execute
         set_verbosity_info()
 
@@ -56,8 +50,6 @@ class TestSetVerbosity:
         assert get_olive_logger().level == logging.INFO
 
     def test_set_verbosity_warning(self):
-        # setup
-
         # execute
         set_verbosity_warning()
 
@@ -65,8 +57,6 @@ class TestSetVerbosity:
         assert get_olive_logger().level == logging.WARNING
 
     def test_set_verbosity_debug(self):
-        # setup
-
         # execute
         set_verbosity_debug()
 
@@ -74,8 +64,6 @@ class TestSetVerbosity:
         assert get_olive_logger().level == logging.DEBUG
 
     def test_set_verbosity_error(self):
-        # setup
-
         # execute
         set_verbosity_error()
 
@@ -83,8 +71,6 @@ class TestSetVerbosity:
         assert get_olive_logger().level == logging.ERROR
 
     def test_set_verbosity_critical(self):
-        # setup
-
         # execute
         set_verbosity_critical()
 
@@ -92,8 +78,6 @@ class TestSetVerbosity:
         assert get_olive_logger().level == logging.CRITICAL
 
     def test_set_verbosity_custom_level(self):
-        # setup
-
         # execute
         set_verbosity(logging.WARNING)
 
@@ -103,8 +87,6 @@ class TestSetVerbosity:
 
 class TestSetVerbosityFromEnv:
     def test_set_verbosity_from_env_default(self):
-        # setup
-
         # execute
         with patch.dict("os.environ", {}, clear=True):
             set_verbosity_from_env()
@@ -112,8 +94,6 @@ class TestSetVerbosityFromEnv:
         # assert (no exception raised)
 
     def test_set_verbosity_from_env_custom(self):
-        # setup
-
         # execute
         with patch.dict("os.environ", {"OLIVE_LOG_LEVEL": "DEBUG"}):
             set_verbosity_from_env()
@@ -147,8 +127,6 @@ class TestGetLoggerLevel:
         ],
     )
     def test_valid_levels(self, level_int, expected):
-        # setup
-
         # execute
         result = get_logger_level(level_int)
 
@@ -157,8 +135,6 @@ class TestGetLoggerLevel:
 
     @pytest.mark.parametrize("invalid_level", [-1, 5, 10, 100])
     def test_invalid_levels_raise_value_error(self, invalid_level):
-        # setup
-
         # execute & assert
         with pytest.raises(ValueError, match="Invalid level"):
             get_logger_level(invalid_level)

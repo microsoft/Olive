@@ -225,8 +225,6 @@ class TestConfigBase:
         assert isinstance(result, dict)
 
     def test_from_json(self):
-        # setup
-
         # execute
         config = ConfigBase.from_json({})
 
@@ -234,8 +232,6 @@ class TestConfigBase:
         assert isinstance(config, ConfigBase)
 
     def test_parse_file_or_obj_dict(self):
-        # setup
-
         # execute
         config = ConfigBase.parse_file_or_obj({})
 
@@ -410,8 +406,6 @@ class TestNestedConfig:
 
 class TestCaseInsensitiveEnum:
     def test_case_insensitive_creation(self):
-        # setup
-
         # execute
         lower = ParamCategory("none")
         upper = ParamCategory("NONE")
@@ -423,8 +417,6 @@ class TestCaseInsensitiveEnum:
         assert mixed == ParamCategory.NONE
 
     def test_invalid_value_returns_none(self):
-        # setup
-
         # execute
         result = ParamCategory._missing_("nonexistent")
 
@@ -434,8 +426,6 @@ class TestCaseInsensitiveEnum:
 
 class TestConfigParam:
     def test_config_param_defaults(self):
-        # setup
-
         # execute
         param = ConfigParam(type_=str)
 
@@ -445,8 +435,6 @@ class TestConfigParam:
         assert param.category == ParamCategory.NONE
 
     def test_config_param_required(self):
-        # setup
-
         # execute
         param = ConfigParam(type_=str, required=True)
 
@@ -467,8 +455,6 @@ class TestConfigParam:
 
 class TestValidateEnum:
     def test_valid_enum_value(self):
-        # setup
-
         # execute
         result = validate_enum(ParamCategory, "none")
 
@@ -476,8 +462,6 @@ class TestValidateEnum:
         assert result == ParamCategory.NONE
 
     def test_invalid_enum_value_raises(self):
-        # setup
-
         # execute & assert
         with pytest.raises(ValueError, match="Invalid value"):
             validate_enum(ParamCategory, "invalid_value")
@@ -485,8 +469,6 @@ class TestValidateEnum:
 
 class TestValidateLowercase:
     def test_string_lowercased(self):
-        # setup
-
         # execute
         result = validate_lowercase("HELLO")
 
@@ -494,8 +476,6 @@ class TestValidateLowercase:
         assert result == "hello"
 
     def test_non_string_unchanged(self):
-        # setup
-
         # execute
         result_int = validate_lowercase(42)
         result_none = validate_lowercase(None)
@@ -621,8 +601,6 @@ class TestConvertConfigsToDicts:
         assert result == ["a", "b"]
 
     def test_plain_value_passthrough(self):
-        # setup
-
         # execute
         result_int = convert_configs_to_dicts(42)
         result_str = convert_configs_to_dicts("hello")

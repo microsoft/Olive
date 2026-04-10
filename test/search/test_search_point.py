@@ -27,8 +27,6 @@ class TestSearchPoint:
         return SearchPoint(index=index, values=values)
 
     def test_creation(self):
-        # setup
-
         # execute
         point = self._make_point()
 

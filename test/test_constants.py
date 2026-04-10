@@ -23,8 +23,6 @@ from olive.constants import (
 
 class TestFramework:
     def test_framework_values(self):
-        # setup
-
         # execute
         onnx = Framework.ONNX
         pytorch = Framework.PYTORCH
@@ -36,8 +34,6 @@ class TestFramework:
         assert openvino == "OpenVINO"
 
     def test_framework_str(self):
-        # setup
-
         # execute
         result = str(Framework.ONNX)
 
@@ -57,8 +53,6 @@ class TestFramework:
 
 class TestModelFileFormat:
     def test_model_file_format_values(self):
-        # setup
-
         # execute
         onnx = ModelFileFormat.ONNX
         state_dict = ModelFileFormat.PYTORCH_STATE_DICT
@@ -70,8 +64,6 @@ class TestModelFileFormat:
         assert composite == "Composite"
 
     def test_model_file_format_str(self):
-        # setup
-
         # execute
         result = str(ModelFileFormat.OPENVINO_IR)
 
@@ -81,8 +73,6 @@ class TestModelFileFormat:
 
 class TestPrecision:
     def test_precision_values(self):
-        # setup
-
         # execute
         int4 = Precision.INT4
         fp16 = Precision.FP16
@@ -106,8 +96,6 @@ class TestPrecision:
 
 class TestPrecisionBits:
     def test_precision_bits_values(self):
-        # setup
-
         # execute & assert
         assert PrecisionBits.BITS2 == 2
         assert PrecisionBits.BITS4 == 4
@@ -116,8 +104,6 @@ class TestPrecisionBits:
         assert PrecisionBits.BITS32 == 32
 
     def test_precision_bits_is_int(self):
-        # setup
-
         # execute
         result = isinstance(PrecisionBits.BITS4.value, int)
 
@@ -127,8 +113,6 @@ class TestPrecisionBits:
 
 class TestQuantAlgorithm:
     def test_quant_algorithm_case_insensitive(self):
-        # setup
-
         # execute
         lower = QuantAlgorithm("awq")
         upper = QuantAlgorithm("AWQ")
@@ -140,8 +124,6 @@ class TestQuantAlgorithm:
         assert mixed == QuantAlgorithm.AWQ
 
     def test_quant_algorithm_values(self):
-        # setup
-
         # execute
         gptq = QuantAlgorithm.GPTQ
         rtn = QuantAlgorithm.RTN
@@ -163,8 +145,6 @@ class TestQuantAlgorithm:
 
 class TestQuantEncoding:
     def test_quant_encoding_values(self):
-        # setup
-
         # execute
         qdq = QuantEncoding.QDQ
         qop = QuantEncoding.QOP
@@ -176,8 +156,6 @@ class TestQuantEncoding:
 
 class TestDatasetRequirement:
     def test_dataset_requirement_values(self):
-        # setup
-
         # execute
         required = DatasetRequirement.REQUIRED
         optional = DatasetRequirement.OPTIONAL
@@ -191,8 +169,6 @@ class TestDatasetRequirement:
 
 class TestOpType:
     def test_op_type_values(self):
-        # setup
-
         # execute
         matmul = OpType.MatMul
         add = OpType.Add
@@ -206,8 +182,6 @@ class TestOpType:
 
 class TestAccuracyLevel:
     def test_accuracy_level_values(self):
-        # setup
-
         # execute & assert
         assert AccuracyLevel.unset == 0
         assert AccuracyLevel.fp32 == 1
@@ -217,8 +191,6 @@ class TestAccuracyLevel:
 
 class TestDiffusersModelVariant:
     def test_diffusers_variant_values(self):
-        # setup
-
         # execute
         auto = DiffusersModelVariant.AUTO
         sd = DiffusersModelVariant.SD
@@ -232,8 +204,6 @@ class TestDiffusersModelVariant:
 
 class TestDiffusersComponent:
     def test_diffusers_component_values(self):
-        # setup
-
         # execute
         text_encoder = DiffusersComponent.TEXT_ENCODER
         unet = DiffusersComponent.UNET
@@ -260,8 +230,6 @@ class TestPrecisionBitsFromPrecision:
         ],
     )
     def test_precision_to_bits_mapping(self, precision, expected):
-        # setup
-
         # execute
         result = precision_bits_from_precision(precision)
 
@@ -270,8 +238,6 @@ class TestPrecisionBitsFromPrecision:
 
     @pytest.mark.parametrize("precision", [Precision.FP16, Precision.FP32, Precision.BF16, Precision.NF4])
     def test_precision_without_bits_mapping_returns_none(self, precision):
-        # setup
-
         # execute
         result = precision_bits_from_precision(precision)
 
@@ -281,8 +247,6 @@ class TestPrecisionBitsFromPrecision:
 
 class TestMsftDomain:
     def test_msft_domain_value(self):
-        # setup
-
         # execute
         result = MSFT_DOMAIN
 

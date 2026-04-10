@@ -17,8 +17,6 @@ from olive.search.search_parameter import (
 
 class TestSpecialParamValue:
     def test_ignored_value(self):
-        # setup
-
         # execute
         result = SpecialParamValue.IGNORED
 
@@ -26,8 +24,6 @@ class TestSpecialParamValue:
         assert result == "OLIVE_IGNORED_PARAM_VALUE"
 
     def test_invalid_value(self):
-        # setup
-
         # execute
         result = SpecialParamValue.INVALID
 
@@ -111,8 +107,6 @@ class TestBoolean:
         assert result == [True, False]
 
     def test_is_categorical(self):
-        # setup
-
         # execute
         result = issubclass(Boolean, Categorical)
 
@@ -171,8 +165,6 @@ class TestConditional:
         assert result == [SpecialParamValue.INVALID]
 
     def test_get_invalid_choice(self):
-        # setup
-
         # execute
         result = Conditional.get_invalid_choice()
 
@@ -181,8 +173,6 @@ class TestConditional:
         assert result.get_support() == [SpecialParamValue.INVALID]
 
     def test_get_ignored_choice(self):
-        # setup
-
         # execute
         result = Conditional.get_ignored_choice()
 
@@ -304,8 +294,6 @@ class TestConditionalDefault:
         assert result_c == 30
 
     def test_get_invalid_choice(self):
-        # setup
-
         # execute
         result = ConditionalDefault.get_invalid_choice()
 
@@ -313,8 +301,6 @@ class TestConditionalDefault:
         assert result == SpecialParamValue.INVALID
 
     def test_get_ignored_choice(self):
-        # setup
-
         # execute
         result = ConditionalDefault.get_ignored_choice()
 

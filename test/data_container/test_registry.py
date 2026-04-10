@@ -100,8 +100,6 @@ class TestRegistryGet:
 
 class TestRegistryDefaultComponents:
     def test_get_default_load_dataset(self):
-        # setup
-
         # execute
         result = Registry.get_default_load_dataset_component()
 
@@ -109,8 +107,6 @@ class TestRegistryDefaultComponents:
         assert result is not None
 
     def test_get_default_pre_process(self):
-        # setup
-
         # execute
         result = Registry.get_default_pre_process_component()
 
@@ -118,8 +114,6 @@ class TestRegistryDefaultComponents:
         assert result is not None
 
     def test_get_default_post_process(self):
-        # setup
-
         # execute
         result = Registry.get_default_post_process_component()
 
@@ -127,8 +121,6 @@ class TestRegistryDefaultComponents:
         assert result is not None
 
     def test_get_default_dataloader(self):
-        # setup
-
         # execute
         result = Registry.get_default_dataloader_component()
 
@@ -138,8 +130,6 @@ class TestRegistryDefaultComponents:
 
 class TestRegistryContainer:
     def test_get_container_default(self):
-        # setup
-
         # execute
         result = Registry.get_container(None)
 
@@ -147,8 +137,6 @@ class TestRegistryContainer:
         assert result is not None
 
     def test_get_container_by_name(self):
-        # setup
-
         # execute
         result = Registry.get_container(DefaultDataContainer.DATA_CONTAINER.value)
 
