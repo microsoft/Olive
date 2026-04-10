@@ -117,7 +117,7 @@ class ModelPackage(Pass):
             self._copy_base_model(Path(base_model_path), component_dir, config_file_names)
             base_file = self._get_base_model_file(component_dir / "base")
             if base_file:
-                model_variants["base"] = {"file": f"base/{base_file}", "constraints": {}}
+                model_variants["base"] = {"file": base_file, "constraints": {}}
 
         # Remove config files from variant directories (they belong in configs/)
         self._remove_config_files(component_dir, config_file_names)
@@ -186,7 +186,7 @@ class ModelPackage(Pass):
                 target_dir = comp_dir / target_name
                 self._copy_component_files(comp_handler, target_dir)
 
-                file_path = f"{target_name}/{Path(comp_handler.model_path).name}"
+                file_path = Path(comp_handler.model_path).name
                 model_variants[target_name] = {"file": file_path, "constraints": constraints}
 
             # Copy base model for this component
@@ -194,7 +194,7 @@ class ModelPackage(Pass):
                 self._copy_base_component(Path(base_model_path), comp_name, comp_dir, config_file_names)
                 base_file = self._get_base_model_file(comp_dir / "base")
                 if base_file:
-                    model_variants["base"] = {"file": f"base/{base_file}", "constraints": {}}
+                    model_variants["base"] = {"file": base_file, "constraints": {}}
 
             # Remove config files from component variant directories
             self._remove_config_files(comp_dir, config_file_names)
@@ -282,9 +282,8 @@ class ModelPackage(Pass):
         target_model: Union[ONNXModelHandler, CompositeModelHandler],
     ) -> str:
         if isinstance(target_model, ONNXModelHandler):
-            return f"{target_name}/{Path(target_model.model_path).name}"
-        # For CompositeModelHandler or other types, use the directory
-        return f"{target_name}/"
+            return Path(target_model.model_path).name
+        return ""
 
     @staticmethod
     def _copy_component_files(component: ONNXModelHandler, dest_dir: Path) -> None:

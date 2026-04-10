@@ -334,7 +334,7 @@ class TestModelPackage:
         with open(pkg_root / "models" / "model" / "metadata.json") as f:
             metadata = json.load(f)
         assert "base" in metadata["model_variants"]
-        assert metadata["model_variants"]["base"]["file"] == "base/context_0.onnx"
+        assert metadata["model_variants"]["base"]["file"] == "context_0.onnx"
         assert metadata["model_variants"]["base"]["constraints"] == {}
 
     def test_packager_no_base_model_when_path_missing(self, tmp_path):
@@ -650,8 +650,8 @@ class TestModelPackage:
         with open(tmp_path / "output" / "models" / "model" / "metadata.json") as f:
             metadata = json.load(f)
         variants = metadata["model_variants"]
-        assert variants["soc_60"]["file"] == "soc_60/soc_60.onnx"
-        assert variants["soc_73"]["file"] == "soc_73/soc_73.onnx"
+        assert variants["soc_60"]["file"] == "soc_60.onnx"
+        assert variants["soc_73"]["file"] == "soc_73.onnx"
 
 
 # ===========================================================================
