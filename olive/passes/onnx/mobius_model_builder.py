@@ -115,7 +115,7 @@ class MobiusModelBuilder(Pass):
         model_id: str = model.model_name_or_path
 
         # Read trust_remote_code from the model's HuggingFace load kwargs.
-        trust_remote_code: bool = model.get_load_kwargs().get("trust_remote_code") or False
+        trust_remote_code: bool = model.get_load_kwargs().get("trust_remote_code", False)
 
         logger.info(
             "MobiusModelBuilder: building '%s' (ep=%s, dtype=%s)",

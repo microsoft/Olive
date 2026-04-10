@@ -104,7 +104,7 @@ def _patch_build(pkg: MagicMock):
 
 
 def test_default_config_params():
-    """MobiusModelBuilder must declare precision and execution_provider."""
+    """MobiusModelBuilder must declare precision and execution_provider, and must not declare trust_remote_code."""
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
