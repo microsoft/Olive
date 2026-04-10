@@ -26,7 +26,7 @@ def _stub_mobius_module():
     """Stub the optional mobius package into sys.modules for the duration of this module.
 
     patch("mobius.build") resolves the module via sys.modules, so it works correctly
-    even in environments where mobius-genai is not installed (e.g. Olive CI).
+    even in environments where mobius-ai is not installed (e.g. Olive CI).
     The stub is only injected when mobius is absent; if the real package is installed,
     this fixture is a no-op.
     """

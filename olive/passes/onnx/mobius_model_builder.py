@@ -46,9 +46,9 @@ class MobiusModelBuilder(Pass):
     whose components are individual :class:`~olive.model.ONNXModelHandler` objects.
     Single-component models return a plain :class:`~olive.model.ONNXModelHandler`.
 
-    Requires ``mobius-genai`` to be installed::
+    Requires ``mobius-ai`` to be installed::
 
-        pip install mobius-genai
+        pip install mobius-ai
 
     See https://github.com/microsoft/mobius
     """
@@ -108,7 +108,7 @@ class MobiusModelBuilder(Pass):
             from mobius import build  # noqa: PLC0415
         except ImportError as exc:
             raise ImportError(
-                "mobius-genai is required to run MobiusModelBuilder. Install with: pip install mobius-genai"
+                "mobius-ai is required to run MobiusModelBuilder. Install with: pip install mobius-ai"
             ) from exc
 
         if not isinstance(model, HfModelHandler):

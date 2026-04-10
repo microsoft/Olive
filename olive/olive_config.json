@@ -203,7 +203,7 @@
             "supported_precisions": [ "fp32", "fp16", "bf16" ],
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ],
-            "extra_dependencies": [ "mobius-genai", "onnx-ir" ]
+            "extra_dependencies": [ "mobius-ai", "onnx-ir" ]
         },
         "LoftQ": {
             "module_path": "olive.passes.pytorch.lora.LoftQ",
@@ -674,7 +674,7 @@
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "diffusers": [ "accelerate>=0.30.0", "peft", "diffusers" ],
-        "mobius-genai": [ "mobius-genai" ],
+        "mobius-ai": [ "mobius-ai" ],
         "onnx-ir": [ "onnx-ir" ],
         "nvmo": [ "nvidia-modelopt[onnx]" ],
         "openvino": [
