@@ -8,6 +8,7 @@ Mirrors the pattern in ``lmeval_ort.py``: thin adapters that bridge an
 exported ONNX (or ORT-GenAI) model into the interface expected by the
 evaluation library — in this case MTEB's ``EncoderProtocol``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -54,6 +55,10 @@ class MTEBOnnxBase(ABC):
 
     def encode(self, inputs, *, task_metadata=None, hf_split=None, hf_subset=None, prompt_type=None, **kwargs):
         """Encode sentences into embeddings — MTEB ``EncoderProtocol.encode``."""
+        # Handle string input (single sentence)
+        if isinstance(inputs, str):
+            inputs = [inputs]
+
         # Flatten DataLoader batches into a plain list of strings
         sentences: list[str] = []
         for batch in inputs:
@@ -118,6 +123,7 @@ class MTEBOnnxBase(ABC):
 
         Returns:
             Embeddings array of shape ``[batch, embed_dim]``.
+
         """
         raise NotImplementedError
 
@@ -158,10 +164,8 @@ class MTEBORTEvaluator(MTEBOnnxBase):
 
         feeds = {"input_ids": input_ids.astype(np.int64), "attention_mask": attention_mask.astype(np.int64)}
         # Some models also accept token_type_ids
-        if "token_type_ids" in [inp for inp in self.io_config["input_names"]]:
-            feeds["token_type_ids"] = encoded_input.get(
-                "token_type_ids", np.zeros_like(input_ids, dtype=np.int64)
-            )
+        if "token_type_ids" in list(self.io_config["input_names"]):
+            feeds["token_type_ids"] = encoded_input.get("token_type_ids", np.zeros_like(input_ids, dtype=np.int64))
 
         outputs = self.session.run(None, feeds)
 
@@ -244,16 +248,11 @@ class MTEBORTGenAIEvaluator(MTEBOnnxBase):
                 embed_dim = hidden_states.shape[-1]
                 hidden_states = hidden_states.reshape(batch_size, seq_len, embed_dim)
             return self._mean_pool(hidden_states, attention_mask)
-        except Exception:
-            logger.debug("hidden_states output not available, trying logits-based approach")
-
-        # Fallback: get logits and use them as-is (not ideal for embeddings)
-        logits = generator.get_output("logits")
-        logits = np.array(logits, copy=False)
-        if logits.ndim == 2:
-            embed_dim = logits.shape[-1]
-            logits = logits.reshape(batch_size, -1, embed_dim)
-        return self._mean_pool(logits, attention_mask)
+        except Exception as e:
+            raise RuntimeError(
+                "hidden_states output not available from GenAI model. "
+                "Ensure the model was built with include_hidden_states=1 in ModelBuilder."
+            ) from e
 
     @staticmethod
     def _mean_pool(hidden_states: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:

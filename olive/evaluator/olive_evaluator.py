@@ -1180,7 +1180,11 @@ class MTEBEvaluator(OliveEvaluator):
                 genai_config = Path(model.model_path).parent / "genai_config.json"
                 model_class = "ortgenai" if genai_config.exists() else "ort"
             else:
-                model_class = "ortgenai"
+                raise ValueError(
+                    "Unable to auto-detect model_class for MTEBEvaluator from model handler "
+                    f"{type(model).__name__}. Please set model_class explicitly to one of "
+                    "'hf', 'ort', or 'ortgenai'."
+                )
 
         logger.info(
             "Running MTEB evaluation with model_class=%s, tasks=%s", model_class, self.tasks
@@ -1190,7 +1194,8 @@ class MTEBEvaluator(OliveEvaluator):
         if model_class == "hf":
             from sentence_transformers import SentenceTransformer
 
-            mteb_model = SentenceTransformer(model.model_name_or_path)
+            sentence_transformer_device = device.value if isinstance(device, Device) else str(device)
+            mteb_model = SentenceTransformer(model.model_name_or_path, device=sentence_transformer_device)
         elif model_class == "ort":
             mteb_model = MTEBORTEvaluator(
                 model_path=model.model_path,
