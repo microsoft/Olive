@@ -6,8 +6,9 @@ from argparse import ArgumentParser
 
 from huggingface_hub.constants import HF_HUB_CACHE
 
-from olive.cli.base import BaseOliveCLICommand, add_logging_options
-from olive.common.utils import WeightsFileFormat, save_weights
+from olive.cli.base import BaseOliveCLICommand, add_logging_options, add_telemetry_options
+from olive.common.utils import WeightsFileFormat, get_attr, save_weights
+from olive.telemetry import action
 
 
 class ExtractAdaptersCommand(BaseOliveCLICommand):
@@ -54,8 +55,10 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             help="Cache dir to store temporary files in. Default is Hugging Face's default cache dir.",
         )
         add_logging_options(sub_parser)
+        add_telemetry_options(sub_parser)
         sub_parser.set_defaults(func=ExtractAdaptersCommand)
 
+    @action
     def run(self):
         # Reference: https://huggingface.co/microsoft/Phi-4-multimodal-instruct-onnx/blob/05f620b467891affcb00b464e5a73e7cf2de61f9/onnx/builder.py#L318
         import os
@@ -109,6 +112,8 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         intermediate_size = config.intermediate_size
 
         adapter_sets = {}
+        prefix = "base_model.model.model" if is_peft else "model"
+        base_obj = get_attr(peft_model, prefix)
         for key, val in peft_model.state_dict().items():
             # Map name in graph as key
             new_dict = {}
@@ -155,10 +160,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             if adapter_name not in adapter_sets:
                 adapter_sets[adapter_name] = {}
 
-            prefix = "base_model.model.model" if is_peft else "model"
-            scale_val = eval(  # pylint: disable=eval-used
-                f"peft_model.{prefix}.layers[{layer_id}].{class_name}.{class_attr_name}.scaling['{adapter_name}']"
-            )
+            scale_val = get_attr(base_obj, f"layers.{layer_id}.{class_name}.{class_attr_name}.scaling.{adapter_name}")
             for new_key, new_val in new_dict.items():
                 np_data = new_val.detach().cpu().to(torch_dtype).numpy().transpose()
                 np_data *= scale_val if lora_name == "lora_B" else 1

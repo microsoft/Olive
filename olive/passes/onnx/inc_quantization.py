@@ -100,8 +100,7 @@ _inc_quantization_config = {
             0 is conservative strategy, 1 is basic or user-specified strategy,
             auto (default) is the combination of 0 and 1.
             Please refer to
-            https://github.com/intel/neural-compressor/blob/master/docs/source/tuning_strategies.md#tuning-process
-            https://github.com/intel/neural-compressor/blob/master/docs/source/tuning_strategies.md#tuning-algorithms
+            https://intel.github.io/neural-compressor/latest/docs/source/tuning_strategies.html
             for more details
         """,
     ),
@@ -181,7 +180,7 @@ _inc_tuning_criterion_config = {
         default_value="basic",
         description="""
             Strategy name used in tuning. Details in
-            https://github.com/intel/neural-compressor/blob/master/docs/source/tuning_strategies.md#basic
+            https://intel.github.io/neural-compressor/latest/docs/source/tuning_strategies.html
         """,
     ),
     "strategy_kwargs": PassConfigParam(

@@ -28,7 +28,7 @@ class TestLocalSystem:
     def test_run_pass(self):
         # setup
         p = MagicMock()
-        p.run.return_value = PyTorchModelHandler("model_path")
+        p.run.return_value = PyTorchModelHandler(model_path="model_path", model_loader=lambda _: None)
         olive_model = MagicMock()
         output_model_path = "output_model_path"
 

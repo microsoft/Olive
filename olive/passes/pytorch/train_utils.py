@@ -83,6 +83,11 @@ class BaseHFTrainingArguments(NestedConfig):
         if version.parse(transformers_version) < version.parse("4.41") and "eval_strategy" in args:
             args["evaluation_strategy"] = args.pop("eval_strategy")
         extra_args = args.pop("extra_args")
+        # Filter out fields that are not valid TrainingArguments parameters (e.g. overwrite_output_dir
+        # was removed in transformers 5.0 but is still used by Olive's own logic) and None values
+        # so that transformers uses its own defaults
+        training_args_fields = {f.name for f in dataclasses.fields(transformers.TrainingArguments) if f.init}
+        args = {k: v for k, v in args.items() if k in training_args_fields and v is not None}
         return transformers.TrainingArguments(**args, **extra_args)
 
 
@@ -305,6 +310,8 @@ def get_calibration_dataset(
 def get_calibration_data_config(
     model_name_or_path: str,
     trust_remote_code: bool | None = None,
+    data_name: str = "Salesforce/wikitext",
+    subset: str = "wikitext-2-raw-v1",
     split: str = "train[:1000]",
     batch_size: int = 1,
     max_seq_len: int = 2048,
@@ -315,6 +322,8 @@ def get_calibration_data_config(
     Args:
         model_name_or_path: Name or path of the model.
         trust_remote_code: Whether to trust remote code when loading data.
+        data_name: The name of the dataset to use from Hugging Face Datasets. Default is "Salesforce/wikitext".
+        subset: The subset of the dataset to use. Default is "wikitext-2-raw-v1".
         split: The dataset split to use. Default is 'train[:1000]'.
         batch_size: The batch size to use. Default is 1.
         max_seq_len: Maximum sequence length. Default is 2048.
@@ -328,8 +337,8 @@ def get_calibration_data_config(
         model_name=model_name_or_path,
         task="text-generation",
         load_dataset_config={
-            "data_name": "Salesforce/wikitext",
-            "subset": "wikitext-2-raw-v1",
+            "data_name": data_name,
+            "subset": subset,
             "split": split,
             "trust_remote_code": trust_remote_code,
         },

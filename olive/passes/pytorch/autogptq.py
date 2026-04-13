@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import logging
-from argparse import Namespace
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
@@ -20,15 +19,14 @@ from olive.common.hf.wrapper import ModelWrapper
 from olive.common.utils import get_attr
 from olive.constants import PrecisionBits
 from olive.data.config import DataConfig
-from olive.model import HfModelHandler, PyTorchModelHandler
-from olive.model.utils.path_utils import normalize_path_suffix
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.passes.pytorch.common import inherit_hf_from_hf, inherit_pytorch_from_pytorch
+from olive.passes.pytorch.common import inherit_hf_from_hf
 from olive.passes.pytorch.train_utils import get_calibration_dataset, load_hf_base_model
 
 if TYPE_CHECKING:
     from olive.hardware.accelerator import AcceleratorSpec
+    from olive.model import HfModelHandler
 
 logger = logging.getLogger(__name__)
 
@@ -99,17 +97,14 @@ class GptqQuantizer(Pass):
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, dict],
                 default_value=None,
-                description=(
-                    "Data config for quantization. If not provided, wikitest train data will be used for HfModels."
-                    " Required for PyTorch models."
-                ),
+                description="Data config for quantization. If not provided, wikitext train data will be used.",
             ),
         }
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: HfModelHandler | PyTorchModelHandler, config: type[BasePassConfig], output_model_path: str
-    ) -> PyTorchModelHandler:
+        self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
+    ) -> HfModelHandler:
         from auto_gptq import BaseQuantizeConfig, __version__
         from auto_gptq.modeling import BaseGPTQForCausalLM
         from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
@@ -122,7 +117,7 @@ class GptqQuantizer(Pass):
         dataset = get_calibration_dataset(model, config.data_config)
 
         adapter_path = None
-        if isinstance(model, HfModelHandler) and model.adapter_path:
+        if model.adapter_path:
             logger.info(
                 "Model has adapters but GPTQ does not support adapters. Quantizing without adapters. The original"
                 " adapters will be used as is with the quantized base model."
@@ -196,23 +191,6 @@ class GptqQuantizer(Pass):
 
                 if all(module.bias == 0):
                     module.bias = None
-
-        # TODO(anyone): Is pytorch model support needed? auto-awq only works with transformers like models
-        if isinstance(model, PyTorchModelHandler):
-            pytorch_model = quantized_model.model
-            # add quantization related attributes to the model for downstream usage
-            pytorch_model.quantization_method = "gptq"
-            if hasattr(pytorch_model, "config"):
-                pytorch_model.config.quantization_config = Namespace(quantized_model.quantize_config.to_dict())
-            else:
-                pytorch_model.config = Namespace(
-                    quantization_config=Namespace(quantized_model.quantize_config.to_dict())
-                )
-
-            output_model_path = normalize_path_suffix(output_model_path, "model.pt")
-            torch.save(quantized_model, output_model_path)
-
-            return inherit_pytorch_from_pytorch(model, output_model_path)
 
         # save quantized model and metadata
         quantized_model.save_quantized(output_model_path)

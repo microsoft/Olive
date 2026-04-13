@@ -2444,3 +2444,609 @@ def test_packed_attention_to_packed_mha(tmp_path):
     op_types = [node.op_type for node in output_model_def.graph.node]
     assert OpType.PackedAttention not in op_types
     assert OpType.PackedMultiHeadAttention in op_types
+
+
+# ── GemmToMatMulAdd ──────────────────────────────────────────────────────
+
+
+def test_gemm_to_matmul_add(tmp_path):
+    """Gemm(A, B, C) with transB=1 → MatMul(A, B^T) + Add(C)."""
+    input_tensor = helper.make_tensor_value_info("A", TensorProto.FLOAT, [2, 3])
+    output_tensor = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [2, 4])
+
+    b_data = np.random.randn(4, 3).astype(np.float32)  # transB shape
+    c_data = np.random.randn(4).astype(np.float32)
+
+    initializers = [
+        numpy_helper.from_array(b_data, name="B"),
+        numpy_helper.from_array(c_data, name="C"),
+    ]
+
+    gemm_node = helper.make_node("Gemm", ["A", "B", "C"], ["Y"], name="Gemm0", transB=1, alpha=1.0, beta=1.0)
+
+    graph = helper.make_graph([gemm_node], "test", [input_tensor], [output_tensor], initializer=initializers)
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "gemm.onnx"
+    onnx.save(model, str(model_path))
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "GemmToMatMulAdd"}]}, disable_search=True)
+    output_model = p.run(input_model, str(tmp_path / "out"))
+    out_proto = output_model.load_model()
+
+    op_types = [n.op_type for n in out_proto.graph.node]
+    assert "Gemm" not in op_types
+    assert "MatMul" in op_types
+    assert "Add" in op_types
+
+    # Numerical check
+    a = np.random.randn(2, 3).astype(np.float32)
+    expected = a @ b_data.T + c_data
+
+    sess = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
+    actual = sess.run(None, {"A": a})[0]
+    np.testing.assert_allclose(actual, expected, atol=1e-5)
+
+
+def test_gemm_to_matmul_add_no_bias(tmp_path):
+    """Gemm(A, B) without bias → MatMul only."""
+    input_tensor = helper.make_tensor_value_info("A", TensorProto.FLOAT, [2, 3])
+    output_tensor = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [2, 3])
+
+    b_data = np.eye(3, dtype=np.float32)
+    initializers = [numpy_helper.from_array(b_data, name="B")]
+
+    gemm_node = helper.make_node("Gemm", ["A", "B"], ["Y"], name="Gemm0")
+
+    graph = helper.make_graph([gemm_node], "test", [input_tensor], [output_tensor], initializer=initializers)
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "gemm_no_bias.onnx"
+    onnx.save(model, str(model_path))
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "GemmToMatMulAdd"}]}, disable_search=True)
+    output_model = p.run(input_model, str(tmp_path / "out"))
+    out_proto = output_model.load_model()
+
+    op_types = [n.op_type for n in out_proto.graph.node]
+    assert "Gemm" not in op_types
+    assert "MatMul" in op_types
+    assert "Add" not in op_types
+
+
+def test_gemm_to_matmul_add_skips_non_unit_alpha(tmp_path):
+    """Gemm with alpha != 1.0 should be left unchanged."""
+    input_tensor = helper.make_tensor_value_info("A", TensorProto.FLOAT, [2, 3])
+    output_tensor = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [2, 3])
+
+    b_data = np.eye(3, dtype=np.float32)
+    initializers = [numpy_helper.from_array(b_data, name="B")]
+
+    gemm_node = helper.make_node("Gemm", ["A", "B"], ["Y"], name="Gemm0", alpha=2.0)
+
+    graph = helper.make_graph([gemm_node], "test", [input_tensor], [output_tensor], initializer=initializers)
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 10
+
+    model_path = tmp_path / "gemm_alpha.onnx"
+    onnx.save(model, str(model_path))
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "GemmToMatMulAdd"}]}, disable_search=True)
+    output_model = p.run(input_model, str(tmp_path / "out"))
+    out_proto = output_model.load_model()
+
+    op_types = [n.op_type for n in out_proto.graph.node]
+    assert "Gemm" in op_types, "Gemm with alpha != 1.0 should be preserved"
+
+
+# ── ReciprocalMulToDiv ───────────────────────────────────────────────────
+
+
+def test_reciprocal_mul_to_div(tmp_path):
+    """Reciprocal(x) * a  →  Div(a, x)."""
+    input_x = helper.make_tensor_value_info("X", TensorProto.FLOAT, [2, 4])
+    input_a = helper.make_tensor_value_info("A", TensorProto.FLOAT, [2, 4])
+    output_tensor = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [2, 4])
+
+    nodes = [
+        helper.make_node("Reciprocal", ["X"], ["recip_out"], name="Recip"),
+        helper.make_node("Mul", ["A", "recip_out"], ["Y"], name="MulRecip"),
+    ]
+
+    graph = helper.make_graph(nodes, "test", [input_x, input_a], [output_tensor])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 10
+    onnx.checker.check_model(model)
+
+    model_path = tmp_path / "recip_mul.onnx"
+    onnx.save(model, str(model_path))
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "ReciprocalMulToDiv"}]}, disable_search=True)
+    output_model = p.run(input_model, str(tmp_path / "out"))
+    out_proto = output_model.load_model()
+
+    op_types = [n.op_type for n in out_proto.graph.node]
+    assert "Reciprocal" not in op_types
+    assert "Mul" not in op_types
+    assert "Div" in op_types
+
+    # Numerical check: Div(a, x) == a * (1/x)
+    x = np.random.randn(2, 4).astype(np.float32) + 2.0  # avoid near-zero
+    a = np.random.randn(2, 4).astype(np.float32)
+    expected = a / x
+
+    sess = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
+    actual = sess.run(None, {"X": x, "A": a})[0]
+    np.testing.assert_allclose(actual, expected, atol=1e-5)
+
+
+def test_reciprocal_mul_to_div_reversed_order(tmp_path):
+    """Mul(recip_out, a) — Reciprocal output on the left side."""
+    input_x = helper.make_tensor_value_info("X", TensorProto.FLOAT, [4])
+    input_a = helper.make_tensor_value_info("A", TensorProto.FLOAT, [4])
+    output_tensor = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [4])
+
+    nodes = [
+        helper.make_node("Reciprocal", ["X"], ["recip_out"], name="Recip"),
+        helper.make_node("Mul", ["recip_out", "A"], ["Y"], name="MulRecip"),
+    ]
+
+    graph = helper.make_graph(nodes, "test", [input_x, input_a], [output_tensor])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 10
+
+    model_path = tmp_path / "recip_mul_rev.onnx"
+    onnx.save(model, str(model_path))
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "ReciprocalMulToDiv"}]}, disable_search=True)
+    output_model = p.run(input_model, str(tmp_path / "out"))
+    out_proto = output_model.load_model()
+
+    op_types = [n.op_type for n in out_proto.graph.node]
+    assert "Div" in op_types
+
+    # Check Div inputs: Div(A, X) regardless of Mul operand order
+    div_node = next(n for n in out_proto.graph.node if n.op_type == "Div")
+    assert div_node.input[0] == "A"
+    assert div_node.input[1] == "X"
+
+
+# ── DeduplicateSubgraphInitializers ──────────────────────────────────────
+
+
+def test_deduplicate_subgraph_initializers(tmp_path):
+    """Duplicate initializers inside a Loop subgraph should be removed."""
+    # Build a minimal Loop body with duplicate initializers
+    body_input = helper.make_tensor_value_info("i", TensorProto.INT64, [])
+    body_cond_in = helper.make_tensor_value_info("cond_in", TensorProto.BOOL, [])
+    body_cond_out = helper.make_tensor_value_info("cond_out", TensorProto.BOOL, [])
+    body_out = helper.make_tensor_value_info("body_out", TensorProto.FLOAT, [2])
+
+    const_data = np.array([1.0, 2.0], dtype=np.float32)
+    init1 = numpy_helper.from_array(const_data, name="dup_init")
+    init2 = numpy_helper.from_array(const_data, name="dup_init")  # duplicate
+
+    body_node = helper.make_node("Identity", ["dup_init"], ["body_out"])
+    cond_true = numpy_helper.from_array(np.array(True), name="cond_true")
+    cond_node = helper.make_node("Identity", ["cond_true"], ["cond_out"])
+
+    body_graph = helper.make_graph(
+        [cond_node, body_node],
+        "body",
+        [body_input, body_cond_in],
+        [body_cond_out, body_out],
+        initializer=[init1, init2, cond_true],
+    )
+
+    # Outer graph with Loop node
+    trip_count = helper.make_tensor_value_info("trip_count", TensorProto.INT64, [])
+    cond = helper.make_tensor_value_info("cond", TensorProto.BOOL, [])
+    output = helper.make_tensor_value_info("output", TensorProto.FLOAT, [None, 2])
+
+    loop_node = helper.make_node("Loop", ["trip_count", "cond"], ["output"], body=body_graph)
+
+    main_graph = helper.make_graph([loop_node], "main", [trip_count, cond], [output])
+    model = helper.make_model(main_graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 10
+
+    model_path = tmp_path / "loop_dup.onnx"
+    onnx.save(model, str(model_path))
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "DeduplicateSubgraphInitializers"}]},
+        disable_search=True,
+    )
+    output_model = p.run(input_model, str(tmp_path / "out"))
+    out_proto = output_model.load_model()
+
+    # Check the Loop body: should have only 1 copy of "dup_init"
+    loop = next(n for n in out_proto.graph.node if n.op_type == "Loop")
+    body = loop.attribute[0].g
+    dup_inits = [i for i in body.initializer if i.name == "dup_init"]
+    assert len(dup_inits) == 1, f"Expected 1, got {len(dup_inits)} copies of dup_init"
+
+
+# ── DeduplicateNodes ─────────────────────────────────────────────────────
+
+
+def test_deduplicate_nodes(tmp_path):
+    """Nodes that produce the same output tensor name should be deduplicated."""
+    input_tensor = helper.make_tensor_value_info("X", TensorProto.FLOAT, [2, 4])
+    output_tensor = helper.make_tensor_value_info("Y", TensorProto.FLOAT16, [2, 4])
+
+    # Two Cast nodes with the same output tensor name (simulating float16.py bug)
+    cast1 = helper.make_node("Cast", ["X"], ["cast_out"], name="Cast1", to=TensorProto.FLOAT16)
+    cast2 = helper.make_node("Cast", ["X"], ["cast_out"], name="Cast2", to=TensorProto.FLOAT16)
+    identity = helper.make_node("Identity", ["cast_out"], ["Y"], name="Id")
+
+    graph = helper.make_graph([cast1, cast2, identity], "test", [input_tensor], [output_tensor])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 10
+
+    model_path = tmp_path / "dup_nodes.onnx"
+    onnx.save(model, str(model_path))
+    input_model = ONNXModelHandler(model_path=str(model_path))
+
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "DeduplicateNodes"}]}, disable_search=True)
+    output_model = p.run(input_model, str(tmp_path / "out"))
+    out_proto = output_model.load_model()
+
+    cast_nodes = [n for n in out_proto.graph.node if n.op_type == "Cast"]
+    assert len(cast_nodes) == 1, f"Expected 1 Cast, got {len(cast_nodes)}"
+
+    # The remaining model should still be runnable
+    sess = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
+    x = np.random.randn(2, 4).astype(np.float32)
+    result = sess.run(None, {"X": x})[0]
+    np.testing.assert_allclose(result, x.astype(np.float16), atol=1e-3)
+
+
+def test_rename_input_dims(tmp_path):
+    """Test that RenameInputDims renames a dimension in an input tensor's shape."""
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3, 4])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3, 4])
+
+    node = helper.make_node("Identity", inputs=["input"], outputs=["output"], name="Identity")
+
+    graph = helper.make_graph(
+        nodes=[node],
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RenameInputDims", "input_name": "input", "dim_idx": 0, "dim_name": "batch"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+
+    input_shape = output_model_def.graph.input[0].type.tensor_type.shape
+    dim_names = [dim.dim_param if dim.dim_param else str(dim.dim_value) for dim in input_shape.dim]
+    assert dim_names[0] == "batch"
+    # Other dims should be unchanged
+    assert input_shape.dim[1].dim_value == 3
+    assert input_shape.dim[2].dim_value == 4
+
+
+def test_rename_input_dims_by_index(tmp_path):
+    """Test that RenameInputDims works with input_idx instead of input_name."""
+    input_tensor = helper.make_tensor_value_info("pixel_values", TensorProto.FLOAT, [10, 1176])
+    input2_tensor = helper.make_tensor_value_info("image_grid_thw", TensorProto.INT64, [1, 3])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [10, 1176])
+
+    node = helper.make_node("Identity", inputs=["pixel_values"], outputs=["output"], name="Identity")
+
+    graph = helper.make_graph(
+        nodes=[node],
+        name="TestGraph",
+        inputs=[input_tensor, input2_tensor],
+        outputs=[output_tensor],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RenameInputDims", "input_idx": 1, "dim_idx": 0, "dim_name": "num_images"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+
+    input_shape = output_model_def.graph.input[1].type.tensor_type.shape
+    assert input_shape.dim[0].dim_param == "num_images"
+    assert input_shape.dim[1].dim_value == 3
+
+
+def test_rename_input_dims_invalid_input_name(tmp_path):
+    """Test that RenameInputDims raises ValueError for non-existent input name."""
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 3])
+
+    node = helper.make_node("Identity", inputs=["input"], outputs=["output"])
+
+    graph = helper.make_graph(
+        nodes=[node],
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RenameInputDims", "input_name": "nonexistent", "dim_idx": 0, "dim_name": "x"}]},
+        disable_search=True,
+    )
+
+    with pytest.raises(ValueError, match="not found in graph"):
+        p.run(input_model, output_folder)
+
+
+def test_remove_memcpy_main_graph(tmp_path):
+    """Test that RemoveMemcpy removes MemcpyToHost/MemcpyFromHost nodes from the main graph."""
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [4, 8])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [4, 8])
+
+    # Build: input -> MemcpyToHost -> Relu -> MemcpyFromHost -> output
+    memcpy_to = helper.make_node("MemcpyToHost", inputs=["input"], outputs=["cpu_input"], name="MemcpyTo")
+    relu = helper.make_node("Relu", inputs=["cpu_input"], outputs=["relu_out"], name="Relu")
+    memcpy_from = helper.make_node("MemcpyFromHost", inputs=["relu_out"], outputs=["output"], name="MemcpyFrom")
+
+    graph = helper.make_graph(
+        nodes=[memcpy_to, relu, memcpy_from],
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveMemcpy"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+
+    op_types = [n.op_type for n in output_model_def.graph.node]
+    assert "MemcpyToHost" not in op_types
+    assert "MemcpyFromHost" not in op_types
+    assert "Relu" in op_types
+    assert len(output_model_def.graph.node) == 1
+
+    # Public output name should be preserved
+    assert output_model_def.graph.output[0].name == "output"
+
+    # Verify inference still works and the session exposes the same output name
+    sess = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
+    sess_outputs = sess.get_outputs()
+    assert sess_outputs[0].name == "output"
+
+    x = np.random.randn(4, 8).astype(np.float32)
+    result = sess.run(["output"], {"input": x})[0]
+    np.testing.assert_allclose(result, np.maximum(x, 0), atol=1e-6)
+
+
+def test_remove_memcpy_loop_subgraph(tmp_path):
+    """Test that RemoveMemcpy removes MemcpyToHost from Loop subgraphs."""
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [4, 8])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [4, 8])
+
+    # Build a Loop subgraph that contains a MemcpyToHost
+    # Loop body: (iter, cond, carry_in) -> (cond_out, carry_out)
+    body_iter = helper.make_tensor_value_info("iter", TensorProto.INT64, [])
+    body_cond_in = helper.make_tensor_value_info("cond_in", TensorProto.BOOL, [])
+    body_carry_in = helper.make_tensor_value_info("carry_in", TensorProto.FLOAT, [4, 8])
+    body_cond_out = helper.make_tensor_value_info("cond_out", TensorProto.BOOL, [])
+    body_carry_out = helper.make_tensor_value_info("carry_out", TensorProto.FLOAT, [4, 8])
+
+    body_memcpy = helper.make_node("MemcpyToHost", inputs=["carry_in"], outputs=["carry_cpu"], name="BodyMemcpy")
+    body_relu = helper.make_node("Relu", inputs=["carry_cpu"], outputs=["carry_out"], name="BodyRelu")
+    body_cond = helper.make_node("Identity", inputs=["cond_in"], outputs=["cond_out"], name="BodyCond")
+
+    body_graph = helper.make_graph(
+        nodes=[body_memcpy, body_relu, body_cond],
+        name="LoopBody",
+        inputs=[body_iter, body_cond_in, body_carry_in],
+        outputs=[body_cond_out, body_carry_out],
+    )
+
+    # Main graph: input -> Loop(1 iteration) -> output
+    trip_count = helper.make_tensor("trip", TensorProto.INT64, [], [1])
+    cond_init = helper.make_tensor("cond_init", TensorProto.BOOL, [], [True])
+    loop_node = helper.make_node(
+        "Loop",
+        inputs=["trip", "cond_init", "input"],
+        outputs=["output"],
+        name="Loop",
+        body=body_graph,
+    )
+
+    graph = helper.make_graph(
+        nodes=[loop_node],
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+        initializer=[trip_count, cond_init],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveMemcpy"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+
+    # Check Loop subgraph has no MemcpyToHost
+    loop_node = output_model_def.graph.node[0]
+    assert loop_node.op_type == "Loop"
+    body = None
+    for attr in loop_node.attribute:
+        if attr.name == "body":
+            body = attr.g
+    assert body is not None
+    sub_ops = [n.op_type for n in body.node]
+    assert "MemcpyToHost" not in sub_ops
+    assert "Relu" in sub_ops
+
+
+def test_remove_memcpy_topo_sort(tmp_path):
+    """Test that RemoveMemcpy properly re-sorts nodes topologically after removal."""
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [4, 8])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [4, 8])
+
+    # Build: input -> Relu -> MemcpyToHost -> Sigmoid -> output
+    # The MemcpyToHost renames relu_out -> cpu_relu, so after removal
+    # Sigmoid must reference relu_out directly and appear after Relu.
+    relu = helper.make_node("Relu", inputs=["input"], outputs=["relu_out"], name="Relu")
+    memcpy = helper.make_node("MemcpyToHost", inputs=["relu_out"], outputs=["cpu_relu"], name="Memcpy")
+    sigmoid = helper.make_node("Sigmoid", inputs=["cpu_relu"], outputs=["output"], name="Sigmoid")
+
+    graph = helper.make_graph(
+        nodes=[relu, memcpy, sigmoid],
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveMemcpy"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+
+    op_types = [n.op_type for n in output_model_def.graph.node]
+    assert op_types == ["Relu", "Sigmoid"]
+
+    # Verify Sigmoid now reads from relu_out (bypassing removed memcpy)
+    sigmoid_node = output_model_def.graph.node[1]
+    assert sigmoid_node.input[0] == "relu_out"
+
+    # Verify inference
+    sess = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
+    x = np.random.randn(4, 8).astype(np.float32)
+    result = sess.run(None, {"input": x})[0]
+    expected = 1.0 / (1.0 + np.exp(-np.maximum(x, 0)))
+    np.testing.assert_allclose(result, expected, atol=1e-6)
+
+
+def test_remove_memcpy_chained(tmp_path):
+    """Test that RemoveMemcpy handles chained Memcpy nodes and preserves output names."""
+    input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [4, 8])
+    output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [4, 8])
+
+    # Build: input -> MemcpyToHost -> MemcpyToHost -> Relu -> MemcpyFromHost -> MemcpyFromHost -> output
+    memcpy_to_1 = helper.make_node("MemcpyToHost", inputs=["input"], outputs=["cpu1"], name="MemcpyTo1")
+    memcpy_to_2 = helper.make_node("MemcpyToHost", inputs=["cpu1"], outputs=["cpu2"], name="MemcpyTo2")
+    relu = helper.make_node("Relu", inputs=["cpu2"], outputs=["relu_out"], name="Relu")
+    memcpy_from_1 = helper.make_node("MemcpyFromHost", inputs=["relu_out"], outputs=["gpu1"], name="MemcpyFrom1")
+    memcpy_from_2 = helper.make_node("MemcpyFromHost", inputs=["gpu1"], outputs=["output"], name="MemcpyFrom2")
+
+    graph = helper.make_graph(
+        nodes=[memcpy_to_1, memcpy_to_2, relu, memcpy_from_1, memcpy_from_2],
+        name="TestGraph",
+        inputs=[input_tensor],
+        outputs=[output_tensor],
+    )
+
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "onnx")
+
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "RemoveMemcpy"}]},
+        disable_search=True,
+    )
+
+    output_model = p.run(input_model, output_folder)
+    output_model_def = output_model.load_model()
+
+    op_types = [n.op_type for n in output_model_def.graph.node]
+    assert "MemcpyToHost" not in op_types
+    assert "MemcpyFromHost" not in op_types
+    assert "Relu" in op_types
+    assert len(output_model_def.graph.node) == 1
+
+    # Public output name must be preserved
+    assert output_model_def.graph.output[0].name == "output"
+
+    # Verify inference with preserved output name
+    sess = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
+    sess_outputs = sess.get_outputs()
+    assert sess_outputs[0].name == "output"
+
+    x = np.random.randn(4, 8).astype(np.float32)
+    result = sess.run(["output"], {"input": x})[0]
+    np.testing.assert_allclose(result, np.maximum(x, 0), atol=1e-6)

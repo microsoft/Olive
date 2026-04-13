@@ -124,7 +124,7 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
     def __init__(
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
-        model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
+        model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_STATE_DICT,
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
@@ -132,6 +132,14 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
         dummy_inputs_func: Union[str, Callable] = None,
         model_attributes: Optional[dict[str, Any]] = None,
     ):
+        if model_loader is None and model_file_format not in (
+            ModelFileFormat.PYTORCH_TORCH_SCRIPT,
+            ModelFileFormat.PYTORCH_SLICE_GPT_MODEL,
+        ):
+            raise ValueError(
+                "model_loader is required for PyTorchModelHandler. Either provide a callable model_loader,"
+                " or specify model_script with a model_loader function name."
+            )
         if not (isinstance(model_loader, Callable) or (isinstance(model_loader, str) and model_script) or model_path):
             raise ValueError(
                 "model_path is required since model_loader is not callable or model_script is not provided"
@@ -180,8 +188,6 @@ class PyTorchModelHandler(PyTorchModelHandlerBase):  # pylint: disable=too-many-
                 model = user_module_loader.call_object(self.model_loader, self.model_path)
             elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
                 model = torch.jit.load(self.model_path)
-            elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
-                model = torch.load(self.model_path, weights_only=False)
             elif self.model_file_format == ModelFileFormat.PYTORCH_SLICE_GPT_MODEL:
                 model = self._load_slicegpt_model()
             elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:

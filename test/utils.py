@@ -77,8 +77,8 @@ def get_pytorch_model(batch_size=1):
     )
 
 
-def get_hf_model(model_path="hf-internal-testing/tiny-random-gptj"):
-    return HfModelHandler(model_path=model_path)
+def get_hf_model(model_path="hf-internal-testing/tiny-random-LlamaForCausalLM"):
+    return HfModelHandler(model_path=model_path, task="text-generation")
 
 
 def get_hf_model_config():
@@ -408,3 +408,24 @@ def get_wikitext_data_config(
             "random_seed": 42,
         },
     )
+
+
+def package_version_at_least(package_name: str, min_ver: str) -> bool:
+    """Return True if *package_name* is installed and its version is >= *min_ver*, False otherwise.
+
+    Intended for use in ``pytest.mark.skipif`` conditions where the check
+    must never raise during test collection.
+    """
+    try:
+        from importlib.metadata import PackageNotFoundError
+        from importlib.metadata import version as pkg_version
+
+        from packaging.version import InvalidVersion
+        from packaging.version import parse as parse_version
+    except ImportError:
+        return False
+
+    try:
+        return parse_version(pkg_version(package_name)) >= parse_version(min_ver)
+    except (PackageNotFoundError, InvalidVersion):
+        return False

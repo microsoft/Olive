@@ -116,6 +116,12 @@ GraphSurgeries
 --------------------
 .. autoconfigclass:: olive.passes.GraphSurgeries
 
+.. _nvmodelopt_graph_surgery:
+
+NVModelOptGraphSurgery
+----------------------
+.. autoconfigclass:: olive.passes.NVModelOptGraphSurgery
+
 .. _matmulnbits_to_qdq:
 
 MatMulNBitsToQDQ
@@ -312,12 +318,6 @@ AutoAWQQuantizer
 Rtn
 ----------------
 .. autoconfigclass:: olive.passes.Rtn
-
-.. _torch_trt_conversion:
-
-TorchTRTConversion
-------------------
-.. autoconfigclass:: olive.passes.TorchTRTConversion
 
 OpenVINO
 =================================

@@ -39,7 +39,7 @@ If you prefer using the command line directly instead of Jupyter notebooks, we'v
 We recommend installing Olive in a [virtual environment](https://docs.python.org/3/library/venv.html) or a [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
 
 ```
-pip install olive-ai[auto-opt]
+pip install olive-ai
 pip install transformers onnxruntime-genai
 ```
 > [!NOTE]
@@ -55,7 +55,7 @@ pip install transformers onnxruntime-genai
 > Caching files will still work but in a degraded version that might require more space on your disk. This warning can be disabled by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For more details, see https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations.
 > ```
 >
-> You can fix this warning using one of the 4 options below. Note that option 1, 2 and 3 saves diskspace, while option 4 only supresses the warning
+> You can fix this warning using one of the 4 options below. Note that options 1, 2, and 3 save disk space, while option 4 only suppresses the warning.
 >
 > 1. Enable Developer Mode on Windows (one-time setup) documented in the [Microsoft Developer Tools Docs](https://learn.microsoft.com/en-us/windows/advanced-settings/developer-mode).
 > 2. Run Python as administrator when using Olive with the huggingface_hub library.
@@ -82,7 +82,7 @@ olive optimize \
 >[!TIP]
 ><details>
 ><summary>PowerShell Users</summary>
->Line continuation between Bash and PowerShell are not interchangable. If you are using PowerShell, then you can copy-and-paste the following command that uses compatible line continuation.
+>Line continuations between Bash and PowerShell are not interchangeable. If you are using PowerShell, then you can copy-and-paste the following command that uses compatible line continuation.
 >
 >```powershell
 >olive optimize `
@@ -113,6 +113,9 @@ The sample chat app to run is found as [model-chat.py](https://github.com/micros
 
 - [Documentation](https://microsoft.github.io/Olive)
 - [Recipes](https://github.com/microsoft/olive-recipes)
+
+## Data/Telemetry
+Distributions of this project may collect usage data and send it to Microsoft to help improve our products and services. See the [privacy statement](docs/Privacy.md) for more details.
 
 ## 🤝 Contributions and Feedback
 - We welcome contributions! Please read the [contribution guidelines](./CONTRIBUTING.md) for more details on how to contribute to the Olive project.
