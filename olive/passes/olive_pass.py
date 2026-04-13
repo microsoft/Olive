@@ -48,8 +48,6 @@ class Pass(ABC):
     # True if the pass processes a composite model at once. Otherwise, the components of the
     # composite model will be processed individually.
     _accepts_composite_model: bool = False
-    # When True, skip automatic carry-forward of additional_files in run().
-    _skip_additional_files_carry_forward: bool = False
 
     @classmethod
     def __init_subclass__(cls, **kwargs) -> None:
@@ -247,9 +245,8 @@ class Pass(ABC):
         # assumption: the model attributes from passes, if any, are more important than
         # the input model attributes, we should not update/extend anymore outside of the pass run
         output_model.model_attributes = output_model.model_attributes or model.model_attributes
-        # save and carry forward additional files into the the output model path
-        if not self._skip_additional_files_carry_forward:
-            Pass._carry_forward_additional_files(model, output_model)
+        # save and carry forward additional files into the output model path
+        Pass._carry_forward_additional_files(model, output_model)
         return output_model
 
     @staticmethod
