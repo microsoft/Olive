@@ -13,7 +13,6 @@ from packaging import version
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
 from olive.model import CompositeModelHandler, ONNXModelHandler
-from olive.model.handler.model_package import ModelPackageModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.onnx.common import (
@@ -27,11 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class EPContextBinaryGenerator(Pass):
-    """Generate EP specific context binary for the model.
-
-    When provider_options is a list of dicts, generates context binaries for each set of provider options
-    (e.g., multiple SoC models) and returns a ModelPackageModelHandler.
-    """
+    """Generate EP specific context binary for the model."""
 
     _accepts_composite_model = True
 
@@ -52,13 +47,9 @@ class EPContextBinaryGenerator(Pass):
                 ),
             ),
             "provider_options": PassConfigParam(
-                type_=Union[dict, list],
+                type_=dict,
                 default_value=None,
-                description=(
-                    "Provider options for the EP. Can be a single dict or a list of dicts for model package"
-                    " generation (e.g., multiple SoC models). When a list is provided, context binaries are"
-                    " generated for each set of options and returned as a ModelPackageModelHandler."
-                ),
+                description="Provider options for the EP.",
             ),
             "session_options": PassConfigParam(
                 type_=dict,
@@ -82,7 +73,7 @@ class EPContextBinaryGenerator(Pass):
         model: Union[ONNXModelHandler, CompositeModelHandler],
         config: type[BasePassConfig],
         output_model_path: str,
-    ) -> Union[ONNXModelHandler, CompositeModelHandler, ModelPackageModelHandler]:
+    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
         # session created using providers argument so will use the ort.get_available_providers()
         # TODO(jambayk): consider switching to the new EP API for Windows
         from onnxruntime import get_available_providers
@@ -96,17 +87,6 @@ class EPContextBinaryGenerator(Pass):
             f" {get_available_providers()}"
         )
 
-        # Model package mode: provider_options is a list with multiple entries
-        if isinstance(config.provider_options, list) and len(config.provider_options) > 1:
-            return self._run_model_package(model, config, output_model_path)
-
-        # Single-target mode: unwrap single-element list if needed
-        if isinstance(config.provider_options, list):
-            single_config = deepcopy(config)
-            object.__setattr__(single_config, "provider_options", config.provider_options[0])
-            return self._run_for_config(model, single_config, output_model_path)
-
-        # Single-target mode: existing behavior
         result = self._run_single_target(model, config, output_model_path)
 
         # Populate model_attributes with context binary metadata so it persists in model_config.json
@@ -118,58 +98,6 @@ class EPContextBinaryGenerator(Pass):
             result.model_attributes["architecture"] = config.provider_options.get("soc_model")
 
         return result
-
-    def _run_model_package(
-        self,
-        model: Union[ONNXModelHandler, CompositeModelHandler],
-        config: type[BasePassConfig],
-        output_model_path: str,
-    ) -> ModelPackageModelHandler:
-        """Generate context binaries for multiple hardware targets.
-
-        Each entry in config.provider_options is a separate set of provider options
-        (e.g., different soc_model values). The result is a ModelPackageModelHandler
-        wrapping per-target outputs.
-        """
-        provider_options_list = config.provider_options
-        assert all(isinstance(po, dict) for po in provider_options_list), (
-            "Each entry in provider_options list must be a dict"
-        )
-
-        output_dir = Path(output_model_path).with_suffix("")
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        targets = []
-        target_names = []
-        for idx, provider_options in enumerate(provider_options_list):
-            target_name = f"soc_{provider_options.get('soc_model', idx)}"
-            target_output_path = str(output_dir / target_name)
-
-            # Create a shallow copy of config with this specific provider_options
-            single_config = deepcopy(config)
-            object.__setattr__(single_config, "provider_options", provider_options)
-
-            result = self._run_single_target(model, single_config, target_output_path)
-            # Store target-specific metadata
-            result.model_attributes = {**(model.model_attributes or {}), **(result.model_attributes or {})}
-            result.model_attributes["ep"] = self.accelerator_spec.execution_provider
-            result.model_attributes["device"] = str(self.accelerator_spec.accelerator_type).upper()
-            result.model_attributes["provider_options"] = provider_options
-            result.model_attributes["architecture"] = provider_options.get("soc_model")
-
-            targets.append(result)
-            target_names.append(target_name)
-
-        # Preserve base model path so ModelPackage can include the pre-optimized model
-        parent_attrs = dict(model.model_attributes or {})
-        parent_attrs["base_model_path"] = str(model.model_path)
-
-        return ModelPackageModelHandler(
-            targets,
-            target_names,
-            model_path=output_dir,
-            model_attributes=parent_attrs,
-        )
 
     def _run_single_target(
         self,

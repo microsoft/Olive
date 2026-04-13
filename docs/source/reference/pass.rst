@@ -176,12 +176,6 @@ EPContextBinaryGenerator
 ------------------------
 .. autoconfigclass:: olive.passes.EPContextBinaryGenerator
 
-.. _model_package:
-
-ModelPackage
-------------
-.. autoconfigclass:: olive.passes.ModelPackage
-
 .. _compose_onnx_models:
 
 ComposeOnnxModels

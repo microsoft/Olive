@@ -9,7 +9,6 @@ import pytest
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
-from olive.model.handler.model_package import ModelPackageModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.common import resave_model
 from olive.passes.onnx.context_binary import EPContextBinaryGenerator
@@ -135,64 +134,12 @@ def test_ep_context_binary_generator_composite(tmp_path, is_llm):
             assert len(list(output_model_path.glob(f"{name}_ctx*.bin"))) == 1
 
 
-# ===========================================================================
-# Model package tests
-# ===========================================================================
-
-
 def _mock_get_available_providers():
     return ["QNNExecutionProvider", "CPUExecutionProvider"]
 
 
-def test_model_package_returns_model_package_handler(tmp_path):
-    """When provider_options is a list, result should be ModelPackageModelHandler."""
-    from pathlib import Path
-    from unittest.mock import patch
-
-    accelerator_spec = AcceleratorSpec(accelerator_type="NPU", execution_provider="QNNExecutionProvider")
-
-    p = create_pass_from_dict(
-        EPContextBinaryGenerator,
-        {
-            "provider_options": [
-                {"soc_model": "60", "htp_performance_mode": "burst"},
-                {"soc_model": "73", "htp_performance_mode": "burst"},
-            ],
-        },
-        disable_search=True,
-        accelerator_spec=accelerator_spec,
-    )
-
-    with (
-        patch.object(EPContextBinaryGenerator, "_run_single_target") as mock_single,
-        patch("onnxruntime.get_available_providers", _mock_get_available_providers),
-    ):
-
-        def side_effect(model, config, output_model_path):
-            out_dir = Path(output_model_path)
-            out_dir.mkdir(parents=True, exist_ok=True)
-            model_file = out_dir / "model_ctx.onnx"
-            model_file.write_text("dummy")
-            return ONNXModelHandler(model_path=str(model_file))
-
-        mock_single.side_effect = side_effect
-
-        input_model = get_onnx_model()
-        output_path = str(tmp_path / "output.onnx")
-        result = p.run(input_model, output_path)
-
-    assert isinstance(result, ModelPackageModelHandler)
-    assert result.target_names == ["soc_60", "soc_73"]
-    assert mock_single.call_count == 2
-
-    for _, target in result.get_target_models():
-        assert target.model_attributes["ep"] == "QNNExecutionProvider"
-        assert target.model_attributes["device"] == "NPU"
-        assert "provider_options" in target.model_attributes
-
-
 def test_single_target_populates_model_attributes(tmp_path):
-    """Single-target mode should also populate model_attributes."""
+    """Single-target mode should populate model_attributes."""
     from pathlib import Path
     from unittest.mock import patch
 

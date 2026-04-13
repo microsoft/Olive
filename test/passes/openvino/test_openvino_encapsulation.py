@@ -9,7 +9,6 @@ import pytest
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler
-from olive.model.handler.model_package import ModelPackageModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.encapsulation import OpenVINOEncapsulation
@@ -105,50 +104,6 @@ def test_openvino_encapsulate_pass_dynamic_keep_ov_dynamic_dims(tmp_path):
     # assert
     assert Path(onnx_model.model_path).exists()
     assert (Path(onnx_model.model_path)).is_file()
-
-
-# ===========================================================================
-# Model package tests
-# ===========================================================================
-
-
-def test_model_package_returns_model_package_handler(tmp_path):
-    accelerator_spec = AcceleratorSpec(accelerator_type=Device.NPU, execution_provider="OpenVINOExecutionProvider")
-
-    p = create_pass_from_dict(
-        OpenVINOEncapsulation,
-        {"ov_version": ["2025.1", "2025.2"], "target_device": "npu"},
-        disable_search=True,
-        accelerator_spec=accelerator_spec,
-    )
-
-    with patch.object(OpenVINOEncapsulation, "_run_single_target") as mock_single:
-
-        def side_effect(model, config, output_model_path):
-            out_dir = Path(output_model_path)
-            out_dir.mkdir(parents=True, exist_ok=True)
-            model_file = out_dir / "model.onnx"
-            model_file.write_text("dummy")
-            return ONNXModelHandler(
-                model_path=str(model_file),
-                model_attributes={
-                    "ep": "OpenVINOExecutionProvider",
-                    "device": "NPU",
-                    "sdk_version": config.ov_version,
-                    "architecture": "NPU",
-                },
-            )
-
-        mock_single.side_effect = side_effect
-
-        input_model = MagicMock()
-        input_model.model_attributes = {}
-        output_path = str(tmp_path / "output.onnx")
-        result = p.run(input_model, output_path)
-
-    assert isinstance(result, ModelPackageModelHandler)
-    assert result.target_names == ["ov_2025_1", "ov_2025_2"]
-    assert mock_single.call_count == 2
 
 
 def test_single_target_populates_model_attributes(tmp_path):

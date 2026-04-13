@@ -5,7 +5,6 @@
 # pylint: disable=protected-access
 import json
 from argparse import ArgumentParser
-from unittest.mock import patch
 
 import pytest
 
@@ -85,41 +84,15 @@ class TestSourceValidation:
         assert sources[1] == ("soc_73", src2)
 
 
-class TestRunConfig:
-    """Tests for _get_run_config workflow config construction."""
+class TestGeneratePackageSingle:
+    """Tests for single-component model package generation."""
 
-    def test_builds_model_package_workflow(self, tmp_path):
-        """Config has ModelPackageModel input, ModelPackage pass, and correct accelerator."""
+    def test_generates_manifest_and_metadata(self, tmp_path):
+        """Package output should have manifest.json and metadata.json."""
         # setup
         src1 = _create_source_dir(tmp_path, "soc_60", {"ep": "QNNExecutionProvider", "device": "NPU"})
         src2 = _create_source_dir(tmp_path, "soc_73", {"ep": "QNNExecutionProvider", "device": "NPU"})
-        cmd = _make_command(["generate-model-package", "-s", str(src1), "-s", str(src2), "-o", str(tmp_path / "out")])
-
-        # execute
-        config = cmd._get_run_config(str(tmp_path / "tmp"))
-
-        # assert: input model
-        assert config["input_model"]["type"] == "ModelPackageModel"
-        assert len(config["input_model"]["target_models"]) == 2
-        assert config["input_model"]["target_names"] == ["soc_60", "soc_73"]
-
-        # assert: pass config
-        assert config["passes"]["pkg"]["type"] == "ModelPackage"
-        assert config["passes"]["pkg"]["model_version"] == "1.0"
-
-        # assert: accelerator from source model_attributes
-        accel = config["systems"]["local_system"]["accelerators"][0]
-        assert accel["device"] == "npu"
-        assert accel["execution_providers"] == ["QNNExecutionProvider"]
-
-        # assert: output dir
-        assert config["output_dir"] == str(tmp_path / "out")
-
-    def test_custom_model_name_and_version(self, tmp_path):
-        """CLI args --model_name and --model_version are forwarded to pass config."""
-        # setup
-        src1 = _create_source_dir(tmp_path, "t1", {"ep": "QNNExecutionProvider"})
-        src2 = _create_source_dir(tmp_path, "t2", {"ep": "QNNExecutionProvider"})
+        out_dir = tmp_path / "out"
         cmd = _make_command(
             [
                 "generate-model-package",
@@ -127,21 +100,42 @@ class TestRunConfig:
                 str(src1),
                 "-s",
                 str(src2),
+                "-o",
+                str(out_dir),
                 "--model_name",
-                "my_model",
+                "test_model",
                 "--model_version",
                 "2.0",
-                "-o",
-                str(tmp_path / "out"),
             ]
         )
 
         # execute
-        config = cmd._get_run_config(str(tmp_path / "tmp"))
+        cmd.run()
 
-        # assert
-        assert config["passes"]["pkg"]["model_name"] == "my_model"
-        assert config["passes"]["pkg"]["model_version"] == "2.0"
+        # assert: manifest
+        manifest_path = out_dir / "manifest.json"
+        assert manifest_path.exists()
+        manifest = json.loads(manifest_path.read_text())
+        assert manifest["name"] == "test_model"
+        assert manifest["model_version"] == "2.0"
+        assert "component_models" in manifest
+
+        # assert: metadata in component dir
+        component_name = manifest["component_models"][0]
+        metadata_path = out_dir / "models" / component_name / "metadata.json"
+        assert metadata_path.exists()
+        metadata = json.loads(metadata_path.read_text())
+        assert "soc_60" in metadata["model_variants"]
+        assert "soc_73" in metadata["model_variants"]
+
+        # assert: constraints
+        for variant in metadata["model_variants"].values():
+            assert variant["constraints"]["ep"] == "QNNExecutionProvider"
+            assert variant["constraints"]["device"] == "NPU"
+
+
+class TestAcceleratorInfo:
+    """Test accelerator info extraction."""
 
     def test_defaults_accelerator_when_no_attributes(self):
         """Falls back to CPUExecutionProvider/cpu when model_attributes is empty."""
@@ -151,18 +145,3 @@ class TestRunConfig:
         # assert
         assert ep == "CPUExecutionProvider"
         assert device == "cpu"
-
-
-class TestRunDelegation:
-    """Test that run() delegates to _run_workflow()."""
-
-    def test_run_calls_workflow(self, tmp_path):
-        # setup
-        src1 = _create_source_dir(tmp_path, "soc_60", {"ep": "QNNExecutionProvider"})
-        src2 = _create_source_dir(tmp_path, "soc_73", {"ep": "QNNExecutionProvider"})
-        cmd = _make_command(["generate-model-package", "-s", str(src1), "-s", str(src2), "-o", str(tmp_path / "out")])
-
-        # execute + assert
-        with patch.object(cmd, "_run_workflow", return_value=None) as mock_workflow:
-            cmd.run()
-            mock_workflow.assert_called_once()

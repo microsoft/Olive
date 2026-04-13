@@ -87,15 +87,6 @@
             "supported_quantization_encodings": [  ],
             "run_on_target": true
         },
-        "ModelPackage": {
-            "module_path": "olive.passes.onnx.model_package.ModelPackage",
-            "supported_providers": [ "QNNExecutionProvider", "OpenVINOExecutionProvider" ],
-            "supported_accelerators": [ "npu", "gpu", "cpu" ],
-            "supported_precisions": [ "*" ],
-            "supported_algorithms": [  ],
-            "supported_quantization_encodings": [  ],
-            "run_on_target": true
-        },
         "ExtractAdapters": {
             "module_path": "olive.passes.onnx.extract_adapters.ExtractAdapters",
             "supported_providers": [ "*" ],

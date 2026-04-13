@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 import os
-from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar, Union
 
@@ -14,7 +13,6 @@ from onnx import TensorProto, save
 from olive.common.utils import hardlink_copy_dir, hardlink_copy_file
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModelHandler, OpenVINOModelHandler
-from olive.model.handler.model_package import ModelPackageModelHandler
 from olive.passes import Pass
 from olive.passes.openvino.ov_utils import create_genai_config
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -23,11 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class OpenVINOEncapsulation(Pass):
-    """Encapsulates OpenVINO models with onnx context nodes.
-
-    When ov_version is a list of strings, generates encapsulated models for each version
-    and returns a ModelPackageModelHandler.
-    """
+    """Encapsulates OpenVINO models with onnx context nodes."""
 
     openvino_to_onnx_dtype: ClassVar[dict] = {
         "f32": TensorProto.FLOAT,
@@ -68,14 +62,11 @@ class OpenVINOEncapsulation(Pass):
                 description=("Device the encapsulated model should run on. Available devices are cpu, gpu, npu."),
             ),
             "ov_version": PassConfigParam(
-                type_=Union[str, list],
+                type_=str,
                 default_value=None,
                 required=False,
                 description=(
-                    "OpenVINO version to override in model SDK version. Can be a single string or a list"
-                    " of strings for model package generation. When a list is provided, encapsulated models"
-                    " are generated for each version and returned as a ModelPackageModelHandler."
-                    " Requires a minimum version of OpenVINO 2025.1"
+                    "OpenVINO version to override in model SDK version. Requires a minimum version of OpenVINO 2025.1"
                 ),
             ),
             "opset_imports": PassConfigParam(
@@ -122,66 +113,8 @@ class OpenVINOEncapsulation(Pass):
         model: Union[OpenVINOModelHandler],
         config: type[BasePassConfig],
         output_model_path: str,
-    ) -> Union[ONNXModelHandler, ModelPackageModelHandler]:
-        # Model package mode: ov_version is a list with multiple entries
-        if isinstance(config.ov_version, list) and len(config.ov_version) > 1:
-            return self._run_model_package(model, config, output_model_path)
-
-        # Single-target mode: unwrap single-element list if needed
-        if isinstance(config.ov_version, list):
-            single_config = deepcopy(config)
-            object.__setattr__(single_config, "ov_version", config.ov_version[0])
-            return self._run_single_target(model, single_config, output_model_path)
-
+    ) -> ONNXModelHandler:
         return self._run_single_target(model, config, output_model_path)
-
-    def _run_model_package(
-        self,
-        model: Union[OpenVINOModelHandler],
-        config: type[BasePassConfig],
-        output_model_path: str,
-    ) -> ModelPackageModelHandler:
-        """Generate encapsulated models for multiple OpenVINO versions.
-
-        Each entry in config.ov_version is a separate version string.
-        The result is a ModelPackageModelHandler wrapping per-version outputs.
-        """
-        ov_version_list = config.ov_version
-        assert all(isinstance(v, str) for v in ov_version_list), "Each entry in ov_version list must be a string"
-
-        output_dir = Path(output_model_path).with_suffix("")
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        targets = []
-        target_names = []
-        for ov_ver in ov_version_list:
-            target_name = f"ov_{ov_ver.replace('.', '_')}"
-            target_output_path = str(output_dir / target_name)
-
-            single_config = deepcopy(config)
-            object.__setattr__(single_config, "ov_version", ov_ver)
-
-            result = self._run_single_target(model, single_config, target_output_path)
-
-            targets.append(result)
-            target_names.append(target_name)
-
-        # Preserve additional_files from the first target so ModelPackage can extract configs
-        additional_files = []
-        if targets:
-            additional_files = (targets[0].model_attributes or {}).get("additional_files", [])
-
-        parent_attrs = dict(model.model_attributes or {})
-        parent_attrs["base_model_path"] = str(model.model_path)
-        if additional_files:
-            parent_attrs["additional_files"] = additional_files
-
-        return ModelPackageModelHandler(
-            targets,
-            target_names,
-            model_path=output_dir,
-            model_attributes=parent_attrs,
-        )
 
     def _run_single_target(
         self,
