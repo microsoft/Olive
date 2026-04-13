@@ -16,12 +16,14 @@ from olive.cli.extract_adapters import ExtractAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
+from olive.cli.init import InitCommand
 from olive.cli.optimize import OptimizeCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand
 from olive.cli.run_pass import RunPassCommand
 from olive.cli.session_params_tuning import SessionParamsTuningCommand
 from olive.cli.shared_cache import SharedCacheCommand
+from olive.telemetry import Telemetry
 
 
 def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
@@ -36,6 +38,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     # Register commands
     # TODO(jambayk): Consider adding a common tempdir option to all commands
     # NOTE: The order of the commands is to organize the documentation better.
+    InitCommand.register_subcommand(commands_parser)
     WorkflowRunCommand.register_subcommand(commands_parser)
     RunPassCommand.register_subcommand(commands_parser)
     AutoOptCommand.register_subcommand(commands_parser)
@@ -61,6 +64,10 @@ def main(raw_args=None, called_as_console_script: bool = True):
 
     args, unknown_args = parser.parse_known_args(raw_args)
 
+    telemetry = Telemetry()
+    if args.disable_telemetry:
+        telemetry.disable_telemetry()
+
     if not hasattr(args, "func"):
         parser.print_help()
         sys.exit(1)
@@ -68,6 +75,7 @@ def main(raw_args=None, called_as_console_script: bool = True):
     # Run the command
     service = args.func(parser, args, unknown_args)
     service.run()
+    telemetry.shutdown()
 
 
 def legacy_call(deprecated_module: str, command_name: str, *args):

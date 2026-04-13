@@ -15,6 +15,7 @@ class Framework(StrEnumBase):
 
     ONNX = "ONNX"
     PYTORCH = "PyTorch"
+    QAIRT = "QAIRT"
     QNN = "QNN"
     TENSORFLOW = "TensorFlow"
     OPENVINO = "OpenVINO"
@@ -24,12 +25,14 @@ class ModelFileFormat(StrEnumBase):
     """Given a framework, there might be 1 or more on-disk model file format(s), model save/Load logic may differ."""
 
     ONNX = "ONNX"
-    PYTORCH_ENTIRE_MODEL = "PyTorch.EntireModel"
     PYTORCH_STATE_DICT = "PyTorch.StateDict"
     PYTORCH_TORCH_SCRIPT = "PyTorch.TorchScript"
     PYTORCH_SLICE_GPT_MODEL = "PyTorch.SliceGPT"
+    PYTORCH_DIFFUSERS = "PyTorch.Diffusers"
     TENSORFLOW_PROTOBUF = "TensorFlow.Protobuf"
     TENSORFLOW_SAVED_MODEL = "TensorFlow.SavedModel"
+    QAIRT = "QAIRT"
+    QAIRT_PREPARED = "QAIRT.Prepared"
     QNN_CPP = "QNN.CPP"
     QNN_LIB = "QNN.LIB"
     QNN_SERIALIZED_BIN = "QNN.SERIALIZED.BIN"

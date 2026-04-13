@@ -219,7 +219,7 @@ These functions should be defined in your model script you provide.
           return dummy_inputs
 
 - **Model Format Function (`_model_file_format`)**:
-  Specifies the format of the model. The default value is `PyTorch.EntireModel`. For more available options, refer to `this <https://github.com/microsoft/Olive/blob/main/olive/constants.py#L23-L26>`_.
+  Specifies the format of the model. For available options, refer to `this <https://github.com/microsoft/Olive/blob/main/olive/constants.py#L23-L26>`_.
 
   .. code-block:: python
 

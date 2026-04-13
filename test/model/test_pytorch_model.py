@@ -43,22 +43,12 @@ def model_scripts_fixture(tmp_path):
 
 
 def test_model_to_json(model_scripts):
-    model = PyTorchModelHandler(model_path="test_path", **model_scripts)
+    model = PyTorchModelHandler(model_path="test_path", model_loader="model", **model_scripts)
     model.set_resource("model_script", "model_script")
     model_json = model.to_json()
     assert model_json["config"]["model_path"] == "test_path"
     assert model_json["config"]["script_dir"] == model_scripts["script_dir"]
     assert model_json["config"]["model_script"] == "model_script"
-
-
-@patch("torch.load")
-def test_load_from_path(torch_load):
-    torch_load.return_value = "dummy_pytorch_model"
-
-    model = PyTorchModelHandler(model_path="test_path")
-
-    assert model.load_model() == "dummy_pytorch_model"
-    torch_load.assert_called_once_with("test_path", weights_only=False)
 
 
 @patch("olive.model.handler.pytorch.UserModuleLoader")
@@ -74,13 +64,13 @@ def test_load_from_loader(user_module_loader, model_scripts):
 
 
 def test_io_config(io_config):
-    olive_model = PyTorchModelHandler(model_path="dummy", io_config=io_config)
+    olive_model = PyTorchModelHandler(model_path="dummy", model_loader=lambda _: None, io_config=io_config)
     assert olive_model.io_config == IoConfig(**io_config).model_dump(exclude_none=True)
 
 
 @patch("olive.data.template.dummy_data_config_template")
 def test_input_shapes_dummy_inputs(dummy_data_config_template, io_config):
-    olive_model = PyTorchModelHandler(model_path="dummy", io_config=io_config)
+    olive_model = PyTorchModelHandler(model_path="dummy", model_loader=lambda _: None, io_config=io_config)
 
     dummy_data_config_template.return_value.to_data_container.return_value.get_first_batch.return_value = 1, 0
 

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "olive-mcp"
+version = "0.1.0"
+description = "MCP server for Microsoft Olive model optimization"
+requires-python = ">=3.10"
+dependencies = [
+  "mcp[cli]",
+  "psutil"
+]
+
+[project.scripts]
+olive-mcp = "olive_mcp:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/olive_mcp"]
