@@ -239,27 +239,39 @@ class MTEBORTGenAIEvaluator(MTEBOnnxBase):
         batch_size, seq_len = input_ids.shape
 
         # GenAI Generator does not accept attention_mask, so padding tokens
-        # contaminate hidden states via self-attention. To avoid this, process
-        # each sentence individually using only its non-padding tokens.
-        all_embeddings = []
+        # contaminate hidden states via self-attention. To avoid this, group
+        # sequences by real length and process each group as a single batch
+        # (no padding needed within a group of equal-length sequences).
+        real_lengths = attention_mask.sum(axis=1).astype(int)
+        embeddings = np.empty((batch_size, 0), dtype=np.float32)  # placeholder, filled below
+
+        # Group sample indices by their real (non-padding) token count
+        length_to_indices: dict[int, list[int]] = {}
         for i in range(batch_size):
-            real_len = int(attention_mask[i].sum())
-            ids = input_ids[i, :real_len].reshape(1, -1)
+            length_to_indices.setdefault(int(real_lengths[i]), []).append(i)
+
+        all_embeddings = [None] * batch_size
+        for real_len, indices in length_to_indices.items():
+            # Stack all sequences of the same length into a single batch
+            ids_batch = np.stack([input_ids[i, :real_len] for i in indices], axis=0)
+            group_batch_size = len(indices)
 
             params = og.GeneratorParams(self.model)
-            params.set_search_options(max_length=real_len + 1, past_present_share_buffer=False, batch_size=1)
+            params.set_search_options(
+                max_length=real_len + 1, past_present_share_buffer=False, batch_size=group_batch_size
+            )
 
             generator = og.Generator(self.model, params)
-            generator.append_tokens(ids.tolist())
+            generator.append_tokens(ids_batch.tolist())
 
             hidden_states = generator.get_output("hidden_states")
             hidden_states = np.array(hidden_states, copy=False)
             if hidden_states.ndim == 2:
                 embed_dim = hidden_states.shape[-1]
-                hidden_states = hidden_states.reshape(1, real_len, embed_dim)
+                hidden_states = hidden_states.reshape(group_batch_size, real_len, embed_dim)
 
-            # Last-token pooling: take the final (real) token
-            embedding = hidden_states[0, -1, :]
-            all_embeddings.append(embedding)
+            # Last-token pooling: take the final token for each sequence
+            for j, idx in enumerate(indices):
+                all_embeddings[idx] = hidden_states[j, -1, :]
 
         return np.stack(all_embeddings, axis=0)
