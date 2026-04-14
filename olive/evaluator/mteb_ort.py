@@ -185,16 +185,16 @@ class MTEBORTEvaluator(MTEBOnnxBase):
             # Fall back to the first output (last_hidden_state)
             hidden_states = outputs[0]
 
-        # Last-token pooling (matches SentenceTransformer Pooling with pooling_mode_lasttoken=True)
-        return self._last_token_pool(hidden_states, attention_mask)
+        # Mean pooling over the sequence dimension, masked by attention_mask
+        return self._mean_pool(hidden_states, attention_mask)
 
     @staticmethod
-    def _last_token_pool(hidden_states: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
-        """Last-token pooling: take the hidden state at the last non-padding token position."""
-        # sequence_lengths[i] = index of last non-padding token for batch element i
-        sequence_lengths = attention_mask.sum(axis=1).astype(int) - 1
-        batch_size = hidden_states.shape[0]
-        return hidden_states[np.arange(batch_size), sequence_lengths]
+    def _mean_pool(hidden_states: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
+        """Mean pooling: average token embeddings weighted by attention mask."""
+        mask_expanded = np.expand_dims(attention_mask, axis=-1).astype(hidden_states.dtype)
+        sum_embeddings = np.sum(hidden_states * mask_expanded, axis=1)
+        sum_mask = np.clip(mask_expanded.sum(axis=1), a_min=1e-9, a_max=None)
+        return sum_embeddings / sum_mask
 
 
 # ------------------------------------------------------------------
@@ -251,7 +251,7 @@ class MTEBORTGenAIEvaluator(MTEBOnnxBase):
                 # Shape might be [batch*seq, dim] — reshape
                 embed_dim = hidden_states.shape[-1]
                 hidden_states = hidden_states.reshape(batch_size, seq_len, embed_dim)
-            return self._last_token_pool(hidden_states, attention_mask)
+            return self._mean_pool(hidden_states, attention_mask)
         except Exception as e:
             raise RuntimeError(
                 "hidden_states output not available from GenAI model. "
@@ -259,8 +259,9 @@ class MTEBORTGenAIEvaluator(MTEBOnnxBase):
             ) from e
 
     @staticmethod
-    def _last_token_pool(hidden_states: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
-        """Last-token pooling: take the hidden state at the last non-padding token position."""
-        sequence_lengths = attention_mask.sum(axis=1).astype(int) - 1
-        batch_size = hidden_states.shape[0]
-        return hidden_states[np.arange(batch_size), sequence_lengths]
+    def _mean_pool(hidden_states: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
+        """Mean pooling: average token embeddings weighted by attention mask."""
+        mask_expanded = np.expand_dims(attention_mask, axis=-1).astype(hidden_states.dtype)
+        sum_embeddings = np.sum(hidden_states * mask_expanded, axis=1)
+        sum_mask = np.clip(mask_expanded.sum(axis=1), a_min=1e-9, a_max=None)
+        return sum_embeddings / sum_mask
