@@ -3,9 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from olive.hardware.accelerator import AcceleratorSpec, Device
+from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.encapsulation import OpenVINOEncapsulation
@@ -101,3 +104,43 @@ def test_openvino_encapsulate_pass_dynamic_keep_ov_dynamic_dims(tmp_path):
     # assert
     assert Path(onnx_model.model_path).exists()
     assert (Path(onnx_model.model_path)).is_file()
+
+
+def test_single_target_populates_model_attributes(tmp_path):
+    accelerator_spec = AcceleratorSpec(accelerator_type=Device.NPU, execution_provider="OpenVINOExecutionProvider")
+
+    p = create_pass_from_dict(
+        OpenVINOEncapsulation,
+        {"ov_version": "2025.1", "target_device": "npu"},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with patch.object(OpenVINOEncapsulation, "_run_single_target") as mock_single:
+
+        def side_effect(model, config, output_model_path):
+            out_dir = Path(output_model_path)
+            out_dir.parent.mkdir(parents=True, exist_ok=True)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            model_file = out_dir / "model.onnx"
+            model_file.write_text("dummy")
+            return ONNXModelHandler(
+                model_path=str(model_file),
+                model_attributes={
+                    "ep": "OpenVINOExecutionProvider",
+                    "device": "NPU",
+                    "sdk_version": "2025.1",
+                    "architecture": "NPU",
+                },
+            )
+
+        mock_single.side_effect = side_effect
+
+        input_model = MagicMock()
+        input_model.model_attributes = {}
+        output_path = str(tmp_path / "output.onnx")
+        result = p.run(input_model, output_path)
+
+    assert isinstance(result, ONNXModelHandler)
+    assert result.model_attributes["ep"] == "OpenVINOExecutionProvider"
+    assert result.model_attributes["sdk_version"] == "2025.1"
