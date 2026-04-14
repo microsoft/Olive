@@ -269,7 +269,13 @@ class MTEBORTGenAIEvaluator(MTEBOnnxBase):
             generator = og.Generator(self.model, params)
             generator.append_tokens(ids_batch.tolist())
 
-            hidden_states = generator.get_output("hidden_states")
+            try:
+                hidden_states = generator.get_output("hidden_states")
+            except Exception as e:
+                raise RuntimeError(
+                    "Failed to retrieve hidden_states from the ORT-GenAI model. "
+                    "Ensure the model was built with include_hidden_states=1."
+                ) from e
             hidden_states = np.array(hidden_states, copy=False)
             if hidden_states.ndim == 2:
                 embed_dim = hidden_states.shape[-1]
