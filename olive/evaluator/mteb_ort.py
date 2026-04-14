@@ -247,10 +247,20 @@ class MTEBORTGenAIEvaluator(MTEBOnnxBase):
         try:
             hidden_states = generator.get_output("hidden_states")
             hidden_states = np.array(hidden_states, copy=False)
+            # DEBUG: log shapes to diagnose pooling alignment
+            logger.info(
+                "DEBUG hidden_states raw shape=%s, input_ids shape=(%d, %d), "
+                "attention_mask seq_lengths=%s",
+                hidden_states.shape,
+                batch_size,
+                seq_len,
+                attention_mask.sum(axis=1).tolist(),
+            )
             if hidden_states.ndim == 2:
                 # Shape might be [batch*seq, dim] — reshape
                 embed_dim = hidden_states.shape[-1]
                 hidden_states = hidden_states.reshape(batch_size, seq_len, embed_dim)
+            logger.info("DEBUG hidden_states after reshape: %s", hidden_states.shape)
             return self._mean_pool(hidden_states, attention_mask)
         except Exception as e:
             raise RuntimeError(
