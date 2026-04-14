@@ -92,7 +92,7 @@ class AutoClip(Pass):
 
         data_config = config.data_config or get_calibration_data_config(
             model.model_name_or_path,
-            trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None),
+            trust_remote_code=model.get_load_kwargs().get("trust_remote_code", False),
             data_name="mit-han-lab/pile-val-backup",
             subset=None,
             split="validation[:1000]",

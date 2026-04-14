@@ -77,6 +77,7 @@ def auto_caption(
     device: str = "cuda",
     overwrite: bool = False,
     trigger_word: Optional[str] = None,
+    trust_remote_code: Optional[bool] = False,
     **kwargs,
 ):
     """Auto-generate captions for images using vision-language models.
@@ -123,6 +124,7 @@ def auto_caption(
             device=device,
             overwrite=overwrite,
             prefix=prefix,
+            trust_remote_code=trust_remote_code,
             **kwargs,
         )
     else:
@@ -253,6 +255,7 @@ def florence2_caption(
     prefix: str = "",
     suffix: str = "",
     use_fp16: bool = True,
+    trust_remote_code: bool = False,
     **kwargs,
 ):
     """Generate captions using Florence-2 model.
@@ -275,6 +278,7 @@ def florence2_caption(
         prefix: Prefix to add to all generated captions.
         suffix: Suffix to add to all generated captions.
         use_fp16: Whether to use FP16 for inference.
+        trust_remote_code: Trust remote code when loading a huggingface model.
         **kwargs: Additional generation arguments.
 
     Returns:
@@ -288,8 +292,12 @@ def florence2_caption(
     logger.info("Loading Florence-2 model: %s", model_name)
 
     dtype = torch.float16 if use_fp16 and device == "cuda" else torch.float32
-    processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
-    model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=dtype, trust_remote_code=True).to(device)
+    processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=trust_remote_code)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=dtype,
+        trust_remote_code=trust_remote_code,
+    ).to(device)
     model.eval()
 
     # Check if dataset supports in-memory caption storage
