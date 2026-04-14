@@ -1192,7 +1192,9 @@ class MTEBEvaluator(OliveEvaluator):
         if model_class == "hf":
             from sentence_transformers import SentenceTransformer
 
-            sentence_transformer_device = device.value if isinstance(device, Device) else str(device)
+            # Map Olive Device to PyTorch device string (Olive uses "gpu", PyTorch expects "cuda")
+            device_str = device.value if isinstance(device, Device) else str(device)
+            sentence_transformer_device = "cuda" if device_str == "gpu" else device_str
             mteb_model = SentenceTransformer(model.model_name_or_path, device=sentence_transformer_device)
         elif model_class == "ort":
             mteb_model = MTEBORTEvaluator(
