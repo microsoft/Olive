@@ -86,9 +86,14 @@ class MTEBOnnxBase(ABC):
 
         result = np.concatenate(all_embeddings, axis=0)
         # L2 normalize (matches SentenceTransformer Normalize module)
-        norms = np.linalg.norm(result, axis=1, keepdims=True)
+        # Compute norms in float32 for numerical stability when ORT returns
+        # low-precision outputs such as float16/bfloat16, then cast back.
+        result_dtype = result.dtype
+        result_fp32 = result.astype(np.float32, copy=False)
+        norms = np.linalg.norm(result_fp32, axis=1, keepdims=True)
         norms = np.clip(norms, a_min=1e-9, a_max=None)
-        return result / norms
+        normalized = result_fp32 / norms
+        return normalized.astype(result_dtype, copy=False)
 
     @staticmethod
     def similarity(embeddings1, embeddings2):
