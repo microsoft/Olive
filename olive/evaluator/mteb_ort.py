@@ -233,42 +233,30 @@ class MTEBORTGenAIEvaluator(MTEBOnnxBase):
     def _encode_batch(self, encoded_input: dict) -> np.ndarray:
         input_ids = encoded_input["input_ids"].astype(np.int64)
         attention_mask = encoded_input["attention_mask"].astype(np.int64)
-
-        # Use the GeneratorParams / Generator API to get hidden states
         batch_size, seq_len = input_ids.shape
-        params = og.GeneratorParams(self.model)
-        params.set_search_options(max_length=seq_len + 1, past_present_share_buffer=False, batch_size=batch_size)
 
-        generator = og.Generator(self.model, params)
-        generator.append_tokens(input_ids.tolist())
+        # GenAI Generator does not accept attention_mask, so padding tokens
+        # contaminate hidden states via self-attention. To avoid this, process
+        # each sentence individually using only its non-padding tokens.
+        all_embeddings = []
+        for i in range(batch_size):
+            real_len = int(attention_mask[i].sum())
+            ids = input_ids[i, :real_len].reshape(1, -1)
 
-        # Try to get hidden_states output (enabled via include_hidden_states=1)
-        try:
+            params = og.GeneratorParams(self.model)
+            params.set_search_options(max_length=real_len + 1, past_present_share_buffer=False, batch_size=1)
+
+            generator = og.Generator(self.model, params)
+            generator.append_tokens(ids.tolist())
+
             hidden_states = generator.get_output("hidden_states")
             hidden_states = np.array(hidden_states, copy=False)
-            # DEBUG: log shapes to diagnose pooling alignment
-            logger.info(
-                "DEBUG hidden_states raw shape=%s, input_ids shape=(%d, %d), attention_mask seq_lengths=%s",
-                hidden_states.shape,
-                batch_size,
-                seq_len,
-                attention_mask.sum(axis=1).tolist(),
-            )
             if hidden_states.ndim == 2:
-                # Shape might be [batch*seq, dim] — reshape
                 embed_dim = hidden_states.shape[-1]
-                hidden_states = hidden_states.reshape(batch_size, seq_len, embed_dim)
-            logger.info("DEBUG hidden_states after reshape: %s", hidden_states.shape)
-            return self._last_token_pool(hidden_states, attention_mask)
-        except Exception as e:
-            raise RuntimeError(
-                "hidden_states output not available from GenAI model. "
-                "Ensure the model was built with include_hidden_states=1 in ModelBuilder."
-            ) from e
+                hidden_states = hidden_states.reshape(1, real_len, embed_dim)
 
-    @staticmethod
-    def _last_token_pool(hidden_states: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
-        """Last-token pooling: take the hidden state at the last non-padding token position."""
-        sequence_lengths = attention_mask.sum(axis=1).astype(int) - 1
-        batch_size = hidden_states.shape[0]
-        return hidden_states[np.arange(batch_size), sequence_lengths]
+            # Last-token pooling: take the final (real) token
+            embedding = hidden_states[0, -1, :]
+            all_embeddings.append(embedding)
+
+        return np.stack(all_embeddings, axis=0)
