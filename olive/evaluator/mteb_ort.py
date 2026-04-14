@@ -191,7 +191,10 @@ class MTEBORTEvaluator(MTEBOnnxBase):
     @staticmethod
     def _last_token_pool(hidden_states: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
         """Last-token pooling: take the hidden state at the last non-padding token position."""
-        sequence_lengths = attention_mask.sum(axis=1).astype(int) - 1
+        token_counts = attention_mask.sum(axis=1).astype(int)
+        if np.any(token_counts <= 0):
+            raise ValueError("attention_mask contains a zero-length sequence; cannot perform last-token pooling.")
+        sequence_lengths = token_counts - 1
         batch_size = hidden_states.shape[0]
         return hidden_states[np.arange(batch_size), sequence_lengths]
 
