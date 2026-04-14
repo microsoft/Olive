@@ -391,53 +391,7 @@ class OliveCache:
         actual_output_dir.mkdir(parents=True, exist_ok=True)
 
         model_json = self.load_model(model_id)
-        if model_json["type"].lower() == "modelpackagemodel":
-            model_json_config = model_json["config"]
-            source_path = Path(model_json_config["model_path"])
-            actual_output_dir.mkdir(parents=True, exist_ok=True)
-
-            if source_path.exists():
-                # Only copy target subdirectories (soc_60/, soc_73/, etc.) and manifest.json.
-                # Skip top-level additional_files (tokenizer, config) since each target subdir has its own copy.
-                for item in source_path.iterdir():
-                    dest = actual_output_dir / item.name
-                    if item.is_dir():
-                        shutil.copytree(str(item), str(dest), dirs_exist_ok=overwrite)
-                    elif item.name == "manifest.json":
-                        shutil.copy2(str(item), str(dest))
-
-            # Update paths to point to new location
-            model_json_config["model_path"] = str(actual_output_dir)
-
-            # Update target model paths
-            for target_model in model_json_config.get("target_models", []):
-                target_config = target_model.get("config", {})
-                old_model_path = target_config.get("model_path", "")
-                if old_model_path and str(source_path) in old_model_path:
-                    target_config["model_path"] = old_model_path.replace(str(source_path), str(actual_output_dir))
-
-            # Clear additional_files since each target subdir has its own copies
-            model_attributes = model_json_config.get("model_attributes") or {}
-            model_attributes.pop("additional_files", None)
-
-            # Update manifest_path
-            if model_attributes.get("manifest_path"):
-                model_attributes["manifest_path"] = str(
-                    actual_output_dir / Path(model_attributes["manifest_path"]).name
-                )
-
-            # Update manifest name: if pass config set model_name explicitly, keep it;
-            # otherwise update to the output directory name (e.g., "qwen_2.5_1.5b_Instruct")
-            manifest_file = actual_output_dir / "manifest.json"
-            if manifest_file.exists():
-                manifest = json.loads(manifest_file.read_text())
-                # The pass defaults model_name to the cache dir name (not meaningful).
-                # Replace it with the final output directory name unless it was explicitly configured.
-                source_dir_name = source_path.name if source_path else None
-                if not manifest.get("name") or manifest.get("name") == source_dir_name:
-                    manifest["name"] = actual_output_dir.name
-                manifest_file.write_text(json.dumps(manifest, indent=2))
-        elif model_json["type"].lower() == "compositemodel":
+        if model_json["type"].lower() == "compositemodel":
             model_json_config = model_json["config"]
             model_attributes = model_json_config.get("model_attributes") or {}
 
