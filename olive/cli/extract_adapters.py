@@ -6,7 +6,7 @@ from argparse import ArgumentParser
 
 from huggingface_hub.constants import HF_HUB_CACHE
 
-from olive.cli.base import BaseOliveCLICommand, add_logging_options, add_telemetry_options
+from olive.cli.base import BaseOliveCLICommand, add_input_model_options, add_logging_options, add_telemetry_options
 from olive.common.utils import WeightsFileFormat, get_attr, save_weights
 from olive.telemetry import action
 
@@ -16,14 +16,14 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
     def register_subcommand(parser: ArgumentParser):
         sub_parser = parser.add_parser(
             "extract-adapters",
-            help="Extract LoRAs from PyTorch model to separate files",
+            help="Extract LoRAs from PyTorch/HfModel model to separate files",
         )
-        sub_parser.add_argument(
-            "-m",
-            "--model_name_or_path",
-            type=str,
-            required=True,
-            help="Path to the PyTorch model. Can be a local folder or Hugging Face id.",
+        # model options
+        add_input_model_options(
+            sub_parser,
+            enable_hf=True,
+            enable_pt=True,
+            default_output_path="adapters",
         )
         sub_parser.add_argument(
             "-f",
@@ -32,14 +32,6 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
             choices=[el.value for el in WeightsFileFormat],
             required=True,
             help="Format to save the LoRAs in.",
-        )
-        sub_parser.add_argument(
-            "-o",
-            "--output",
-            type=str,
-            required=True,
-            default="adapters",
-            help="Output folder to save the LoRAs in the requested format.",
         )
         sub_parser.add_argument(
             "--dtype",
@@ -86,7 +78,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
 
         # Load LoRA config and LoRA model
         config = AutoConfig.from_pretrained(
-            self.args.model_name_or_path, cache_dir=self.args.cache_dir, trust_remote_code=True
+            self.args.model_name_or_path, cache_dir=self.args.cache_dir, trust_remote_code=self.args.trust_remote_code
         )
         if is_peft:
             # Peft model
@@ -95,7 +87,7 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
                 os.path.join(self.args.model_name_or_path, first_adapter_name),
                 adapter_name=first_adapter_name,
                 cache_dir=self.args.cache_dir,
-                trust_remote_code=True,
+                trust_remote_code=self.args.trust_remote_code,
             )
             for adapter_path in adapter_paths[1:]:
                 adapter_name = Path(adapter_path).name
@@ -103,7 +95,9 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
         else:
             # Transformers model
             peft_model = AutoModelForCausalLM.from_pretrained(
-                self.args.model_name_or_path, cache_dir=self.args.cache_dir, trust_remote_code=True
+                self.args.model_name_or_path,
+                cache_dir=self.args.cache_dir,
+                trust_remote_code=self.args.trust_remote_code,
             )
 
         head_size = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
@@ -168,5 +162,5 @@ class ExtractAdaptersCommand(BaseOliveCLICommand):
 
         # Save each LoRA set to disk
         for adapter_name, adapter_set in adapter_sets.items():
-            output_path = save_weights(adapter_set, os.path.join(self.args.output, adapter_name), self.args.format)
+            output_path = save_weights(adapter_set, os.path.join(self.args.output_path, adapter_name), self.args.format)
             print(f"Exported {adapter_name} adapter weights to {output_path}")
