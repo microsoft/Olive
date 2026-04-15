@@ -1924,11 +1924,18 @@ class TieWordEmbeddings(ProtoSurgeon):
     def __call__(self, model: onnx.ModelProto):
         dag = OnnxDAG(model)
 
-        if not dag.is_input("input_ids") or not dag.is_output("logits"):
+        # support both "input_ids" and "input_embeds" as input names
+        input_name = None
+        for candidate in ("input_ids", "input_embeds"):
+            if candidate in dag.ios and dag.is_input(candidate):
+                input_name = candidate
+                break
+
+        if input_name is None or "logits" not in dag.ios or not dag.is_output("logits"):
             return dag.model
 
         embed_name, embed_op_type = self.get_name_op_type(
-            dag, dag.get_consumers("input_ids"), ["Gather", "GatherBlockQuantized"], 0
+            dag, dag.get_consumers(input_name), ["Gather", "GatherBlockQuantized"], 0
         )
         if embed_name is None:
             return dag.model
