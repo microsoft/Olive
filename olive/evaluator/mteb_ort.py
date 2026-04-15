@@ -241,7 +241,7 @@ class MTEBORTGenAIEvaluator(MTEBOnnxBase):
     def _encode_batch(self, encoded_input: dict) -> np.ndarray:
         input_ids = encoded_input["input_ids"].astype(np.int64)
         attention_mask = encoded_input["attention_mask"].astype(np.int64)
-        batch_size, seq_len = input_ids.shape
+        batch_size = input_ids.shape[0]
 
         # GenAI Generator does not accept attention_mask, so padding tokens
         # contaminate hidden states via self-attention. To avoid this, group
