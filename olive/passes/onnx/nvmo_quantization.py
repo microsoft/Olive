@@ -6,7 +6,7 @@ import logging
 import os
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import onnxruntime as ort
 import torch
@@ -131,6 +131,11 @@ class NVModelOptQuantization(Pass):
                 When specified, automatically enables mixed precision quantization.
                 It will override the default mixed quant strategy.
                 """,
+            ),
+            "trust_remote_code": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="[Torch] Trust remote code from HuggingFace",
             ),
         }
 
@@ -393,10 +398,10 @@ class NVModelOptQuantization(Pass):
         # Access transformers and datasets from the instance variables
 
         config = AutoConfig.from_pretrained(
-            model_name, use_auth_token=True, cache_dir=cache_dir, trust_remote_code=True
+            model_name, token=True, cache_dir=cache_dir, trust_remote_code=self.config.trust_remote_code
         )
         tokenizer = AutoTokenizer.from_pretrained(
-            model_name, use_auth_token=True, cache_dir=cache_dir, trust_remote_code=True
+            model_name, token=True, cache_dir=cache_dir, trust_remote_code=self.config.trust_remote_code
         )
         tokenizer.add_special_tokens({"pad_token": "[PAD]"})
         tokenizer.pad_token = tokenizer.eos_token
