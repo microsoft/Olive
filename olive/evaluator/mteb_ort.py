@@ -248,7 +248,6 @@ class MTEBORTGenAIEvaluator(MTEBOnnxBase):
         # sequences by real length and process each group as a single batch
         # (no padding needed within a group of equal-length sequences).
         real_lengths = attention_mask.sum(axis=1).astype(int)
-        embeddings = np.empty((batch_size, 0), dtype=np.float32)  # placeholder, filled below
 
         # Group sample indices by their real (non-padding) token count
         length_to_indices: dict[int, list[int]] = {}
