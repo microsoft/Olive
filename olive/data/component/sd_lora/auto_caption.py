@@ -93,6 +93,7 @@ def auto_caption(
         device: Device to run inference on ("cuda", "cpu").
         overwrite: Whether to overwrite existing captions.
         trigger_word: Trigger word to prepend to all captions (e.g., "sks").
+        trust_remote_code: Whether to trust remote code when loading the model.
         **kwargs: Additional model-specific arguments (batch_size, max_new_tokens, etc.).
 
     Returns:
