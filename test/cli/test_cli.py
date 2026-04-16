@@ -558,6 +558,13 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         ],
         [
             "optimize",
+            "--precision fp16 --provider CUDAExecutionProvider",
+            "ModelBuilder",
+            None,
+            "CUDAExecutionProvider",
+        ],
+        [
+            "optimize",
             (
                 "-t text-classification --precision fp16 --exporter torchscript_exporter --provider"
                 " NvTensorRTRTXExecutionProvider --device gpu"
