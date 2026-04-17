@@ -2,8 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # -----------------------------------------------------------------------------
+import json
 from argparse import ArgumentParser
 from copy import deepcopy
+from pathlib import Path
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -17,6 +19,39 @@ from olive.cli.base import (
 )
 from olive.common.utils import set_nested_dict_value
 from olive.telemetry import action
+
+
+def _is_local_onnx_model(model_name_or_path) -> bool:
+    """Return True if model_name_or_path clearly points to a local ONNX model.
+
+    Resolves without any network calls. Covers:
+    - a local .onnx file
+    - a local directory containing one or more .onnx files
+    - a previous-command output directory whose model_config.json type is OnnxModel
+    """
+    if not model_name_or_path:
+        return False
+
+    model_path = Path(model_name_or_path)
+    if not model_path.exists():
+        return False
+
+    if model_path.is_file():
+        return model_path.suffix == ".onnx"
+
+    if not model_path.is_dir():
+        return False
+
+    model_config_path = model_path / "model_config.json"
+    if model_config_path.exists():
+        try:
+            with open(model_config_path) as f:
+                model_config = json.load(f)
+            return model_config.get("type", "").lower() == "onnxmodel"
+        except (OSError, ValueError):
+            return False
+
+    return any(model_path.glob("*.onnx"))
 
 
 class BenchmarkCommand(BaseOliveCLICommand):
@@ -88,6 +123,12 @@ class BenchmarkCommand(BaseOliveCLICommand):
 
     def _get_run_config(self, tempdir: str) -> dict:
         config = deepcopy(TEMPLATE)
+
+        # Short-circuit: validate --backend against local inputs before
+        # get_input_model_config, which may trigger a network call
+        # (hf_repo_exists) for unknown model ids.
+        if self.args.backend != "auto" and not _is_local_onnx_model(self.args.model_name_or_path):
+            raise ValueError("--backend is only supported for ONNX input models.")
 
         input_model_config = get_input_model_config(self.args)
         assert input_model_config["type"].lower() in {

@@ -677,7 +677,7 @@ def test_benchmark_command_onnxmodel_with_ortgenai_backend(mock_run, tmp_path):
     assert mock_run.call_count == 1
 
 
-@patch("huggingface_hub.repo_exists", return_value=True)
+@patch("huggingface_hub.repo_exists", side_effect=AssertionError("should not hit HF hub"))
 def test_benchmark_command_non_onnx_model_with_backend_option_raises(_, tmp_path):
     output_dir = tmp_path / "output_dir"
     command_args = [
