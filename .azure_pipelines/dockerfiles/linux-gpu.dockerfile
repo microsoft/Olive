@@ -8,6 +8,8 @@ FROM ${BASE_IMAGE}
 ARG PYTHON_VERSION
 ARG TENSORRT_VERSION
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends software-properties-common && \
     add-apt-repository -y ppa:deadsnakes/ppa && \
