@@ -33,6 +33,9 @@ echo "Installing additional dependencies..."
 pip install pytest azure-identity azure-storage-blob tabulate
 pip install -r "$4"
 
+# Install auto-gptq from source (no Python 3.12 wheels on PyPI, disable CUDA extension build)
+BUILD_CUDA_EXT=0 pip install --no-build-isolation git+https://github.com/PanQiWei/AutoGPTQ.git
+
 # Set HF Token
 pip install huggingface-hub
 hf auth login --token "$7"
