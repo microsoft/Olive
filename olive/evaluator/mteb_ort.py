@@ -11,6 +11,7 @@ evaluation library — in this case MTEB's ``EncoderProtocol``.
 
 from __future__ import annotations
 
+import json
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -40,6 +41,7 @@ class MTEBOnnxBase(ABC):
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
         self.batch_size = batch_size
         self._max_length = max_length
+        self._prompts = self._load_prompts(tokenizer_path)
 
     @property
     def max_length(self) -> int:
@@ -48,6 +50,25 @@ class MTEBOnnxBase(ABC):
         if hasattr(self.tokenizer, "model_max_length") and self.tokenizer.model_max_length < 1_000_000:
             return self.tokenizer.model_max_length
         return 512
+
+    @staticmethod
+    def _load_prompts(model_dir: str) -> dict[str, str]:
+        """Load SentenceTransformer prompts from config_sentence_transformers.json.
+
+        Returns a dict mapping prompt names (e.g. "query") to prompt strings
+        that should be prepended to input text, mirroring SentenceTransformer
+        behaviour.
+        """
+        config_path = Path(model_dir) / "config_sentence_transformers.json"
+        if not config_path.exists():
+            return {}
+        try:
+            with open(config_path) as f:
+                config = json.load(f)
+            return config.get("prompts", {})
+        except (json.JSONDecodeError, OSError):
+            logger.warning("Failed to read prompts from %s", config_path)
+            return {}
 
     # ------------------------------------------------------------------
     # MTEB EncoderProtocol interface
@@ -70,6 +91,15 @@ class MTEBOnnxBase(ABC):
                 sentences.append(batch)
             else:
                 sentences.extend(list(batch))
+
+        # Prepend model-level prompt for the given prompt_type, mirroring
+        # SentenceTransformer's prompt handling.  prompt_type is an enum
+        # with .value == "query" or "document".
+        if prompt_type is not None and self._prompts:
+            prompt_key = prompt_type.value if hasattr(prompt_type, "value") else str(prompt_type)
+            prompt_text = self._prompts.get(prompt_key, "")
+            if prompt_text:
+                sentences = [prompt_text + s for s in sentences]
 
         all_embeddings: list[np.ndarray] = []
         for start in range(0, len(sentences), self.batch_size):
