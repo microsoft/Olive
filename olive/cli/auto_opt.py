@@ -187,7 +187,10 @@ class AutoOptCommand(BaseOliveCLICommand):
             self.args.device = "gpu"
         elif self.args.provider in [ExecutionProvider.QNNExecutionProvider, ExecutionProvider.VitisAIExecutionProvider]:
             self.args.device = "npu"
-        elif self.args.provider == ExecutionProvider.CUDAExecutionProvider:
+        elif self.args.provider in [
+            ExecutionProvider.CUDAExecutionProvider,
+            ExecutionProvider.MIGraphXExecutionProvider,
+        ]:
             self.args.device = "gpu"
 
         # _get_passes_config requires input_model to be set
