@@ -20,14 +20,16 @@ _MIN_ORT_VERSION = "1.20.0"
 def _ort_available():
     """Check if onnxruntime with KQuantWeightOnlyQuantConfig is available."""
     try:
-        from onnxruntime import __version__ as ort_version
-        from onnxruntime.quantization.matmul_nbits_quantizer import (  # noqa: F401
-            KQuantWeightOnlyQuantConfig,
-        )
+        import importlib
 
+        from onnxruntime import __version__ as ort_version
         from packaging import version
 
-        return version.parse(ort_version) >= version.parse(_MIN_ORT_VERSION)
+        if version.parse(ort_version) < version.parse(_MIN_ORT_VERSION):
+            return False
+        # Verify the module exists without triggering unused-import lint
+        mod = importlib.import_module("onnxruntime.quantization.matmul_nbits_quantizer")
+        return hasattr(mod, "KQuantWeightOnlyQuantConfig")
     except ImportError:
         return False
 
@@ -52,12 +54,8 @@ class TestKQuantQuantization:
         mid_name = "mid"
         output_name = "output"
 
-        input_proto = onnx.helper.make_tensor_value_info(
-            input_name, onnx.TensorProto.FLOAT, input_shape
-        )
-        output_proto = onnx.helper.make_tensor_value_info(
-            output_name, onnx.TensorProto.FLOAT, [1, 64]
-        )
+        input_proto = onnx.helper.make_tensor_value_info(input_name, onnx.TensorProto.FLOAT, input_shape)
+        output_proto = onnx.helper.make_tensor_value_info(output_name, onnx.TensorProto.FLOAT, [1, 64])
 
         weight1_proto = onnx.helper.make_tensor(
             name="weight1",
@@ -72,12 +70,8 @@ class TestKQuantQuantization:
             vals=weight2.flatten().tolist(),
         )
 
-        matmul1 = onnx.helper.make_node(
-            "MatMul", inputs=[input_name, "weight1"], outputs=[mid_name], name="MatMul_1"
-        )
-        matmul2 = onnx.helper.make_node(
-            "MatMul", inputs=[mid_name, "weight2"], outputs=[output_name], name="MatMul_2"
-        )
+        matmul1 = onnx.helper.make_node("MatMul", inputs=[input_name, "weight1"], outputs=[mid_name], name="MatMul_1")
+        matmul2 = onnx.helper.make_node("MatMul", inputs=[mid_name, "weight2"], outputs=[output_name], name="MatMul_2")
 
         graph_def = onnx.helper.make_graph(
             nodes=[matmul1, matmul2],
@@ -112,9 +106,7 @@ class TestKQuantQuantization:
         assert os.path.exists(quantized_model.model_path)
 
         quantized_onnx = onnx.load(quantized_model.model_path)
-        matmul_nbits_nodes = [
-            n for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits)
-        ]
+        matmul_nbits_nodes = [n for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits)]
         assert len(matmul_nbits_nodes) == 2, "Expected 2 MatMulNBits nodes for uniform k-quant"
 
     def test_kquant_with_customized_weight_config(self, matmul_model_path, tmp_path):
@@ -139,9 +131,7 @@ class TestKQuantQuantization:
         assert os.path.exists(quantized_model.model_path)
 
         quantized_onnx = onnx.load(quantized_model.model_path)
-        matmul_nbits_nodes = [
-            n for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits)
-        ]
+        matmul_nbits_nodes = [n for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits)]
         assert len(matmul_nbits_nodes) == 2, "Expected 2 MatMulNBits nodes for mixed k-quant"
 
     def test_kquant_with_nodes_to_exclude(self, matmul_model_path, tmp_path):
@@ -166,9 +156,7 @@ class TestKQuantQuantization:
         assert os.path.exists(quantized_model.model_path)
 
         quantized_onnx = onnx.load(quantized_model.model_path)
-        matmul_nbits_nodes = [
-            n for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits)
-        ]
+        matmul_nbits_nodes = [n for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits)]
         matmul_nodes = [n for n in quantized_onnx.graph.node if n.op_type == "MatMul"]
 
         assert len(matmul_nbits_nodes) == 1, "Expected 1 MatMulNBits node (MatMul_2 quantized)"

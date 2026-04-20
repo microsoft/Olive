@@ -108,9 +108,7 @@ class OnnxKQuantQuantization(Pass):
                 "Using customized weight config for %d nodes",
                 len(config.customized_weight_config),
             )
-            algo_config = KQuantWeightOnlyQuantConfig(
-                customized_weight_config=config.customized_weight_config
-            )
+            algo_config = KQuantWeightOnlyQuantConfig(customized_weight_config=config.customized_weight_config)
         else:
             algo_config = KQuantWeightOnlyQuantConfig()
 
