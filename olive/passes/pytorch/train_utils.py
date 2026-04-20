@@ -280,7 +280,7 @@ def get_calibration_dataset(
     if not data_config and isinstance(model, HfModelHandler):
         data_config = get_calibration_data_config(
             model.model_name_or_path,
-            trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None),
+            trust_remote_code=model.get_load_kwargs().get("trust_remote_code", False),
             split=split,
             batch_size=batch_size,
             max_seq_len=max_seq_len,
@@ -309,7 +309,7 @@ def get_calibration_dataset(
 
 def get_calibration_data_config(
     model_name_or_path: str,
-    trust_remote_code: bool | None = None,
+    trust_remote_code: bool = False,
     data_name: str = "Salesforce/wikitext",
     subset: str = "wikitext-2-raw-v1",
     split: str = "train[:1000]",
