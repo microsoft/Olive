@@ -1,0 +1,899 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Olive MCP Server: Optimizing AI Models Through Natural Conversation &#8212; Olive 0.12.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../_static/documentation_options.js?v=61ccb1f1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'blogs/olive-mcp-server';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.12.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            true;
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Introducing olive init: An Interactive Wizard for Model Optimization" href="olive-init-cli.html" />
+    <link rel="prev" title="Blogs" href="index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.12.0" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Olive 0.12.0 documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How Tos
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../features/index.html">
+    Features
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class=" current active">
+  <a class="nav-link dropdown-item nav-internal" href="index.html">
+    Blogs
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../why-olive.html">
+    Overview
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting-started/getting-started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../how-to/index.html">
+    How Tos
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../features/index.html">
+    Features
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../reference/index.html">
+    Reference
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Blogs
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-3"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-3"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-3"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-3">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Blogs</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Olive MCP Server: Optimizing AI Models Through Natural Conversation</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="olive-mcp-server-optimizing-ai-models-through-natural-conversation">
+<h1>Olive MCP Server: Optimizing AI Models Through Natural Conversation<a class="headerlink" href="#olive-mcp-server-optimizing-ai-models-through-natural-conversation" title="Link to this heading">#</a></h1>
+<p><em>Author: Xiaoyu Zhang</em>
+<em>Created: 2026-04-07</em></p>
+<p>What if optimizing a machine learning model were as simple as asking <em>“Make my model smaller and faster”</em>? With the Olive MCP Server, it is.</p>
+<p>The <a class="reference external" href="https://modelcontextprotocol.io/">Model Context Protocol (MCP)</a> is an open standard that lets AI assistants use external tools. We built an MCP server for Olive that exposes model optimization, quantization, fine-tuning, and benchmarking as tools that any MCP-compatible AI client — VS Code Copilot, Claude Desktop, Cursor, and others — can call on your behalf.</p>
+<p>Instead of memorizing CLI flags or writing JSON configs, you describe what you want in plain language. The AI assistant figures out the right Olive commands, runs them in the background, and reports results back to you.</p>
+<hr class="docutils" />
+<section id="why-mcp-for-olive">
+<h2>Why MCP for Olive?<a class="headerlink" href="#why-mcp-for-olive" title="Link to this heading">#</a></h2>
+<p>Olive is a powerful model optimization toolkit with 40+ optimization passes, multiple quantization algorithms, and a rich CLI. But that power comes with complexity:</p>
+<ul class="simple">
+<li><p>Which precision should I use for my hardware?</p></li>
+<li><p>What’s the difference between <code class="docutils literal notranslate"><span class="pre">optimize</span></code> and <code class="docutils literal notranslate"><span class="pre">quantize</span></code>?</p></li>
+<li><p>Do I need GPTQ or RTN? What about AWQ?</p></li>
+<li><p>Which execution provider matches my GPU?</p></li>
+</ul>
+<p>The MCP server removes this barrier. The AI assistant handles tool selection, parameter configuration, and hardware adaptation — you just describe your goal.</p>
+</section>
+<hr class="docutils" />
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">#</a></h2>
+<section id="prerequisites">
+<h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Python 3.10+</p></li>
+<li><p><a class="reference external" href="https://docs.astral.sh/uv/">uv</a> (fast Python package manager)</p></li>
+</ul>
+</section>
+<section id="installation">
+<h3>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/microsoft/Olive.git
+<span class="nb">cd</span><span class="w"> </span>Olive/mcp
+uv<span class="w"> </span>sync
+</pre></div>
+</div>
+</section>
+<section id="connect-to-your-ai-client">
+<h3>Connect to Your AI Client<a class="headerlink" href="#connect-to-your-ai-client" title="Link to this heading">#</a></h3>
+<p>Add the Olive MCP server to your client’s configuration. The server definition is the same for all clients:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uv&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;run&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--directory&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;/path/to/Olive/mcp&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;python&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-m&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;olive_mcp&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<details>
+<summary>VS Code Copilot (.vscode/mcp.json)</summary>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;servers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;olive&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;stdio&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uv&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;run&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--directory&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;/path/to/Olive/mcp&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;python&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-m&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;olive_mcp&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</details>
+<details>
+<summary>Claude Desktop / Claude Code / Cursor / Windsurf</summary>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;olive&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uv&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;run&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--directory&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;/path/to/Olive/mcp&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;python&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-m&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;olive_mcp&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</details>
+</section>
+</section>
+<hr class="docutils" />
+<section id="usage-with-vs-code-copilot">
+<h2>Usage with VS Code Copilot<a class="headerlink" href="#usage-with-vs-code-copilot" title="Link to this heading">#</a></h2>
+<p>VS Code Copilot is one of the easiest ways to use the Olive MCP server. Here’s a step-by-step walkthrough:</p>
+<section id="add-the-mcp-server">
+<h3>1. Add the MCP Server<a class="headerlink" href="#add-the-mcp-server" title="Link to this heading">#</a></h3>
+<p>Create or edit <code class="docutils literal notranslate"><span class="pre">.vscode/mcp.json</span></code> in your project:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;servers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;olive&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;stdio&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uv&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;run&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--directory&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;/path/to/Olive/mcp&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;python&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-m&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;olive_mcp&quot;</span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<blockquote>
+<div><p>Replace <code class="docutils literal notranslate"><span class="pre">/path/to/Olive/mcp</span></code> with your actual path to the cloned Olive repository’s <code class="docutils literal notranslate"><span class="pre">mcp</span></code> directory.</p>
+</div></blockquote>
+</section>
+<section id="open-copilot-chat">
+<h3>2. Open Copilot Chat<a class="headerlink" href="#open-copilot-chat" title="Link to this heading">#</a></h3>
+<p>Press <code class="docutils literal notranslate"><span class="pre">Ctrl+Alt+I</span></code> (Windows/Linux) or <code class="docutils literal notranslate"><span class="pre">Cmd+Alt+I</span></code> (Mac) to open the Copilot Chat panel.</p>
+</section>
+<section id="switch-to-agent-mode">
+<h3>3. Switch to Agent Mode<a class="headerlink" href="#switch-to-agent-mode" title="Link to this heading">#</a></h3>
+<p>At the top of the Copilot Chat panel, switch from <strong>Ask</strong> or <strong>Edit</strong> mode to <strong>Agent</strong> mode. This enables Copilot to call external MCP tools.</p>
+</section>
+<section id="verify-the-olive-tools">
+<h3>4. Verify the Olive Tools<a class="headerlink" href="#verify-the-olive-tools" title="Link to this heading">#</a></h3>
+<p>Click the <strong>Tools</strong> icon (🔧) in the chat input area to see the list of available tools. You should see all the Olive tools listed: <code class="docutils literal notranslate"><span class="pre">optimize</span></code>, <code class="docutils literal notranslate"><span class="pre">quantize</span></code>, <code class="docutils literal notranslate"><span class="pre">finetune</span></code>, <code class="docutils literal notranslate"><span class="pre">benchmark</span></code>, <code class="docutils literal notranslate"><span class="pre">detect_hardware</span></code>, and more.</p>
+</section>
+<section id="start-chatting">
+<h3>5. Start Chatting<a class="headerlink" href="#start-chatting" title="Link to this heading">#</a></h3>
+<p>Simply type what you want to do. Copilot will select the appropriate Olive tools and ask for your confirmation before calling each one:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>You: Optimize microsoft/Phi-4-mini-instruct for my machine
+
+Copilot: I&#39;ll start by detecting your hardware...
+         [Calls detect_hardware — Click &quot;Allow&quot; to confirm]
+
+         You have an NVIDIA RTX 4090 with 24GB VRAM. Here are your options:
+         1. **Smallest model (int4)** — ~2GB, fastest inference
+         2. **Balanced (int8)** — ~4GB, good quality/speed tradeoff
+         3. **Best quality (fp16)** — ~8GB, highest accuracy
+
+You: Go with int4
+
+Copilot: Starting int4 optimization with GPTQ...
+         [Calls optimize — Click &quot;Allow&quot; to confirm]
+         [Polls get_job_status and streams progress]
+
+         ✅ Done!Model saved to ~/.olive-mcp/outputs/optimize-phi-4-mini-...
+         Size: 7.6GB → 2.1GB (72% reduction)
+</pre></div>
+</div>
+</section>
+<section id="tips-for-vs-code-copilot">
+<h3>Tips for VS Code Copilot<a class="headerlink" href="#tips-for-vs-code-copilot" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Auto-allow tools</strong>: If you trust the Olive tools, you can click the dropdown on the “Allow” button and select “Always allow” to skip confirmation for future calls.</p></li>
+<li><p><strong>Check progress</strong>: If optimization is running, just ask <em>“What’s the status?”</em> — Copilot will poll <code class="docutils literal notranslate"><span class="pre">get_job_status</span></code> for you.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="available-tools">
+<h2>Available Tools<a class="headerlink" href="#available-tools" title="Link to this heading">#</a></h2>
+<p>The MCP server exposes 9 tools and 4 guided prompts:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>What It Does</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">optimize</span></code></p></td>
+<td><p>End-to-end optimization — ONNX export + quantization + graph optimizations</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">quantize</span></code></p></td>
+<td><p>Weight-only quantization with RTN, GPTQ, AWQ, or HQQ</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">finetune</span></code></p></td>
+<td><p>LoRA / QLoRA fine-tuning for text models and diffusion models</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">capture_onnx_graph</span></code></p></td>
+<td><p>Export PyTorch models to ONNX format</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">benchmark</span></code></p></td>
+<td><p>Evaluate model accuracy using lm-evaluation-harness</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">detect_hardware</span></code></p></td>
+<td><p>Auto-detect CPU, GPU, RAM, and disk for smart defaults</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">get_job_status</span></code></p></td>
+<td><p>Long-poll for real-time progress with phase detection</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cancel_job</span></code></p></td>
+<td><p>Cancel a running background job</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">manage_outputs</span></code></p></td>
+<td><p>Browse and clean up previous optimization results</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="example-conversations">
+<h2>Example Conversations<a class="headerlink" href="#example-conversations" title="Link to this heading">#</a></h2>
+<p>Here are some things you can say to your AI assistant once the Olive MCP server is connected:</p>
+<section id="optimize-a-model">
+<h3>Optimize a model<a class="headerlink" href="#optimize-a-model" title="Link to this heading">#</a></h3>
+<blockquote>
+<div><p><strong>You:</strong> Optimize Phi-4-mini for my machine</p>
+<p>The assistant calls <code class="docutils literal notranslate"><span class="pre">detect_hardware</span></code> to check your setup, then offers plain-language options like <em>“Make it as small as possible (int4)”</em> or <em>“Balance size and quality (int8)”</em>. One click, and it runs.</p>
+</div></blockquote>
+</section>
+<section id="quantize-with-a-specific-algorithm">
+<h3>Quantize with a specific algorithm<a class="headerlink" href="#quantize-with-a-specific-algorithm" title="Link to this heading">#</a></h3>
+<blockquote>
+<div><p><strong>You:</strong> Quantize microsoft/Phi-3-mini-4k-instruct to int4 using GPTQ</p>
+</div></blockquote>
+<blockquote>
+<div><p>The assistant calls <code class="docutils literal notranslate"><span class="pre">quantize(model_name_or_path=&quot;microsoft/Phi-3-mini-4k-instruct&quot;,</span> <span class="pre">algorithm=&quot;gptq&quot;,</span> <span class="pre">precision=&quot;int4&quot;)</span></code> and streams progress in real time.</p>
+</div></blockquote>
+</section>
+<section id="fine-tune-on-your-data">
+<h3>Fine-tune on your data<a class="headerlink" href="#fine-tune-on-your-data" title="Link to this heading">#</a></h3>
+<blockquote>
+<div><p><strong>You:</strong> Fine-tune Phi-4-mini on the nampdn-ai/tiny-codes dataset</p>
+</div></blockquote>
+<blockquote>
+<div><p>The assistant selects LoRA or QLoRA based on your available GPU memory, sets up training, and reports results.</p>
+</div></blockquote>
+</section>
+<section id="train-a-stable-diffusion-lora">
+<h3>Train a Stable Diffusion LoRA<a class="headerlink" href="#train-a-stable-diffusion-lora" title="Link to this heading">#</a></h3>
+<blockquote>
+<div><p><strong>You:</strong> Train a LoRA for stable-diffusion-v1-5 with dataset linoyts/Tuxemon</p>
+</div></blockquote>
+<blockquote>
+<div><p>The assistant detects this is a diffusion model and automatically routes to the specialized diffusion LoRA pipeline with DreamBooth support.</p>
+</div></blockquote>
+</section>
+<section id="explore-available-passes">
+<h3>Explore available passes<a class="headerlink" href="#explore-available-passes" title="Link to this heading">#</a></h3>
+<blockquote>
+<div><p><strong>You:</strong> What optimization passes are available for int4 quantization on CPU?</p>
+</div></blockquote>
+<blockquote>
+<div><p>The assistant calls <code class="docutils literal notranslate"><span class="pre">explore_passes</span></code> — an internal tool backed by <code class="docutils literal notranslate"><span class="pre">olive_config.json</span></code> — and returns a filtered list with descriptions for each pass.</p>
+</div></blockquote>
+</section>
+</section>
+<hr class="docutils" />
+<section id="how-it-works-under-the-hood">
+<h2>How It Works Under the Hood<a class="headerlink" href="#how-it-works-under-the-hood" title="Link to this heading">#</a></h2>
+<p>The architecture has four layers, each handling a specific concern:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────┐
+│  AI Client (VS Code Copilot, Claude, Cursor)    │
+│  ↕ MCP Protocol (stdio)                        │
+├─────────────────────────────────────────────────┤
+│  Olive MCP Server                               │
+│  tools.py — tool definitions &amp; validation       │
+│  jobs.py  — async job lifecycle &amp; progress       │
+├─────────────────────────────────────────────────┤
+│  Isolated Virtual Environments (uv)             │
+│  packages.py — resolve deps from olive_config   │
+│  venv.py     — create/cache/reuse venvs         │
+├─────────────────────────────────────────────────┤
+│  Worker Process (runs inside venv)               │
+│  worker.py — dispatches olive CLI commands       │
+│  olive-ai[cpu,gpu,...] + extra dependencies      │
+└─────────────────────────────────────────────────┘
+</pre></div>
+</div>
+<section id="isolated-environments">
+<h3>Isolated Environments<a class="headerlink" href="#isolated-environments" title="Link to this heading">#</a></h3>
+<p>Different optimization tasks require different packages. Quantizing with AWQ needs <code class="docutils literal notranslate"><span class="pre">autoawq</span></code>, fine-tuning with QLoRA needs <code class="docutils literal notranslate"><span class="pre">bitsandbytes</span></code>, and GPU inference requires <code class="docutils literal notranslate"><span class="pre">onnxruntime-gpu</span></code> instead of <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code>. Installing all of these in one environment leads to conflicts.</p>
+<p>The MCP server solves this by creating <strong>isolated virtual environments</strong> on-the-fly for each task. When you ask to quantize a model with AWQ, the server:</p>
+<ol class="arabic simple">
+<li><p><strong>Resolves dependencies</strong> — reads <code class="docutils literal notranslate"><span class="pre">olive_config.json</span></code> to determine which packages the AWQ pass needs (e.g., <code class="docutils literal notranslate"><span class="pre">autoawq</span></code>, <code class="docutils literal notranslate"><span class="pre">datasets</span></code>)</p></li>
+<li><p><strong>Creates or reuses a cached venv</strong> — hashes the package list to a 12-character key; if a venv with that key already exists, it’s reused instantly</p></li>
+<li><p><strong>Runs the worker</strong> — launches a subprocess inside the venv that executes the actual Olive command</p></li>
+<li><p><strong>Cleans up</strong> — venvs not used for 14 days are automatically deleted</p></li>
+</ol>
+<p>This means <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code> (CPU) and <code class="docutils literal notranslate"><span class="pre">onnxruntime-gpu</span></code> (CUDA) never conflict, and you don’t have to manage any environments manually.</p>
+</section>
+<section id="async-job-pattern">
+<h3>Async Job Pattern<a class="headerlink" href="#async-job-pattern" title="Link to this heading">#</a></h3>
+<p>Model optimization can take minutes to hours. The MCP server runs all heavy work in the background:</p>
+<ol class="arabic simple">
+<li><p>You ask to optimize a model</p></li>
+<li><p>The tool returns immediately with a <code class="docutils literal notranslate"><span class="pre">job_id</span></code></p></li>
+<li><p>The assistant polls <code class="docutils literal notranslate"><span class="pre">get_job_status(job_id)</span></code> — this call <strong>long-polls</strong> for up to 30 seconds, waiting for new output before returning</p></li>
+<li><p>Phase detection extracts structured progress from Olive’s raw logs: <em>downloading → loading → quantizing → saving</em></p></li>
+<li><p>When the job completes, results include pass summaries, file sizes, and output paths</p></li>
+</ol>
+</section>
+<section id="smart-error-recovery">
+<h3>Smart Error Recovery<a class="headerlink" href="#smart-error-recovery" title="Link to this heading">#</a></h3>
+<p>When a job fails, the server doesn’t just show a traceback. It pattern-matches the error against known failure modes and returns <strong>actionable suggestions</strong>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Error Pattern</p></th>
+<th class="head"><p>Suggestion</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Out of memory</p></td>
+<td><p>“Try int4 precision or a smaller model”</p></td>
+</tr>
+<tr class="row-odd"><td><p>CPU + fp16</p></td>
+<td><p>“CPU does not support fp16. Use int8 or int4”</p></td>
+</tr>
+<tr class="row-even"><td><p>401 / 403 / gated</p></td>
+<td><p>“This model requires a HuggingFace token”</p></td>
+</tr>
+<tr class="row-odd"><td><p>Disk full</p></td>
+<td><p>“Free up disk space or change output directory”</p></td>
+</tr>
+<tr class="row-even"><td><p>CUDA out of memory</p></td>
+<td><p>“Reduce batch size or use QLoRA instead of LoRA”</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="guided-prompts">
+<h2>Guided Prompts<a class="headerlink" href="#guided-prompts" title="Link to this heading">#</a></h2>
+<p>For users who aren’t sure where to start, the server provides four <strong>guided prompts</strong> — pre-built conversation starters that walk you through a complete workflow:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Prompt</p></th>
+<th class="head"><p>What It Does</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">optimize-model</span></code></p></td>
+<td><p>Detects hardware → asks your use case → recommends model + settings → runs optimization</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">quantize-model</span></code></p></td>
+<td><p>Detects hardware → picks precision and algorithm → quantizes → shows size reduction</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">finetune-model</span></code></p></td>
+<td><p>Checks GPU memory → asks about your data → picks LoRA or QLoRA → trains → suggests next steps</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">compare-models</span></code></p></td>
+<td><p>Lists past runs → summarizes each → recommends the best one → suggests benchmarking</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>These prompts are available in MCP clients that support them (e.g., Claude Desktop).</p>
+</section>
+<hr class="docutils" />
+<section id="try-it-now">
+<h2>Try It Now<a class="headerlink" href="#try-it-now" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/microsoft/Olive.git
+<span class="nb">cd</span><span class="w"> </span>Olive/mcp<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>uv<span class="w"> </span>sync
+</pre></div>
+</div>
+<p>Add the server to your AI client, open a chat, and say:</p>
+<blockquote>
+<div><p><em>“Optimize microsoft/Phi-4-mini-instruct for my machine”</em></p>
+</div></blockquote>
+<p>That’s it. The AI handles the rest.</p>
+</section>
+<hr class="docutils" />
+<section id="related-resources">
+<h2>Related Resources<a class="headerlink" href="#related-resources" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/microsoft/Olive">Olive GitHub Repository</a></p></li>
+<li><p><a class="reference external" href="https://modelcontextprotocol.io/">Model Context Protocol Specification</a></p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Blogs</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="olive-init-cli.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Introducing <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">init</span></code>: An Interactive Wizard for Model Optimization</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-mcp-for-olive">Why MCP for Olive?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start">Quick Start</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#prerequisites">Prerequisites</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#connect-to-your-ai-client">Connect to Your AI Client</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-with-vs-code-copilot">Usage with VS Code Copilot</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#add-the-mcp-server">1. Add the MCP Server</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#open-copilot-chat">2. Open Copilot Chat</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#switch-to-agent-mode">3. Switch to Agent Mode</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#verify-the-olive-tools">4. Verify the Olive Tools</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#start-chatting">5. Start Chatting</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tips-for-vs-code-copilot">Tips for VS Code Copilot</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#available-tools">Available Tools</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-conversations">Example Conversations</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#optimize-a-model">Optimize a model</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-a-specific-algorithm">Quantize with a specific algorithm</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fine-tune-on-your-data">Fine-tune on your data</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#train-a-stable-diffusion-lora">Train a Stable Diffusion LoRA</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#explore-available-passes">Explore available passes</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-it-works-under-the-hood">How It Works Under the Hood</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isolated-environments">Isolated Environments</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#async-job-pattern">Async Job Pattern</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#smart-error-recovery">Smart Error Recovery</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#guided-prompts">Guided Prompts</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#try-it-now">Try It Now</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#related-resources">Related Resources</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2026, Olive Dev team.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
