@@ -104,6 +104,12 @@ OnnxBlockWiseRtnQuantization
 ----------------------------
 .. autoconfigclass:: olive.passes.OnnxBlockWiseRtnQuantization
 
+.. _onnx_kquant_quantization:
+
+OnnxKQuantQuantization
+-----------------------
+.. autoconfigclass:: olive.passes.OnnxKQuantQuantization
+
 .. _onnx_hqq_quantization:
 
 OnnxHqqQuantization
