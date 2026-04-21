@@ -14,33 +14,7 @@ from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.kquant_quantization import OnnxKQuantQuantization
 
-_MIN_ORT_VERSION = "1.20.0"
 
-
-def _ort_available():
-    """Check if onnxruntime with KQuantWeightOnlyQuantConfig is available."""
-    try:
-        import importlib
-
-        from onnxruntime import __version__ as ort_version
-        from packaging import version
-
-        if version.parse(ort_version) < version.parse(_MIN_ORT_VERSION):
-            return False
-        # Verify the module exists without triggering unused-import lint
-        mod = importlib.import_module("onnxruntime.quantization.matmul_nbits_quantizer")
-        return hasattr(mod, "KQuantWeightOnlyQuantConfig")
-    except ImportError:
-        return False
-
-
-requires_ort = pytest.mark.skipif(
-    not _ort_available(),
-    reason=f"onnxruntime >= {_MIN_ORT_VERSION} with KQuantWeightOnlyQuantConfig required",
-)
-
-
-@requires_ort
 class TestKQuantQuantization:
     @pytest.fixture
     def matmul_model_path(self, tmp_path):
@@ -95,7 +69,7 @@ class TestKQuantQuantization:
             accelerator_type="CPU",
             execution_provider="CPUExecutionProvider",
         )
-        pass_config = {"block_size": 32, "is_symmetric": True}
+        pass_config = {"bits": 4, "block_size": 32}
         p = create_pass_from_dict(
             OnnxKQuantQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
         )
@@ -110,16 +84,16 @@ class TestKQuantQuantization:
         assert len(matmul_nbits_nodes) == 2, "Expected 2 MatMulNBits nodes for uniform k-quant"
 
     def test_kquant_with_customized_weight_config(self, matmul_model_path, tmp_path):
-        """Test k-quant mixed precision (one node INT8, one node INT4)."""
+        """Test k-quant with per-node config overrides (different group_size)."""
         olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
         accelerator_spec = AcceleratorSpec(
             accelerator_type="CPU",
             execution_provider="CPUExecutionProvider",
         )
         pass_config = {
+            "bits": 4,
             "block_size": 32,
-            "is_symmetric": True,
-            "customized_weight_config": {"MatMul_1": {"bits": 8}},
+            "customized_weight_config": {"MatMul_1": {"bits": 4, "group_size": 64}},
         }
         p = create_pass_from_dict(
             OnnxKQuantQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
@@ -132,7 +106,7 @@ class TestKQuantQuantization:
 
         quantized_onnx = onnx.load(quantized_model.model_path)
         matmul_nbits_nodes = [n for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits)]
-        assert len(matmul_nbits_nodes) == 2, "Expected 2 MatMulNBits nodes for mixed k-quant"
+        assert len(matmul_nbits_nodes) == 2, "Expected 2 MatMulNBits nodes for k-quant with overrides"
 
     def test_kquant_with_nodes_to_exclude(self, matmul_model_path, tmp_path):
         """Test k-quant with node exclusion."""
@@ -142,8 +116,8 @@ class TestKQuantQuantization:
             execution_provider="CPUExecutionProvider",
         )
         pass_config = {
+            "bits": 4,
             "block_size": 32,
-            "is_symmetric": True,
             "nodes_to_exclude": ["MatMul_1"],
         }
         p = create_pass_from_dict(
