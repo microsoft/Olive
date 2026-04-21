@@ -266,6 +266,14 @@
             "supported_algorithms": [ "rtn" ],
             "supported_quantization_encodings": [  ]
         },
+        "OnnxKQuantQuantization": {
+            "module_path": "olive.passes.onnx.kquant_quantization.OnnxKQuantQuantization",
+            "supported_providers": [ "CPUExecutionProvider", "CUDAExecutionProvider", "DmlExecutionProvider" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "int4", "int8" ],
+            "supported_algorithms": [ "kquant" ],
+            "supported_quantization_encodings": [  ]
+        },
         "OnnxBnb4Quantization": {
             "module_path": "olive.passes.onnx.bnb_quantization.OnnxBnb4Quantization",
             "supported_providers": [ "CPUExecutionProvider" ],
