@@ -36,21 +36,40 @@ logger = logging.getLogger(__name__)
 def _kquant_quantize(data: np.ndarray, num_bits: int = 4, group_size: int = 32) -> tuple:
     """Quantize tensor per group using the k-quant algorithm.
 
-    K-quant uses weighted least-squares with iterative refinement to find
-    optimal scale and zero-point per group, achieving better accuracy than
-    simple RTN (round-to-nearest) quantization.
-
-    Ref: https://github.com/ggml-org/llama.cpp/blob/64eda5deb9859e87a020e56bab5d2f9ca956f1de/ggml/src/ggml-quants.c
+    Tries GPU acceleration via cupy if available, otherwise falls back to CPU numpy.
 
     Args:
-        data: input weight, shape (N, K) where N=output_channels, K=input_channels (padded).
+        data: input weight, will be reshaped to (-1, group_size).
         num_bits: quantization bit-width (4 or 8).
         group_size: number of elements per quantization group.
 
     Returns:
-        q_weight: quantized weight as uint8, shape (nb, group_size).
+        q_weight: quantized weight, shape (nb, group_size).
         scale: per-group scale, shape (nb, 1).
         zero_point: per-group zero point as uint8, shape (nb, 1).
+
+    """
+    try:
+        import cupy as cp  # noqa: PLC0415
+        import torch  # noqa: PLC0415
+
+        if torch.cuda.is_available():
+            return _kquant_quantize_cuda(data, num_bits, group_size, cp)
+
+        logger.warning("cupy is installed but CUDA is not available. Falling back to CPU k-quant quantization.")
+    except ImportError:
+        logger.info(
+            "cupy/torch not found; using CPU k-quant quantization. "
+            "Install cupy (https://cupy.dev/) and torch to accelerate with CUDA."
+        )
+
+    return _kquant_quantize_cpu(data, num_bits, group_size)
+
+
+def _kquant_quantize_cpu(data: np.ndarray, num_bits: int = 4, group_size: int = 32) -> tuple:
+    """CPU (numpy) implementation of k-quant quantization.
+
+    Ref: https://github.com/ggml-org/llama.cpp/blob/64eda5deb9859e87a020e56bab5d2f9ca956f1de/ggml/src/ggml-quants.c
 
     """
     data = np.reshape(data, (-1, group_size)).astype(np.float32)
@@ -74,7 +93,6 @@ def _kquant_quantize(data: np.ndarray, num_bits: int = 4, group_size: int = 32) 
     diff = scale * quant_data + rmin - data
     best_mad = np.sum(weights * diff**2, axis=1, keepdims=True)
 
-    # Iterative refinement: search over 20 candidate scale factors
     nstep = 20
     rdelta = 0.1
     rrmin = -1
@@ -113,6 +131,75 @@ def _kquant_quantize(data: np.ndarray, num_bits: int = 4, group_size: int = 32) 
     np.clip(q_weight, minq, maxq, out=q_weight)
 
     return q_weight, scale, zero_point
+
+
+def _kquant_quantize_cuda(data: np.ndarray, num_bits: int, group_size: int, cp) -> tuple:
+    """GPU (cupy) implementation of k-quant quantization.
+
+    Same algorithm as the CPU version but runs on CUDA for faster processing.
+    Results are transferred back to numpy arrays before returning.
+
+    """
+    data = cp.asarray(data)
+    data = data.reshape((-1, group_size)).astype(cp.float32)
+    maxq = 2**num_bits - 1
+    minq = 0
+
+    sum_x2 = cp.sum(data**2, axis=1, keepdims=True)
+    av_x = cp.sqrt(sum_x2 / group_size)
+    weights = cp.add(av_x, cp.abs(data))
+
+    rmin = cp.min(data, axis=1, keepdims=True)
+    rmax = cp.max(data, axis=1, keepdims=True)
+    sum_w = cp.sum(weights, axis=1, keepdims=True)
+    sum_x = cp.sum(weights * data, axis=1, keepdims=True)
+
+    iscale = cp.ones(rmax.shape, dtype=data.dtype)
+    mask = rmin != rmax
+    iscale[mask] = (maxq - minq) / (rmax[mask] - rmin[mask])
+    scale = 1 / iscale
+    quant_data = cp.clip(cp.round(iscale * (data - rmin)), minq, maxq)
+    diff = scale * quant_data + rmin - data
+    best_mad = cp.sum(weights * diff**2, axis=1, keepdims=True)
+
+    nstep = 20
+    rdelta = 0.1
+    rrmin = -1
+    for is_ in range(nstep):
+        iscale_new = cp.ones(rmax.shape, dtype=data.dtype)
+        factor = cp.array([rrmin + rdelta * is_ + maxq - minq]).astype(data.dtype)[0]
+        mask = rmin != rmax
+        iscale_new[mask] = factor / (rmax[mask] - rmin[mask])
+        quant_data_new = cp.clip(cp.round(iscale_new * (data - rmin)), minq, maxq)
+        mul_weights_quant_data_new = weights * quant_data_new
+        sum_l = cp.sum(mul_weights_quant_data_new, axis=1, keepdims=True)
+        sum_l2 = cp.sum(mul_weights_quant_data_new * quant_data_new, axis=1, keepdims=True)
+        sum_xl = cp.sum(mul_weights_quant_data_new * data, axis=1, keepdims=True)
+        D = cp.subtract(sum_w * sum_l2, sum_l**2)  # noqa: N806
+
+        this_scale = (sum_w * sum_xl - sum_x * sum_l) / D
+        this_min = (sum_l2 * sum_x - sum_l * sum_xl) / D
+
+        diff = this_scale * quant_data_new + this_min - data
+        mad = cp.sum(weights * diff**2, axis=1, keepdims=True)
+
+        mad_1 = cp.array(mad)
+        best_mad_1 = cp.array(best_mad)
+        idx_to_replace = cp.where(mad_1 < best_mad_1)[0]
+        quant_data[idx_to_replace, :] = quant_data_new[idx_to_replace, :]
+        best_mad[idx_to_replace] = mad[idx_to_replace]
+        scale[idx_to_replace] = this_scale[idx_to_replace]
+        rmin[idx_to_replace] = this_min[idx_to_replace]
+
+    zero_point = cp.clip(((-rmin) / scale).round(), 0, maxq).astype("uint8")
+    scale = scale.astype(cp.float64)
+    q_weight = cp.empty_like(data, dtype=scale.dtype)
+    cp.divide(data, scale, out=q_weight)
+    cp.add(q_weight, zero_point, out=q_weight)
+    cp.round(q_weight, out=q_weight)
+    cp.clip(q_weight, minq, maxq, out=q_weight)
+
+    return q_weight.get(), scale.get(), zero_point.get()
 
 
 class OnnxKQuantQuantization(Pass):
