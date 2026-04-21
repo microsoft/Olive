@@ -148,13 +148,15 @@ def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_sign
     # validate
     original_session = onnxruntime.InferenceSession(str(mnb_path))
     original_session.disable_fallback()
+    # disable qdq to mnb fusion so we can test the output of the DQ nodes directly
+    disabled_optimizers = ["QDQSelectorActionTransformer"]
     if is_symmetric and use_signed_int and not add_zero_point and use_transpose_op:
         # there seems to be a bug in ORT graph optimization which changes the int4 DQ to uint8 DQ
         with pytest.raises(Exception, match="uint8"):
-            onnxruntime.InferenceSession(str(qdq_model.model_path))
+            onnxruntime.InferenceSession(str(qdq_model.model_path), disabled_optimizers=disabled_optimizers)
         return
     else:
-        qdq_session = onnxruntime.InferenceSession(str(qdq_model.model_path))
+        qdq_session = onnxruntime.InferenceSession(str(qdq_model.model_path), disabled_optimizers=disabled_optimizers)
         qdq_session.disable_fallback()
 
     input_data = {"input": np.random.randn(1, 1, in_dim).astype(np.float32)}
