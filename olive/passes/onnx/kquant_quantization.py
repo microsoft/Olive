@@ -50,8 +50,8 @@ def _kquant_quantize(data: np.ndarray, num_bits: int = 4, group_size: int = 32) 
 
     """
     try:
-        import cupy as cp  # noqa: PLC0415
-        import torch  # noqa: PLC0415
+        import cupy as cp
+        import torch
 
         if torch.cuda.is_available():
             return _kquant_quantize_cuda(data, num_bits, group_size, cp)
