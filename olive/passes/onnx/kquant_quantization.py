@@ -400,6 +400,9 @@ class OnnxKQuantQuantization(Pass):
 
         """
         rows, cols = fp32weight.shape
+        if bits not in (4, 8):
+            raise ValueError(f"MatMulNBits does not support num_bits = {bits}. Use 4 or 8.")
+
         k_blocks = (rows + block_size - 1) // block_size
 
         # Pad rows to be divisible by block_size
@@ -422,10 +425,8 @@ class OnnxKQuantQuantization(Pass):
         if bits == 4:
             q_weight_pairs = q_weight[:, ::2] | (q_weight[:, 1::2] << 4)
             packed = q_weight_pairs[:, :blob_size]
-        elif bits == 8:
-            packed = q_weight
         else:
-            raise ValueError(f"MatMulNBits does not support num_bits = {bits}. Use 4 or 8.")
+            packed = q_weight
 
         packed = np.reshape(packed, (cols, k_blocks, blob_size))
 
@@ -451,9 +452,7 @@ class OnnxKQuantQuantization(Pass):
                             (zp_per_col[col_idx, j] & 0x0F) << 4
                         )
             zero_point_flat = packed_zp.flatten()
-        elif bits == 8:
-            zero_point_flat = zp.astype("uint8")
         else:
-            raise ValueError(f"MatMulNBits does not support num_bits = {bits}. Use 4 or 8.")
+            zero_point_flat = zp.astype("uint8")
 
         return packed, scales_flat, zero_point_flat
