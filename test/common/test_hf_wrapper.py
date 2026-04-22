@@ -23,7 +23,7 @@ def test_hf_wrapper(model_path, tmp_path):
         assert getattr(model_wrapper, key) is not None
 
     # model has not been loaded yet
-    with pytest.raises(ValueError, match="Model is not set."):
+    with pytest.raises(ValueError, match=r"Model is not set\."):
         _ = model_wrapper.model
 
     # load the model

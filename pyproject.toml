@@ -172,6 +172,7 @@ ignore = [
   "TRY002", # Ignore create custom exception
   "TRY003", # Ignore check message not defined in the exception class
   "TRY004", # Ignore prefer TypeError over ValueError
+  "PYI034", # Self type requires Python 3.11+; our target is py39
   "TRY300" # Ignore check if return in try block
 ]
 

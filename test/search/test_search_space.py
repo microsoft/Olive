@@ -8,8 +8,6 @@ from olive.search.search_parameter import Categorical, Conditional, SpecialParam
 from olive.search.search_point import SearchPoint
 from olive.search.search_space import SearchSpace
 
-# ruff: noqa: PD011
-
 
 class TestSearchSpace:
     def test_length_categoricals(self):

@@ -55,7 +55,7 @@ class TestSourceValidation:
         )
 
         # execute + assert
-        with pytest.raises(ValueError, match="model_config.json"):
+        with pytest.raises(ValueError, match=r"model_config\.json"):
             cmd._parse_sources()
 
     def test_rejects_nonexistent_path(self, tmp_path):
