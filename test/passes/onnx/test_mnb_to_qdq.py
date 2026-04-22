@@ -164,11 +164,5 @@ def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_sign
     qdq_output = qdq_session.run(None, input_data)[0]
     assert original_output.shape == qdq_output.shape
     assert original_output.dtype == qdq_output.dtype
-    if bits == 4 and not use_transpose_op:
-        # Pre transposed DQ model does not match the expected output on x64 CPU
-        # check for assertion failure so we know when the test is fixed
-        with pytest.raises(AssertionError):
-            np.testing.assert_allclose(original_output, qdq_output, atol=1e-4)
-    else:
-        # acc level 4 is used for 8 bit, so the tolerance is higher
-        np.testing.assert_allclose(original_output, qdq_output, atol=1e-2 if bits == 8 else 1e-4)
+    # acc level 4 is used for 8 bit, so the tolerance is higher
+    np.testing.assert_allclose(original_output, qdq_output, atol=1e-2 if bits == 8 else 1e-4)
