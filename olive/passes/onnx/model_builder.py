@@ -403,6 +403,7 @@ class OliveQuantizedModel:
         module_map = {
             "model.embed_tokens": self.embedding,
             "model.norm": self.final_norm,
+            "model.embedding_norm": self.final_norm,  # LFM2 uses embedding_norm instead of norm
             "lm_head": self.lm_head,
             **{f"model.layers.{i}": layer for i, layer in enumerate(self.layers)},
         }
@@ -422,8 +423,13 @@ class OliveQuantizedModel:
             for sub_name in tensor_name.split(".")[:-1]:
                 if sub_name.isdigit():
                     submodule = submodule[int(sub_name)]
-                else:
+                elif hasattr(submodule, sub_name):
                     submodule = getattr(submodule, sub_name)
+                else:
+                    # Create missing submodule for hybrid architectures (e.g., LFM2 conv layers)
+                    child = QuantizedTensorModule()
+                    setattr(submodule, sub_name, child)
+                    submodule = child
             if isinstance(submodule, QuantizedTensorModule):
                 for q_attr, q_value in [("bits", local_bits), ("_group_size", local_group_size)]:
                     setattr(submodule, q_attr, q_value)
