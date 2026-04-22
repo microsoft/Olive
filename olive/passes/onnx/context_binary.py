@@ -74,8 +74,6 @@ class EPContextBinaryGenerator(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
-        from onnxruntime import __version__ as OrtVersion
-
         # session created using providers argument so will use the ort.get_available_providers()
         # TODO(jambayk): consider switching to the new EP API for Windows
         from onnxruntime import get_available_providers
@@ -88,6 +86,27 @@ class EPContextBinaryGenerator(Pass):
             f"Execution provider {self.accelerator_spec.execution_provider} is not available. Available providers:"
             f" {get_available_providers()}"
         )
+
+        result = self._run_single_target(model, config, output_model_path)
+
+        # Populate model_attributes with context binary metadata so it persists in model_config.json
+        result.model_attributes = {**(model.model_attributes or {}), **(result.model_attributes or {})}
+        result.model_attributes["ep"] = self.accelerator_spec.execution_provider
+        result.model_attributes["device"] = str(self.accelerator_spec.accelerator_type).upper()
+        if config.provider_options:
+            result.model_attributes["provider_options"] = config.provider_options
+            result.model_attributes["architecture"] = config.provider_options.get("soc_model")
+
+        return result
+
+    def _run_single_target(
+        self,
+        model: Union[ONNXModelHandler, CompositeModelHandler],
+        config: type[BasePassConfig],
+        output_model_path: str,
+    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+        """Generate context binary for a single target. This is the original logic."""
+        from onnxruntime import __version__ as OrtVersion
 
         generate_kwargs = {
             "execution_provider": self.accelerator_spec.execution_provider,

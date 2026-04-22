@@ -1125,6 +1125,144 @@ class LMEvaluator(OliveEvaluator):
         return flatten_metric_result(metrics)
 
 
+@Registry.register("MTEBEvaluator")
+class MTEBEvaluator(OliveEvaluator):
+    """Evaluator for embedding models using the MTEB (Massive Text Embedding Benchmark) library.
+
+    Supports three model classes, mirroring :class:`LMEvaluator`:
+
+    - ``"hf"`` — evaluates a HuggingFace model via sentence-transformers
+    - ``"ort"`` — evaluates a plain ONNX model via ORT inference session
+    - ``"ortgenai"`` — evaluates an ORT-GenAI model (ModelBuilder output)
+
+    Example recipe config::
+
+        "evaluators": {
+            "evaluator": {
+                "type": "MTEBEvaluator",
+                "tasks": ["STS17"],
+                "batch_size": 32
+            }
+        },
+        "evaluator": "evaluator"
+    """
+
+    def __init__(self, tasks: list[str], **kwargs):
+        super().__init__(**kwargs)
+        self.tasks = tasks
+        self.batch_size = kwargs.get("batch_size", 32)
+        self.max_length = kwargs.get("max_length")
+        self.model_class = kwargs.get("model_class")
+        self.ep = kwargs.get("execution_provider")
+        self.ep_options = kwargs.get("provider_options")
+        self.eval_splits = kwargs.get("eval_splits")
+        self.eval_subsets = kwargs.get("eval_subsets")
+        self.output_folder = kwargs.get("output_folder")
+
+    def evaluate(
+        self,
+        model: "OliveModelHandler",
+        metrics: list[Metric],
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> MetricResult:
+        import mteb
+
+        from olive.evaluator.mteb_ort import MTEBORTEvaluator, MTEBORTGenAIEvaluator
+
+        # Auto-detect model class from the model handler
+        model_class = self.model_class
+        if not model_class:
+            if isinstance(model, HfModelHandler):
+                model_class = "hf"
+            elif isinstance(model, ONNXModelHandler):
+                # ModelBuilder outputs ONNXModelHandler but with genai_config.json
+                genai_config = Path(model.model_path).parent / "genai_config.json"
+                model_class = "ortgenai" if genai_config.exists() else "ort"
+            else:
+                raise ValueError(
+                    "Unable to auto-detect model_class for MTEBEvaluator from model handler "
+                    f"{type(model).__name__}. Please set model_class explicitly to one of "
+                    "'hf', 'ort', or 'ortgenai'."
+                )
+
+        logger.info("Running MTEB evaluation with model_class=%s, tasks=%s", model_class, self.tasks)
+
+        # Build the MTEB-compatible model wrapper
+        if model_class == "hf":
+            from sentence_transformers import SentenceTransformer
+
+            # Map Olive Device to PyTorch device string (Olive uses "gpu", PyTorch expects "cuda")
+            device_str = device.value if isinstance(device, Device) else str(device)
+            normalized = device_str.lower()
+            if normalized == "gpu":
+                sentence_transformer_device = "cuda"
+            elif normalized.startswith("gpu:"):
+                sentence_transformer_device = f"cuda{device_str[3:]}"
+            else:
+                sentence_transformer_device = device_str
+            mteb_model = SentenceTransformer(model.model_name_or_path, device=sentence_transformer_device)
+        elif model_class == "ort":
+            mteb_model = MTEBORTEvaluator(
+                model_path=model.model_path,
+                batch_size=self.batch_size,
+                max_length=self.max_length,
+                ep=self.ep
+                or (execution_providers[0] if isinstance(execution_providers, list) else execution_providers),
+                ep_options=self.ep_options,
+            )
+        elif model_class == "ortgenai":
+            mteb_model = MTEBORTGenAIEvaluator(
+                pretrained=str(Path(model.model_path).parent),
+                batch_size=self.batch_size,
+                max_length=self.max_length,
+                ep=self.ep
+                or (execution_providers[0] if isinstance(execution_providers, list) else execution_providers)
+                or "follow_config",
+                ep_options=self.ep_options,
+            )
+        else:
+            raise ValueError(f"Unknown model class for MTEBEvaluator: {model_class}")
+
+        # Run MTEB evaluation
+        mteb_tasks = mteb.get_tasks(tasks=self.tasks)
+        evaluation = mteb.MTEB(tasks=mteb_tasks)
+
+        run_kwargs = {}
+        if self.eval_splits:
+            run_kwargs["eval_splits"] = self.eval_splits
+        if self.eval_subsets:
+            run_kwargs["eval_subsets"] = self.eval_subsets
+
+        task_results = evaluation.run(
+            mteb_model,
+            output_folder=self.output_folder,
+            overwrite_results=True,
+            verbosity=0,
+            **run_kwargs,
+        )
+
+        # Convert MTEB results into Olive MetricResult
+        metrics_dict = {}
+        for task_result in task_results:
+            task_name = task_result.task_name
+            task_metrics = {
+                "main_score": SubMetricResult(value=task_result.main_score, priority=-1, higher_is_better=True),
+            }
+            for split_name, split_scores in task_result.scores.items():
+                for lang_score in split_scores:
+                    subset = lang_score.get("hf_subset", "")
+                    score_key = f"{split_name}_{subset}" if subset else split_name
+                    task_metrics[score_key] = SubMetricResult(
+                        value=lang_score.get("main_score", 0.0),
+                        priority=-1,
+                        higher_is_better=True,
+                    )
+            metrics_dict[task_name] = MetricResult.model_validate(task_metrics)
+
+        return flatten_metric_result(metrics_dict)
+
+
 class OliveEvaluatorConfig(NestedConfig):
     _nested_field_name: ClassVar[str] = "type_args"
 

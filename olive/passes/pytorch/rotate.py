@@ -166,6 +166,12 @@ class RotateBase(Pass):
     @classmethod
     def fuse_ln_linear(cls, layernorm: nn.Module, linear_layers: Iterable[nn.Linear]):
         """Fuse the linear operations in Layernorm into the adjacent linear blocks."""
+        # Hybrid models (e.g., LFM2) may have layers without attention, passing an empty list.
+        # Skip early to avoid resetting layernorm weights when there are no linears to fuse into.
+        linear_layers = list(linear_layers)
+        if not linear_layers:
+            return
+
         for linear in linear_layers:
             linear_dtype = linear.weight.dtype
 
@@ -355,7 +361,7 @@ class SpinQuant(RotateBase):
             train_dataset = get_training_dataset(
                 get_calibration_data_config(
                     model.model_name_or_path,
-                    trust_remote_code=model.get_load_kwargs().get("trust_remote_code", None),
+                    trust_remote_code=model.get_load_kwargs().get("trust_remote_code", False),
                     split="train",
                     max_seq_len=2048,
                     max_samples=800,

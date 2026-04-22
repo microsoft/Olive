@@ -294,6 +294,19 @@ class OptimizeCommand(BaseOliveCLICommand):
         """Update system configuration based on provider and device."""
         provider = ExecutionProvider(self.args.provider)
 
+        accelerator = {"execution_providers": [provider.value]}
+        if self.args.device:
+            accelerator["device"] = self.args.device
+        if self.args.memory is not None:
+            accelerator["memory"] = self.args.memory
+
+        config["systems"]["local_system"] = {
+            "type": "LocalSystem",
+            "accelerators": [accelerator],
+        }
+
+        config["target"] = "local_system"
+
         if provider == ExecutionProvider.QNNExecutionProvider and self.args.enable_aot:
             config["systems"]["qnn_system"] = {
                 "type": "PythonEnvironment",
@@ -582,7 +595,7 @@ class OptimizeCommand(BaseOliveCLICommand):
             "add_zero_point": "true",
             "save_as_external_data": "true",
         }
-        config["nodes_to_exclude"] = ["/lm_head/MatMul_Q4"]
+        config["nodes_to_exclude"] = ["/lm_head/MatMulNBits", "/lm_head/MatMul_Q4"]
         if precision.value == Precision.INT4:
             config["use_int4"] = "true"
         return config
@@ -622,7 +635,7 @@ class OptimizeCommand(BaseOliveCLICommand):
     def _enable_onnx_float_to_float16_pass(self) -> bool:
         """Return true if condition to add OnnxFloatToFloat16 pass is met."""
         precision = Precision(self.args.precision)
-        return precision == Precision.FP16
+        return precision == Precision.FP16 and not self.enable_model_builder
 
     def _get_onnx_float_to_float16_pass_config(self) -> dict[str, Any]:
         """Return pass dictionary for OnnxFloatToFloat16 pass."""

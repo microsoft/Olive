@@ -384,10 +384,10 @@ class OliveCache:
     ):
         """Save a model from the cache to a given path."""
         output_dir = Path(output_dir) if output_dir else Path.cwd()
-
-        # If output_dir has a suffix (like .onnx), it's a file path
-        # Use parent directory for saving files
-        actual_output_dir = output_dir.parent if output_dir.suffix else output_dir
+        if output_dir.suffix and not output_dir.is_dir():
+            actual_output_dir = output_dir.parent
+        else:
+            actual_output_dir = output_dir
         actual_output_dir.mkdir(parents=True, exist_ok=True)
 
         model_json = self.load_model(model_id)
