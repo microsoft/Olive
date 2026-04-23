@@ -14,6 +14,8 @@
   content: "Get more details on specific Olive capabilities, such as running workflows on remote compute (for example, Azure AI), model packaging, conversions, and more!<br/>{octicon}`arrow-right` [Reference](reference/index)"
 - header: "{octicon}`megaphone` Blogs"
   content: "Read the latest news and updates about Olive, including new experiments, features, and use cases.<br/>{octicon}`arrow-right` [Blogs](blogs/index)"
+- header: "{octicon}`shield` Privacy"
+  content: "Learn about Olive's telemetry data collection practices and how to opt out.<br/>{octicon}`arrow-right` [Privacy](privacy.md)"
 ```
 
 
@@ -27,4 +29,5 @@ how-to/index
 features/index
 reference/index
 blogs/index
+privacy.md
 ```
