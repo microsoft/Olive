@@ -16,6 +16,8 @@ from olive.cli.extract_adapters import ExtractAdaptersCommand
 from olive.cli.finetune import FineTuneCommand
 from olive.cli.generate_adapter import GenerateAdapterCommand
 from olive.cli.generate_cost_model import GenerateCostModelCommand
+from olive.cli.init import InitCommand
+from olive.cli.model_package import ModelPackageCommand
 from olive.cli.optimize import OptimizeCommand
 from olive.cli.quantize import QuantizeCommand
 from olive.cli.run import WorkflowRunCommand
@@ -37,6 +39,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     # Register commands
     # TODO(jambayk): Consider adding a common tempdir option to all commands
     # NOTE: The order of the commands is to organize the documentation better.
+    InitCommand.register_subcommand(commands_parser)
     WorkflowRunCommand.register_subcommand(commands_parser)
     RunPassCommand.register_subcommand(commands_parser)
     AutoOptCommand.register_subcommand(commands_parser)
@@ -52,6 +55,7 @@ def get_cli_parser(called_as_console_script: bool = True) -> ArgumentParser:
     ConfigureQualcommSDKCommand.register_subcommand(commands_parser)
     SharedCacheCommand.register_subcommand(commands_parser)
     ExtractAdaptersCommand.register_subcommand(commands_parser)
+    ModelPackageCommand.register_subcommand(commands_parser)
     BenchmarkCommand.register_subcommand(commands_parser)
 
     return parser

@@ -119,6 +119,7 @@ class GptqModel(Pass):
         dataset = get_calibration_dataset(model, config.data_config)
 
         adapter_path = None
+        trust_remote_code = False
         if isinstance(model, HfModelHandler) and model.adapter_path:
             logger.info(
                 "Model has adapters but GPTQ does not support adapters. Quantizing without adapters. The original"
@@ -126,6 +127,7 @@ class GptqModel(Pass):
             )
             # TODO(jambayk): should we copy the adapter? what about non-local adapters?
             adapter_path = model.adapter_path
+            trust_remote_code = model.get_load_kwargs().get("trust_remote_code", False)
 
             # create a new input model with the adapter path removed
             model.model = None
@@ -153,7 +155,11 @@ class GptqModel(Pass):
 
         model_class = MODEL_MAP.get(model_type, BaseGPTQModel)
         quantized_model: BaseGPTQModel = model_class(
-            pytorch_model, False, quantize_config, trust_remote_code=True, model_local_path=model.model_path
+            pytorch_model,
+            False,
+            quantize_config,
+            trust_remote_code=trust_remote_code,
+            model_local_path=model.model_path,
         )
 
         # quantize the model

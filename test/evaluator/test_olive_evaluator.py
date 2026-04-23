@@ -208,7 +208,7 @@ class TestOliveEvaluator:
         latency_metric = get_latency_metric(LatencySubType.AVG)
         with pytest.raises(
             OliveEvaluationError,
-            match="The onnxruntime fallback happens. OpenVINOExecutionProvider is not in the session providers",
+            match=r"The onnxruntime fallback happens\. OpenVINOExecutionProvider is not in the session providers",
         ):
             evaluator.evaluate(model, [latency_metric], Device.CPU, execution_providers)
 
