@@ -8,7 +8,13 @@
     },
     "passes": {
         "mobius_build": { "type": "MobiusModelBuilder", "precision": "fp16" },
-        "int4_quantize": { "type": "GptqQuantizer", "bits": 4, "group_size": 128, "sym": true }
+        "int4_quantize": {
+            "type": "OnnxBlockWiseRtnQuantization",
+            "block_size": 128,
+            "is_symmetric": true,
+            "accuracy_level": 4,
+            "save_as_external_data": true
+        }
     },
     "engine": { "target": "local_system", "output_dir": "models/gemma4-e2b-int4-cuda", "log_severity_level": 1 }
 }
