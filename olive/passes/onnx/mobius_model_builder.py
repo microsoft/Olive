@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+from olive.common.utils import StrEnumBase
 from olive.constants import Precision
 from olive.hardware.constants import ExecutionProvider
 from olive.model import HfModelHandler, ONNXModelHandler
@@ -53,6 +54,17 @@ class MobiusModelBuilder(Pass):
     See https://github.com/microsoft/mobius
     """
 
+    class MobiusEP(StrEnumBase):
+        """Execution providers supported by mobius."""
+
+        DEFAULT = "default"
+        CPU = "cpu"
+        CUDA = "cuda"
+        DML = "dml"
+        WEBGPU = "webgpu"
+        TRT_RTX = "trt-rtx"
+        ONNX_STANDARD = "onnx-standard"
+
     # Maps Olive ExecutionProvider enum values to mobius EP names.
     EP_MAP: ClassVar[dict[ExecutionProvider, str]] = {
         ExecutionProvider.CPUExecutionProvider: "cpu",
@@ -81,11 +93,11 @@ class MobiusModelBuilder(Pass):
                 ),
             ),
             "execution_provider": PassConfigParam(
-                type_=str,
+                type_=MobiusModelBuilder.MobiusEP,
                 required=False,
                 default_value=None,
                 description=(
-                    "Override the mobius execution provider (cpu, cuda, dml, webgpu). "
+                    "Override the mobius execution provider. "
                     "When None (default), the EP is auto-detected from the Olive "
                     "accelerator spec."
                 ),
