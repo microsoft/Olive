@@ -577,8 +577,8 @@ class ActQuantLinear(nn.Module):
             zero = torch.round(-xmin / scale)
 
         if self.per_token:
-            scale = scale.view(x_shape[:-1] + (1,))
-            zero = zero.view(x_shape[:-1] + (1,))
+            scale = scale.view((*x_shape[:-1], 1))
+            zero = zero.view((*x_shape[:-1], 1))
         else:
             scale = scale.flatten()
             zero = zero.flatten()

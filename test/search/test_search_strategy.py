@@ -12,7 +12,6 @@ from olive.search.search_parameter import Categorical
 from olive.search.search_strategy import SearchStrategy, SearchStrategyConfig, SearchStrategyExecutionOrder
 
 # pylint: disable=protected-access
-# ruff: noqa: PD011
 
 
 class TestSearchStrategy:

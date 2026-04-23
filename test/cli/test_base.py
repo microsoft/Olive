@@ -210,7 +210,7 @@ def test_insert_input_model_pt_model_missing_loader(MockUserModuleLoader):
     MockUserModuleLoader.return_value.has_function.return_value = False
 
     # execute and assert
-    with pytest.raises(ValueError, match="_model_loader function is required in model_script for PyTorch model."):
+    with pytest.raises(ValueError, match=r"_model_loader function is required in model_script for PyTorch model\."):
         get_input_model_config(args)
 
 
@@ -225,7 +225,7 @@ def test_insert_input_model_invalid_hf_model_name():
     )
 
     # execute and assert
-    with pytest.raises(ValueError, match="invalid-name is not a valid Huggingface model name."):
+    with pytest.raises(ValueError, match=r"invalid-name is not a valid Huggingface model name\."):
         get_input_model_config(args)
 
 
