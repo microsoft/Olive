@@ -95,7 +95,27 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
 def _patch_build(pkg: MagicMock):
     # Patch mobius.build directly — lazy import inside _run_for_config means
     # patching the module attribute, not the local binding.
-    return patch("mobius.build", return_value=pkg)
+    # Also patch _write_genai_config since the default runtime is ort-genai.
+    return _combine_patches(
+        patch("mobius.build", return_value=pkg),
+        patch.object(MobiusModelBuilder, "_write_genai_config"),
+    )
+
+
+class _combine_patches:
+    """Combine multiple patch context managers into one."""
+
+    def __init__(self, *patches):
+        self._patches = patches
+        self._mocks = []
+
+    def __enter__(self):
+        self._mocks = [p.__enter__() for p in self._patches]
+        return self._mocks[0]  # return the build mock
+
+    def __exit__(self, *args):
+        for p in reversed(self._patches):
+            p.__exit__(*args)
 
 
 # ---------------------------------------------------------------------------

@@ -54,6 +54,12 @@ class MobiusModelBuilder(Pass):
     See https://github.com/microsoft/mobius
     """
 
+    class MobiusRuntime(StrEnumBase):
+        """Target runtimes for genai config generation."""
+
+        NONE = "none"
+        ORT_GENAI = "ort-genai"
+
     class MobiusEP(StrEnumBase):
         """Execution providers supported by mobius."""
 
@@ -100,6 +106,16 @@ class MobiusModelBuilder(Pass):
                     "Override the mobius execution provider. "
                     "When None (default), the EP is auto-detected from the Olive "
                     "accelerator spec."
+                ),
+            ),
+            "runtime": PassConfigParam(
+                type_=MobiusModelBuilder.MobiusRuntime,
+                required=False,
+                default_value=MobiusModelBuilder.MobiusRuntime.ORT_GENAI,
+                description=(
+                    "Target runtime. 'ort-genai' (default) generates "
+                    "genai_config.json, tokenizer files, and processor "
+                    "configs alongside the ONNX models. 'none' to skip."
                 ),
             ),
         }
@@ -154,6 +170,11 @@ class MobiusModelBuilder(Pass):
         #   single component  → <output_dir>/model.onnx
         #   multi-component   → <output_dir>/<name>/model.onnx  for each key
         pkg.save(str(output_dir))
+
+        # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
+        # files, processor configs) when runtime is set to ort-genai.
+        if config.runtime == self.MobiusRuntime.ORT_GENAI:
+            self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
 
         package_keys = list(pkg.keys())
         logger.info("MobiusModelBuilder: saved components %s to '%s'", package_keys, output_dir)
@@ -213,4 +234,17 @@ class MobiusModelBuilder(Pass):
                 "mobius_package_keys": package_keys,
                 **(model.model_attributes or {}),
             },
+        )
+
+    @staticmethod
+    def _write_genai_config(pkg, output_dir: str, model_id: str, ep: str) -> None:
+        """Generate ORT GenAI config artifacts alongside the ONNX models."""
+        from mobius.integrations.ort_genai import write_ort_genai_config
+
+        genai_artifacts = write_ort_genai_config(
+            pkg, output_dir, hf_model_id=model_id, ep=ep,
+        )
+        logger.info(
+            "MobiusModelBuilder: wrote ORT GenAI config: %s",
+            list(genai_artifacts.keys()),
         )
