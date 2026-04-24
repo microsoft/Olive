@@ -100,7 +100,7 @@ html_theme_options = {
         "**": ["page-toc"],
     },
     "switcher": {
-        "json_url": "https://microsoft.github.io/Olive/_static/versions.json",
+        "json_url": "./_static/versions.json",
         "version_match": version,
     },
 }
