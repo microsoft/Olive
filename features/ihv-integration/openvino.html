@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>OpenVINO &#8212; Olive 0.11.0 documentation</title>
+    <title>OpenVINO &#8212; Olive latest documentation</title>
   
   
   
@@ -44,8 +44,8 @@
 
     <script src="../../_static/jquery.js?v=5d32c60e"></script>
     <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-    <script src="../../_static/documentation_options.js?v=f3b36f1a"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/documentation_options.js?v=c6e86fd7"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
@@ -54,7 +54,7 @@
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
-        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.11.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'latest';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             true;
         </script>
@@ -64,7 +64,7 @@
     <link rel="prev" title="IHV Toolkit Integration" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11.0" />
+  <meta name="docsearch:version" content="latest" />
   </head>
   
   
@@ -126,7 +126,7 @@
   
   
   
-    <p class="title logo__title">Olive 0.11.0 documentation</p>
+    <p class="title logo__title">Olive latest documentation</p>
   
 </a></div>
     
@@ -185,6 +185,13 @@
 <li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../../blogs/index.html">
     Blogs
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../privacy.html">
+    Privacy
   </a>
 </li>
 
@@ -317,6 +324,13 @@
   </a>
 </li>
 
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../privacy.html">
+    Privacy
+  </a>
+</li>
+
   </ul>
 </nav></div>
           
@@ -428,18 +442,18 @@ platforms.</p>
 </section>
 <section id="option-2-install-openvino-runtime-and-openvino-development-tools-from-pypi">
 <h3>Option 2: Install OpenVINO Runtime and OpenVINO Development Tools from Pypi<a class="headerlink" href="#option-2-install-openvino-runtime-and-openvino-development-tools-from-pypi" title="Link to this heading">#</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>openvino&gt;<span class="o">=</span><span class="m">2025</span>.3.0
-pip<span class="w"> </span>install<span class="w"> </span>nncf&gt;<span class="o">=</span><span class="m">2</span>.18.0
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>openvino&gt;<span class="o">=</span><span class="m">2025</span>.4.1
+pip<span class="w"> </span>install<span class="w"> </span>nncf&gt;<span class="o">=</span><span class="m">2</span>.19.0
 pip<span class="w"> </span>install<span class="w"> </span>onnxruntime-openvino
 </pre></div>
 </div>
 </section>
 <section id="install-optimum-intel-for-generative-ai-workloads">
 <h3>Install Optimum Intel® for Generative AI Workloads<a class="headerlink" href="#install-optimum-intel-for-generative-ai-workloads" title="Link to this heading">#</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>optimum<span class="o">[</span>openvino<span class="o">]</span>&lt;<span class="o">=</span><span class="m">1</span>.24.0
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>optimum<span class="o">[</span>openvino<span class="o">]</span>&gt;<span class="o">=</span><span class="m">2</span>.1.0
 </pre></div>
 </div>
-<p>More detailed instructions are available at <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/installation">Optimum Intel® Installation Instructions</a></p>
+<p>More detailed instructions are available at <a class="reference external" href="https://huggingface.co/docs/optimum/installation">Optimum Installation Instructions</a> and at <a class="reference external" href="https://huggingface.co/docs/optimum/main/en/intel/installation">Optimum Intel® Installation Instructions</a></p>
 </section>
 </section>
 <section id="model-conversion">
@@ -657,7 +671,7 @@ quantization information, are inserted into the model. The actual transition to 
 
   <p class="copyright">
     
-      © Copyright 2023-2025, Olive Dev team.
+      © Copyright 2023-2026, Olive Dev team.
       <br/>
     
   </p>

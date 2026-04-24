@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>ONNX Transformations &#8212; Olive 0.11.0 documentation</title>
+    <title>ONNX Transformations &#8212; Olive latest documentation</title>
   
   
   
@@ -44,8 +44,8 @@
 
     <script src="../_static/jquery.js?v=5d32c60e"></script>
     <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-    <script src="../_static/documentation_options.js?v=f3b36f1a"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/documentation_options.js?v=c6e86fd7"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
@@ -54,7 +54,7 @@
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
-        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.11.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'latest';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             true;
         </script>
@@ -64,7 +64,7 @@
     <link rel="prev" title="Model Splitting" href="model-splitting.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11.0" />
+  <meta name="docsearch:version" content="latest" />
   </head>
   
   
@@ -126,7 +126,7 @@
   
   
   
-    <p class="title logo__title">Olive 0.11.0 documentation</p>
+    <p class="title logo__title">Olive latest documentation</p>
   
 </a></div>
     
@@ -185,6 +185,13 @@
 <li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../blogs/index.html">
     Blogs
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../privacy.html">
+    Privacy
   </a>
 </li>
 
@@ -314,6 +321,13 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../blogs/index.html">
     Blogs
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../privacy.html">
+    Privacy
   </a>
 </li>
 
@@ -2542,6 +2556,179 @@ Two cases are supported:</p>
 </section>
 </section>
 </section>
+<section id="nvidia-modelopt-graph-surgeries">
+<h2>NVIDIA ModelOpt Graph Surgeries<a class="headerlink" href="#nvidia-modelopt-graph-surgeries" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">NVModelOptGraphSurgery</span></code> provides access to graph-level transformations from <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Model-Optimizer">NVIDIA ModelOpt</a>. These surgeries are designed for optimizing LLM and encoder-decoder ONNX models for deployment with ONNX Runtime and TensorRT.</p>
+<p>Available surgery types:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Surgery</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">replace-gqa</span></code></p></td>
+<td><p>Replace standard multi-head attention with ORT’s GroupQueryAttention (GQA) operator</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">transpose-dq</span></code></p></td>
+<td><p>Transpose DequantizeLinear weights for column-major storage optimization</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">add-cross-kv</span></code></p></td>
+<td><p>Add cross-attention KV cache outputs to Whisper encoder models</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">convert-bf16</span></code></p></td>
+<td><p>Convert FP16 model initializers and I/O to BF16</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Please refer to <a class="reference internal" href="../reference/pass.html#nvmodelopt_graph_surgery"><span class="std std-ref">NVModelOptGraphSurgery</span></a> for more details about the pass and its config parameters.</p>
+<section id="replace-attention-with-gqa">
+<h3>Replace Attention with GQA<a class="headerlink" href="#replace-attention-with-gqa" title="Link to this heading">#</a></h3>
+<p>Replaces the native multi-head attention subgraph (Q/K/V projections, RoPE, KV cache, scaled dot-product attention) with ORT’s fused <code class="docutils literal notranslate"><span class="pre">GroupQueryAttention</span></code> operator. Supports models exported via Optimum or similar tools.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptGraphSurgery&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgery_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;replace-gqa&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgery_params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;hf_model_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta-llama/Llama-2-7b-hf&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;max_seq_len&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4096</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;io_dtype&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;float16&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Key <code class="docutils literal notranslate"><span class="pre">surgery_params</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">hf_model_id</span></code>: HuggingFace model ID (used to compute RoPE caches and read model config).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_seq_len</span></code>: Maximum sequence length for the KV cache.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">io_dtype</span></code>: I/O data type. Use <code class="docutils literal notranslate"><span class="pre">&quot;float16&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;bfloat16&quot;</span></code>. If <code class="docutils literal notranslate"><span class="pre">&quot;bfloat16&quot;</span></code> is specified and the model has FP16 initializers, they are automatically converted to BF16.</p></li>
+</ul>
+</section>
+<section id="transpose-dequantizelinear-weights">
+<h3>Transpose DequantizeLinear Weights<a class="headerlink" href="#transpose-dequantizelinear-weights" title="Link to this heading">#</a></h3>
+<p>Transposes quantized weight initializers feeding <code class="docutils literal notranslate"><span class="pre">DequantizeLinear</span></code> nodes and inserts a <code class="docutils literal notranslate"><span class="pre">Transpose</span></code> node before <code class="docutils literal notranslate"><span class="pre">MatMul</span></code>. This enables column-major weight storage for improved memory access patterns.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptGraphSurgery&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgery_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;transpose-dq&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgery_params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="add-cross-attention-kv-to-encoder">
+<h3>Add Cross-Attention KV to Encoder<a class="headerlink" href="#add-cross-attention-kv-to-encoder" title="Link to this heading">#</a></h3>
+<p>Adds cross-attention key/value cache outputs to a Whisper encoder model, making it compatible with ONNX Runtime GenAI pipelines.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptGraphSurgery&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgery_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;add-cross-kv&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgery_params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;hf_model_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;openai/whisper-large-v3-turbo&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="convert-fp16-to-bf16">
+<h3>Convert FP16 to BF16<a class="headerlink" href="#convert-fp16-to-bf16" title="Link to this heading">#</a></h3>
+<p>Standalone precision conversion from FP16 to BF16 for all model initializers and I/O tensors.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NVModelOptGraphSurgery&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgery_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;convert-bf16&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgery_params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="renameoutputdims">
+<h3><code class="docutils literal notranslate"><span class="pre">RenameOutputDims</span></code><a class="headerlink" href="#renameoutputdims" title="Link to this heading">#</a></h3>
+<section id="id89">
+<h4>Description<a class="headerlink" href="#id89" title="Link to this heading">#</a></h4>
+<p>Renames a dimension in an output tensor’s shape. Useful for restoring meaningful symbolic dimension names after graph transformations that may have changed them (e.g. after <code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code>).</p>
+</section>
+<section id="id90">
+<h4>Configurations<a class="headerlink" href="#id90" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">output_idx</span></code>: Index of the output tensor to modify.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dim_idx</span></code>: Index of the dimension within the output’s shape.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dim_name</span></code>: New symbolic name for the dimension.</p></li>
+</ul>
+</section>
+<section id="id91">
+<h4>Example<a class="headerlink" href="#id91" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RenameOutputDims&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;output_idx&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;dim_idx&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;dim_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;num_logical_patches&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="renameinputdims">
+<h3><code class="docutils literal notranslate"><span class="pre">RenameInputDims</span></code><a class="headerlink" href="#renameinputdims" title="Link to this heading">#</a></h3>
+<section id="id92">
+<h4>Description<a class="headerlink" href="#id92" title="Link to this heading">#</a></h4>
+<p>Renames or promotes a dimension in an input tensor’s shape to a named symbolic dimension. Useful when <code class="docutils literal notranslate"><span class="pre">torch.export</span></code> specializes a batch-like input dimension to a concrete value but ONNX Runtime needs to accept a variable-length tensor at inference time. The target input can be specified by name (preferred) or by index.</p>
+</section>
+<section id="id93">
+<h4>Configurations<a class="headerlink" href="#id93" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">dim_idx</span></code>: Index of the dimension within the input’s shape.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dim_name</span></code>: New symbolic name for the dimension.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">input_name</span></code> <em>(optional)</em>: Name of the input tensor to modify.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">input_idx</span></code> <em>(optional)</em>: Index of the input tensor to modify. Either <code class="docutils literal notranslate"><span class="pre">input_name</span></code> or <code class="docutils literal notranslate"><span class="pre">input_idx</span></code> must be provided.</p></li>
+</ul>
+</section>
+<section id="id94">
+<h4>Example<a class="headerlink" href="#id94" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RenameInputDims&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;input_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;image_grid_thw&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;dim_idx&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;dim_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;num_images&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="removememcpy">
+<h3><code class="docutils literal notranslate"><span class="pre">RemoveMemcpy</span></code><a class="headerlink" href="#removememcpy" title="Link to this heading">#</a></h3>
+<section id="id95">
+<h4>Description<a class="headerlink" href="#id95" title="Link to this heading">#</a></h4>
+<p>Removes <code class="docutils literal notranslate"><span class="pre">MemcpyToHost</span></code> and <code class="docutils literal notranslate"><span class="pre">MemcpyFromHost</span></code> nodes that are inserted by ORT’s <code class="docutils literal notranslate"><span class="pre">OrtTransformersOptimization</span></code> pass when it pre-partitions a graph for a GPU execution provider. These nodes represent explicit GPU↔CPU data copies for tensors whose consumers require CPU memory (e.g. shape arguments to <code class="docutils literal notranslate"><span class="pre">Reshape</span></code>, start/end for <code class="docutils literal notranslate"><span class="pre">Slice</span></code>, trip counts for <code class="docutils literal notranslate"><span class="pre">Loop</span></code>).</p>
+<p>Removing them is safe because ORT’s runtime <code class="docutils literal notranslate"><span class="pre">MemcpyTransformer</span></code> will re-insert only the truly necessary copies when the session is created. The runtime also has a <code class="docutils literal notranslate"><span class="pre">GetCpuPreferredNodes</span></code> heuristic that may keep entire shape-computation subgraphs on CPU, potentially avoiding some copies entirely.</p>
+<p>The surgery processes both the main graph and all Loop/If subgraphs recursively. After removal the graph nodes are topologically re-sorted to satisfy the ONNX requirement that every input is produced before use.</p>
+</section>
+<section id="id96">
+<h4>Configurations<a class="headerlink" href="#id96" title="Link to this heading">#</a></h4>
+<p>No parameters required.</p>
+</section>
+<section id="id97">
+<h4>Example<a class="headerlink" href="#id97" title="Link to this heading">#</a></h4>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;GraphSurgeries&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;surgeries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;surgeon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RemoveMemcpy&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
 <section id="ort-performance-tuning">
 <h2>ORT Performance Tuning<a class="headerlink" href="#ort-performance-tuning" title="Link to this heading">#</a></h2>
 <p>ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
@@ -2549,8 +2736,8 @@ environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
 <code class="docutils literal notranslate"><span class="pre">OrtSessionParamsTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
-<section id="id89">
-<h3>Example Configuration<a class="headerlink" href="#id89" title="Link to this heading">#</a></h3>
+<section id="id98">
+<h3>Example Configuration<a class="headerlink" href="#id98" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtSessionParamsTuning&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;session_params_tuning_data_config&quot;</span><span class="p">,</span>
@@ -2846,8 +3033,33 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#nvidia-modelopt-graph-surgeries">NVIDIA ModelOpt Graph Surgeries</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replace-attention-with-gqa">Replace Attention with GQA</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#transpose-dequantizelinear-weights">Transpose DequantizeLinear Weights</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#add-cross-attention-kv-to-encoder">Add Cross-Attention KV to Encoder</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#convert-fp16-to-bf16">Convert FP16 to BF16</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#renameoutputdims"><code class="docutils literal notranslate"><span class="pre">RenameOutputDims</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id89">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id90">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id91">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#renameinputdims"><code class="docutils literal notranslate"><span class="pre">RenameInputDims</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id92">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id93">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id94">Example</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removememcpy"><code class="docutils literal notranslate"><span class="pre">RemoveMemcpy</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id95">Description</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id96">Configurations</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id97">Example</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ort-performance-tuning">ORT Performance Tuning</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id89">Example Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id98">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
@@ -2878,7 +3090,7 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 
   <p class="copyright">
     
-      © Copyright 2023-2025, Olive Dev team.
+      © Copyright 2023-2026, Olive Dev team.
       <br/>
     
   </p>

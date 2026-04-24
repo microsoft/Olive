@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>olive.passes.pytorch.lora &#8212; Olive 0.11.0 documentation</title>
+    <title>olive.passes.pytorch.lora &#8212; Olive latest documentation</title>
   
   
   
@@ -43,8 +43,8 @@
 
     <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
     <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-    <script src="../../../../_static/documentation_options.js?v=f3b36f1a"></script>
-    <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../../_static/documentation_options.js?v=c6e86fd7"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../../../_static/copybutton.js?v=f281be69"></script>
@@ -483,12 +483,13 @@ mermaid.initialize(
     }
 );
 
-window.addEventListener("load", load);</script>
+window.addEventListener("load", load);
+window.runMermaid = runMermaid;</script>
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/olive/passes/pytorch/lora';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
-        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.11.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'latest';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             true;
         </script>
@@ -496,7 +497,7 @@ window.addEventListener("load", load);</script>
     <link rel="search" title="Search" href="../../../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11.0" />
+  <meta name="docsearch:version" content="latest" />
   </head>
   
   
@@ -558,7 +559,7 @@ window.addEventListener("load", load);</script>
   
   
   
-    <p class="title logo__title">Olive 0.11.0 documentation</p>
+    <p class="title logo__title">Olive latest documentation</p>
   
 </a></div>
     
@@ -617,6 +618,13 @@ window.addEventListener("load", load);</script>
 <li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../../../../blogs/index.html">
     Blogs
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../privacy.html">
+    Privacy
   </a>
 </li>
 
@@ -747,6 +755,13 @@ window.addEventListener("load", load);</script>
   </a>
 </li>
 
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../privacy.html">
+    Privacy
+  </a>
+</li>
+
   </ul>
 </nav></div>
           
@@ -858,10 +873,10 @@ window.addEventListener("load", load);</script>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">transformers</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">packaging</span><span class="w"> </span><span class="kn">import</span> <span class="n">version</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">field_validator</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.hf.mappings</span><span class="w"> </span><span class="kn">import</span> <span class="n">MODELS_TO_LORA_TARGET_MODULES_MAPPING</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.hf.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_peft_task_type_from_task</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.pydantic_v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.common.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrEnumBase</span><span class="p">,</span> <span class="n">find_submodules</span><span class="p">,</span> <span class="n">resolve_torch_dtype</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.data.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">olive.data.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">IGNORE_INDEX</span>
@@ -908,7 +923,7 @@ window.addEventListener("load", load);</script>
         <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.&quot;</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">warmup_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Fraction of steps to do a warmup for.&quot;</span><span class="p">)</span>
-    <span class="n">eval_strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+    <span class="n">eval_strategy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
         <span class="kc">None</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">&quot;The evaluation strategy to use. Forced to &#39;no&#39; if eval_dataset is not provided. Otherwise, &#39;steps&#39; unless&quot;</span>
@@ -922,14 +937,15 @@ window.addEventListener("load", load);</script>
             <span class="s2">&quot; a checkpoint directory.&quot;</span>
         <span class="p">),</span>
     <span class="p">)</span>
-    <span class="n">resume_from_checkpoint</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+    <span class="n">resume_from_checkpoint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
         <span class="kc">None</span><span class="p">,</span>
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">&quot;The path to a folder with a valid checkpoint for the model. Supercedes any checkpoint found in output_dir.&quot;</span>
         <span class="p">),</span>
     <span class="p">)</span>
 
-    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;extra_args&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;extra_args&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+    <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">validate_torch_dtype</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">v</span> <span class="ow">and</span> <span class="s2">&quot;fp16&quot;</span> <span class="ow">in</span> <span class="n">v</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Extra arg &#39;fp16&#39; is not allowed. Please use `torch_dtype` instead.&quot;</span><span class="p">)</span>
@@ -1286,7 +1302,7 @@ window.addEventListener("load", load);</script>
                 <span class="c1"># use fp16 mixed precision training</span>
                 <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">extra_args</span><span class="p">[</span><span class="s2">&quot;fp16&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="c1"># create training args</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Training args: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">dict</span><span class="p">())</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Training args: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">model_dump</span><span class="p">())</span>
 
             <span class="c1"># get trainer&#39;</span>
             <span class="n">trainer</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">Trainer</span><span class="p">(</span>
@@ -1345,7 +1361,7 @@ window.addEventListener("load", load);</script>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_peft_model</span><span class="p">(</span>
-        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PeftModel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the PEFT model for LoRA fine-tuning.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">peft</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoraConfig</span><span class="p">,</span> <span class="n">LoraRuntimeConfig</span><span class="p">,</span> <span class="n">get_peft_model</span>
@@ -1376,68 +1392,69 @@ window.addEventListener("load", load);</script>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_lora_training</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">use_dora</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">LoRAVariant</span><span class="p">(</span><span class="n">LoRA</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run LoRA variant fine-tuning on a Hugging Face PyTorch model.&quot;&quot;&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_lora_variant_config</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Shared config params for LoRA variant passes (LoHa, LoKr).&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;rank_dropout&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+            <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+            <span class="n">default_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The dropout probability for rank dimension during training.&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;module_dropout&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+            <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+            <span class="n">default_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The dropout probability for disabling modules during training.&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;use_effective_conv2d&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+            <span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span>
+            <span class="n">default_value</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Use parameter effective decomposition for Conv2d with ksize &gt; 1.&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;exclude_modules&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+            <span class="n">type_</span><span class="o">=</span><span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">]],</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Modules to exclude from tuning.&quot;</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;init_weights&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+            <span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Whether to perform initialization of adapter weights.&quot;</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;layers_to_transform&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+            <span class="n">type_</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The layer indices to transform.&quot;</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;layers_pattern&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+            <span class="n">type_</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+            <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The layer pattern name, used only if layers_to_transform is different from None.&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;rank_pattern&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+            <span class="n">type_</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span>
+            <span class="n">default_value</span><span class="o">=</span><span class="p">{},</span>
+            <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                <span class="s2">&quot;The mapping from layer names or regexp expression &quot;</span>
+                <span class="s2">&quot;to ranks which are different from the default rank specified by r.&quot;</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;alpha_pattern&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+            <span class="n">type_</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span>
+            <span class="n">default_value</span><span class="o">=</span><span class="p">{},</span>
+            <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                <span class="s2">&quot;The mapping from layer names or regexp expression &quot;</span>
+                <span class="s2">&quot;to alphas which are different from the default alpha specified by alpha.&quot;</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">}</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">LoHa</span><span class="p">(</span><span class="n">LoRA</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run LoHa fine-tuning on a Hugging Face PyTorch model.&quot;&quot;&quot;</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_default_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
-        <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;rank_dropout&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
-                <span class="n">default_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The dropout probability for rank dimension during training.&quot;</span><span class="p">,</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;module_dropout&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
-                <span class="n">default_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The dropout probability for disabling modules during training.&quot;</span><span class="p">,</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;use_effective_conv2d&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span>
-                <span class="n">default_value</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Use parameter effective decomposition for Conv2d with ksize &gt; 1.&quot;</span><span class="p">,</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;exclude_modules&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">]],</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Modules to exclude from tuning.&quot;</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;init_weights&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Whether to perform initialization of adapter weights.&quot;</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;layers_to_transform&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The layer indices to transform.&quot;</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;layers_pattern&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-                <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The layer pattern name, used only if layers_to_transform is different from None.&quot;</span><span class="p">,</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;rank_pattern&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span>
-                <span class="n">default_value</span><span class="o">=</span><span class="p">{},</span>
-                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-                    <span class="s2">&quot;The mapping from layer names or regexp expression &quot;</span>
-                    <span class="s2">&quot;to ranks which are different from the default rank specified by r.&quot;</span>
-                <span class="p">),</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;alpha_pattern&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span>
-                <span class="n">default_value</span><span class="o">=</span><span class="p">{},</span>
-                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
-                    <span class="s2">&quot;The mapping from layer names or regexp expression &quot;</span>
-                    <span class="s2">&quot;to alphas which are different from the default alpha specified by alpha.&quot;</span>
-                <span class="p">),</span>
-            <span class="p">),</span>
-        <span class="p">}</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">_lora_variant_config</span><span class="p">()</span>
         <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">config</span>
 
-
-<span class="k">class</span><span class="w"> </span><span class="nc">LoHa</span><span class="p">(</span><span class="n">LoRAVariant</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run LoHa fine-tuning on a Hugging Face PyTorch model.&quot;&quot;&quot;</span>
-
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_peft_model</span><span class="p">(</span>
-        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PeftModel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the PEFT model for LoHa fine-tuning.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">peft</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoHaConfig</span><span class="p">,</span> <span class="n">get_peft_model</span>
@@ -1473,7 +1490,7 @@ window.addEventListener("load", load);</script>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Please install peft &gt;= 0.7.0 to use </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> pass.&quot;</span><span class="p">)</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">LoKr</span><span class="p">(</span><span class="n">LoRAVariant</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">LoKr</span><span class="p">(</span><span class="n">LoRA</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Run LoKr fine-tuning on a Hugging Face PyTorch model.&quot;&quot;&quot;</span>
 
     <span class="nd">@classmethod</span>
@@ -1495,12 +1512,13 @@ window.addEventListener("load", load);</script>
                 <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Whether to scale the rank dropout while training.&quot;</span><span class="p">,</span>
             <span class="p">),</span>
         <span class="p">}</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">_lora_variant_config</span><span class="p">())</span>
         <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">config</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_peft_model</span><span class="p">(</span>
-        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">model</span><span class="p">:</span> <span class="s2">&quot;PreTrainedModel&quot;</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">BasePassConfig</span><span class="p">],</span> <span class="n">config_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PeftModel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the PEFT model for LoKr fine-tuning.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">peft</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoKrConfig</span><span class="p">,</span> <span class="n">get_peft_model</span>
@@ -1601,7 +1619,7 @@ window.addEventListener("load", load);</script>
             <span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">output_model_path</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">save_quant_config</span><span class="p">:</span>
-            <span class="n">load_kwargs</span> <span class="o">=</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">if</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span> <span class="k">else</span> <span class="p">{}</span>
+            <span class="n">load_kwargs</span> <span class="o">=</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span> <span class="k">if</span> <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span> <span class="k">else</span> <span class="p">{}</span>
             <span class="n">load_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">bnb_quant_config</span><span class="p">)</span>
             <span class="n">new_model_handler</span><span class="o">.</span><span class="n">load_kwargs</span> <span class="o">=</span> <span class="n">HfLoadKwargs</span><span class="p">(</span><span class="o">**</span><span class="n">load_kwargs</span><span class="p">)</span>
             <span class="n">new_model_handler</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">[</span><span class="s2">&quot;quantized_modules&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">quantized_modules</span>
@@ -1819,7 +1837,7 @@ window.addEventListener("load", load);</script>
 
   <p class="copyright">
     
-      © Copyright 2023-2025, Olive Dev team.
+      © Copyright 2023-2026, Olive Dev team.
       <br/>
     
   </p>

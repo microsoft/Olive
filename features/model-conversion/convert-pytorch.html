@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>PyTorch &#8212; Olive 0.11.0 documentation</title>
+    <title>PyTorch &#8212; Olive latest documentation</title>
   
   
   
@@ -44,8 +44,8 @@
 
     <script src="../../_static/jquery.js?v=5d32c60e"></script>
     <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-    <script src="../../_static/documentation_options.js?v=f3b36f1a"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/documentation_options.js?v=c6e86fd7"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
@@ -54,7 +54,7 @@
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
-        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.11.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'latest';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             true;
         </script>
@@ -64,7 +64,7 @@
     <link rel="prev" title="ONNX" href="convert-onnx.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11.0" />
+  <meta name="docsearch:version" content="latest" />
   </head>
   
   
@@ -126,7 +126,7 @@
   
   
   
-    <p class="title logo__title">Olive 0.11.0 documentation</p>
+    <p class="title logo__title">Olive latest documentation</p>
   
 </a></div>
     
@@ -188,6 +188,13 @@
   </a>
 </li>
 
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../privacy.html">
+    Privacy
+  </a>
+</li>
+
                 </ul>
             </li>
             
@@ -245,10 +252,6 @@
     </div>
   
 
-  
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
   
 </div>
 
@@ -314,6 +317,13 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../../blogs/index.html">
     Blogs
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../privacy.html">
+    Privacy
   </a>
 </li>
 
@@ -412,21 +422,6 @@
   <section id="pytorch">
 <h1>PyTorch<a class="headerlink" href="#pytorch" title="Link to this heading">#</a></h1>
 <p>PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.</p>
-<section id="torchtrtconversion">
-<h2>TorchTRTConversion<a class="headerlink" href="#torchtrtconversion" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">TorchTRTConversion</span></code> converts the <code class="docutils literal notranslate"><span class="pre">torch.nn.Linear</span></code> modules in the transformer layers in a Hugging Face PyTorch model to <code class="docutils literal notranslate"><span class="pre">TRTModules</span></code> from <code class="docutils literal notranslate"><span class="pre">torch_tensorrt</span></code> with fp16 precision and sparse weights, if
-applicable. <code class="docutils literal notranslate"><span class="pre">torch_tensorrt</span></code> is an extension to <code class="docutils literal notranslate"><span class="pre">torch</span></code> where TensorRT compiled engines can be used like regular <code class="docutils literal notranslate"><span class="pre">torch.nn.Module</span></code>s. This pass can be used to accelerate inference on transformer models
-with sparse weights by taking advantage of the 2:4 structured sparsity pattern supported by TensorRT.</p>
-<p>This pass only supports HfModels. Please refer to <a class="reference internal" href="../../reference/pass.html#torch-trt-conversion"><span class="std std-ref">TorchTRTConversion</span></a> for more details on the types of transformers models supported.</p>
-<section id="example-configuration">
-<h3>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading">#</a></h3>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TorchTRTConversion&quot;</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-</section>
 </section>
 
 
@@ -464,27 +459,6 @@ with sparse weights by taking advantage of the 2:4 structured sparsity pattern s
             
             
               
-                <dialog id="pst-secondary-sidebar-modal"></dialog>
-                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
-
-
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#torchtrtconversion">TorchTRTConversion</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-configuration">Example Configuration</a></li>
-</ul>
-</li>
-</ul>
-  </nav></div>
-
-</div></div>
-              
             
           </div>
           <footer class="bd-footer-content">
@@ -508,7 +482,7 @@ with sparse weights by taking advantage of the 2:4 structured sparsity pattern s
 
   <p class="copyright">
     
-      © Copyright 2023-2025, Olive Dev team.
+      © Copyright 2023-2026, Olive Dev team.
       <br/>
     
   </p>

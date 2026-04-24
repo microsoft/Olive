@@ -76,7 +76,7 @@ for metric_name, eval_results in results.items():
     for sub_metric_name, sub_metric_result in eval_results.items():
         sub_metrics[m] = SubMetricResult(value=sub_metric_result, priority=-1, higher_is_better=True)
 
-    final_metric_results[metric_name] = MetricResult.parse_obj(sub_metrics)
+    final_metric_results[metric_name] = MetricResult.model_validate(sub_metrics)
 
 return flatten_metric_result(final_metric_results)
 ```

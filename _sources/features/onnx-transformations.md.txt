@@ -2100,6 +2100,166 @@ Two cases are supported:
 ```
 
 
+## NVIDIA ModelOpt Graph Surgeries
+
+`NVModelOptGraphSurgery` provides access to graph-level transformations from [NVIDIA ModelOpt](https://github.com/NVIDIA/TensorRT-Model-Optimizer). These surgeries are designed for optimizing LLM and encoder-decoder ONNX models for deployment with ONNX Runtime and TensorRT.
+
+Available surgery types:
+
+| Surgery | Description |
+|---------|-------------|
+| `replace-gqa` | Replace standard multi-head attention with ORT's GroupQueryAttention (GQA) operator |
+| `transpose-dq` | Transpose DequantizeLinear weights for column-major storage optimization |
+| `add-cross-kv` | Add cross-attention KV cache outputs to Whisper encoder models |
+| `convert-bf16` | Convert FP16 model initializers and I/O to BF16 |
+
+Please refer to [NVModelOptGraphSurgery](../reference/pass.rst#nvmodelopt_graph_surgery) for more details about the pass and its config parameters.
+
+### Replace Attention with GQA
+
+Replaces the native multi-head attention subgraph (Q/K/V projections, RoPE, KV cache, scaled dot-product attention) with ORT's fused `GroupQueryAttention` operator. Supports models exported via Optimum or similar tools.
+
+```json
+{
+    "type": "NVModelOptGraphSurgery",
+    "surgery_type": "replace-gqa",
+    "surgery_params": {
+        "hf_model_id": "meta-llama/Llama-2-7b-hf",
+        "max_seq_len": 4096,
+        "io_dtype": "float16"
+    }
+}
+```
+
+Key `surgery_params`:
+
+- `hf_model_id`: HuggingFace model ID (used to compute RoPE caches and read model config).
+- `max_seq_len`: Maximum sequence length for the KV cache.
+- `io_dtype`: I/O data type. Use `"float16"` or `"bfloat16"`. If `"bfloat16"` is specified and the model has FP16 initializers, they are automatically converted to BF16.
+
+### Transpose DequantizeLinear Weights
+
+Transposes quantized weight initializers feeding `DequantizeLinear` nodes and inserts a `Transpose` node before `MatMul`. This enables column-major weight storage for improved memory access patterns.
+
+```json
+{
+    "type": "NVModelOptGraphSurgery",
+    "surgery_type": "transpose-dq",
+    "surgery_params": {}
+}
+```
+
+### Add Cross-Attention KV to Encoder
+
+Adds cross-attention key/value cache outputs to a Whisper encoder model, making it compatible with ONNX Runtime GenAI pipelines.
+
+```json
+{
+    "type": "NVModelOptGraphSurgery",
+    "surgery_type": "add-cross-kv",
+    "surgery_params": {
+        "hf_model_id": "openai/whisper-large-v3-turbo"
+    }
+}
+```
+
+### Convert FP16 to BF16
+
+Standalone precision conversion from FP16 to BF16 for all model initializers and I/O tensors.
+
+```json
+{
+    "type": "NVModelOptGraphSurgery",
+    "surgery_type": "convert-bf16",
+    "surgery_params": {}
+}
+```
+
+### `RenameOutputDims`
+
+#### Description
+
+Renames a dimension in an output tensor's shape. Useful for restoring meaningful symbolic dimension names after graph transformations that may have changed them (e.g. after `OrtTransformersOptimization`).
+
+#### Configurations
+
+- `output_idx`: Index of the output tensor to modify.
+- `dim_idx`: Index of the dimension within the output's shape.
+- `dim_name`: New symbolic name for the dimension.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RenameOutputDims",
+            "output_idx": 0,
+            "dim_idx": 0,
+            "dim_name": "num_logical_patches"
+        }
+    ]
+}
+```
+
+### `RenameInputDims`
+
+#### Description
+
+Renames or promotes a dimension in an input tensor's shape to a named symbolic dimension. Useful when `torch.export` specializes a batch-like input dimension to a concrete value but ONNX Runtime needs to accept a variable-length tensor at inference time. The target input can be specified by name (preferred) or by index.
+
+#### Configurations
+
+- `dim_idx`: Index of the dimension within the input's shape.
+- `dim_name`: New symbolic name for the dimension.
+- `input_name` *(optional)*: Name of the input tensor to modify.
+- `input_idx` *(optional)*: Index of the input tensor to modify. Either `input_name` or `input_idx` must be provided.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RenameInputDims",
+            "input_name": "image_grid_thw",
+            "dim_idx": 0,
+            "dim_name": "num_images"
+        }
+    ]
+}
+```
+
+### `RemoveMemcpy`
+
+#### Description
+
+Removes `MemcpyToHost` and `MemcpyFromHost` nodes that are inserted by ORT's `OrtTransformersOptimization` pass when it pre-partitions a graph for a GPU execution provider. These nodes represent explicit GPU↔CPU data copies for tensors whose consumers require CPU memory (e.g. shape arguments to `Reshape`, start/end for `Slice`, trip counts for `Loop`).
+
+Removing them is safe because ORT's runtime `MemcpyTransformer` will re-insert only the truly necessary copies when the session is created. The runtime also has a `GetCpuPreferredNodes` heuristic that may keep entire shape-computation subgraphs on CPU, potentially avoiding some copies entirely.
+
+The surgery processes both the main graph and all Loop/If subgraphs recursively. After removal the graph nodes are topologically re-sorted to satisfy the ONNX requirement that every input is produced before use.
+
+#### Configurations
+
+No parameters required.
+
+#### Example
+
+```json
+{
+    "type": "GraphSurgeries",
+    "surgeries": [
+        {
+            "surgeon": "RemoveMemcpy"
+        }
+    ]
+}
+```
+
+
 ## ORT Performance Tuning
 
 ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution

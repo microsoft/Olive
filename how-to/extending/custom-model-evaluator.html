@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>How to Add Custom Model Evaluator &#8212; Olive 0.11.0 documentation</title>
+    <title>How to Add Custom Model Evaluator &#8212; Olive latest documentation</title>
   
   
   
@@ -44,8 +44,8 @@
 
     <script src="../../_static/jquery.js?v=5d32c60e"></script>
     <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-    <script src="../../_static/documentation_options.js?v=f3b36f1a"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/documentation_options.js?v=c6e86fd7"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
@@ -54,7 +54,7 @@
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://microsoft.github.io/Olive/_static/versions.json';
-        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.11.0';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'latest';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             true;
         </script>
@@ -64,7 +64,7 @@
     <link rel="prev" title="How to Add a New Task or Diffusers Component for ONNX Export" href="how-to-add-new-task.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="0.11.0" />
+  <meta name="docsearch:version" content="latest" />
   </head>
   
   
@@ -126,7 +126,7 @@
   
   
   
-    <p class="title logo__title">Olive 0.11.0 documentation</p>
+    <p class="title logo__title">Olive latest documentation</p>
   
 </a></div>
     
@@ -185,6 +185,13 @@
 <li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../../blogs/index.html">
     Blogs
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../privacy.html">
+    Privacy
   </a>
 </li>
 
@@ -310,6 +317,13 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="../../blogs/index.html">
     Blogs
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../privacy.html">
+    Privacy
   </a>
 </li>
 
@@ -475,7 +489,7 @@
     <span class="k">for</span> <span class="n">sub_metric_name</span><span class="p">,</span> <span class="n">sub_metric_result</span> <span class="ow">in</span> <span class="n">eval_results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="n">sub_metrics</span><span class="p">[</span><span class="n">m</span><span class="p">]</span> <span class="o">=</span> <span class="n">SubMetricResult</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">sub_metric_result</span><span class="p">,</span> <span class="n">priority</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">higher_is_better</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">final_metric_results</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">sub_metrics</span><span class="p">)</span>
+    <span class="n">final_metric_results</span><span class="p">[</span><span class="n">metric_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">sub_metrics</span><span class="p">)</span>
 
 <span class="k">return</span> <span class="n">flatten_metric_result</span><span class="p">(</span><span class="n">final_metric_results</span><span class="p">)</span>
 </pre></div>
@@ -541,7 +555,7 @@
 
   <p class="copyright">
     
-      © Copyright 2023-2025, Olive Dev team.
+      © Copyright 2023-2026, Olive Dev team.
       <br/>
     
   </p>
