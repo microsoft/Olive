@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib.util
 from functools import partial
 from types import FunctionType
 from typing import ClassVar
@@ -478,3 +479,34 @@ class TestOliveEvaluatorConfig:
             OliveEvaluatorConfig.from_json({"type": "test_evaluator"})
 
         registry_get_mock.assert_called_once_with("test_evaluator")
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("lm_eval") is None,
+    reason="lm_eval not installed",
+)
+class TestLMEvaluatorModelClass:
+    """Verify LMEvaluator dispatches to the lm-eval model backend matching model_class."""
+
+    @pytest.mark.parametrize("model_class", ["ort", "ortgenai"])
+    @patch("lm_eval.utils.setup_logging")
+    @patch("lm_eval.tasks.TaskManager")
+    @patch("lm_eval.simple_evaluate")
+    @patch("lm_eval.api.registry.get_model")
+    def test_lm_evaluator_dispatches_to_requested_backend(
+        self, get_model_mock, simple_evaluate_mock, _task_manager_mock, _setup_logging_mock, model_class
+    ):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        simple_evaluate_mock.return_value = {"results": {}}
+        get_model_mock.return_value = MagicMock(return_value=MagicMock())
+
+        evaluator = LMEvaluator(tasks=["arc_easy"], model_class=model_class, batch_size=1, max_length=128)
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = "/tmp/model.onnx"
+
+        evaluator.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
+
+        get_model_mock.assert_called_once_with(model_class)
