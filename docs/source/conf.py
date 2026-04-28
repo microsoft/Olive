@@ -18,8 +18,8 @@ sys.path.append(os.path.abspath("exts"))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "Olive"
-copyright = "2023-2025, Olive Dev team"
-version = "latest"
+copyright = "2023-2026, Olive Dev team"
+version = "0.12.1"
 release = version
 
 # -- General configuration ---------------------------------------------------
@@ -100,7 +100,7 @@ html_theme_options = {
         "**": ["page-toc"],
     },
     "switcher": {
-        "json_url": "https://microsoft.github.io/Olive/_static/versions.json",
+        "json_url": "./_static/versions.json",
         "version_match": version,
     },
 }
