@@ -98,7 +98,7 @@ class TestWeightQuantizer:
         quantizer = WeightQuantizer(bits=4, symmetric=True, group_size=32)
         shape = (64, 100)  # 100 is not divisible by 32
 
-        with pytest.raises(AssertionError, match="in_features .* must be divisible by group_size"):
+        with pytest.raises(AssertionError, match=r"in_features .* must be divisible by group_size"):
             quantizer.get_num_groups(shape)
 
     @pytest.mark.parametrize("group_size", [0, 16, -1])

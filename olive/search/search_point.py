@@ -8,8 +8,6 @@ from typing import Any
 
 from olive.search.search_parameter import SpecialParamValue
 
-# ruff: noqa: PD011
-
 
 @dataclass
 class SearchPoint:
@@ -45,6 +43,8 @@ class SearchPoint:
         return (
             (self.index == other.index) and (self.values == other.values) if isinstance(other, SearchPoint) else False
         )
+
+    __hash__ = None  # type: ignore[assignment]
 
     def is_valid(self) -> bool:
         """Return true if none of the value in the hierarchy is invalid."""

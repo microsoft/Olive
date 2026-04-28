@@ -688,3 +688,136 @@ def test_benchmark_command_onnxmodel(mock_run, tmp_path):
     assert config["evaluators"]["evaluator"]["max_length"] == 1024
     assert config["evaluators"]["evaluator"]["limit"] == 16
     assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+def test_benchmark_command_onnxmodel_with_ort_backend(mock_run, tmp_path):
+    from test.utils import ONNX_MODEL_PATH
+
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        str(ONNX_MODEL_PATH),
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "ort",
+    ]
+
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["evaluators"]["evaluator"]["model_class"] == "ort"
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+def test_benchmark_command_onnxmodel_with_ortgenai_backend(mock_run, tmp_path):
+    from test.utils import ONNX_MODEL_PATH
+
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        str(ONNX_MODEL_PATH),
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "ortgenai",
+    ]
+
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["evaluators"]["evaluator"]["model_class"] == "ortgenai"
+    assert mock_run.call_count == 1
+
+
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_benchmark_command_non_onnx_model_with_backend_option_raises(_, tmp_path):
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        "dummy-model-id",
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "ortgenai",
+    ]
+
+    with pytest.raises(ValueError, match="--backend is only supported for ONNX input models"):
+        cli_main(command_args)
+
+
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_benchmark_command_non_onnx_model_with_ort_backend_raises(_, tmp_path):
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        "dummy-model-id",
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "ort",
+    ]
+
+    with pytest.raises(ValueError, match="--backend is only supported for ONNX input models"):
+        cli_main(command_args)
+
+
+@patch("olive.workflows.run")
+def test_benchmark_command_onnxmodel_with_auto_backend(mock_run, tmp_path):
+    from test.utils import ONNX_MODEL_PATH
+
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        str(ONNX_MODEL_PATH),
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "auto",
+    ]
+
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert "model_class" not in config["evaluators"]["evaluator"]
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_benchmark_command_hfmodel_with_auto_backend(_, mock_run, tmp_path):
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        "dummy-model-id",
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "auto",
+    ]
+
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert "model_class" not in config["evaluators"]["evaluator"]
+    assert mock_run.call_count == 1
