@@ -592,17 +592,25 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         results = []
         for request in requests:
             context = request.args[0]
-            gen_kwargs = request.args[1]
+            gen_kwargs = request.args[1] if len(request.args) > 1 and isinstance(request.args[1], dict) else {}
 
             # Extract stop sequences
             until = gen_kwargs.get("until", [])
             if isinstance(until, str):
                 until = [until]
+            elif until is None:
+                until = []
+            elif not isinstance(until, list):
+                until = [until]
+            until = [stop_seq for stop_seq in until if isinstance(stop_seq, str) and stop_seq]
 
             # Extract generation parameters
-            max_gen_toks = gen_kwargs.get(
-                "max_gen_toks", gen_kwargs.get("max_new_tokens", gen_kwargs.get("max_tokens", 256))
-            )
+            max_gen_toks = gen_kwargs.get("max_gen_toks", gen_kwargs.get("max_new_tokens", gen_kwargs.get("max_tokens")))
+            try:
+                max_gen_toks = int(max_gen_toks) if max_gen_toks is not None else 256
+            except (TypeError, ValueError):
+                max_gen_toks = 256
+            max_gen_toks = max(max_gen_toks, 0)
             temperature = gen_kwargs.get("temperature", 0.0)
             do_sample = gen_kwargs.get("do_sample", temperature > 0)
 
@@ -632,7 +640,6 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
 
             generated_ids = []
             generated_text = ""
-            stop_found = False
 
             while not generator.is_done():
                 generator.generate_next_token()
@@ -643,17 +650,17 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                     break
 
                 generated_ids.append(new_token)
-                generated_text = self.tokenizer.decode(generated_ids)
+                generated_text += self.tokenizer.decode([new_token])
 
                 # Check stop sequences against generated text
+                earliest_stop_idx = None
                 for stop_seq in until:
-                    if stop_seq in generated_text:
-                        # Trim at the stop sequence
-                        generated_text = generated_text[: generated_text.index(stop_seq)]
-                        stop_found = True
-                        break
+                    stop_idx = generated_text.find(stop_seq)
+                    if stop_idx != -1 and (earliest_stop_idx is None or stop_idx < earliest_stop_idx):
+                        earliest_stop_idx = stop_idx
 
-                if stop_found:
+                if earliest_stop_idx is not None:
+                    generated_text = generated_text[:earliest_stop_idx]
                     break
 
             results.append(generated_text)

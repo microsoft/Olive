@@ -626,7 +626,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         evaluator.tokenizer = MagicMock()
         evaluator.tokenizer.encode.return_value = self._mock_encode([1, 100])
 
-        evaluator.tokenizer.decode.side_effect = ["he", "hel", "hello\n world"]
+        evaluator.tokenizer.decode.side_effect = ["he", "l", "lo\n world"]
 
         mock_generator = MagicMock()
         mock_generator.is_done.side_effect = [False, False, False, False]
@@ -727,3 +727,93 @@ class TestLMEvalORTGenAIGenerateUntil:
 
             # Should still find the stop sequence (string was converted to list)
             assert "\n" not in results[0]
+
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_uses_earliest_stop_match(self, mock_params_cls, mock_gen_cls):
+        """Test that stop trimming uses earliest occurrence across all stop sequences."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator._eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1, 100])
+        evaluator.tokenizer.decode.return_value = "hello\nworld<END>"
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.side_effect = [False, False]
+        mock_generator.get_sequence.return_value = MagicMock(__getitem__=lambda s, k: 50)
+        mock_gen_cls.return_value = mock_generator
+
+        request = self._make_mock_request("prompt", {"until": ["<END>", "\n"], "max_gen_toks": 256})
+
+        results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        assert len(results) == 1
+        assert results[0] == "hello"
+
+    @pytest.mark.parametrize(
+        ("gen_kwargs", "expected_max_length"),
+        [
+            (None, 261),  # default 256 when gen_kwargs is not a dict
+            ({"max_gen_toks": "7"}, 12),  # parse numeric string
+            ({"max_new_tokens": "bad"}, 261),  # invalid value falls back to default
+            ({"max_tokens": -8}, 5),  # clamp negative to zero
+        ],
+    )
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_parses_max_tokens_robustly(
+        self, mock_params_cls, mock_gen_cls, gen_kwargs, expected_max_length
+    ):
+        """Test robust parsing and clamping of max token kwargs."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator._eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1, 2, 3, 4, 5])  # 5-token prompt
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.return_value = True
+        mock_gen_cls.return_value = mock_generator
+
+        request = self._make_mock_request("prompt", gen_kwargs)
+        LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        call_kwargs = mock_params_cls.return_value.set_search_options.call_args[1]
+        assert call_kwargs["max_length"] == expected_max_length
+
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_decodes_incrementally(self, mock_params_cls, mock_gen_cls):
+        """Test generation decodes only new tokens while preserving output."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator._eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1, 100])
+        evaluator.tokenizer.decode.side_effect = ["he", "llo"]
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.side_effect = [False, False, False]
+        mock_generator.get_sequence.side_effect = [
+            MagicMock(__getitem__=lambda s, k: 11),
+            MagicMock(__getitem__=lambda s, k: 12),
+            MagicMock(__getitem__=lambda s, k: 2),  # EOS
+        ]
+        mock_gen_cls.return_value = mock_generator
+
+        request = self._make_mock_request("prompt", {"until": []})
+        results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        assert results == ["hello"]
+        decode_inputs = [call.args[0] for call in evaluator.tokenizer.decode.call_args_list]
+        assert decode_inputs == [[11], [12]]
