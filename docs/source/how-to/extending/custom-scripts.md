@@ -36,7 +36,7 @@ class MyDataLoader:
 
 @Registry.register_dataloader()
 def my_dataloader(dataset, batch_size):
-    return MyDataloader(dataset, batch_size)
+    return MyDataLoader(dataset, batch_size)
 
 @Registry.register_post_process()
 def my_post_process(output):
