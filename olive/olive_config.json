@@ -205,6 +205,15 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "MobiusModelBuilder": {
+            "module_path": "olive.passes.onnx.mobius_model_builder.MobiusModelBuilder",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "fp32", "fp16", "bf16" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "extra_dependencies": [ "mobius-ai", "onnx-ir" ]
+        },
         "LoftQ": {
             "module_path": "olive.passes.pytorch.lora.LoftQ",
             "supported_providers": [ "*" ],
@@ -682,6 +691,8 @@
         "inc": [ "neural-compressor" ],
         "lora": [ "accelerate>=0.30.0", "peft", "scipy" ],
         "diffusers": [ "accelerate>=0.30.0", "peft", "diffusers" ],
+        "mobius-ai": [ "mobius-ai" ],
+        "onnx-ir": [ "onnx-ir" ],
         "nvmo": [ "nvidia-modelopt[onnx]" ],
         "openvino": [
             "openvino>=2025.4.1",
