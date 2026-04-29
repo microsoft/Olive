@@ -190,7 +190,10 @@ class LMEvalOnnxBase(TemplateLM):
         raise NotImplementedError("Yet to be implemented!")
 
     def generate_until(self, requests, disable_tqdm: bool = False) -> list[str]:
-        raise NotImplementedError("Yet to be implemented!")
+        raise NotImplementedError(
+            "generate_until is not supported by this model backend. "
+            "Use model_class='ortgenai' for generative tasks such as MBPP or HumanEval."
+        )
 
 
 @register_model("ort")
@@ -509,7 +512,14 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 self.max_length = max_length
             else:
                 self.max_length = genai_config["search"]["max_length"]
-            self._eot_token_id = genai_config["model"]["eos_token_id"]
+            eos = genai_config["model"]["eos_token_id"]
+            # eos_token_id can be a single int or a list of ints
+            if isinstance(eos, list):
+                self._eot_token_id = eos[0]
+                self._eos_token_ids = set(eos)
+            else:
+                self._eot_token_id = eos
+                self._eos_token_ids = {eos}
         self.params = og.GeneratorParams(self.model)
         self.params.set_search_options(max_length=self.max_length, past_present_share_buffer=False)
 
@@ -572,6 +582,87 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         # ctx_len = inplen + (logits.shape[0] - padding_len_inp), which adjusts for the shorter
         # seq dimension so the continuation slice still lands on the correct positions.
         return torch.cat(all_logits, dim=1)  # [batch, n_logits, vocab]
+
+    def generate_until(self, requests, disable_tqdm: bool = False) -> list[str]:
+        """Generate text until a stop sequence is found or max tokens reached.
+
+        Supports generative evaluation tasks such as MBPP and HumanEval.
+        Each request is a tuple of (context_string, gen_kwargs_dict).
+        """
+        results = []
+        for request in requests:
+            context = request.args[0]
+            gen_kwargs = request.args[1]
+
+            # Extract stop sequences
+            until = gen_kwargs.get("until", [])
+            if isinstance(until, str):
+                until = [until]
+
+            # Extract generation parameters
+            max_gen_toks = gen_kwargs.get(
+                "max_gen_toks", gen_kwargs.get("max_new_tokens", gen_kwargs.get("max_tokens", 256))
+            )
+            temperature = gen_kwargs.get("temperature", 0.0)
+            do_sample = gen_kwargs.get("do_sample", temperature > 0)
+
+            # Tokenize the prompt
+            prompt_ids = self.tokenizer.encode(context).tolist()
+            prompt_len = len(prompt_ids)
+
+            # Compute total max_length: prompt + new tokens, capped by model limit
+            total_max_length = min(prompt_len + max_gen_toks, self.max_length)
+
+            # Create fresh generator params per request to avoid state leakage
+            params = og.GeneratorParams(self.model)
+            search_options = {
+                "max_length": total_max_length,
+                "past_present_share_buffer": False,
+                "batch_size": 1,
+            }
+            if do_sample:
+                search_options["temperature"] = temperature
+            else:
+                search_options["temperature"] = 0.0
+            params.set_search_options(**search_options)
+
+            # Run generation token by token to check for stop sequences
+            generator = og.Generator(self.model, params)
+            generator.append_tokens([prompt_ids])
+
+            generated_ids = []
+            generated_text = ""
+            stop_found = False
+
+            while not generator.is_done():
+                generator.generate_next_token()
+                new_token = generator.get_sequence(0)[-1]
+
+                # Check for EOS token(s)
+                if new_token in self._eos_token_ids:
+                    break
+
+                generated_ids.append(new_token)
+                generated_text = self.tokenizer.decode(generated_ids)
+
+                # Check stop sequences against generated text
+                for stop_seq in until:
+                    if stop_seq in generated_text:
+                        # Trim at the stop sequence
+                        generated_text = generated_text[: generated_text.index(stop_seq)]
+                        stop_found = True
+                        break
+
+                if stop_found:
+                    break
+
+            results.append(generated_text)
+
+            # lm-eval cache hook
+            if hasattr(request, "cache_hook") and request.cache_hook is not None:
+                request.cache_hook.add_partial("generate_until", request.args, generated_text)
+
+        return results
 
     def complete(self):
         pass

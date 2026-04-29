@@ -510,3 +510,220 @@ class TestLMEvaluatorModelClass:
         evaluator.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
 
         get_model_mock.assert_called_once_with(model_class)
+
+    @patch("lm_eval.utils.setup_logging")
+    @patch("lm_eval.tasks.TaskManager")
+    @patch("lm_eval.simple_evaluate")
+    @patch("lm_eval.api.registry.get_model")
+    def test_lm_evaluator_passes_confirm_run_unsafe_code(
+        self, get_model_mock, simple_evaluate_mock, _task_manager_mock, _setup_logging_mock
+    ):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        simple_evaluate_mock.return_value = {"results": {}}
+        get_model_mock.return_value = MagicMock(return_value=MagicMock())
+
+        evaluator = LMEvaluator(
+            tasks=["mbpp"], model_class="ortgenai", batch_size=1, max_length=128, confirm_run_unsafe_code=True
+        )
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = "/tmp/model.onnx"
+
+        evaluator.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
+
+        # Verify confirm_run_unsafe_code=True was passed to simple_evaluate
+        call_kwargs = simple_evaluate_mock.call_args[1]
+        assert call_kwargs["confirm_run_unsafe_code"] is True
+
+    @patch("lm_eval.utils.setup_logging")
+    @patch("lm_eval.tasks.TaskManager")
+    @patch("lm_eval.simple_evaluate")
+    @patch("lm_eval.api.registry.get_model")
+    def test_lm_evaluator_confirm_run_unsafe_code_defaults_false(
+        self, get_model_mock, simple_evaluate_mock, _task_manager_mock, _setup_logging_mock
+    ):
+        from olive.evaluator.olive_evaluator import LMEvaluator
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        simple_evaluate_mock.return_value = {"results": {}}
+        get_model_mock.return_value = MagicMock(return_value=MagicMock())
+
+        evaluator = LMEvaluator(tasks=["arc_easy"], model_class="ort", batch_size=1, max_length=128)
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = "/tmp/model.onnx"
+
+        evaluator.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
+
+        # Verify confirm_run_unsafe_code defaults to False
+        call_kwargs = simple_evaluate_mock.call_args[1]
+        assert call_kwargs["confirm_run_unsafe_code"] is False
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("lm_eval") is None or importlib.util.find_spec("onnxruntime_genai") is None,
+    reason="lm_eval or onnxruntime_genai not installed",
+)
+class TestLMEvalORTGenAIGenerateUntil:
+    """Unit tests for LMEvalORTGenAIEvaluator.generate_until."""
+
+    def _make_mock_request(self, context, gen_kwargs):
+        """Create a mock lm-eval Request object."""
+        req = MagicMock()
+        req.args = (context, gen_kwargs)
+        req.cache_hook = MagicMock()
+        return req
+
+    def _mock_encode(self, ids):
+        """Return a mock that behaves like tokenizer.encode() output (has .tolist())."""
+        import numpy as np
+
+        return np.array(ids)
+
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_stops_on_eos(self, mock_params_cls, mock_gen_cls):
+        """Test that generation stops when EOS token is produced."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator._eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1, 100, 200])  # 3-token prompt
+        evaluator.tokenizer.decode.return_value = "hello"
+
+        # Generator produces one token then EOS
+        mock_generator = MagicMock()
+        mock_generator.is_done.side_effect = [False, False]
+        mock_generator.get_sequence.side_effect = [
+            MagicMock(__getitem__=lambda s, k: 50),  # first token
+            MagicMock(__getitem__=lambda s, k: 2),  # EOS
+        ]
+        mock_gen_cls.return_value = mock_generator
+
+        request = self._make_mock_request("def foo():", {"until": ["\n"], "max_gen_toks": 100})
+
+        results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        assert len(results) == 1
+        # After EOS on second token, only first token was appended → decode called once
+        assert results[0] == "hello"
+
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_stops_on_stop_sequence(self, mock_params_cls, mock_gen_cls):
+        """Test that generation stops and trims at stop sequence."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator._eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1, 100])
+
+        evaluator.tokenizer.decode.side_effect = ["he", "hel", "hello\n world"]
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.side_effect = [False, False, False, False]
+        mock_generator.get_sequence.side_effect = [
+            MagicMock(__getitem__=lambda s, k: 50),
+            MagicMock(__getitem__=lambda s, k: 51),
+            MagicMock(__getitem__=lambda s, k: 52),
+        ]
+        mock_gen_cls.return_value = mock_generator
+
+        request = self._make_mock_request("prompt", {"until": ["\n"], "max_gen_toks": 256})
+
+        results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        assert len(results) == 1
+        assert results[0] == "hello"  # trimmed at \n
+
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_respects_max_length(self, mock_params_cls, mock_gen_cls):
+        """Test that total_max_length = min(prompt_len + max_gen_toks, max_length)."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator._eos_token_ids = {2}
+        evaluator.max_length = 50  # Small model limit
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode(list(range(40)))  # 40-token prompt
+        evaluator.tokenizer.decode.return_value = "x"
+
+        # Generator immediately done (max_length reached)
+        mock_generator = MagicMock()
+        mock_generator.is_done.return_value = True
+        mock_gen_cls.return_value = mock_generator
+
+        request = self._make_mock_request("long prompt", {"until": ["\n"], "max_gen_toks": 100})
+
+        LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        # Verify search options set max_length = min(40+100, 50) = 50
+        set_search_call = mock_params_cls.return_value.set_search_options
+        call_kwargs = set_search_call.call_args[1]
+        assert call_kwargs["max_length"] == 50
+
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_handles_multiple_eos_tokens(self, mock_params_cls, mock_gen_cls):
+        """Test that any token in _eos_token_ids triggers stop."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator._eos_token_ids = {2, 151645, 151643}  # Multiple EOS like Qwen
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1, 100])
+        evaluator.tokenizer.decode.return_value = "result"
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.side_effect = [False, False]
+        # Second EOS token in the set triggers stop
+        mock_generator.get_sequence.side_effect = [
+            MagicMock(__getitem__=lambda s, k: 50),
+            MagicMock(__getitem__=lambda s, k: 151643),  # alternate EOS
+        ]
+        mock_gen_cls.return_value = mock_generator
+
+        request = self._make_mock_request("prompt", {"until": [], "max_gen_toks": 256})
+
+        results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        assert len(results) == 1
+        assert results[0] == "result"
+
+    def test_generate_until_until_string_converted_to_list(self):
+        """Test that a string 'until' value is converted to a list."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator._eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1])
+        evaluator.tokenizer.decode.return_value = "x\n"
+
+        with patch("onnxruntime_genai.GeneratorParams"), patch("onnxruntime_genai.Generator") as mock_gen_cls:
+            mock_generator = MagicMock()
+            mock_generator.is_done.side_effect = [False, False]
+            mock_generator.get_sequence.return_value = MagicMock(__getitem__=lambda s, k: 50)
+            mock_gen_cls.return_value = mock_generator
+
+            # Pass until as string, not list
+            request = self._make_mock_request("p", {"until": "\n", "max_gen_toks": 10})
+
+            results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+            # Should still find the stop sequence (string was converted to list)
+            assert "\n" not in results[0]
