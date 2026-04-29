@@ -76,6 +76,13 @@ class BenchmarkCommand(BaseOliveCLICommand):
             help="Backend for ONNX model evaluation. Use 'auto' to infer backend from model type.",
         )
 
+        lmeval_group.add_argument(
+            "--confirm_run_unsafe_code",
+            action="store_true",
+            default=False,
+            help="Allow running tasks that execute model-generated code (e.g., MBPP, HumanEval).",
+        )
+
         add_logging_options(sub_parser)
         add_save_config_file_options(sub_parser)
         add_shared_cache_options(sub_parser)
@@ -116,6 +123,10 @@ class BenchmarkCommand(BaseOliveCLICommand):
             (
                 ("evaluators", "evaluator", "model_class"),
                 None if self.args.backend == "auto" else self.args.backend,
+            ),
+            (
+                ("evaluators", "evaluator", "confirm_run_unsafe_code"),
+                self.args.confirm_run_unsafe_code or None,
             ),
         ]
 

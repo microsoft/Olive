@@ -1029,6 +1029,7 @@ class LMEvaluator(OliveEvaluator):
         self.ep = kwargs.get("execution_provider")
         self.ep_options = kwargs.get("provider_options")
         self.device = kwargs.get("device")
+        self.confirm_run_unsafe_code = kwargs.get("confirm_run_unsafe_code", False)
 
     def evaluate(
         self,
@@ -1108,6 +1109,7 @@ class LMEvaluator(OliveEvaluator):
                 batch_size=self.batch_size,
                 device=device,
                 limit=self.limit,
+                confirm_run_unsafe_code=self.confirm_run_unsafe_code,
             )
 
             for task_name in sorted(results["results"].keys()):
