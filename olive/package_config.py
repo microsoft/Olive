@@ -57,7 +57,7 @@ class OlivePackageConfig(ConfigBase):
 
     def get_pass_module_config(self, pass_type: str) -> PassModuleConfig:
         if "." in pass_type:
-            _, module_name = pass_type.rsplit
+            _, module_name = pass_type.rsplit(".", 1)
             return self.get_pass_module_config(module_name)
 
         pass_type = pass_type.lower()
