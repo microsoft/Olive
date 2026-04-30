@@ -607,7 +607,9 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             until = [stop_seq for stop_seq in until if isinstance(stop_seq, str) and stop_seq]
 
             # Extract generation parameters
-            max_gen_toks = gen_kwargs.get("max_gen_toks", gen_kwargs.get("max_new_tokens", gen_kwargs.get("max_tokens")))
+            max_gen_toks = gen_kwargs.get(
+                "max_gen_toks", gen_kwargs.get("max_new_tokens", gen_kwargs.get("max_tokens"))
+            )
             try:
                 max_gen_toks = int(max_gen_toks) if max_gen_toks is not None else 256
             except (TypeError, ValueError):
@@ -673,7 +675,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 # Maintain a character-based tail of exactly max_stop_len + len(chunk) chars
                 # so stop sequences that span chunk boundaries are never missed.
                 if until:
-                    tail = (tail + chunk)[-(max_stop_len + len(chunk)):]
+                    tail = (tail + chunk)[-(max_stop_len + len(chunk)) :]
                     tail_offset = generated_len - len(tail)
                     earliest = None
                     for stop_seq in until:

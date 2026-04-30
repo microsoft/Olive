@@ -839,10 +839,10 @@ class TestLMEvalORTGenAIGenerateUntil:
     @pytest.mark.parametrize(
         ("temperature_val", "expect_do_sample"),
         [
-            ("0.7", True),   # string float should be coerced
-            (None, False),   # None should fall back to 0.0
-            (0.0, False),    # zero means greedy
-            (0.5, True),     # normal float
+            ("0.7", True),  # string float should be coerced
+            (None, False),  # None should fall back to 0.0
+            (0.0, False),  # zero means greedy
+            (0.5, True),  # normal float
         ],
     )
     @patch("onnxruntime_genai.Generator")
