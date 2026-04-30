@@ -515,6 +515,8 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             eos = genai_config["model"]["eos_token_id"]
             # eos_token_id can be a single int or a list of ints
             if isinstance(eos, list):
+                if not eos:
+                    raise ValueError("genai_config model.eos_token_id must not be an empty list")
                 self._eot_token_id = eos[0]
                 self.eos_token_ids = set(eos)
             else:
@@ -621,6 +623,13 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             # Compute total max_length: prompt + new tokens, capped by model limit
             total_max_length = min(prompt_len + max_gen_toks, self.max_length)
 
+            # If the prompt already fills or exceeds the model limit, no generation is possible.
+            if prompt_len >= self.max_length or max_gen_toks == 0:
+                results.append("")
+                if hasattr(request, "cache_hook") and request.cache_hook is not None:
+                    request.cache_hook.add_partial("generate_until", request.args, "")
+                continue
+
             # Create fresh generator params per request to avoid state leakage
             params = og.GeneratorParams(self.model)
             search_options = {
@@ -639,7 +648,9 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             generator.append_tokens([prompt_ids])
 
             generated_chunks = []
-            generated_text = ""
+            stop_idx = None
+            # Tail buffer wide enough to detect any stop sequence across chunk boundaries
+            max_stop_len = max((len(s) for s in until), default=0)
 
             while not generator.is_done():
                 generator.generate_next_token()
@@ -649,19 +660,25 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 if new_token in self.eos_token_ids:
                     break
 
-                generated_chunks.append(self.tokenizer.decode([new_token]))
-                generated_text = "".join(generated_chunks)
+                chunk = self.tokenizer.decode([new_token])
+                generated_chunks.append(chunk)
 
-                # Check stop sequences against generated text
-                earliest_stop_idx = None
-                for stop_seq in until:
-                    stop_idx = generated_text.find(stop_seq)
-                    if stop_idx != -1 and (earliest_stop_idx is None or stop_idx < earliest_stop_idx):
-                        earliest_stop_idx = stop_idx
+                # Check stop sequences against a tail window to avoid O(n²) full join
+                if until:
+                    tail = "".join(generated_chunks[-(max_stop_len + 1) :]) if max_stop_len else ""
+                    tail_offset = len("".join(generated_chunks)) - len(tail)
+                    earliest = None
+                    for stop_seq in until:
+                        idx = tail.find(stop_seq)
+                        if idx != -1:
+                            abs_idx = tail_offset + idx
+                            if earliest is None or abs_idx < earliest:
+                                earliest = abs_idx
+                    if earliest is not None:
+                        stop_idx = earliest
+                        break
 
-                if earliest_stop_idx is not None:
-                    generated_text = generated_text[:earliest_stop_idx]
-                    break
+            generated_text = "".join(generated_chunks) if stop_idx is None else "".join(generated_chunks)[:stop_idx]
 
             results.append(generated_text)
 

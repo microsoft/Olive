@@ -760,7 +760,6 @@ class TestLMEvalORTGenAIGenerateUntil:
             (None, 261),  # default 256 when gen_kwargs is not a dict
             ({"max_gen_toks": "7"}, 12),  # parse numeric string
             ({"max_new_tokens": "bad"}, 261),  # invalid value falls back to default
-            ({"max_tokens": -8}, 5),  # clamp negative to zero
         ],
     )
     @patch("onnxruntime_genai.Generator")
@@ -787,6 +786,25 @@ class TestLMEvalORTGenAIGenerateUntil:
 
         call_kwargs = mock_params_cls.return_value.set_search_options.call_args[1]
         assert call_kwargs["max_length"] == expected_max_length
+
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_returns_empty_when_max_gen_toks_zero(self, mock_params_cls, mock_gen_cls):
+        """Test that clamping a negative max_tokens to zero returns an empty completion immediately."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator.eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1, 2, 3, 4, 5])  # 5-token prompt
+
+        request = self._make_mock_request("prompt", {"max_tokens": -8})
+        results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        assert results == [""]
+        mock_gen_cls.assert_not_called()  # generator should never be created
 
     @patch("onnxruntime_genai.Generator")
     @patch("onnxruntime_genai.GeneratorParams")
