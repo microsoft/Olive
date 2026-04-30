@@ -1112,7 +1112,13 @@ class LMEvaluator(OliveEvaluator):
                 "limit": self.limit,
             }
             # Only pass confirm_run_unsafe_code when the installed lm-eval version supports it.
-            if "confirm_run_unsafe_code" in inspect.signature(simple_evaluate).parameters:
+            try:
+                supports_confirm_run_unsafe_code = (
+                    "confirm_run_unsafe_code" in inspect.signature(simple_evaluate).parameters
+                )
+            except (TypeError, ValueError):
+                supports_confirm_run_unsafe_code = False
+            if supports_confirm_run_unsafe_code:
                 simple_evaluate_kwargs["confirm_run_unsafe_code"] = self.confirm_run_unsafe_code
             results = simple_evaluate(**simple_evaluate_kwargs)
 

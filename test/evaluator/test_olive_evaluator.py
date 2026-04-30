@@ -636,8 +636,8 @@ class TestLMEvaluatorModelClass:
 
 
 @pytest.mark.skipif(
-    importlib.util.find_spec("lm_eval") is None or importlib.util.find_spec("onnxruntime_genai") is None,
-    reason="lm_eval or onnxruntime_genai not installed",
+    importlib.util.find_spec("lm_eval") is None,
+    reason="lm_eval not installed",
 )
 class TestLMEvalORTGenAIGenerateUntil:
     """Unit tests for LMEvalORTGenAIEvaluator.generate_until."""
@@ -1017,3 +1017,28 @@ class TestLMEvalORTGenAIGenerateUntil:
             assert call_kwargs["temperature"] > 0, f"Expected sampling for do_sample={do_sample_val!r}"
         else:
             assert call_kwargs["temperature"] == 0.0, f"Expected greedy for do_sample={do_sample_val!r}"
+
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_handles_tuple_until(self, mock_params_cls, mock_gen_cls):
+        """Until as a tuple must not be wrapped as a single element — each string is a stop sequence."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator.eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1, 100])
+        evaluator.tokenizer.decode.return_value = "hello\n world"
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.side_effect = [False, False]
+        mock_generator.get_sequence.return_value = MagicMock(__getitem__=lambda s, k: 50)
+        mock_gen_cls.return_value = mock_generator
+
+        # Pass until as a tuple — previously this would silently produce no stop enforcement
+        request = self._make_mock_request("prompt", {"until": ("\n",), "max_gen_toks": 256})
+        results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        assert results[0] == "hello", f"Expected stop at \\n but got: {results[0]!r}"

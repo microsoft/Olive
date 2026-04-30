@@ -126,7 +126,7 @@ class BenchmarkCommand(BaseOliveCLICommand):
             ),
             (
                 ("evaluators", "evaluator", "confirm_run_unsafe_code"),
-                self.args.confirm_run_unsafe_code or None,
+                self.args.confirm_run_unsafe_code,
             ),
         ]
 

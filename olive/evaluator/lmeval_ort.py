@@ -596,14 +596,17 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             context = request.args[0]
             gen_kwargs = request.args[1] if len(request.args) > 1 and isinstance(request.args[1], dict) else {}
 
-            # Extract stop sequences
+            # Extract stop sequences — normalise str/None/tuple/other-iterables to list[str]
             until = gen_kwargs.get("until", [])
             if isinstance(until, str):
                 until = [until]
             elif until is None:
                 until = []
             elif not isinstance(until, list):
-                until = [until]
+                try:
+                    until = list(until)  # handles tuple, set, generator, etc.
+                except TypeError:
+                    until = [until]  # non-iterable scalar fallback
             until = [stop_seq for stop_seq in until if isinstance(stop_seq, str) and stop_seq]
 
             # Extract generation parameters
