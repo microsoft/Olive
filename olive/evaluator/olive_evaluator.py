@@ -8,7 +8,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from functools import partial
+from functools import lru_cache, partial
 from numbers import Number
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Optional, Union
@@ -1017,6 +1017,15 @@ class QNNEvaluator(_OliveEvaluator):
         return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_chunk_size)
 
 
+@lru_cache(maxsize=1)
+def _simple_evaluate_supports_unsafe_code(simple_evaluate_fn) -> bool:
+    """Check (cached) whether lm-eval's simple_evaluate accepts confirm_run_unsafe_code."""
+    try:
+        return "confirm_run_unsafe_code" in inspect.signature(simple_evaluate_fn).parameters
+    except (TypeError, ValueError):
+        return False
+
+
 @Registry.register("LMEvaluator")
 class LMEvaluator(OliveEvaluator):
     def __init__(self, tasks: list[str], **kwargs):
@@ -1112,13 +1121,7 @@ class LMEvaluator(OliveEvaluator):
                 "limit": self.limit,
             }
             # Only pass confirm_run_unsafe_code when the installed lm-eval version supports it.
-            try:
-                supports_confirm_run_unsafe_code = (
-                    "confirm_run_unsafe_code" in inspect.signature(simple_evaluate).parameters
-                )
-            except (TypeError, ValueError):
-                supports_confirm_run_unsafe_code = False
-            if supports_confirm_run_unsafe_code:
+            if _simple_evaluate_supports_unsafe_code(simple_evaluate):
                 simple_evaluate_kwargs["confirm_run_unsafe_code"] = self.confirm_run_unsafe_code
             results = simple_evaluate(**simple_evaluate_kwargs)
 

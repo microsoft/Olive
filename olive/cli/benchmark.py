@@ -79,7 +79,7 @@ class BenchmarkCommand(BaseOliveCLICommand):
         lmeval_group.add_argument(
             "--confirm_run_unsafe_code",
             action="store_true",
-            default=False,
+            default=None,
             help="Allow running tasks that execute model-generated code (e.g., MBPP, HumanEval).",
         )
 
@@ -126,7 +126,7 @@ class BenchmarkCommand(BaseOliveCLICommand):
             ),
             (
                 ("evaluators", "evaluator", "confirm_run_unsafe_code"),
-                self.args.confirm_run_unsafe_code,
+                True if self.args.confirm_run_unsafe_code else None,
             ),
         ]
 

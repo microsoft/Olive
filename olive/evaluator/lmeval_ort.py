@@ -592,7 +592,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         Each request is a tuple of (context_string, gen_kwargs_dict).
         """
         results = []
-        for request in requests:
+        for request in tqdm(requests, desc="Running generate_until", disable=disable_tqdm):
             context = request.args[0]
             gen_kwargs = request.args[1] if len(request.args) > 1 and isinstance(request.args[1], dict) else {}
 
@@ -653,6 +653,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 "past_present_share_buffer": False,
             }
             if do_sample:
+                search_options["do_sample"] = True
                 search_options["temperature"] = temperature
             else:
                 search_options["temperature"] = 0.0

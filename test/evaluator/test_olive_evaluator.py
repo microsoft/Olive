@@ -974,8 +974,10 @@ class TestLMEvalORTGenAIGenerateUntil:
         call_kwargs = mock_params_cls.return_value.set_search_options.call_args[1]
         if expect_do_sample:
             assert call_kwargs["temperature"] > 0
+            assert call_kwargs.get("do_sample") is True
         else:
             assert call_kwargs["temperature"] == 0.0
+            assert "do_sample" not in call_kwargs
 
     @pytest.mark.parametrize(
         ("do_sample_val", "expect_sampling"),
@@ -1015,8 +1017,14 @@ class TestLMEvalORTGenAIGenerateUntil:
         call_kwargs = mock_params_cls.return_value.set_search_options.call_args[1]
         if expect_sampling:
             assert call_kwargs["temperature"] > 0, f"Expected sampling for do_sample={do_sample_val!r}"
+            assert call_kwargs.get("do_sample") is True, (
+                f"do_sample=True must be set in search_options for do_sample={do_sample_val!r}"
+            )
         else:
             assert call_kwargs["temperature"] == 0.0, f"Expected greedy for do_sample={do_sample_val!r}"
+            assert "do_sample" not in call_kwargs, (
+                f"do_sample must not be set when greedy for do_sample={do_sample_val!r}"
+            )
 
     @patch("onnxruntime_genai.Generator")
     @patch("onnxruntime_genai.GeneratorParams")
@@ -1042,3 +1050,67 @@ class TestLMEvalORTGenAIGenerateUntil:
         results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
 
         assert results[0] == "hello", f"Expected stop at \\n but got: {results[0]!r}"
+
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_processes_multiple_requests_independently(self, mock_params_cls, mock_gen_cls):
+        """Multiple requests must not share mutable state (tail, stop_found, token_ids)."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator.eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1])
+        # First request decodes to text with a stop; second decodes cleanly
+        evaluator.tokenizer.decode.side_effect = [
+            "\n",  # per-token tail for req 1 (stop sequence present)
+            "hello\n",  # full-sequence decode for req 1
+            "world",  # full-sequence decode for req 2 (no stop)
+        ]
+
+        mock_generator = MagicMock()
+        # Req 1: is_done=False → generates token 10 → stop seq found → break (no more is_done)
+        # Req 2: is_done=False → generates token 20 → is_done=True → exit loop
+        mock_generator.is_done.side_effect = [False, False, True]
+        mock_generator.get_sequence.side_effect = [
+            MagicMock(__getitem__=lambda s, k: 10),  # req 1 token
+            MagicMock(__getitem__=lambda s, k: 20),  # req 2 token
+        ]
+        mock_gen_cls.return_value = mock_generator
+
+        req1 = self._make_mock_request("p1", {"until": ["\n"], "max_gen_toks": 64})
+        req2 = self._make_mock_request("p2", {"until": [], "max_gen_toks": 64})
+        results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [req1, req2])
+
+        assert results[0] == "hello"  # trimmed at \n
+        assert results[1] == "world"  # no stop, full text
+
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_calls_cache_hook(self, mock_params_cls, mock_gen_cls):
+        """cache_hook.add_partial must be called with the final generated text."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator.eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1])
+        evaluator.tokenizer.decode.return_value = "hello"
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.side_effect = [False, False]
+        mock_generator.get_sequence.side_effect = [
+            MagicMock(__getitem__=lambda s, k: 10),
+            MagicMock(__getitem__=lambda s, k: 2),  # EOS
+        ]
+        mock_gen_cls.return_value = mock_generator
+
+        request = self._make_mock_request("prompt", {"until": [], "max_gen_toks": 64})
+        results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        assert results == ["hello"]
+        request.cache_hook.add_partial.assert_called_once_with("generate_until", request.args, "hello")
