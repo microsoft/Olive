@@ -789,6 +789,30 @@ class TestLMEvalORTGenAIGenerateUntil:
 
     @patch("onnxruntime_genai.Generator")
     @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_does_not_pass_batch_size_to_search_options(self, mock_params_cls, mock_gen_cls):
+        """batch_size is not a valid set_search_options kwarg for ORT GenAI — must never be passed."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator.eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1, 2])
+        evaluator.tokenizer.decode.return_value = "hello"
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.return_value = True
+        mock_gen_cls.return_value = mock_generator
+
+        request = self._make_mock_request("prompt", {"until": [], "max_gen_toks": 64})
+        LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        call_kwargs = mock_params_cls.return_value.set_search_options.call_args[1]
+        assert "batch_size" not in call_kwargs, f"batch_size must not be passed to set_search_options, got: {call_kwargs}"
+
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
     def test_generate_until_returns_empty_when_max_gen_toks_zero(self, mock_params_cls, mock_gen_cls):
         """Test that clamping a negative max_tokens to zero returns an empty completion immediately."""
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
