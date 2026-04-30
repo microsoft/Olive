@@ -640,7 +640,6 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             search_options = {
                 "max_length": total_max_length,
                 "past_present_share_buffer": False,
-                "batch_size": 1,
             }
             if do_sample:
                 search_options["temperature"] = temperature

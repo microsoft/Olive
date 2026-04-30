@@ -1101,16 +1101,24 @@ class LMEvaluator(OliveEvaluator):
         if self.tasks:
             lmmodel = get_model(self.model_class)(**init_args, batch_size=self.batch_size, max_length=self.max_length)
 
-            results = simple_evaluate(
-                model=lmmodel,
-                tasks=self.tasks,
-                task_manager=TaskManager(),
-                log_samples=False,
-                batch_size=self.batch_size,
-                device=device,
-                limit=self.limit,
-                confirm_run_unsafe_code=self.confirm_run_unsafe_code,
-            )
+            simple_evaluate_kwargs = {
+                "model": lmmodel,
+                "tasks": self.tasks,
+                "task_manager": TaskManager(),
+                "log_samples": False,
+                "batch_size": self.batch_size,
+                "device": device,
+                "limit": self.limit,
+                "confirm_run_unsafe_code": self.confirm_run_unsafe_code,
+            }
+            try:
+                results = simple_evaluate(**simple_evaluate_kwargs)
+            except TypeError as e:
+                if "confirm_run_unsafe_code" not in str(e):
+                    raise
+                # Older lm-eval versions don't support confirm_run_unsafe_code; retry without it
+                simple_evaluate_kwargs.pop("confirm_run_unsafe_code")
+                results = simple_evaluate(**simple_evaluate_kwargs)
 
             for task_name in sorted(results["results"].keys()):
                 metric_items = sorted(results["results"][task_name].items())
