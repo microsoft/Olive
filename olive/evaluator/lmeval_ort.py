@@ -613,7 +613,10 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             except (TypeError, ValueError):
                 max_gen_toks = 256
             max_gen_toks = max(max_gen_toks, 0)
-            temperature = gen_kwargs.get("temperature", 0.0)
+            try:
+                temperature = float(gen_kwargs.get("temperature", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                temperature = 0.0
             do_sample = gen_kwargs.get("do_sample", temperature > 0)
 
             # Tokenize the prompt
@@ -648,9 +651,12 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             generator.append_tokens([prompt_ids])
 
             generated_chunks = []
+            generated_len = 0  # running total character count, avoids O(n²) join for offset
             stop_idx = None
-            # Tail buffer wide enough to detect any stop sequence across chunk boundaries
+            # Character-based rolling tail wide enough to catch any stop sequence
+            # across chunk boundaries, regardless of how many tokens a stop string spans.
             max_stop_len = max((len(s) for s in until), default=0)
+            tail = ""
 
             while not generator.is_done():
                 generator.generate_next_token()
@@ -662,11 +668,13 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
 
                 chunk = self.tokenizer.decode([new_token])
                 generated_chunks.append(chunk)
+                generated_len += len(chunk)
 
-                # Check stop sequences against a tail window to avoid O(n²) full join
+                # Maintain a character-based tail of exactly max_stop_len + len(chunk) chars
+                # so stop sequences that span chunk boundaries are never missed.
                 if until:
-                    tail = "".join(generated_chunks[-(max_stop_len + 1) :]) if max_stop_len else ""
-                    tail_offset = len("".join(generated_chunks)) - len(tail)
+                    tail = (tail + chunk)[-(max_stop_len + len(chunk)):]
+                    tail_offset = generated_len - len(tail)
                     earliest = None
                     for stop_seq in until:
                         idx = tail.find(stop_seq)

@@ -835,3 +835,44 @@ class TestLMEvalORTGenAIGenerateUntil:
         assert results == ["hello"]
         decode_inputs = [call.args[0] for call in evaluator.tokenizer.decode.call_args_list]
         assert decode_inputs == [[11], [12]]
+
+    @pytest.mark.parametrize(
+        ("temperature_val", "expect_do_sample"),
+        [
+            ("0.7", True),   # string float should be coerced
+            (None, False),   # None should fall back to 0.0
+            (0.0, False),    # zero means greedy
+            (0.5, True),     # normal float
+        ],
+    )
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_handles_temperature_coercion(
+        self, mock_params_cls, mock_gen_cls, temperature_val, expect_do_sample
+    ):
+        """Test that temperature is safely coerced from string/None without errors."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator.eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1])
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.return_value = True
+        mock_gen_cls.return_value = mock_generator
+
+        gen_kwargs = {"until": [], "max_gen_toks": 10}
+        if temperature_val is not None:
+            gen_kwargs["temperature"] = temperature_val
+
+        request = self._make_mock_request("prompt", gen_kwargs)
+        LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        call_kwargs = mock_params_cls.return_value.set_search_options.call_args[1]
+        if expect_do_sample:
+            assert call_kwargs["temperature"] > 0
+        else:
+            assert call_kwargs["temperature"] == 0.0
