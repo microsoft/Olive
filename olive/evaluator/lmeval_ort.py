@@ -619,7 +619,15 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 temperature = float(gen_kwargs.get("temperature", 0.0) or 0.0)
             except (TypeError, ValueError):
                 temperature = 0.0
-            do_sample = gen_kwargs.get("do_sample", temperature > 0)
+            raw_do_sample = gen_kwargs.get("do_sample", None)
+            if raw_do_sample is None:
+                do_sample = temperature > 0
+            elif isinstance(raw_do_sample, bool):
+                do_sample = raw_do_sample
+            elif isinstance(raw_do_sample, str):
+                do_sample = raw_do_sample.lower() not in ("false", "0", "no", "")
+            else:
+                do_sample = bool(raw_do_sample)
 
             # Tokenize the prompt
             prompt_ids = self.tokenizer.encode(context).tolist()
@@ -651,9 +659,8 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             generator = og.Generator(self.model, params)
             generator.append_tokens([prompt_ids])
 
-            generated_chunks = []
-            generated_len = 0  # running total character count, avoids O(n²) join for offset
-            stop_idx = None
+            generated_token_ids = []
+            stop_found = False
             # Character-based rolling tail wide enough to catch any stop sequence
             # across chunk boundaries, regardless of how many tokens a stop string spans.
             max_stop_len = max((len(s) for s in until), default=0)
@@ -667,27 +674,34 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 if new_token in self.eos_token_ids:
                     break
 
-                chunk = self.tokenizer.decode([new_token])
-                generated_chunks.append(chunk)
-                generated_len += len(chunk)
+                generated_token_ids.append(new_token)
 
-                # Maintain a character-based tail of exactly max_stop_len + len(chunk) chars
-                # so stop sequences that span chunk boundaries are never missed.
+                # Decode one token at a time only for stop-sequence tail detection.
+                # The final text is produced by decoding the full ID sequence so that
+                # tokenizer whitespace/punctuation normalisation is applied correctly.
                 if until:
+                    chunk = self.tokenizer.decode([new_token])
                     tail = (tail + chunk)[-(max_stop_len + len(chunk)) :]
-                    tail_offset = generated_len - len(tail)
-                    earliest = None
                     for stop_seq in until:
-                        idx = tail.find(stop_seq)
-                        if idx != -1:
-                            abs_idx = tail_offset + idx
-                            if earliest is None or abs_idx < earliest:
-                                earliest = abs_idx
-                    if earliest is not None:
-                        stop_idx = earliest
+                        if stop_seq in tail:
+                            stop_found = True
+                            break
+                    if stop_found:
                         break
 
-            generated_text = "".join(generated_chunks) if stop_idx is None else "".join(generated_chunks)[:stop_idx]
+            # Decode full token sequence once for correct whitespace/punctuation handling.
+            full_text = self.tokenizer.decode(generated_token_ids) if generated_token_ids else ""
+
+            # Trim at the earliest stop sequence found in the final decoded text.
+            generated_text = full_text
+            if until:
+                earliest = None
+                for stop_seq in until:
+                    idx = full_text.find(stop_seq)
+                    if idx != -1 and (earliest is None or idx < earliest):
+                        earliest = idx
+                if earliest is not None:
+                    generated_text = full_text[:earliest]
 
             results.append(generated_text)
 

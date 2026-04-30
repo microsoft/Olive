@@ -496,9 +496,15 @@ class TestLMEvaluatorModelClass:
     def test_lm_evaluator_dispatches_to_requested_backend(
         self, get_model_mock, simple_evaluate_mock, _task_manager_mock, _setup_logging_mock, model_class
     ):
+        import inspect
+
         from olive.evaluator.olive_evaluator import LMEvaluator
         from olive.model.handler.onnx import ONNXModelHandler
 
+        def _fake_evaluate(model, tasks, task_manager=None, log_samples=True, batch_size=1, device="cpu", limit=None):
+            pass
+
+        simple_evaluate_mock.__signature__ = inspect.signature(_fake_evaluate)
         simple_evaluate_mock.return_value = {"results": {}}
         get_model_mock.return_value = MagicMock(return_value=MagicMock())
 
@@ -518,9 +524,25 @@ class TestLMEvaluatorModelClass:
     def test_lm_evaluator_passes_confirm_run_unsafe_code(
         self, get_model_mock, simple_evaluate_mock, _task_manager_mock, _setup_logging_mock
     ):
+        import inspect
+
         from olive.evaluator.olive_evaluator import LMEvaluator
         from olive.model.handler.onnx import ONNXModelHandler
 
+        # Give the mock a signature that includes confirm_run_unsafe_code so inspect.signature works.
+        def _fake_evaluate(
+            model,
+            tasks,
+            task_manager=None,
+            log_samples=True,
+            batch_size=1,
+            device="cpu",
+            limit=None,
+            confirm_run_unsafe_code=False,
+        ):
+            pass
+
+        simple_evaluate_mock.__signature__ = inspect.signature(_fake_evaluate)
         simple_evaluate_mock.return_value = {"results": {}}
         get_model_mock.return_value = MagicMock(return_value=MagicMock())
 
@@ -544,9 +566,25 @@ class TestLMEvaluatorModelClass:
     def test_lm_evaluator_confirm_run_unsafe_code_defaults_false(
         self, get_model_mock, simple_evaluate_mock, _task_manager_mock, _setup_logging_mock
     ):
+        import inspect
+
         from olive.evaluator.olive_evaluator import LMEvaluator
         from olive.model.handler.onnx import ONNXModelHandler
 
+        # Give the mock a signature that includes confirm_run_unsafe_code so inspect.signature works.
+        def _fake_evaluate(
+            model,
+            tasks,
+            task_manager=None,
+            log_samples=True,
+            batch_size=1,
+            device="cpu",
+            limit=None,
+            confirm_run_unsafe_code=False,
+        ):
+            pass
+
+        simple_evaluate_mock.__signature__ = inspect.signature(_fake_evaluate)
         simple_evaluate_mock.return_value = {"results": {}}
         get_model_mock.return_value = MagicMock(return_value=MagicMock())
 
@@ -560,6 +598,41 @@ class TestLMEvaluatorModelClass:
         # Verify confirm_run_unsafe_code defaults to False
         call_kwargs = simple_evaluate_mock.call_args[1]
         assert call_kwargs["confirm_run_unsafe_code"] is False
+
+    @patch("lm_eval.utils.setup_logging")
+    @patch("lm_eval.tasks.TaskManager")
+    @patch("lm_eval.simple_evaluate")
+    @patch("lm_eval.api.registry.get_model")
+    def test_lm_evaluator_skips_confirm_run_unsafe_code_for_older_lm_eval(
+        self, get_model_mock, simple_evaluate_mock, _task_manager_mock, _setup_logging_mock
+    ):
+        """When lm-eval lacks confirm_run_unsafe_code, the kwarg must not be passed."""
+        import inspect
+
+        from olive.evaluator.olive_evaluator import LMEvaluator
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        # Mock a signature WITHOUT confirm_run_unsafe_code (simulates older lm-eval).
+        def _fake_evaluate_old(
+            model, tasks, task_manager=None, log_samples=True, batch_size=1, device="cpu", limit=None
+        ):
+            pass
+
+        simple_evaluate_mock.__signature__ = inspect.signature(_fake_evaluate_old)
+        simple_evaluate_mock.return_value = {"results": {}}
+        get_model_mock.return_value = MagicMock(return_value=MagicMock())
+
+        evaluator = LMEvaluator(
+            tasks=["mbpp"], model_class="ortgenai", batch_size=1, max_length=128, confirm_run_unsafe_code=True
+        )
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = "/tmp/model.onnx"
+
+        evaluator.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
+
+        call_kwargs = simple_evaluate_mock.call_args[1]
+        assert "confirm_run_unsafe_code" not in call_kwargs
 
 
 @pytest.mark.skipif(
@@ -626,7 +699,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         evaluator.tokenizer = MagicMock()
         evaluator.tokenizer.encode.return_value = self._mock_encode([1, 100])
 
-        evaluator.tokenizer.decode.side_effect = ["he", "l", "lo\n world"]
+        evaluator.tokenizer.decode.side_effect = ["he", "l", "lo\n world", "hello\n world"]
 
         mock_generator = MagicMock()
         mock_generator.is_done.side_effect = [False, False, False, False]
@@ -809,7 +882,9 @@ class TestLMEvalORTGenAIGenerateUntil:
         LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
 
         call_kwargs = mock_params_cls.return_value.set_search_options.call_args[1]
-        assert "batch_size" not in call_kwargs, f"batch_size must not be passed to set_search_options, got: {call_kwargs}"
+        assert "batch_size" not in call_kwargs, (
+            f"batch_size must not be passed to set_search_options, got: {call_kwargs}"
+        )
 
     @patch("onnxruntime_genai.Generator")
     @patch("onnxruntime_genai.GeneratorParams")
@@ -842,7 +917,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
         evaluator.tokenizer.encode.return_value = self._mock_encode([1, 100])
-        evaluator.tokenizer.decode.side_effect = ["he", "llo"]
+        evaluator.tokenizer.decode.return_value = "hello"  # returned for full-sequence decode
 
         mock_generator = MagicMock()
         mock_generator.is_done.side_effect = [False, False, False]
@@ -857,8 +932,9 @@ class TestLMEvalORTGenAIGenerateUntil:
         results = LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
 
         assert results == ["hello"]
+        # With no stop sequences, tokens are decoded once as a full sequence (not per-token).
         decode_inputs = [call.args[0] for call in evaluator.tokenizer.decode.call_args_list]
-        assert decode_inputs == [[11], [12]]
+        assert decode_inputs == [[11, 12]]
 
     @pytest.mark.parametrize(
         ("temperature_val", "expect_do_sample"),
@@ -900,3 +976,44 @@ class TestLMEvalORTGenAIGenerateUntil:
             assert call_kwargs["temperature"] > 0
         else:
             assert call_kwargs["temperature"] == 0.0
+
+    @pytest.mark.parametrize(
+        ("do_sample_val", "expect_sampling"),
+        [
+            (True, True),  # bool True → sampling on
+            (False, False),  # bool False → greedy
+            ("true", True),  # string "true" → sampling on
+            ("false", False),  # string "false" → greedy (was truthy before fix)
+            ("0", False),  # string "0" → greedy
+            ("1", True),  # string "1" → sampling
+            (1, True),  # int 1 → sampling
+            (0, False),  # int 0 → greedy
+        ],
+    )
+    @patch("onnxruntime_genai.Generator")
+    @patch("onnxruntime_genai.GeneratorParams")
+    def test_generate_until_coerces_do_sample(self, mock_params_cls, mock_gen_cls, do_sample_val, expect_sampling):
+        """do_sample must be coerced to a real bool so string 'false'/'0' are not truthy."""
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
+        evaluator.eos_token_ids = {2}
+        evaluator.max_length = 1024
+        evaluator.model = MagicMock()
+        evaluator.tokenizer = MagicMock()
+        evaluator.tokenizer.encode.return_value = self._mock_encode([1])
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.return_value = True
+        mock_gen_cls.return_value = mock_generator
+
+        request = self._make_mock_request(
+            "prompt", {"until": [], "max_gen_toks": 10, "do_sample": do_sample_val, "temperature": 0.7}
+        )
+        LMEvalORTGenAIEvaluator.generate_until(evaluator, [request])
+
+        call_kwargs = mock_params_cls.return_value.set_search_options.call_args[1]
+        if expect_sampling:
+            assert call_kwargs["temperature"] > 0, f"Expected sampling for do_sample={do_sample_val!r}"
+        else:
+            assert call_kwargs["temperature"] == 0.0, f"Expected greedy for do_sample={do_sample_val!r}"

@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import collections
+import inspect
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -1109,16 +1110,11 @@ class LMEvaluator(OliveEvaluator):
                 "batch_size": self.batch_size,
                 "device": device,
                 "limit": self.limit,
-                "confirm_run_unsafe_code": self.confirm_run_unsafe_code,
             }
-            try:
-                results = simple_evaluate(**simple_evaluate_kwargs)
-            except TypeError as e:
-                if "confirm_run_unsafe_code" not in str(e):
-                    raise
-                # Older lm-eval versions don't support confirm_run_unsafe_code; retry without it
-                simple_evaluate_kwargs.pop("confirm_run_unsafe_code")
-                results = simple_evaluate(**simple_evaluate_kwargs)
+            # Only pass confirm_run_unsafe_code when the installed lm-eval version supports it.
+            if "confirm_run_unsafe_code" in inspect.signature(simple_evaluate).parameters:
+                simple_evaluate_kwargs["confirm_run_unsafe_code"] = self.confirm_run_unsafe_code
+            results = simple_evaluate(**simple_evaluate_kwargs)
 
             for task_name in sorted(results["results"].keys()):
                 metric_items = sorted(results["results"][task_name].items())
