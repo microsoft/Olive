@@ -516,10 +516,10 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             # eos_token_id can be a single int or a list of ints
             if isinstance(eos, list):
                 self._eot_token_id = eos[0]
-                self._eos_token_ids = set(eos)
+                self.eos_token_ids = set(eos)
             else:
                 self._eot_token_id = eos
-                self._eos_token_ids = {eos}
+                self.eos_token_ids = {eos}
         self.params = og.GeneratorParams(self.model)
         self.params.set_search_options(max_length=self.max_length, past_present_share_buffer=False)
 
@@ -638,7 +638,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             generator = og.Generator(self.model, params)
             generator.append_tokens([prompt_ids])
 
-            generated_ids = []
+            generated_chunks = []
             generated_text = ""
 
             while not generator.is_done():
@@ -646,11 +646,11 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 new_token = generator.get_sequence(0)[-1]
 
                 # Check for EOS token(s)
-                if new_token in self._eos_token_ids:
+                if new_token in self.eos_token_ids:
                     break
 
-                generated_ids.append(new_token)
-                generated_text += self.tokenizer.decode([new_token])
+                generated_chunks.append(self.tokenizer.decode([new_token]))
+                generated_text = "".join(generated_chunks)
 
                 # Check stop sequences against generated text
                 earliest_stop_idx = None
