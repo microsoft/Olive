@@ -338,7 +338,7 @@ class BaseOliveCLICommand(ABC):
                     mark_test_output_path(self.args.output_path)
                 print("Dry run mode enabled. Configuration file is generated but no optimization is performed.")
                 return None
-            workflow_output = olive_run(run_config)
+            workflow_output = olive_run(run_config, recipe_telemetry_metadata=self._get_recipe_telemetry_metadata())
             if is_test:
                 mark_test_output_path(self.args.output_path)
                 save_discrepancy_check_results(workflow_output, self.args.output_path)
@@ -348,6 +348,17 @@ class BaseOliveCLICommand(ABC):
             else:
                 print(f"Model is saved at {self.args.output_path}")
             return workflow_output
+
+    def _get_recipe_telemetry_metadata(self) -> dict[str, str]:
+        recipe_name = self.__class__.__name__
+        if recipe_name.endswith("Command"):
+            recipe_name = recipe_name[: -len("Command")]
+        return {
+            "recipe_name": recipe_name,
+            "recipe_command": recipe_name,
+            "recipe_source": "generated_cli",
+            "recipe_format": "generated",
+        }
 
     @staticmethod
     def _parse_extra_options(kv_items):

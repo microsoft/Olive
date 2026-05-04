@@ -125,3 +125,93 @@ def test_run_packages():
 
     # cleanup
     requirements_file_path.unlink()
+
+
+@patch("olive.workflows.run.run.log_recipe_result")
+@patch("olive.workflows.run.run.run_engine")
+def test_run_logs_recipe_result_success(mock_run_engine, mock_log_recipe_result):
+    config = {
+        "input_model": {
+            "type": "HfModel",
+            "model_path": "Qwen/Qwen2.5-0.5B-Instruct",
+            "task": "text-generation",
+            "load_kwargs": {"attn_implementation": "eager"},
+        },
+        "systems": {
+            "local_system": {
+                "type": "LocalSystem",
+                "accelerators": [{"device": "gpu", "execution_providers": ["CUDAExecutionProvider"]}],
+            }
+        },
+        "engine": {"target": "local_system"},
+        "passes": {"dynamic_quant": {"type": "OnnxDynamicQuantization"}},
+    }
+    expected_output = object()
+    mock_run_engine.return_value = expected_output
+
+    output = olive_run(
+        config,
+        recipe_telemetry_metadata={
+            "recipe_name": "Quantize",
+            "recipe_command": "Quantize",
+            "recipe_source": "generated_cli",
+            "recipe_format": "generated",
+        },
+    )
+
+    assert output is expected_output
+    mock_log_recipe_result.assert_called_once()
+    assert mock_log_recipe_result.call_args.args[0] == "Quantize"
+    assert mock_log_recipe_result.call_args.kwargs["success"] is True
+
+    metadata = mock_log_recipe_result.call_args.kwargs["metadata"]
+    assert metadata["recipe_command"] == "Quantize"
+    assert metadata["recipe_source"] == "generated_cli"
+    assert metadata["recipe_format"] == "generated"
+    assert metadata["workflow_id"] == "default_workflow"
+    assert metadata["input_model_type"] == "hfmodel"
+    assert metadata["input_model_source"] == "string_name"
+    assert metadata["model_task"] == "text-generation"
+    assert metadata["target_system_type"] == "LocalSystem"
+    assert metadata["target_device"] == "gpu"
+    assert metadata["execution_provider"] == "CUDAExecutionProvider"
+    assert metadata["execution_providers"] == "CUDAExecutionProvider"
+    assert metadata["pass_types"] == "onnxdynamicquantization"
+    assert metadata["pass_count"] == 1
+    assert metadata["data_config_count"] == 0
+    assert metadata["search_enabled"] is False
+    assert metadata["package_config_provided"] is False
+    assert metadata["is_ci"] is False
+    assert metadata["recipe_hash"]
+    assert metadata["input_model_name_hash"]
+
+
+@patch("olive.workflows.run.run.log_recipe_result")
+@patch("olive.workflows.run.run.run_engine")
+def test_run_logs_recipe_result_failure(mock_run_engine, mock_log_recipe_result):
+    config = {
+        "input_model": {
+            "type": "HfModel",
+            "model_path": "Qwen/Qwen2.5-0.5B-Instruct",
+            "task": "text-generation",
+            "load_kwargs": {"attn_implementation": "eager"},
+        },
+        "passes": {"dynamic_quant": {"type": "OnnxDynamicQuantization"}},
+    }
+    mock_run_engine.side_effect = ValueError("recipe failed")
+
+    with pytest.raises(ValueError, match="recipe failed"):
+        olive_run(
+            config,
+            recipe_telemetry_metadata={
+                "recipe_name": "Quantize",
+                "recipe_command": "Quantize",
+                "recipe_source": "generated_cli",
+                "recipe_format": "generated",
+            },
+        )
+
+    mock_log_recipe_result.assert_called_once()
+    assert mock_log_recipe_result.call_args.args[0] == "Quantize"
+    assert mock_log_recipe_result.call_args.kwargs["success"] is False
+    assert mock_log_recipe_result.call_args.kwargs["exception_type"] == "ValueError"

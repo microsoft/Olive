@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from argparse import ArgumentParser
+from pathlib import Path
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -17,7 +18,9 @@ from olive.cli.base import (
     save_discrepancy_check_results,
     validate_test_output_path,
 )
+from olive.common.config_utils import load_config_file
 from olive.telemetry import action
+from olive.workflows import run as olive_run
 
 
 class WorkflowRunCommand(BaseOliveCLICommand):
@@ -55,11 +58,9 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
     @action
     def run(self):
-        from olive.common.config_utils import load_config_file
-        from olive.workflows import run as olive_run
-
         # allow the run_config to be a dict already (for api use)
-        run_config = self.args.run_config
+        run_config_input = self.args.run_config
+        run_config = run_config_input
         if not isinstance(run_config, dict):
             run_config = load_config_file(run_config)
         if input_model_config := get_input_model_config(self.args, required=False):
@@ -91,6 +92,15 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             list_required_packages=self.args.list_required_packages,
             tempdir=self.args.tempdir,
             package_config=self.args.package_config,
+            recipe_telemetry_metadata={
+                "recipe_command": "WorkflowRun",
+                "recipe_source": "config_dict" if isinstance(run_config_input, dict) else "config_file",
+                "recipe_format": "dict"
+                if isinstance(run_config_input, dict)
+                else Path(run_config_input).suffix.lstrip(".").lower() or "unknown",
+                "execution_mode": "list_required_packages" if self.args.list_required_packages else "run",
+                "package_config_provided": bool(self.args.package_config),
+            },
         )
         if self.args.test not in (None, False):
             mark_test_output_path(output_path)
