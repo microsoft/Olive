@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 import types
 from pathlib import Path
@@ -19,6 +20,8 @@ from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.mobius_model_builder import MobiusModelBuilder
+
+_HAS_REAL_MOBIUS = importlib.util.find_spec("mobius") is not None
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -193,6 +196,7 @@ def test_model_onnx_exists_after_run(tmp_path):
 def test_genai_artifacts_in_single_component(tmp_path):
     """ORT GenAI artifacts must be included in single-component model's additional_files."""
     out = tmp_path / "out"
+    out.mkdir(parents=True, exist_ok=True)
     pkg = _fake_pkg(["model"], out)
 
     # Mock genai artifact files that would be created
@@ -218,6 +222,7 @@ def test_genai_artifacts_in_single_component(tmp_path):
 def test_genai_artifacts_in_multi_component(tmp_path):
     """ORT GenAI artifacts must be included in all components of multi-component models."""
     out = tmp_path / "out"
+    out.mkdir(parents=True, exist_ok=True)
     keys = ["model", "vision", "embedding"]
     pkg = _fake_pkg(keys, out)
 
@@ -297,9 +302,10 @@ def test_unsupported_ep_raises_error(tmp_path):
     """If accelerator EP is not supported by mobius, pass must raise ValueError."""
     out = tmp_path / "out"
 
-    # Create a pass with an unsupported EP (one not in EP_MAP)
+    # Create a pass with an unsupported EP (one not in EP_MAP).
+    # QNN exists in all Olive environments and is intentionally unsupported by MobiusModelBuilder.
     accelerator_spec = AcceleratorSpec(
-        accelerator_type=Device.NPU, execution_provider=ExecutionProvider.NpuExecutionProvider
+        accelerator_type=Device.NPU, execution_provider=ExecutionProvider.QNNExecutionProvider
     )
     p = create_pass_from_dict(
         MobiusModelBuilder,
@@ -310,6 +316,16 @@ def test_unsupported_ep_raises_error(tmp_path):
 
     with pytest.raises(ValueError, match="does not support execution provider"):
         p.run(_make_hf_model("org/model"), out)
+
+
+@pytest.mark.skipif(not _HAS_REAL_MOBIUS, reason="mobius-ai is not publicly available in CI yet")
+def test_write_genai_config_requires_real_mobius(tmp_path):
+    """Integration smoke test for _write_genai_config when real mobius is installed."""
+    # This test is intentionally lightweight and only verifies the import path.
+    # Unit behavior is covered by tests that patch _write_genai_config.
+    from mobius.integrations.ort_genai import write_ort_genai_config
+
+    assert callable(write_ort_genai_config)
 
 
 # ---------------------------------------------------------------------------
