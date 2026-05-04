@@ -2,15 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import base64
 import functools
 import os
 import platform
 import tempfile
-import traceback
 from pathlib import Path
-from types import TracebackType
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 if os.name == "posix":
     import fcntl
@@ -105,25 +102,6 @@ def get_telemetry_base_dir() -> Path:
     return Path(cache_dir).expanduser() / ORT_SUPPORT_DIR
 
 
-def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = None) -> str:
-    """Format an exception and trim local paths for readability."""
-    folder = "Olive"
-    file_line = 'File "'
-    formatted = traceback.format_exception(type(ex), ex, tb, limit=5)
-    lines = []
-    for line in formatted:
-        line_trunc = line.strip()
-        if line_trunc.startswith(file_line) and folder in line_trunc:
-            idx = line_trunc.find(folder)
-            if idx != -1:
-                line_trunc = line_trunc[idx + len(folder) :]
-        elif line_trunc.startswith(file_line):
-            idx = line_trunc[len(file_line) :].find('"')
-            line_trunc = line_trunc[idx + len(file_line) :]
-        lines.append(line_trunc)
-    return "\n".join(lines)
-
-
 class _ExclusiveFileLock:
     """Cross-platform exclusive file lock context manager.
 
@@ -200,21 +178,3 @@ def _exclusive_file_lock(file_path: Path, mode: str):
     :return: Context manager that returns an open file handle.
     """
     return _ExclusiveFileLock(file_path, mode)
-
-
-def _encode_cache_line(plaintext: str) -> str:
-    """Encode a single cache line using base64.
-
-    :param plaintext: The plaintext string to encode.
-    :return: Base64-encoded string (safe for a single text line).
-    """
-    return base64.b64encode(plaintext.encode("utf-8")).decode("ascii")
-
-
-def _decode_cache_line(encoded: str) -> str:
-    """Decode a single base64-encoded cache line.
-
-    :param encoded: The base64-encoded string.
-    :return: The decoded plaintext string.
-    """
-    return base64.b64decode(encoded.encode("ascii")).decode("utf-8")
