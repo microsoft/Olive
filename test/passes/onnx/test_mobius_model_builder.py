@@ -298,9 +298,10 @@ def test_ep_auto_detected_from_accelerator(tmp_path):
     assert call_kwargs["dtype"] == "f16"
 
 
-def test_unsupported_ep_raises_error(tmp_path):
-    """If accelerator EP is not supported by mobius, pass must raise ValueError."""
+def test_unsupported_ep_falls_back_to_default(tmp_path):
+    """If accelerator EP is unsupported, pass should fall back to mobius default EP."""
     out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
 
     # Create a pass with an unsupported EP (one not in EP_MAP).
     # QNN exists in all Olive environments and is intentionally unsupported by MobiusModelBuilder.
@@ -314,8 +315,11 @@ def test_unsupported_ep_raises_error(tmp_path):
         accelerator_spec=accelerator_spec,
     )
 
-    with pytest.raises(ValueError, match="does not support execution provider"):
+    with _patch_build(pkg) as mock_build:
         p.run(_make_hf_model("org/model"), out)
+
+    call_kwargs = mock_build.call_args.kwargs
+    assert call_kwargs["execution_provider"] == MobiusModelBuilder.MobiusEP.DEFAULT
 
 
 @pytest.mark.skipif(not _HAS_REAL_MOBIUS, reason="mobius-ai is not publicly available in CI yet")

@@ -126,13 +126,15 @@ class MobiusModelBuilder(Pass):
         if not isinstance(model, HfModelHandler):
             raise ValueError(f"MobiusModelBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
-        # Get EP from accelerator spec. Raise error if not supported by mobius.
-        ep_str: str | None = self.EP_MAP.get(self.accelerator_spec.execution_provider)
-        if ep_str is None:
-            raise ValueError(
-                f"MobiusModelBuilder does not support execution provider "
-                f"{self.accelerator_spec.execution_provider}. Supported providers: "
-                f"{', '.join(self.EP_MAP.values())}"
+        # Map Olive EP to mobius EP. If unsupported/unknown, fall back to mobius default EP.
+        requested_ep = self.accelerator_spec.execution_provider
+        ep_str: str = self.EP_MAP.get(requested_ep, self.MobiusEP.DEFAULT)
+        if ep_str == self.MobiusEP.DEFAULT:
+            logger.warning(
+                "MobiusModelBuilder: execution provider '%s' on accelerator '%s' is not explicitly supported; "
+                "falling back to mobius default EP.",
+                requested_ep,
+                self.accelerator_spec.accelerator_type,
             )
 
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
