@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib
 import logging
 from copy import deepcopy
 from pathlib import Path
@@ -122,7 +123,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
 
     # ort_log_severity_level: C++ logging levels
     try:
-        import onnxruntime as ort  # noqa: PLC0415
+        ort = importlib.import_module("onnxruntime")
 
         ort.set_default_logger_severity(run_config.engine.ort_log_severity_level)
     except Exception:
