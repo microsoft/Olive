@@ -6,7 +6,7 @@ import importlib
 from pathlib import Path
 from typing import Optional, Union
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, SerializeAsAny, field_validator
 
 from olive.common.config_utils import ConfigBase, NestedConfig, validate_config
 from olive.systems.common import AcceleratorConfig, SystemType
@@ -88,7 +88,7 @@ def import_system_from_type(system_type: SystemType):
 
 class SystemConfig(NestedConfig):
     type: SystemType
-    config: Optional[TargetUserConfig] = Field(default=None, validate_default=True)
+    config: Optional[SerializeAsAny[TargetUserConfig]] = Field(default=None, validate_default=True)
 
     @field_validator("config", mode="before")
     @classmethod

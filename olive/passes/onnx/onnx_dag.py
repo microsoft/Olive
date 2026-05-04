@@ -263,7 +263,7 @@ class OnnxDAG:
         name = initializer.name
         if not self.is_initializer(name):
             raise ValueError(f"{name} is not an initializer.")
-        proto_list = self.ios[name].proto[:-1] + [initializer]
+        proto_list = [*self.ios[name].proto[:-1], initializer]
         self.ios[name].proto = proto_list
 
     def add_output(self, output_proto: ValueInfoProto, graph_idx: int):

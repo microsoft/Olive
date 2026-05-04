@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -497,6 +498,17 @@ class OpenVINOOptimumConversion(Pass):
             extra_args.pop("disable_convert_tokenizer", False)
             extra_args["library_name"] = lib_name
             extra_args.pop("library", None)
+
+            # Workaround for optimum-intel using Path.rename() which fails across filesystems.
+            # Set tempdir to output path so temp files are on the same filesystem as the cache.
+            import tempfile
+
+            Path(output_model_path).mkdir(parents=True, exist_ok=True)
+            original_tmpdir = os.environ.get("TMPDIR")
+            original_tempdir = tempfile.tempdir
+            os.environ["TMPDIR"] = output_model_path
+            tempfile.tempdir = output_model_path
+
             export_optimum_intel(
                 model.model_name_or_path,
                 output_model_path,
@@ -516,7 +528,13 @@ class OpenVINOOptimumConversion(Pass):
                     model_kwargs=model.load_kwargs.__dict__ if model.load_kwargs else None,
                 )
         except Exception as e:
-            raise RuntimeError(f"OpenVINO optimum export failed: {e}") from None
+            raise RuntimeError(f"OpenVINO optimum export failed: {e}") from e
+        finally:
+            tempfile.tempdir = original_tempdir
+            if original_tmpdir is None:
+                os.environ.pop("TMPDIR", None)
+            else:
+                os.environ["TMPDIR"] = original_tmpdir
 
         # check the exported components
         exported_models = [name.stem for name in Path(output_model_path).iterdir() if name.suffix == ".xml"]

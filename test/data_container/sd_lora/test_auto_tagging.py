@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-# ruff: noqa: SLF001
 # pylint: disable=protected-access
 from unittest.mock import patch
 

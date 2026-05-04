@@ -74,20 +74,42 @@ class EPContextBinaryGenerator(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> Union[ONNXModelHandler, CompositeModelHandler]:
-        from onnxruntime import __version__ as OrtVersion
-
         # session created using providers argument so will use the ort.get_available_providers()
         # TODO(jambayk): consider switching to the new EP API for Windows
+        from onnxruntime import __version__ as OrtVersion
         from onnxruntime import get_available_providers
 
         # TODO(jambayk): validate and support other NPU EPs
         assert self.accelerator_spec.execution_provider == ExecutionProvider.QNNExecutionProvider, (
             "Only QNNExecutionProvider is supported for now."
         )
-        assert self.accelerator_spec.execution_provider in get_available_providers(), (
-            f"Execution provider {self.accelerator_spec.execution_provider} is not available. Available providers:"
-            f" {get_available_providers()}"
-        )
+
+        if version.parse(OrtVersion).release <= version.parse("1.23.2").release:
+            assert self.accelerator_spec.execution_provider in get_available_providers(), (
+                f"Execution provider {self.accelerator_spec.execution_provider} is not available. Available providers:"
+                f" {get_available_providers()}"
+            )
+
+        result = self._run_single_target(model, config, output_model_path)
+
+        # Populate model_attributes with context binary metadata so it persists in model_config.json
+        result.model_attributes = {**(model.model_attributes or {}), **(result.model_attributes or {})}
+        result.model_attributes["ep"] = self.accelerator_spec.execution_provider
+        result.model_attributes["device"] = str(self.accelerator_spec.accelerator_type).upper()
+        if config.provider_options:
+            result.model_attributes["provider_options"] = config.provider_options
+            result.model_attributes["architecture"] = config.provider_options.get("soc_model")
+
+        return result
+
+    def _run_single_target(
+        self,
+        model: Union[ONNXModelHandler, CompositeModelHandler],
+        config: type[BasePassConfig],
+        output_model_path: str,
+    ) -> Union[ONNXModelHandler, CompositeModelHandler]:
+        """Generate context binary for a single target. This is the original logic."""
+        from onnxruntime import __version__ as OrtVersion
 
         generate_kwargs = {
             "execution_provider": self.accelerator_spec.execution_provider,
@@ -238,6 +260,12 @@ class EPContextBinaryGenerator(Pass):
         import onnxruntime as ort
         from onnxruntime import __version__ as OrtVersion
 
+        is_abi = (
+            "QNNExecutionProvider" not in ort.get_available_providers()
+            or version.parse(OrtVersion).release >= version.parse("1.25.0").release
+        )
+        logger.debug(" Using ABI EP: %s", str(is_abi))
+
         # prepare provider options
         provider_options = provider_options or {}
         if execution_provider == ExecutionProvider.QNNExecutionProvider:
@@ -245,10 +273,9 @@ class EPContextBinaryGenerator(Pass):
                 provider_options["backend_path"] = "libQnnGpu.so" if platform.system() == "Linux" else "QnnGpu.dll"
                 update_llm_pipeline_genai_config_gpu_ctxbin(model_path)
             else:
-                if version.parse(OrtVersion).release < version.parse("1.22.0").release:
-                    provider_options["backend_path"] = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
-                    if share_ep_contexts:
-                        provider_options["enable_htp_weight_sharing"] = "1"
+                provider_options["backend_path"] = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
+                if share_ep_contexts:
+                    provider_options["enable_htp_weight_sharing"] = "1"
 
         # prepare session options
         session_options = session_options or {}
@@ -280,9 +307,40 @@ class EPContextBinaryGenerator(Pass):
         # create the inference session
         # requires regular onnxruntime package, not winml (not tested with winml)
         logger.debug("Creating context binary for model %s", str(model_path))
-        ort.InferenceSession(
-            model_path, sess_options=sess_options, providers=[execution_provider], provider_options=[provider_options]
-        )
+
+        if is_abi:
+            try:
+                import onnxruntime_qnn as qnn_ep
+
+                ep_lib_path = qnn_ep.get_library_path()
+                ep_registration_name = "QNNExecutionProvider"
+                ort.register_execution_provider_library(ep_registration_name, ep_lib_path)
+            except Exception as e:
+                if "already registered" in str(e):
+                    logger.debug(
+                        "Execution provider %s is already registered, skipping registration.", ep_registration_name
+                    )
+                else:
+                    raise
+            all_ep_devices = ort.get_ep_devices()
+            selected_ep_devices = [
+                ep_device for ep_device in all_ep_devices if ep_device.ep_name == ExecutionProvider.QNNExecutionProvider
+            ]
+
+            # Add QNN EP to session for abi ep
+            sess_options.add_provider_for_devices(selected_ep_devices, provider_options)
+            ort.InferenceSession(
+                model_path,
+                sess_options=sess_options,
+            )
+            ort.unregister_execution_provider_library(ep_registration_name)
+        else:
+            ort.InferenceSession(
+                model_path,
+                sess_options=sess_options,
+                providers=[execution_provider],
+                provider_options=[provider_options],
+            )
 
         assert output_model_path.exists(), f"Context binary not found at {output_model_path}"
 

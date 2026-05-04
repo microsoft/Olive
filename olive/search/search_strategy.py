@@ -25,8 +25,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# ruff: noqa: PD011
-
 
 class SearchStrategyExecutionOrder(CaseInsensitiveEnum):
     JOINT = "joint"

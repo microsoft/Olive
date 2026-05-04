@@ -344,7 +344,7 @@ class QuantLinearFunction(torch.autograd.Function):
         )
         input_shape = x.type().varyingSizes()
         if input_shape is not None and hasattr(x.type(), "with_sizes"):
-            output_type = x.type().with_sizes(input_shape[:-1] + [out_features])
+            output_type = x.type().with_sizes([*input_shape[:-1], out_features])
             output.setType(output_type)
 
         return output

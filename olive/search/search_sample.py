@@ -9,8 +9,6 @@ from typing import Any
 from olive.search.search_parameter import SpecialParamValue
 from olive.search.search_point import SearchPoint
 
-# ruff: noqa: PD011
-
 
 @dataclass
 class SearchSample:
