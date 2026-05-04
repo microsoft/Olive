@@ -19,8 +19,8 @@ else:
 
 if os.name == "nt":
     import ctypes
+    import ctypes.wintypes as wintypes
     import msvcrt
-    from ctypes import wintypes
 
     _LOCKFILE_EXCLUSIVE_LOCK = 0x00000002
 

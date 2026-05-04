@@ -32,6 +32,14 @@ def test_cache_path_uses_env_override(tmp_path, monkeypatch):
     assert isinstance(handler.cache_path, Path)
 
 
+def test_cache_path_ignores_empty_env_override(tmp_path, monkeypatch):
+    monkeypatch.setenv("OLIVE_TELEMETRY_CACHE_DIR", "   ")
+
+    with patch("olive.telemetry.telemetry.get_telemetry_base_dir", return_value=tmp_path):
+        handler = TelemetryCacheHandler(Mock())
+        assert handler.cache_path == tmp_path / "cache" / CACHE_FILE_NAME
+
+
 def test_telemetry_logger_uses_explicit_service_name():
     TelemetryLogger.shutdown_default_logger()
     TelemetryLogger._instance = None
@@ -66,6 +74,19 @@ def test_telemetry_only_logs_recipe_events_in_ci(monkeypatch):
         assert mock_logger.log.call_args.args[0] == RECIPE_EVENT_NAME
     finally:
         Telemetry._instance = None
+
+
+def test_flush_cache_preserves_nonempty_unreadable_file(tmp_path):
+    handler = TelemetryCacheHandler(Mock())
+    cache_path = tmp_path / CACHE_FILE_NAME
+    flush_path = cache_path.with_name(f"{cache_path.name}.flush")
+    cache_path.write_text("not-json\n", encoding="utf-8")
+
+    handler._flush_cache_file(cache_path)
+
+    assert cache_path.exists()
+    assert cache_path.read_text(encoding="utf-8") == "not-json\n"
+    assert not flush_path.exists()
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows locking behavior is specific to Windows.")

@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
+from os import PathLike
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -286,12 +287,15 @@ def _build_recipe_result_metadata(
     return metadata
 
 
-def _classify_run_config_source(run_config_input: Union[str, Path, dict]) -> tuple[str, str]:
+def _classify_run_config_source(run_config_input: Any) -> tuple[str, str]:
     if isinstance(run_config_input, dict):
         return "config_dict", "dict"
 
-    suffix = Path(run_config_input).suffix.lstrip(".").lower()
-    return "config_file", suffix or "unknown"
+    if isinstance(run_config_input, (str, PathLike)):
+        suffix = Path(run_config_input).suffix.lstrip(".").lower()
+        return "config_file", suffix or "unknown"
+
+    return "config_object", "object"
 
 
 def _extract_input_model_metadata(input_model_config: dict[str, Any]) -> dict[str, Optional[str]]:

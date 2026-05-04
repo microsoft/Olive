@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from olive.workflows import run as olive_run
+from olive.workflows.run.run import _classify_run_config_source
 from test.utils import (
     get_pytorch_model,
     get_pytorch_model_config,
@@ -215,3 +216,7 @@ def test_run_logs_recipe_result_failure(mock_run_engine, mock_log_recipe_result)
     assert mock_log_recipe_result.call_args.args[0] == "Quantize"
     assert mock_log_recipe_result.call_args.kwargs["success"] is False
     assert mock_log_recipe_result.call_args.kwargs["exception_type"] == "ValueError"
+
+
+def test_classify_run_config_source_handles_non_pathlike_object():
+    assert _classify_run_config_source(object()) == ("config_object", "object")
