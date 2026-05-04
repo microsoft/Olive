@@ -328,9 +328,7 @@ def test_none_execution_provider_falls_back_to_default(tmp_path):
     pkg = _fake_pkg(["model"], out)
 
     # Create a pass with execution_provider=None (unspecified).
-    accelerator_spec = AcceleratorSpec(
-        accelerator_type=Device.CPU, execution_provider=None
-    )
+    accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=None)
     p = create_pass_from_dict(
         MobiusModelBuilder,
         {"precision": "fp32"},
