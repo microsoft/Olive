@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
 import os
 import subprocess
 import sys
@@ -89,14 +90,12 @@ with _exclusive_file_lock(path, "a") as locked_file:
     time.sleep(2)
 """
 
-    process = subprocess.Popen(
+    with subprocess.Popen(
         [sys.executable, "-c", child_code, str(file_path)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-    )
-
-    try:
+    ) as process:
         assert process.stdout is not None
         assert process.stdout.readline().strip() == "locked"
 
@@ -106,7 +105,7 @@ with _exclusive_file_lock(path, "a") as locked_file:
             locked_file.write("parent")
 
         assert wait_time >= 1.0
-    finally:
+
         try:
             stdout, stderr = process.communicate(timeout=5)
         except subprocess.TimeoutExpired:
