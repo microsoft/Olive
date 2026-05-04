@@ -19,7 +19,7 @@ from olive.telemetry.library.exporter import OneCollectorLogExporter
 from olive.telemetry.library.options import OneCollectorExporterOptions
 from olive.version import __version__ as VERSION
 
-DEFAULT_SERVICE_NAME = "olive"
+DEFAULT_SERVICE_NAME = __name__.split(".", maxsplit=1)[0]
 
 
 class TelemetryLogger:
@@ -64,7 +64,7 @@ class TelemetryLogger:
             self._logger_exporter = OneCollectorLogExporter(options=options)
 
             # Create logger provider
-            service_name = service_name or DEFAULT_SERVICE_NAME
+            service_name = service_name or (options.service_name if options else None) or DEFAULT_SERVICE_NAME
             self._logger_provider = LoggerProvider(
                 resource=Resource.create(
                     {

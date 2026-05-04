@@ -62,6 +62,7 @@ class OneCollectorExporterOptions:
     """Configuration options for OneCollector exporter."""
 
     connection_string: Optional[str] = None
+    service_name: Optional[str] = None
     transport_options: OneCollectorTransportOptions = field(default_factory=OneCollectorTransportOptions)
 
     # Internal fields populated during validation
