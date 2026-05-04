@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import functools
 import importlib
 import json
 import logging
@@ -40,8 +41,9 @@ RECIPE_HASH_REDACTED_KEYS = {
     "prepend_to_path",
     "script_dir",
     "model_script",
-    # package_config is tracked separately via package_config_provided, but
-    # excluded from recipe_hash because it is an environment/infrastructure path.
+    # package_config is tracked separately via package_config_provided and
+    # package_config_overrides, but excluded from recipe_hash because it is an
+    # environment/infrastructure path.
     "package_config",
     "work_dir",
 }
@@ -52,6 +54,7 @@ CONFIG_SNAPSHOT_REDACTED_KEYS = RECIPE_HASH_REDACTED_KEYS | {
     "user_script",
 }
 CONFIG_REFERENCE_KEYS = {"host", "target", "evaluator"}
+_NO_OVERRIDE = object()
 
 
 def get_required_packages(package_config: OlivePackageConfig, run_config: RunConfig) -> set[str]:
@@ -291,7 +294,7 @@ def _build_recipe_result_metadata(
     metadata.setdefault("package_config_provided", package_config_provided)
     metadata.setdefault("config_overrides", _build_config_overrides(run_config_telemetry_input))
     if package_config_provided:
-        metadata.setdefault("package_config_hash", _build_package_config_hash(package_config_input))
+        metadata.setdefault("package_config_overrides", _build_package_config_overrides(package_config_input))
     metadata["is_ci"] = is_ci_environment()
 
     if run_config is None:
@@ -345,19 +348,77 @@ def _build_config_overrides(config_input: Any) -> Optional[str]:
         return None
 
 
-def _build_package_config_hash(config_input: Any) -> Optional[str]:
+def _build_package_config_overrides(config_input: Any) -> Optional[str]:
     try:
         config_data = _load_config_input_for_telemetry(config_input)
         if not isinstance(config_data, dict):
             return None
 
-        snapshot = _sanitize_config_snapshot(config_data)
+        default_config = _load_default_package_config_for_telemetry()
+        baseline = (
+            _normalize_package_config_snapshot(default_config) if isinstance(default_config, dict) else _NO_OVERRIDE
+        )
+        overrides = _extract_config_overrides(_normalize_package_config_snapshot(config_data), baseline)
+        if overrides is _NO_OVERRIDE:
+            return None
+
+        snapshot = _sanitize_config_snapshot(overrides)
         if not isinstance(snapshot, dict):
             return None
 
-        return hash_dict(snapshot)[:16]
+        return json.dumps(snapshot, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     except Exception:
         return None
+
+
+@functools.lru_cache
+def _load_default_package_config_for_telemetry() -> Optional[dict[str, Any]]:
+    try:
+        default_config = load_config_file(OlivePackageConfig.get_default_config_path())
+    except Exception:
+        return None
+
+    return default_config if isinstance(default_config, dict) else None
+
+
+def _normalize_package_config_snapshot(config_data: Any) -> Any:
+    if not isinstance(config_data, dict):
+        return config_data
+
+    normalized = deepcopy(config_data)
+    passes = normalized.get("passes")
+    if isinstance(passes, dict):
+        normalized["passes"] = {str(pass_name).lower(): pass_config for pass_name, pass_config in passes.items()}
+    return normalized
+
+
+def _extract_config_overrides(value: Any, baseline: Any = _NO_OVERRIDE) -> Any:
+    if baseline is _NO_OVERRIDE:
+        return deepcopy(value)
+
+    if isinstance(value, dict) and isinstance(baseline, dict):
+        overrides = {}
+        for key, child_value in value.items():
+            child_override = _extract_config_overrides(child_value, baseline.get(key, _NO_OVERRIDE))
+            if child_override is not _NO_OVERRIDE:
+                overrides[key] = child_override
+        if overrides:
+            return overrides
+        return _NO_OVERRIDE if value == baseline else {}
+
+    if isinstance(value, list):
+        if isinstance(baseline, list) and value == baseline:
+            return _NO_OVERRIDE
+        return deepcopy(value)
+
+    if isinstance(value, tuple):
+        value_list = list(value)
+        baseline_list = list(baseline) if isinstance(baseline, tuple) else baseline
+        if isinstance(baseline_list, list) and value_list == baseline_list:
+            return _NO_OVERRIDE
+        return value_list
+
+    return deepcopy(value) if value != baseline else _NO_OVERRIDE
 
 
 def _load_config_input_for_telemetry(config_input: Any) -> Optional[Any]:
