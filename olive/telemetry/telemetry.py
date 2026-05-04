@@ -99,7 +99,7 @@ ALLOWED_KEYS = {
         "data_config_count",
         "search_enabled",
         "package_config_provided",
-        "package_config_hash",
+        "package_config_overrides",
         "is_ci",
         "app_version",
         "app_instance_id",

@@ -272,7 +272,7 @@ def test_run_logs_recipe_host_metadata_without_explicit_target(mock_run_engine, 
 
 @patch("olive.workflows.run.run.log_recipe_result")
 @patch("olive.workflows.run.run.run_engine")
-def test_run_logs_package_config_hash_when_package_config_provided(mock_run_engine, mock_log_recipe_result):
+def test_run_logs_package_config_overrides_when_package_config_provided(mock_run_engine, mock_log_recipe_result):
     config = {
         "input_model": {
             "type": "HfModel",
@@ -285,7 +285,15 @@ def test_run_logs_package_config_hash_when_package_config_provided(mock_run_engi
 
     olive_run(
         config,
-        package_config={},
+        package_config={
+            "passes": {
+                "AddOliveMetadata": {
+                    "module_path": "olive.passes.onnx.add_metadata.AddOliveMetadata",
+                    "supported_providers": ["CPUExecutionProvider"],
+                }
+            },
+            "extra_dependencies": {"custom_accelerator": ["custom-package"]},
+        },
         recipe_telemetry_metadata={
             "recipe_name": "Quantize",
             "recipe_command": "Quantize",
@@ -296,7 +304,10 @@ def test_run_logs_package_config_hash_when_package_config_provided(mock_run_engi
 
     metadata = mock_log_recipe_result.call_args.kwargs["metadata"]
     assert metadata["package_config_provided"] is True
-    assert metadata["package_config_hash"]
+    package_config_overrides = json.loads(metadata["package_config_overrides"])
+    assert package_config_overrides["passes"][0]["supported_providers"] == ["CPUExecutionProvider"]
+    assert "module_path" not in package_config_overrides["passes"][0]
+    assert package_config_overrides["extra_dependencies"]["custom_accelerator"] == ["custom-package"]
 
 
 def test_classify_run_config_source_handles_non_pathlike_object():
