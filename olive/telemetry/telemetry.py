@@ -274,8 +274,11 @@ class TelemetryCacheHandler:
 
         """
         telemetry_cache_dir = None
-        if "OLIVE_TELEMETRY_CACHE_DIR" in os.environ:
-            telemetry_cache_dir = Path(os.environ["OLIVE_TELEMETRY_CACHE_DIR"]).expanduser()
+        telemetry_cache_dir_override = os.environ.get("OLIVE_TELEMETRY_CACHE_DIR")
+        if telemetry_cache_dir_override:
+            telemetry_cache_dir_override = telemetry_cache_dir_override.strip()
+            if telemetry_cache_dir_override:
+                telemetry_cache_dir = Path(telemetry_cache_dir_override).expanduser()
         if not telemetry_cache_dir:
             telemetry_cache_dir = get_telemetry_base_dir() / "cache"
         return telemetry_cache_dir / self._cache_file_name
@@ -370,7 +373,9 @@ class TelemetryCacheHandler:
                         cache_file.write(line + "\n")
             flush_path.unlink(missing_ok=True)
         except Exception:
-            pass
+            # Best-effort cache restore must never interrupt telemetry flow.
+            # Leave the flush file in place so a later retry can attempt recovery again.
+            return
 
     def _flush_cache_file(self, cache_path: Path) -> None:
         """Flush cached events back to telemetry service.
@@ -385,7 +390,7 @@ class TelemetryCacheHandler:
                     return
 
             # Atomically rename to claim ownership — only one process can succeed
-            flush_path = cache_path.with_suffix(".flush")
+            flush_path = cache_path.with_name(f"{cache_path.name}.flush")
             try:
                 cache_path.replace(flush_path)
             except FileNotFoundError:
@@ -393,7 +398,10 @@ class TelemetryCacheHandler:
 
             entries = _read_cache_entries(flush_path)
             if not entries:
-                flush_path.unlink(missing_ok=True)
+                if flush_path.stat().st_size == 0:
+                    flush_path.unlink(missing_ok=True)
+                else:
+                    self._restore_flush_file(flush_path, cache_path)
                 return
 
             # Replay cached events — _is_flushing flag prevents re-caching
