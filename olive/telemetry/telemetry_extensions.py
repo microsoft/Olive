@@ -9,7 +9,7 @@ import time
 from types import TracebackType
 from typing import Any, Callable, Optional, TypeVar
 
-from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, _get_logger
+from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, RECIPE_EVENT_NAME, _get_logger
 from olive.telemetry.utils import _format_exception_message
 
 _TFunc = TypeVar("_TFunc", bound=Callable[..., Any])
@@ -43,6 +43,22 @@ def log_error(
         "exception_message": exception_message,
     }
     telemetry.log(ERROR_EVENT_NAME, attributes, metadata)
+
+
+def log_recipe_result(
+    recipe_name: str,
+    success: bool,
+    metadata: Optional[dict[str, Any]] = None,
+    exception_type: Optional[str] = None,
+) -> None:
+    telemetry = _get_logger()
+    attributes = {
+        "recipe_name": recipe_name,
+        "success": success,
+    }
+    if exception_type:
+        attributes["exception_type"] = exception_type
+    telemetry.log(RECIPE_EVENT_NAME, attributes, metadata)
 
 
 def _resolve_invoked_from(skip_frames: int = 0) -> str:

@@ -10,9 +10,64 @@ import tempfile
 import traceback
 from pathlib import Path
 from types import TracebackType
-from typing import Optional
+from typing import ClassVar, Optional
+
+if os.name == "posix":
+    import fcntl
+else:
+    fcntl = None
+
+if os.name == "nt":
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    _LOCKFILE_EXCLUSIVE_LOCK = 0x00000002
+
+    class _Overlapped(ctypes.Structure):
+        _fields_: ClassVar[list[tuple[str, object]]] = [
+            ("Internal", ctypes.c_void_p),
+            ("InternalHigh", ctypes.c_void_p),
+            ("Offset", wintypes.DWORD),
+            ("OffsetHigh", wintypes.DWORD),
+            ("hEvent", wintypes.HANDLE),
+        ]
+
+    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    _lock_file_ex = _kernel32.LockFileEx
+    _lock_file_ex.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.POINTER(_Overlapped),
+    ]
+    _lock_file_ex.restype = wintypes.BOOL
+    _unlock_file_ex = _kernel32.UnlockFileEx
+    _unlock_file_ex.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.POINTER(_Overlapped),
+    ]
+    _unlock_file_ex.restype = wintypes.BOOL
+else:
+    ctypes = None
+    msvcrt = None
+    wintypes = None
+    _lock_file_ex = None
+    _unlock_file_ex = None
+    _Overlapped = None
 
 ORT_SUPPORT_DIR = r"Microsoft/DeveloperTools/.onnxruntime"
+_WINDOWS_FILE_LOCK_LENGTH = 0x7FFFFFFF
+
+
+def _raise_windows_lock_error(message: str) -> None:
+    error_code = ctypes.get_last_error() if ctypes is not None else 0
+    raise OSError(error_code, message)
 
 
 def _resolve_home_dir() -> Path:
@@ -72,7 +127,7 @@ def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = N
 class _ExclusiveFileLock:
     """Cross-platform exclusive file lock context manager.
 
-    Uses fcntl on Unix/Linux/macOS, msvcrt on Windows.
+    Uses fcntl on Unix/Linux/macOS and LockFileEx on Windows.
     Prevents cache corruption when multiple processes access the same file.
 
     Design decisions:
@@ -89,6 +144,7 @@ class _ExclusiveFileLock:
         self.file_path = file_path
         self.mode = mode
         self.file = None
+        self._windows_overlapped = None
 
     def __enter__(self):
         self.file = open(self.file_path, self.mode, encoding="utf-8")
@@ -96,25 +152,44 @@ class _ExclusiveFileLock:
         try:
             # Platform-specific locking
             if os.name == "posix":
-                import fcntl
-
                 fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
             elif os.name == "nt":
-                import msvcrt
-
-                # Lock 1 byte at position 0
-                msvcrt.locking(self.file.fileno(), msvcrt.LK_LOCK, 1)
+                self._windows_overlapped = _Overlapped()
+                handle = msvcrt.get_osfhandle(self.file.fileno())
+                if not _lock_file_ex(
+                    handle,
+                    _LOCKFILE_EXCLUSIVE_LOCK,
+                    0,
+                    _WINDOWS_FILE_LOCK_LENGTH,
+                    _WINDOWS_FILE_LOCK_LENGTH,
+                    ctypes.byref(self._windows_overlapped),
+                ):
+                    _raise_windows_lock_error("Failed to lock telemetry cache file")
         except Exception:
             self.file.close()
             self.file = None
+            self._windows_overlapped = None
             raise
 
         return self.file
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.file:
-            # Unlock happens automatically on close
-            self.file.close()
+            try:
+                if os.name == "nt" and self._windows_overlapped is not None:
+                    handle = msvcrt.get_osfhandle(self.file.fileno())
+                    if not _unlock_file_ex(
+                        handle,
+                        0,
+                        _WINDOWS_FILE_LOCK_LENGTH,
+                        _WINDOWS_FILE_LOCK_LENGTH,
+                        ctypes.byref(self._windows_overlapped),
+                    ):
+                        _raise_windows_lock_error("Failed to unlock telemetry cache file")
+            finally:
+                self.file.close()
+                self.file = None
+                self._windows_overlapped = None
 
 
 def _exclusive_file_lock(file_path: Path, mode: str):
