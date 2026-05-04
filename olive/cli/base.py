@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib
 import json
 import re
 import tempfile
@@ -9,6 +10,8 @@ from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import ClassVar, Optional
+
+from packaging import version
 
 from olive.common.constants import DEFAULT_HF_TASK
 from olive.common.user_module_loader import UserModuleLoader
@@ -60,18 +63,16 @@ class BaseOliveCLICommand(ABC):
 
     @staticmethod
     def _parse_extra_options(kv_items):
-        from onnxruntime_genai import __version__ as OrtGenaiVersion  # noqa: PLC0415
-        from packaging import version  # noqa: PLC0415
+        ort_genai = importlib.import_module("onnxruntime_genai")
+        ort_genai_version = ort_genai.__version__
 
-        if version.parse(OrtGenaiVersion) <= version.parse("0.9.0"):
+        if version.parse(ort_genai_version) <= version.parse("0.9.0"):
             raise ValueError(
                 "onnxruntime-genai version <= 0.9.0 is not supported for extra_options in CLI. "
                 "Please either upgrade to onnxruntime-genai version > 0.9.0 or use the model builder pass directly in the config file."
             )
 
-        from onnxruntime_genai.models.builder import parse_extra_options  # noqa: PLC0415
-
-        return parse_extra_options(kv_items)
+        return importlib.import_module("onnxruntime_genai.models.builder").parse_extra_options(kv_items)
 
     @staticmethod
     def _save_config_file(config: dict):

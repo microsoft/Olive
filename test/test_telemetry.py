@@ -10,8 +10,15 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+
 from olive.telemetry.library.telemetry_logger import TelemetryLogger
-from olive.telemetry.telemetry import ACTION_EVENT_NAME, CACHE_FILE_NAME, RECIPE_EVENT_NAME, Telemetry, TelemetryCacheHandler
+from olive.telemetry.telemetry import (
+    ACTION_EVENT_NAME,
+    CACHE_FILE_NAME,
+    RECIPE_EVENT_NAME,
+    Telemetry,
+    TelemetryCacheHandler,
+)
 from olive.telemetry.utils import _exclusive_file_lock
 
 
