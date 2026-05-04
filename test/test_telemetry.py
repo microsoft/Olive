@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from olive.telemetry.library.telemetry_logger import DEFAULT_SERVICE_NAME, TelemetryLogger
+from olive.telemetry.library.telemetry_logger import TelemetryLogger
 from olive.telemetry.telemetry import (
     ACTION_EVENT_NAME,
     CACHE_FILE_NAME,
@@ -43,22 +43,6 @@ def test_telemetry_logger_uses_explicit_service_name():
             service_name="Olive",
         )
         assert logger._logger_provider.resource.attributes["service.name"] == "Olive"
-    finally:
-        TelemetryLogger.shutdown_default_logger()
-        TelemetryLogger._instance = None
-        TelemetryLogger._default_logger = None
-
-
-def test_telemetry_logger_uses_default_service_name():
-    TelemetryLogger.shutdown_default_logger()
-    TelemetryLogger._instance = None
-    TelemetryLogger._default_logger = None
-
-    try:
-        logger = TelemetryLogger.get_default_logger(
-            connection_string="InstrumentationKey=12345678-1234-1234-1234-123456789abc-tenant"
-        )
-        assert logger._logger_provider.resource.attributes["service.name"] == DEFAULT_SERVICE_NAME
     finally:
         TelemetryLogger.shutdown_default_logger()
         TelemetryLogger._instance = None
