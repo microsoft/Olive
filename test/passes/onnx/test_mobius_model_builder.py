@@ -322,6 +322,29 @@ def test_unsupported_ep_falls_back_to_default(tmp_path):
     assert call_kwargs["execution_provider"] == MobiusModelBuilder.MobiusEP.DEFAULT
 
 
+def test_none_execution_provider_falls_back_to_default(tmp_path):
+    """If execution_provider is None, pass should fall back to mobius default EP."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+
+    # Create a pass with execution_provider=None (unspecified).
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=None
+    )
+    p = create_pass_from_dict(
+        MobiusModelBuilder,
+        {"precision": "fp32"},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg) as mock_build:
+        p.run(_make_hf_model("org/model"), out)
+
+    call_kwargs = mock_build.call_args.kwargs
+    assert call_kwargs["execution_provider"] == MobiusModelBuilder.MobiusEP.DEFAULT
+
+
 @pytest.mark.skipif(not _HAS_REAL_MOBIUS, reason="mobius-ai is not publicly available in CI yet")
 def test_write_genai_config_requires_real_mobius(tmp_path):
     """Integration smoke test for _write_genai_config when real mobius is installed."""
