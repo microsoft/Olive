@@ -15,7 +15,9 @@ from unittest.mock import MagicMock
 
 
 def _ensure_ort_genai_stub():
-    if "onnxruntime_genai" not in sys.modules:
+    try:
+        import onnxruntime_genai  # noqa: F401
+    except ImportError:
         stub = types.ModuleType("onnxruntime_genai")
         stub.Generator = MagicMock
         stub.GeneratorParams = MagicMock
