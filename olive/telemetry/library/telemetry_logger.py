@@ -19,8 +19,6 @@ from olive.telemetry.library.exporter import OneCollectorLogExporter
 from olive.telemetry.library.options import OneCollectorExporterOptions
 from olive.version import __version__ as VERSION
 
-DEFAULT_SERVICE_NAME = __name__.split(".", maxsplit=1)[0]
-
 
 class TelemetryLogger:
     """Singleton telemetry logger for simplified OneCollector integration.
@@ -36,27 +34,25 @@ class TelemetryLogger:
     _logger_exporter: Optional[OneCollectorLogExporter] = None
     _logger_provider: Optional[LoggerProvider] = None
 
-    def __new__(cls, options: Optional[OneCollectorExporterOptions] = None, service_name: Optional[str] = None):
+    def __new__(cls, options: Optional[OneCollectorExporterOptions] = None):
         """Create or return the singleton instance.
 
         Args:
             options: Exporter options (only used on first instantiation)
-            service_name: Logical application/service name for emitted telemetry (only used on first instantiation)
 
         """
         with cls._singleton_lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
-                cls._instance._initialize(options, service_name)
+                cls._instance._initialize(options)
 
         return cls._instance
 
-    def _initialize(self, options: Optional[OneCollectorExporterOptions], service_name: Optional[str]) -> None:
+    def _initialize(self, options: Optional[OneCollectorExporterOptions]) -> None:
         """Initialize the logger (called only once).
 
         Args:
             options: Exporter configuration options
-            service_name: Logical application/service name for emitted telemetry
 
         """
         try:
@@ -64,7 +60,9 @@ class TelemetryLogger:
             self._logger_exporter = OneCollectorLogExporter(options=options)
 
             # Create logger provider
-            service_name = service_name or (options.service_name if options else None) or DEFAULT_SERVICE_NAME
+            service_name = (
+                options.service_name if options and options.service_name else __name__.split(".", maxsplit=1)[0]
+            )
             self._logger_provider = LoggerProvider(
                 resource=Resource.create(
                     {
@@ -166,8 +164,10 @@ class TelemetryLogger:
             if cls._default_logger is None:
                 options = None
                 if connection_string:
-                    options = OneCollectorExporterOptions(connection_string=connection_string)
-                cls._default_logger = cls(options=options, service_name=service_name)
+                    options = OneCollectorExporterOptions(
+                        connection_string=connection_string, service_name=service_name
+                    )
+                cls._default_logger = cls(options=options)
 
         return cls._default_logger
 

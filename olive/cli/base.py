@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import importlib
 import json
 import logging
 import re
@@ -10,8 +9,6 @@ from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import ClassVar, Optional
-
-from packaging import version
 
 from olive.common.constants import DEFAULT_HF_TASK
 from olive.common.user_module_loader import UserModuleLoader
