@@ -19,6 +19,8 @@ from olive.telemetry.library.exporter import OneCollectorLogExporter
 from olive.telemetry.library.options import OneCollectorExporterOptions
 from olive.version import __version__ as VERSION
 
+DEFAULT_SERVICE_NAME = __name__.split(".", maxsplit=1)[0]
+
 
 class TelemetryLogger:
     """Singleton telemetry logger for simplified OneCollector integration.
@@ -60,10 +62,11 @@ class TelemetryLogger:
             self._logger_exporter = OneCollectorLogExporter(options=options)
 
             # Create logger provider
+            service_name = options.service_name or DEFAULT_SERVICE_NAME
             self._logger_provider = LoggerProvider(
                 resource=Resource.create(
                     {
-                        "service.name": __name__.split(".", maxsplit=1)[0],
+                        "service.name": service_name,
                         "service.version": VERSION,
                         "service.instance.id": str(uuid.uuid4()),  # Unique instance ID; can double as session ID
                     }
@@ -144,11 +147,14 @@ class TelemetryLogger:
             self._logger_provider.shutdown()
 
     @classmethod
-    def get_default_logger(cls, connection_string: Optional[str] = None) -> "TelemetryLogger":
+    def get_default_logger(
+        cls, connection_string: Optional[str] = None, service_name: Optional[str] = None
+    ) -> "TelemetryLogger":
         """Get or create the default telemetry logger.
 
         Args:
             connection_string: OneCollector connection string (only used on first call)
+            service_name: Logical application/service name for emitted telemetry (only used on first call)
 
         Returns:
             TelemetryLogger instance
@@ -158,7 +164,9 @@ class TelemetryLogger:
             if cls._default_logger is None:
                 options = None
                 if connection_string:
-                    options = OneCollectorExporterOptions(connection_string=connection_string)
+                    options = OneCollectorExporterOptions(
+                        connection_string=connection_string, service_name=service_name
+                    )
                 cls._default_logger = cls(options=options)
 
         return cls._default_logger
@@ -171,17 +179,20 @@ class TelemetryLogger:
             cls._default_logger = None
 
 
-def get_telemetry_logger(connection_string: Optional[str] = None) -> TelemetryLogger:
+def get_telemetry_logger(
+    connection_string: Optional[str] = None, service_name: Optional[str] = None
+) -> TelemetryLogger:
     """Get or create the default telemetry logger.
 
     Args:
         connection_string: OneCollector connection string (only used on first call)
+        service_name: Logical application/service name for emitted telemetry (only used on first call)
 
     Returns:
         TelemetryLogger instance
 
     """
-    return TelemetryLogger.get_default_logger(connection_string=connection_string)
+    return TelemetryLogger.get_default_logger(connection_string=connection_string, service_name=service_name)
 
 
 def log_event(event_name: str, attributes: Optional[dict[str, Any]] = None) -> None:

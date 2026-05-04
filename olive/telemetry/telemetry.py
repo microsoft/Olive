@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 # Default event names used by the high-level telemetry helpers.
 HEARTBEAT_EVENT_NAME = "OliveHeartbeat"
+RECIPE_EVENT_NAME = "OliveRecipe"
 
 # CI/CD environment variables whose presence indicates an automated pipeline.
 _CI_ENV_VARS = (
@@ -41,6 +42,7 @@ _CI_ENV_VARS = (
 )
 ACTION_EVENT_NAME = "OliveAction"
 ERROR_EVENT_NAME = "OliveError"
+APP_NAME = "Olive"
 
 ALLOWED_KEYS = {
     HEARTBEAT_EVENT_NAME: {
@@ -70,12 +72,45 @@ ALLOWED_KEYS = {
         "app_instance_id",
         "initTs",
     },
+    RECIPE_EVENT_NAME: {
+        "recipe_name",
+        "recipe_hash",
+        "recipe_source",
+        "recipe_format",
+        "recipe_command",
+        "execution_mode",
+        "workflow_id",
+        "success",
+        "exception_type",
+        "input_model_type",
+        "input_model_source",
+        "input_model_name_hash",
+        "model_task",
+        "target_system_type",
+        "target_device",
+        "execution_provider",
+        "execution_providers",
+        "pass_types",
+        "pass_count",
+        "data_config_count",
+        "search_enabled",
+        "package_config_provided",
+        "is_ci",
+        "app_version",
+        "app_instance_id",
+        "initTs",
+    },
 }
 
 CRITICAL_EVENTS = {HEARTBEAT_EVENT_NAME}
 MAX_CACHE_SIZE_BYTES = 5 * 1024 * 1024
 HARD_MAX_CACHE_SIZE_BYTES = 10 * 1024 * 1024
 CACHE_FILE_NAME = "olive.json"
+
+
+def is_ci_environment() -> bool:
+    """Detect CI/CD environments by checking well-known environment variables."""
+    return any(os.environ.get(var) for var in _CI_ENV_VARS)
 
 
 class TelemetryCacheHandler:
@@ -240,7 +275,7 @@ class TelemetryCacheHandler:
         """
         telemetry_cache_dir = None
         if "OLIVE_TELEMETRY_CACHE_DIR" in os.environ:
-            telemetry_cache_dir = os.environ["OLIVE_TELEMETRY_CACHE_DIR"]
+            telemetry_cache_dir = Path(os.environ["OLIVE_TELEMETRY_CACHE_DIR"]).expanduser()
         if not telemetry_cache_dir:
             telemetry_cache_dir = get_telemetry_base_dir() / "cache"
         return telemetry_cache_dir / self._cache_file_name
@@ -419,6 +454,7 @@ class Telemetry:
 
         self._logger = None
         self._cache_handler = None
+        self._recipe_only_ci_telemetry = False
 
         try:
             self._logger = self._create_logger()
@@ -426,11 +462,9 @@ class Telemetry:
 
             self._cache_handler = TelemetryCacheHandler(self)
             self._setup_payload_callbacks()
-            if self._is_ci_environment():
-                self.disable_telemetry()
-                self._initialized = True
-                return
-            self._log_heartbeat()
+            self._recipe_only_ci_telemetry = self._is_ci_environment()
+            if not self._is_ci_environment():
+                self._log_heartbeat()
             if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1":
                 self.disable_telemetry()
             self._initialized = True
@@ -441,11 +475,11 @@ class Telemetry:
     @staticmethod
     def _is_ci_environment() -> bool:
         """Detect CI/CD environments by checking well-known environment variables."""
-        return any(os.environ.get(var) for var in _CI_ENV_VARS)
+        return is_ci_environment()
 
     def _create_logger(self) -> Optional[TelemetryLogger]:
         try:
-            return get_telemetry_logger(base64.b64decode(CONNECTION_STRING).decode())
+            return get_telemetry_logger(base64.b64decode(CONNECTION_STRING).decode(), service_name=APP_NAME)
         except Exception:
             return None
 
@@ -498,6 +532,8 @@ class Telemetry:
 
         """
         try:
+            if self._recipe_only_ci_telemetry and event_name != RECIPE_EVENT_NAME:
+                return
             attrs = _merge_metadata(attributes, metadata)
             if self._logger is None:
                 return

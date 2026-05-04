@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import re
+import tempfile
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
@@ -16,6 +17,7 @@ from olive.constants import DiffusersModelVariant
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+from olive.workflows import run as olive_run
 
 
 class BaseOliveCLICommand(ABC):
@@ -29,10 +31,6 @@ class BaseOliveCLICommand(ABC):
             parser.error(f"Unknown arguments: {unknown_args}")
 
     def _run_workflow(self):
-        import tempfile
-
-        from olive.workflows import run as olive_run
-
         Path(self.args.output_path).mkdir(parents=True, exist_ok=True)
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
@@ -42,17 +40,28 @@ class BaseOliveCLICommand(ABC):
             if self.args.dry_run:
                 print("Dry run mode enabled. Configuration file is generated but no optimization is performed.")
                 return None
-            workflow_output = olive_run(run_config)
+            workflow_output = olive_run(run_config, recipe_telemetry_metadata=self._get_recipe_telemetry_metadata())
             if not workflow_output.has_output_model():
                 print("No output model produced. Please check the log for details.")
             else:
                 print(f"Model is saved at {self.args.output_path}")
             return workflow_output
 
+    def _get_recipe_telemetry_metadata(self) -> dict[str, str]:
+        recipe_name = self.__class__.__name__
+        if recipe_name.endswith("Command"):
+            recipe_name = recipe_name[: -len("Command")]
+        return {
+            "recipe_name": recipe_name,
+            "recipe_command": recipe_name,
+            "recipe_source": "generated_cli",
+            "recipe_format": "generated",
+        }
+
     @staticmethod
     def _parse_extra_options(kv_items):
-        from onnxruntime_genai import __version__ as OrtGenaiVersion
-        from packaging import version
+        from onnxruntime_genai import __version__ as OrtGenaiVersion  # noqa: PLC0415
+        from packaging import version  # noqa: PLC0415
 
         if version.parse(OrtGenaiVersion) <= version.parse("0.9.0"):
             raise ValueError(
@@ -60,7 +69,7 @@ class BaseOliveCLICommand(ABC):
                 "Please either upgrade to onnxruntime-genai version > 0.9.0 or use the model builder pass directly in the config file."
             )
 
-        from onnxruntime_genai.models.builder import parse_extra_options
+        from onnxruntime_genai.models.builder import parse_extra_options  # noqa: PLC0415
 
         return parse_extra_options(kv_items)
 
