@@ -2,12 +2,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib
 import json
 import re
+import tempfile
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import ClassVar, Optional
+
+from packaging import version
 
 from olive.common.constants import DEFAULT_HF_TASK
 from olive.common.user_module_loader import UserModuleLoader
@@ -16,6 +20,7 @@ from olive.constants import DiffusersModelVariant
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+from olive.workflows import run as olive_run
 
 TEST_OUTPUT_MARKER_FILE = "olive_test_output.json"
 
