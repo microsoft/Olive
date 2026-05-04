@@ -9,15 +9,14 @@ The tests mock all ORT GenAI objects anyway, so the stub only needs to provide
 importable names.
 """
 
+import importlib.util
 import sys
 import types
 from unittest.mock import MagicMock
 
 
 def _ensure_ort_genai_stub():
-    try:
-        import onnxruntime_genai  # noqa: F401
-    except ImportError:
+    if importlib.util.find_spec("onnxruntime_genai") is None:
         stub = types.ModuleType("onnxruntime_genai")
         stub.Generator = MagicMock
         stub.GeneratorParams = MagicMock
