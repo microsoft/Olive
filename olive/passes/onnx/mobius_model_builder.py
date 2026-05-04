@@ -51,7 +51,7 @@ class MobiusModelBuilder(Pass):
 
         pip install mobius-ai
 
-    See https://github.com/microsoft/mobius
+    See https://github.com/onnxruntime/mobius
     """
 
     class MobiusRuntime(StrEnumBase):
@@ -98,16 +98,6 @@ class MobiusModelBuilder(Pass):
                     "quantization pass (e.g. OnnxMatMulNBits) after this pass."
                 ),
             ),
-            "execution_provider": PassConfigParam(
-                type_=MobiusModelBuilder.MobiusEP,
-                required=False,
-                default_value=None,
-                description=(
-                    "Override the mobius execution provider. "
-                    "When None (default), the EP is auto-detected from the Olive "
-                    "accelerator spec."
-                ),
-            ),
             "runtime": PassConfigParam(
                 type_=MobiusModelBuilder.MobiusRuntime,
                 required=False,
@@ -136,8 +126,14 @@ class MobiusModelBuilder(Pass):
         if not isinstance(model, HfModelHandler):
             raise ValueError(f"MobiusModelBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
-        # Resolve EP: explicit config override > accelerator spec > fallback to cpu.
-        ep_str: str = config.execution_provider or self.EP_MAP.get(self.accelerator_spec.execution_provider, "cpu")
+        # Get EP from accelerator spec. Raise error if not supported by mobius.
+        ep_str: str | None = self.EP_MAP.get(self.accelerator_spec.execution_provider)
+        if ep_str is None:
+            raise ValueError(
+                f"MobiusModelBuilder does not support execution provider "
+                f"{self.accelerator_spec.execution_provider}. Supported providers: "
+                f"{', '.join(self.EP_MAP.values())}"
+            )
 
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path
@@ -173,8 +169,9 @@ class MobiusModelBuilder(Pass):
 
         # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
         # files, processor configs) when runtime is set to ort-genai.
+        genai_artifacts = {}
         if config.runtime == self.MobiusRuntime.ORT_GENAI:
-            self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
+            genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
 
         package_keys = list(pkg.keys())
         logger.info("MobiusModelBuilder: saved components %s to '%s'", package_keys, output_dir)
@@ -190,6 +187,8 @@ class MobiusModelBuilder(Pass):
             additional_files = sorted(
                 {str(fp) for fp in output_dir.iterdir()} - {str(onnx_path), str(onnx_path) + ".data"}
             )
+            # Include ORT GenAI artifacts (genai_config.json, tokenizer files, etc.)
+            additional_files = sorted(set(additional_files) | set(genai_artifacts.values()))
             return ONNXModelHandler(
                 model_path=str(output_dir),
                 onnx_file_name="model.onnx",
@@ -214,6 +213,8 @@ class MobiusModelBuilder(Pass):
             additional_files = sorted(
                 {str(fp) for fp in component_dir.iterdir()} - {str(onnx_path), str(onnx_path) + ".data"}
             )
+            # Include ORT GenAI artifacts from root output_dir (shared across components)
+            additional_files = sorted(set(additional_files) | set(genai_artifacts.values()))
             components.append(
                 ONNXModelHandler(
                     model_path=str(component_dir),
@@ -237,14 +238,23 @@ class MobiusModelBuilder(Pass):
         )
 
     @staticmethod
-    def _write_genai_config(pkg, output_dir: str, model_id: str, ep: str) -> None:
-        """Generate ORT GenAI config artifacts alongside the ONNX models."""
+    def _write_genai_config(pkg, output_dir: str, model_id: str, ep: str) -> dict[str, str]:
+        """Generate ORT GenAI config artifacts alongside the ONNX models.
+
+        Returns:
+            Dict mapping artifact names to their file paths (e.g., genai_config.json, tokenizer.json).
+
+        """
         from mobius.integrations.ort_genai import write_ort_genai_config
 
         genai_artifacts = write_ort_genai_config(
-            pkg, output_dir, hf_model_id=model_id, ep=ep,
+            pkg,
+            output_dir,
+            hf_model_id=model_id,
+            ep=ep,
         )
         logger.info(
             "MobiusModelBuilder: wrote ORT GenAI config: %s",
             list(genai_artifacts.keys()),
         )
+        return genai_artifacts

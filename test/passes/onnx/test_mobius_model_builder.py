@@ -96,13 +96,13 @@ def _patch_build(pkg: MagicMock):
     # Patch mobius.build directly — lazy import inside _run_for_config means
     # patching the module attribute, not the local binding.
     # Also patch _write_genai_config since the default runtime is ort-genai.
-    return _combine_patches(
+    return _CombinePatches(
         patch("mobius.build", return_value=pkg),
         patch.object(MobiusModelBuilder, "_write_genai_config"),
     )
 
 
-class _combine_patches:
+class _CombinePatches:
     """Combine multiple patch context managers into one."""
 
     def __init__(self, *patches):
@@ -124,13 +124,14 @@ class _combine_patches:
 
 
 def test_default_config_params():
-    """MobiusModelBuilder must declare precision and execution_provider, and must not declare trust_remote_code."""
+    """MobiusModelBuilder must declare precision and runtime, and must not declare execution_provider or trust_remote_code."""
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
     config = MobiusModelBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
     assert "precision" in config
-    assert "execution_provider" in config
+    assert "runtime" in config
+    assert "execution_provider" not in config
     assert "trust_remote_code" not in config
 
 
@@ -189,6 +190,58 @@ def test_model_onnx_exists_after_run(tmp_path):
     assert Path(result.model_path).exists()
 
 
+def test_genai_artifacts_in_single_component(tmp_path):
+    """ORT GenAI artifacts must be included in single-component model's additional_files."""
+    out = tmp_path / "out"
+    pkg = _fake_pkg(["model"], out)
+
+    # Mock genai artifact files that would be created
+    genai_config = str(out / "genai_config.json")
+    tokenizer_file = str(out / "tokenizer.json")
+    (out / "genai_config.json").write_text("{}")
+    (out / "tokenizer.json").write_text("{}")
+
+    # Mock _write_genai_config to return the artifact paths
+    mock_genai_artifacts = {"genai_config": genai_config, "tokenizer.json": tokenizer_file}
+
+    with _patch_build(pkg), patch.object(MobiusModelBuilder, "_write_genai_config", return_value=mock_genai_artifacts):
+        p = _make_pass()
+        result = p.run(_make_hf_model("meta-llama/Llama-3-8B"), out)
+
+    assert isinstance(result, ONNXModelHandler)
+    # Verify genai artifacts are in additional_files
+    additional_files = result.model_attributes.get("additional_files", [])
+    assert genai_config in additional_files
+    assert tokenizer_file in additional_files
+
+
+def test_genai_artifacts_in_multi_component(tmp_path):
+    """ORT GenAI artifacts must be included in all components of multi-component models."""
+    out = tmp_path / "out"
+    keys = ["model", "vision", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    # Mock genai artifact files
+    genai_config = str(out / "genai_config.json")
+    image_processor = str(out / "image_processor.json")
+    (out / "genai_config.json").write_text("{}")
+    (out / "image_processor.json").write_text("{}")
+
+    # Mock _write_genai_config to return the artifact paths
+    mock_genai_artifacts = {"genai_config": genai_config, "image_processor": image_processor}
+
+    with _patch_build(pkg), patch.object(MobiusModelBuilder, "_write_genai_config", return_value=mock_genai_artifacts):
+        p = _make_pass()
+        result = p.run(_make_hf_model("microsoft/phi-4-vision"), out)
+
+    assert isinstance(result, CompositeModelHandler)
+    # Verify all components include genai artifacts
+    for component in result.model_components:
+        additional_files = component.model_attributes.get("additional_files", [])
+        assert genai_config in additional_files
+        assert image_processor in additional_files
+
+
 # ---------------------------------------------------------------------------
 # Multi-component model tests
 # ---------------------------------------------------------------------------
@@ -218,7 +271,7 @@ def test_multi_component_returns_composite_handler(tmp_path):
 
 
 def test_ep_auto_detected_from_accelerator(tmp_path):
-    """When execution_provider config is None, use the Olive accelerator EP."""
+    """Execution provider is determined by the Olive accelerator spec."""
     out = tmp_path / "out"
     pkg = _fake_pkg(["model"], out)
 
@@ -240,25 +293,23 @@ def test_ep_auto_detected_from_accelerator(tmp_path):
     assert call_kwargs["dtype"] == "f16"
 
 
-def test_ep_override_from_config(tmp_path):
-    """Explicit execution_provider in config overrides the accelerator EP."""
+def test_unsupported_ep_raises_error(tmp_path):
+    """If accelerator EP is not supported by mobius, pass must raise ValueError."""
     out = tmp_path / "out"
-    pkg = _fake_pkg(["model"], out)
 
+    # Create a pass with an unsupported EP (one not in EP_MAP)
     accelerator_spec = AcceleratorSpec(
-        accelerator_type=Device.GPU, execution_provider=ExecutionProvider.CUDAExecutionProvider
+        accelerator_type=Device.NPU, execution_provider=ExecutionProvider.NpuExecutionProvider
     )
     p = create_pass_from_dict(
         MobiusModelBuilder,
-        {"precision": "fp32", "execution_provider": "webgpu"},
+        {"precision": "fp32"},
         disable_search=True,
         accelerator_spec=accelerator_spec,
     )
 
-    with _patch_build(pkg) as mock_build:
+    with pytest.raises(ValueError, match="does not support execution provider"):
         p.run(_make_hf_model("org/model"), out)
-
-    assert mock_build.call_args.kwargs["execution_provider"] == "webgpu"
 
 
 # ---------------------------------------------------------------------------
