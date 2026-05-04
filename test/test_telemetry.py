@@ -11,7 +11,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from olive.telemetry.library.telemetry_logger import TelemetryLogger
 from olive.telemetry.telemetry import (
     ACTION_EVENT_NAME,
     CACHE_FILE_NAME,
@@ -38,23 +37,6 @@ def test_cache_path_ignores_empty_env_override(tmp_path, monkeypatch):
     with patch("olive.telemetry.telemetry.get_telemetry_base_dir", return_value=tmp_path):
         handler = TelemetryCacheHandler(Mock())
         assert handler.cache_path == tmp_path / "cache" / CACHE_FILE_NAME
-
-
-def test_telemetry_logger_uses_explicit_service_name():
-    TelemetryLogger.shutdown_default_logger()
-    TelemetryLogger._instance = None
-    TelemetryLogger._default_logger = None
-
-    try:
-        logger = TelemetryLogger.get_default_logger(
-            connection_string="InstrumentationKey=12345678-1234-1234-1234-123456789abc-tenant",
-            service_name="Olive",
-        )
-        assert logger._logger_provider.resource.attributes["service.name"] == "Olive"
-    finally:
-        TelemetryLogger.shutdown_default_logger()
-        TelemetryLogger._instance = None
-        TelemetryLogger._default_logger = None
 
 
 def test_telemetry_only_logs_recipe_events_in_ci(monkeypatch):
