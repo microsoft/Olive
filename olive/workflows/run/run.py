@@ -3,13 +3,15 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import importlib
+import json
 import logging
 from copy import deepcopy
 from os import PathLike
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from olive.common.utils import hash_dict, hash_string, set_tempdir
+from olive.common.config_utils import load_config_file
+from olive.common.utils import hash_dict, set_tempdir
 from olive.hardware.constants import ExecutionProvider
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
@@ -25,6 +27,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 RECIPE_HASH_REDACTED_VALUE = "<resource>"
+CONFIG_REFERENCE_REDACTED_VALUE = "<reference>"
+CONFIG_CALLABLE_REDACTED_VALUE = "<callable>"
 RECIPE_HASH_REDACTED_KEYS = {
     "output_dir",
     "cache_dir",
@@ -36,9 +40,18 @@ RECIPE_HASH_REDACTED_KEYS = {
     "prepend_to_path",
     "script_dir",
     "model_script",
+    # package_config is tracked separately via package_config_provided, but
+    # excluded from recipe_hash because it is an environment/infrastructure path.
     "package_config",
     "work_dir",
 }
+CONFIG_SNAPSHOT_REDACTED_KEYS = RECIPE_HASH_REDACTED_KEYS | {
+    "model_path",
+    "_name_or_path",
+    "adapter_path",
+    "user_script",
+}
+CONFIG_REFERENCE_KEYS = {"host", "target", "evaluator"}
 
 
 def get_required_packages(package_config: OlivePackageConfig, run_config: RunConfig) -> set[str]:
@@ -177,6 +190,19 @@ def run(
     # set tempdir
     set_tempdir(tempdir)
 
+    try:
+        run_config_telemetry_input = _load_config_input_for_telemetry(run_config)
+    except Exception:
+        run_config_telemetry_input = None
+
+    package_config_input = package_config
+    try:
+        package_config_telemetry_input = (
+            _load_config_input_for_telemetry(package_config_input) if package_config_input is not None else None
+        )
+    except Exception:
+        package_config_telemetry_input = None
+
     package_config_provided = package_config is not None
     if package_config is None:
         package_config = OlivePackageConfig.get_default_config_path()
@@ -213,9 +239,11 @@ def run(
     finally:
         metadata = _build_recipe_result_metadata(
             run_config,
+            run_config_telemetry_input,
             parsed_run_config,
             recipe_telemetry_metadata,
             list_required_packages=list_required_packages,
+            package_config_input=package_config_telemetry_input,
             package_config_provided=package_config_provided,
         )
         recipe_name = metadata.pop("recipe_name")
@@ -247,10 +275,12 @@ def get_run_on_target(package_config: OlivePackageConfig, pass_config: "RunPassC
 
 def _build_recipe_result_metadata(
     run_config_input: Union[str, Path, dict],
+    run_config_telemetry_input: Optional[Any],
     run_config: Optional[RunConfig],
     recipe_telemetry_metadata: Optional[dict[str, Any]],
     *,
     list_required_packages: bool,
+    package_config_input: Optional[Union[str, Path, dict]],
     package_config_provided: bool,
 ) -> dict[str, Any]:
     metadata = dict(recipe_telemetry_metadata or {})
@@ -259,6 +289,9 @@ def _build_recipe_result_metadata(
     metadata.setdefault("recipe_format", default_format)
     metadata.setdefault("execution_mode", "list_required_packages" if list_required_packages else "run")
     metadata.setdefault("package_config_provided", package_config_provided)
+    metadata.setdefault("config_overrides", _build_config_overrides(run_config_telemetry_input))
+    if package_config_provided:
+        metadata.setdefault("package_config_hash", _build_package_config_hash(package_config_input))
     metadata["is_ci"] = is_ci_environment()
 
     if run_config is None:
@@ -268,6 +301,7 @@ def _build_recipe_result_metadata(
     run_config_json = run_config.to_json(make_absolute=False)
     model_metadata = _extract_input_model_metadata(run_config_json["input_model"])
     target_metadata = _extract_target_metadata(run_config)
+    host_metadata = _extract_host_metadata(run_config)
     pass_types = [pass_config.type for pass_config in get_used_passes_configs(run_config)]
 
     metadata.setdefault("recipe_name", metadata.get("recipe_command") or run_config.workflow_id)
@@ -275,12 +309,9 @@ def _build_recipe_result_metadata(
     metadata.setdefault("recipe_hash", _build_recipe_hash(run_config_json))
     metadata.setdefault("input_model_type", run_config.input_model.type)
     metadata.setdefault("input_model_source", model_metadata["input_model_source"])
-    metadata.setdefault("input_model_name_hash", model_metadata["input_model_name_hash"])
     metadata.setdefault("model_task", model_metadata["model_task"])
-    metadata.setdefault("target_system_type", target_metadata["target_system_type"])
-    metadata.setdefault("target_device", target_metadata["target_device"])
-    metadata.setdefault("execution_provider", target_metadata["execution_provider"])
-    metadata.setdefault("execution_providers", target_metadata["execution_providers"])
+    _set_metadata_if_present(metadata, target_metadata)
+    _set_metadata_if_present(metadata, host_metadata)
     metadata.setdefault("pass_types", ";".join(pass_types))
     metadata.setdefault("pass_count", len(pass_types))
     metadata.setdefault("data_config_count", len(run_config.data_configs))
@@ -299,6 +330,97 @@ def _classify_run_config_source(run_config_input: Any) -> tuple[str, str]:
     return "config_object", "object"
 
 
+def _build_config_overrides(config_input: Any) -> Optional[str]:
+    try:
+        config_data = _load_config_input_for_telemetry(config_input)
+        if config_data is None:
+            return None
+
+        snapshot = _sanitize_config_snapshot(config_data)
+        if snapshot in (None, {}, []):
+            return None
+
+        return json.dumps(snapshot, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    except Exception:
+        return None
+
+
+def _build_package_config_hash(config_input: Any) -> Optional[str]:
+    try:
+        config_data = _load_config_input_for_telemetry(config_input)
+        if not isinstance(config_data, dict):
+            return None
+
+        snapshot = _sanitize_config_snapshot(config_data)
+        if not isinstance(snapshot, dict):
+            return None
+
+        return hash_dict(snapshot)[:16]
+    except Exception:
+        return None
+
+
+def _load_config_input_for_telemetry(config_input: Any) -> Optional[Any]:
+    if config_input is None:
+        return None
+    if isinstance(config_input, dict):
+        return deepcopy(config_input)
+    if isinstance(config_input, (str, PathLike)):
+        return load_config_file(config_input)
+
+    model_dump = getattr(config_input, "model_dump", None)
+    if callable(model_dump):
+        return model_dump(exclude_defaults=True, exclude_none=True, by_alias=True)
+    return None
+
+
+def _sanitize_config_snapshot(value: Any, key: Optional[str] = None) -> Any:
+    if key in CONFIG_SNAPSHOT_REDACTED_KEYS or _is_path_like_key(key):
+        return RECIPE_HASH_REDACTED_VALUE
+    if key in CONFIG_REFERENCE_KEYS and isinstance(value, str):
+        return CONFIG_REFERENCE_REDACTED_VALUE
+
+    if isinstance(value, dict):
+        if key == "systems":
+            return [_sanitize_config_snapshot(system, "system") for system in value.values()]
+        if key == "passes":
+            passes = []
+            for pass_configs in value.values():
+                if isinstance(pass_configs, list):
+                    passes.extend(pass_configs)
+                else:
+                    passes.append(pass_configs)
+            return [_sanitize_config_snapshot(pass_config, "pass") for pass_config in passes]
+        if key == "evaluators":
+            return [_sanitize_config_snapshot(evaluator, "evaluator_config") for evaluator in value.values()]
+        return {
+            child_key: _sanitize_config_snapshot(child_value, child_key)
+            for child_key, child_value in value.items()
+            if child_value is not None
+        }
+    if isinstance(value, list):
+        return [_sanitize_config_snapshot(item, key) for item in value]
+    if isinstance(value, tuple):
+        return [_sanitize_config_snapshot(item, key) for item in value]
+    if isinstance(value, Path):
+        return RECIPE_HASH_REDACTED_VALUE
+    if callable(value):
+        return CONFIG_CALLABLE_REDACTED_VALUE
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if hasattr(value, "value") and isinstance(value.value, (str, int, float, bool)):
+        return value.value
+    return f"<{type(value).__name__}>"
+
+
+def _is_path_like_key(key: Optional[str]) -> bool:
+    if key is None:
+        return False
+    return key in {"path", "paths", "dir", "dirs", "file", "files"} or key.endswith(
+        ("_path", "_paths", "_dir", "_dirs", "_file", "_files")
+    )
+
+
 def _extract_input_model_metadata(input_model_config: dict[str, Any]) -> dict[str, Optional[str]]:
     model_config = input_model_config.get("config", {})
     model_attributes = model_config.get("model_attributes", {})
@@ -306,7 +428,6 @@ def _extract_input_model_metadata(input_model_config: dict[str, Any]) -> dict[st
     raw_identifier = model_attributes.get("_name_or_path") or model_config.get("model_path")
     return {
         "input_model_source": _classify_input_model_source(raw_identifier),
-        "input_model_name_hash": _hash_value(raw_identifier),
         "model_task": str(model_task) if model_task is not None else None,
     }
 
@@ -335,27 +456,46 @@ def _classify_input_model_source(model_identifier: Any) -> str:
 
 
 def _extract_target_metadata(run_config: RunConfig) -> dict[str, Optional[str]]:
-    target_system = run_config.engine.target or run_config.engine.host
-    target_system_type = target_system.type.value if target_system is not None else None
-    target_device = None
+    target_system = run_config.engine.target
+    return _extract_system_metadata(target_system, "target")
+
+
+def _extract_host_metadata(run_config: RunConfig) -> dict[str, Optional[str]]:
+    host_system = run_config.engine.host
+    if host_system is None:
+        return {
+            "host_system_type": SystemType.Local.value,
+        }
+    return _extract_system_metadata(host_system, "host")
+
+
+def _extract_system_metadata(system_config: Optional[Any], field_prefix: str) -> dict[str, Optional[str]]:
+    system_type = system_config.type.value if system_config is not None else None
+    device = None
     execution_provider = None
     execution_providers = None
 
-    accelerators = target_system.config.accelerators if target_system and target_system.config else None
+    accelerators = system_config.config.accelerators if system_config and system_config.config else None
     if accelerators:
         accelerator = accelerators[0]
-        target_device = str(accelerator.device) if accelerator.device is not None else None
+        device = str(accelerator.device) if accelerator.device is not None else None
         ep_values = accelerator.get_ep_strs() or []
         if ep_values:
             execution_provider = ep_values[0]
             execution_providers = ";".join(ep_values)
 
     return {
-        "target_system_type": target_system_type,
-        "target_device": target_device,
-        "execution_provider": execution_provider,
-        "execution_providers": execution_providers,
+        f"{field_prefix}_system_type": system_type,
+        f"{field_prefix}_device": device,
+        f"{field_prefix}_execution_provider": execution_provider,
+        f"{field_prefix}_execution_providers": execution_providers,
     }
+
+
+def _set_metadata_if_present(metadata: dict[str, Any], values: dict[str, Optional[str]]) -> None:
+    for key, value in values.items():
+        if value is not None:
+            metadata.setdefault(key, value)
 
 
 def _build_recipe_hash(run_config_json: dict[str, Any]) -> str:
@@ -383,9 +523,3 @@ def _set_path_value(container: Any, path: tuple[Any, ...], value: Any) -> None:
     for key in path[:-1]:
         current = current[key]
     current[path[-1]] = value
-
-
-def _hash_value(value: Any) -> Optional[str]:
-    if value is None:
-        return None
-    return hash_string(str(value))[:16]
