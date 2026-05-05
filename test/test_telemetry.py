@@ -55,6 +55,8 @@ def test_telemetry_only_logs_recipe_events_in_ci(monkeypatch):
 
         assert mock_logger.log.call_count == 1
         assert mock_logger.log.call_args.args[0] == RECIPE_EVENT_NAME
+        assert telemetry._cache_handler is None
+        mock_logger.register_payload_transmitted_callback.assert_not_called()
     finally:
         Telemetry._instance = None
 

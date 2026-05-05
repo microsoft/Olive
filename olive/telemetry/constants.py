@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-"""OneCollector connection string."""
+"""Telemetry constants."""
 
 CONNECTION_STRING = "SW5zdHJ1bWVudGF0aW9uS2V5PTYyMTUwOTExZGMwMDRmYzliYjY3YmE5NjA2NDI3ZTU2LWVjNjFmOWFmLTVkN2EtNGQxOS1hZjMxLWI5Y2Q2OWU5ODdmMS02OTE1"
+SUPPRESS_WORKFLOW_TELEMETRY_ENV = "OLIVE_SUPPRESS_WORKFLOW_TELEMETRY"
