@@ -132,7 +132,8 @@ def test_run_packages():
 
 @patch("olive.workflows.run.run.log_recipe_result")
 @patch("olive.workflows.run.run.run_engine")
-def test_run_logs_recipe_result_success(mock_run_engine, mock_log_recipe_result):
+@patch("olive.workflows.run.run.is_ci_environment", return_value=False)
+def test_run_logs_recipe_result_success(_, mock_run_engine, mock_log_recipe_result):
     config = {
         "input_model": {
             "type": "HfModel",

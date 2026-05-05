@@ -18,7 +18,6 @@ from olive.cli.base import (
 )
 from olive.common.config_utils import load_config_file
 from olive.telemetry import action
-from olive.workflows import run as olive_run
 
 
 class WorkflowRunCommand(BaseOliveCLICommand):
@@ -56,6 +55,8 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
     @action
     def run(self):
+        from olive.workflows import run as olive_run
+
         # allow the run_config to be a dict already (for api use)
         run_config_input = self.args.run_config
         run_config = run_config_input
