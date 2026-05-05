@@ -40,15 +40,7 @@ BUILD_CUDA_EXT=0 pip install --no-build-isolation "git+https://github.com/PanQiW
 
 # Set HF Token
 pip install huggingface-hub
-hf_token="$7"
-case "$hf_token" in
-"" | '$('*')')
-    echo "Skipping Hugging Face login because no token is available."
-    ;;
-*)
-    hf auth login --token "$hf_token"
-    ;;
-esac
+hf auth login --token "$7"
 
 pip list
 
