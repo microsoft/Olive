@@ -8,15 +8,25 @@ parameters:
   trt_version: ''
 
 steps:
-- script: |
-    docker login -u $(docker-username) -p $(docker-password)
-    docker build \
-    --build-arg BASE_IMAGE=${{ parameters.base_image }} \
-    --build-arg TENSORRT_VERSION=${{ parameters.trt_version }} \
-    --build-arg PYTHON_VERSION=${{ parameters.python_version }} \
-    -t ${{ parameters.docker_image }} \
-    -f $(Build.SourcesDirectory)/${{ parameters.dockerfile }} .
+- pwsh: |
+    $username = $env:DOCKER_USERNAME
+    $password = $env:DOCKER_PASSWORD
+    if (
+      [string]::IsNullOrWhiteSpace($username) -or
+      [string]::IsNullOrWhiteSpace($password) -or
+      $username -match '^\$\([^)]+\)$' -or
+      $password -match '^\$\([^)]+\)$'
+    ) {
+      Write-Host "Skipping docker login because registry credentials are unavailable."
+    } else {
+      $password | docker login -u $username --password-stdin
+    }
+
+    docker build --build-arg BASE_IMAGE=${{ parameters.base_image }} --build-arg TENSORRT_VERSION=${{ parameters.trt_version }} --build-arg PYTHON_VERSION=${{ parameters.python_version }} -t ${{ parameters.docker_image }} -f "$(Build.SourcesDirectory)/${{ parameters.dockerfile }}" .
   displayName: Build Docker Image
+  env:
+    DOCKER_USERNAME: $(docker-username)
+    DOCKER_PASSWORD: $(docker-password)
 
 - script: |
     docker version

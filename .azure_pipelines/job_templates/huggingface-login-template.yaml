@@ -2,5 +2,13 @@ parameters:
   hf_token: 'huggingface_token'
 
 steps:
-- script: hf auth login --token ${{ parameters.hf_token }}
+- pwsh: |
+    $token = $env:HF_TOKEN
+    if ([string]::IsNullOrWhiteSpace($token) -or $token -match '^\$\([^)]+\)$') {
+      Write-Host "Skipping Hugging Face login because no token is available."
+      exit 0
+    }
+    hf auth login --token "$token"
   displayName: 'Hugging Face Login'
+  env:
+    HF_TOKEN: ${{ parameters.hf_token }}
