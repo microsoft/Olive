@@ -59,6 +59,13 @@ jobs:
       trt_version: ${{ parameters.trt_version }}
 
   - script: |
+      hf_token_input="${HF_TOKEN:-}"
+      case "$hf_token_input" in
+        '$('*')')
+          hf_token_input=""
+          ;;
+      esac
+
       docker run \
       --shm-size=4g \
       --gpus=all \
@@ -72,9 +79,11 @@ jobs:
       test/${{ parameters.requirements_file }} \
       ${{ parameters.test_path }} \
       false \
-      $(hf_token) \
+      "$hf_token_input" \
       "${{ parameters.pytest_marker }}"
     displayName: Run Tests in Docker
+    env:
+      HF_TOKEN: $(hf_token)
 
   - task: CredScan@3
     displayName: 'Run CredScan'
