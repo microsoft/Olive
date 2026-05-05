@@ -473,11 +473,11 @@ class Telemetry:
             self._logger = self._create_logger()
             event_source.disable()
 
-            self._cache_handler = TelemetryCacheHandler(self)
-            self._setup_payload_callbacks()
             is_ci = self._is_ci_environment()
             self._recipe_only_ci_telemetry = is_ci
             if not is_ci:
+                self._cache_handler = TelemetryCacheHandler(self)
+                self._setup_payload_callbacks()
                 self._log_heartbeat()
             if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1":
                 self.disable_telemetry()
@@ -500,7 +500,7 @@ class Telemetry:
     def _setup_payload_callbacks(self) -> None:
         # Register callback for payload transmission events
         # No need to store unregister function - logger shutdown will clean up callbacks
-        if self._logger is None:
+        if self._logger is None or self._cache_handler is None:
             return
         self._logger.register_payload_transmitted_callback(
             self._cache_handler.on_payload_transmitted,

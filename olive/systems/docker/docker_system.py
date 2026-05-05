@@ -5,6 +5,7 @@
 import copy
 import json
 import logging
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -19,6 +20,8 @@ from olive.resource_path import find_all_resources
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
+from olive.telemetry.constants import SUPPRESS_WORKFLOW_TELEMETRY_ENV
+from olive.telemetry.telemetry import is_ci_environment
 from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
@@ -241,6 +244,9 @@ class DockerSystem(OliveSystem):
         # Add default environment variables
         environment.setdefault("PYTHONPYCACHEPREFIX", "/tmp")
         environment["OLIVE_LOG_LEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
+        environment[SUPPRESS_WORKFLOW_TELEMETRY_ENV] = "1"
+        if is_ci_environment():
+            environment["CI"] = "1"
 
         # Add HuggingFace token if needed
         if self.hf_token:
@@ -303,8 +309,6 @@ class DockerSystem(OliveSystem):
     @staticmethod
     def _get_huggingface_token() -> Optional[str]:
         """Get HuggingFace token from environment or file."""
-        import os
-
         # Check environment variable
         token = os.getenv("HF_TOKEN")
         if token:

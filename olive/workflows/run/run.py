@@ -6,9 +6,10 @@ import functools
 import importlib
 import json
 import logging
+import os
 from copy import deepcopy
 from os import PathLike
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from olive.common.config_utils import load_config_file
@@ -16,9 +17,9 @@ from olive.common.utils import hash_dict, set_tempdir
 from olive.hardware.constants import ExecutionProvider
 from olive.logging import set_default_logger_severity, set_ort_logger_severity, set_verbosity_info
 from olive.package_config import OlivePackageConfig
-from olive.resource_path import create_resource_path, find_all_resources
 from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
+from olive.telemetry.constants import SUPPRESS_WORKFLOW_TELEMETRY_ENV
 from olive.telemetry.telemetry import is_ci_environment
 from olive.telemetry.telemetry_extensions import log_recipe_result
 from olive.workflows.run.config import RunConfig
@@ -227,7 +228,7 @@ def run(
 
         if parsed_run_config.engine.host and parsed_run_config.engine.host.type == SystemType.Docker:
             docker_system = parsed_run_config.engine.host.create_system()
-            workflow_output = docker_system.run_workflow(parsed_run_config)
+            workflow_output = docker_system.run_workflow(deepcopy(parsed_run_config))
             success = True
             return workflow_output
 
@@ -240,17 +241,18 @@ def run(
         exception_type = type(exc).__name__
         raise
     finally:
-        metadata = _build_recipe_result_metadata(
-            run_config,
-            run_config_telemetry_input,
-            parsed_run_config,
-            recipe_telemetry_metadata,
-            list_required_packages=list_required_packages,
-            package_config_input=package_config_telemetry_input,
-            package_config_provided=package_config_provided,
-        )
-        recipe_name = metadata.pop("recipe_name")
-        log_recipe_result(recipe_name, success=success, metadata=metadata, exception_type=exception_type)
+        if os.environ.get(SUPPRESS_WORKFLOW_TELEMETRY_ENV) != "1":
+            metadata = _build_recipe_result_metadata(
+                run_config,
+                run_config_telemetry_input,
+                parsed_run_config,
+                recipe_telemetry_metadata,
+                list_required_packages=list_required_packages,
+                package_config_input=package_config_telemetry_input,
+                package_config_provided=package_config_provided,
+            )
+            recipe_name = metadata.pop("recipe_name")
+            log_recipe_result(recipe_name, success=success, metadata=metadata, exception_type=exception_type)
 
 
 def generate_files_from_packages(packages, file_name):
@@ -510,10 +512,18 @@ def _classify_input_model_source(model_identifier: Any) -> str:
     if identifier.startswith(("http://", "https://")):
         return "url"
 
-    resource_path = create_resource_path(identifier)
-    if resource_path.is_local_resource():
-        return "local_file" if resource_path.type.value == "file" else "local_folder"
+    if _is_explicit_local_model_path(identifier):
+        suffix = PureWindowsPath(identifier).suffix or PurePosixPath(identifier).suffix
+        return "local_file" if suffix else "local_folder"
     return "string_name"
+
+
+def _is_explicit_local_model_path(identifier: str) -> bool:
+    return (
+        identifier.startswith(("./", "../", ".\\", "..\\", "~/", "~\\", "/", "\\\\"))
+        or PureWindowsPath(identifier).is_absolute()
+        or PurePosixPath(identifier).is_absolute()
+    )
 
 
 def _extract_target_metadata(run_config: RunConfig) -> dict[str, Optional[str]]:
@@ -562,13 +572,11 @@ def _set_metadata_if_present(metadata: dict[str, Any], values: dict[str, Optiona
 def _build_recipe_hash(run_config_json: dict[str, Any]) -> str:
     sanitized = deepcopy(run_config_json)
     _redact_recipe_hash_keys(sanitized)
-    for path in find_all_resources(sanitized):
-        _set_path_value(sanitized, path, RECIPE_HASH_REDACTED_VALUE)
     return hash_dict(sanitized)[:16]
 
 
 def _redact_recipe_hash_keys(value: Any, key: Optional[str] = None) -> Any:
-    if key in RECIPE_HASH_REDACTED_KEYS:
+    if key in RECIPE_HASH_REDACTED_KEYS or _is_path_like_key(key):
         return RECIPE_HASH_REDACTED_VALUE
     if isinstance(value, dict):
         for child_key in list(value):
@@ -577,10 +585,3 @@ def _redact_recipe_hash_keys(value: Any, key: Optional[str] = None) -> Any:
         for index, item in enumerate(value):
             value[index] = _redact_recipe_hash_keys(item, key)
     return value
-
-
-def _set_path_value(container: Any, path: tuple[Any, ...], value: Any) -> None:
-    current = container
-    for key in path[:-1]:
-        current = current[key]
-    current[path[-1]] = value

@@ -8,6 +8,7 @@ import pytest
 
 from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig
+from olive.telemetry.constants import SUPPRESS_WORKFLOW_TELEMETRY_ENV
 from test.utils import ONNX_MODEL_PATH
 
 # pylint: disable=attribute-defined-outside-init,protected-access
@@ -136,9 +137,29 @@ class TestDockerSystem:
         command = mock_docker_client.containers.run.call_args[1]["command"]
         assert "workflow_runner.py" in command
         assert "--config" in command
+        assert mock_docker_client.containers.run.call_args.kwargs["environment"][SUPPRESS_WORKFLOW_TELEMETRY_ENV] == "1"
 
         # Verify cleanup
         mock_container.remove.assert_called_once()
+
+    @patch("olive.systems.docker.docker_system.docker.from_env")
+    def test_prepare_environment_forwards_ci_to_workflow_container(self, mock_from_env, monkeypatch):
+        mock_docker_client = MagicMock()
+        mock_from_env.return_value = mock_docker_client
+        mock_docker_client.images.get.return_value = MagicMock()
+        monkeypatch.setenv("TF_BUILD", "True")
+        docker_config = self.get_default_docker_config()
+        docker_system = DockerSystem(
+            image_name=docker_config.image_name,
+            build_context_path=docker_config.build_context_path,
+            dockerfile=docker_config.dockerfile,
+            work_dir=docker_config.work_dir,
+        )
+
+        environment = docker_system._prepare_environment({})
+
+        assert environment["CI"] == "1"
+        assert environment[SUPPRESS_WORKFLOW_TELEMETRY_ENV] == "1"
 
     @patch("olive.systems.docker.docker_system.docker.from_env")
     @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")
