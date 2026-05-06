@@ -64,10 +64,20 @@ _TEXT_BASED_ACCURACY_SUBTYPES = {AccuracySubType.WER, AccuracySubType.CER}
 
 
 def _is_text_based_metric(metric: "Metric") -> bool:
-    """Check if metric uses text-based accuracy sub-types (WER, CER)."""
+    """Check if metric uses text-based accuracy sub-types (WER, CER).
+
+    Raises ValueError if text-based and tensor-based sub-types are mixed,
+    as they require different inference paths.
+    """
     if metric.type != MetricType.ACCURACY:
         return False
-    return any(sub.name in _TEXT_BASED_ACCURACY_SUBTYPES for sub in metric.sub_types)
+    text_based = [sub.name in _TEXT_BASED_ACCURACY_SUBTYPES for sub in metric.sub_types]
+    if any(text_based) and not all(text_based):
+        raise ValueError(
+            "Cannot mix text-based accuracy sub-types (WER, CER) with tensor-based sub-types "
+            "(accuracy_score, f1_score, etc.) in the same metric. Please define them as separate metrics."
+        )
+    return all(text_based)
 
 
 class OliveEvaluator(ABC):
@@ -548,17 +558,32 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             input_feed = format_data(input_data, io_config)
             result = model.run_session(session, input_feed, **run_kwargs)
             if is_single_tensor_output:
-                result = torch.Tensor(result[0])
+                result = torch.from_numpy(result[0]) if hasattr(result[0], '__array__') else torch.tensor(result[0])
             else:
-                result = {name: torch.Tensor(result[i]) for i, name in enumerate(output_names)}
+                result = {
+                    name: torch.from_numpy(result[i]) if hasattr(result[i], '__array__') else torch.tensor(result[i])
+                    for i, name in enumerate(output_names)
+                }
             # post_func must decode model output to text strings
             outputs = post_func(result) if post_func else result
-            if isinstance(outputs, (list, tuple)) and isinstance(outputs[0], str):
-                all_preds.extend(outputs)
-            elif isinstance(outputs, str):
+            if isinstance(outputs, str):
                 all_preds.append(outputs)
+            elif isinstance(outputs, (list, tuple)):
+                if not outputs:
+                    continue
+                if not isinstance(outputs[0], str):
+                    raise ValueError(
+                        f"post_func must return str or list[str] for text-based metrics (WER/CER), "
+                        f"but got list of {type(outputs[0]).__name__}. "
+                        f"Ensure your post_func decodes model output to text."
+                    )
+                all_preds.extend(outputs)
             else:
-                all_preds.extend([str(o) for o in outputs])
+                raise ValueError(
+                    f"post_func must return str or list[str] for text-based metrics (WER/CER), "
+                    f"but got {type(outputs).__name__}. "
+                    f"Ensure your post_func decodes model output to text."
+                )
             # labels should be reference text strings
             if isinstance(labels, (list, tuple)):
                 all_targets.extend(labels)
@@ -905,12 +930,24 @@ class PyTorchEvaluator(_OliveEvaluator):
             input_data = tensor_data_to_device(input_data_i, device)
             result = model.run_session(session, input_data, **run_kwargs)
             outputs = post_func(result) if post_func else result
-            if isinstance(outputs, (list, tuple)) and isinstance(outputs[0], str):
-                all_preds.extend(outputs)
-            elif isinstance(outputs, str):
+            if isinstance(outputs, str):
                 all_preds.append(outputs)
+            elif isinstance(outputs, (list, tuple)):
+                if not outputs:
+                    continue
+                if not isinstance(outputs[0], str):
+                    raise ValueError(
+                        f"post_func must return str or list[str] for text-based metrics (WER/CER), "
+                        f"but got list of {type(outputs[0]).__name__}. "
+                        f"Ensure your post_func decodes model output to text."
+                    )
+                all_preds.extend(outputs)
             else:
-                all_preds.extend([str(o) for o in outputs])
+                raise ValueError(
+                    f"post_func must return str or list[str] for text-based metrics (WER/CER), "
+                    f"but got {type(outputs).__name__}. "
+                    f"Ensure your post_func decodes model output to text."
+                )
             if isinstance(labels, (list, tuple)):
                 all_targets.extend(labels)
             else:

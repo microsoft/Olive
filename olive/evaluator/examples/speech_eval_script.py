@@ -11,6 +11,9 @@ to compute WER and CER. It is referenced from the Olive config via:
 
 The evaluate_func receives the model handler, device, and execution providers,
 and is responsible for running inference and computing the metric.
+
+IMPORTANT: You must implement the _transcribe() function for your specific model.
+See the function docstring for guidance.
 """
 
 import numpy as np
@@ -29,9 +32,10 @@ def evaluate_speech_wer(model, device, execution_providers):
 
     Returns:
         dict with metric names as keys and float values.
+
     """
-    from datasets import load_dataset, Audio
     import jiwer
+    from datasets import Audio, load_dataset
 
     # Load dataset
     dataset = load_dataset(
@@ -79,7 +83,7 @@ def evaluate_speech_wer(model, device, execution_providers):
 
 
 def _transcribe(session, model, audio_array):
-    """Placeholder transcription function.
+    """Transcribe audio using model inference.
 
     Replace with your model's specific inference logic.
     For the Nemotron streaming model, see the onnxruntime-genai streaming API.

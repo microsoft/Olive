@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 
-from olive.evaluator.accuracy import AUROC, AccuracyScore, F1Score, Perplexity, Precision, Recall
+from olive.evaluator.accuracy import AUROC, AccuracyScore, CharErrorRate, F1Score, Perplexity, Precision, Recall, WordErrorRate
 from olive.evaluator.olive_evaluator import OliveModelOutput
 
 
@@ -149,3 +149,58 @@ def test_evaluate_perplexity(mock_torchmetrics, mock_torch_tensor):
         mock_torch_tensor.assert_any_call(model_output.preds[i], dtype=torch.float)
         mock_torch_tensor.assert_any_call(targets[i], dtype=torch.long)
     assert actual_res == expected_res
+
+
+class TestWordErrorRate:
+    def test_perfect_transcription(self):
+        wer = WordErrorRate({})
+        model_output = OliveModelOutput(preds=["hello world", "test sentence"], logits=None)
+        targets = ["hello world", "test sentence"]
+        result = wer.measure(model_output, targets)
+        assert result == 0.0
+
+    def test_completely_wrong(self):
+        wer = WordErrorRate({})
+        model_output = OliveModelOutput(preds=["completely wrong words here"], logits=None)
+        targets = ["the correct reference text"]
+        result = wer.measure(model_output, targets)
+        assert result > 0.0
+
+    def test_single_string_input(self):
+        """Test that a single string is wrapped in a list, not split into chars."""
+        wer = WordErrorRate({})
+        model_output = OliveModelOutput(preds="hello world", logits=None)
+        targets = "hello world"
+        result = wer.measure(model_output, targets)
+        assert result == 0.0
+
+    def test_partial_error(self):
+        wer = WordErrorRate({})
+        model_output = OliveModelOutput(preds=["hello world"], logits=None)
+        targets = ["hello earth"]
+        result = wer.measure(model_output, targets)
+        assert 0.0 < result < 1.0
+
+
+class TestCharErrorRate:
+    def test_perfect_transcription(self):
+        cer = CharErrorRate({})
+        model_output = OliveModelOutput(preds=["hello world"], logits=None)
+        targets = ["hello world"]
+        result = cer.measure(model_output, targets)
+        assert result == 0.0
+
+    def test_single_string_input(self):
+        """Test that a single string is wrapped in a list, not split into chars."""
+        cer = CharErrorRate({})
+        model_output = OliveModelOutput(preds="hello", logits=None)
+        targets = "hello"
+        result = cer.measure(model_output, targets)
+        assert result == 0.0
+
+    def test_partial_error(self):
+        cer = CharErrorRate({})
+        model_output = OliveModelOutput(preds=["hello world"], logits=None)
+        targets = ["hallo world"]
+        result = cer.measure(model_output, targets)
+        assert 0.0 < result < 1.0

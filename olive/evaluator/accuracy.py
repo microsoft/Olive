@@ -178,12 +178,16 @@ class WordErrorRate(AccuracyBase):
         preds = model_output.preds
         refs = target
         # Ensure inputs are lists of strings
-        if not isinstance(preds, list):
+        if isinstance(preds, str):
+            preds = [preds]
+        elif not isinstance(preds, list):
             preds = list(preds)
-        if not isinstance(refs, list):
+        if isinstance(refs, str):
+            refs = [refs]
+        elif not isinstance(refs, list):
             refs = list(refs)
 
-        wer = torchmetrics.text.WordErrorRate()
+        wer = torchmetrics.text.WordErrorRate(**self.config_dict)
         result = wer(preds, refs)
         return result.item()
 
@@ -205,12 +209,16 @@ class CharErrorRate(AccuracyBase):
         preds = model_output.preds
         refs = target
         # Ensure inputs are lists of strings
-        if not isinstance(preds, list):
+        if isinstance(preds, str):
+            preds = [preds]
+        elif not isinstance(preds, list):
             preds = list(preds)
-        if not isinstance(refs, list):
+        if isinstance(refs, str):
+            refs = [refs]
+        elif not isinstance(refs, list):
             refs = list(refs)
 
-        cer = torchmetrics.text.CharErrorRate()
+        cer = torchmetrics.text.CharErrorRate(**self.config_dict)
         result = cer(preds, refs)
         return result.item()
 

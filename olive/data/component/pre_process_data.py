@@ -321,6 +321,7 @@ def speech_transcription_pre_process(
             If 0 or None: use all samples.
         seed: Random seed for percentage-based sampling. Defaults to 42.
         **kwargs: Additional arguments.
+
     """
     from datasets import Audio
 
@@ -342,7 +343,10 @@ def speech_transcription_pre_process(
             dataset = dataset.select(range(n))
 
     class SpeechTranscriptionDataset:
-        """Dataset that returns (audio_array, reference_text) pairs."""
+        """Dataset that returns (audio_array, reference_text) pairs.
+
+        Note: Use batch_size=1 in dataloader config as audio samples have variable lengths.
+        """
 
         def __init__(self, hf_dataset, audio_column, text_column):
             self.dataset = hf_dataset
@@ -359,5 +363,19 @@ def speech_transcription_pre_process(
             audio_array = np.array(item[self.audio_column]["array"], dtype=np.float32)
             reference_text = item[self.text_column]
             return audio_array, reference_text
+
+        @staticmethod
+        def collate_fn(batch):
+            """Custom collate for variable-length audio. Use with batch_size=1 or pad audio."""
+            import numpy as np
+
+            # batch_size=1 is expected for speech evaluation (variable-length audio)
+            if len(batch) == 1:
+                audio, text = batch[0]
+                return (np.expand_dims(audio, 0), [text])
+            # For batch_size > 1, return as lists (no padding)
+            audios = [item[0] for item in batch]
+            texts = [item[1] for item in batch]
+            return (audios, texts)
 
     return SpeechTranscriptionDataset(dataset, audio_col, text_col)
