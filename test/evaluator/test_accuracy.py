@@ -8,7 +8,16 @@ import numpy as np
 import pytest
 import torch
 
-from olive.evaluator.accuracy import AUROC, AccuracyScore, F1Score, Perplexity, Precision, Recall, RealTimeFactor, WordErrorRate
+from olive.evaluator.accuracy import (
+    AUROC,
+    AccuracyScore,
+    F1Score,
+    Perplexity,
+    Precision,
+    RealTimeFactor,
+    Recall,
+    WordErrorRate,
+)
 from olive.evaluator.olive_evaluator import OliveModelOutput
 
 
