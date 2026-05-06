@@ -191,5 +191,29 @@ class WordErrorRate(AccuracyBase):
         return result.item()
 
 
+class RealTimeFactor(AccuracyBase):
+    """Real-Time Factor (RTFx) metric for speech/ASR evaluation.
 
+    RTFx = total_audio_duration / total_inference_time.
+    A value > 1 means faster than real-time (e.g., RTFx=5 means 5x faster).
+    Timing metadata is provided via model_output.logits dict.
+    """
 
+    name: Optional[str] = "rtfx"
+
+    @classmethod
+    def _default_config(cls) -> dict[str, ConfigParam]:
+        return {}
+
+    def measure(self, model_output, target):
+        timing = model_output.logits
+        if not isinstance(timing, dict) or "total_audio_duration" not in timing:
+            raise ValueError(
+                "RTFx metric requires timing metadata from text-based inference path. "
+                "Ensure the metric is used with speech evaluation (WER + RTFx together)."
+            )
+        total_audio = timing["total_audio_duration"]
+        total_inference = timing["total_inference_time"]
+        if total_inference == 0:
+            return float("inf")
+        return round(total_audio / total_inference, 2)

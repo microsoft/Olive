@@ -39,6 +39,7 @@ class AccuracySubType(StrEnumBase):
     AUROC = "auroc"
     PERPLEXITY = "perplexity"
     WER = "wer"
+    RTFX = "rtfx"
 
 
 class LatencySubType(StrEnumBase):

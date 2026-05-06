@@ -60,11 +60,11 @@ class OliveModelOutput(NamedTuple):
 
 
 # Text-based accuracy sub-types that work with string predictions/targets
-_TEXT_BASED_ACCURACY_SUBTYPES = {AccuracySubType.WER}
+_TEXT_BASED_ACCURACY_SUBTYPES = {AccuracySubType.WER, AccuracySubType.RTFX}
 
 
 def _is_text_based_metric(metric: "Metric") -> bool:
-    """Check if metric uses text-based accuracy sub-types (WER).
+    """Check if metric uses text-based accuracy sub-types (WER, RTFx).
 
     Raises ValueError if text-based and tensor-based sub-types are mixed,
     as they require different inference paths.
@@ -74,7 +74,7 @@ def _is_text_based_metric(metric: "Metric") -> bool:
     text_based = [sub.name in _TEXT_BASED_ACCURACY_SUBTYPES for sub in metric.sub_types]
     if any(text_based) and not all(text_based):
         raise ValueError(
-            "Cannot mix text-based accuracy sub-types (WER) with tensor-based sub-types "
+            "Cannot mix text-based accuracy sub-types (WER, RTFx) with tensor-based sub-types "
             "(accuracy_score, f1_score, etc.) in the same metric. Please define them as separate metrics."
         )
     return all(text_based)
@@ -537,10 +537,11 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         device: Device = Device.CPU,
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> tuple[OliveModelOutput, Any]:
-        """Text-based inference for speech/ASR metrics (WER).
+        """Text-based inference for speech/ASR metrics (WER, RTFx).
 
         The post_func must return a list of predicted text strings per batch.
         Labels from the dataloader must be a list of reference text strings.
+        Tracks total inference time and audio duration for RTFx computation.
         """
         session, inference_settings = OnnxEvaluator.get_session_wrapper(
             model, metric, dataloader, device, execution_providers
@@ -550,22 +551,42 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         all_preds = []
         all_targets = []
+        total_audio_duration = 0.0
+        total_inference_time = 0.0
         output_names = io_config["output_names"]
         is_single_tensor_output = len(output_names) == 1
+        sample_rate = (
+            metric.data_config.pre_process_data_config.params.get("sample_rate", 16000)
+            if (metric.data_config and metric.data_config.pre_process_data_config)
+            else 16000
+        )
 
         for batch in dataloader:
             input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+            # Track audio duration from input data
+            if isinstance(input_data, (np.ndarray, torch.Tensor)):
+                audio_samples = input_data.shape[-1] if len(input_data.shape) > 1 else input_data.shape[0]
+                total_audio_duration += audio_samples / sample_rate
+            elif isinstance(input_data, dict):
+                for v in input_data.values():
+                    if isinstance(v, (np.ndarray, torch.Tensor)) and v.ndim >= 1:
+                        total_audio_duration += v.shape[-1] / sample_rate
+                        break
+
             input_feed = format_data(input_data, io_config)
+            start_time = time.perf_counter()
             result = model.run_session(session, input_feed, **run_kwargs)
             if is_single_tensor_output:
-                result = torch.from_numpy(result[0]) if hasattr(result[0], '__array__') else torch.tensor(result[0])
+                result = torch.from_numpy(result[0]) if hasattr(result[0], "__array__") else torch.tensor(result[0])
             else:
                 result = {
-                    name: torch.from_numpy(result[i]) if hasattr(result[i], '__array__') else torch.tensor(result[i])
+                    name: torch.from_numpy(result[i]) if hasattr(result[i], "__array__") else torch.tensor(result[i])
                     for i, name in enumerate(output_names)
                 }
             # post_func must decode model output to text strings
             outputs = post_func(result) if post_func else result
+            total_inference_time += time.perf_counter() - start_time
+
             if isinstance(outputs, str):
                 all_preds.append(outputs)
             elif isinstance(outputs, (list, tuple)):
@@ -593,7 +614,13 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
             dump_tuning_result(session.session, tuning_result_file)
-        return OliveModelOutput(preds=all_preds, logits=None), all_targets
+
+        # Store timing metadata for RTFx computation
+        timing_metadata = {
+            "total_audio_duration": total_audio_duration,
+            "total_inference_time": total_inference_time,
+        }
+        return OliveModelOutput(preds=all_preds, logits=timing_metadata), all_targets
 
     def _evaluate_onnx_latency(
         self,
@@ -918,18 +945,39 @@ class PyTorchEvaluator(_OliveEvaluator):
         device: Device = Device.CPU,
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> tuple[OliveModelOutput, Any]:
-        """Text-based inference for speech/ASR metrics (WER)."""
+        """Text-based inference for speech/ASR metrics (WER, RTFx)."""
         session = model.prepare_session()
         all_preds = []
         all_targets = []
+        total_audio_duration = 0.0
+        total_inference_time = 0.0
         device = _OliveEvaluator.device_string_to_torch_device(device)
         run_kwargs = metric.get_run_kwargs()
         session.to(device)
+        sample_rate = (
+            metric.data_config.pre_process_data_config.params.get("sample_rate", 16000)
+            if (metric.data_config and metric.data_config.pre_process_data_config)
+            else 16000
+        )
+
         for batch in dataloader:
             input_data_i, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+            # Track audio duration from input data
+            if isinstance(input_data_i, (np.ndarray, torch.Tensor)):
+                audio_samples = input_data_i.shape[-1] if len(input_data_i.shape) > 1 else input_data_i.shape[0]
+                total_audio_duration += audio_samples / sample_rate
+            elif isinstance(input_data_i, dict):
+                for v in input_data_i.values():
+                    if isinstance(v, (np.ndarray, torch.Tensor)) and v.ndim >= 1:
+                        total_audio_duration += v.shape[-1] / sample_rate
+                        break
+
             input_data = tensor_data_to_device(input_data_i, device)
+            start_time = time.perf_counter()
             result = model.run_session(session, input_data, **run_kwargs)
             outputs = post_func(result) if post_func else result
+            total_inference_time += time.perf_counter() - start_time
+
             if isinstance(outputs, str):
                 all_preds.append(outputs)
             elif isinstance(outputs, (list, tuple)):
@@ -956,7 +1004,12 @@ class PyTorchEvaluator(_OliveEvaluator):
             session.to("cpu")
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        return OliveModelOutput(preds=all_preds, logits=None), all_targets
+
+        timing_metadata = {
+            "total_audio_duration": total_audio_duration,
+            "total_inference_time": total_inference_time,
+        }
+        return OliveModelOutput(preds=all_preds, logits=timing_metadata), all_targets
 
     @torch.no_grad()
     def _evaluate_raw_latency(

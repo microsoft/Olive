@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 
-from olive.evaluator.accuracy import AUROC, AccuracyScore, F1Score, Perplexity, Precision, Recall, WordErrorRate
+from olive.evaluator.accuracy import AUROC, AccuracyScore, F1Score, Perplexity, Precision, Recall, RealTimeFactor, WordErrorRate
 from olive.evaluator.olive_evaluator import OliveModelOutput
 
 
@@ -181,3 +181,26 @@ class TestWordErrorRate:
         result = wer.measure(model_output, targets)
         assert 0.0 < result < 1.0
 
+
+class TestRealTimeFactor:
+    def test_rtfx_computation(self):
+        rtfx = RealTimeFactor({})
+        # 10 seconds of audio processed in 2 seconds = RTFx 5.0
+        timing = {"total_audio_duration": 10.0, "total_inference_time": 2.0}
+        model_output = OliveModelOutput(preds=["some text"], logits=timing)
+        result = rtfx.measure(model_output, ["some text"])
+        assert result == 5.0
+
+    def test_rtfx_realtime(self):
+        rtfx = RealTimeFactor({})
+        # 5 seconds of audio processed in 5 seconds = RTFx 1.0
+        timing = {"total_audio_duration": 5.0, "total_inference_time": 5.0}
+        model_output = OliveModelOutput(preds=["text"], logits=timing)
+        result = rtfx.measure(model_output, ["text"])
+        assert result == 1.0
+
+    def test_rtfx_missing_metadata(self):
+        rtfx = RealTimeFactor({})
+        model_output = OliveModelOutput(preds=["text"], logits=None)
+        with pytest.raises(ValueError, match="RTFx metric requires timing metadata"):
+            rtfx.measure(model_output, ["text"])
