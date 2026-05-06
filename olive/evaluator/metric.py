@@ -39,7 +39,6 @@ class AccuracySubType(StrEnumBase):
     AUROC = "auroc"
     PERPLEXITY = "perplexity"
     WER = "wer"
-    CER = "cer"
 
 
 class LatencySubType(StrEnumBase):
@@ -208,8 +207,8 @@ class Metric(NestedConfig):
             # metric_config
             metric_config_cls = None
             if info.data["type"] == MetricType.ACCURACY:
-                # Error rate metrics (WER, CER) default to higher_is_better=False
-                _error_rate_metrics = {"wer", "cer"}
+                # Error rate metrics (WER) default to higher_is_better=False
+                _error_rate_metrics = {"wer"}
                 item_name = item["name"] if isinstance(item["name"], str) else item["name"].value
                 if item_name in _error_rate_metrics:
                     item["higher_is_better"] = item.get("higher_is_better", False)

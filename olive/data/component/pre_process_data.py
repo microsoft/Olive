@@ -307,7 +307,7 @@ def speech_transcription_pre_process(
     """Pre-process data for speech transcription (ASR) evaluation.
 
     Loads audio arrays and reference transcription text from a HuggingFace dataset.
-    Returns a dataset of (audio_array, reference_text) pairs suitable for WER/CER evaluation.
+    Returns a dataset of (audio_array, reference_text) pairs suitable for WER evaluation.
 
     Args:
         dataset: HuggingFace dataset with audio and text columns.

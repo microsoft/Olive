@@ -27,7 +27,6 @@ class AccuracyBase(AutoConfigClass):
         "auroc": torchmetrics.AUROC,
         "perplexity": torchmetrics.text.perplexity.Perplexity,
         "wer": torchmetrics.text.WordErrorRate,
-        "cer": torchmetrics.text.CharErrorRate,
     }
 
     def __init__(self, config: Optional[Union[ConfigBase, dict[str, Any]]] = None) -> None:
@@ -192,33 +191,5 @@ class WordErrorRate(AccuracyBase):
         return result.item()
 
 
-class CharErrorRate(AccuracyBase):
-    """Character Error Rate metric for speech/ASR evaluation.
 
-    Expects model_output.preds to be a list of predicted transcription strings
-    and target to be a list of reference transcription strings.
-    """
-
-    name: Optional[str] = "cer"
-
-    @classmethod
-    def _default_config(cls) -> dict[str, ConfigParam]:
-        return {}
-
-    def measure(self, model_output, target):
-        preds = model_output.preds
-        refs = target
-        # Ensure inputs are lists of strings
-        if isinstance(preds, str):
-            preds = [preds]
-        elif not isinstance(preds, list):
-            preds = list(preds)
-        if isinstance(refs, str):
-            refs = [refs]
-        elif not isinstance(refs, list):
-            refs = list(refs)
-
-        cer = torchmetrics.text.CharErrorRate(**self.config_dict)
-        result = cer(preds, refs)
-        return result.item()
 

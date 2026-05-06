@@ -1,6 +1,6 @@
 {
     "description": "Example: Evaluate a speech model (ASR) with WER metric using Olive evaluator.",
-    "note": "For speech evaluation, use metric type 'custom' with an evaluate_func that handles the full ASR pipeline (audio -> model inference -> decode tokens -> text). The WER/CER sub_types are available for use with the custom evaluate function or the text-based inference path. IMPORTANT: Users must implement _transcribe() in the user_script for their specific model.",
+    "note": "For speech evaluation, use metric type 'custom' with an evaluate_func that handles the full ASR pipeline (audio -> model inference -> decode tokens -> text). The WER sub_type is available for use with the custom evaluate function or the text-based inference path. IMPORTANT: Users must implement _transcribe() in the user_script for their specific model.",
     "input_model": {
         "type": "OnnxModel",
         "model_path": "<path_to_onnx_model_dir>"
@@ -36,11 +36,6 @@
                 {
                     "name": "wer",
                     "priority": 1,
-                    "higher_is_better": false
-                },
-                {
-                    "name": "cer",
-                    "priority": 2,
                     "higher_is_better": false
                 }
             ],

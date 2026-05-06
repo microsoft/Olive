@@ -60,11 +60,11 @@ class OliveModelOutput(NamedTuple):
 
 
 # Text-based accuracy sub-types that work with string predictions/targets
-_TEXT_BASED_ACCURACY_SUBTYPES = {AccuracySubType.WER, AccuracySubType.CER}
+_TEXT_BASED_ACCURACY_SUBTYPES = {AccuracySubType.WER}
 
 
 def _is_text_based_metric(metric: "Metric") -> bool:
-    """Check if metric uses text-based accuracy sub-types (WER, CER).
+    """Check if metric uses text-based accuracy sub-types (WER).
 
     Raises ValueError if text-based and tensor-based sub-types are mixed,
     as they require different inference paths.
@@ -74,7 +74,7 @@ def _is_text_based_metric(metric: "Metric") -> bool:
     text_based = [sub.name in _TEXT_BASED_ACCURACY_SUBTYPES for sub in metric.sub_types]
     if any(text_based) and not all(text_based):
         raise ValueError(
-            "Cannot mix text-based accuracy sub-types (WER, CER) with tensor-based sub-types "
+            "Cannot mix text-based accuracy sub-types (WER) with tensor-based sub-types "
             "(accuracy_score, f1_score, etc.) in the same metric. Please define them as separate metrics."
         )
     return all(text_based)
@@ -537,7 +537,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         device: Device = Device.CPU,
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> tuple[OliveModelOutput, Any]:
-        """Text-based inference for speech/ASR metrics (WER, CER).
+        """Text-based inference for speech/ASR metrics (WER).
 
         The post_func must return a list of predicted text strings per batch.
         Labels from the dataloader must be a list of reference text strings.
@@ -573,14 +573,14 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     continue
                 if not isinstance(outputs[0], str):
                     raise ValueError(
-                        f"post_func must return str or list[str] for text-based metrics (WER/CER), "
+                        f"post_func must return str or list[str] for text-based metrics (WER), "
                         f"but got list of {type(outputs[0]).__name__}. "
                         f"Ensure your post_func decodes model output to text."
                     )
                 all_preds.extend(outputs)
             else:
                 raise ValueError(
-                    f"post_func must return str or list[str] for text-based metrics (WER/CER), "
+                    f"post_func must return str or list[str] for text-based metrics (WER), "
                     f"but got {type(outputs).__name__}. "
                     f"Ensure your post_func decodes model output to text."
                 )
@@ -918,7 +918,7 @@ class PyTorchEvaluator(_OliveEvaluator):
         device: Device = Device.CPU,
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> tuple[OliveModelOutput, Any]:
-        """Text-based inference for speech/ASR metrics (WER, CER)."""
+        """Text-based inference for speech/ASR metrics (WER)."""
         session = model.prepare_session()
         all_preds = []
         all_targets = []
@@ -937,14 +937,14 @@ class PyTorchEvaluator(_OliveEvaluator):
                     continue
                 if not isinstance(outputs[0], str):
                     raise ValueError(
-                        f"post_func must return str or list[str] for text-based metrics (WER/CER), "
+                        f"post_func must return str or list[str] for text-based metrics (WER), "
                         f"but got list of {type(outputs[0]).__name__}. "
                         f"Ensure your post_func decodes model output to text."
                     )
                 all_preds.extend(outputs)
             else:
                 raise ValueError(
-                    f"post_func must return str or list[str] for text-based metrics (WER/CER), "
+                    f"post_func must return str or list[str] for text-based metrics (WER), "
                     f"but got {type(outputs).__name__}. "
                     f"Ensure your post_func decodes model output to text."
                 )

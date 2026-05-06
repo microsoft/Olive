@@ -5,7 +5,7 @@
 """Example speech evaluation script for Olive.
 
 This script demonstrates how to use the CUSTOM metric type with a speech model
-to compute WER and CER. It is referenced from the Olive config via:
+to compute WER. It is referenced from the Olive config via:
     "user_script": "speech_eval_script.py",
     "evaluate_func": "evaluate_speech_wer"
 
@@ -20,10 +20,10 @@ import numpy as np
 
 
 def evaluate_speech_wer(model, device, execution_providers):
-    """Evaluate speech model with WER and CER metrics.
+    """Evaluate speech model with WER metric.
 
     This function is called by Olive's CUSTOM metric evaluator.
-    It loads an ASR dataset, runs model inference, and computes WER/CER.
+    It loads an ASR dataset, runs model inference, and computes WER.
 
     Args:
         model: OliveModelHandler (e.g., ONNXModelHandler)
@@ -75,11 +75,10 @@ def evaluate_speech_wer(model, device, execution_providers):
         predictions.append(predicted_text)
         references.append(reference_text.lower())
 
-    # Compute WER and CER
+    # Compute WER
     wer = jiwer.wer(references, predictions)
-    cer = jiwer.cer(references, predictions)
 
-    return {"wer": wer, "cer": cer}
+    return {"wer": wer}
 
 
 def _transcribe(session, model, audio_array):

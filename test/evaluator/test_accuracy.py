@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 
-from olive.evaluator.accuracy import AUROC, AccuracyScore, CharErrorRate, F1Score, Perplexity, Precision, Recall, WordErrorRate
+from olive.evaluator.accuracy import AUROC, AccuracyScore, F1Score, Perplexity, Precision, Recall, WordErrorRate
 from olive.evaluator.olive_evaluator import OliveModelOutput
 
 
@@ -181,26 +181,3 @@ class TestWordErrorRate:
         result = wer.measure(model_output, targets)
         assert 0.0 < result < 1.0
 
-
-class TestCharErrorRate:
-    def test_perfect_transcription(self):
-        cer = CharErrorRate({})
-        model_output = OliveModelOutput(preds=["hello world"], logits=None)
-        targets = ["hello world"]
-        result = cer.measure(model_output, targets)
-        assert result == 0.0
-
-    def test_single_string_input(self):
-        """Test that a single string is wrapped in a list, not split into chars."""
-        cer = CharErrorRate({})
-        model_output = OliveModelOutput(preds="hello", logits=None)
-        targets = "hello"
-        result = cer.measure(model_output, targets)
-        assert result == 0.0
-
-    def test_partial_error(self):
-        cer = CharErrorRate({})
-        model_output = OliveModelOutput(preds=["hello world"], logits=None)
-        targets = ["hallo world"]
-        result = cer.measure(model_output, targets)
-        assert 0.0 < result < 1.0
