@@ -48,7 +48,9 @@
     ],
     "evaluators": {
         "common_evaluator": {
-            "metrics": ["speech_wer"]
+            "metrics": [
+                "speech_wer"
+            ]
         }
     },
     "systems": {
@@ -57,7 +59,9 @@
             "accelerators": [
                 {
                     "device": "cpu",
-                    "execution_providers": ["CPUExecutionProvider"]
+                    "execution_providers": [
+                        "CPUExecutionProvider"
+                    ]
                 }
             ]
         }

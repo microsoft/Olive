@@ -49,9 +49,7 @@ def evaluate_speech_wer(model, device, execution_providers):
     dataset = dataset.select(range(min(100, len(dataset))))
 
     # Prepare model session
-    session = model.prepare_session(
-        device=device, execution_providers=execution_providers
-    )
+    session = model.prepare_session(device=device, execution_providers=execution_providers)
 
     predictions = []
     references = []
@@ -94,6 +92,5 @@ def _transcribe(session, model, audio_array):
     # text = tokenizer.decode(token_ids)
     # return text
     raise NotImplementedError(
-        "Implement _transcribe() for your specific model. "
-        "See comments in evaluate_speech_wer() for guidance."
+        "Implement _transcribe() for your specific model. See comments in evaluate_speech_wer() for guidance."
     )
