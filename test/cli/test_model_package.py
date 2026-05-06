@@ -612,6 +612,68 @@ class TestConfigsAndSafety:
         with pytest.raises(ValueError, match="at least one variant"):
             write_model_package(output_dir=tmp_path / "package", variants=[])
 
+    def test_skips_config_file_with_unsafe_key(self, tmp_path):
+        # setup: a real source plus a config_files map with a path-escaping key.
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+        bad = tmp_path / "configs_src" / "evil.txt"
+        bad.parent.mkdir(parents=True)
+        bad.write_text("oops")
+        out = tmp_path / "package"
+
+        # execute
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="cpu",
+                    onnx_files=[onnx_path],
+                    ep="CPUExecutionProvider",
+                )
+            ],
+            config_files={"../escape.txt": bad, "subdir/nested.txt": bad, "ok.txt": bad},
+        )
+
+        # assert: unsafe keys are dropped, safe key copied
+        assert not (out.parent / "escape.txt").exists()
+        assert not (out / "configs" / "subdir").exists()
+        assert not (out / "configs" / "..").is_dir() or not (out / ".." / "escape.txt").exists()
+        assert (out / "configs" / "ok.txt").exists()
+        # configs/ should contain only the one safe entry
+        assert sorted(p.name for p in (out / "configs").iterdir()) == ["ok.txt"]
+
+
+# ---------------------------------------------------------------------------
+# CLI: mixed source types
+# ---------------------------------------------------------------------------
+
+
+class TestMixedSourceTypes:
+    def test_rejects_mixed_onnx_and_composite(self, tmp_path):
+        # setup: one ONNXModel source, one CompositeModel source
+        onnx_src = _create_source_dir(tmp_path, "onnx_src", {"ep": "CPUExecutionProvider"})
+        comp_src = tmp_path / "comp_src"
+        comp_src.mkdir()
+        comp_onnx = _make_onnx_inline(comp_src / "comp.onnx")
+        (comp_src / "model_config.json").write_text(
+            json.dumps(
+                {
+                    "type": "CompositeModel",
+                    "config": {
+                        "model_components": [{"type": "ONNXModel", "config": {"model_path": str(comp_onnx)}}],
+                        "component_names": ["decoder"],
+                    },
+                }
+            )
+        )
+        cmd = _make_command(
+            ["generate-model-package", "-s", str(onnx_src), "-s", str(comp_src), "-o", str(tmp_path / "out")]
+        )
+
+        # execute + assert
+        with pytest.raises(ValueError, match="mix model types"):
+            cmd.run()
+
 
 # ---------------------------------------------------------------------------
 # Helper functions

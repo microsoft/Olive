@@ -136,13 +136,19 @@ class ModelPackageCommand(BaseOliveCLICommand):
             model_config = self._read_model_config(source_path)
             targets.append((target_name, source_path, model_config))
 
-        is_composite = targets[0][2].get("type") == "CompositeModel"
-        first_type = targets[0][2].get("type")
-        if not is_composite and first_type != "ONNXModel":
+        types = {targets[i][2].get("type") for i in range(len(targets))}
+        if types - {"ONNXModel", "CompositeModel"}:
+            unsupported = sorted(types - {"ONNXModel", "CompositeModel"})
             raise ValueError(
-                f"Unsupported source model type {first_type!r}. "
+                f"Unsupported source model type(s) {unsupported!r}. "
                 "generate-model-package supports ONNXModel and CompositeModel only."
             )
+        if len(types) > 1:
+            raise ValueError(
+                f"Sources mix model types {sorted(types)!r}. All sources must share the same type "
+                "(all ONNXModel or all CompositeModel)."
+            )
+        is_composite = next(iter(types)) == "CompositeModel"
 
         if is_composite:
             variants = self._build_composite_variants(targets)
@@ -438,9 +444,18 @@ def _write_component(output_dir: Path, component_name: str, comp_variants: list[
             shutil.copy2(str(onnx_src_path), str(onnx_dst))
 
             ext_refs = _discover_external_data(onnx_src_path)
+            external_root = onnx_src_path.parent.resolve()
             blob_records: list[tuple[str, str]] = []
             for graph_location in ext_refs:
                 blob_src = (onnx_src_path.parent / graph_location).resolve()
+                if not blob_src.is_relative_to(external_root):
+                    logger.warning(
+                        "External-data file referenced by %s resolves outside its source directory "
+                        "(symlink escape?); skipping: %s",
+                        onnx_src_path,
+                        blob_src,
+                    )
+                    continue
                 if not blob_src.is_file():
                     logger.warning(
                         "External-data file referenced by %s but missing: %s",
@@ -558,9 +573,18 @@ def _write_manifest(
 def _copy_config_files(output_dir: Path, config_files: dict[str, Path]) -> None:
     configs_dir = output_dir / "configs"
     configs_dir.mkdir(parents=True, exist_ok=True)
+    configs_root = configs_dir.resolve()
     for name, src in config_files.items():
+        if "/" in name or "\\" in name or name in ("", ".", ".."):
+            logger.warning("Skipping config file with unsafe name %r.", name)
+            continue
         src_path = Path(src)
         dest = configs_dir / name
+        # Belt-and-suspenders: even with the name check above, refuse a dest
+        # that doesn't land directly under configs/.
+        if dest.resolve().parent != configs_root:
+            logger.warning("Skipping config file %r: resolved path escapes configs/.", name)
+            continue
         if dest.exists():
             if not _paths_equal(src_path, dest):
                 logger.warning(
