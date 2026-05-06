@@ -38,6 +38,8 @@ class AccuracySubType(StrEnumBase):
     RECALL = "recall"
     AUROC = "auroc"
     PERPLEXITY = "perplexity"
+    WER = "wer"
+    CER = "cer"
 
 
 class LatencySubType(StrEnumBase):

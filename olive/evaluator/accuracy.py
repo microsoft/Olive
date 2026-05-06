@@ -26,6 +26,8 @@ class AccuracyBase(AutoConfigClass):
         "recall": torchmetrics.Recall,
         "auroc": torchmetrics.AUROC,
         "perplexity": torchmetrics.text.perplexity.Perplexity,
+        "wer": torchmetrics.text.WordErrorRate,
+        "cer": torchmetrics.text.CharErrorRate,
     }
 
     def __init__(self, config: Optional[Union[ConfigBase, dict[str, Any]]] = None) -> None:
@@ -157,3 +159,58 @@ class Perplexity(AccuracyBase):
             perplexity.update(logits, targets)
         result = perplexity.compute()
         return result.item()
+
+
+class WordErrorRate(AccuracyBase):
+    """Word Error Rate metric for speech/ASR evaluation.
+
+    Expects model_output.preds to be a list of predicted transcription strings
+    and target to be a list of reference transcription strings.
+    """
+
+    name: Optional[str] = "wer"
+
+    @classmethod
+    def _default_config(cls) -> dict[str, ConfigParam]:
+        return {}
+
+    def measure(self, model_output, target):
+        preds = model_output.preds
+        refs = target
+        # Ensure inputs are lists of strings
+        if not isinstance(preds, list):
+            preds = list(preds)
+        if not isinstance(refs, list):
+            refs = list(refs)
+
+        wer = torchmetrics.text.WordErrorRate()
+        result = wer(preds, refs)
+        return result.item()
+
+
+class CharErrorRate(AccuracyBase):
+    """Character Error Rate metric for speech/ASR evaluation.
+
+    Expects model_output.preds to be a list of predicted transcription strings
+    and target to be a list of reference transcription strings.
+    """
+
+    name: Optional[str] = "cer"
+
+    @classmethod
+    def _default_config(cls) -> dict[str, ConfigParam]:
+        return {}
+
+    def measure(self, model_output, target):
+        preds = model_output.preds
+        refs = target
+        # Ensure inputs are lists of strings
+        if not isinstance(preds, list):
+            preds = list(preds)
+        if not isinstance(refs, list):
+            refs = list(refs)
+
+        cer = torchmetrics.text.CharErrorRate()
+        result = cer(preds, refs)
+        return result.item()
+

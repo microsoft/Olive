@@ -26,6 +26,7 @@ from olive.data.config import DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.template import dummy_data_config_template
 from olive.evaluator.metric import (
+    AccuracySubType,
     LatencySubType,
     Metric,
     MetricType,
@@ -56,6 +57,17 @@ logger = logging.getLogger(__name__)
 class OliveModelOutput(NamedTuple):
     preds: Any
     logits: Any
+
+
+# Text-based accuracy sub-types that work with string predictions/targets
+_TEXT_BASED_ACCURACY_SUBTYPES = {AccuracySubType.WER, AccuracySubType.CER}
+
+
+def _is_text_based_metric(metric: "Metric") -> bool:
+    """Check if metric uses text-based accuracy sub-types (WER, CER)."""
+    if metric.type != MetricType.ACCURACY:
+        return False
+    return any(sub.name in _TEXT_BASED_ACCURACY_SUBTYPES for sub in metric.sub_types)
 
 
 class OliveEvaluator(ABC):
@@ -496,8 +508,67 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         device: Device = Device.CPU,
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
-        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        if _is_text_based_metric(metric):
+            inference_output, targets = self._inference_text(
+                model, metric, dataloader, post_func, device, execution_providers
+            )
+        else:
+            inference_output, targets = self._inference(
+                model, metric, dataloader, post_func, device, execution_providers
+            )
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
+
+    def _inference_text(
+        self,
+        model: ONNXModelHandler,
+        metric: Metric,
+        dataloader: "DataLoader",
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Text-based inference for speech/ASR metrics (WER, CER).
+
+        The post_func must return a list of predicted text strings per batch.
+        Labels from the dataloader must be a list of reference text strings.
+        """
+        session, inference_settings = OnnxEvaluator.get_session_wrapper(
+            model, metric, dataloader, device, execution_providers
+        )
+        io_config = model.io_config
+        run_kwargs = metric.get_run_kwargs()
+
+        all_preds = []
+        all_targets = []
+        output_names = io_config["output_names"]
+        is_single_tensor_output = len(output_names) == 1
+
+        for batch in dataloader:
+            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+            input_feed = format_data(input_data, io_config)
+            result = model.run_session(session, input_feed, **run_kwargs)
+            if is_single_tensor_output:
+                result = torch.Tensor(result[0])
+            else:
+                result = {name: torch.Tensor(result[i]) for i, name in enumerate(output_names)}
+            # post_func must decode model output to text strings
+            outputs = post_func(result) if post_func else result
+            if isinstance(outputs, (list, tuple)) and isinstance(outputs[0], str):
+                all_preds.extend(outputs)
+            elif isinstance(outputs, str):
+                all_preds.append(outputs)
+            else:
+                all_preds.extend([str(o) for o in outputs])
+            # labels should be reference text strings
+            if isinstance(labels, (list, tuple)):
+                all_targets.extend(labels)
+            else:
+                all_targets.append(labels)
+
+        tuning_result_file = inference_settings.get("tuning_result_file")
+        if tuning_result_file:
+            dump_tuning_result(session.session, tuning_result_file)
+        return OliveModelOutput(preds=all_preds, logits=None), all_targets
 
     def _evaluate_onnx_latency(
         self,
@@ -802,8 +873,53 @@ class PyTorchEvaluator(_OliveEvaluator):
         device: Device = Device.CPU,
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
-        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        if _is_text_based_metric(metric):
+            inference_output, targets = self._inference_text(
+                model, metric, dataloader, post_func, device, execution_providers
+            )
+        else:
+            inference_output, targets = self._inference(
+                model, metric, dataloader, post_func, device, execution_providers
+            )
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
+
+    @torch.no_grad()
+    def _inference_text(
+        self,
+        model: "PyTorchModelHandler",
+        metric: Metric,
+        dataloader: "DataLoader",
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Text-based inference for speech/ASR metrics (WER, CER)."""
+        session = model.prepare_session()
+        all_preds = []
+        all_targets = []
+        device = _OliveEvaluator.device_string_to_torch_device(device)
+        run_kwargs = metric.get_run_kwargs()
+        session.to(device)
+        for batch in dataloader:
+            input_data_i, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+            input_data = tensor_data_to_device(input_data_i, device)
+            result = model.run_session(session, input_data, **run_kwargs)
+            outputs = post_func(result) if post_func else result
+            if isinstance(outputs, (list, tuple)) and isinstance(outputs[0], str):
+                all_preds.extend(outputs)
+            elif isinstance(outputs, str):
+                all_preds.append(outputs)
+            else:
+                all_preds.extend([str(o) for o in outputs])
+            if isinstance(labels, (list, tuple)):
+                all_targets.extend(labels)
+            else:
+                all_targets.append(labels)
+        if device:
+            session.to("cpu")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        return OliveModelOutput(preds=all_preds, logits=None), all_targets
 
     @torch.no_grad()
     def _evaluate_raw_latency(
