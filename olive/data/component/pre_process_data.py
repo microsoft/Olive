@@ -366,7 +366,7 @@ def speech_transcription_pre_process(
 
         @staticmethod
         def collate_fn(batch):
-            """Custom collate for variable-length audio. Use with batch_size=1 or pad audio."""
+            """Collate variable-length audio batches. Use with batch_size=1 or pad audio."""
             import numpy as np
 
             # batch_size=1 is expected for speech evaluation (variable-length audio)
