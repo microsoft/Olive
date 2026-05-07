@@ -519,9 +519,16 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         if _is_text_based_metric(metric):
-            inference_output, targets = self._inference_text(
-                model, metric, dataloader, post_func, device, execution_providers
-            )
+            # Auto-detect genai model by checking for genai_config.json
+            genai_config_path = Path(model.model_path).parent / "genai_config.json"
+            if genai_config_path.exists():
+                inference_output, targets = self._inference_text_genai(
+                    model, metric, dataloader, device, execution_providers
+                )
+            else:
+                inference_output, targets = self._inference_text(
+                    model, metric, dataloader, post_func, device, execution_providers
+                )
         else:
             inference_output, targets = self._inference(
                 model, metric, dataloader, post_func, device, execution_providers
@@ -616,6 +623,128 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             dump_tuning_result(session.session, tuning_result_file)
 
         # Store timing metadata for RTFx computation
+        timing_metadata = {
+            "total_audio_duration": total_audio_duration,
+            "total_inference_time": total_inference_time,
+        }
+        return OliveModelOutput(preds=all_preds, logits=timing_metadata), all_targets
+
+    def _inference_text_genai(
+        self,
+        model: ONNXModelHandler,
+        metric: Metric,
+        dataloader: "DataLoader",
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Text-based inference for speech/ASR metrics using onnxruntime-genai.
+
+        Auto-detected when the model directory contains genai_config.json.
+        Uses og.Model with multimodal processor for Whisper-style models.
+        """
+        try:
+            import onnxruntime_genai as og
+        except ImportError:
+            raise ImportError(
+                "onnxruntime-genai is required for genai-based speech evaluation. "
+                "Install it with: pip install onnxruntime-genai"
+            ) from None
+
+        import io
+        import json
+
+        import soundfile as sf
+
+        model_dir = str(Path(model.model_path).parent)
+
+        # Read genai_config to determine model properties
+        with (Path(model_dir) / "genai_config.json").open() as f:
+            genai_config = json.load(f)
+
+        # Build og.Model with appropriate execution provider
+        config = og.Config(model_dir)
+        config.clear_providers()
+        if device == Device.GPU:
+            config.append_provider("cuda")
+        og_model = og.Model(config)
+        processor = og_model.create_multimodal_processor()
+
+        # Determine decoder prompt tokens from model config
+        # English-only models (vocab_size=51864) use shorter prompt
+        vocab_size = genai_config.get("model", {}).get("vocab_size", 51865)
+        is_english_only = vocab_size == 51864
+        if is_english_only:
+            decoder_prompt_tokens = ["<|startoftranscript|>", "<|notimestamps|>"]
+        else:
+            decoder_prompt_tokens = ["<|startoftranscript|>", "<|en|>", "<|transcribe|>", "<|notimestamps|>"]
+
+        sample_rate = (
+            metric.data_config.pre_process_data_config.params.get("sample_rate", 16000)
+            if (metric.data_config and metric.data_config.pre_process_data_config)
+            else 16000
+        )
+        max_length = genai_config.get("search", {}).get("max_length", 448)
+
+        all_preds = []
+        all_targets = []
+        total_audio_duration = 0.0
+        total_inference_time = 0.0
+
+        for batch in dataloader:
+            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+
+            # Convert audio arrays to WAV bytes for og.Audios
+            audio_arrays = []
+            if isinstance(input_data, (np.ndarray, torch.Tensor)):
+                arr = np.array(input_data) if isinstance(input_data, torch.Tensor) else input_data
+                if arr.ndim == 1:
+                    audio_arrays = [arr]
+                else:
+                    audio_arrays = [arr[i] for i in range(arr.shape[0])]
+            elif isinstance(input_data, list):
+                audio_arrays = [np.array(a) if not isinstance(a, np.ndarray) else a for a in input_data]
+
+            audio_bytes = []
+            for arr in audio_arrays:
+                total_audio_duration += len(arr) / sample_rate
+                buffer = io.BytesIO()
+                sf.write(buffer, arr, samplerate=sample_rate, format="WAV")
+                audio_bytes.append(buffer.getvalue())
+
+            minibatch_size = len(audio_bytes)
+            if minibatch_size == 0:
+                continue
+
+            audios = og.Audios.open_bytes(*audio_bytes)
+            prompt = "".join(decoder_prompt_tokens)
+            prompts = [prompt] * minibatch_size
+            inputs = processor(prompts, audios=audios)
+
+            params = og.GeneratorParams(og_model)
+            params.set_search_options(do_sample=False, max_length=max_length, min_length=0, batch_size=minibatch_size)
+
+            start_time = time.perf_counter()
+            generator = og.Generator(og_model, params)
+            generator.set_inputs(inputs)
+
+            while not generator.is_done():
+                generator.generate_next_token()
+
+            for i in range(minibatch_size):
+                tokens = generator.get_sequence(i)
+                transcription = processor.decode(tokens)
+                all_preds.append(transcription.strip())
+
+            total_inference_time += time.perf_counter() - start_time
+
+            # Collect reference texts
+            if isinstance(labels, (list, tuple)):
+                all_targets.extend(labels)
+            else:
+                all_targets.append(labels)
+
+        del og_model
+
         timing_metadata = {
             "total_audio_duration": total_audio_duration,
             "total_inference_time": total_inference_time,

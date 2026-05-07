@@ -180,72 +180,33 @@ The data config should use the `speech_transcription_pre_process` pre-processor:
 }
 ```
 
-### Using WER with the custom metric type
+### GenAI-based models (e.g., Whisper ONNX)
 
-For models that require custom inference logic (e.g., streaming ASR with onnxruntime-genai), use the `custom` metric type with an `evaluate_func`:
+For models built with `onnxruntime-genai` (identified by a `genai_config.json` in the model directory), Olive automatically uses the GenAI inference path. No custom script is needed — use the same `accuracy` metric configuration:
 
 ```json
 {
-    "name": "speech_wer",
-    "type": "custom",
-    "sub_types": [
-        {"name": "wer", "priority": 1, "higher_is_better": false},
-        {"name": "rtfx", "priority": 2, "higher_is_better": true}
-    ],
-    "user_config": {
-        "user_script": "my_eval_script.py",
-        "evaluate_func": "evaluate_speech_wer"
-    }
+    "metrics": [{
+        "name": "speech_eval",
+        "type": "accuracy",
+        "data_config": "speech_data_config",
+        "sub_types": [
+            {"name": "wer", "priority": 1, "higher_is_better": false},
+            {"name": "rtfx", "priority": 2, "higher_is_better": true}
+        ]
+    }]
 }
 ```
 
-In your `my_eval_script.py`:
-
-```python
-import time
-import numpy as np
-import jiwer
-from datasets import Audio, load_dataset
-
-
-def evaluate_speech_wer(model, device, execution_providers):
-    """Evaluate speech model and return WER and RTFx metrics."""
-    # Load dataset
-    dataset = load_dataset(
-        "hf-audio/esb-datasets-test-only-sorted", "librispeech",
-        split="test.clean", streaming=False,
-    )
-    dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
-    dataset = dataset.select(range(min(100, len(dataset))))
-
-    predictions, references = [], []
-    total_audio_s, total_inference_s = 0.0, 0.0
-
-    for sample in dataset:
-        audio_array = np.array(sample["audio"]["array"], dtype=np.float32)
-        reference_text = sample["text"].lower()
-        audio_dur = len(audio_array) / 16000
-
-        # Replace with your model's inference logic
-        t0 = time.time()
-        predicted_text = transcribe(model, audio_array, device, execution_providers)
-        total_inference_s += time.time() - t0
-
-        predictions.append(predicted_text)
-        references.append(reference_text)
-        total_audio_s += audio_dur
-
-    wer = jiwer.wer(references, predictions)
-    rtfx = total_audio_s / max(total_inference_s, 1e-9)
-    return {"wer": wer, "rtfx": rtfx}
-
-
-def transcribe(model, audio_array, device, execution_providers):
-    """Implement model-specific transcription logic here."""
-    raise NotImplementedError("Implement for your specific ASR model.")
+```{Note}
+The GenAI path requires `onnxruntime-genai` and `soundfile` to be installed.
+Olive auto-detects the model type (English-only vs multilingual) from the model config
+and sets the appropriate decoder prompt tokens.
 ```
 
 ```{Note}
-For a complete working example with the Nemotron streaming ASR model, see the
-[olive-recipes Nemotron evaluation](https://github.com/microsoft/olive-recipes/tree/main/nvidia-nemotron-speech-streaming-en-0.6b/cpu).
+For **streaming ASR models** (e.g., Nemotron) that use `og.StreamingProcessor` with chunked audio,
+use the `custom` metric type with an `evaluate_func` instead. See the
+[olive-recipes Nemotron evaluation](https://github.com/microsoft/olive-recipes/tree/main/nvidia-nemotron-speech-streaming-en-0.6b/cpu)
+for a complete working example.
 ```
