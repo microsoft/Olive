@@ -82,17 +82,19 @@ class VitisGenerateModelSD(Pass):
         logger.info("[VitisGenerateModelSD] ONNX input path: %s", onnx_input_path)
 
         resolutions = getattr(config, "resolutions", None)
+        extra_options = {"model_type": model_type}
         if resolutions:
             logger.info(
                 "[VitisGenerateModelSD] Using resolutions: %s",
                 resolutions,
             )
+            extra_options["resolutions"] = ",".join(resolutions)
 
         generate_model(
             mode="sd",
             input_model=str(onnx_input_path),
             output_dir=str(output_dir),
-            extra_options={"model_type": model_type, "resolutions": ",".join(resolutions)},
+            extra_options=extra_options,
         )
 
         self._ensure_model_onnx(output_dir)
