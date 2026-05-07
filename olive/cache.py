@@ -439,13 +439,17 @@ class OliveCache:
                             else:
                                 from olive.passes.onnx.common import resave_model
 
+                                component_output_name = (
+                                    component_name if Path(component_name).suffix == ".onnx" else f"{component_name}.onnx"
+                                )
+
                                 resave_model(
                                     ModelConfig.model_validate(component_model_json).create_model().model_path,
-                                    actual_output_dir / f"{component_name}.onnx",
+                                    actual_output_dir / component_output_name,
                                     saved_external_files=saved_external_files,
                                 )
                                 component_model_json["config"][resource_name] = str(actual_output_dir)
-                                component_model_json["config"]["onnx_file_name"] = f"{component_name}.onnx"
+                                component_model_json["config"]["onnx_file_name"] = component_output_name
 
                         copied_components.append(component_model_json)
 
