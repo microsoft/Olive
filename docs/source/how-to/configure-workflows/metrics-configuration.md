@@ -128,3 +128,124 @@ If you have multiple metrics to evaluate, you can configure them in the followin
 ```{Note}
 If you have more than one metric, you need to specify `priority: {RANK}`, which Olive will use to determine the best model.
 ```
+
+## Speech Evaluation Metrics (WER and RTFx)
+
+Olive supports Word Error Rate (WER) and Real-Time Factor (RTFx) as built-in accuracy sub-types for evaluating speech/ASR models.
+
+### Using WER with the accuracy metric type
+
+WER can be used as an accuracy sub-type when your data pipeline returns text predictions and references:
+
+```json
+{
+    "name": "speech_accuracy",
+    "type": "accuracy",
+    "data_config": "speech_data_config",
+    "sub_types": [
+        {"name": "wer", "priority": 1, "higher_is_better": false},
+        {"name": "rtfx", "priority": 2, "higher_is_better": true}
+    ]
+}
+```
+
+```{Note}
+- `wer` (Word Error Rate): Measures transcription errors. Lower is better (defaults to `higher_is_better: false`).
+- `rtfx` (Real-Time Factor): Ratio of audio duration to inference time. Higher means faster (defaults to `higher_is_better: true`).
+```
+
+The data config should use the `speech_transcription_pre_process` pre-processor:
+
+```json
+{
+    "name": "speech_data_config",
+    "type": "HuggingfaceContainer",
+    "load_dataset_config": {
+        "type": "huggingface_dataset",
+        "params": {
+            "data_name": "hf-audio/esb-datasets-test-only-sorted",
+            "subset": "librispeech",
+            "split": "test.clean"
+        }
+    },
+    "pre_process_data_config": {
+        "type": "speech_transcription_pre_process",
+        "params": {
+            "audio_col": "audio",
+            "text_col": "text",
+            "sample_rate": 16000,
+            "max_samples": 100
+        }
+    }
+}
+```
+
+### Using WER with the custom metric type
+
+For models that require custom inference logic (e.g., streaming ASR with onnxruntime-genai), use the `custom` metric type with an `evaluate_func`:
+
+```json
+{
+    "name": "speech_wer",
+    "type": "custom",
+    "sub_types": [
+        {"name": "wer", "priority": 1, "higher_is_better": false},
+        {"name": "rtfx", "priority": 2, "higher_is_better": true}
+    ],
+    "user_config": {
+        "user_script": "my_eval_script.py",
+        "evaluate_func": "evaluate_speech_wer"
+    }
+}
+```
+
+In your `my_eval_script.py`:
+
+```python
+import time
+import numpy as np
+import jiwer
+from datasets import Audio, load_dataset
+
+
+def evaluate_speech_wer(model, device, execution_providers):
+    """Evaluate speech model and return WER and RTFx metrics."""
+    # Load dataset
+    dataset = load_dataset(
+        "hf-audio/esb-datasets-test-only-sorted", "librispeech",
+        split="test.clean", streaming=False,
+    )
+    dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
+    dataset = dataset.select(range(min(100, len(dataset))))
+
+    predictions, references = [], []
+    total_audio_s, total_inference_s = 0.0, 0.0
+
+    for sample in dataset:
+        audio_array = np.array(sample["audio"]["array"], dtype=np.float32)
+        reference_text = sample["text"].lower()
+        audio_dur = len(audio_array) / 16000
+
+        # Replace with your model's inference logic
+        t0 = time.time()
+        predicted_text = transcribe(model, audio_array, device, execution_providers)
+        total_inference_s += time.time() - t0
+
+        predictions.append(predicted_text)
+        references.append(reference_text)
+        total_audio_s += audio_dur
+
+    wer = jiwer.wer(references, predictions)
+    rtfx = total_audio_s / max(total_inference_s, 1e-9)
+    return {"wer": wer, "rtfx": rtfx}
+
+
+def transcribe(model, audio_array, device, execution_providers):
+    """Implement model-specific transcription logic here."""
+    raise NotImplementedError("Implement for your specific ASR model.")
+```
+
+```{Note}
+For a complete working example with the Nemotron streaming ASR model, see the
+[olive-recipes Nemotron evaluation](https://github.com/microsoft/olive-recipes/tree/main/nvidia-nemotron-speech-streaming-en-0.6b/cpu).
+```
