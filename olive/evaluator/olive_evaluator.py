@@ -641,6 +641,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         Auto-detected when the model directory contains genai_config.json.
         Uses og.Model with multimodal processor for Whisper-style models.
+        Automatically chunks audio longer than 30 seconds.
         """
         try:
             import onnxruntime_genai as og
@@ -685,6 +686,43 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         )
         max_length = genai_config.get("search", {}).get("max_length", 448)
 
+        # Whisper encoder supports max 30s (3000 mel frames)
+        max_chunk_seconds = 30
+        max_chunk_samples = max_chunk_seconds * sample_rate
+
+        prompt = "".join(decoder_prompt_tokens)
+
+        def _transcribe_chunks(audio_arr: np.ndarray, genai_model) -> str:
+            """Transcribe a single audio array, chunking if longer than 30s."""
+            if len(audio_arr) <= max_chunk_samples:
+                chunks = [audio_arr]
+            else:
+                # Split into non-overlapping 30s chunks
+                chunks = []
+                for start in range(0, len(audio_arr), max_chunk_samples):
+                    chunks.append(audio_arr[start : start + max_chunk_samples])
+
+            transcriptions = []
+            for chunk in chunks:
+                buffer = io.BytesIO()
+                sf.write(buffer, chunk, samplerate=sample_rate, format="WAV")
+                audios = og.Audios.open_bytes(buffer.getvalue())
+                inputs = processor([prompt], audios=audios)
+
+                params = og.GeneratorParams(genai_model)
+                params.set_search_options(do_sample=False, max_length=max_length, min_length=0, batch_size=1)
+
+                generator = og.Generator(genai_model, params)
+                generator.set_inputs(inputs)
+
+                while not generator.is_done():
+                    generator.generate_next_token()
+
+                tokens = generator.get_sequence(0)
+                transcriptions.append(processor.decode(tokens).strip())
+
+            return " ".join(transcriptions)
+
         all_preds = []
         all_targets = []
         total_audio_duration = 0.0
@@ -693,7 +731,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         for batch in dataloader:
             input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
 
-            # Convert audio arrays to WAV bytes for og.Audios
+            # Convert input to list of audio arrays
             audio_arrays = []
             if isinstance(input_data, (np.ndarray, torch.Tensor)):
                 arr = np.array(input_data) if isinstance(input_data, torch.Tensor) else input_data
@@ -704,37 +742,14 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             elif isinstance(input_data, list):
                 audio_arrays = [np.array(a) if not isinstance(a, np.ndarray) else a for a in input_data]
 
-            audio_bytes = []
-            for arr in audio_arrays:
-                total_audio_duration += len(arr) / sample_rate
-                buffer = io.BytesIO()
-                sf.write(buffer, arr, samplerate=sample_rate, format="WAV")
-                audio_bytes.append(buffer.getvalue())
-
-            minibatch_size = len(audio_bytes)
-            if minibatch_size == 0:
+            if not audio_arrays:
                 continue
 
-            audios = og.Audios.open_bytes(*audio_bytes)
-            prompt = "".join(decoder_prompt_tokens)
-            prompts = [prompt] * minibatch_size
-            inputs = processor(prompts, audios=audios)
-
-            params = og.GeneratorParams(og_model)
-            params.set_search_options(do_sample=False, max_length=max_length, min_length=0, batch_size=minibatch_size)
-
             start_time = time.perf_counter()
-            generator = og.Generator(og_model, params)
-            generator.set_inputs(inputs)
-
-            while not generator.is_done():
-                generator.generate_next_token()
-
-            for i in range(minibatch_size):
-                tokens = generator.get_sequence(i)
-                transcription = processor.decode(tokens)
-                all_preds.append(transcription.strip())
-
+            for arr in audio_arrays:
+                total_audio_duration += len(arr) / sample_rate
+                transcription = _transcribe_chunks(arr, og_model)
+                all_preds.append(transcription)
             total_inference_time += time.perf_counter() - start_time
 
             # Collect reference texts
