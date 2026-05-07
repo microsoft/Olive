@@ -306,7 +306,7 @@ def test_unsupported_ep_falls_back_to_default(tmp_path):
     # Create a pass with an unsupported EP (one not in EP_MAP).
     # QNN exists in all Olive environments and is intentionally unsupported by MobiusModelBuilder.
     accelerator_spec = AcceleratorSpec(
-        accelerator_type=Device.NPU, execution_provider=ExecutionProvider.QNNExecutionProvider
+        accelerator_type=Device.NPU, execution_provider=ExecutionProvider.JsExecutionProvider
     )
     p = create_pass_from_dict(
         MobiusModelBuilder,
