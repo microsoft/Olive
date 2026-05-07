@@ -493,6 +493,8 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
     # setup
     output_dir = "output_dir"
 
+    # Each entry: [command, args, expected_passes, expected_device, expected_ep]
+    # expected_device is None when --device is not specified (olive infers it at runtime)
     test_list = [
         [
             "optimize",
@@ -504,6 +506,8 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
                 "QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, "
                 "OnnxStaticQuantization, SplitModel, StaticLLM"
             ),
+            None,
+            "QNNExecutionProvider",
         ],
         [
             "optimize",
@@ -515,16 +519,22 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
                 "QuaRot, Gptq, CaptureSplitInfo, ModelBuilder, MatMulNBitsToQDQ, GraphSurgeries, "
                 "OnnxStaticQuantization, VitisAIAddMetaData, SplitModel, StaticLLM"
             ),
+            None,
+            "VitisAIExecutionProvider",
         ],
         [
             "optimize",
             "--precision int4 --act_precision int16 --provider OpenVINOExecutionProvider  --device gpu",
             "OpenVINOOptimumConversion, OpenVINOIoUpdate, OpenVINOEncapsulation",
+            "gpu",
+            "OpenVINOExecutionProvider",
         ],
         [
             "optimize",
             "-t text-classification --precision int8 --exporter torchscript_exporter",
             "OnnxConversion, OnnxPeepholeOptimizer, OrtTransformersOptimization, OnnxStaticQuantization",
+            None,
+            "CPUExecutionProvider",
         ],
         [
             "optimize",
@@ -536,11 +546,22 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
                 "OnnxConversion, DynamicToFixedShape, OnnxPeepholeOptimizer, OrtTransformersOptimization, "
                 "OnnxStaticQuantization, StaticLLM"
             ),
+            "npu",
+            "QNNExecutionProvider",
         ],
         [
             "optimize",
             "-t text-classification --precision fp16 --exporter torchscript_exporter --provider CUDAExecutionProvider",
             "OnnxConversion, OnnxPeepholeOptimizer, OrtTransformersOptimization, OnnxFloatToFloat16",
+            None,
+            "CUDAExecutionProvider",
+        ],
+        [
+            "optimize",
+            "--precision fp16 --provider CUDAExecutionProvider",
+            "ModelBuilder",
+            None,
+            "CUDAExecutionProvider",
         ],
         [
             "optimize",
@@ -549,6 +570,8 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
                 " NvTensorRTRTXExecutionProvider --device gpu"
             ),
             "OnnxConversion, OnnxPeepholeOptimizer, OnnxFloatToFloat16",
+            "gpu",
+            "NvTensorRTRTXExecutionProvider",
         ],
     ]
 
@@ -576,6 +599,20 @@ def test_optimize_cli_pass_list(mock_repo_exists, mock_run, tmp_path):
         pass_list = [k[1]["type"] for k in passes.items()]
 
         assert pass_list == [item.strip() for item in t[2].split(",")]
+
+        # Verify system config has correct device and execution provider
+        accelerator = data["systems"]["local_system"]["accelerators"][0]
+        expected_device = t[3]
+        expected_ep = t[4]
+        if expected_device is None:
+            assert "device" not in accelerator, f"Expected no device but got '{accelerator.get('device')}'"
+        else:
+            assert accelerator["device"] == expected_device, (
+                f"Expected device '{expected_device}' but got '{accelerator.get('device')}'"
+            )
+        assert accelerator["execution_providers"] == [expected_ep], (
+            f"Expected EP '{expected_ep}' but got '{accelerator['execution_providers']}'"
+        )
 
 
 @patch("olive.workflows.run")
@@ -650,4 +687,137 @@ def test_benchmark_command_onnxmodel(mock_run, tmp_path):
     assert config["evaluators"]["evaluator"]["batch_size"] == 8
     assert config["evaluators"]["evaluator"]["max_length"] == 1024
     assert config["evaluators"]["evaluator"]["limit"] == 16
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+def test_benchmark_command_onnxmodel_with_ort_backend(mock_run, tmp_path):
+    from test.utils import ONNX_MODEL_PATH
+
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        str(ONNX_MODEL_PATH),
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "ort",
+    ]
+
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["evaluators"]["evaluator"]["model_class"] == "ort"
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+def test_benchmark_command_onnxmodel_with_ortgenai_backend(mock_run, tmp_path):
+    from test.utils import ONNX_MODEL_PATH
+
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        str(ONNX_MODEL_PATH),
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "ortgenai",
+    ]
+
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["evaluators"]["evaluator"]["model_class"] == "ortgenai"
+    assert mock_run.call_count == 1
+
+
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_benchmark_command_non_onnx_model_with_backend_option_raises(_, tmp_path):
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        "dummy-model-id",
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "ortgenai",
+    ]
+
+    with pytest.raises(ValueError, match="--backend is only supported for ONNX input models"):
+        cli_main(command_args)
+
+
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_benchmark_command_non_onnx_model_with_ort_backend_raises(_, tmp_path):
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        "dummy-model-id",
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "ort",
+    ]
+
+    with pytest.raises(ValueError, match="--backend is only supported for ONNX input models"):
+        cli_main(command_args)
+
+
+@patch("olive.workflows.run")
+def test_benchmark_command_onnxmodel_with_auto_backend(mock_run, tmp_path):
+    from test.utils import ONNX_MODEL_PATH
+
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        str(ONNX_MODEL_PATH),
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "auto",
+    ]
+
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert "model_class" not in config["evaluators"]["evaluator"]
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_benchmark_command_hfmodel_with_auto_backend(_, mock_run, tmp_path):
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "benchmark",
+        "-m",
+        "dummy-model-id",
+        "--output_path",
+        str(output_dir),
+        "--tasks",
+        "arc_easy",
+        "--backend",
+        "auto",
+    ]
+
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert "model_class" not in config["evaluators"]["evaluator"]
     assert mock_run.call_count == 1

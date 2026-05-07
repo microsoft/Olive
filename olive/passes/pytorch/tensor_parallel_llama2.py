@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from packaging import version
 
-from olive.passes.pytorch.tensor_parallel import TensorParallel
 from olive.passes.pytorch.tensor_parallel_layers import TensorParallelColumnLinear, TensorParallelRowLinear
 
 if TYPE_CHECKING:
@@ -367,37 +366,3 @@ def restore_llama2_tensor_parallel_layers(originals: dict[str, Any]):
     torch.nn.init.uniform_ = originals["uniform_"]
     torch.nn.init.kaiming_normal_ = originals["kaiming_normal_"]
     torch.nn.init.kaiming_uniform_ = originals["kaiming_uniform_"]
-
-
-class LlamaPyTorchTensorParallel(TensorParallel):
-    def __init__(self, rank: int, world_size: int):
-        super().__init__(rank, world_size)
-        self.originals = {}
-
-    def replace_layers(self):
-        self.originals = replace_llama2_tensor_parallel_layers()
-
-    def restore_layers(self):
-        restore_llama2_tensor_parallel_layers(self.originals)
-
-    def split_weights(self, model: "torch.nn.Module"):
-        from transformers.models.llama.modeling_llama import LlamaAttention
-
-        def _split_weights(m):
-            if isinstance(m, LlamaAttention):
-                m.parallel_split(self.world_size)
-
-            for mm in m._modules.values():  # pylint: disable=protected-access
-                _split_weights(mm)
-
-        _split_weights(model)
-
-    def load_rank_weights(self, model: "torch.nn.Module"):
-        def _load_rank_weights(m):
-            if isinstance(m, (TensorParallelColumnLinear, TensorParallelRowLinear)):
-                m.load_rank_weights(self.rank, self.world_size)
-
-            for mm in m._modules.values():  # pylint: disable=protected-access
-                _load_rank_weights(mm)
-
-        _load_rank_weights(model)

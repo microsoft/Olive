@@ -69,6 +69,7 @@ class QuantAlgorithm(CaseInsensitiveEnum):
     AWQ = "awq"
     GPTQ = "gptq"
     HQQ = "hqq"
+    KQUANT = "kquant"
     RTN = "rtn"
     SPINQUANT = "spinquant"
     QUAROT = "quarot"

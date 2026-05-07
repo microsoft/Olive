@@ -11,15 +11,17 @@ from typing import TYPE_CHECKING, Any, Union
 import torch
 
 from olive.common.quant.utils import WeightQuantizer
-from olive.common.utils import tensor_data_to_device
 from olive.data.config import DataConfig
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.passes.pytorch.quant_utils import finalize, get_quantizer_config, prepare_model
-from olive.passes.pytorch.train_utils import get_calibration_dataset
+from olive.passes.pytorch.quant_utils import (
+    finalize,
+    get_quantizer_config,
+    prepare_model,
+    run_layerwise_quantization,
+)
 
 if TYPE_CHECKING:
-    from olive.common.hf.wrapper import ModelWrapper
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import HfModelHandler
 
@@ -94,144 +96,20 @@ class Gptq(Pass):
             HfModelHandler for the quantized model.
 
         """
-        from tqdm.auto import tqdm
-
         wrapper, qcfg, _ = prepare_model(model, config)
-        original_use_cache = wrapper.model.config.use_cache
-        wrapper.model.config.use_cache = False
-
-        # get the inputs for the first layer
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        hidden_states, layer_args, layer_kwargs = self.get_init_layer_inputs(model, wrapper, config, device)
-
-        for layer in tqdm(wrapper.get_layers(return_name=False), desc="Quantizing layers"):
-            quantizable_modules = [module for module in layer.modules() if hasattr(module, "quant_info")]
-
-            # collect calibration data
-            handles = [module.register_forward_hook(self.accumulate_hessian) for module in quantizable_modules]
-            self.run_layer(layer, hidden_states, layer_args, layer_kwargs)
-            for handle in handles:
-                handle.remove()
-
-            # process each quantizable module
-            for module in quantizable_modules:
-                self.process_module(module, percdamp=config.damp_percent, actorder=config.desc_act)
-
-            # run the layer again to get the quantized outputs
-            hidden_states = self.run_layer(
-                layer,
-                hidden_states,
-                layer_args,
-                layer_kwargs,
-                return_output=True,
-            )
-
-        # TODO(jambayk): maybe try generalizing the lm_head quantization with the layer quantization
-        if config.lm_head:
-            hidden_states = self.run_layer(
-                wrapper.get_pre_head_layernorm(return_name=False), hidden_states, return_output=True
-            )
-
-            lm_head = wrapper.get_lm_head(return_name=False)
-            handle = lm_head.register_forward_hook(self.accumulate_hessian)
-            self.run_layer(lm_head, hidden_states, return_output=True)
-            handle.remove()
-
-            self.process_module(lm_head, percdamp=config.damp_percent, actorder=config.desc_act)
-
-        wrapper.model.config.use_cache = original_use_cache
+        device = run_layerwise_quantization(
+            model,
+            wrapper,
+            config.data_config,
+            input_hook=self.accumulate_hessian,
+            process_module=lambda module, _: self.process_module(
+                module, percdamp=config.damp_percent, actorder=config.desc_act
+            ),
+            update_before_process=False,
+            include_lm_head=config.lm_head,
+        )
 
         return finalize(model, output_model_path, wrapper, qcfg, device)
-
-    @torch.no_grad()
-    def get_init_layer_inputs(
-        self, model: HfModelHandler, wrapper: ModelWrapper, config: type[BasePassConfig], device: str
-    ) -> tuple[list[torch.Tensor], list[tuple], list[dict]]:
-        """Get initial layer inputs for quantization calibration.
-
-        Args:
-            model: The HuggingFace model.
-            wrapper: ModelWrapper containing the model.
-            config: Configuration object containing data settings.
-            device: Device to run calibration on.
-
-        Returns:
-            Tuple containing hidden states, layer args, and layer kwargs.
-
-        """
-        hidden_states, layer_args, layer_kwargs = [], [], []
-
-        pre_layer_modules = list(wrapper.get_embeds(return_name=False))
-        if rotary_embed := wrapper.get_rotary_embed(return_name=False):
-            pre_layer_modules.append(rotary_embed)
-        for module in pre_layer_modules:
-            module.to(device)
-
-        def store_input_hook(_, args: tuple, kwargs: dict) -> None:
-            if kwargs.get("hidden_states") is not None:
-                # handle case where hidden_states is passed as a kwarg
-                args = (kwargs.pop("hidden_states"), *args)
-            # assume first argument is the hidden state
-            hidden_states.append(args[0])
-            layer_args.append(args[1:])
-            layer_kwargs.append(kwargs)
-            raise ValueError
-
-        first_layer = wrapper.get_layers(return_name=False)[0]
-        hook = first_layer.register_forward_pre_hook(store_input_hook, with_kwargs=True)
-
-        for data in get_calibration_dataset(model, config.data_config):
-            try:
-                wrapper.model(**tensor_data_to_device(data, device))
-            except ValueError:
-                # we raised ValueError to stop the forward pass
-                pass
-
-        hook.remove()
-        for module in pre_layer_modules:
-            module.to("cpu")
-
-        return hidden_states, layer_args, layer_kwargs
-
-    @torch.no_grad()
-    def run_layer(
-        self,
-        layer: torch.nn.Module,
-        hidden_states: list[torch.Tensor],
-        layer_args: list[tuple] | None = None,
-        layer_kwargs: list[dict] | None = None,
-        return_output: bool = False,
-    ) -> list[torch.Tensor] | None:
-        """Run a layer with the given inputs.
-
-        Args:
-            layer: The model layer to run.
-            hidden_states: List of hidden state tensors.
-            layer_args: List of additional positional arguments for each input.
-            layer_kwargs: List of keyword arguments for each input.
-            return_output: Whether to return the layer outputs.
-
-        Returns:
-            List of output tensors if return_output is True, otherwise None.
-
-        """
-        outputs = []
-        layer.to(hidden_states[0].device)
-
-        for i, hs in enumerate(hidden_states):
-            # TODO(jambayk): support non true-sequential if needed
-            layer_output = layer(
-                hs,
-                *(layer_args[i] if layer_args else ()),
-                **(layer_kwargs[i] if layer_kwargs else {}),
-            )
-            if return_output:
-                if isinstance(layer_output, tuple):
-                    layer_output = layer_output[0]
-                outputs.append(layer_output)
-
-        layer.to("cpu")
-        return outputs or None
 
     @staticmethod
     def accumulate_hessian(module: torch.nn.Module, inp: tuple, _: Any) -> None:

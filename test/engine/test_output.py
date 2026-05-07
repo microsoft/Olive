@@ -65,7 +65,7 @@ def test_model_output():
 
 
 def test_empty_node_raises_error():
-    with pytest.raises(ValueError, match="FootprintNode cannot be None."):
+    with pytest.raises(ValueError, match=r"FootprintNode cannot be None\."):
         ModelOutput(Device.CPU, "CPUExecutionProvider", None)
 
 

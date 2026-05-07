@@ -141,5 +141,5 @@ def test_capture_split_info_missing_memory(tmp_path):
     )
     input_model = HfModelHandler(model_path="hf-internal-testing/tiny-random-LlamaForCausalLM")
 
-    with pytest.raises(ValueError, match="Accelerator memory is required to split using cost model."):
+    with pytest.raises(ValueError, match=r"Accelerator memory is required to split using cost model\."):
         p.run(input_model, tmp_path)

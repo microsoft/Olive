@@ -30,6 +30,17 @@ if TYPE_CHECKING:
 
 # Default event names used by the high-level telemetry helpers.
 HEARTBEAT_EVENT_NAME = "OliveHeartbeat"
+
+# CI/CD environment variables whose presence indicates an automated pipeline.
+_CI_ENV_VARS = (
+    "CI",  # GitHub Actions, GitLab CI, Travis CI, CircleCI, generic
+    "TF_BUILD",  # Azure Pipelines
+    "GITHUB_ACTIONS",  # GitHub Actions
+    "JENKINS_URL",  # Jenkins
+    "CODEBUILD_BUILD_ID",  # AWS CodeBuild
+    "BUILDKITE",  # Buildkite
+    "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI",  # Azure DevOps
+)
 ACTION_EVENT_NAME = "OliveAction"
 ERROR_EVENT_NAME = "OliveError"
 
@@ -175,13 +186,13 @@ class TelemetryCacheHandler:
                 self._callbacks_item_count += args.item_count
                 self._callback_condition.notify_all()
 
-    def wait_for_callbacks(self, timeout_sec: float) -> bool:
+    def wait_for_callbacks(self, timeout_sec: float, during_flush: bool = False) -> bool:
         deadline = time.time() + timeout_sec
         while True:
             with self._callback_condition:
                 callbacks_item_count = self._callbacks_item_count
                 expected_items = self._events_logged
-                if not self.is_flushing and callbacks_item_count >= expected_items:
+                if (during_flush or not self.is_flushing) and callbacks_item_count >= expected_items:
                     return True
             remaining = deadline - time.time()
             if remaining <= 0:
@@ -396,13 +407,8 @@ class TelemetryCacheHandler:
                             pass
                     return
 
-            # Cleanup based on flush result
-            flush_success = False
-            with self._callback_condition:
-                callbacks_item_count = self._callbacks_item_count
-                expected_items = self._events_logged
-                if callbacks_item_count >= expected_items:
-                    flush_success = True
+            # Wait for in-flight callbacks to complete before deciding success/failure
+            flush_success = self.wait_for_callbacks(timeout_sec=5.0, during_flush=True)
             if flush_success:
                 # Success: delete the flush file (events were sent)
                 if flush_path:
@@ -458,15 +464,31 @@ class Telemetry:
         if self._initialized:
             return
 
-        self._logger = self._create_logger()
-        event_source.disable()
+        self._logger = None
+        self._cache_handler = None
 
-        self._cache_handler = TelemetryCacheHandler(self)
-        self._initialized = True
-        self._setup_payload_callbacks()
-        self._log_heartbeat()
-        if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1":
-            self.disable_telemetry()
+        try:
+            self._logger = self._create_logger()
+            event_source.disable()
+
+            self._cache_handler = TelemetryCacheHandler(self)
+            self._setup_payload_callbacks()
+            if self._is_ci_environment():
+                self.disable_telemetry()
+                self._initialized = True
+                return
+            self._log_heartbeat()
+            if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1":
+                self.disable_telemetry()
+            self._initialized = True
+        except Exception:
+            # Fail silently — telemetry must never crash the host application
+            self._initialized = True
+
+    @staticmethod
+    def _is_ci_environment() -> bool:
+        """Detect CI/CD environments by checking well-known environment variables."""
+        return any(os.environ.get(var) for var in _CI_ENV_VARS)
 
     def _create_logger(self) -> Optional[TelemetryLogger]:
         try:
@@ -477,6 +499,8 @@ class Telemetry:
     def _setup_payload_callbacks(self) -> None:
         # Register callback for payload transmission events
         # No need to store unregister function - logger shutdown will clean up callbacks
+        if self._logger is None:
+            return
         self._logger.register_payload_transmitted_callback(
             self._cache_handler.on_payload_transmitted,
             include_failures=True,
@@ -494,7 +518,13 @@ class Telemetry:
             >>> telemetry.add_global_metadata({"user_id": "12345", "environment": "production"})
 
         """
-        self._logger.add_global_metadata(metadata)
+        try:
+            if self._logger is None:
+                return
+            self._logger.add_global_metadata(metadata)
+        except Exception:
+            # Fail silently — telemetry must never crash the host application
+            pass
 
     def log(
         self,
@@ -514,10 +544,16 @@ class Telemetry:
             >>> telemetry.log("ModelOptimized", {"model_type": "bert", "duration_ms": 1500})
 
         """
-        attrs = _merge_metadata(attributes, metadata)
-        self._logger.log(event_name, attrs)
-        if self._cache_handler:
-            self._cache_handler.record_event_logged()
+        try:
+            attrs = _merge_metadata(attributes, metadata)
+            if self._logger is None:
+                return
+            self._logger.log(event_name, attrs)
+            if self._cache_handler:
+                self._cache_handler.record_event_logged()
+        except Exception:
+            # Fail silently — telemetry must never crash the host application
+            pass
 
     def _log_heartbeat(
         self,
@@ -529,18 +565,22 @@ class Telemetry:
             metadata: Optional additional metadata to include.
 
         """
-        encrypted_device_id, device_id_status = get_encrypted_device_id_and_status()
-        attributes = {
-            "device_id": encrypted_device_id,
-            "id_status": device_id_status.value,
-            "os": {
-                "name": platform.system().lower(),
-                "version": platform.version(),
-                "release": platform.release(),
-                "arch": platform.machine(),
-            },
-        }
-        self.log(HEARTBEAT_EVENT_NAME, attributes, metadata)
+        try:
+            encrypted_device_id, device_id_status = get_encrypted_device_id_and_status()
+            attributes = {
+                "device_id": encrypted_device_id,
+                "id_status": device_id_status.value,
+                "os": {
+                    "name": platform.system().lower(),
+                    "version": platform.version(),
+                    "release": platform.release(),
+                    "arch": platform.machine(),
+                },
+            }
+            self.log(HEARTBEAT_EVENT_NAME, attributes, metadata)
+        except Exception:
+            # Fail silently — telemetry must never crash the host application
+            pass
 
     def disable_telemetry(self) -> None:
         """Disable all telemetry logging.
@@ -548,7 +588,13 @@ class Telemetry:
         After calling this method, no telemetry events will be sent until
         telemetry is explicitly re-enabled.
         """
-        self._logger.disable_telemetry()
+        try:
+            if self._logger is None:
+                return
+            self._logger.disable_telemetry()
+        except Exception:
+            # Fail silently — telemetry must never crash the host application
+            pass
 
     def shutdown(self, timeout_millis: float = 10_000, callback_timeout_millis: float = 2_000) -> None:
         """Shutdown telemetry and flush pending events.
@@ -558,21 +604,26 @@ class Telemetry:
         2. Wait for callbacks + signal shutdown to cache handler
         3. Shutdown logger (cleans up callbacks automatically)
         """
-        # Step 1: Wait for pending flush to complete (matches C# 1-second timeout)
-        start_time = time.time()
-        while time.time() - start_time < 1.0:
-            if not self._cache_handler or not self._cache_handler.is_flushing:
-                break
-            time.sleep(0.05)
+        try:
+            # Step 1: Wait for pending flush to complete (matches C# 1-second timeout)
+            start_time = time.time()
+            while time.time() - start_time < 1.0:
+                if not self._cache_handler or not self._cache_handler.is_flushing:
+                    break
+                time.sleep(0.05)
 
-        # Step 2: Wait for callbacks/flush to complete before shutting down cache handler
-        if self._cache_handler:
-            # Nothing can be done if callbacks don't complete in time, so we ignore the result
-            _ = self._cache_handler.wait_for_callbacks(callback_timeout_millis / 1000)
-            self._cache_handler.shutdown()
+            # Step 2: Wait for callbacks/flush to complete before shutting down cache handler
+            if self._cache_handler:
+                # Nothing can be done if callbacks don't complete in time, so we ignore the result
+                _ = self._cache_handler.wait_for_callbacks(callback_timeout_millis / 1000)
+                self._cache_handler.shutdown()
 
-        # Step 3: Shutdown logger (callbacks cleaned up automatically)
-        self._logger.shutdown()
+            # Step 3: Shutdown logger (callbacks cleaned up automatically)
+            if self._logger is not None:
+                self._logger.shutdown()
+        except Exception:
+            # Fail silently — telemetry must never crash the host application
+            pass
 
     def __del__(self):
         """Cleanup telemetry resources on garbage collection.
@@ -713,7 +764,7 @@ def _read_cache_entries(cache_path: Path) -> list[dict[str, Any]]:
                 if not line:
                     continue
                 try:
-                    line = _decode_cache_line(line)
+                    line = json.loads(_decode_cache_line(line))
                     if isinstance(line, dict):
                         entries.append(line)
                 except Exception:

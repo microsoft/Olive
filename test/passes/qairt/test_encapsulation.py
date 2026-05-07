@@ -212,7 +212,7 @@ def test_encapsulation_no_dlc_file(tmp_path, mock_qairt_model, mock_qairt_module
         disable_search=True,
     )
 
-    with pytest.raises(FileNotFoundError, match="No .dlc file found"):
+    with pytest.raises(FileNotFoundError, match=r"No \.dlc file found"):
         encap_pass.run(mock_qairt_model, str(output_path))
 
 
@@ -397,7 +397,7 @@ def test_encapsulation_missing_config_json(tmp_path, mock_qairt_model, mock_qair
             disable_search=True,
         )
 
-        with pytest.raises(ValueError, match="Cannot create gen_ai_config.json if source model config doesn't exist"):
+        with pytest.raises(ValueError, match=r"Cannot create gen_ai_config\.json if source model config doesn't exist"):
             encap_pass.run(mock_qairt_model, str(output_path))
 
 
@@ -458,7 +458,7 @@ def test_encapsulation_missing_generation_config(tmp_path, mock_qairt_model, moc
             disable_search=True,
         )
 
-        with pytest.raises(ValueError, match="Cannot create gen_ai_config.json if generation config doesn't exist"):
+        with pytest.raises(ValueError, match=r"Cannot create gen_ai_config\.json if generation config doesn't exist"):
             encap_pass.run(mock_qairt_model, str(output_path))
 
 
@@ -561,7 +561,7 @@ def test_encapsulation_sdk_version_check_old_version(tmp_path, mock_qairt_model,
         disable_search=True,
     )
 
-    with pytest.raises(OSError, match="QairtGenAIBuilder pass is unsupported for QAIRT versions < 2.45.0"):
+    with pytest.raises(OSError, match=r"QairtGenAIBuilder pass is unsupported for QAIRT versions < 2\.45\.0"):
         encap_pass.run(mock_qairt_model, str(output_path))
 
 

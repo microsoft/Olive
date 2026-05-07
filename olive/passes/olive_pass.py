@@ -245,7 +245,7 @@ class Pass(ABC):
         # assumption: the model attributes from passes, if any, are more important than
         # the input model attributes, we should not update/extend anymore outside of the pass run
         output_model.model_attributes = output_model.model_attributes or model.model_attributes
-        # save and carry forward additional files into the the output model path
+        # save and carry forward additional files into the output model path
         Pass._carry_forward_additional_files(model, output_model)
         return output_model
 
@@ -287,7 +287,10 @@ class Pass(ABC):
             output_filepath = output_model_path / input_filepath.name
             if not output_filepath.exists():
                 # TODO(team): Use symlinks instead of copying the files.
-                shutil.copy(str(input_filepath), str(output_filepath))
+                if input_filepath.is_dir():
+                    shutil.copytree(str(input_filepath), str(output_filepath))
+                else:
+                    shutil.copy(str(input_filepath), str(output_filepath))
             # always add the file_path to the output model's additional files
             # this covers the case where the output model_path is the same as the input model_path
             # like for perf-tuning pass

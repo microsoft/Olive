@@ -535,64 +535,65 @@ class DoRA(LoRA):
         return self._run_lora_training(model, config, output_model_path, use_dora=True)
 
 
-class LoRAVariant(LoRA):
-    """Run LoRA variant fine-tuning on a Hugging Face PyTorch model."""
+def _lora_variant_config() -> dict[str, PassConfigParam]:
+    """Shared config params for LoRA variant passes (LoHa, LoKr)."""
+    return {
+        "rank_dropout": PassConfigParam(
+            type_=float,
+            default_value=0.0,
+            description="The dropout probability for rank dimension during training.",
+        ),
+        "module_dropout": PassConfigParam(
+            type_=float,
+            default_value=0.0,
+            description="The dropout probability for disabling modules during training.",
+        ),
+        "use_effective_conv2d": PassConfigParam(
+            type_=bool,
+            default_value=True,
+            description="Use parameter effective decomposition for Conv2d with ksize > 1.",
+        ),
+        "exclude_modules": PassConfigParam(
+            type_=Optional[Union[list[str], str]], default_value=None, description="Modules to exclude from tuning."
+        ),
+        "init_weights": PassConfigParam(
+            type_=bool, default_value=True, description="Whether to perform initialization of adapter weights."
+        ),
+        "layers_to_transform": PassConfigParam(
+            type_=list[int], default_value=None, description="The layer indices to transform."
+        ),
+        "layers_pattern": PassConfigParam(
+            type_=list[str],
+            default_value=None,
+            description="The layer pattern name, used only if layers_to_transform is different from None.",
+        ),
+        "rank_pattern": PassConfigParam(
+            type_=dict,
+            default_value={},
+            description=(
+                "The mapping from layer names or regexp expression "
+                "to ranks which are different from the default rank specified by r."
+            ),
+        ),
+        "alpha_pattern": PassConfigParam(
+            type_=dict,
+            default_value={},
+            description=(
+                "The mapping from layer names or regexp expression "
+                "to alphas which are different from the default alpha specified by alpha."
+            ),
+        ),
+    }
+
+
+class LoHa(LoRA):
+    """Run LoHa fine-tuning on a Hugging Face PyTorch model."""
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
-        config = {
-            "rank_dropout": PassConfigParam(
-                type_=float,
-                default_value=0.0,
-                description="The dropout probability for rank dimension during training.",
-            ),
-            "module_dropout": PassConfigParam(
-                type_=float,
-                default_value=0.0,
-                description="The dropout probability for disabling modules during training.",
-            ),
-            "use_effective_conv2d": PassConfigParam(
-                type_=bool,
-                default_value=True,
-                description="Use parameter effective decomposition for Conv2d with ksize > 1.",
-            ),
-            "exclude_modules": PassConfigParam(
-                type_=Optional[Union[list[str], str]], default_value=None, description="Modules to exclude from tuning."
-            ),
-            "init_weights": PassConfigParam(
-                type_=bool, default_value=True, description="Whether to perform initialization of adapter weights."
-            ),
-            "layers_to_transform": PassConfigParam(
-                type_=list[int], default_value=None, description="The layer indices to transform."
-            ),
-            "layers_pattern": PassConfigParam(
-                type_=list[str],
-                default_value=None,
-                description="The layer pattern name, used only if layers_to_transform is different from None.",
-            ),
-            "rank_pattern": PassConfigParam(
-                type_=dict,
-                default_value={},
-                description=(
-                    "The mapping from layer names or regexp expression "
-                    "to ranks which are different from the default rank specified by r."
-                ),
-            ),
-            "alpha_pattern": PassConfigParam(
-                type_=dict,
-                default_value={},
-                description=(
-                    "The mapping from layer names or regexp expression "
-                    "to alphas which are different from the default alpha specified by alpha."
-                ),
-            ),
-        }
+        config = _lora_variant_config()
         config.update(super()._default_config(accelerator_spec))
         return config
-
-
-class LoHa(LoRAVariant):
-    """Run LoHa fine-tuning on a Hugging Face PyTorch model."""
 
     @staticmethod
     def get_peft_model(
@@ -632,7 +633,7 @@ class LoHa(LoRAVariant):
             raise ImportError(f"Please install peft >= 0.7.0 to use {cls.__name__} pass.")
 
 
-class LoKr(LoRAVariant):
+class LoKr(LoRA):
     """Run LoKr fine-tuning on a Hugging Face PyTorch model."""
 
     @classmethod
@@ -654,6 +655,7 @@ class LoKr(LoRAVariant):
                 description="Whether to scale the rank dropout while training.",
             ),
         }
+        config.update(_lora_variant_config())
         config.update(super()._default_config(accelerator_spec))
         return config
 

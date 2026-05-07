@@ -48,6 +48,8 @@ class OneCollectorLogExporter(LogRecordExporter):
 
         """
         # Validate options
+        if options is None:
+            raise ValueError("OneCollectorExporterOptions is required")
         options.validate()
 
         self._options = options
@@ -72,37 +74,44 @@ class OneCollectorLogExporter(LogRecordExporter):
         # Create or get HTTP session
         if transport_opts.http_client_factory:
             self._session = transport_opts.http_client_factory()
+            self._owns_session = False
         else:
             self._session = requests.Session()
+            self._owns_session = True
 
-        # Build iKey with tenant prefix
-        self._ikey = f"{CommonSchemaJsonSerializationHelper.ONE_COLLECTOR_TENANCY_SYMBOL}:{options.tenant_token}"
+        try:
+            # Build iKey with tenant prefix
+            self._ikey = f"{CommonSchemaJsonSerializationHelper.ONE_COLLECTOR_TENANCY_SYMBOL}:{options.tenant_token}"
 
-        # Initialize callback manager
-        self._callback_manager = CallbackManager()
+            # Initialize callback manager
+            self._callback_manager = CallbackManager()
 
-        # Initialize transport with callback manager
-        self._transport = HttpJsonPostTransport(
-            endpoint=transport_opts.endpoint,
-            ikey=options.instrumentation_key,
-            compression=transport_opts.compression,
-            session=self._session,
-            callback_manager=self._callback_manager,
-        )
+            # Initialize transport with callback manager
+            self._transport = HttpJsonPostTransport(
+                endpoint=transport_opts.endpoint,
+                ikey=options.instrumentation_key,
+                compression=transport_opts.compression,
+                session=self._session,
+                callback_manager=self._callback_manager,
+            )
 
-        # Initialize payload builder
-        self._payload_builder = PayloadBuilder(
-            max_size_bytes=transport_opts.max_payload_size_bytes, max_items=transport_opts.max_items_per_payload
-        )
+            # Initialize payload builder
+            self._payload_builder = PayloadBuilder(
+                max_size_bytes=transport_opts.max_payload_size_bytes, max_items=transport_opts.max_items_per_payload
+            )
 
-        # Initialize retry handler
-        self._retry_handler = RetryHandler(max_retries=6)
+            # Initialize retry handler
+            self._retry_handler = RetryHandler(max_retries=6)
 
-        # Initialize metadata
-        self._metadata: dict[str, Any] = {}
+            # Initialize metadata
+            self._metadata: dict[str, Any] = {}
 
-        # Cache for resource (populated on first export)
-        self._resource: Optional[Resource] = None
+            # Cache for resource (populated on first export)
+            self._resource: Optional[Resource] = None
+        except Exception:
+            if self._owns_session:
+                self._session.close()
+            raise
 
     def add_metadata(self, metadata: dict[str, Any]) -> None:
         """Add custom metadata fields to all exported logs.
@@ -192,7 +201,7 @@ class OneCollectorLogExporter(LogRecordExporter):
                 item_count = payload.count(b"\n") + 1 if payload else 0
                 success = self._retry_handler.execute_with_retry(
                     operation=lambda payload=payload, item_count=item_count: self._transport.send(
-                        payload, deadline_sec - time(), item_count=item_count
+                        payload, max(0.1, deadline_sec - time()), item_count=item_count
                     ),
                     deadline_sec=deadline_sec,
                     shutdown_event=self._shutdown_event,
@@ -317,8 +326,8 @@ class OneCollectorLogExporter(LogRecordExporter):
             self._shutdown = True
             self._shutdown_event.set()
 
-        # Close HTTP session
-        if hasattr(self, "_session"):
+        # Close HTTP session (only if we own it)
+        if hasattr(self, "_session") and getattr(self, "_owns_session", True):
             self._session.close()
 
         # Close callback manager

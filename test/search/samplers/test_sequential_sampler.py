@@ -9,8 +9,6 @@ from olive.search.samplers.sequential_sampler import SequentialSampler
 from olive.search.search_parameter import Categorical
 from olive.search.search_space import SearchSpace
 
-# ruff: noqa: PD011
-
 
 class TestSequentialSampler:
     @patch("olive.search.search_space.SearchSpace.__getitem__")

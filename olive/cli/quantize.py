@@ -3,8 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-# ruff: noqa: T201
-# ruff: noqa: RUF012
 
 from argparse import ArgumentParser
 from copy import deepcopy

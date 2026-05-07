@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import torch
 
@@ -19,10 +19,11 @@ from olive.common.quant.hf_utils import (
 )
 from olive.common.quant.nn import QuantEmbedding, QuantLinear
 from olive.common.quant.utils import WeightQuantizer
+from olive.common.utils import tensor_data_to_device
 from olive.constants import PrecisionBits
 from olive.passes.pass_config import PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
-from olive.passes.pytorch.train_utils import load_hf_base_model
+from olive.passes.pytorch.train_utils import get_calibration_dataset, load_hf_base_model
 
 if TYPE_CHECKING:
     from olive.model import HfModelHandler
@@ -78,7 +79,10 @@ def get_quantizer_config(allow_embeds: bool = False) -> dict[str, PassConfigPara
 
 
 def prepare_model(
-    model: HfModelHandler, config: type[BasePassConfig], allow_quantized: bool = False
+    model: HfModelHandler,
+    config: type[BasePassConfig],
+    allow_quantized: bool = False,
+    exclude_attn_inputs: bool = False,
 ) -> tuple[ModelWrapper, OliveHfQuantizationConfig, bool]:
     """Prepare the model for quantization by adding quant_info to linear layers.
 
@@ -86,6 +90,7 @@ def prepare_model(
         model: The HuggingFace model to prepare.
         config: Configuration object containing quantization parameters.
         allow_quantized: Whether to allow already (partially) quantized models.
+        exclude_attn_inputs: Whether to exclude attention input projection layers from quantization.
 
     Returns:
         A tuple containing ModelWrapper with prepared model, the quantization configuration, and a boolean indicating if the word embeddings are eligible for tieing.
@@ -112,7 +117,18 @@ def prepare_model(
     embeds_name = wrapper.get_embeds()[1][0]
     new_qargs: dict[str, dict[str, int | bool]] = {}
 
+    excluded_attn_inputs: set[torch.nn.Module] = set()
+    if exclude_attn_inputs:
+        for layer_wrapper in wrapper.get_layer_wrappers():
+            attn_inputs, _ = layer_wrapper.get_attention_inputs()
+            if len(attn_inputs) == 1:
+                excluded_attn_inputs.add(attn_inputs[0])
+            else:
+                excluded_attn_inputs.update(attn_inputs[:2])
+
     def should_quantize(module: torch.nn.Module, name: str) -> bool:
+        if module in excluded_attn_inputs:
+            return False
         if isinstance(module, torch.nn.Linear):
             return name != lm_head_name or qcfg.lm_head
         if qcfg.embeds and isinstance(module, torch.nn.Embedding):
@@ -126,12 +142,7 @@ def prepare_model(
         new_qargs[name] = qargs
         return module
 
-    replace_matching_submodules(
-        wrapper.model,
-        should_quantize,
-        add_quant_info,
-        description="Preparing model for quantization",
-    )
+    replace_matching_submodules(wrapper.model, should_quantize, add_quant_info, description="Preparing model")
 
     # remove overrides for modules not being quantized
     for name in list(qcfg.overrides or {}):
@@ -212,6 +223,193 @@ class QuantInfo:
     scales: torch.Tensor | None = None
     zero_points: torch.Tensor | None = None
     data: dict | None = None
+
+
+@torch.no_grad()
+def get_layer_inputs_for_calibration(
+    model: HfModelHandler,
+    wrapper: ModelWrapper,
+    data_config,
+    device: str,
+) -> tuple[list[torch.Tensor], list[tuple], list[dict]]:
+    """Get initial layer inputs for calibration.
+
+    Args:
+        model: The HuggingFace model handler.
+        wrapper: ModelWrapper containing the model.
+        data_config: Data config used to build the calibration dataset.
+        device: Device to run calibration on.
+
+    Returns:
+        Tuple containing hidden states, layer args, and layer kwargs.
+
+    """
+    hidden_states, layer_args, layer_kwargs = [], [], []
+
+    pre_layer_modules = list(wrapper.get_embeds(return_name=False))
+    if rotary_embed := wrapper.get_rotary_embed(return_name=False):
+        pre_layer_modules.append(rotary_embed)
+    for module in pre_layer_modules:
+        module.to(device)
+
+    def store_input_hook(_, args: tuple, kwargs: dict) -> None:
+        if kwargs.get("hidden_states") is not None:
+            args = (kwargs.pop("hidden_states"), *args)
+        hidden_states.append(args[0])
+        layer_args.append(args[1:])
+        layer_kwargs.append(kwargs)
+        raise ValueError
+
+    first_layer = wrapper.get_layers(return_name=False)[0]
+    hook = first_layer.register_forward_pre_hook(store_input_hook, with_kwargs=True)
+
+    for data in get_calibration_dataset(model, data_config):
+        try:
+            wrapper.model(**tensor_data_to_device(data, device))
+        except ValueError:
+            pass
+
+    hook.remove()
+    for module in pre_layer_modules:
+        module.to("cpu")
+
+    return hidden_states, layer_args, layer_kwargs
+
+
+@torch.no_grad()
+def run_layer(
+    layer: torch.nn.Module,
+    hidden_states: list[torch.Tensor],
+    layer_args: list[tuple] | None = None,
+    layer_kwargs: list[dict] | None = None,
+    return_output: bool = False,
+) -> list[torch.Tensor] | None:
+    """Run a layer with the given inputs.
+
+    Args:
+        layer: The model layer to run.
+        hidden_states: List of hidden state tensors.
+        layer_args: List of additional positional arguments for each input.
+        layer_kwargs: List of keyword arguments for each input.
+        return_output: Whether to return the layer outputs.
+
+    Returns:
+        List of output tensors if return_output is True, otherwise None.
+
+    """
+    outputs = []
+    layer.to(hidden_states[0].device)
+
+    for i, hs in enumerate(hidden_states):
+        layer_output = layer(
+            hs,
+            *(layer_args[i] if layer_args else ()),
+            **(layer_kwargs[i] if layer_kwargs else {}),
+        )
+        if return_output:
+            if isinstance(layer_output, tuple):
+                layer_output = layer_output[0]
+            outputs.append(layer_output)
+
+    layer.to("cpu")
+    return outputs or None
+
+
+@torch.no_grad()
+def run_layerwise_quantization(
+    model: HfModelHandler,
+    wrapper: ModelWrapper,
+    data_config,
+    input_hook: Callable[[torch.nn.Module, tuple, torch.Tensor], None],
+    process_module: Callable[[torch.nn.Module, str], None],
+    update_before_process: bool,
+    include_lm_head: bool,
+    device: str | None = None,
+) -> str:
+    """Run a layerwise calibration + processing loop with configurable hook order.
+
+    Args:
+        model: The HuggingFace model handler.
+        wrapper: ModelWrapper containing the model.
+        data_config: Data config used to build the calibration dataset.
+        input_hook: Forward hook to collect calibration data for a module.
+        process_module: Callback to process a single module after hooks are collected.
+        update_before_process: Whether to run the layer forward to get next inputs before processing.
+        include_lm_head: Whether to process the lm_head similarly to other layers.
+        device: Device to run calibration on. If None, uses cuda when available.
+
+    Returns:
+        Device string used for calibration.
+
+    """
+    from tqdm.auto import tqdm
+
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    original_use_cache = getattr(wrapper.model.config, "use_cache", None)
+    if original_use_cache is not None:
+        wrapper.model.config.use_cache = False
+
+    hidden_states, layer_args, layer_kwargs = get_layer_inputs_for_calibration(model, wrapper, data_config, device)
+    if not hidden_states:
+        raise ValueError("Calibration data is empty. Provide a valid data_config.")
+
+    total_steps = wrapper.num_hidden_layers + (1 if include_lm_head else 0)
+    pbar = tqdm(total=total_steps, desc="Processing layers...")
+
+    for layer_idx, layer in enumerate(wrapper.get_layers(return_name=False)):
+        pbar.set_postfix(module=f"layers.{layer_idx}", refresh=False)
+        quantizable_modules = [module for module in layer.modules() if hasattr(module, "quant_info")]
+        handles = [module.register_forward_hook(input_hook) for module in quantizable_modules]
+
+        if update_before_process:
+            hidden_states = run_layer(
+                layer,
+                hidden_states,
+                layer_args,
+                layer_kwargs,
+                return_output=True,
+            )
+        else:
+            run_layer(layer, hidden_states, layer_args, layer_kwargs)
+
+        for handle in handles:
+            handle.remove()
+
+        for module in quantizable_modules:
+            process_module(module, device)
+
+        if not update_before_process:
+            hidden_states = run_layer(
+                layer,
+                hidden_states,
+                layer_args,
+                layer_kwargs,
+                return_output=True,
+            )
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        pbar.update(1)
+
+    if include_lm_head:
+        hidden_states = run_layer(wrapper.get_pre_head_layernorm(return_name=False), hidden_states, return_output=True)
+        lm_head = wrapper.get_lm_head(return_name=False)
+        pbar.set_postfix(module="lm_head", refresh=False)
+        handle = lm_head.register_forward_hook(input_hook)
+        run_layer(lm_head, hidden_states, return_output=True)
+        handle.remove()
+        process_module(lm_head, device)
+        pbar.update(1)
+
+    pbar.close()
+
+    if original_use_cache is not None:
+        wrapper.model.config.use_cache = original_use_cache
+
+    return device
 
 
 def finalize(

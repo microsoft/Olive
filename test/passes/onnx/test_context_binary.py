@@ -132,3 +132,50 @@ def test_ep_context_binary_generator_composite(tmp_path, is_llm):
         assert expected_model_path.exists()
         if not is_skipped:
             assert len(list(output_model_path.glob(f"{name}_ctx*.bin"))) == 1
+
+
+def _mock_get_available_providers():
+    return ["QNNExecutionProvider", "CPUExecutionProvider"]
+
+
+def test_single_target_populates_model_attributes(tmp_path):
+    """Single-target mode should populate model_attributes."""
+    from pathlib import Path
+    from unittest.mock import patch
+
+    accelerator_spec = AcceleratorSpec(accelerator_type="NPU", execution_provider="QNNExecutionProvider")
+
+    p = create_pass_from_dict(
+        EPContextBinaryGenerator,
+        {
+            "provider_options": {
+                "soc_model": "60",
+                "htp_performance_mode": "burst",
+            },
+        },
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with (
+        patch.object(EPContextBinaryGenerator, "_run_single_target") as mock_single,
+        patch("onnxruntime.get_available_providers", _mock_get_available_providers),
+    ):
+
+        def side_effect(model, config, output_model_path):
+            out_path = Path(output_model_path)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text("dummy")
+            return ONNXModelHandler(model_path=str(out_path))
+
+        mock_single.side_effect = side_effect
+
+        input_model = get_onnx_model()
+        output_path = str(tmp_path / "output.onnx")
+        result = p.run(input_model, output_path)
+
+    assert isinstance(result, ONNXModelHandler)
+    assert result.model_attributes["ep"] == "QNNExecutionProvider"
+    assert result.model_attributes["device"] == "NPU"
+    assert result.model_attributes["architecture"] == "60"
+    assert result.model_attributes["provider_options"]["soc_model"] == "60"

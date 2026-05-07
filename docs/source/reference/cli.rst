@@ -170,6 +170,17 @@ Run benchmarking using llm-eval.
     :prog: olive
     :path: benchmark
 
+Generate Model Package
+======================
+
+Merge multiple model outputs into a model package with manifest and per-component metadata.
+
+.. argparse::
+    :module: olive.cli.launcher
+    :func: get_cli_parser
+    :prog: olive
+    :path: generate-model-package
+
 Providing Input Models
 ======================
 

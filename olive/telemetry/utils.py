@@ -6,6 +6,7 @@ import base64
 import functools
 import os
 import platform
+import tempfile
 import traceback
 from pathlib import Path
 from types import TracebackType
@@ -14,7 +15,20 @@ from typing import Optional
 ORT_SUPPORT_DIR = r"Microsoft/DeveloperTools/.onnxruntime"
 
 
-@property
+def _resolve_home_dir() -> Path:
+    """Resolve the user home directory with fallbacks for container environments."""
+    home = os.getenv("HOME")
+    if home:
+        return Path(home).expanduser()
+    try:
+        return Path.home()
+    except (RuntimeError, KeyError):
+        # /var/tmp persists across reboots unlike /tmp (FHS spec)
+        if platform.system() != "Windows":
+            return Path("/var/tmp")
+        return Path(tempfile.gettempdir())
+
+
 @functools.lru_cache(maxsize=1)
 def get_telemetry_base_dir() -> Path:
     os_name = platform.system()
@@ -25,16 +39,15 @@ def get_telemetry_base_dir() -> Path:
         return Path(base_dir) / "Microsoft" / ".onnxruntime"
 
     if os_name == "Darwin":
-        home = os.getenv("HOME")
-        if home is None:
-            raise ValueError("HOME environment variable not set")
-        return Path(home) / "Library" / "Application Support" / ORT_SUPPORT_DIR
+        home = _resolve_home_dir()
+        return home / "Library" / "Application Support" / ORT_SUPPORT_DIR
 
-    home = os.getenv("XDG_CACHE_HOME", f"{os.getenv('HOME')}/.cache")
-    if not home:
-        raise ValueError("HOME environment variable not set")
+    # Use XDG_CACHE_HOME if set, otherwise fall back to $HOME/.cache
+    cache_dir = os.getenv("XDG_CACHE_HOME")
+    if not cache_dir:
+        cache_dir = str(_resolve_home_dir() / ".cache")
 
-    return Path(home) / ORT_SUPPORT_DIR
+    return Path(cache_dir).expanduser() / ORT_SUPPORT_DIR
 
 
 def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = None) -> str:
@@ -80,16 +93,21 @@ class _ExclusiveFileLock:
     def __enter__(self):
         self.file = open(self.file_path, self.mode, encoding="utf-8")
 
-        # Platform-specific locking
-        if os.name == "posix":
-            import fcntl
+        try:
+            # Platform-specific locking
+            if os.name == "posix":
+                import fcntl
 
-            fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
-        elif os.name == "nt":
-            import msvcrt
+                fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
+            elif os.name == "nt":
+                import msvcrt
 
-            # Lock 1 byte at position 0
-            msvcrt.locking(self.file.fileno(), msvcrt.LK_LOCK, 1)
+                # Lock 1 byte at position 0
+                msvcrt.locking(self.file.fileno(), msvcrt.LK_LOCK, 1)
+        except Exception:
+            self.file.close()
+            self.file = None
+            raise
 
         return self.file
 
