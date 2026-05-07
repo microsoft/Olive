@@ -37,7 +37,7 @@ _PRECISION_TO_DTYPE: dict[str, str] = {
 }
 
 
-class MobiusModelBuilder(Pass):
+class MobiusBuilder(Pass):
     """Olive pass that uses mobius to build ONNX models from HuggingFace model IDs.
 
     Supports all model architectures registered in mobius (LLMs, VLMs, speech
@@ -98,9 +98,9 @@ class MobiusModelBuilder(Pass):
                 ),
             ),
             "runtime": PassConfigParam(
-                type_=MobiusModelBuilder.MobiusRuntime,
+                type_=MobiusBuilder.MobiusRuntime,
                 required=False,
-                default_value=MobiusModelBuilder.MobiusRuntime.ORT_GENAI,
+                default_value=MobiusBuilder.MobiusRuntime.ORT_GENAI,
                 description=(
                     "Target runtime. 'ort-genai' (default) generates "
                     "genai_config.json, tokenizer files, and processor "
@@ -119,18 +119,18 @@ class MobiusModelBuilder(Pass):
             from mobius import build
         except ImportError as exc:
             raise ImportError(
-                "mobius-ai is required to run MobiusModelBuilder. Install with: pip install mobius-ai"
+                "mobius-ai is required to run MobiusBuilder. Install with: pip install mobius-ai"
             ) from exc
 
         if not isinstance(model, HfModelHandler):
-            raise ValueError(f"MobiusModelBuilder requires an HfModelHandler input, got {type(model).__name__}.")
+            raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
 
         # Map Olive EP to mobius EP. If unsupported/unknown, fall back to mobius default EP.
         requested_ep = self.accelerator_spec.execution_provider
         ep_str: str = EXECUTION_PROVIDER_TO_MOBIUS_EP.get(requested_ep, self.MobiusEP.DEFAULT)
         if ep_str == self.MobiusEP.DEFAULT:
             logger.warning(
-                "MobiusModelBuilder: execution provider '%s' on accelerator '%s' is not explicitly supported; "
+                "MobiusBuilder: execution provider '%s' on accelerator '%s' is not explicitly supported; "
                 "falling back to mobius default EP.",
                 requested_ep,
                 self.accelerator_spec.accelerator_type,
@@ -143,14 +143,14 @@ class MobiusModelBuilder(Pass):
         trust_remote_code: bool = model.get_load_kwargs().get("trust_remote_code", False)
 
         logger.info(
-            "MobiusModelBuilder: building '%s' (ep=%s, dtype=%s)",
+            "MobiusBuilder: building '%s' (ep=%s, dtype=%s)",
             model_id,
             ep_str,
             dtype_str,
         )
 
         if trust_remote_code:
-            logger.warning("MobiusModelBuilder: trust_remote_code=True — only use with trusted model sources.")
+            logger.warning("MobiusBuilder: trust_remote_code=True — only use with trusted model sources.")
 
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -175,14 +175,14 @@ class MobiusModelBuilder(Pass):
             genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
 
         package_keys = list(pkg.keys())
-        logger.info("MobiusModelBuilder: saved components %s to '%s'", package_keys, output_dir)
+        logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)
 
         if len(package_keys) == 1:
             # Single-component model (most LLMs): return a plain ONNXModelHandler.
             onnx_path = output_dir / "model.onnx"
             if not onnx_path.exists():
                 raise RuntimeError(
-                    f"MobiusModelBuilder: expected output file not found: {onnx_path}. "
+                    f"MobiusBuilder: expected output file not found: {onnx_path}. "
                     "mobius.build() may have failed silently or saved to an unexpected path."
                 )
             additional_files = sorted(
@@ -208,7 +208,7 @@ class MobiusModelBuilder(Pass):
             onnx_path = component_dir / "model.onnx"
             if not onnx_path.exists():
                 raise RuntimeError(
-                    f"MobiusModelBuilder: expected output file not found: {onnx_path}. "
+                    f"MobiusBuilder: expected output file not found: {onnx_path}. "
                     f"mobius.build() may have failed silently for component '{key}'."
                 )
             additional_files = sorted(
@@ -255,7 +255,7 @@ class MobiusModelBuilder(Pass):
             ep=ep,
         )
         logger.info(
-            "MobiusModelBuilder: wrote ORT GenAI config: %s",
+            "MobiusBuilder: wrote ORT GenAI config: %s",
             list(genai_artifacts.keys()),
         )
         return genai_artifacts

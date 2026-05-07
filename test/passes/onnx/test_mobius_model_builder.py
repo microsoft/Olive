@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""Unit tests for the MobiusModelBuilder Olive pass."""
+"""Unit tests for the MobiusBuilder Olive pass."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from olive.hardware.constants import ExecutionProvider
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
-from olive.passes.onnx.mobius_model_builder import MobiusModelBuilder
+from olive.passes.onnx.mobius_model_builder import MobiusBuilder
 
 _HAS_REAL_MOBIUS = importlib.util.find_spec("mobius") is not None
 
@@ -63,10 +63,10 @@ def _make_hf_model(model_path: str, load_kwargs: dict | None = None) -> HfModelH
     return model
 
 
-def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider) -> MobiusModelBuilder:
+def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider) -> MobiusBuilder:
     accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ep)
     return create_pass_from_dict(
-        MobiusModelBuilder,
+        MobiusBuilder,
         {"precision": "fp32"},
         disable_search=True,
         accelerator_spec=accelerator_spec,
@@ -101,7 +101,7 @@ def _patch_build(pkg: MagicMock):
     # Also patch _write_genai_config since the default runtime is ort-genai.
     return _CombinePatches(
         patch("mobius.build", return_value=pkg),
-        patch.object(MobiusModelBuilder, "_write_genai_config"),
+        patch.object(MobiusBuilder, "_write_genai_config"),
     )
 
 
@@ -127,11 +127,11 @@ class _CombinePatches:
 
 
 def test_default_config_params():
-    """MobiusModelBuilder must declare precision and runtime, and must not declare execution_provider or trust_remote_code."""
+    """MobiusBuilder must declare precision and runtime, and must not declare execution_provider or trust_remote_code."""
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
-    config = MobiusModelBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
+    config = MobiusBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
     assert "precision" in config
     assert "runtime" in config
     assert "execution_provider" not in config
@@ -143,18 +143,18 @@ def test_is_not_accelerator_agnostic():
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
-    assert MobiusModelBuilder.is_accelerator_agnostic(accelerator_spec) is False
+    assert MobiusBuilder.is_accelerator_agnostic(accelerator_spec) is False
 
 
 def test_ep_map_covers_common_providers():
-    assert ExecutionProvider.CPUExecutionProvider in MobiusModelBuilder.EP_MAP
-    assert ExecutionProvider.CUDAExecutionProvider in MobiusModelBuilder.EP_MAP
-    assert ExecutionProvider.DmlExecutionProvider in MobiusModelBuilder.EP_MAP
-    assert ExecutionProvider.WebGpuExecutionProvider in MobiusModelBuilder.EP_MAP
-    assert MobiusModelBuilder.EP_MAP[ExecutionProvider.CPUExecutionProvider] == "cpu"
-    assert MobiusModelBuilder.EP_MAP[ExecutionProvider.CUDAExecutionProvider] == "cuda"
-    assert MobiusModelBuilder.EP_MAP[ExecutionProvider.DmlExecutionProvider] == "dml"
-    assert MobiusModelBuilder.EP_MAP[ExecutionProvider.WebGpuExecutionProvider] == "webgpu"
+    assert ExecutionProvider.CPUExecutionProvider in MobiusBuilder.EP_MAP
+    assert ExecutionProvider.CUDAExecutionProvider in MobiusBuilder.EP_MAP
+    assert ExecutionProvider.DmlExecutionProvider in MobiusBuilder.EP_MAP
+    assert ExecutionProvider.WebGpuExecutionProvider in MobiusBuilder.EP_MAP
+    assert MobiusBuilder.EP_MAP[ExecutionProvider.CPUExecutionProvider] == "cpu"
+    assert MobiusBuilder.EP_MAP[ExecutionProvider.CUDAExecutionProvider] == "cuda"
+    assert MobiusBuilder.EP_MAP[ExecutionProvider.DmlExecutionProvider] == "dml"
+    assert MobiusBuilder.EP_MAP[ExecutionProvider.WebGpuExecutionProvider] == "webgpu"
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +208,7 @@ def test_genai_artifacts_in_single_component(tmp_path):
     # Mock _write_genai_config to return the artifact paths
     mock_genai_artifacts = {"genai_config": genai_config, "tokenizer.json": tokenizer_file}
 
-    with _patch_build(pkg), patch.object(MobiusModelBuilder, "_write_genai_config", return_value=mock_genai_artifacts):
+    with _patch_build(pkg), patch.object(MobiusBuilder, "_write_genai_config", return_value=mock_genai_artifacts):
         p = _make_pass()
         result = p.run(_make_hf_model("meta-llama/Llama-3-8B"), out)
 
@@ -235,7 +235,7 @@ def test_genai_artifacts_in_multi_component(tmp_path):
     # Mock _write_genai_config to return the artifact paths
     mock_genai_artifacts = {"genai_config": genai_config, "image_processor": image_processor}
 
-    with _patch_build(pkg), patch.object(MobiusModelBuilder, "_write_genai_config", return_value=mock_genai_artifacts):
+    with _patch_build(pkg), patch.object(MobiusBuilder, "_write_genai_config", return_value=mock_genai_artifacts):
         p = _make_pass()
         result = p.run(_make_hf_model("microsoft/phi-4-vision"), out)
 
@@ -284,7 +284,7 @@ def test_ep_auto_detected_from_accelerator(tmp_path):
         accelerator_type=Device.GPU, execution_provider=ExecutionProvider.CUDAExecutionProvider
     )
     p = create_pass_from_dict(
-        MobiusModelBuilder,
+        MobiusBuilder,
         {"precision": "fp16"},
         disable_search=True,
         accelerator_spec=accelerator_spec,
@@ -304,12 +304,12 @@ def test_unsupported_ep_falls_back_to_default(tmp_path):
     pkg = _fake_pkg(["model"], out)
 
     # Create a pass with an unsupported EP (one not in EP_MAP).
-    # QNN exists in all Olive environments and is intentionally unsupported by MobiusModelBuilder.
+    # QNN exists in all Olive environments and is intentionally unsupported by MobiusBuilder.
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.NPU, execution_provider=ExecutionProvider.JsExecutionProvider
     )
     p = create_pass_from_dict(
-        MobiusModelBuilder,
+        MobiusBuilder,
         {"precision": "fp32"},
         disable_search=True,
         accelerator_spec=accelerator_spec,
@@ -319,7 +319,7 @@ def test_unsupported_ep_falls_back_to_default(tmp_path):
         p.run(_make_hf_model("org/model"), out)
 
     call_kwargs = mock_build.call_args.kwargs
-    assert call_kwargs["execution_provider"] == MobiusModelBuilder.MobiusEP.DEFAULT
+    assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.DEFAULT
 
 
 def test_none_execution_provider_falls_back_to_default(tmp_path):
@@ -330,7 +330,7 @@ def test_none_execution_provider_falls_back_to_default(tmp_path):
     # Create a pass with execution_provider=None (unspecified).
     accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=None)
     p = create_pass_from_dict(
-        MobiusModelBuilder,
+        MobiusBuilder,
         {"precision": "fp32"},
         disable_search=True,
         accelerator_spec=accelerator_spec,
@@ -340,7 +340,7 @@ def test_none_execution_provider_falls_back_to_default(tmp_path):
         p.run(_make_hf_model("org/model"), out)
 
     call_kwargs = mock_build.call_args.kwargs
-    assert call_kwargs["execution_provider"] == MobiusModelBuilder.MobiusEP.DEFAULT
+    assert call_kwargs["execution_provider"] == MobiusBuilder.MobiusEP.DEFAULT
 
 
 @pytest.mark.skipif(not _HAS_REAL_MOBIUS, reason="mobius-ai is not publicly available in CI yet")
@@ -425,7 +425,7 @@ def test_trust_remote_code_warning_logged(tmp_path):
     out = tmp_path / "out"
     pkg = _fake_pkg(["model"], out)
     p = create_pass_from_dict(
-        MobiusModelBuilder,
+        MobiusBuilder,
         {"precision": "fp32"},
         disable_search=True,
         accelerator_spec=AcceleratorSpec(
