@@ -511,8 +511,10 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 self.max_length = genai_config["search"]["max_length"]
             eot = genai_config["model"]["eos_token_id"]
             # eos_token_id can be a list (e.g. [1, 106] for Gemma4) or a scalar.
-            # Use the first element for loglikelihood evaluation.
-            self._eot_token_id = eot[0] if isinstance(eot, list) else eot
+            # Store all EOS IDs for generate_until stop detection,
+            # and first/scalar for loglikelihood (TemplateLM.eot_token_id expects int).
+            self._eos_token_ids = list(eot) if isinstance(eot, list) else [eot]
+            self._eot_token_id = self._eos_token_ids[0]
         self.params = og.GeneratorParams(self.model)
         self.params.set_search_options(max_length=self.max_length, past_present_share_buffer=False)
 
@@ -618,7 +620,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             generator = og.Generator(self.model, params)
             generator.append_tokens([input_ids])
 
-            eos_ids = self._eot_token_id if isinstance(self._eot_token_id, (list, tuple)) else [self._eot_token_id]
+            eos_ids = self._eos_token_ids
 
             generated_ids = []
             # Decode periodically to check for stop sequences
