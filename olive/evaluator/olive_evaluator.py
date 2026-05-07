@@ -522,9 +522,26 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             # Auto-detect genai model by checking for genai_config.json
             genai_config_path = Path(model.model_path).parent / "genai_config.json"
             if genai_config_path.exists():
-                inference_output, targets = self._inference_text_genai(
-                    model, metric, dataloader, device, execution_providers
-                )
+                import json
+
+                with genai_config_path.open() as f:
+                    genai_config = json.load(f)
+                model_type = genai_config.get("model", {}).get("type", "")
+
+                if model_type == "whisper":
+                    inference_output, targets = self._inference_text_genai(
+                        model, metric, dataloader, device, execution_providers
+                    )
+                elif model_type == "nemotron_speech":
+                    inference_output, targets = self._inference_text_genai_streaming(
+                        model, metric, dataloader, device, execution_providers
+                    )
+                else:
+                    raise ValueError(
+                        f"Unsupported genai model type '{model_type}' for speech evaluation. "
+                        f"Supported types: 'whisper' (offline), 'nemotron_speech' (streaming). "
+                        f"For unsupported model types, use a custom evaluation script."
+                    )
             else:
                 inference_output, targets = self._inference_text(
                     model, metric, dataloader, post_func, device, execution_providers
@@ -749,6 +766,136 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             for arr in audio_arrays:
                 total_audio_duration += len(arr) / sample_rate
                 transcription = _transcribe_chunks(arr, og_model)
+                all_preds.append(transcription)
+            total_inference_time += time.perf_counter() - start_time
+
+            # Collect reference texts
+            if isinstance(labels, (list, tuple)):
+                all_targets.extend(labels)
+            else:
+                all_targets.append(labels)
+
+        del og_model
+
+        timing_metadata = {
+            "total_audio_duration": total_audio_duration,
+            "total_inference_time": total_inference_time,
+        }
+        return OliveModelOutput(preds=all_preds, logits=timing_metadata), all_targets
+
+    def _inference_text_genai_streaming(
+        self,
+        model: ONNXModelHandler,
+        metric: Metric,
+        dataloader: "DataLoader",
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Text-based inference for streaming ASR models using onnxruntime-genai.
+
+        Auto-detected when genai_config.json has model.type = "nemotron_speech".
+        Uses og.StreamingProcessor for stateful chunked inference with silence padding
+        for right-context flushing.
+        """
+        try:
+            import onnxruntime_genai as og
+        except ImportError:
+            raise ImportError(
+                "onnxruntime-genai is required for genai-based speech evaluation. "
+                "Install it with: pip install onnxruntime-genai"
+            ) from None
+
+        import json
+
+        model_dir = str(Path(model.model_path).parent)
+
+        with (Path(model_dir) / "genai_config.json").open() as f:
+            genai_config = json.load(f)
+
+        sample_rate = genai_config["model"].get("sample_rate", 16000)
+        chunk_samples = genai_config["model"].get("chunk_samples", 8960)
+
+        # Build og.Model with appropriate execution provider
+        config = og.Config(model_dir)
+        config.clear_providers()
+        if device == Device.GPU:
+            config.append_provider("cuda")
+        og_model = og.Model(config)
+        tokenizer = og.Tokenizer(og_model)
+
+        # Number of silence chunks for right-context flushing
+        num_silence_chunks = 4
+
+        def _transcribe_streaming(audio_arr: np.ndarray, genai_model) -> str:
+            """Transcribe audio using stateful streaming processor."""
+            audio = audio_arr.astype(np.float32)
+            stream_processor = og.StreamingProcessor(genai_model)
+            tokenizer_stream = tokenizer.create_stream()
+            params = og.GeneratorParams(genai_model)
+            generator = og.Generator(genai_model, params)
+
+            transcript = ""
+
+            def decode_tokens():
+                nonlocal transcript
+                while not generator.is_done():
+                    generator.generate_next_token()
+                    tokens = generator.get_next_tokens()
+                    if len(tokens) > 0:
+                        text = tokenizer_stream.decode(tokens[0])
+                        if text:
+                            transcript += text
+
+            # Feed audio chunks
+            for start in range(0, len(audio), chunk_samples):
+                chunk = audio[start : start + chunk_samples].astype(np.float32)
+                inputs = stream_processor.process(chunk)
+                if inputs is not None:
+                    generator.set_inputs(inputs)
+                    decode_tokens()
+
+            # Flush remaining audio in the processor
+            inputs = stream_processor.flush()
+            if inputs is not None:
+                generator.set_inputs(inputs)
+                decode_tokens()
+
+            # Feed silence chunks for right-context flushing
+            for _ in range(num_silence_chunks):
+                silence = np.zeros(chunk_samples, dtype=np.float32)
+                inputs = stream_processor.process(silence)
+                if inputs is not None:
+                    generator.set_inputs(inputs)
+                    decode_tokens()
+
+            return transcript
+
+        all_preds = []
+        all_targets = []
+        total_audio_duration = 0.0
+        total_inference_time = 0.0
+
+        for batch in dataloader:
+            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+
+            # Convert input to list of audio arrays
+            audio_arrays = []
+            if isinstance(input_data, (np.ndarray, torch.Tensor)):
+                arr = np.array(input_data) if isinstance(input_data, torch.Tensor) else input_data
+                if arr.ndim == 1:
+                    audio_arrays = [arr]
+                else:
+                    audio_arrays = [arr[i] for i in range(arr.shape[0])]
+            elif isinstance(input_data, list):
+                audio_arrays = [np.array(a) if not isinstance(a, np.ndarray) else a for a in input_data]
+
+            if not audio_arrays:
+                continue
+
+            start_time = time.perf_counter()
+            for arr in audio_arrays:
+                total_audio_duration += len(arr) / sample_rate
+                transcription = _transcribe_streaming(arr, og_model)
                 all_preds.append(transcription)
             total_inference_time += time.perf_counter() - start_time
 

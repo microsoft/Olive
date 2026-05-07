@@ -200,13 +200,9 @@ For models built with `onnxruntime-genai` (identified by a `genai_config.json` i
 
 ```{Note}
 The GenAI path requires `onnxruntime-genai` and `soundfile` to be installed.
-Olive auto-detects the model type (English-only vs multilingual) from the model config
-and sets the appropriate decoder prompt tokens.
-```
+Olive auto-detects the model type from `genai_config.json`:
+- **`whisper`** (offline): Uses `create_multimodal_processor()` with automatic 30s audio chunking.
+- **`nemotron_speech`** (streaming): Uses `og.StreamingProcessor` with stateful chunked inference and silence padding for right-context flushing.
 
-```{Note}
-For **streaming ASR models** (e.g., Nemotron) that use `og.StreamingProcessor` with chunked audio,
-use the `custom` metric type with an `evaluate_func` instead. See the
-[olive-recipes Nemotron evaluation](https://github.com/microsoft/olive-recipes/tree/main/nvidia-nemotron-speech-streaming-en-0.6b/cpu)
-for a complete working example.
+For other model types, use the `custom` metric type with an `evaluate_func`.
 ```
