@@ -37,6 +37,19 @@ PROVIDER_PACKAGE_MAPPING = {
     ExecutionProvider.DmlExecutionProvider: "onnxruntime-directml",
 }
 
+EXECUTION_PROVIDER_TO_MOBIUS_EP = {
+    ExecutionProvider.CPUExecutionProvider: "cpu",
+    ExecutionProvider.CUDAExecutionProvider: "cuda",
+    ExecutionProvider.DmlExecutionProvider: "webgpu",
+    ExecutionProvider.MIGraphXExecutionProvider: "onnx-standard",
+    ExecutionProvider.NvTensorRTRTXExecutionProvider: "trt-rtx",
+    ExecutionProvider.OpenVINOExecutionProvider: "default",
+    ExecutionProvider.QNNExecutionProvider: "onnx-standard",
+    ExecutionProvider.ROCMExecutionProvider: "onnx-standard",
+    ExecutionProvider.VitisAIExecutionProvider: "onnx-standard",
+    ExecutionProvider.WebGpuExecutionProvider: "webgpu",
+}
+
 DEVICE_TO_EXECUTION_PROVIDERS = {
     "cpu": {ExecutionProvider.CPUExecutionProvider, ExecutionProvider.OpenVINOExecutionProvider},
     "gpu": {

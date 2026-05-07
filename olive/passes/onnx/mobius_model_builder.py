@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from olive.common.utils import StrEnumBase
 from olive.constants import Precision
-from olive.hardware.constants import ExecutionProvider
+from olive.hardware.constants import EXECUTION_PROVIDER_TO_MOBIUS_EP, ExecutionProvider
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
 from olive.passes import Pass
@@ -66,7 +66,6 @@ class MobiusModelBuilder(Pass):
         DEFAULT = "default"
         CPU = "cpu"
         CUDA = "cuda"
-        DML = "dml"
         WEBGPU = "webgpu"
         TRT_RTX = "trt-rtx"
         ONNX_STANDARD = "onnx-standard"
@@ -128,7 +127,7 @@ class MobiusModelBuilder(Pass):
 
         # Map Olive EP to mobius EP. If unsupported/unknown, fall back to mobius default EP.
         requested_ep = self.accelerator_spec.execution_provider
-        ep_str: str = self.EP_MAP.get(requested_ep, self.MobiusEP.DEFAULT)
+        ep_str: str = EXECUTION_PROVIDER_TO_MOBIUS_EP.get(requested_ep, self.MobiusEP.DEFAULT)
         if ep_str == self.MobiusEP.DEFAULT:
             logger.warning(
                 "MobiusModelBuilder: execution provider '%s' on accelerator '%s' is not explicitly supported; "
