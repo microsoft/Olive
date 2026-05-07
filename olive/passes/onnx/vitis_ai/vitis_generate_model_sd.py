@@ -15,15 +15,11 @@ import logging
 import shutil
 from pathlib import Path
 
-from model_generate import generate_model
-from model_generate.recipes import get_supported_sd_model_types
-
 from olive.model import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
-SUPPORTED_SD_MODEL_TYPES = get_supported_sd_model_types()
 
 
 class VitisGenerateModelSD(Pass):
@@ -39,7 +35,7 @@ class VitisGenerateModelSD(Pass):
             "model_type": PassConfigParam(
                 type_=str,
                 required=True,
-                description=f"SD submodel type, must be one of {', '.join(SUPPORTED_SD_MODEL_TYPES)}.",
+                description="SD submodel type.",
             ),
             "resolutions": PassConfigParam(
                 type_=list[str],
@@ -50,9 +46,22 @@ class VitisGenerateModelSD(Pass):
         }
 
     @staticmethod
-    def _validate_model_type(model_type: str) -> None:
-        if model_type not in SUPPORTED_SD_MODEL_TYPES:
-            raise ValueError(f"model_type must be one of {', '.join(SUPPORTED_SD_MODEL_TYPES)}, got {model_type!r}")
+    def _get_supported_sd_model_types():
+        try:
+            from model_generate.recipes import get_supported_sd_model_types
+        except ImportError as e:
+            raise ImportError(
+                "model_generate is required for VitisGenerateModelSD. Please install the model_generate package."
+            ) from e
+
+        return get_supported_sd_model_types()
+
+    @classmethod
+    def _validate_model_type(cls, model_type: str) -> None:
+        supported_types = cls._get_supported_sd_model_types()
+
+        if model_type not in supported_types:
+            raise ValueError(f"model_type must be one of {', '.join(supported_types)}, got {model_type!r}")
 
     def _run_for_config(
         self,
@@ -60,6 +69,13 @@ class VitisGenerateModelSD(Pass):
         config: BasePassConfig,
         output_model_path: str,
     ) -> ONNXModelHandler:
+        try:
+            from model_generate import generate_model
+        except ImportError as e:
+            raise ImportError(
+                "model_generate is required for VitisGenerateModelSD. Please install the model_generate package."
+            ) from e
+
         if not isinstance(model, ONNXModelHandler):
             raise TypeError(
                 f"VitisGenerateModelSD requires ONNXModelHandler (run OnnxConversion first). Got {type(model).__name__}"
@@ -114,10 +130,22 @@ class VitisGenerateModelSD(Pass):
                 f = p / name
                 if f.exists():
                     return f
-            onnx_files = list(p.glob("*.onnx"))
-            if onnx_files:
+                raise FileNotFoundError(f"Specified onnx_file_name does not exist under {p}: {name}")
+
+            default_model_path = p / "model.onnx"
+            if default_model_path.exists():
+                return default_model_path
+
+            onnx_files = sorted(path for path in p.glob("*.onnx") if path.is_file())
+            if len(onnx_files) == 1:
                 return onnx_files[0]
-            raise FileNotFoundError(f"No .onnx file found under {p}")
+            if len(onnx_files) > 1:
+                candidates = ", ".join(path.name for path in onnx_files)
+                raise ValueError(
+                    f"Multiple .onnx model files found under {p}: {candidates}. Please specify one using the onnx_file_name argument."
+                )
+            else:
+                raise FileNotFoundError(f"No .onnx file found under {p}")
         raise FileNotFoundError(f"Model path does not exist: {p}")
 
     def _ensure_model_onnx(self, output_dir: Path) -> None:
@@ -134,7 +162,6 @@ class VitisGenerateModelSD(Pass):
             shutil.copy2(optimized, model_onnx)
             logger.info("[VitisGenerateModelSD] Wrote model.onnx from optimized.onnx")
         else:
-            logger.warning(
-                "[VitisGenerateModelSD] No optimized.onnx or dd/replaced.onnx found under %s",
-                output_dir,
+            raise FileNotFoundError(
+                f"[VitisGenerateModelSD] No optimized.onnx or dd/replaced.onnx found under {output_dir}. Please check the output directory.",
             )
