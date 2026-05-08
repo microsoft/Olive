@@ -5,7 +5,7 @@
 import logging
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -72,7 +72,6 @@ class OnnxBlockWiseRtnQuantization(Pass):
             ),
             "components_to_skip": PassConfigParam(
                 type_=list,
-                required=False,
                 default_value=None,
                 description=(
                     "Optional list of component names to skip quantization for "
