@@ -128,6 +128,11 @@ class OnnxBlockWiseRtnQuantization(Pass):
                     onnx_file_name=component_model.onnx_file_name,
                     model_attributes=component_model.model_attributes,
                 )
+                # Mirror what the base run() does for each individual component.
+                output_component.model_attributes = (
+                    output_component.model_attributes or component_model.model_attributes
+                )
+                Pass._carry_forward_additional_files(component_model, output_component)
             else:
                 output_component = self.run(component_model, str(component_output_path))
             components.append(output_component)
