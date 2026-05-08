@@ -117,7 +117,8 @@ class MobiusBuilder(Pass):
                     "When set, only the named components are saved and returned; "
                     "all others are discarded after the mobius build step. "
                     "When not set (None), all components are exported (default, backward compatible). "
-                    "Raises ValueError if any specified name is not found in the model's components."
+                    "Raises ValueError if the list is empty or if any specified name is not found in "
+                    "the model's components."
                 ),
             ),
         }
@@ -207,7 +208,16 @@ class MobiusBuilder(Pass):
         # ModelPackage.save() handles both single and multi-component layouts:
         #   single component  → <output_dir>/model.onnx
         #   multi-component   → <output_dir>/<name>/model.onnx  for each key
-        pkg.save(str(output_dir), components=components_filter)
+        # Older mobius releases may not support the `components` kwarg — fall back gracefully.
+        try:
+            pkg.save(str(output_dir), components=components_filter)
+        except TypeError:
+            if components_filter is not None:
+                logger.warning(
+                    "MobiusBuilder: installed mobius version does not support the 'components' filter kwarg; "
+                    "all components will be saved. Upgrade mobius to enable selective export."
+                )
+            pkg.save(str(output_dir))
 
         # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
         # files, processor configs) when runtime is set to ort-genai.

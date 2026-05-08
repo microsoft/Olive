@@ -83,8 +83,11 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
     def _save(directory: str, components=None, **_kwargs):
         out = Path(directory)
         if len(keys) == 1:
-            # Single-component: saved as <dir>/model.onnx
-            (out / "model.onnx").write_text("dummy")
+            # Single-component: saved as <dir>/model.onnx.
+            # Apply the components filter consistently with multi-component behaviour.
+            key = keys[0]
+            if components is None or components(key):
+                (out / "model.onnx").write_text("dummy")
         else:
             # Multi-component: saved as <dir>/<key>/model.onnx
             for k in keys:
@@ -596,3 +599,47 @@ def test_components_to_export_in_default_config():
     assert "components_to_export" in config
     assert config["components_to_export"].default_value is None
     assert config["components_to_export"].required is False
+
+
+def test_pkg_save_typeerror_falls_back_gracefully(tmp_path):
+    """When pkg.save() raises TypeError for the components= kwarg (old mobius), fall back without filter."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+
+    # Build a pkg whose save() raises TypeError only when components= is passed (old mobius API).
+    def _save_old_api(directory: str, **kwargs):
+        if "components" in kwargs:
+            raise TypeError("unexpected keyword argument 'components'")
+        # Old API: save all components unconditionally.
+        d = Path(directory)
+        for k in keys:
+            (d / k).mkdir(parents=True, exist_ok=True)
+            (d / k / "model.onnx").write_text("dummy")
+
+    pkg = MagicMock()
+    pkg.keys.return_value = keys
+    pkg.__iter__ = MagicMock(return_value=iter(keys))
+    pkg.items.return_value = [(k, MagicMock()) for k in keys]
+    pkg.save.side_effect = _save_old_api
+
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": ["vision_encoder", "embedding"]},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with (
+        _patch_build(pkg),
+        patch("olive.passes.onnx.mobius_model_builder.logger") as mock_logger,
+    ):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    # Old mobius saved all; pass returns CompositeModelHandler with all keys (filter not enforced).
+    assert isinstance(result, CompositeModelHandler)
+    # A warning must have been logged about the missing kwarg support.
+    warning_messages = [str(call) for call in mock_logger.warning.call_args_list]
+    assert any("components" in msg and "mobius" in msg for msg in warning_messages)
