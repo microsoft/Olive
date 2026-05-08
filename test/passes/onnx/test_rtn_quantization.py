@@ -438,7 +438,12 @@ class TestRTNQuantizationComponentsToSkip:
         weight = np.random.randn(64, 128).astype(np.float32)
         inp = onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, [1, 64])
         out = onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, 128])
-        weight_init = onnx.helper.make_tensor(name="weight", data_type=onnx.TensorProto.FLOAT, dims=[64, 128], vals=weight.flatten().tolist())
+        weight_init = onnx.helper.make_tensor(
+            name="weight",
+            data_type=onnx.TensorProto.FLOAT,
+            dims=[64, 128],
+            vals=weight.flatten().tolist(),
+        )
         node = onnx.helper.make_node("MatMul", ["input", "weight"], ["output"], name="MatMul_Node")
         graph = onnx.helper.make_graph([node], "g", [inp], [out], initializer=[weight_init])
         model_def = onnx.helper.make_model(graph, producer_name="test")
@@ -451,12 +456,13 @@ class TestRTNQuantizationComponentsToSkip:
 
     @staticmethod
     def _make_pass(components_to_skip=None) -> OnnxBlockWiseRtnQuantization:
-        from olive.hardware.accelerator import AcceleratorSpec
         accelerator_spec = AcceleratorSpec(accelerator_type="CPU", execution_provider="CPUExecutionProvider")
         config = {"bits": 4, "block_size": 128, "axis": 0, "is_symmetric": True}
         if components_to_skip is not None:
             config["components_to_skip"] = components_to_skip
-        return create_pass_from_dict(OnnxBlockWiseRtnQuantization, config, disable_search=True, accelerator_spec=accelerator_spec)
+        return create_pass_from_dict(
+            OnnxBlockWiseRtnQuantization, config, disable_search=True, accelerator_spec=accelerator_spec
+        )
 
     def test_components_to_skip_passes_component_through_unchanged(self, tmp_path):
         """Skipped component's model files are copied without quantization."""
@@ -489,7 +495,8 @@ class TestRTNQuantizationComponentsToSkip:
         emb_ir = ir.load(emb_out.model_path)
         has_matmul = any(n.op_type == str(OpType.MatMul) for n in emb_ir.graph.all_nodes())
         has_nbits = any(n.op_type == str(OpType.MatMulNBits) for n in emb_ir.graph.all_nodes())
-        assert has_matmul and not has_nbits, "embedding should be passed through unchanged (no MatMulNBits)"
+        assert has_matmul, "embedding should still contain the original MatMul op"
+        assert not has_nbits, "embedding should not be quantized (no MatMulNBits expected)"
 
     def test_components_to_skip_none_quantizes_all(self, tmp_path):
         """When components_to_skip is not set, all composite components are quantized."""
