@@ -1075,6 +1075,12 @@ class LMEvaluator(OliveEvaluator):
                 "ep_options": self.ep_options,
                 "device": device,
             }
+        elif self.model_class == "ort-multimodal":
+            init_args = {
+                "pretrained": str(Path(model.model_path).parent),
+                "ep": self.ep or execution_providers,
+                "ep_options": self.ep_options,
+            }
         else:
             raise ValueError(f"Unknown model class: {self.model_class}")
 
