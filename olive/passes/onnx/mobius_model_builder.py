@@ -108,7 +108,7 @@ class MobiusBuilder(Pass):
                 ),
             ),
             "components_to_export": PassConfigParam(
-                type_=list,
+                type_=list[str],
                 required=False,
                 default_value=None,
                 description=(
@@ -116,8 +116,8 @@ class MobiusBuilder(Pass):
                     "(e.g. ['vision', 'embedding'] to skip the decoder). "
                     "When set, only the named components are saved and returned; "
                     "all others are discarded after the mobius build step. "
-                    "When not set, all components are exported (default, backward compatible). "
-                    "Has no effect on single-component models."
+                    "When not set (None), all components are exported (default, backward compatible). "
+                    "Raises ValueError if any specified name is not found in the model's components."
                 ),
             ),
         }
@@ -178,7 +178,7 @@ class MobiusBuilder(Pass):
 
         # Determine which package components to export.
         all_keys = list(pkg.keys())
-        if config.components_to_export:
+        if config.components_to_export is not None:
             requested = set(config.components_to_export)
             unknown = requested - set(all_keys)
             if unknown:

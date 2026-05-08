@@ -74,9 +74,13 @@ def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider) -> MobiusBuilde
 
 
 def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
-    """Create a fake ModelPackage that writes dummy .onnx files when .save() is called."""
+    """Create a fake ModelPackage that writes dummy .onnx files when .save() is called.
 
-    def _save(directory: str, **_kwargs):
+    Respects the optional ``components`` filter kwarg passed to ``save()``: only writes
+    files for components for which ``components(name)`` returns True (or all if None).
+    """
+
+    def _save(directory: str, components=None, **_kwargs):
         out = Path(directory)
         if len(keys) == 1:
             # Single-component: saved as <dir>/model.onnx
@@ -84,8 +88,9 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
         else:
             # Multi-component: saved as <dir>/<key>/model.onnx
             for k in keys:
-                (out / k).mkdir(parents=True, exist_ok=True)
-                (out / k / "model.onnx").write_text("dummy")
+                if components is None or components(k):
+                    (out / k).mkdir(parents=True, exist_ok=True)
+                    (out / k / "model.onnx").write_text("dummy")
 
     pkg = MagicMock()
     pkg.keys.return_value = keys
@@ -467,7 +472,9 @@ def test_components_to_export_filters_subset(tmp_path):
     keys = ["decoder", "vision_encoder", "embedding"]
     pkg = _fake_pkg(keys, out)
 
-    accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider)
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
     p = create_pass_from_dict(
         MobiusBuilder,
         {"precision": "fp16", "components_to_export": ["vision_encoder", "embedding"]},
@@ -480,6 +487,7 @@ def test_components_to_export_filters_subset(tmp_path):
 
     assert isinstance(result, CompositeModelHandler)
     assert result.model_component_names == ["vision_encoder", "embedding"]
+
     # pkg.save must have been called with a components filter that excludes decoder
     save_kwargs = pkg.save.call_args.kwargs
     components_filter = save_kwargs.get("components")
@@ -487,6 +495,11 @@ def test_components_to_export_filters_subset(tmp_path):
     assert components_filter("vision_encoder") is True
     assert components_filter("embedding") is True
     assert components_filter("decoder") is False
+
+    # Verify skipped component directory is absent from disk
+    assert (out / "vision_encoder" / "model.onnx").exists(), "vision_encoder should be on disk"
+    assert (out / "embedding" / "model.onnx").exists(), "embedding should be on disk"
+    assert not (out / "decoder").exists(), "decoder directory should not exist on disk (was skipped)"
 
 
 def test_components_to_export_none_exports_all(tmp_path):
@@ -516,7 +529,9 @@ def test_components_to_export_single_component_via_filter(tmp_path):
     keys = ["decoder", "vision_encoder", "embedding"]
     pkg = _fake_pkg(keys, out)
 
-    accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider)
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
     p = create_pass_from_dict(
         MobiusBuilder,
         {"precision": "fp16", "components_to_export": ["decoder"]},
@@ -538,7 +553,9 @@ def test_components_to_export_unknown_component_raises(tmp_path):
     keys = ["decoder", "vision_encoder"]
     pkg = _fake_pkg(keys, out)
 
-    accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider)
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
     p = create_pass_from_dict(
         MobiusBuilder,
         {"precision": "fp16", "components_to_export": ["nonexistent"]},
@@ -552,7 +569,9 @@ def test_components_to_export_unknown_component_raises(tmp_path):
 
 def test_components_to_export_in_default_config():
     """components_to_export parameter must appear in _default_config with None default."""
-    accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider)
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
     config = MobiusBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
     assert "components_to_export" in config
     assert config["components_to_export"].default_value is None
