@@ -192,7 +192,8 @@ class MobiusBuilder(Pass):
                 package_keys,
                 [k for k in all_keys if k not in requested],
             )
-            components_filter = lambda name: name in requested  # noqa: E731
+            def components_filter(name: str) -> bool:
+                return name in requested
         else:
             package_keys = all_keys
             components_filter = None
