@@ -137,9 +137,12 @@ class OnnxBlockWiseRtnQuantization(Pass):
                     if component_output_path.exists():
                         shutil.rmtree(str(component_output_path))
                     shutil.copytree(str(src_dir), str(component_output_path))
+                # onnx_file_name may be None if the handler was created without an explicit name;
+                # fall back to 'model.onnx' which is the standard Olive convention.
+                onnx_file_name = getattr(component_model, "onnx_file_name", None) or "model.onnx"
                 output_component = ONNXModelHandler(
                     model_path=str(component_output_path),
-                    onnx_file_name=component_model.onnx_file_name,
+                    onnx_file_name=onnx_file_name,
                     model_attributes=component_model.model_attributes,
                 )
                 Pass._carry_forward_additional_files(component_model, output_component)
