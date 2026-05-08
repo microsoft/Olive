@@ -454,3 +454,106 @@ def test_no_warning_when_trust_remote_code_false(tmp_path):
 
     warning_messages = [call.args[0] for call in mock_logger.warning.call_args_list]
     assert not any("trust_remote_code" in msg for msg in warning_messages)
+
+
+# ---------------------------------------------------------------------------
+# components_to_export filter tests
+# ---------------------------------------------------------------------------
+
+
+def test_components_to_export_filters_subset(tmp_path):
+    """Only requested components are saved and returned when components_to_export is set."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider)
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": ["vision_encoder", "embedding"]},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["vision_encoder", "embedding"]
+    # pkg.save must have been called with a components filter that excludes decoder
+    save_kwargs = pkg.save.call_args.kwargs
+    components_filter = save_kwargs.get("components")
+    assert components_filter is not None
+    assert components_filter("vision_encoder") is True
+    assert components_filter("embedding") is True
+    assert components_filter("decoder") is False
+
+
+def test_components_to_export_none_exports_all(tmp_path):
+    """All components are exported when components_to_export is None (default)."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    with _patch_build(pkg):
+        result = _make_pass().run(_make_hf_model("org/vlm"), out)
+
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == keys
+    # pkg.save must have been called without a filter (components=None)
+    save_kwargs = pkg.save.call_args.kwargs
+    assert save_kwargs.get("components") is None
+
+
+def test_components_to_export_single_component_via_filter(tmp_path):
+    """Filtering a multi-component model to one component returns CompositeModelHandler with one component.
+
+    Unlike an architecturally single-component model (which uses root layout), a
+    filtered multi-component model still uses the component sub-directory layout,
+    so we always return CompositeModelHandler for multi-component packages.
+    """
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider)
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": ["decoder"]},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    # Multi-component model filtered to 1 → still CompositeModelHandler (component sub-dir layout)
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["decoder"]
+
+
+def test_components_to_export_unknown_component_raises(tmp_path):
+    """ValueError when components_to_export names a component not in the package."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder"]
+    pkg = _fake_pkg(keys, out)
+
+    accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider)
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": ["nonexistent"]},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg), pytest.raises(ValueError, match="unknown component"):
+        p.run(_make_hf_model("org/vlm"), out)
+
+
+def test_components_to_export_in_default_config():
+    """components_to_export parameter must appear in _default_config with None default."""
+    accelerator_spec = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider)
+    config = MobiusBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
+    assert "components_to_export" in config
+    assert config["components_to_export"].default_value is None
+    assert config["components_to_export"].required is False

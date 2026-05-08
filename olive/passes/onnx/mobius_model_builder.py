@@ -107,6 +107,19 @@ class MobiusBuilder(Pass):
                     "configs alongside the ONNX models. 'none' to skip."
                 ),
             ),
+            "components_to_export": PassConfigParam(
+                type_=list,
+                required=False,
+                default_value=None,
+                description=(
+                    "Optional list of component names to export from a multi-component model "
+                    "(e.g. ['vision', 'embedding'] to skip the decoder). "
+                    "When set, only the named components are saved and returned; "
+                    "all others are discarded after the mobius build step. "
+                    "When not set, all components are exported (default, backward compatible). "
+                    "Has no effect on single-component models."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -163,10 +176,31 @@ class MobiusBuilder(Pass):
             trust_remote_code=trust_remote_code,
         )
 
+        # Determine which package components to export.
+        all_keys = list(pkg.keys())
+        if config.components_to_export:
+            requested = set(config.components_to_export)
+            unknown = requested - set(all_keys)
+            if unknown:
+                raise ValueError(
+                    f"MobiusBuilder: components_to_export contains unknown component(s): {sorted(unknown)}. "
+                    f"Available components from this model: {sorted(all_keys)}"
+                )
+            package_keys = [k for k in all_keys if k in requested]
+            logger.info(
+                "MobiusBuilder: exporting subset of components %s (skipping %s)",
+                package_keys,
+                [k for k in all_keys if k not in requested],
+            )
+            components_filter = lambda name: name in requested  # noqa: E731
+        else:
+            package_keys = all_keys
+            components_filter = None
+
         # ModelPackage.save() handles both single and multi-component layouts:
         #   single component  → <output_dir>/model.onnx
         #   multi-component   → <output_dir>/<name>/model.onnx  for each key
-        pkg.save(str(output_dir))
+        pkg.save(str(output_dir), components=components_filter)
 
         # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
         # files, processor configs) when runtime is set to ort-genai.
@@ -174,10 +208,12 @@ class MobiusBuilder(Pass):
         if config.runtime == self.MobiusRuntime.ORT_GENAI:
             genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
 
-        package_keys = list(pkg.keys())
         logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)
 
-        if len(package_keys) == 1:
+        # Use the single-component (root layout) path only when the model is
+        # architecturally single-component.  A multi-component model filtered
+        # down to one component still uses component sub-directories on disk.
+        if len(all_keys) == 1:
             # Single-component model (most LLMs): return a plain ONNXModelHandler.
             onnx_path = output_dir / "model.onnx"
             if not onnx_path.exists():
