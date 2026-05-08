@@ -382,7 +382,7 @@ class ModelBuilder(Pass):
         else:
             # Single-file model: if expected filename is missing, fall back to discovered ONNX file.
             onnx_file_name = output_model_filepath.name
-            if not output_model_filepath.exists() and len (generated_onnx_files) == 1:
+            if not output_model_filepath.exists() and len(generated_onnx_files) == 1:
                 logger.info(
                     "ONNX model file %s does not exist, using %s instead",
                     output_model_filepath,
