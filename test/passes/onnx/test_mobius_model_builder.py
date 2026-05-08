@@ -567,6 +567,26 @@ def test_components_to_export_unknown_component_raises(tmp_path):
         p.run(_make_hf_model("org/vlm"), out)
 
 
+def test_components_to_export_empty_list_raises(tmp_path):
+    """components_to_export=[] must raise ValueError — empty list is always a mistake."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder"]
+    pkg = _fake_pkg(keys, out)
+
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": []},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg), pytest.raises(ValueError, match="cannot be empty"):
+        p.run(_make_hf_model("org/vlm"), out)
+
+
 def test_components_to_export_in_default_config():
     """components_to_export parameter must appear in _default_config with None default."""
     accelerator_spec = AcceleratorSpec(

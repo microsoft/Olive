@@ -179,6 +179,11 @@ class MobiusBuilder(Pass):
         # Determine which package components to export.
         all_keys = list(pkg.keys())
         if config.components_to_export is not None:
+            if len(config.components_to_export) == 0:
+                raise ValueError(
+                    "MobiusBuilder: components_to_export cannot be empty. "
+                    "Pass None to export all components, or specify at least one component name."
+                )
             requested = set(config.components_to_export)
             unknown = requested - set(all_keys)
             if unknown:
