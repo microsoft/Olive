@@ -192,6 +192,7 @@ class MobiusBuilder(Pass):
                 package_keys,
                 [k for k in all_keys if k not in requested],
             )
+
             def components_filter(name: str) -> bool:
                 return name in requested
         else:
