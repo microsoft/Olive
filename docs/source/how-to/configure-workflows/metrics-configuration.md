@@ -128,3 +128,28 @@ If you have multiple metrics to evaluate, you can configure them in the followin
 ```{Note}
 If you have more than one metric, you need to specify `priority: {RANK}`, which Olive will use to determine the best model.
 ```
+
+## Speech Evaluation Metrics (WER and RTFx)
+
+Olive supports Word Error Rate (WER) and Real-Time Factor (RTFx) as built-in accuracy sub-types for evaluating speech/ASR models.
+
+### Using WER with the accuracy metric type
+
+WER can be used as an accuracy sub-type when your data pipeline returns text predictions and references:
+
+```json
+{
+    "name": "speech_accuracy",
+    "type": "accuracy",
+    "data_config": "speech_data_config",
+    "sub_types": [
+        {"name": "wer", "priority": 1, "higher_is_better": false},
+        {"name": "rtfx", "priority": 2, "higher_is_better": true}
+    ]
+}
+```
+
+```{Note}
+- `wer` (Word Error Rate): Measures transcription errors. Lower is better (defaults to `higher_is_better: false`).
+- `rtfx` (Real-Time Factor): Ratio of audio duration to inference time. Higher means faster (defaults to `higher_is_better: true`).
+```
