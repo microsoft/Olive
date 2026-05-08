@@ -99,6 +99,11 @@ class OnnxBlockWiseRtnQuantization(Pass):
         if not components_to_skip or not isinstance(model, CompositeModelHandler):
             return super().run(model, output_model_path)
 
+        # Mirror the initialization guard from the base class run().
+        if not self._initialized:
+            self._initialize()
+            self._initialized = True
+
         model_dir = Path(output_model_path).with_suffix("")
         model_dir.mkdir(parents=True, exist_ok=True)
 
