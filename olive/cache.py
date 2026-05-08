@@ -440,7 +440,9 @@ class OliveCache:
                                 from olive.passes.onnx.common import resave_model
 
                                 component_output_name = (
-                                    component_name if Path(component_name).suffix == ".onnx" else f"{component_name}.onnx"
+                                    component_name
+                                    if Path(component_name).suffix == ".onnx"
+                                    else f"{component_name}.onnx"
                                 )
 
                                 resave_model(
