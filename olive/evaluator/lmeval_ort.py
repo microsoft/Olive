@@ -711,11 +711,6 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         batch_size, seq_len = input_ids.shape
         generator = self._get_generator(batch_size)
 
-        if self._returns_full_logits:
-            generator.append_tokens(input_ids.tolist())
-            return torch.from_numpy(generator.get_output("logits")).to(self.device)
-
-        # Model only returns logits for the last appended position.
         if batch_size > 1 and cont_len > 1:
             raise ValueError(
                 "batch_size > 1 is not supported when the model returns single-position logits"
@@ -723,15 +718,18 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 " batch elements. Use batch_size=1 instead."
             )
 
-        # Bulk-append context tokens, then step through the last cont_len tokens
-        # one at a time to collect only the logits we actually need.
+        # Use incremental token appending with get_logits() to avoid copying
+        # the full logits tensor from GPU to CPU. get_output("logits") copies
+        # seq_len * vocab_size * 2 bytes (e.g. 472MB for 900 tokens with
+        # 262K vocab), while get_logits() copies only vocab_size * 4 bytes
+        # (~1MB) per position.
         n_logits = max(cont_len, 1)
         prefix_len = seq_len - n_logits
         generator.append_tokens(input_ids[:, : prefix_len + 1].tolist())
-        all_logits = [torch.from_numpy(generator.get_output("logits")).to(self.device)]
+        all_logits = [torch.from_numpy(generator.get_logits()).to(self.device)]
         for i in range(prefix_len + 1, seq_len):
             generator.append_tokens(input_ids[:, i : i + 1].tolist())
-            all_logits.append(torch.from_numpy(generator.get_output("logits")).to(self.device))
+            all_logits.append(torch.from_numpy(generator.get_logits()).to(self.device))
 
         # No need to pad to [batch, seq_len, vocab]. The slicing in _loglikelihood_tokens computes
         # ctx_len = inplen + (logits.shape[0] - padding_len_inp), which adjusts for the shorter
