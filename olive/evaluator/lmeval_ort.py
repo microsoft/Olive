@@ -665,6 +665,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
 
         self.device = device
         self._returns_full_logits = self._detect_full_logits()
+        self._cached_generator = None
 
     def _detect_full_logits(self) -> bool:
         """Check if the model returns logits for all input positions or only the last."""
@@ -691,10 +692,24 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
     def prepare(self, requests: list[LogLikelihoodInputs]):
         pass
 
-    def model_call(self, input_ids: torch.Tensor, cont_len: int = 0) -> torch.Tensor:
-        batch_size, seq_len = input_ids.shape
+    def _get_generator(self, batch_size: int) -> "og.Generator":
+        """Get a Generator, reusing via rewind_to(0) when possible."""
+        if self._cached_generator is not None:
+            try:
+                self._cached_generator.rewind_to(0)
+                return self._cached_generator
+            except Exception:
+                # rewind_to not supported for this model — fall back to new Generator
+                self._cached_generator = None
+
         self.params.set_search_options(batch_size=batch_size)
         generator = og.Generator(self.model, self.params)
+        self._cached_generator = generator
+        return generator
+
+    def model_call(self, input_ids: torch.Tensor, cont_len: int = 0) -> torch.Tensor:
+        batch_size, seq_len = input_ids.shape
+        generator = self._get_generator(batch_size)
 
         if self._returns_full_logits:
             generator.append_tokens(input_ids.tolist())
@@ -724,7 +739,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         return torch.cat(all_logits, dim=1)  # [batch, n_logits, vocab]
 
     def complete(self):
-        pass
+        self._cached_generator = None
 
     def generate_until(self, requests, disable_tqdm: bool = False) -> list[str]:
         """Generate text until a stop sequence is reached.
