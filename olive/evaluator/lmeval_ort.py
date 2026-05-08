@@ -553,7 +553,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
 
         if batch_size > 1 and cont_len > 1:
             raise ValueError(
-                "batch_size > 1 is not supported when the model returns single-position logits"
+                "batch_size > 1 is not supported when using incremental get_logits() retrieval"
                 " and continuation length > 1. Right-padding misaligns continuation positions across"
                 " batch elements. Use batch_size=1 instead."
             )
