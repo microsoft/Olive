@@ -71,7 +71,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
                 description="List of node names to include in quantization.",
             ),
             "components_to_skip": PassConfigParam(
-                type_=list,
+                type_=list[str],
                 default_value=None,
                 description=(
                     "Optional list of component names to skip quantization for "
@@ -93,13 +93,27 @@ class OnnxBlockWiseRtnQuantization(Pass):
         output path unchanged instead of being quantized.
         """
         from olive.model import CompositeModelHandler
-        from olive.model.handler.onnx import ONNXModelHandler as OnnxHandler
 
         components_to_skip: set[str] = set(self.config.components_to_skip or [])
         if not components_to_skip or not isinstance(model, CompositeModelHandler):
             return super().run(model, output_model_path)
 
-        # Mirror the initialization guard from the base class run().
+        # Warn about component names that won't match anything — misspellings are
+        # silently ignored otherwise since skipping is non-fatal.
+        all_component_names = {name for name, _ in model.get_model_components()}
+        unknown_skips = components_to_skip - all_component_names
+        if unknown_skips:
+            logger.warning(
+                "OnnxBlockWiseRtnQuantization: components_to_skip contains name(s) not found "
+                "in this composite model: %s. Available components: %s",
+                sorted(unknown_skips),
+                sorted(all_component_names),
+            )
+
+        # Mirror the _initialized guard from the base Pass.run() implementation.
+        # Pass.run() checks and sets self._initialized before calling _run_for_config;
+        # since we bypass super().run() for composite models, we must replicate it here
+        # so lazy initialization (e.g. loading config, setting up hardware state) still runs.
         if not self._initialized:
             self._initialize()
             self._initialized = True
@@ -123,14 +137,10 @@ class OnnxBlockWiseRtnQuantization(Pass):
                     if component_output_path.exists():
                         shutil.rmtree(str(component_output_path))
                     shutil.copytree(str(src_dir), str(component_output_path))
-                output_component = OnnxHandler(
+                output_component = ONNXModelHandler(
                     model_path=str(component_output_path),
                     onnx_file_name=component_model.onnx_file_name,
                     model_attributes=component_model.model_attributes,
-                )
-                # Mirror what the base run() does for each individual component.
-                output_component.model_attributes = (
-                    output_component.model_attributes or component_model.model_attributes
                 )
                 Pass._carry_forward_additional_files(component_model, output_component)
             else:

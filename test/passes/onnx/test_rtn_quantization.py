@@ -541,3 +541,35 @@ class TestRTNQuantizationComponentsToSkip:
         assert "components_to_skip" in config
         assert config["components_to_skip"].default_value is None
         assert config["components_to_skip"].required is False
+
+    def test_components_to_skip_unknown_name_warns(self, tmp_path):
+        """Misspelled or missing component names in components_to_skip must log a warning."""
+        from olive.model.handler.composite import CompositeModelHandler
+
+        decoder = self._make_matmul_model(tmp_path / "src", "decoder")
+        vision = self._make_matmul_model(tmp_path / "src", "vision")
+        composite = CompositeModelHandler(
+            model_components=[decoder, vision],
+            model_component_names=["decoder", "vision"],
+        )
+
+        p = self._make_pass(components_to_skip=["typo_component"])
+
+        import logging
+
+        records = []
+
+        class _Handler(logging.Handler):
+            def emit(self, record):
+                records.append(record.getMessage())
+
+        rtn_logger = logging.getLogger("olive.passes.onnx.rtn_quantization")
+        rtn_logger.addHandler(_Handler())
+        try:
+            p.run(composite, str(tmp_path / "out"))
+        finally:
+            rtn_logger.handlers = [h for h in rtn_logger.handlers if not isinstance(h, _Handler)]
+
+        assert any("typo_component" in msg for msg in records), (
+            f"Expected warning about unknown component name 'typo_component', got: {records}"
+        )
