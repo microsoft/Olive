@@ -26,6 +26,7 @@ class AccuracyBase(AutoConfigClass):
         "recall": torchmetrics.Recall,
         "auroc": torchmetrics.AUROC,
         "perplexity": torchmetrics.text.perplexity.Perplexity,
+        "wer": torchmetrics.text.WordErrorRate,
     }
 
     def __init__(self, config: Optional[Union[ConfigBase, dict[str, Any]]] = None) -> None:
@@ -157,3 +158,62 @@ class Perplexity(AccuracyBase):
             perplexity.update(logits, targets)
         result = perplexity.compute()
         return result.item()
+
+
+class WordErrorRate(AccuracyBase):
+    """Word Error Rate metric for speech/ASR evaluation.
+
+    Expects model_output.preds to be a list of predicted transcription strings
+    and target to be a list of reference transcription strings.
+    """
+
+    name: Optional[str] = "wer"
+
+    @classmethod
+    def _default_config(cls) -> dict[str, ConfigParam]:
+        return {}
+
+    def measure(self, model_output, target):
+        preds = model_output.preds
+        refs = target
+        # Ensure inputs are lists of strings
+        if isinstance(preds, str):
+            preds = [preds]
+        elif not isinstance(preds, list):
+            preds = list(preds)
+        if isinstance(refs, str):
+            refs = [refs]
+        elif not isinstance(refs, list):
+            refs = list(refs)
+
+        wer = torchmetrics.text.WordErrorRate(**self.config_dict)
+        result = wer(preds, refs)
+        return result.item()
+
+
+class RealTimeFactor(AccuracyBase):
+    """Real-Time Factor (RTFx) metric for speech/ASR evaluation.
+
+    RTFx = total_audio_duration / total_inference_time.
+    A value > 1 means faster than real-time (e.g., RTFx=5 means 5x faster).
+    Timing metadata is provided via model_output.logits dict.
+    """
+
+    name: Optional[str] = "rtfx"
+
+    @classmethod
+    def _default_config(cls) -> dict[str, ConfigParam]:
+        return {}
+
+    def measure(self, model_output, target):
+        timing = model_output.logits
+        if not isinstance(timing, dict) or "total_audio_duration" not in timing:
+            raise ValueError(
+                "RTFx metric requires timing metadata from text-based inference path. "
+                "Ensure the metric is used with speech evaluation (WER + RTFx together)."
+            )
+        total_audio = timing["total_audio_duration"]
+        total_inference = timing["total_inference_time"]
+        if total_inference == 0:
+            return float("inf")
+        return round(total_audio / total_inference, 2)
