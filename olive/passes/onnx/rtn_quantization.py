@@ -3,8 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import shutil
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -69,8 +70,69 @@ class OnnxBlockWiseRtnQuantization(Pass):
                 default_value=None,
                 description="List of node names to include in quantization.",
             ),
+            "components_to_skip": PassConfigParam(
+                type_=list,
+                required=False,
+                default_value=None,
+                description=(
+                    "Optional list of component names to skip quantization for "
+                    "(e.g. ['embedding'] to pass the embedding model through unchanged). "
+                    "When a composite model component's name matches an entry in this list, "
+                    "its files are copied to the output path without modification. "
+                    "When not set, all components are quantized (default, backward compatible). "
+                    "Has no effect on single-component (non-composite) models."
+                ),
+            ),
             **get_external_data_config(),
         }
+
+    def run(self, model, output_model_path: str):
+        """Run quantization, skipping components listed in components_to_skip.
+
+        Overrides the base Pass.run() to intercept CompositeModelHandler processing.
+        Components whose names appear in config.components_to_skip are copied to the
+        output path unchanged instead of being quantized.
+        """
+        from olive.model import CompositeModelHandler
+        from olive.model.handler.onnx import ONNXModelHandler as OnnxHandler
+
+        components_to_skip: set[str] = set(self.config.components_to_skip or [])
+        if not components_to_skip or not isinstance(model, CompositeModelHandler):
+            return super().run(model, output_model_path)
+
+        model_dir = Path(output_model_path).with_suffix("")
+        model_dir.mkdir(parents=True, exist_ok=True)
+
+        components = []
+        component_names = []
+        for component_name, component_model in model.get_model_components():
+            component_output_path = model_dir / component_name
+            if component_name in components_to_skip:
+                logger.info(
+                    "OnnxBlockWiseRtnQuantization: skipping quantization for component '%s'.",
+                    component_name,
+                )
+                src = Path(component_model.model_path)
+                # model_path may point to the .onnx file rather than its parent dir
+                src_dir = src.parent if src.is_file() else src
+                if src_dir != component_output_path:
+                    if component_output_path.exists():
+                        shutil.rmtree(str(component_output_path))
+                    shutil.copytree(str(src_dir), str(component_output_path))
+                output_component = OnnxHandler(
+                    model_path=str(component_output_path),
+                    onnx_file_name=component_model.onnx_file_name,
+                    model_attributes=component_model.model_attributes,
+                )
+            else:
+                output_component = self.run(component_model, str(component_output_path))
+            components.append(output_component)
+            component_names.append(component_name)
+
+        output_model = CompositeModelHandler(components, component_names, model_path=model_dir)
+        output_model.model_attributes = output_model.model_attributes or model.model_attributes
+        Pass._carry_forward_additional_files(model, output_model)
+        return output_model
 
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
