@@ -33,7 +33,9 @@ def _generate_writes_placeholder(**kwargs):
 
 
 def test_get_supported_sd_model_types_wraps_import_error():
-    saved_mods = {k: sys.modules.pop(k) for k in list(sys.modules) if k == "model_generate" or k.startswith("model_generate.")}
+    saved_mods = {
+        k: sys.modules.pop(k) for k in list(sys.modules) if k == "model_generate" or k.startswith("model_generate.")
+    }
     real_import = builtins.__import__
 
     def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
