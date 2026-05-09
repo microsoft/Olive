@@ -186,7 +186,8 @@ def test_model_builder_multi_file_output_preserves_component_filenames(tmp_path,
     output_model = p.run(input_model, output_folder)
 
     assert isinstance(output_model, CompositeModelHandler)
-    assert output_model.model_component_names == ["decoder.onnx", "encoder.onnx"]
+    expected_component_names = sorted(["encoder.onnx", "decoder.onnx"])
+    assert output_model.model_component_names == expected_component_names
     component_onnx_files = [component.onnx_file_name for component in output_model.model_components]
     assert component_onnx_files == output_model.model_component_names
     additional_files = output_model.model_attributes["additional_files"]

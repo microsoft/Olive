@@ -332,11 +332,12 @@ class ModelBuilder(Pass):
         # in a single load/save cycle to avoid redundant disk I/O.
         split_assignments = model_attributes.get("split_assignments") if not metadata_only else None
         layer_annotations = model_attributes.get("layer_annotations") if not metadata_only else None
-        primary_onnx_files = (
-            generated_onnx_files
-            if is_multi_file_model
-            else ([resolved_single_model_filepath] if resolved_single_model_filepath.exists() else [])
-        )
+        if is_multi_file_model:
+            primary_onnx_files = generated_onnx_files
+        elif resolved_single_model_filepath.exists():
+            primary_onnx_files = [resolved_single_model_filepath]
+        else:
+            primary_onnx_files = []
         if split_assignments or layer_annotations:
             if primary_onnx_files:
                 for primary_onnx_file in primary_onnx_files:
