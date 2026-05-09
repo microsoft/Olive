@@ -8,7 +8,16 @@ import numpy as np
 import pytest
 import torch
 
-from olive.evaluator.accuracy import AUROC, AccuracyScore, F1Score, Perplexity, Precision, Recall
+from olive.evaluator.accuracy import (
+    AUROC,
+    AccuracyScore,
+    F1Score,
+    Perplexity,
+    Precision,
+    RealTimeFactor,
+    Recall,
+    WordErrorRate,
+)
 from olive.evaluator.olive_evaluator import OliveModelOutput
 
 
@@ -149,3 +158,58 @@ def test_evaluate_perplexity(mock_torchmetrics, mock_torch_tensor):
         mock_torch_tensor.assert_any_call(model_output.preds[i], dtype=torch.float)
         mock_torch_tensor.assert_any_call(targets[i], dtype=torch.long)
     assert actual_res == expected_res
+
+
+class TestWordErrorRate:
+    def test_perfect_transcription(self):
+        wer = WordErrorRate({})
+        model_output = OliveModelOutput(preds=["hello world", "test sentence"], logits=None)
+        targets = ["hello world", "test sentence"]
+        result = wer.measure(model_output, targets)
+        assert result == 0.0
+
+    def test_completely_wrong(self):
+        wer = WordErrorRate({})
+        model_output = OliveModelOutput(preds=["completely wrong words here"], logits=None)
+        targets = ["the correct reference text"]
+        result = wer.measure(model_output, targets)
+        assert result > 0.0
+
+    def test_single_string_input(self):
+        """Test that a single string is wrapped in a list, not split into chars."""
+        wer = WordErrorRate({})
+        model_output = OliveModelOutput(preds="hello world", logits=None)
+        targets = "hello world"
+        result = wer.measure(model_output, targets)
+        assert result == 0.0
+
+    def test_partial_error(self):
+        wer = WordErrorRate({})
+        model_output = OliveModelOutput(preds=["hello world"], logits=None)
+        targets = ["hello earth"]
+        result = wer.measure(model_output, targets)
+        assert 0.0 < result < 1.0
+
+
+class TestRealTimeFactor:
+    def test_rtfx_computation(self):
+        rtfx = RealTimeFactor({})
+        # 10 seconds of audio processed in 2 seconds = RTFx 5.0
+        timing = {"total_audio_duration": 10.0, "total_inference_time": 2.0}
+        model_output = OliveModelOutput(preds=["some text"], logits=timing)
+        result = rtfx.measure(model_output, ["some text"])
+        assert result == 5.0
+
+    def test_rtfx_realtime(self):
+        rtfx = RealTimeFactor({})
+        # 5 seconds of audio processed in 5 seconds = RTFx 1.0
+        timing = {"total_audio_duration": 5.0, "total_inference_time": 5.0}
+        model_output = OliveModelOutput(preds=["text"], logits=timing)
+        result = rtfx.measure(model_output, ["text"])
+        assert result == 1.0
+
+    def test_rtfx_missing_metadata(self):
+        rtfx = RealTimeFactor({})
+        model_output = OliveModelOutput(preds=["text"], logits=None)
+        with pytest.raises(ValueError, match="RTFx metric requires timing metadata"):
+            rtfx.measure(model_output, ["text"])
