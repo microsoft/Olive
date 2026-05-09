@@ -21,7 +21,7 @@ from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
 from olive.telemetry.constants import SUPPRESS_WORKFLOW_TELEMETRY_ENV
 from olive.telemetry.telemetry import is_ci_environment
-from olive.telemetry.telemetry_extensions import log_recipe_result
+from olive.telemetry.telemetry_extensions import _format_exception_message, log_error, log_recipe_result
 from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
@@ -213,7 +213,7 @@ def run(
 
     parsed_run_config = None
     success = False
-    exception_type = None
+    exception = None
     try:
         package_config = OlivePackageConfig.parse_file_or_obj(package_config)
         parsed_run_config = RunConfig.parse_file_or_obj(run_config)
@@ -238,9 +238,14 @@ def run(
         success = True
         return workflow_output
     except Exception as exc:
-        exception_type = type(exc).__name__
+        exception = exc
         raise
     finally:
+        if exception is not None:
+            log_error(
+                exception_type=type(exception).__name__,
+                exception_message=_format_exception_message(exception, exception.__traceback__),
+            )
         if os.environ.get(SUPPRESS_WORKFLOW_TELEMETRY_ENV) != "1":
             metadata = _build_recipe_result_metadata(
                 run_config,
@@ -252,7 +257,7 @@ def run(
                 package_config_provided=package_config_provided,
             )
             recipe_name = metadata.pop("recipe_name")
-            log_recipe_result(recipe_name, success=success, metadata=metadata, exception_type=exception_type)
+            log_recipe_result(recipe_name, success=success, metadata=metadata)
 
 
 def generate_files_from_packages(packages, file_name):
