@@ -5,7 +5,6 @@
 import functools
 import json
 import logging
-import os
 from copy import deepcopy
 from os import PathLike
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -18,7 +17,6 @@ from olive.logging import set_default_logger_severity, set_ort_logger_severity, 
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
-from olive.telemetry.constants import SUPPRESS_WORKFLOW_TELEMETRY_ENV
 from olive.telemetry.telemetry import is_ci_environment
 from olive.telemetry.telemetry_extensions import _format_exception_message, log_error, log_recipe_result
 from olive.workflows.run.config import RunConfig
@@ -189,6 +187,7 @@ def run(
     package_config: Optional[Union[str, Path, dict]] = None,
     tempdir: Optional[Union[str, Path]] = None,
     recipe_telemetry_metadata: Optional[dict[str, Any]] = None,
+    emit_recipe_telemetry: bool = True,
 ):
     # set tempdir
     set_tempdir(tempdir)
@@ -245,7 +244,7 @@ def run(
                 exception_type=type(exception).__name__,
                 exception_message=_format_exception_message(exception, exception.__traceback__),
             )
-        if os.environ.get(SUPPRESS_WORKFLOW_TELEMETRY_ENV) != "1":
+        if emit_recipe_telemetry:
             metadata = _build_recipe_result_metadata(
                 run_config,
                 run_config_telemetry_input,

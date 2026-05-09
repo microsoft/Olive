@@ -20,7 +20,6 @@ from olive.resource_path import find_all_resources
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
-from olive.telemetry.constants import SUPPRESS_WORKFLOW_TELEMETRY_ENV
 from olive.telemetry.telemetry import is_ci_environment
 from olive.workflows.run.config import RunConfig
 
@@ -244,7 +243,6 @@ class DockerSystem(OliveSystem):
         # Add default environment variables
         environment.setdefault("PYTHONPYCACHEPREFIX", "/tmp")
         environment["OLIVE_LOG_LEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
-        environment[SUPPRESS_WORKFLOW_TELEMETRY_ENV] = "1"
         if is_ci_environment():
             environment["CI"] = "1"
 
