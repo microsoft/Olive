@@ -200,9 +200,10 @@ def test_run_logs_recipe_result_success(_, mock_run_engine, mock_log_recipe_resu
     assert config_overrides["systems"][0]["accelerators"][0]["execution_providers"] == ["CUDAExecutionProvider"]
 
 
+@patch("olive.workflows.run.run.log_error")
 @patch("olive.workflows.run.run.log_recipe_result")
 @patch("olive.workflows.run.run.run_engine")
-def test_run_logs_recipe_result_failure(mock_run_engine, mock_log_recipe_result):
+def test_run_logs_recipe_result_failure(mock_run_engine, mock_log_recipe_result, mock_log_error):
     config = {
         "input_model": {
             "type": "HfModel",
@@ -228,7 +229,10 @@ def test_run_logs_recipe_result_failure(mock_run_engine, mock_log_recipe_result)
     mock_log_recipe_result.assert_called_once()
     assert mock_log_recipe_result.call_args.args[0] == "Quantize"
     assert mock_log_recipe_result.call_args.kwargs["success"] is False
-    assert mock_log_recipe_result.call_args.kwargs["exception_type"] == "ValueError"
+    assert "exception_type" not in mock_log_recipe_result.call_args.kwargs
+    mock_log_error.assert_called_once()
+    assert mock_log_error.call_args.kwargs["exception_type"] == "ValueError"
+    assert "recipe failed" in mock_log_error.call_args.kwargs["exception_message"]
 
 
 @patch("olive.workflows.run.run.log_recipe_result")

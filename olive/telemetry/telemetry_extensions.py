@@ -49,15 +49,12 @@ def log_recipe_result(
     recipe_name: str,
     success: bool,
     metadata: Optional[dict[str, Any]] = None,
-    exception_type: Optional[str] = None,
 ) -> None:
     telemetry = _get_logger()
     attributes = {
         "recipe_name": recipe_name,
         "success": success,
     }
-    if exception_type:
-        attributes["exception_type"] = exception_type
     telemetry.log(RECIPE_EVENT_NAME, attributes, metadata)
 
 

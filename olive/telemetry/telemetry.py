@@ -82,7 +82,6 @@ ALLOWED_KEYS = {
         "workflow_id",
         "config_overrides",
         "success",
-        "exception_type",
         "input_model_type",
         "input_model_source",
         "model_task",
