@@ -2,13 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from olive.systems.docker.docker_system import DockerSystem
 from olive.systems.system_config import DockerTargetUserConfig
-from olive.telemetry.constants import SUPPRESS_WORKFLOW_TELEMETRY_ENV
 from test.utils import ONNX_MODEL_PATH
 
 # pylint: disable=attribute-defined-outside-init,protected-access
@@ -137,7 +137,6 @@ class TestDockerSystem:
         command = mock_docker_client.containers.run.call_args[1]["command"]
         assert "workflow_runner.py" in command
         assert "--config" in command
-        assert mock_docker_client.containers.run.call_args.kwargs["environment"][SUPPRESS_WORKFLOW_TELEMETRY_ENV] == "1"
 
         # Verify cleanup
         mock_container.remove.assert_called_once()
@@ -159,7 +158,19 @@ class TestDockerSystem:
         environment = docker_system._prepare_environment({})
 
         assert environment["CI"] == "1"
-        assert environment[SUPPRESS_WORKFLOW_TELEMETRY_ENV] == "1"
+
+    def test_workflow_runner_disables_inner_recipe_telemetry(self, tmp_path, monkeypatch):
+        from olive.systems.docker import workflow_runner
+
+        monkeypatch.delenv("HF_TOKEN", raising=False)
+        config = {"input_model": {"type": "ONNXModel", "model_path": "model.onnx"}}
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps(config))
+
+        with patch.object(workflow_runner, "olive_run") as mock_olive_run:
+            workflow_runner.runner_entry(config_path)
+
+        mock_olive_run.assert_called_once_with(config, emit_recipe_telemetry=False)
 
     @patch("olive.systems.docker.docker_system.docker.from_env")
     @patch("olive.systems.docker.docker_system.tempfile.TemporaryDirectory")

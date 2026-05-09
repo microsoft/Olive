@@ -6,7 +6,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from olive.telemetry.constants import SUPPRESS_WORKFLOW_TELEMETRY_ENV
 from olive.workflows import run as olive_run
 from olive.workflows.run.run import _build_recipe_hash, _classify_input_model_source, _classify_run_config_source
 from test.utils import (
@@ -237,10 +236,7 @@ def test_run_logs_recipe_result_failure(mock_run_engine, mock_log_recipe_result,
 
 @patch("olive.workflows.run.run.log_recipe_result")
 @patch("olive.workflows.run.run.run_engine")
-def test_run_skips_recipe_result_when_workflow_telemetry_is_suppressed(
-    mock_run_engine, mock_log_recipe_result, monkeypatch
-):
-    monkeypatch.setenv(SUPPRESS_WORKFLOW_TELEMETRY_ENV, "1")
+def test_run_skips_recipe_result_when_recipe_telemetry_is_not_emitted(mock_run_engine, mock_log_recipe_result):
     expected_output = object()
     mock_run_engine.return_value = expected_output
 
@@ -251,7 +247,8 @@ def test_run_skips_recipe_result_when_workflow_telemetry_is_suppressed(
                 "model_path": "Qwen/Qwen2.5-0.5B-Instruct",
                 "task": "text-generation",
             }
-        }
+        },
+        emit_recipe_telemetry=False,
     )
 
     assert output is expected_output
