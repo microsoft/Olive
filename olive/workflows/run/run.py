@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import functools
-import importlib
 import json
 import logging
 import os
@@ -141,7 +140,7 @@ def run_engine(package_config: OlivePackageConfig, run_config: RunConfig):
 
     # ort_log_severity_level: C++ logging levels
     try:
-        ort = importlib.import_module("onnxruntime")
+        import onnxruntime as ort
 
         ort.set_default_logger_severity(run_config.engine.ort_log_severity_level)
     except Exception:
