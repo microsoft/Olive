@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
 
 import builtins
 import sys
@@ -38,15 +39,17 @@ def test_get_supported_sd_model_types_wraps_import_error():
     }
     real_import = builtins.__import__
 
-    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+    def guarded_import(name, glbs=None, locs=None, fromlist=(), level=0):
         if name == "model_generate.recipes" and fromlist:
             raise ImportError("simulated missing recipes")
-        return real_import(name, globals, locals, fromlist, level)
+        return real_import(name, glbs, locs, fromlist, level)
 
     try:
-        with patch.object(builtins, "__import__", guarded_import):
-            with pytest.raises(ImportError, match="model_generate is required for VitisGenerateModelSD"):
-                VitisGenerateModelSD._get_supported_sd_model_types()
+        with (
+            patch.object(builtins, "__import__", guarded_import),
+            pytest.raises(ImportError, match="model_generate is required for VitisGenerateModelSD"),
+        ):
+            VitisGenerateModelSD._get_supported_sd_model_types()
     finally:
         sys.modules.update(saved_mods)
 
@@ -179,7 +182,7 @@ def test_ensure_model_onnx_raises_when_no_candidate_files(tmp_path):
             {"model_type": "unet", "resolutions": []},
             disable_search=True,
         )
-        with pytest.raises(FileNotFoundError, match="No optimized.onnx or dd/replaced.onnx"):
+        with pytest.raises(FileNotFoundError, match=r"No optimized\.onnx or dd/replaced\.onnx"):
             p.run(get_onnx_model(), str(tmp_path / "out"))
 
 
@@ -222,14 +225,14 @@ def test_resolve_onnx_input_path_dir_multiple_onnx_raises(tmp_path):
     (tmp_path / "b.onnx").write_bytes(b"y")
     p = _make_pass()
     h = SimpleNamespace(model_path=str(tmp_path))
-    with pytest.raises(ValueError, match="Multiple .onnx model files found"):
+    with pytest.raises(ValueError, match=r"Multiple \.onnx model files found"):
         p._resolve_onnx_input_path(h)
 
 
 def test_resolve_onnx_input_path_dir_no_onnx_raises(tmp_path):
     p = _make_pass()
     h = SimpleNamespace(model_path=str(tmp_path))
-    with pytest.raises(FileNotFoundError, match="No .onnx file found"):
+    with pytest.raises(FileNotFoundError, match=r"No \.onnx file found"):
         p._resolve_onnx_input_path(h)
 
 
