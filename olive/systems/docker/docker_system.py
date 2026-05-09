@@ -5,7 +5,6 @@
 import copy
 import json
 import logging
-import os
 import sys
 import tempfile
 from pathlib import Path
@@ -20,7 +19,6 @@ from olive.resource_path import find_all_resources
 from olive.systems.common import AcceleratorConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import LocalTargetUserConfig, SystemConfig
-from olive.telemetry.telemetry import is_ci_environment
 from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
@@ -234,6 +232,8 @@ class DockerSystem(OliveSystem):
 
     def _prepare_environment(self, base_env) -> dict:
         """Prepare environment variables for container."""
+        from olive.telemetry.telemetry import is_ci_environment
+
         # Convert list to dict if needed
         if isinstance(base_env, list):
             environment = {env.split("=")[0]: env.split("=")[1] for env in base_env}
@@ -307,6 +307,8 @@ class DockerSystem(OliveSystem):
     @staticmethod
     def _get_huggingface_token() -> Optional[str]:
         """Get HuggingFace token from environment or file."""
+        import os
+
         # Check environment variable
         token = os.getenv("HF_TOKEN")
         if token:

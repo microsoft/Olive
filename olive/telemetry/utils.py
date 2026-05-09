@@ -9,15 +9,9 @@ import tempfile
 from pathlib import Path
 from typing import ClassVar
 
-if os.name == "posix":
-    import fcntl
-else:
-    fcntl = None
-
 if os.name == "nt":
     import ctypes
     import ctypes.wintypes as wintypes
-    import msvcrt
 
     _LOCKFILE_EXCLUSIVE_LOCK = 0x00000002
 
@@ -52,7 +46,6 @@ if os.name == "nt":
     _unlock_file_ex.restype = wintypes.BOOL
 else:
     ctypes = None
-    msvcrt = None
     wintypes = None
     _lock_file_ex = None
     _unlock_file_ex = None
@@ -130,8 +123,12 @@ class _ExclusiveFileLock:
         try:
             # Platform-specific locking
             if os.name == "posix":
+                import fcntl
+
                 fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
             elif os.name == "nt":
+                import msvcrt
+
                 self._windows_overlapped = _Overlapped()
                 handle = msvcrt.get_osfhandle(self.file.fileno())
                 if not _lock_file_ex(
@@ -155,6 +152,8 @@ class _ExclusiveFileLock:
         if self.file:
             try:
                 if os.name == "nt" and self._windows_overlapped is not None:
+                    import msvcrt
+
                     handle = msvcrt.get_osfhandle(self.file.fileno())
                     if not _unlock_file_ex(
                         handle,
