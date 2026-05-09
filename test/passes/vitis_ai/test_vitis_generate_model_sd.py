@@ -1,8 +1,7 @@
 # -------------------------------------------------------------------------
-# Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
-# --------------------------------------------------------------------------
-# pylint: disable=protected-access
+# Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: MIT
+# -------------------------------------------------------------------------
 
 import builtins
 import sys
@@ -49,7 +48,7 @@ def test_get_supported_sd_model_types_wraps_import_error():
             patch.object(builtins, "__import__", guarded_import),
             pytest.raises(ImportError, match="model_generate is required for VitisGenerateModelSD"),
         ):
-            VitisGenerateModelSD._get_supported_sd_model_types()
+            VitisGenerateModelSD.get_supported_sd_model_types()
     finally:
         sys.modules.update(saved_mods)
 
@@ -189,35 +188,35 @@ def test_ensure_model_onnx_raises_when_no_candidate_files(tmp_path):
 def test_resolve_onnx_input_path_single_file():
     p = _make_pass()
     h = ONNXModelHandler(model_path=str(ONNX_MODEL_PATH))
-    assert p._resolve_onnx_input_path(h) == Path(ONNX_MODEL_PATH)
+    assert p.resolve_onnx_input_path(h) == Path(ONNX_MODEL_PATH)
 
 
 def test_resolve_onnx_input_path_dir_with_model_onnx(tmp_path):
     (tmp_path / "model.onnx").write_bytes(b"x")
     p = _make_pass()
     h = ONNXModelHandler(model_path=str(tmp_path))
-    assert p._resolve_onnx_input_path(h) == tmp_path / "model.onnx"
+    assert p.resolve_onnx_input_path(h) == tmp_path / "model.onnx"
 
 
 def test_resolve_onnx_input_path_dir_with_onnx_file_name(tmp_path):
     (tmp_path / "custom.onnx").write_bytes(b"x")
     p = _make_pass()
     h = ONNXModelHandler(model_path=str(tmp_path), onnx_file_name="custom.onnx")
-    assert p._resolve_onnx_input_path(h) == tmp_path / "custom.onnx"
+    assert p.resolve_onnx_input_path(h) == tmp_path / "custom.onnx"
 
 
 def test_resolve_onnx_input_path_dir_onnx_file_name_missing_raises(tmp_path):
     p = _make_pass()
     h = SimpleNamespace(model_path=str(tmp_path), onnx_file_name="missing.onnx")
     with pytest.raises(FileNotFoundError, match="Specified onnx_file_name"):
-        p._resolve_onnx_input_path(h)
+        p.resolve_onnx_input_path(h)
 
 
 def test_resolve_onnx_input_path_dir_single_unnamed_onnx(tmp_path):
     (tmp_path / "only.onnx").write_bytes(b"x")
     p = _make_pass()
     h = ONNXModelHandler(model_path=str(tmp_path))
-    assert p._resolve_onnx_input_path(h) == tmp_path / "only.onnx"
+    assert p.resolve_onnx_input_path(h) == tmp_path / "only.onnx"
 
 
 def test_resolve_onnx_input_path_dir_multiple_onnx_raises(tmp_path):
@@ -226,14 +225,14 @@ def test_resolve_onnx_input_path_dir_multiple_onnx_raises(tmp_path):
     p = _make_pass()
     h = SimpleNamespace(model_path=str(tmp_path))
     with pytest.raises(ValueError, match=r"Multiple \.onnx model files found"):
-        p._resolve_onnx_input_path(h)
+        p.resolve_onnx_input_path(h)
 
 
 def test_resolve_onnx_input_path_dir_no_onnx_raises(tmp_path):
     p = _make_pass()
     h = SimpleNamespace(model_path=str(tmp_path))
     with pytest.raises(FileNotFoundError, match=r"No \.onnx file found"):
-        p._resolve_onnx_input_path(h)
+        p.resolve_onnx_input_path(h)
 
 
 def test_resolve_onnx_input_path_missing_path_raises(tmp_path):
@@ -241,7 +240,7 @@ def test_resolve_onnx_input_path_missing_path_raises(tmp_path):
     missing = tmp_path / "nope"
     h = SimpleNamespace(model_path=str(missing))
     with pytest.raises(FileNotFoundError, match="Model path does not exist"):
-        p._resolve_onnx_input_path(h)
+        p.resolve_onnx_input_path(h)
 
 
 def test_run_requires_onnx_model_handler(tmp_path):
