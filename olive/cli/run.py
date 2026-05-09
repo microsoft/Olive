@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from argparse import ArgumentParser
-from pathlib import Path
 
 from olive.cli.base import (
     BaseOliveCLICommand,
@@ -16,7 +15,6 @@ from olive.cli.base import (
     mark_test_output_path,
     validate_test_output_path,
 )
-from olive.common.config_utils import load_config_file
 from olive.telemetry import action
 
 
@@ -55,6 +53,9 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
     @action
     def run(self):
+        from pathlib import Path
+
+        from olive.common.config_utils import load_config_file
         from olive.workflows import run as olive_run
 
         # allow the run_config to be a dict already (for api use)
