@@ -25,8 +25,8 @@ def test_load_model_from_task():
 @pytest.mark.parametrize(
     ("model_config", "hidden_layers_attr"),
     [
-        (BertConfig(num_hidden_layers=12), "num_hidden_layers"),
-        (GPT2Config(n_layer=12), "n_layer"),
+        (BertConfig(num_hidden_layers=12), "num_hidden_layers"),  # pylint: disable=unexpected-keyword-arg
+        (GPT2Config(n_layer=12), "n_layer"),  # pylint: disable=unexpected-keyword-arg
     ],
 )
 def test_load_model_from_task_test_model_config(model_config, hidden_layers_attr):
@@ -69,7 +69,7 @@ def test_load_model_from_task_test_model_config_fails_without_fallback():
 
 
 def test_load_model_from_task_test_model_config_saves_model(tmp_path):
-    model_config = BertConfig(num_hidden_layers=12)
+    model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
     created_model = MagicMock()
     test_model_path = tmp_path / "saved_test_model"
 
@@ -94,7 +94,7 @@ def test_load_model_from_task_test_model_config_saves_model(tmp_path):
 
 
 def test_load_model_from_task_test_model_config_reuses_saved_model(tmp_path):
-    model_config = BertConfig(num_hidden_layers=12)
+    model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
     test_model_path = tmp_path / "saved_test_model"
     test_model_path.mkdir()
     (test_model_path / "config.json").write_text("{}")
@@ -122,7 +122,7 @@ def test_load_model_from_task_test_model_config_reuses_saved_model(tmp_path):
 
 
 def test_load_test_model_omits_unsupported_trust_remote_code_kwarg():
-    model_config = BertConfig(num_hidden_layers=12)
+    model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
     captured = {}
 
     class MockModelClass:
@@ -138,7 +138,7 @@ def test_load_test_model_omits_unsupported_trust_remote_code_kwarg():
 
 
 def test_load_test_model_omits_none_trust_remote_code_kwarg():
-    model_config = BertConfig(num_hidden_layers=12)
+    model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
     captured = {}
 
     class MockModelClass:
@@ -155,7 +155,7 @@ def test_load_test_model_omits_none_trust_remote_code_kwarg():
 
 
 def test_load_test_model_passes_supported_trust_remote_code_kwarg():
-    model_config = BertConfig(num_hidden_layers=12)
+    model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
     captured = {}
 
     class MockModelClass:
