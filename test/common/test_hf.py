@@ -22,8 +22,14 @@ def test_load_model_from_task():
     assert isinstance(model, torch.nn.Module)
 
 
-def test_load_model_from_task_test_model_config():
-    model_config = transformers.BertConfig(num_hidden_layers=12)
+@pytest.mark.parametrize(
+    ("model_config", "hidden_layers_attr"),
+    [
+        (transformers.BertConfig(num_hidden_layers=12), "num_hidden_layers"),
+        (transformers.GPT2Config(n_layer=12), "n_layer"),
+    ],
+)
+def test_load_model_from_task_test_model_config(model_config, hidden_layers_attr):
     created_model = MagicMock(spec=torch.nn.Module)
 
     with (
@@ -39,7 +45,7 @@ def test_load_model_from_task_test_model_config():
     assert model is created_model
     mock_from_pretrained.assert_called_once()
     mock_model_class.from_config.assert_called_once()
-    assert mock_model_class.from_config.call_args.args[0].num_hidden_layers == 2
+    assert getattr(mock_model_class.from_config.call_args.args[0], hidden_layers_attr) == 2
 
 
 @pytest.mark.parametrize(

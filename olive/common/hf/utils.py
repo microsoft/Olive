@@ -27,11 +27,13 @@ def _apply_test_model_config(
         return model_config
 
     model_config = deepcopy(model_config)
-    hidden_layers = test_model_config.get("hidden_layers", test_model_config.get("num_hidden_layers", 2))
+    hidden_layers = test_model_config.get("hidden_layers") or test_model_config.get("num_hidden_layers") or 2
     if hidden_layers < 1:
         raise ValueError("test_model_config.hidden_layers must be greater than 0.")
 
     updated = False
+    # Common Hugging Face configs do not use a single canonical field:
+    # BERT-style models use num_hidden_layers while GPT-style models often use n_layer/n_layers/num_layers.
     for attr_name in ("num_hidden_layers", "num_layers", "n_layer", "n_layers"):
         if hasattr(model_config, attr_name):
             setattr(model_config, attr_name, hidden_layers)
