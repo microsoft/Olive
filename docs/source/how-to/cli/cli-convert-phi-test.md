@@ -16,7 +16,7 @@ olive optimize \
     --device cpu \
     --provider CPUExecutionProvider \
     --precision int4 \
-    --output_path out/phi-smoke
+    --output_path out/phi-smoke \
     --dry_run
 ```
 
@@ -30,14 +30,16 @@ Use the generated config with `olive run` and pass `--test` so Olive swaps in a 
 olive run \
     --config out/phi-smoke/config.json \
     --test out/phi-test-model \
-    --output_path out/phi-smoke
+    --output_path out/phi-smoke-run
 ```
 
 What this does:
 
 - `--test out/phi-test-model` creates a reduced random Phi model and saves it in `out/phi-test-model`
 - later runs reuse the same saved test model instead of recreating it
-- `--output_path out/phi-smoke` reuses the generated workflow and stores the converted ONNX artifacts from the smoke test
+- `--output_path out/phi-smoke-run` gives the smoke test its own output folder, so the generated ONNX artifacts are easy to find
+
+After the smoke test finishes, look under `out/phi-smoke-run` for the exported ONNX model and related files.
 
 This is a quick way to confirm that:
 
