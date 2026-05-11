@@ -115,6 +115,7 @@ def test_workflow_run_command(mock_run, tempdir, list_required_packages, tmp_pat
 @patch("huggingface_hub.repo_exists", return_value=True)
 def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_path):
     # setup
+    # Prevent a live Hugging Face repo lookup when the CLI resolves the HF input model override.
     config_path = tmp_path / "config.json"
     config_path.write_text(
         json.dumps({"input_model": {"key": "value"}, "engine": {"log_severity_level": 3}, "output_dir": "output"})

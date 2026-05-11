@@ -60,14 +60,14 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         if input_model_config := get_input_model_config(self.args, required=False):
             print("Replacing input model config in run config")
             run_config["input_model"] = input_model_config
-        elif (test_value := getattr(self.args, "test", None)) not in (None, False):
+        elif self.args.test not in (None, False):
             input_model = run_config.get("input_model")
             if not isinstance(input_model, dict) or input_model.get("type") != "HfModel":
                 raise ValueError("--test for olive run requires a Hugging Face input_model in the run config.")
             output_path = (
                 self.args.output_path or run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")
             )
-            run_config["input_model"] = add_hf_test_model_config(input_model, test_value, output_path)
+            run_config["input_model"] = add_hf_test_model_config(input_model, self.args.test, output_path)
 
         for arg_key, rc_key in [("output_path", "output_dir"), ("log_level", "log_severity_level")]:
             if (arg_value := getattr(self.args, arg_key)) is not None:
