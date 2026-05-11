@@ -5,8 +5,9 @@
 import json
 import subprocess
 import sys
+import types
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -262,9 +263,6 @@ def test_optimize_command_test_model_config(_, tmp_path):
 
 @patch("huggingface_hub.repo_exists", return_value=True)
 def test_optimize_dry_run_then_run_with_test_model(mock_repo_exists, tmp_path):
-    import types
-    from unittest.mock import MagicMock
-
     from olive.model.config.model_config import ModelConfig
     from olive.model.handler.hf import HfModelHandler
     from olive.passes.onnx.model_builder import ModelBuilder
@@ -327,7 +325,7 @@ def test_optimize_dry_run_then_run_with_test_model(mock_repo_exists, tmp_path):
         patch.object(HfModelHandler, "load_model", new=fake_load_model),
         patch.object(HfModelHandler, "save_metadata", return_value=[]),
         patch.object(Gptq, "_run_for_config", autospec=True, side_effect=fake_gptq_run),
-        patch.object(ModelBuilder, "maybe_patch_quant"),
+        patch.object(ModelBuilder, "maybe_patch_quant", return_value=None),
         patch.dict(
             sys.modules,
             {
