@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
-import transformers
+from transformers import BertConfig, GPT2Config
 
 from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
 from olive.common.hf.utils import load_model_from_task
@@ -25,8 +25,8 @@ def test_load_model_from_task():
 @pytest.mark.parametrize(
     ("model_config", "hidden_layers_attr"),
     [
-        (transformers.BertConfig(num_hidden_layers=12), "num_hidden_layers"),
-        (transformers.GPT2Config(n_layer=12), "n_layer"),
+        (BertConfig(num_hidden_layers=12), "num_hidden_layers"),
+        (GPT2Config(n_layer=12), "n_layer"),
     ],
 )
 def test_load_model_from_task_test_model_config(model_config, hidden_layers_attr):

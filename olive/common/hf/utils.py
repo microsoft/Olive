@@ -27,7 +27,12 @@ def _apply_test_model_config(
         return model_config
 
     model_config = deepcopy(model_config)
-    hidden_layers = test_model_config.get("hidden_layers") or test_model_config.get("num_hidden_layers") or 2
+    if "hidden_layers" in test_model_config:
+        hidden_layers = test_model_config["hidden_layers"]
+    elif "num_hidden_layers" in test_model_config:
+        hidden_layers = test_model_config["num_hidden_layers"]
+    else:
+        hidden_layers = 2
     if hidden_layers < 1:
         raise ValueError("test_model_config.hidden_layers must be greater than 0.")
 
