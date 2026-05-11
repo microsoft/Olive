@@ -16,8 +16,8 @@ olive optimize \
     --device cpu \
     --provider CPUExecutionProvider \
     --precision int4 \
-    --dry_run \
     --output_path out/phi-smoke
+    --dry_run
 ```
 
 This creates `out/phi-smoke/config.json` without launching the full conversion yet.
