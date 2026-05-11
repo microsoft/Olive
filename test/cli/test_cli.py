@@ -271,9 +271,9 @@ def test_documented_smoke_test_commands_produce_onnx_with_tiny_random_llama(_, t
     from olive.passes.pytorch.gptq import Gptq
 
     model_id = "hf-internal-testing/tiny-random-LlamaForCausalLM"
-    config_output_dir = tmp_path / "qwen-smoke"
-    test_model_dir = tmp_path / "qwen-test-model"
-    run_output_dir = tmp_path / "qwen-smoke-run"
+    config_output_dir = tmp_path / "test-smoke"
+    test_model_dir = tmp_path / "test-model"
+    run_output_dir = tmp_path / "test-smoke-run"
 
     cli_main(
         [
@@ -306,7 +306,7 @@ def test_documented_smoke_test_commands_produce_onnx_with_tiny_random_llama(_, t
     def fake_create_model(*_, **kwargs):
         output_dir = Path(kwargs["output_dir"])
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / kwargs["filename"]).write_text("dummy onnx file")
+        (output_dir / kwargs["filename"]).write_text("dummy ONNX file")
         (output_dir / "genai_config.json").write_text("{}")
 
     fake_builder = types.ModuleType("onnxruntime_genai.models.builder")
