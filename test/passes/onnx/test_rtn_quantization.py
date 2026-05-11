@@ -427,3 +427,149 @@ class TestRTNQuantization:
         assert "weight" not in init_names, (
             f"Original FP32 'weight' initializer should have been removed, found: {init_names}"
         )
+
+
+class TestRTNQuantizationComponentsToSkip:
+    """Tests for the components_to_skip parameter on OnnxBlockWiseRtnQuantization."""
+
+    @staticmethod
+    def _make_matmul_model(tmp_path, name: str) -> ONNXModelHandler:
+        """Create a tiny MatMul ONNX model and return an ONNXModelHandler."""
+        weight = np.random.randn(64, 128).astype(np.float32)
+        inp = onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, [1, 64])
+        out = onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, 128])
+        weight_init = onnx.helper.make_tensor(
+            name="weight",
+            data_type=onnx.TensorProto.FLOAT,
+            dims=[64, 128],
+            vals=weight.flatten().tolist(),
+        )
+        node = onnx.helper.make_node("MatMul", ["input", "weight"], ["output"], name="MatMul_Node")
+        graph = onnx.helper.make_graph([node], "g", [inp], [out], initializer=[weight_init])
+        model_def = onnx.helper.make_model(graph, producer_name="test")
+        model_def.opset_import[0].version = 13
+
+        model_dir = tmp_path / name
+        model_dir.mkdir(parents=True, exist_ok=True)
+        onnx.save(model_def, str(model_dir / "model.onnx"))
+        return ONNXModelHandler(model_path=str(model_dir), onnx_file_name="model.onnx")
+
+    @staticmethod
+    def _make_pass(components_to_skip=None) -> OnnxBlockWiseRtnQuantization:
+        accelerator_spec = AcceleratorSpec(accelerator_type="CPU", execution_provider="CPUExecutionProvider")
+        config = {"bits": 4, "block_size": 128, "axis": 0, "is_symmetric": True}
+        if components_to_skip is not None:
+            config["components_to_skip"] = components_to_skip
+        return create_pass_from_dict(
+            OnnxBlockWiseRtnQuantization, config, disable_search=True, accelerator_spec=accelerator_spec
+        )
+
+    def test_components_to_skip_passes_component_through_unchanged(self, tmp_path):
+        """Skipped component's model files are copied without quantization."""
+        from olive.model.handler.composite import CompositeModelHandler
+
+        decoder = self._make_matmul_model(tmp_path / "src", "decoder")
+        embedding = self._make_matmul_model(tmp_path / "src", "embedding")
+
+        composite = CompositeModelHandler(
+            model_components=[decoder, embedding],
+            model_component_names=["decoder", "embedding"],
+            model_path=str(tmp_path / "src"),
+        )
+
+        p = self._make_pass(components_to_skip=["embedding"])
+        result = p.run(composite, str(tmp_path / "out"))
+
+        assert isinstance(result, CompositeModelHandler)
+        assert result.model_component_names == ["decoder", "embedding"]
+
+        # decoder should be quantized (MatMulNBits present)
+        decoder_out = next(m for name, m in result.get_model_components() if name == "decoder")
+        decoder_ir = ir.load(decoder_out.model_path)
+        assert any(n.op_type == str(OpType.MatMulNBits) for n in decoder_ir.graph.all_nodes()), (
+            "decoder should be quantized (MatMulNBits expected)"
+        )
+
+        # embedding should be unchanged (original MatMul still present)
+        emb_out = next(m for name, m in result.get_model_components() if name == "embedding")
+        emb_ir = ir.load(emb_out.model_path)
+        has_matmul = any(n.op_type == str(OpType.MatMul) for n in emb_ir.graph.all_nodes())
+        has_nbits = any(n.op_type == str(OpType.MatMulNBits) for n in emb_ir.graph.all_nodes())
+        assert has_matmul, "embedding should still contain the original MatMul op"
+        assert not has_nbits, "embedding should not be quantized (no MatMulNBits expected)"
+
+    def test_components_to_skip_none_quantizes_all(self, tmp_path):
+        """When components_to_skip is not set, all composite components are quantized."""
+        from olive.model.handler.composite import CompositeModelHandler
+
+        decoder = self._make_matmul_model(tmp_path / "src", "decoder")
+        embedding = self._make_matmul_model(tmp_path / "src", "embedding")
+
+        composite = CompositeModelHandler(
+            model_components=[decoder, embedding],
+            model_component_names=["decoder", "embedding"],
+            model_path=str(tmp_path / "src"),
+        )
+
+        p = self._make_pass(components_to_skip=None)
+        result = p.run(composite, str(tmp_path / "out"))
+
+        assert isinstance(result, CompositeModelHandler)
+
+        for name, component in result.get_model_components():
+            component_ir = ir.load(component.model_path)
+            assert any(n.op_type == str(OpType.MatMulNBits) for n in component_ir.graph.all_nodes()), (
+                f"component '{name}' should be quantized when components_to_skip is None"
+            )
+
+    def test_components_to_skip_does_not_affect_single_model(self, tmp_path):
+        """components_to_skip has no effect on non-composite (single) models."""
+        model = self._make_matmul_model(tmp_path, "single")
+        p = self._make_pass(components_to_skip=["single"])
+        result = p.run(model, str(tmp_path / "out"))
+
+        # Single model should still be quantized despite its path matching the skip list
+        result_ir = ir.load(result.model_path)
+        assert any(n.op_type == str(OpType.MatMulNBits) for n in result_ir.graph.all_nodes()), (
+            "Single-component model should be quantized even when components_to_skip is set"
+        )
+
+    def test_components_to_skip_in_default_config(self):
+        """components_to_skip must appear in _default_config with None as default."""
+        accelerator_spec = AcceleratorSpec(accelerator_type="CPU", execution_provider="CPUExecutionProvider")
+        config = OnnxBlockWiseRtnQuantization._default_config(accelerator_spec)  # pylint: disable=protected-access
+        assert "components_to_skip" in config
+        assert config["components_to_skip"].default_value is None
+        assert config["components_to_skip"].required is False
+
+    def test_components_to_skip_unknown_name_warns(self, tmp_path):
+        """Misspelled or missing component names in components_to_skip must log a warning."""
+        from olive.model.handler.composite import CompositeModelHandler
+
+        decoder = self._make_matmul_model(tmp_path / "src", "decoder")
+        vision = self._make_matmul_model(tmp_path / "src", "vision")
+        composite = CompositeModelHandler(
+            model_components=[decoder, vision],
+            model_component_names=["decoder", "vision"],
+        )
+
+        p = self._make_pass(components_to_skip=["typo_component"])
+
+        import logging
+
+        records = []
+
+        class _Handler(logging.Handler):
+            def emit(self, record):
+                records.append(record.getMessage())
+
+        rtn_logger = logging.getLogger("olive.passes.onnx.rtn_quantization")
+        rtn_logger.addHandler(_Handler())
+        try:
+            p.run(composite, str(tmp_path / "out"))
+        finally:
+            rtn_logger.handlers = [h for h in rtn_logger.handlers if not isinstance(h, _Handler)]
+
+        assert any("typo_component" in msg for msg in records), (
+            f"Expected warning about unknown component name 'typo_component', got: {records}"
+        )
