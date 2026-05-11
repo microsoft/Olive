@@ -1,45 +1,45 @@
-# How to convert a Phi model with a quick `--test` smoke check
+# How to convert a Qwen model with a quick `--test` smoke check
 
 If you are converting a large language model, it is often useful to validate the Olive command, environment, and conversion recipe on a much smaller model before spending time on the full checkpoint.
 
 The `--test` option does that for Hugging Face models. Olive keeps the same model architecture, reduces it to a random 2-layer test model, saves it to the folder you provide, and reuses that folder on later runs.
 
-This example uses [`microsoft/Phi-3.5-mini-instruct`](https://huggingface.co/microsoft/Phi-3.5-mini-instruct), but the same pattern works for other supported Hugging Face LLMs.
+This example uses [`Qwen/Qwen3-0.6B`](https://huggingface.co/Qwen/Qwen3-0.6B), but the same pattern works for other supported Hugging Face LLMs.
 
 ## Step 1: generate the workflow config
 
-Start by generating the config that Olive will run for the Phi conversion.
+Start by generating the config that Olive will run for the Qwen conversion.
 
 ```bash
 olive optimize \
-    --model_name_or_path microsoft/Phi-3.5-mini-instruct \
+    --model_name_or_path Qwen/Qwen3-0.6B \
     --device cpu \
     --provider CPUExecutionProvider \
     --precision int4 \
-    --output_path out/phi-smoke \
+    --output_path out/qwen-smoke \
     --dry_run
 ```
 
-This creates `out/phi-smoke/config.json` without launching the full conversion yet.
+This creates `out/qwen-smoke/config.json` without launching the full conversion yet.
 
 ## Step 2: run a fast smoke test with `olive run --test`
 
-Use the generated config with `olive run` and pass `--test` so Olive swaps in a reduced random Phi model.
+Use the generated config with `olive run` and pass `--test` so Olive swaps in a reduced random Qwen model.
 
 ```bash
 olive run \
-    --config out/phi-smoke/config.json \
-    --test out/phi-test-model \
-    --output_path out/phi-smoke-run
+    --config out/qwen-smoke/config.json \
+    --test out/qwen-test-model \
+    --output_path out/qwen-smoke-run
 ```
 
 What this does:
 
-- `--test out/phi-test-model` creates a reduced random Phi model and saves it in `out/phi-test-model`
+- `--test out/qwen-test-model` creates a reduced random Qwen model and saves it in `out/qwen-test-model`
 - later runs reuse the same saved test model instead of recreating it
-- `--output_path out/phi-smoke-run` gives the smoke test its own output folder, so the generated ONNX artifacts are easy to find
+- `--output_path out/qwen-smoke-run` gives the smoke test its own output folder, so the generated ONNX artifacts are easy to find
 
-After the smoke test finishes, look under `out/phi-smoke-run` for the exported ONNX model and related files.
+After the smoke test finishes, look under `out/qwen-smoke-run` for the exported ONNX model and related files.
 
 This is a quick way to confirm that:
 
@@ -51,12 +51,12 @@ If you omit the folder and just pass `--test`, `olive run` will save the reduced
 
 ## Step 3: run the full conversion
 
-Once the smoke test succeeds, rerun the conversion on the full Phi checkpoint by removing `--test`.
+Once the smoke test succeeds, rerun the conversion on the full Qwen checkpoint by removing `--test`.
 
 ```bash
 olive run \
-    --config out/phi-smoke/config.json \
-    --output_path out/phi-full
+    --config out/qwen-smoke/config.json \
+    --output_path out/qwen-full
 ```
 
 At this point you know the Olive command and the conversion recipe already worked on the lightweight test model, so you can focus on the full-model run instead of debugging both at once.
