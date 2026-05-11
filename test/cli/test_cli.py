@@ -297,7 +297,7 @@ def test_optimize_dry_run_then_run_with_test_model(_, tmp_path):
 
     def materialize_test_model(self, *args, **kwargs):
         Path(self.test_model_path).mkdir(parents=True, exist_ok=True)
-        (Path(self.test_model_path) / "config.json").write_text("{}")
+        (Path(self.test_model_path) / "config.json").write_text(json.dumps({"model_type": "llama"}))
         return MagicMock()
 
     def fake_gptq_run(self, model, config, output_model_path):
@@ -315,7 +315,7 @@ def test_optimize_dry_run_then_run_with_test_model(_, tmp_path):
     fake_models.builder = fake_builder
     fake_ort_genai = types.ModuleType("onnxruntime_genai")
     fake_ort_genai.models = fake_models
-    fake_ort_genai.__version__ = "0.0.0"
+    fake_ort_genai.__version__ = "0.10.0"
     mock_cfg = MagicMock()
     mock_cfg.to_dict.return_value = {}
 
