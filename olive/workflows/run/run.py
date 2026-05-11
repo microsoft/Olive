@@ -13,9 +13,9 @@ from olive.logging import set_default_logger_severity, set_ort_logger_severity, 
 from olive.package_config import OlivePackageConfig
 from olive.systems.accelerator_creator import create_accelerator
 from olive.systems.common import SystemType
+from olive.telemetry.recipe_telemetry import _build_recipe_result_metadata, _load_config_input_for_telemetry
 from olive.telemetry.telemetry_extensions import _format_exception_message, log_error, log_recipe_result
 from olive.workflows.run.config import RunConfig
-from olive.workflows.run.recipe_telemetry import _build_recipe_result_metadata, _load_config_input_for_telemetry
 
 if TYPE_CHECKING:
     from olive.engine.config import RunPassConfig

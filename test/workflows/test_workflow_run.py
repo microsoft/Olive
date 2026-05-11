@@ -6,12 +6,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from olive.workflows import run as olive_run
-from olive.workflows.run.recipe_telemetry import (
+from olive.telemetry.recipe_telemetry import (
     _build_recipe_hash,
     _classify_input_model_source,
     _classify_run_config_source,
 )
+from olive.workflows import run as olive_run
 from test.utils import (
     get_pytorch_model,
     get_pytorch_model_config,
@@ -135,7 +135,7 @@ def test_run_packages():
 
 @patch("olive.workflows.run.run.log_recipe_result")
 @patch("olive.workflows.run.run.run_engine")
-@patch("olive.workflows.run.recipe_telemetry.is_ci_environment", return_value=False)
+@patch("olive.telemetry.recipe_telemetry.is_ci_environment", return_value=False)
 def test_run_logs_recipe_result_success(_, mock_run_engine, mock_log_recipe_result):
     config = {
         "input_model": {
