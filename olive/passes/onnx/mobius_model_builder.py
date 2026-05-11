@@ -48,6 +48,19 @@ class MobiusBuilder(Pass):
     whose components are individual :class:`~olive.model.ONNXModelHandler` objects.
     Single-component models return a plain :class:`~olive.model.ONNXModelHandler`.
 
+    Use ``components_to_export`` to export only a subset of components.  This is
+    useful when some components (e.g. a text decoder) are already exported and
+    you only need the remaining ones (e.g. vision encoder and embedding)::
+
+        {
+            "type": "MobiusBuilder",
+            "model_path": "mistralai/Ministral-3B-Instruct-2512",
+            "components_to_export": ["vision_encoder", "embedding"]
+        }
+
+    Raises :class:`ValueError` if ``components_to_export`` is an empty list or
+    contains names not present in the built package.
+
     Requires ``mobius-ai`` to be installed::
 
         pip install mobius-ai
