@@ -103,6 +103,8 @@ def load_model_from_task(
             logger.debug("Loaded model %s with name_or_path %s", model_class, model_name_or_path)
             break
         except (OSError, ValueError) as e:
+            if test_model_config:
+                raise
             if i == len(class_tuple) - 1:
                 # len(class_tuple) == 1 covers most common tasks like text-generation, text-classification, etc
                 # error could be device OOM, device_map: "auto" not supported, etc

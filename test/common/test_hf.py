@@ -48,6 +48,26 @@ def test_load_model_from_task_test_model_config(model_config, hidden_layers_attr
     assert getattr(mock_model_class.from_config.call_args.args[0], hidden_layers_attr) == 2
 
 
+def test_load_model_from_task_test_model_config_fails_without_fallback():
+    model_config = BertConfig(num_hidden_layers=12)
+
+    with (
+        patch("transformers.pipelines.check_task") as mock_check_task,
+        patch("olive.common.hf.utils.from_pretrained", return_value=model_config),
+    ):
+        first_model_class = MagicMock()
+        first_model_class.from_config.side_effect = ValueError("unexpected architecture")
+        second_model_class = MagicMock()
+        second_model_class.from_config.return_value = MagicMock(spec=torch.nn.Module)
+        mock_check_task.return_value = ("text-classification", {"pt": (first_model_class, second_model_class)}, None)
+
+        with pytest.raises(ValueError, match="unexpected architecture"):
+            load_model_from_task("text-classification", "dummy-model", test_model_config={"hidden_layers": 2})
+
+    first_model_class.from_config.assert_called_once()
+    second_model_class.from_config.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("exceptions", "expected_exception", "expected_message"),
     [
