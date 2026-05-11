@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -166,6 +167,13 @@ class MobiusBuilder(Pass):
         if trust_remote_code:
             logger.warning("MobiusBuilder: trust_remote_code=True — only use with trusted model sources.")
 
+        # Validate components_to_export early (before the expensive build step).
+        if config.components_to_export is not None and len(config.components_to_export) == 0:
+            raise ValueError(
+                "MobiusBuilder: components_to_export cannot be empty. "
+                "Pass None to export all components, or specify at least one component name."
+            )
+
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -180,11 +188,6 @@ class MobiusBuilder(Pass):
         # Determine which package components to export.
         all_keys = list(pkg.keys())
         if config.components_to_export is not None:
-            if len(config.components_to_export) == 0:
-                raise ValueError(
-                    "MobiusBuilder: components_to_export cannot be empty. "
-                    "Pass None to export all components, or specify at least one component name."
-                )
             requested = set(config.components_to_export)
             unknown = requested - set(all_keys)
             if unknown:
@@ -208,10 +211,11 @@ class MobiusBuilder(Pass):
         # ModelPackage.save() handles both single and multi-component layouts:
         #   single component  → <output_dir>/model.onnx
         #   multi-component   → <output_dir>/<name>/model.onnx  for each key
-        # Older mobius releases may not support the `components` kwarg — fall back gracefully.
-        try:
+        # Check the installed mobius version supports the 'components' kwarg before passing it,
+        # rather than using a try/except (which could mask real errors or leave orphan dirs).
+        if "components" in inspect.signature(pkg.save).parameters:
             pkg.save(str(output_dir), components=components_filter)
-        except TypeError:
+        else:
             if components_filter is not None:
                 logger.warning(
                     "MobiusBuilder: installed mobius version does not support the 'components' filter kwarg; "

@@ -78,7 +78,12 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
 
     Respects the optional ``components`` filter kwarg passed to ``save()``: only writes
     files for components for which ``components(name)`` returns True (or all if None).
+
+    ``pkg.save.__signature__`` is set explicitly so that ``inspect.signature(pkg.save)``
+    reports ``components`` in its parameters.  This lets production code use signature
+    introspection (instead of a try/except TypeError) to detect kwarg support.
     """
+    import inspect as _inspect
 
     def _save(directory: str, components=None, **_kwargs):
         out = Path(directory)
@@ -100,6 +105,9 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
     pkg.__iter__ = MagicMock(return_value=iter(keys))
     pkg.items.return_value = [(k, MagicMock()) for k in keys]
     pkg.save.side_effect = _save
+    # Set __signature__ so inspect.signature(pkg.save) sees 'components' in parameters,
+    # matching a real modern-API mobius ModelPackage.save().
+    pkg.save.__signature__ = _inspect.signature(_save)
     return pkg
 
 
@@ -601,16 +609,20 @@ def test_components_to_export_in_default_config():
     assert config["components_to_export"].required is False
 
 
-def test_pkg_save_typeerror_falls_back_gracefully(tmp_path):
-    """When pkg.save() raises TypeError for the components= kwarg (old mobius), fall back without filter."""
+def test_pkg_save_old_api_no_components_kwarg_falls_back_gracefully(tmp_path):
+    """When pkg.save() has no 'components' kwarg (old mobius), fall back to saving all and log a warning.
+
+    The production code uses inspect.signature to detect kwarg support rather than a
+    try/except TypeError.  This test exercises that detection path when the installed
+    mobius version exposes a save() without the 'components' parameter.
+    """
+    import inspect as _inspect
+
     out = tmp_path / "out"
     keys = ["decoder", "vision_encoder", "embedding"]
 
-    # Build a pkg whose save() raises TypeError only when components= is passed (old mobius API).
+    # Old API: no 'components' kwarg — saves all components unconditionally.
     def _save_old_api(directory: str, **kwargs):
-        if "components" in kwargs:
-            raise TypeError("unexpected keyword argument 'components'")
-        # Old API: save all components unconditionally.
         d = Path(directory)
         for k in keys:
             (d / k).mkdir(parents=True, exist_ok=True)
@@ -621,6 +633,8 @@ def test_pkg_save_typeerror_falls_back_gracefully(tmp_path):
     pkg.__iter__ = MagicMock(return_value=iter(keys))
     pkg.items.return_value = [(k, MagicMock()) for k in keys]
     pkg.save.side_effect = _save_old_api
+    # Set __signature__ WITHOUT 'components' so inspect.signature detects the old API.
+    pkg.save.__signature__ = _inspect.signature(_save_old_api)
 
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
@@ -638,8 +652,55 @@ def test_pkg_save_typeerror_falls_back_gracefully(tmp_path):
     ):
         result = p.run(_make_hf_model("org/vlm"), out)
 
-    # Old mobius saved all; pass returns CompositeModelHandler with all keys (filter not enforced).
+    # Old API saved all 3 components to disk (no filter applied), but the returned
+    # CompositeModelHandler only includes the requested components (built from package_keys).
     assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["vision_encoder", "embedding"]
+
+    # All 3 component directories are on disk — old API couldn't filter, so decoder is an orphan.
+    for k in keys:
+        assert (out / k / "model.onnx").exists(), f"{k}/model.onnx should be on disk"
+
+    # pkg.save must NOT have been called with a 'components=' kwarg (fallback path).
+    assert "components" not in pkg.save.call_args.kwargs
+
     # A warning must have been logged about the missing kwarg support.
     warning_messages = [str(call) for call in mock_logger.warning.call_args_list]
     assert any("components" in msg and "mobius" in msg for msg in warning_messages)
+
+
+def test_pkg_save_components_kwarg_detected_and_filter_applied(tmp_path):
+    """When pkg.save() signature includes 'components', the filter is passed and applied.
+
+    Regression test for the inspect.signature detection path: verifies that the
+    production code correctly calls pkg.save(components=filter) when the kwarg
+    is present in the signature, and that only the requested components land on disk.
+    """
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)  # _fake_pkg uses spec=_save which has 'components' in signature
+
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": ["vision_encoder", "embedding"]},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    # Only the requested components should be returned.
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["vision_encoder", "embedding"]
+
+    # pkg.save must have been called WITH the 'components=' kwarg (modern API path).
+    assert "components" in pkg.save.call_args.kwargs
+
+    # Requested components must be on disk; decoder must not be.
+    assert (out / "vision_encoder" / "model.onnx").exists()
+    assert (out / "embedding" / "model.onnx").exists()
+    assert not (out / "decoder").exists(), "decoder must not be written when filtered out"
