@@ -87,6 +87,7 @@ def add_hf_test_model_config(input_model: dict, test_value, output_path: Optiona
         return input_model
 
     test_model_output_path = test_value
+    # Use 2 layers to keep the test model fast and lightweight while preserving the original architecture family.
     input_model["test_model_config"] = {"hidden_layers": 2}
     if test_model_output_path is True:
         if not output_path:

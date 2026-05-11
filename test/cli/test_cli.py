@@ -113,7 +113,7 @@ def test_workflow_run_command(mock_run, tempdir, list_required_packages, tmp_pat
 
 @patch("olive.workflows.run")
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_workflow_run_command_with_overrides(_, mock_run, tmp_path):
+def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_path):
     # setup
     config_path = tmp_path / "config.json"
     config_path.write_text(
