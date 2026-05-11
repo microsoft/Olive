@@ -247,6 +247,12 @@ class ModelBuilder(Pass):
             input_path = str(model.get_resource("model_path"))
         else:
             model_path = model.model_name_or_path
+            if model.test_model_config:
+                if not model.test_model_path:
+                    raise ValueError("ModelBuilder requires test_model_path when test_model_config is provided.")
+                if not (Path(model.test_model_path) / "config.json").exists():
+                    model.load_model(cache_model=False)
+                model_path = model.test_model_path
             # provide the model path as input path, model builder uses input_path for quantized models
             input_path = model_path
             if model.adapter_path:
