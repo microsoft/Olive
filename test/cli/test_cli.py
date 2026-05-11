@@ -261,7 +261,7 @@ def test_optimize_command_test_model_config(_, tmp_path):
 
 
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_optimize_dry_run_then_run_with_test_model(_, tmp_path):
+def test_optimize_dry_run_then_run_with_test_model(mock_repo_exists, tmp_path):
     import types
     from unittest.mock import MagicMock
 
@@ -294,13 +294,15 @@ def test_optimize_dry_run_then_run_with_test_model(_, tmp_path):
 
     config_path = config_output_dir / "config.json"
     assert config_path.exists()
+    assert mock_repo_exists.called
 
-    def fake_load_model(self, *args, **kwargs):
-        Path(self.test_model_path).mkdir(parents=True, exist_ok=True)
-        (Path(self.test_model_path) / "config.json").write_text(json.dumps({"model_type": "llama"}))
+    def fake_load_model(handler, *args, **kwargs):
+        Path(handler.test_model_path).mkdir(parents=True, exist_ok=True)
+        (Path(handler.test_model_path) / "config.json").write_text(json.dumps({"model_type": "llama"}))
         return MagicMock()
 
-    def fake_gptq_run(self, model, _config, _output_model_path):
+    def fake_gptq_run(self, model, pass_config, output_model_path):
+        del pass_config, output_model_path
         return model
 
     def fake_create_model(**kwargs):
