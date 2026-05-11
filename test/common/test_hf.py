@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
-from transformers import BertConfig, GPT2Config
+from transformers import BertConfig, GPT2Config, Qwen3Config
 
 from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
-from olive.common.hf.utils import _load_test_model, load_model_from_task
+from olive.common.hf.utils import _apply_test_model_config, _load_test_model, load_model_from_task
 
 
 def test_load_model_from_task():
@@ -119,6 +119,21 @@ def test_load_model_from_task_test_model_config_reuses_saved_model(tmp_path):
     assert model is loaded_model
     mock_model_class.from_config.assert_not_called()
     assert mock_from_pretrained.call_args_list[1].args[1] == str(test_model_path)
+
+
+def test_apply_test_model_config_updates_qwen3_layer_types():
+    model_config = Qwen3Config()
+    model_config.num_hidden_layers = 4
+    model_config.layer_types = model_config.layer_types[:4]
+
+    updated_config = _apply_test_model_config(model_config, {"hidden_layers": 2})
+
+    assert updated_config.num_hidden_layers == 2
+    assert updated_config.layer_types == model_config.layer_types[:2]
+    reloaded_config = Qwen3Config(**updated_config.to_dict())
+    assert reloaded_config.num_hidden_layers == 2
+    assert len(reloaded_config.layer_types) == 2
+    assert reloaded_config.layer_types == model_config.layer_types[:2]
 
 
 def test_load_test_model_omits_unsupported_trust_remote_code_kwarg():

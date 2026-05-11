@@ -48,6 +48,10 @@ def _apply_test_model_config(
     if not updated:
         raise ValueError("Unable to create a test model because the config does not expose a hidden-layer count.")
 
+    layer_types = getattr(model_config, "layer_types", None)
+    if isinstance(layer_types, (list, tuple)):
+        model_config.layer_types = layer_types[:hidden_layers]
+
     if "dtype" in model_config and model_config.dtype == "auto":
         # This is not allowed anymore with transformers >=4.57,
         # we select float16 instead.
