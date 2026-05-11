@@ -9,7 +9,7 @@ import torch
 from transformers import BertConfig, GPT2Config
 
 from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
-from olive.common.hf.utils import load_model_from_task
+from olive.common.hf.utils import _load_test_model, load_model_from_task
 
 
 def test_load_model_from_task():
@@ -66,6 +66,19 @@ def test_load_model_from_task_test_model_config_fails_without_fallback():
 
     first_model_class.from_config.assert_called_once()
     second_model_class.from_config.assert_not_called()
+
+
+def test_load_test_model_omits_unsupported_trust_remote_code_kwarg():
+    model_config = BertConfig(num_hidden_layers=12)
+
+    class MockModelClass:
+        @staticmethod
+        def from_config(config):
+            return config
+
+    created_model = _load_test_model(MockModelClass, model_config, trust_remote_code=True)
+
+    assert created_model is model_config
 
 
 @pytest.mark.parametrize(

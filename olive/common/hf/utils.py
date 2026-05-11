@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import inspect
 import logging
 from copy import deepcopy
 from pathlib import Path
@@ -50,6 +51,18 @@ def _apply_test_model_config(
     return model_config
 
 
+def _load_test_model(model_class: type, model_config: "PretrainedConfig", trust_remote_code: Optional[bool] = None):
+    """Instantiate a random-initialized HF model from config for test mode."""
+    from_config_signature = inspect.signature(model_class.from_config)
+    supports_trust_remote_code = "trust_remote_code" in from_config_signature.parameters or any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in from_config_signature.parameters.values()
+    )
+    from_config_kwargs = {}
+    if supports_trust_remote_code and trust_remote_code is not None:
+        from_config_kwargs["trust_remote_code"] = trust_remote_code
+    return model_class.from_config(model_config, **from_config_kwargs)
+
+
 def load_model_from_task(
     task: str, model_name_or_path: str, test_model_config: Optional[dict[str, Any]] = None, **kwargs
 ) -> "PreTrainedModel":
@@ -94,10 +107,7 @@ def load_model_from_task(
     for i, model_class in enumerate(class_tuple):
         try:
             if test_model_config:
-                try:
-                    model = model_class.from_config(model_config, trust_remote_code=kwargs.get("trust_remote_code"))
-                except TypeError:
-                    model = model_class.from_config(model_config)
+                model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
             else:
                 model = from_pretrained(model_class, model_name_or_path, "model", **kwargs)
             logger.debug("Loaded model %s with name_or_path %s", model_class, model_name_or_path)
