@@ -64,10 +64,23 @@ This pass only supports HuggingFace transformer PyTorch models.
 
 This pass supports ONNX models and can quantize `MatMul` and `Gather` nodes to 4 or 8 bits with block-wise quantization.
 
+For multi-component models (e.g. VLMs exported with `MobiusBuilder`), use `components_to_skip` to bypass quantization for specific components that must stay in higher precision. Skipped components are copied unchanged to the output. Unknown component names in `components_to_skip` emit a warning and are otherwise ignored.
+
 ### Example Configuration
 ```json
 {
     "type": "OnnxBlockWiseRtnQuantization"
+}
+```
+
+### Skipping Components (Composite Models)
+```json
+{
+    "type": "OnnxBlockWiseRtnQuantization",
+    "block_size": 128,
+    "is_symmetric": true,
+    "accuracy_level": 4,
+    "components_to_skip": ["embedding"]
 }
 ```
 

@@ -26,7 +26,30 @@ logger = logging.getLogger(__name__)
 
 
 class OnnxBlockWiseRtnQuantization(Pass):
-    """Quantize ONNX models with weight-only block-wise RTN algorithm."""
+    """Quantize ONNX models with weight-only block-wise RTN algorithm.
+
+    Quantizes ``MatMul`` and ``Gather`` nodes to 4-bit or 8-bit weights using
+    the Round-To-Nearest (RTN) algorithm.  Supports both plain
+    :class:`~olive.model.ONNXModelHandler` and multi-component
+    :class:`~olive.model.handler.composite.CompositeModelHandler` inputs.
+
+    Use ``components_to_skip`` to bypass quantization for specific components
+    of a composite model.  Skipped components are copied unchanged to the
+    output directory.  This is useful when certain components must stay in
+    higher precision (e.g. an ``embedding`` component where
+    ``GatherBlockQuantized`` may not be supported)::
+
+        {
+            "type": "OnnxBlockWiseRtnQuantization",
+            "block_size": 128,
+            "is_symmetric": true,
+            "components_to_skip": ["embedding"]
+        }
+
+    Unknown component names in ``components_to_skip`` emit a warning and are
+    otherwise ignored.  ``components_to_skip`` has no effect on non-composite
+    (single-component) models.
+    """
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
