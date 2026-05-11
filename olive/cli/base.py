@@ -105,8 +105,13 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
         input_model["adapter_path"] = args.adapter_path
     if getattr(args, "trust_remote_code", None) is not None:
         input_model["load_kwargs"]["trust_remote_code"] = args.trust_remote_code
-    if getattr(args, "test", False):
+    test_model_output_path = getattr(args, "test", None)
+    if test_model_output_path is not None and test_model_output_path is not False:
         input_model["test_model_config"] = {"hidden_layers": 2}
+        if test_model_output_path is True and getattr(args, "output_path", None):
+            test_model_output_path = str(Path(args.output_path) / "test_model")
+        if test_model_output_path is not True:
+            input_model["test_model_path"] = test_model_output_path
     return input_model
 
 
@@ -375,8 +380,13 @@ def add_input_model_options(
         )
         model_group.add_argument(
             "--test",
-            action="store_true",
-            help="Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers.",
+            type=str,
+            nargs="?",
+            const=True,
+            help=(
+                "Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. "
+                "Optionally provide a folder where the generated test model should be saved and reused."
+            ),
         )
 
     if enable_hf_adapter:

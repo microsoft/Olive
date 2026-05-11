@@ -193,11 +193,13 @@ def test_finetune_command(_, mock_run, tmp_path):
 @patch("huggingface_hub.repo_exists", return_value=True)
 def test_optimize_command_test_model_config(_, tmp_path):
     output_dir = tmp_path / "output_dir"
+    test_model_dir = tmp_path / "saved_test_model"
     command_args = [
         "optimize",
         "-m",
         "dummy-model-id",
         "--test",
+        str(test_model_dir),
         "--dry_run",
         "-o",
         str(output_dir),
@@ -207,6 +209,7 @@ def test_optimize_command_test_model_config(_, tmp_path):
 
     config = json.loads((output_dir / "config.json").read_text())
     assert config["input_model"]["test_model_config"] == {"hidden_layers": 2}
+    assert config["input_model"]["test_model_path"] == str(test_model_dir)
 
 
 @patch("olive.workflows.run")

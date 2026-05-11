@@ -68,6 +68,59 @@ def test_load_model_from_task_test_model_config_fails_without_fallback():
     second_model_class.from_config.assert_not_called()
 
 
+def test_load_model_from_task_test_model_config_saves_model(tmp_path):
+    model_config = BertConfig(num_hidden_layers=12)
+    created_model = MagicMock()
+    test_model_path = tmp_path / "saved_test_model"
+
+    with (
+        patch("transformers.pipelines.check_task") as mock_check_task,
+        patch("olive.common.hf.utils.from_pretrained", return_value=model_config),
+    ):
+        mock_model_class = MagicMock()
+        mock_model_class.from_config.return_value = created_model
+        mock_check_task.return_value = ("text-classification", {"pt": (mock_model_class,)}, None)
+
+        model = load_model_from_task(
+            "text-classification",
+            "dummy-model",
+            test_model_config={"hidden_layers": 2},
+            test_model_path=str(test_model_path),
+        )
+
+    assert model is created_model
+    mock_model_class.from_config.assert_called_once()
+    created_model.save_pretrained.assert_called_once_with(str(test_model_path))
+
+
+def test_load_model_from_task_test_model_config_reuses_saved_model(tmp_path):
+    model_config = BertConfig(num_hidden_layers=12)
+    test_model_path = tmp_path / "saved_test_model"
+    test_model_path.mkdir()
+    (test_model_path / "config.json").write_text("{}")
+    loaded_model = MagicMock(spec=torch.nn.Module)
+
+    with (
+        patch("transformers.pipelines.check_task") as mock_check_task,
+        patch(
+            "olive.common.hf.utils.from_pretrained", side_effect=[model_config, loaded_model]
+        ) as mock_from_pretrained,
+    ):
+        mock_model_class = MagicMock()
+        mock_check_task.return_value = ("text-classification", {"pt": (mock_model_class,)}, None)
+
+        model = load_model_from_task(
+            "text-classification",
+            "dummy-model",
+            test_model_config={"hidden_layers": 2},
+            test_model_path=str(test_model_path),
+        )
+
+    assert model is loaded_model
+    mock_model_class.from_config.assert_not_called()
+    assert mock_from_pretrained.call_args_list[1].args[1] == str(test_model_path)
+
+
 def test_load_test_model_omits_unsupported_trust_remote_code_kwarg():
     model_config = BertConfig(num_hidden_layers=12)
     captured = {}

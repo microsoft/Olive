@@ -63,8 +63,18 @@ def _load_test_model(model_class: type, model_config: "PretrainedConfig", trust_
     return model_class.from_config(model_config, **from_config_kwargs)
 
 
+def _save_test_model(model: "PreTrainedModel", output_dir: str):
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    model.save_pretrained(str(output_path))
+
+
 def load_model_from_task(
-    task: str, model_name_or_path: str, test_model_config: Optional[dict[str, Any]] = None, **kwargs
+    task: str,
+    model_name_or_path: str,
+    test_model_config: Optional[dict[str, Any]] = None,
+    test_model_path: Optional[str] = None,
+    **kwargs,
 ) -> "PreTrainedModel":
     """Load huggingface model from task and model_name_or_path."""
     from transformers.pipelines import check_task
@@ -107,7 +117,12 @@ def load_model_from_task(
     for i, model_class in enumerate(class_tuple):
         try:
             if test_model_config:
-                model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
+                if test_model_path and (Path(test_model_path) / "config.json").exists():
+                    model = from_pretrained(model_class, test_model_path, "model", **kwargs)
+                else:
+                    model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
+                    if test_model_path:
+                        _save_test_model(model, test_model_path)
             else:
                 model = from_pretrained(model_class, model_name_or_path, "model", **kwargs)
             logger.debug("Loaded model %s with name_or_path %s", model_class, model_name_or_path)

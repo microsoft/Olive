@@ -237,12 +237,13 @@ def test_get_input_model_config_hf_test_model(_):
         task="text-generation",
         model_script=None,
         script_dir=None,
-        test=True,
+        test="saved_test_model",
     )
 
     config = get_input_model_config(args)
 
     assert config["test_model_config"] == {"hidden_layers": 2}
+    assert config["test_model_path"] == "saved_test_model"
 
 
 def test_insert_input_model_cli_output_model():
