@@ -249,7 +249,10 @@ class ModelBuilder(Pass):
             model_path = model.model_name_or_path
             if model.test_model_config:
                 if not model.test_model_path:
-                    raise ValueError("ModelBuilder requires test_model_path when test_model_config is provided.")
+                    raise ValueError(
+                        "ModelBuilder requires test_model_path to be set when test_model_config is provided. "
+                        "Please specify the path where the test model should be saved."
+                    )
                 if not (Path(model.test_model_path) / "config.json").exists():
                     model.load_model(cache_model=False)
                 model_path = model.test_model_path

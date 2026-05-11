@@ -17,7 +17,7 @@ from olive.passes.onnx.model_builder import ModelBuilder
 from olive.passes.pytorch.rtn import Rtn
 from test.utils import make_local_tiny_llama
 
-TEST_MODEL_ID = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+TINY_RANDOM_LLAMA_MODEL_ID = "hf-internal-testing/tiny-random-LlamaForCausalLM"
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -116,12 +116,12 @@ def test_model_builder_uses_saved_test_model_path(tmp_path):
     mock_cfg.to_dict.return_value = {}
     with patch.object(HfModelHandler, "get_hf_model_config", return_value=mock_cfg):
         input_model = HfModelHandler(
-            model_path=TEST_MODEL_ID,
+            model_path=TINY_RANDOM_LLAMA_MODEL_ID,
             test_model_config={"hidden_layers": 2},
             test_model_path=str(test_model_path),
         )
 
-    def materialize_test_model(*_, **__):
+    def materialize_test_model(*args, **kwargs):
         test_model_path.mkdir(parents=True, exist_ok=True)
         (test_model_path / "config.json").write_text("{}")
         return MagicMock()
