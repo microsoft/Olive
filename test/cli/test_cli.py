@@ -261,7 +261,7 @@ def test_optimize_command_test_model_config(_, tmp_path):
 
 
 @patch("huggingface_hub.repo_exists", return_value=True)
-def test_documented_smoke_test_commands_produce_onnx_with_tiny_random_llama(_, tmp_path):
+def test_optimize_dry_run_then_run_with_test_model(_, tmp_path):
     import types
     from unittest.mock import MagicMock
 
