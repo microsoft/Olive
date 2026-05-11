@@ -108,12 +108,12 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
     test_model_output_path = getattr(args, "test", None)
     if test_model_output_path not in (None, False):
         input_model["test_model_config"] = {"hidden_layers": 2}
-        if test_model_output_path is True and getattr(args, "output_path", None):
-            test_model_output_path = str(Path(args.output_path) / "test_model")
-        elif test_model_output_path is True:
-            raise ValueError("--test requires an explicit folder when output_path is not available.")
-        if test_model_output_path is not True:
-            input_model["test_model_path"] = test_model_output_path
+        if test_model_output_path is True:
+            output_path = getattr(args, "output_path", None)
+            if not output_path:
+                raise ValueError("--test requires an explicit folder when output_path is not available.")
+            test_model_output_path = str(Path(output_path) / "test_model")
+        input_model["test_model_path"] = test_model_output_path
     return input_model
 
 

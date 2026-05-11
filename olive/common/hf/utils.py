@@ -65,13 +65,9 @@ def _load_test_model(model_class: type, model_config: "PretrainedConfig", trust_
 
 def _save_test_model(model: "PreTrainedModel", output_dir: str):
     output_path = Path(output_dir)
-    try:
-        output_path.mkdir(parents=True, exist_ok=True)
-        logger.info("Saving generated test model to %s", output_path)
-        model.save_pretrained(str(output_path))
-    except Exception:
-        logger.exception("Failed to save generated test model to %s", output_path)
-        raise
+    output_path.mkdir(parents=True, exist_ok=True)
+    logger.info("Saving generated test model to %s", output_path)
+    model.save_pretrained(str(output_path))
 
 
 def load_model_from_task(
