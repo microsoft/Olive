@@ -82,6 +82,20 @@ class BaseOliveCLICommand(ABC):
         raise NotImplementedError
 
 
+def add_hf_test_model_config(input_model: dict, test_value, output_path: Optional[str] = None) -> dict:
+    if test_value in (None, False):
+        return input_model
+
+    test_model_output_path = test_value
+    input_model["test_model_config"] = {"hidden_layers": 2}
+    if test_model_output_path is True:
+        if not output_path:
+            raise ValueError("--test requires an explicit folder when output_path is not available.")
+        test_model_output_path = str(Path(output_path) / "test_model")
+    input_model["test_model_path"] = test_model_output_path
+    return input_model
+
+
 def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> dict:
     """Get the input model config for HuggingFace model.
 
@@ -105,16 +119,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
         input_model["adapter_path"] = args.adapter_path
     if getattr(args, "trust_remote_code", None) is not None:
         input_model["load_kwargs"]["trust_remote_code"] = args.trust_remote_code
-    test_model_output_path = getattr(args, "test", None)
-    if test_model_output_path not in (None, False):
-        input_model["test_model_config"] = {"hidden_layers": 2}
-        if test_model_output_path is True:
-            output_path = getattr(args, "output_path", None)
-            if not output_path:
-                raise ValueError("--test requires an explicit folder when output_path is not available.")
-            test_model_output_path = str(Path(output_path) / "test_model")
-        input_model["test_model_path"] = test_model_output_path
-    return input_model
+    return add_hf_test_model_config(input_model, getattr(args, "test", None), getattr(args, "output_path", None))
 
 
 def _get_onnx_input_model(args: Namespace, model_path: str) -> dict:

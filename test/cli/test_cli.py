@@ -112,7 +112,8 @@ def test_workflow_run_command(mock_run, tempdir, list_required_packages, tmp_pat
 
 
 @patch("olive.workflows.run")
-def test_workflow_run_command_with_overrides(mock_run, tmp_path):
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_workflow_run_command_with_overrides(_, mock_run, tmp_path):
     # setup
     config_path = tmp_path / "config.json"
     config_path.write_text(
@@ -148,6 +149,52 @@ def test_workflow_run_command_with_overrides(mock_run, tmp_path):
         package_config=None,
         tempdir=None,
     )
+
+
+@patch("olive.workflows.run")
+def test_workflow_run_command_with_test_override(mock_run, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "input_model": {
+                    "type": "HfModel",
+                    "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                    "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                },
+                "output_dir": str(tmp_path / "output"),
+            }
+        )
+    )
+    command_args = ["run", "--run-config", str(config_path), "--test"]
+
+    cli_main(command_args)
+
+    mock_run.assert_called_once_with(
+        {
+            "input_model": {
+                "type": "HfModel",
+                "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                "test_model_config": {"hidden_layers": 2},
+                "test_model_path": str(tmp_path / "output" / "test_model"),
+            },
+            "output_dir": str(tmp_path / "output"),
+        },
+        list_required_packages=False,
+        package_config=None,
+        tempdir=None,
+    )
+
+
+def test_workflow_run_command_with_test_requires_hf_input_model(tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"input_model": {"type": "OnnxModel", "model_path": "model.onnx"}}))
+
+    with pytest.raises(
+        ValueError, match=r"--test for olive run requires a Hugging Face input_model in the run config\."
+    ):
+        cli_main(["run", "--run-config", str(config_path), "--test"])
 
 
 @patch("olive.platform_sdk.qualcomm.configure.configure.configure")

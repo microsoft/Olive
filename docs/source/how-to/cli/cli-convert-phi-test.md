@@ -6,9 +6,9 @@ The `--test` option does that for Hugging Face models. Olive keeps the same mode
 
 This example uses [`microsoft/Phi-3.5-mini-instruct`](https://huggingface.co/microsoft/Phi-3.5-mini-instruct), but the same pattern works for other supported Hugging Face LLMs.
 
-## Step 1: run a fast smoke test
+## Step 1: generate the workflow config
 
-Start with a lightweight conversion pass that uses `--test` to create and reuse a reduced Phi model.
+Start by generating the config that Olive will run for the Phi conversion.
 
 ```bash
 olive optimize \
@@ -16,6 +16,19 @@ olive optimize \
     --device cpu \
     --provider CPUExecutionProvider \
     --precision int4 \
+    --dry_run \
+    --output_path out/phi-smoke
+```
+
+This creates `out/phi-smoke/config.json` without launching the full conversion yet.
+
+## Step 2: run a fast smoke test with `olive run --test`
+
+Use the generated config with `olive run` and pass `--test` so Olive swaps in a reduced random Phi model.
+
+```bash
+olive run \
+    --config out/phi-smoke/config.json \
     --test out/phi-test-model \
     --output_path out/phi-smoke
 ```
@@ -24,7 +37,7 @@ What this does:
 
 - `--test out/phi-test-model` creates a reduced random Phi model and saves it in `out/phi-test-model`
 - later runs reuse the same saved test model instead of recreating it
-- `--output_path out/phi-smoke` stores the converted ONNX artifacts from the smoke test
+- `--output_path out/phi-smoke` reuses the generated workflow and stores the converted ONNX artifacts from the smoke test
 
 This is a quick way to confirm that:
 
@@ -32,31 +45,15 @@ This is a quick way to confirm that:
 - the selected optimization recipe is valid for your setup
 - the conversion path completes before you run the full model
 
-If you only want to inspect the generated workflow first, add `--dry_run`:
+If you omit the folder and just pass `--test`, `olive run` will save the reduced model under `<output_path>/test_model`.
 
-```bash
-olive optimize \
-    --model_name_or_path microsoft/Phi-3.5-mini-instruct \
-    --device cpu \
-    --provider CPUExecutionProvider \
-    --precision int4 \
-    --test out/phi-test-model \
-    --dry_run \
-    --output_path out/phi-smoke
-```
-
-The generated `config.json` will include both `test_model_config` and `test_model_path`, so the same reduced model can be reused later.
-
-## Step 2: run the full conversion
+## Step 3: run the full conversion
 
 Once the smoke test succeeds, rerun the conversion on the full Phi checkpoint by removing `--test`.
 
 ```bash
-olive optimize \
-    --model_name_or_path microsoft/Phi-3.5-mini-instruct \
-    --device cpu \
-    --provider CPUExecutionProvider \
-    --precision int4 \
+olive run \
+    --config out/phi-smoke/config.json \
     --output_path out/phi-full
 ```
 
