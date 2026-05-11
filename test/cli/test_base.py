@@ -229,6 +229,22 @@ def test_insert_input_model_invalid_hf_model_name():
         get_input_model_config(args)
 
 
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_get_input_model_config_hf_test_model(_):
+    args = SimpleNamespace(
+        model_name_or_path="hf_model",
+        trust_remote_code=False,
+        task="text-generation",
+        model_script=None,
+        script_dir=None,
+        test=True,
+    )
+
+    config = get_input_model_config(args)
+
+    assert config["test_model_config"] == {"hidden_layers": 2}
+
+
 def test_insert_input_model_cli_output_model():
     # setup
     model_path = str(Path(__file__).parent.resolve() / "output_model")

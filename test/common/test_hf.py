@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
+import transformers
 
 from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
 from olive.common.hf.utils import load_model_from_task
@@ -19,6 +20,26 @@ def test_load_model_from_task():
 
     model = load_model_from_task(task, model_name)
     assert isinstance(model, torch.nn.Module)
+
+
+def test_load_model_from_task_test_model_config():
+    model_config = transformers.BertConfig(num_hidden_layers=12)
+    created_model = MagicMock(spec=torch.nn.Module)
+
+    with (
+        patch("transformers.pipelines.check_task") as mock_check_task,
+        patch("olive.common.hf.utils.from_pretrained", return_value=model_config) as mock_from_pretrained,
+    ):
+        mock_model_class = MagicMock()
+        mock_model_class.from_config.return_value = created_model
+        mock_check_task.return_value = ("text-classification", {"pt": (mock_model_class,)}, None)
+
+        model = load_model_from_task("text-classification", "dummy-model", test_model_config={"hidden_layers": 2})
+
+    assert model is created_model
+    mock_from_pretrained.assert_called_once()
+    mock_model_class.from_config.assert_called_once()
+    assert mock_model_class.from_config.call_args.args[0].num_hidden_layers == 2
 
 
 @pytest.mark.parametrize(

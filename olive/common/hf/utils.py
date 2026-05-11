@@ -3,8 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from transformers import AutoConfig, AutoModel, AutoTokenizer, GenerationConfig
 
@@ -18,7 +19,33 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTrainedModel":
+def _apply_test_model_config(
+    model_config: "PretrainedConfig", test_model_config: Optional[dict[str, Any]] = None
+) -> "PretrainedConfig":
+    """Apply lightweight test-model overrides to a model config."""
+    if not test_model_config:
+        return model_config
+
+    model_config = deepcopy(model_config)
+    hidden_layers = test_model_config.get("hidden_layers", test_model_config.get("num_hidden_layers", 2))
+    if hidden_layers < 1:
+        raise ValueError("test_model_config.hidden_layers must be greater than 0.")
+
+    updated = False
+    for attr_name in ("num_hidden_layers", "num_layers", "n_layer", "n_layers"):
+        if hasattr(model_config, attr_name):
+            setattr(model_config, attr_name, hidden_layers)
+            updated = True
+
+    if not updated:
+        raise ValueError("Unable to create a test model because the config does not expose a hidden-layer count.")
+
+    return model_config
+
+
+def load_model_from_task(
+    task: str, model_name_or_path: str, test_model_config: Optional[dict[str, Any]] = None, **kwargs
+) -> "PreTrainedModel":
     """Load huggingface model from task and model_name_or_path."""
     from transformers.pipelines import check_task
 
@@ -31,7 +58,7 @@ def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTr
     else:
         raise ValueError("unsupported transformers version")
 
-    model_config = get_model_config(model_name_or_path, **kwargs)
+    model_config = get_model_config(model_name_or_path, test_model_config=test_model_config, **kwargs)
     if getattr(model_config, "quantization_config", None):
         if not isinstance(model_config.quantization_config, dict):
             model_config.quantization_config = model_config.quantization_config.to_dict()
@@ -59,7 +86,13 @@ def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTr
     model = None
     for i, model_class in enumerate(class_tuple):
         try:
-            model = from_pretrained(model_class, model_name_or_path, "model", **kwargs)
+            if test_model_config:
+                try:
+                    model = model_class.from_config(model_config, trust_remote_code=kwargs.get("trust_remote_code"))
+                except TypeError:
+                    model = model_class.from_config(model_config)
+            else:
+                model = from_pretrained(model_class, model_name_or_path, "model", **kwargs)
             logger.debug("Loaded model %s with name_or_path %s", model_class, model_name_or_path)
             break
         except (OSError, ValueError) as e:
@@ -94,14 +127,16 @@ def from_pretrained(cls, model_name_or_path: str, mlflow_dir: str, **kwargs):
     return cls.from_pretrained(get_pretrained_name_or_path(model_name_or_path, mlflow_dir), **kwargs)
 
 
-def get_model_config(model_name_or_path: str, **kwargs) -> "PretrainedConfig":
+def get_model_config(
+    model_name_or_path: str, test_model_config: Optional[dict[str, Any]] = None, **kwargs
+) -> "PretrainedConfig":
     """Get HF Config for the given model_name_or_path."""
     model_config = from_pretrained(AutoConfig, model_name_or_path, "config", **kwargs)
 
     # add quantization config
     quantization_config = kwargs.get("quantization_config")
     if not quantization_config:
-        return model_config
+        return _apply_test_model_config(model_config, test_model_config)
 
     if hasattr(model_config, "quantization_config") and model_config.quantization_config:
         logger.warning(
@@ -111,7 +146,7 @@ def get_model_config(model_name_or_path: str, **kwargs) -> "PretrainedConfig":
         )
     else:
         model_config.quantization_config = quantization_config
-    return model_config
+    return _apply_test_model_config(model_config, test_model_config)
 
 
 def save_model_config(config: Union["PretrainedConfig", "GenerationConfig"], output_dir: str, **kwargs):

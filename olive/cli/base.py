@@ -105,6 +105,8 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
         input_model["adapter_path"] = args.adapter_path
     if getattr(args, "trust_remote_code", None) is not None:
         input_model["load_kwargs"]["trust_remote_code"] = args.trust_remote_code
+    if getattr(args, "test", False):
+        input_model["test_model_config"] = {"hidden_layers": 2}
     return input_model
 
 
@@ -370,6 +372,11 @@ def add_input_model_options(
         )
         model_group.add_argument(
             "--trust_remote_code", action="store_true", help="Trust remote code when loading a huggingface model."
+        )
+        model_group.add_argument(
+            "--test",
+            action="store_true",
+            help="Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers.",
         )
 
     if enable_hf_adapter:

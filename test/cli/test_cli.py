@@ -190,6 +190,25 @@ def test_finetune_command(_, mock_run, tmp_path):
     assert mock_run.call_count == 1
 
 
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_optimize_command_test_model_config(_, tmp_path):
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "optimize",
+        "-m",
+        "dummy-model-id",
+        "--test",
+        "--dry_run",
+        "-o",
+        str(output_dir),
+    ]
+
+    cli_main(command_args)
+
+    config = json.loads((output_dir / "config.json").read_text())
+    assert config["input_model"]["test_model_config"] == {"hidden_layers": 2}
+
+
 @patch("olive.workflows.run")
 @patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
 def test_diffusion_lora_command(_, mock_run, tmp_path):
