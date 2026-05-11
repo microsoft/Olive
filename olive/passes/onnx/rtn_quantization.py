@@ -91,6 +91,9 @@ class OnnxBlockWiseRtnQuantization(Pass):
         Overrides the base Pass.run() to intercept CompositeModelHandler processing.
         Components whose names appear in config.components_to_skip are copied to the
         output path unchanged instead of being quantized.
+
+        Unknown component names in components_to_skip produce a warning, not an error —
+        skipping is a non-fatal operation so misspellings are surfaced without aborting.
         """
         from olive.model import CompositeModelHandler
 
@@ -98,9 +101,12 @@ class OnnxBlockWiseRtnQuantization(Pass):
         if not components_to_skip or not isinstance(model, CompositeModelHandler):
             return super().run(model, output_model_path)
 
+        # Cache get_model_components() — avoid calling the generator twice.
+        all_components = list(model.get_model_components())
+
         # Warn about component names that won't match anything — misspellings are
         # silently ignored otherwise since skipping is non-fatal.
-        all_component_names = {name for name, _ in model.get_model_components()}
+        all_component_names = {name for name, _ in all_components}
         unknown_skips = components_to_skip - all_component_names
         if unknown_skips:
             logger.warning(
@@ -123,7 +129,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
 
         components = []
         component_names = []
-        for component_name, component_model in model.get_model_components():
+        for component_name, component_model in all_components:
             component_output_path = model_dir / component_name
             if component_name in components_to_skip:
                 logger.info(
@@ -131,15 +137,29 @@ class OnnxBlockWiseRtnQuantization(Pass):
                     component_name,
                 )
                 src = Path(component_model.model_path)
-                # model_path may point to the .onnx file rather than its parent dir
-                src_dir = src.parent if src.is_file() else src
-                if src_dir != component_output_path:
-                    if component_output_path.exists():
-                        shutil.rmtree(str(component_output_path))
-                    shutil.copytree(str(src_dir), str(component_output_path))
-                # onnx_file_name may be None if the handler was created without an explicit name;
-                # fall back to 'model.onnx' which is the standard Olive convention.
-                onnx_file_name = getattr(component_model, "onnx_file_name", None) or "model.onnx"
+                if src.is_dir():
+                    # src is the component directory — copy it directly.
+                    if src.resolve() != component_output_path.resolve():
+                        shutil.rmtree(str(component_output_path), ignore_errors=True)
+                        shutil.copytree(str(src), str(component_output_path))
+                else:
+                    # src is the ONNX file — copy only this file (and its .data sidecar
+                    # if present) to avoid accidentally copying sibling files from src.parent.
+                    if src.resolve() != (component_output_path / src.name).resolve():
+                        shutil.rmtree(str(component_output_path), ignore_errors=True)
+                        component_output_path.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(str(src), str(component_output_path / src.name))
+                        data_sidecar = Path(str(src) + ".data")
+                        if data_sidecar.exists():
+                            shutil.copy2(
+                                str(data_sidecar),
+                                str(component_output_path / data_sidecar.name),
+                            )
+                # Derive onnx_file_name from the source model handler; fall back to
+                # the basename of model_path rather than hardcoding 'model.onnx'.
+                onnx_file_name = (
+                    getattr(component_model, "onnx_file_name", None) or Path(component_model.model_path).name
+                )
                 output_component = ONNXModelHandler(
                     model_path=str(component_output_path),
                     onnx_file_name=onnx_file_name,
