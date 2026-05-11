@@ -70,15 +70,52 @@ def test_load_model_from_task_test_model_config_fails_without_fallback():
 
 def test_load_test_model_omits_unsupported_trust_remote_code_kwarg():
     model_config = BertConfig(num_hidden_layers=12)
+    captured = {}
 
     class MockModelClass:
         @staticmethod
         def from_config(config):
+            captured["config"] = config
             return config
 
     created_model = _load_test_model(MockModelClass, model_config, trust_remote_code=True)
 
     assert created_model is model_config
+    assert captured == {"config": model_config}
+
+
+def test_load_test_model_omits_none_trust_remote_code_kwarg():
+    model_config = BertConfig(num_hidden_layers=12)
+    captured = {}
+
+    class MockModelClass:
+        @staticmethod
+        def from_config(config, **kwargs):
+            captured["config"] = config
+            captured["kwargs"] = kwargs
+            return config
+
+    created_model = _load_test_model(MockModelClass, model_config)
+
+    assert created_model is model_config
+    assert captured == {"config": model_config, "kwargs": {}}
+
+
+def test_load_test_model_passes_supported_trust_remote_code_kwarg():
+    model_config = BertConfig(num_hidden_layers=12)
+    captured = {}
+
+    class MockModelClass:
+        @staticmethod
+        def from_config(config, trust_remote_code=None):
+            captured["config"] = config
+            captured["trust_remote_code"] = trust_remote_code
+            return config
+
+    created_model = _load_test_model(MockModelClass, model_config, trust_remote_code=True)
+
+    assert created_model is model_config
+    assert captured == {"config": model_config, "trust_remote_code": True}
 
 
 @pytest.mark.parametrize(
