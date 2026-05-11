@@ -1,7 +1,7 @@
-# -------------------------------------------------------------------------
-# Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
-# SPDX-License-Identifier: MIT
-# -------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 
 import builtins
 import sys
