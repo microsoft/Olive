@@ -57,13 +57,10 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         run_config = self.args.run_config
         if not isinstance(run_config, dict):
             run_config = load_config_file(run_config)
-        test_value = getattr(self.args, "test", None)
-        if test_value in (None, False):
-            test_value = None
         if input_model_config := get_input_model_config(self.args, required=False):
             print("Replacing input model config in run config")
             run_config["input_model"] = input_model_config
-        elif test_value:
+        elif (test_value := getattr(self.args, "test", None)) not in (None, False):
             input_model = run_config.get("input_model")
             if not isinstance(input_model, dict) or input_model.get("type") != "HfModel":
                 raise ValueError("--test for olive run requires a Hugging Face input_model in the run config.")
