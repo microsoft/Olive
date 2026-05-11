@@ -84,7 +84,7 @@ def test_load_model_from_task_test_model_config_saves_model(tmp_path):
         model = load_model_from_task(
             "text-classification",
             "dummy-model",
-            test_model_config={"hidden_layers": 2},
+            test_model_config={"num_hidden_layers": 2},
             test_model_path=str(test_model_path),
         )
 
@@ -112,7 +112,7 @@ def test_load_model_from_task_test_model_config_reuses_saved_model(tmp_path):
         model = load_model_from_task(
             "text-classification",
             "dummy-model",
-            test_model_config={"hidden_layers": 2},
+            test_model_config={"num_hidden_layers": 2},
             test_model_path=str(test_model_path),
         )
 
