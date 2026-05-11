@@ -49,7 +49,7 @@ def test_load_model_from_task_test_model_config(model_config, hidden_layers_attr
 
 
 def test_load_model_from_task_test_model_config_fails_without_fallback():
-    model_config = BertConfig(num_hidden_layers=12)
+    model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
 
     with (
         patch("transformers.pipelines.check_task") as mock_check_task,
