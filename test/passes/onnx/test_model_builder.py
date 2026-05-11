@@ -2,16 +2,43 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
+import sys
+import types
 from pathlib import Path
+from unittest.mock import Mock
 
 import onnx
 import pytest
 
-from olive.model import ONNXModelHandler
+from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.model_builder import ModelBuilder
 from olive.passes.pytorch.rtn import Rtn
 from test.utils import make_local_tiny_llama
+
+
+def _create_test_onnx_model(model_path: Path, node_name: str):
+    input_info = onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, [1, 1])
+    output_info = onnx.helper.make_tensor_value_info("output", onnx.TensorProto.FLOAT, [1, 1])
+    node = onnx.helper.make_node("Identity", ["input"], ["output"], name=node_name)
+    graph = onnx.helper.make_graph([node], "test_graph", [input_info], [output_info])
+    model = onnx.helper.make_model(graph)
+    onnx.save(model, model_path)
+
+
+def _mock_genai_builder(monkeypatch, create_model_fn):
+    builder_module = types.ModuleType("onnxruntime_genai.models.builder")
+    builder_module.create_model = create_model_fn
+    models_module = types.ModuleType("onnxruntime_genai.models")
+    models_module.builder = builder_module
+    genai_module = types.ModuleType("onnxruntime_genai")
+    genai_module.__version__ = "0.8.0"
+    genai_module.models = models_module
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai", genai_module)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models", models_module)
+    monkeypatch.setitem(sys.modules, "onnxruntime_genai.models.builder", builder_module)
+    monkeypatch.setattr(ModelBuilder, "maybe_patch_quant", staticmethod(lambda: None))
 
 
 @pytest.mark.parametrize("metadata_only", [True, False])
@@ -100,3 +127,72 @@ def test_model_builder_layer_annotations(tmp_path, layer_annotations):
         assert len(node_names_with_metadata) > 0, (
             "Expected nodes with metadata_props when layer_annotations are provided"
         )
+
+
+def test_model_builder_apply_annotations_on_single_file_fallback(tmp_path, monkeypatch):
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        _create_test_onnx_model(output_dir / "actual.onnx", "test_node")
+        (output_dir / "actual.onnx.data").write_text("external_data")
+        (output_dir / "tokenizer.json").write_text("{}")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.model_attributes = {"split_assignments": {"model.layers.0": 1}}
+
+    p = create_pass_from_dict(
+        ModelBuilder, {"precision": "fp32", "extra_options": {"filename": "expected.onnx"}}, disable_search=True
+    )
+    output_folder = tmp_path / "output_model"
+    output_model = p.run(input_model, output_folder)
+
+    assert isinstance(output_model, ONNXModelHandler)
+    assert output_model.onnx_file_name == "actual.onnx"
+    model_proto = onnx.load(output_folder / "actual.onnx", load_external_data=False)
+    metadata_props = {prop.key: prop.value for prop in model_proto.metadata_props}
+    assert metadata_props["split_assignments"] == "model.layers.0=1"
+    assert str(output_folder / "actual.onnx") not in output_model.model_attributes["additional_files"]
+    assert str(output_folder / "actual.onnx.data") not in output_model.model_attributes["additional_files"]
+    assert str(output_folder / "tokenizer.json") in output_model.model_attributes["additional_files"]
+
+
+def test_model_builder_multi_file_output_preserves_component_filenames(tmp_path, monkeypatch):
+    def fake_create_model(
+        model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs
+    ):
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        _create_test_onnx_model(output_dir / "encoder.onnx", "encoder_node")
+        _create_test_onnx_model(output_dir / "decoder.onnx", "decoder_node")
+        (output_dir / "encoder.onnx.data").write_text("encoder_data")
+        (output_dir / "decoder.onnx.data").write_text("decoder_data")
+        (output_dir / "tokenizer.json").write_text("{}")
+        (output_dir / "genai_config.json").write_text(json.dumps({"search": {}}))
+
+    _mock_genai_builder(monkeypatch, fake_create_model)
+    input_model = Mock(spec=HfModelHandler)
+    input_model.model_name_or_path = "dummy-model"
+    input_model.adapter_path = None
+    input_model.model_attributes = {}
+
+    p = create_pass_from_dict(ModelBuilder, {"precision": "fp32"}, disable_search=True)
+    output_folder = tmp_path / "output_model"
+    output_model = p.run(input_model, output_folder)
+
+    assert isinstance(output_model, CompositeModelHandler)
+    expected_component_names = sorted(["encoder.onnx", "decoder.onnx"])
+    assert output_model.model_component_names == expected_component_names
+    component_onnx_files = [component.onnx_file_name for component in output_model.model_components]
+    assert component_onnx_files == output_model.model_component_names
+    additional_files = output_model.model_attributes["additional_files"]
+    assert str(output_folder / "encoder.onnx") not in additional_files
+    assert str(output_folder / "decoder.onnx") not in additional_files
+    assert str(output_folder / "encoder.onnx.data") not in additional_files
+    assert str(output_folder / "decoder.onnx.data") not in additional_files
+    assert str(output_folder / "tokenizer.json") in additional_files
