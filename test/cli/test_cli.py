@@ -295,7 +295,7 @@ def test_optimize_dry_run_then_run_with_test_model(_, tmp_path):
     config_path = config_output_dir / "config.json"
     assert config_path.exists()
 
-    def materialize_test_model(self, *args, **kwargs):
+    def setup_test_model_files(self, *args, **kwargs):
         Path(self.test_model_path).mkdir(parents=True, exist_ok=True)
         (Path(self.test_model_path) / "config.json").write_text(json.dumps({"model_type": "llama"}))
         return MagicMock()
@@ -303,7 +303,7 @@ def test_optimize_dry_run_then_run_with_test_model(_, tmp_path):
     def fake_gptq_run(self, model, config, output_model_path):
         return model
 
-    def fake_create_model(*_, **kwargs):
+    def fake_create_model(**kwargs):
         output_dir = Path(kwargs["output_dir"])
         output_dir.mkdir(parents=True, exist_ok=True)
         (output_dir / kwargs["filename"]).write_text("dummy ONNX file")
@@ -322,7 +322,7 @@ def test_optimize_dry_run_then_run_with_test_model(_, tmp_path):
     with (
         patch.object(ModelConfig, "get_model_identifier", return_value="tiny-random-llama"),
         patch.object(HfModelHandler, "get_hf_model_config", return_value=mock_cfg),
-        patch.object(HfModelHandler, "load_model", new=materialize_test_model),
+        patch.object(HfModelHandler, "load_model", new=setup_test_model_files),
         patch.object(HfModelHandler, "save_metadata", return_value=[]),
         patch.object(Gptq, "_run_for_config", autospec=True, side_effect=fake_gptq_run),
         patch.object(ModelBuilder, "maybe_patch_quant"),
