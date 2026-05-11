@@ -662,7 +662,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -693,7 +693,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -724,7 +724,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 50  # Small model limit
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -752,7 +752,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2, 151645, 151643}  # Multiple EOS like Qwen
+        evaluator._eos_token_ids = [2, 151645, 151643]  # Multiple EOS like Qwen
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -780,7 +780,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -808,7 +808,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -844,7 +844,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -867,7 +867,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -893,7 +893,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -912,7 +912,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -954,7 +954,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -999,7 +999,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -1033,7 +1033,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -1058,7 +1058,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()
@@ -1094,7 +1094,7 @@ class TestLMEvalORTGenAIGenerateUntil:
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
         evaluator = MagicMock(spec=LMEvalORTGenAIEvaluator)
-        evaluator.eos_token_ids = {2}
+        evaluator._eos_token_ids = [2]
         evaluator.max_length = 1024
         evaluator.model = MagicMock()
         evaluator.tokenizer = MagicMock()

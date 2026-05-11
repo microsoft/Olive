@@ -256,7 +256,15 @@ class OnnxKQuantQuantization(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+        # For composite model components (e.g., Whisper encoder.onnx/decoder.onnx),
+        # output_model_path already includes .onnx extension. Strip it so ir.save doesn't
+        # create a double extension (.onnx.onnx). For other cases, resolve normally.
+        output_path_obj = Path(output_model_path)
+        if output_path_obj.suffix == ".onnx":
+            output_model_path = str(output_path_obj.with_suffix(""))
+        else:
+            output_model_path = resolve_onnx_path(output_model_path, Path(model.model_path).name)
+
         ir_model = model.load_ir_model()
         ir.external_data.load_to_model(ir_model)
         ir_model.graph.opset_imports[MSFT_DOMAIN] = 1

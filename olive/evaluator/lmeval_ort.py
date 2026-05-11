@@ -512,16 +512,14 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 self.max_length = max_length
             else:
                 self.max_length = genai_config["search"]["max_length"]
-            eos = genai_config["model"]["eos_token_id"]
-            # eos_token_id can be a single int or a list of ints
-            if isinstance(eos, list):
-                if not eos:
-                    raise ValueError("genai_config model.eos_token_id must not be an empty list")
-                self._eot_token_id = eos[0]
-                self.eos_token_ids = set(eos)
-            else:
-                self._eot_token_id = eos
-                self.eos_token_ids = {eos}
+            eot = genai_config["model"]["eos_token_id"]
+            # eos_token_id can be a list (e.g. [1, 106] for Gemma4) or a scalar.
+            # Store all EOS IDs for generate_until stop detection,
+            # and first/scalar for loglikelihood (TemplateLM.eot_token_id expects int).
+            self._eos_token_ids = list(eot) if isinstance(eot, list) else [eot]
+            if not self._eos_token_ids:
+                raise ValueError("genai_config model.eos_token_id must not be an empty list")
+            self._eot_token_id = self._eos_token_ids[0]
         self.params = og.GeneratorParams(self.model)
         self.params.set_search_options(max_length=self.max_length, past_present_share_buffer=False)
 
@@ -558,27 +556,25 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         self.params.set_search_options(batch_size=batch_size)
         generator = og.Generator(self.model, self.params)
 
-        if self._returns_full_logits:
-            generator.append_tokens(input_ids.tolist())
-            return torch.from_numpy(generator.get_output("logits")).to(self.device)
-
-        # Model only returns logits for the last appended position.
         if batch_size > 1 and cont_len > 1:
             raise ValueError(
-                "batch_size > 1 is not supported when the model returns single-position logits"
+                "batch_size > 1 is not supported when using incremental get_logits() retrieval"
                 " and continuation length > 1. Right-padding misaligns continuation positions across"
                 " batch elements. Use batch_size=1 instead."
             )
 
-        # Bulk-append context tokens, then step through the last cont_len tokens
-        # one at a time to collect only the logits we actually need.
+        # Use incremental token appending with get_logits() to avoid copying
+        # the full logits tensor from GPU to CPU. get_output("logits") copies
+        # seq_len * vocab_size * 2 bytes (e.g. 472MB for 900 tokens with
+        # 262K vocab), while get_logits() copies only vocab_size * 4 bytes
+        # (~1MB) per position.
         n_logits = max(cont_len, 1)
         prefix_len = seq_len - n_logits
         generator.append_tokens(input_ids[:, : prefix_len + 1].tolist())
-        all_logits = [torch.from_numpy(generator.get_output("logits")).to(self.device)]
+        all_logits = [torch.from_numpy(generator.get_logits()).to(self.device)]
         for i in range(prefix_len + 1, seq_len):
             generator.append_tokens(input_ids[:, i : i + 1].tolist())
-            all_logits.append(torch.from_numpy(generator.get_output("logits")).to(self.device))
+            all_logits.append(torch.from_numpy(generator.get_logits()).to(self.device))
 
         # No need to pad to [batch, seq_len, vocab]. The slicing in _loglikelihood_tokens computes
         # ctx_len = inplen + (logits.shape[0] - padding_len_inp), which adjusts for the shorter
@@ -675,7 +671,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 new_token = generator.get_sequence(0)[-1]
 
                 # Check for EOS token(s)
-                if new_token in self.eos_token_ids:
+                if new_token in self._eos_token_ids:
                     break
 
                 generated_token_ids.append(new_token)
@@ -717,3 +713,70 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
 
     def complete(self):
         pass
+
+    def generate_until(self, requests, disable_tqdm: bool = False) -> list[str]:
+        """Generate text until a stop sequence is reached.
+
+        Used by benchmarks like MMLU Pro (CoT variant) that score by generating
+        chain-of-thought text and extracting the answer with a regex filter.
+        """
+        results = []
+        for request in tqdm(requests, disable=disable_tqdm, desc="Running generate_until requests"):
+            context = request.args[0]
+            gen_kwargs = request.args[1]
+
+            until = gen_kwargs.get("until", [])
+            max_gen_toks = gen_kwargs.get("max_gen_toks", 256)
+            if isinstance(until, str):
+                until = [until]
+
+            input_ids = self.tok_encode(context)
+            max_new_tokens = min(max_gen_toks, self.max_length - len(input_ids))
+            if max_new_tokens <= 0:
+                results.append("")
+                continue
+
+            params = og.GeneratorParams(self.model)
+            params.set_search_options(
+                max_length=len(input_ids) + max_new_tokens,
+                past_present_share_buffer=False,
+                batch_size=1,
+            )
+            if gen_kwargs.get("temperature", 0.0) == 0.0:
+                params.set_search_options(do_sample=False)
+            else:
+                params.set_search_options(
+                    do_sample=True,
+                    temperature=gen_kwargs["temperature"],
+                )
+
+            generator = og.Generator(self.model, params)
+            generator.append_tokens([input_ids])
+
+            eos_ids = self._eos_token_ids
+
+            generated_ids = []
+            # Decode periodically to check for stop sequences
+            decode_interval = 16
+            while not generator.is_done():
+                generator.generate_next_token()
+                token_id = generator.get_next_tokens()[0]
+                generated_ids.append(token_id)
+                if token_id in eos_ids:
+                    break
+                # Check stop sequences periodically by decoding
+                if until and len(generated_ids) % decode_interval == 0:
+                    partial_text = self.tokenizer.decode(generated_ids)
+                    if any(stop_seq in partial_text for stop_seq in until):
+                        break
+
+            generated_text = self.tokenizer.decode(generated_ids)
+
+            # Truncate at the first stop sequence
+            for stop_seq in until:
+                idx = generated_text.find(stop_seq)
+                if idx != -1:
+                    generated_text = generated_text[:idx]
+
+            results.append(generated_text)
+        return results
