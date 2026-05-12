@@ -52,7 +52,8 @@ def _apply_test_model_config(
     if isinstance(layer_types, (list, tuple)):
         model_config.layer_types = layer_types[:hidden_layers]
 
-    if "dtype" in model_config and model_config.dtype == "auto":
+    dtype = getattr(model_config, "dtype", None)
+    if dtype == "auto":
         # This is not allowed anymore with transformers >=4.57,
         # we select float16 instead.
         model_config.dtype = "float16"
