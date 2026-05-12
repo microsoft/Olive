@@ -517,7 +517,7 @@ class TestLMEvalORTGenAIChatTemplate:
         # pylint: disable=protected-access
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
 
-        instance = LMEvalORTGenAIEvaluator.__new__(LMEvalORTGenAIEvaluator)
+        instance = object.__new__(LMEvalORTGenAIEvaluator)
         instance._pretrained = pretrained
         instance._hf_tokenizer = None
         return instance
