@@ -498,9 +498,6 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 self.config.set_provider_option(ep, key, value)
         self.model = og.Model(self.config)
         self.tokenizer = og.Tokenizer(self.model)
-        # HF tokenizer is loaded lazily by `apply_chat_template` on first use,
-        # so callers that don't enable chat templating do not need HF tokenizer
-        # files (tokenizer_config.json, etc.) in the model directory.
         self._pretrained = str(pretrained)
         self._hf_tokenizer: AutoTokenizer | None = None
 
@@ -528,23 +525,9 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
 
     @property
     def tokenizer_name(self) -> str:
-        r"""Stable identifier used by lm-eval's chat-template-aware result cache.
-
-        Replace both POSIX and Windows path separators so the cache key does
-        not embed raw path separators (a Windows path like ``C:\models\foo``
-        and the POSIX form ``C:/models/foo`` produce the same identifier).
-        """
         return self._pretrained.replace("\\", "__").replace("/", "__")
 
     def apply_chat_template(self, chat_history: list[dict], add_generation_prompt: bool = True) -> str:
-        """Render a chat history through the model's HuggingFace chat template.
-
-        Required by lm-eval when ``apply_chat_template=True`` is passed to
-        ``simple_evaluate``; without it, lm-eval raises ``NotImplementedError``
-        at task setup. The HF tokenizer is loaded on first call so callers that
-        never enable chat templating are not required to ship HF tokenizer
-        files alongside the ONNX model.
-        """
         if self._hf_tokenizer is None:
             self._hf_tokenizer = AutoTokenizer.from_pretrained(self._pretrained)
         return self._hf_tokenizer.apply_chat_template(

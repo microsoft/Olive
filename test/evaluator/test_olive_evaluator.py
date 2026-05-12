@@ -513,13 +513,6 @@ class TestLMEvaluatorModelClass:
 
 
 class TestLMEvalORTGenAIChatTemplate:
-    """Cover the chat-template hooks added to LMEvalORTGenAIEvaluator.
-
-    The hooks must work without instantiating the full evaluator (which requires
-    an ONNX model + onnxruntime-genai), so the tests skip ``__init__`` and
-    exercise the methods directly on a bare instance.
-    """
-
     def _bare_instance(self, pretrained: str):
         # pylint: disable=protected-access
         from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
@@ -534,8 +527,6 @@ class TestLMEvalORTGenAIChatTemplate:
         [
             ("/models/lfm2-350m", "__models__lfm2-350m"),
             ("relative/path/model", "relative__path__model"),
-            # Windows-style separators must normalize identically to their POSIX form
-            # so the cache key is stable across platforms.
             ("C:\\models\\lfm2-350m", "C:__models__lfm2-350m"),
         ],
     )
@@ -551,11 +542,10 @@ class TestLMEvalORTGenAIChatTemplate:
 
         instance = self._bare_instance("/models/lfm2")
 
-        auto_tokenizer_mock.from_pretrained.assert_not_called()  # not loaded at construction
+        auto_tokenizer_mock.from_pretrained.assert_not_called()
         assert instance.apply_chat_template(chat_history) == "rendered prompt"
         auto_tokenizer_mock.from_pretrained.assert_called_once_with("/models/lfm2")
 
-        # Subsequent calls reuse the cached tokenizer rather than reloading it.
         instance.apply_chat_template(chat_history, add_generation_prompt=False)
         auto_tokenizer_mock.from_pretrained.assert_called_once()
         mock_tokenizer.apply_chat_template.assert_called_with(
