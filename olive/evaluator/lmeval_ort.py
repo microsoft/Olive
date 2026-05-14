@@ -293,6 +293,28 @@ class Prefill:
         if self.kv_info is None:
             raise ValueError("Invalid io_config: kv_info not found")
 
+        # detect position_ids rank (e.g. 3 for mRoPE models like Qwen3.5)
+        self.position_ids_rank = 2
+        if "position_ids" in self.io_config["input_names"]:
+            idx = self.io_config["input_names"].index("position_ids")
+            self.position_ids_rank = len(self.io_config["input_shapes"][idx])
+
+        # detect hybrid state inputs (conv_state, recurrent_state for linear attention layers)
+        self.hybrid_states = {}
+        for idx, name in enumerate(self.io_config["input_names"]):
+            if "conv_state" in name or "recurrent_state" in name:
+                shape = self.io_config["input_shapes"][idx]
+                dtype = self.io_config["input_types"][idx]
+                self.hybrid_states[name] = {"shape": shape, "dtype": dtype}
+
+        # detect hybrid state outputs
+        self.hybrid_state_outputs = {}
+        for idx, name in enumerate(self.io_config["output_names"]):
+            if "conv_state" in name or "recurrent_state" in name:
+                shape = self.io_config["output_shapes"][idx]
+                dtype = self.io_config["output_types"][idx]
+                self.hybrid_state_outputs[name] = {"shape": shape, "dtype": dtype}
+
         self._session = None
         self._batch_size = None
         self._buffers = None
@@ -331,17 +353,29 @@ class Prefill:
             inputs_to_bind[name] = (self._buffers["inputs"][name], self.io_dtypes[name], shape)
         if "position_ids" in self._buffers["inputs"]:
             # need to reallocate since the position_ids tensor may be sliced
-            inputs_to_bind["position_ids"] = (
-                self._buffers["inputs"]["position_ids"][:batch_size, :seqlen].contiguous(),
-                self.io_dtypes["position_ids"],
-                (batch_size, seqlen),
-            )
+            if self.position_ids_rank == 3:
+                inputs_to_bind["position_ids"] = (
+                    self._buffers["inputs"]["position_ids"][:, :batch_size, :seqlen].contiguous(),
+                    self.io_dtypes["position_ids"],
+                    (self._buffers["inputs"]["position_ids"].shape[0], batch_size, seqlen),
+                )
+            else:
+                inputs_to_bind["position_ids"] = (
+                    self._buffers["inputs"]["position_ids"][:batch_size, :seqlen].contiguous(),
+                    self.io_dtypes["position_ids"],
+                    (batch_size, seqlen),
+                )
         for name in self._buffers["kv_inputs"]:
             inputs_to_bind[name] = (
                 self._buffers["kv_inputs"][name],
                 self.kv_info["dtype"],
                 (batch_size, self.kv_info["num_kv_heads"], 0, self.kv_info["head_size"]),
             )
+        # hybrid state inputs (conv_state, recurrent_state)
+        for name, buf in self._buffers["hybrid_inputs"].items():
+            shape = list(buf.shape)
+            shape[0] = batch_size
+            inputs_to_bind[name] = (buf, self.hybrid_states[name]["dtype"], tuple(shape))
         for name, (buffer, dtype, shape) in inputs_to_bind.items():
             io_binding.bind_input(
                 name,
@@ -363,6 +397,11 @@ class Prefill:
                 self.kv_info["dtype"],
                 (batch_size, self.kv_info["num_kv_heads"], seqlen, self.kv_info["head_size"]),
             )
+        # hybrid state outputs (conv_state, recurrent_state)
+        for name, buf in self._buffers["hybrid_outputs"].items():
+            shape = list(buf.shape)
+            shape[0] = batch_size
+            outputs_to_bind[name] = (buf, self.hybrid_state_outputs[name]["dtype"], tuple(shape))
         for name, (buffer, dtype, shape) in outputs_to_bind.items():
             io_binding.bind_output(
                 name,
@@ -418,11 +457,18 @@ class Prefill:
             )
         }
         if self.io_dtypes.get("position_ids") is not None:
-            inputs["position_ids"] = (
+            pos_ids = (
                 torch.arange(max_length, dtype=getattr(torch, self.io_dtypes["position_ids"]), device=self.device)
                 .unsqueeze(0)
                 .expand(batch_size, -1)
             )
+            if self.position_ids_rank == 3:
+                # mRoPE: expand to [mrope_sections, batch_size, seq_len]
+                mrope_sections = self.io_config["input_shapes"][
+                    self.io_config["input_names"].index("position_ids")
+                ][0]
+                pos_ids = pos_ids.unsqueeze(0).expand(mrope_sections, -1, -1)
+            inputs["position_ids"] = pos_ids
         if self.io_dtypes.get("past_seq_len") is not None:
             inputs["past_seq_len"] = (
                 torch.tensor(max_length - 1, dtype=getattr(torch, self.io_dtypes["past_seq_len"]), device=self.device)
@@ -457,6 +503,24 @@ class Prefill:
         }
 
         self._buffers = {"inputs": inputs, "outputs": outputs, "kv_inputs": kv_inputs, "kv_outputs": kv_outputs}
+
+        # hybrid state buffers (conv_state, recurrent_state) - zero-initialized
+        hybrid_inputs = {}
+        for name, info in self.hybrid_states.items():
+            # Replace symbolic 'batch_size' with actual batch_size
+            shape = [batch_size if s == "batch_size" else s for s in info["shape"]]
+            hybrid_inputs[name] = torch.zeros(
+                shape, dtype=getattr(torch, info["dtype"]), device=self.device
+            )
+        hybrid_outputs = {}
+        for name, info in self.hybrid_state_outputs.items():
+            shape = [batch_size if s == "batch_size" else s for s in info["shape"]]
+            hybrid_outputs[name] = torch.zeros(
+                shape, dtype=getattr(torch, info["dtype"]), device=self.device
+            )
+        self._buffers["hybrid_inputs"] = hybrid_inputs
+        self._buffers["hybrid_outputs"] = hybrid_outputs
+
         self._batch_size = batch_size
 
 

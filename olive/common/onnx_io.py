@@ -89,19 +89,24 @@ def get_kv_info(io_config: dict) -> dict | None:
     if kv_format is None:
         return None
 
-    # find the number of layers
-    num_layers = 0
+    # find the actual layer indices (may be non-contiguous after pruning)
+    layer_indices = []
     for i_name in io_config["input_names"]:
-        num_layers += int(re.match(kv_format, i_name) is not None)
+        m = re.match(kv_format, i_name)
+        if m:
+            idx = int(m.group(1))
+            if idx not in layer_indices:
+                layer_indices.append(idx)
+    layer_indices.sort()
 
     past_names = []
     present_to_past = {}
     for k in ["key", "value"]:
-        past_names.extend([kv_options[kv_format][f"past_{k}"] % i for i in range(num_layers)])
+        past_names.extend([kv_options[kv_format][f"past_{k}"] % i for i in layer_indices])
         present_to_past.update(
             {
                 kv_options[kv_format][f"present_{k}"] % i: kv_options[kv_format][f"past_{k}"] % i
-                for i in range(num_layers)
+                for i in layer_indices
             }
         )
 

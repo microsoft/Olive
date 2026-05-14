@@ -1115,10 +1115,16 @@ class LMEvaluator(OliveEvaluator):
 
                 task_metrics = {}
                 for mf, v in metric_items:
-                    if mf != "alias":
+                    if mf == "alias":
+                        continue
+                    if not isinstance(v, (int, float)):
+                        continue
+                    if "," in mf:
                         m, _ = mf.split(",", 1)
-                        if not m.endswith("_stderr"):
-                            task_metrics[m] = SubMetricResult(value=v, priority=-1, higher_is_better=True)
+                    else:
+                        m = mf
+                    if not m.endswith("_stderr"):
+                        task_metrics[m] = SubMetricResult(value=v, priority=-1, higher_is_better=True)
 
                 metrics[task_name] = MetricResult.model_validate(task_metrics)
 

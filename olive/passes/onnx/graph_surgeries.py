@@ -1953,7 +1953,7 @@ class TieWordEmbeddings(ProtoSurgeon):
         ]:
             return dag.model
 
-        if embed_op_type == "Gather":
+        if embed_op_type == "Gather" and lm_head_op_type == "MatMul":
             return self.handle_unquantized(dag, embed_name, lm_head_name)
         return self.handle_quantized(dag, embed_name, lm_head_name)
 
@@ -2150,6 +2150,236 @@ class TieWordEmbeddings(ProtoSurgeon):
         if transpose:
             arr0 = arr0.T
         return np.array_equal(arr0.ravel(), arr1.ravel())
+
+
+def _find_embed_node(model, op_type, label):
+    """Find the embed_tokens node of the given op_type and its index."""
+    for i, node in enumerate(model.graph.node):
+        if node.op_type == op_type and "embed_tokens" in node.name:
+            return node, i
+    logger.warning("No embed_tokens %s node found, skipping %s", op_type, label)
+    return None, None
+
+
+def _find_lm_head_node(model):
+    """Find the lm_head MatMulNBits node and its index."""
+    for i, node in enumerate(model.graph.node):
+        if node.op_type == "MatMulNBits" and "lm_head" in node.name:
+            return node, i
+    logger.warning("No lm_head MatMulNBits found")
+    return None, None
+
+
+def _find_initializer(model, name):
+    """Find an initializer by name."""
+    for init in model.graph.initializer:
+        if init.name == name:
+            return init
+    return None
+
+
+def _get_node_attrs(node, *attr_names):
+    """Extract integer attributes from a node by name."""
+    result = {}
+    for attr in node.attribute:
+        if attr.name in attr_names:
+            result[attr.name] = attr.i
+    return result
+
+
+class QuantizeEmbeddingInt8(ProtoSurgeon):
+    """Quantize FP16 embedding to INT8 using GatherBlockQuantized.
+
+    Replaces the Gather op for embed_tokens with a GatherBlockQuantized op
+    that uses per-block INT8 quantization (block_size=32).
+    """
+
+    def __call__(self, model: onnx.ModelProto):
+        import numpy as np
+        from onnx import numpy_helper, helper
+
+        # Find embedding Gather node and weight
+        gather_node, gather_idx = _find_embed_node(model, "Gather", "QuantizeEmbeddingInt8")
+        if gather_node is None:
+            return model
+
+        embed_init = _find_initializer(model, gather_node.input[0])
+
+        if embed_init is None:
+            logger.warning("Embedding weight initializer not found, skipping QuantizeEmbeddingInt8")
+            return model
+
+        # Check if already quantized
+        if embed_init.data_type not in (onnx.TensorProto.FLOAT16, onnx.TensorProto.FLOAT):
+            logger.info("Embedding is not FP16/FP32, skipping QuantizeEmbeddingInt8")
+            return model
+
+        embed = numpy_helper.to_array(embed_init).astype(np.float32)
+        vocab_size, hidden_size = embed.shape
+        block_size = 32
+
+        if hidden_size % block_size != 0:
+            logger.warning("hidden_size %d not divisible by block_size %d, skipping", hidden_size, block_size)
+            return model
+
+        num_blocks = hidden_size // block_size
+
+        logger.info(
+            "Quantizing embedding %s (%dx%d) from FP16 to INT8 (block_size=%d)",
+            embed_init.name, vocab_size, hidden_size, block_size,
+        )
+
+        # Per-block INT8 quantization (asymmetric with zero_point=128 for GatherBlockQuantized)
+        blocked = embed.reshape(vocab_size, num_blocks, block_size)
+        scales = (np.abs(blocked).max(axis=2) / 127.0).astype(np.float16)
+        scales_f32 = scales.astype(np.float32)
+        # Avoid division by zero
+        scales_f32 = np.where(scales_f32 == 0, 1.0, scales_f32)
+        q = np.clip(np.round(blocked / scales_f32[:, :, None]), -128, 127).astype(np.int8)
+        # GatherBlockQuantized expects unsigned uint8 with zero_point offset
+        q_uint8 = (q.astype(np.int16) + 128).astype(np.uint8)
+        q_flat = q_uint8.reshape(vocab_size, hidden_size)
+        # Zero point tensor: 128 for all blocks (symmetric around 128)
+        zero_points = np.full((vocab_size, num_blocks), 128, dtype=np.uint8)
+
+        old_size_mb = embed.nbytes / (1024 * 1024)
+        new_size_mb = (q_flat.nbytes + scales.nbytes + zero_points.nbytes) / (1024 * 1024)
+        logger.info("Embedding: %.0f MB -> %.0f MB (saved %.0f MB)", old_size_mb, new_size_mb, old_size_mb - new_size_mb)
+
+        # Create new initializers
+        qweight_name = embed_init.name + "_Q8"
+        scales_name = embed_init.name + "_scales"
+        zp_name = embed_init.name + "_zp"
+        model.graph.initializer.append(numpy_helper.from_array(q_flat, name=qweight_name))
+        model.graph.initializer.append(numpy_helper.from_array(scales, name=scales_name))
+        model.graph.initializer.append(numpy_helper.from_array(zero_points, name=zp_name))
+
+        # Create GatherBlockQuantized node
+        gbq_node = helper.make_node(
+            "GatherBlockQuantized",
+            inputs=[qweight_name, gather_node.input[1], scales_name, zp_name],
+            outputs=gather_node.output,
+            name=gather_node.name.replace("Gather", "GatherBlockQuantized"),
+            domain="com.microsoft",
+            bits=8,
+            block_size=block_size,
+            gather_axis=0,
+            quantize_axis=1,
+        )
+
+        # Replace Gather with GatherBlockQuantized
+        model.graph.node.remove(gather_node)
+        model.graph.node.insert(gather_idx, gbq_node)
+
+        # Remove old FP16 embedding weight
+        model.graph.initializer.remove(embed_init)
+
+        logger.info("Replaced Gather with GatherBlockQuantized (INT8)")
+        return model
+
+
+class ShareEmbeddingLmHead(ProtoSurgeon):
+    """Share INT8 embedding weight with lm_head by converting lm_head to INT8 MatMulNBits.
+
+    Must be applied AFTER QuantizeEmbeddingInt8. Replaces the lm_head's INT4
+    MatMulNBits with an INT8 MatMulNBits that references the same quantized
+    weight as the embedding's GatherBlockQuantized, eliminating duplicate storage.
+    """
+
+    def __call__(self, model: onnx.ModelProto):
+        import numpy as np
+        from onnx import numpy_helper, helper
+
+        # Find embedding GatherBlockQuantized
+        gbq_node, _ = _find_embed_node(model, "GatherBlockQuantized", "ShareEmbeddingLmHead")
+        if gbq_node is None:
+            return model
+
+        attrs = _get_node_attrs(gbq_node, "bits", "block_size")
+        gbq_bits = attrs.get("bits", 8)
+        gbq_block_size = attrs.get("block_size", 32)
+
+        if gbq_bits != 8:
+            logger.warning("Embedding is not INT8, cannot share with lm_head")
+            return model
+
+        # Get embedding weight, scales, zero_points names
+        embed_weight_name = gbq_node.input[0]
+        embed_scales_name = gbq_node.input[2]
+        embed_zp_name = gbq_node.input[3] if len(gbq_node.input) > 3 else None
+
+        # Get embedding weight shape to determine K and N
+        embed_weight_init = _find_initializer(model, embed_weight_name)
+        if embed_weight_init is None:
+            logger.warning("Could not find embedding weight initializer")
+            return model
+
+        embed_weight = numpy_helper.to_array(embed_weight_init)
+
+        vocab_size, hidden_size = embed_weight.shape  # [V, H] for INT8
+        num_blocks = hidden_size // gbq_block_size
+
+        # Find lm_head MatMulNBits node
+        lm_head_node, lm_head_idx = _find_lm_head_node(model)
+        if lm_head_node is None:
+            return model
+
+        # Get old lm_head attributes
+        old_attrs = _get_node_attrs(lm_head_node, "K", "N", "bits", "block_size")
+
+        logger.info(
+            "Sharing embedding with lm_head: lm_head INT%d (%dx%d, bs=%d) -> INT8 (shared with embedding)",
+            old_attrs.get("bits", 0), old_attrs.get("N", 0), old_attrs.get("K", 0), old_attrs.get("block_size", 0),
+        )
+
+        # Remove old lm_head weight initializers
+        old_init_names = set(lm_head_node.input[1:])  # weight, scales, [zp], [g_idx]
+        to_remove = [init for init in model.graph.initializer if init.name in old_init_names]
+        for init in to_remove:
+            model.graph.initializer.remove(init)
+
+        # MatMulNBits needs [N, K_blocks, block_size] but GBQ weight is [V, H].
+        # Add a Reshape node to convert, referencing the SAME embedding weight.
+        reshape_shape_name = "lm_head.MatMulNBits.reshape_shape"
+        reshape_shape = np.array([vocab_size, num_blocks, gbq_block_size], dtype=np.int64)
+        model.graph.initializer.append(numpy_helper.from_array(reshape_shape, name=reshape_shape_name))
+
+        reshape_output = "lm_head.MatMulNBits.reshaped_weight"
+        reshape_node = helper.make_node(
+            "Reshape",
+            inputs=[embed_weight_name, reshape_shape_name],
+            outputs=[reshape_output],
+            name="lm_head/Reshape_shared_weight",
+        )
+        model.graph.node.insert(lm_head_idx, reshape_node)
+
+        # Scales and zp: reuse embedding's directly
+        inputs = [lm_head_node.input[0], reshape_output, embed_scales_name]
+        if embed_zp_name:
+            inputs.append(embed_zp_name)
+
+        # Create new INT8 MatMulNBits node
+        new_lm_head = helper.make_node(
+            "MatMulNBits",
+            inputs=inputs,
+            outputs=lm_head_node.output,
+            name=lm_head_node.name,
+            domain="com.microsoft",
+            bits=8,
+            block_size=gbq_block_size,
+            K=hidden_size,
+            N=vocab_size,
+        )
+        # Copy accuracy_level if present
+        for attr in lm_head_node.attribute:
+            if attr.name == "accuracy_level":
+                new_lm_head.attribute.append(attr)
+
+        model.graph.node.remove(lm_head_node)
+        model.graph.node.insert(lm_head_idx + 1, new_lm_head)
+
+        logger.info("lm_head now uses INT8 MatMulNBits (shared quantization with embedding)")
+        return model
 
 
 class ReciprocalMulToDiv(ProtoSurgeon):
