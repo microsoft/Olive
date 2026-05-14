@@ -150,6 +150,7 @@ ignore = [
   "NPY002", # np.random.Generator may not always fit our use cases
   "PERF203", # "try-except-in-loop" only affects Python <3.11, and the improvement is minor; can have false positives
   "PGH004", # used to make ruff ignore the file
+  "PLC0415", # Import location
   "PLW0603", # TODO: temp disable global variable check
   "PT019", # Ignore pytest fixture name
   "PTH100", # We still support os.path.abspath
@@ -172,6 +173,7 @@ ignore = [
   "TRY002", # Ignore create custom exception
   "TRY003", # Ignore check message not defined in the exception class
   "TRY004", # Ignore prefer TypeError over ValueError
+  "PYI034", # Self type requires Python 3.11+; our target is py39
   "TRY300" # Ignore check if return in try block
 ]
 

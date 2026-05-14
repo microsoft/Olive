@@ -77,7 +77,7 @@ def test_copy_dir_raise_from_shutil_error(_, create_dir, tmp_path):
     dest_path = tmp_path / "dest_dir"
 
     # test
-    with pytest.raises(RuntimeError, match="Failed to copy *"):
+    with pytest.raises(RuntimeError, match=r"Failed to copy"):
         copy_dir(src_path, dest_path)
 
 

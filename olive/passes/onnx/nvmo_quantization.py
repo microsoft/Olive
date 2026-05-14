@@ -6,7 +6,7 @@ import logging
 import os
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Optional, Union
+from typing import Any, Union
 
 import onnxruntime as ort
 import torch

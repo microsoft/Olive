@@ -89,7 +89,6 @@ class ModelPackageCommand(BaseOliveCLICommand):
             self._package_single(targets, output_dir, model_name, model_version)
 
         logger.info("Model package generated at %s", output_dir)
-        # ruff: noqa: T201
         print(f"Model package generated at {output_dir}")
 
     # ------------------------------------------------------------------

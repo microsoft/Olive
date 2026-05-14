@@ -9,8 +9,6 @@ from olive.search.samplers.random_sampler import RandomSampler
 from olive.search.search_parameter import Categorical
 from olive.search.search_space import SearchSpace
 
-# ruff: noqa: PD011
-
 
 class TestRandomSampler:
     @patch("olive.search.search_space.SearchSpace.__getitem__")

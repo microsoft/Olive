@@ -84,7 +84,16 @@ class MTEBOnnxBase(ABC):
             embeddings = self._encode_batch(encoded)
             all_embeddings.append(embeddings)
 
-        return np.concatenate(all_embeddings, axis=0)
+        result = np.concatenate(all_embeddings, axis=0)
+        # L2 normalize (matches SentenceTransformer Normalize module)
+        # Compute norms in float32 for numerical stability when ORT returns
+        # low-precision outputs such as float16/bfloat16, then cast back.
+        result_dtype = result.dtype
+        result_fp32 = result.astype(np.float32, copy=False)
+        norms = np.linalg.norm(result_fp32, axis=1, keepdims=True)
+        norms = np.clip(norms, a_min=1e-9, a_max=None)
+        normalized = result_fp32 / norms
+        return normalized.astype(result_dtype, copy=False)
 
     @staticmethod
     def similarity(embeddings1, embeddings2):
@@ -181,16 +190,18 @@ class MTEBORTEvaluator(MTEBOnnxBase):
             # Fall back to the first output (last_hidden_state)
             hidden_states = outputs[0]
 
-        # Mean pooling over the sequence dimension, masked by attention_mask
-        return self._mean_pool(hidden_states, attention_mask)
+        # Last-token pooling (matches Qwen3-Embedding pooling_mode_lasttoken=True)
+        return self._last_token_pool(hidden_states, attention_mask)
 
     @staticmethod
-    def _mean_pool(hidden_states: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
-        """Mean pooling: average token embeddings weighted by attention mask."""
-        mask_expanded = np.expand_dims(attention_mask, axis=-1).astype(hidden_states.dtype)
-        sum_embeddings = np.sum(hidden_states * mask_expanded, axis=1)
-        sum_mask = np.clip(mask_expanded.sum(axis=1), a_min=1e-9, a_max=None)
-        return sum_embeddings / sum_mask
+    def _last_token_pool(hidden_states: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
+        """Last-token pooling: take the hidden state at the last non-padding token position."""
+        token_counts = attention_mask.sum(axis=1).astype(int)
+        if np.any(token_counts <= 0):
+            raise ValueError("attention_mask contains a zero-length sequence; cannot perform last-token pooling.")
+        sequence_lengths = token_counts - 1
+        batch_size = hidden_states.shape[0]
+        return hidden_states[np.arange(batch_size), sequence_lengths]
 
 
 # ------------------------------------------------------------------
@@ -230,34 +241,47 @@ class MTEBORTGenAIEvaluator(MTEBOnnxBase):
     def _encode_batch(self, encoded_input: dict) -> np.ndarray:
         input_ids = encoded_input["input_ids"].astype(np.int64)
         attention_mask = encoded_input["attention_mask"].astype(np.int64)
+        batch_size = input_ids.shape[0]
 
-        # Use the GeneratorParams / Generator API to get hidden states
-        batch_size, seq_len = input_ids.shape
-        params = og.GeneratorParams(self.model)
-        params.set_search_options(max_length=seq_len + 1, past_present_share_buffer=False, batch_size=batch_size)
+        # GenAI Generator does not accept attention_mask, so padding tokens
+        # contaminate hidden states via self-attention. To avoid this, group
+        # sequences by real length and process each group as a single batch
+        # (no padding needed within a group of equal-length sequences).
+        real_lengths = attention_mask.sum(axis=1).astype(int)
 
-        generator = og.Generator(self.model, params)
-        generator.append_tokens(input_ids.tolist())
+        # Group sample indices by their real (non-padding) token count
+        length_to_indices: dict[int, list[int]] = {}
+        for i in range(batch_size):
+            length_to_indices.setdefault(int(real_lengths[i]), []).append(i)
 
-        # Try to get hidden_states output (enabled via include_hidden_states=1)
-        try:
-            hidden_states = generator.get_output("hidden_states")
+        all_embeddings = [None] * batch_size
+        for real_len, indices in length_to_indices.items():
+            # Stack all sequences of the same length into a single batch
+            ids_batch = np.stack([input_ids[i, :real_len] for i in indices], axis=0)
+            group_batch_size = len(indices)
+
+            params = og.GeneratorParams(self.model)
+            params.set_search_options(
+                max_length=real_len + 1, past_present_share_buffer=False, batch_size=group_batch_size
+            )
+
+            generator = og.Generator(self.model, params)
+            generator.append_tokens(ids_batch.tolist())
+
+            try:
+                hidden_states = generator.get_output("hidden_states")
+            except Exception as e:
+                raise RuntimeError(
+                    "Failed to retrieve hidden_states from the ORT-GenAI model. "
+                    "Ensure the model was built with include_hidden_states=1."
+                ) from e
             hidden_states = np.array(hidden_states, copy=False)
             if hidden_states.ndim == 2:
-                # Shape might be [batch*seq, dim] — reshape
                 embed_dim = hidden_states.shape[-1]
-                hidden_states = hidden_states.reshape(batch_size, seq_len, embed_dim)
-            return self._mean_pool(hidden_states, attention_mask)
-        except Exception as e:
-            raise RuntimeError(
-                "hidden_states output not available from GenAI model. "
-                "Ensure the model was built with include_hidden_states=1 in ModelBuilder."
-            ) from e
+                hidden_states = hidden_states.reshape(group_batch_size, real_len, embed_dim)
 
-    @staticmethod
-    def _mean_pool(hidden_states: np.ndarray, attention_mask: np.ndarray) -> np.ndarray:
-        """Mean pooling: average token embeddings weighted by attention mask."""
-        mask_expanded = np.expand_dims(attention_mask, axis=-1).astype(hidden_states.dtype)
-        sum_embeddings = np.sum(hidden_states * mask_expanded, axis=1)
-        sum_mask = np.clip(mask_expanded.sum(axis=1), a_min=1e-9, a_max=None)
-        return sum_embeddings / sum_mask
+            # Last-token pooling: take the final token for each sequence
+            for j, idx in enumerate(indices):
+                all_embeddings[idx] = hidden_states[j, -1, :]
+
+        return np.stack(all_embeddings, axis=0)

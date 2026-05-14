@@ -20,7 +20,7 @@ from packaging import version
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
-from olive.model import HfModelHandler, ONNXModelHandler
+from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.model.utils import resolve_onnx_path
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
@@ -264,8 +264,9 @@ class ModelBuilder(Pass):
         if config.extra_options:
             extra_args.update(config.extra_options)
 
-        # Ensure output_model_filepath matches the final filename in extra_args
-        output_model_filepath = Path(output_model_path) / extra_args["filename"]
+        # Ensure output_model_filepath matches the final filename in extra_args while preserving
+        # the resolved output directory selected above.
+        output_model_filepath = output_model_filepath.parent / extra_args["filename"]
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
 
@@ -283,26 +284,6 @@ class ModelBuilder(Pass):
                 **extra_args,
             )
 
-            # Apply post-processing annotations (split assignments and/or layer annotations)
-            # in a single load/save cycle to avoid redundant disk I/O.
-            split_assignments = model_attributes.get("split_assignments") if not metadata_only else None
-            layer_annotations = model_attributes.get("layer_annotations") if not metadata_only else None
-
-            if split_assignments or layer_annotations:
-                model_proto = onnx.load(output_model_filepath, load_external_data=False)
-
-                if split_assignments:
-                    # NOTE: currently the model builder renames modules to it's own naming convention
-                    # so the assignments for the renamed modules won't match
-                    split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
-                    onnx.helper.set_model_props(model_proto, {"split_assignments": split_assignment_str})
-
-                if layer_annotations:
-                    from olive.passes.onnx.layer_annotation import annotate_proto_model
-
-                    annotate_proto_model(model_proto, layer_annotations)
-
-                onnx.save(model_proto, output_model_filepath)
         except Exception:
             # if model building fails, clean up the intermediate files in the cache_dir
             cache_dir = Path(HF_HUB_CACHE)
@@ -328,6 +309,58 @@ class ModelBuilder(Pass):
             # tokenizer and generation configs are skipped since they are already saved by the model builder
             model.save_metadata(output_model_filepath.parent)
 
+        generated_onnx_files = sorted(output_model_filepath.parent.glob("*.onnx")) if not metadata_only else []
+
+        # For multi-file models (e.g., Whisper), preserve component file names and process each file independently
+        # in subsequent passes by returning a CompositeModelHandler.
+        is_multi_file_model = not metadata_only and len(generated_onnx_files) > 1
+        resolved_single_model_filepath = output_model_filepath
+        if (
+            not metadata_only
+            and not is_multi_file_model
+            and not output_model_filepath.exists()
+            and len(generated_onnx_files) == 1
+        ):
+            logger.info(
+                "ONNX model file %s does not exist, using %s instead",
+                output_model_filepath,
+                generated_onnx_files[0].name,
+            )
+            resolved_single_model_filepath = generated_onnx_files[0]
+
+        # Apply post-processing annotations (split assignments and/or layer annotations)
+        # in a single load/save cycle to avoid redundant disk I/O.
+        split_assignments = model_attributes.get("split_assignments") if not metadata_only else None
+        layer_annotations = model_attributes.get("layer_annotations") if not metadata_only else None
+        if is_multi_file_model:
+            primary_onnx_files = generated_onnx_files
+        elif resolved_single_model_filepath.exists():
+            primary_onnx_files = [resolved_single_model_filepath]
+        else:
+            primary_onnx_files = []
+        if split_assignments or layer_annotations:
+            if primary_onnx_files:
+                for primary_onnx_file in primary_onnx_files:
+                    model_proto = onnx.load(primary_onnx_file, load_external_data=False)
+
+                    if split_assignments:
+                        # NOTE: currently the model builder renames modules to it's own naming convention
+                        # so the assignments for the renamed modules won't match
+                        split_assignment_str = ";".join([f"{k}={v}" for k, v in split_assignments.items()])
+                        onnx.helper.set_model_props(model_proto, {"split_assignments": split_assignment_str})
+
+                    if layer_annotations:
+                        from olive.passes.onnx.layer_annotation import annotate_proto_model
+
+                        annotate_proto_model(model_proto, layer_annotations)
+
+                    onnx.save(model_proto, primary_onnx_file)
+            else:
+                logger.warning(
+                    "Skipping split_assignments/layer_annotations because no ONNX file was generated in %s.",
+                    output_model_filepath.parent,
+                )
+
         # add additional files generated by model builder to model_attributes
         additional_files = model_attributes.get("additional_files") or []
         if metadata_only:
@@ -338,20 +371,36 @@ class ModelBuilder(Pass):
                 str(output_model_filepath.parent / "genai_config.json"),
             ]
         else:
+            primary_model_paths = {str(fp) for fp in primary_onnx_files}
             model_attributes["additional_files"] = sorted(
                 set(additional_files)
                 # all files in the output directory except the model and model.data files
                 | {str(fp) for fp in output_model_filepath.parent.iterdir()}
-                - {str(output_model_filepath), str(output_model_filepath) + ".data"}
+                - primary_model_paths
+                - {f"{path}.data" for path in primary_model_paths}
             )
 
         if metadata_only:
             output_model = copy.copy(model)
             output_model.model_attributes = model_attributes
+        elif is_multi_file_model:
+            # Use the ONNX filenames as component names so child passes write back to encoder.onnx/decoder.onnx
+            # instead of defaulting to model.onnx.
+            component_names = [fp.name for fp in generated_onnx_files]
+            components = [
+                ONNXModelHandler(output_model_filepath.parent, onnx_file_name=component_name)
+                for component_name in component_names
+            ]
+            output_model = CompositeModelHandler(
+                components,
+                component_names,
+                model_path=output_model_filepath.parent,
+                model_attributes=model_attributes,
+            )
         else:
             output_model = ONNXModelHandler(
                 output_model_filepath.parent,
-                onnx_file_name=output_model_filepath.name,
+                onnx_file_name=resolved_single_model_filepath.name,
                 model_attributes=model_attributes,
             )
 
@@ -403,6 +452,7 @@ class OliveQuantizedModel:
         module_map = {
             "model.embed_tokens": self.embedding,
             "model.norm": self.final_norm,
+            "model.embedding_norm": self.final_norm,  # LFM2 uses embedding_norm instead of norm
             "lm_head": self.lm_head,
             **{f"model.layers.{i}": layer for i, layer in enumerate(self.layers)},
         }
@@ -422,8 +472,13 @@ class OliveQuantizedModel:
             for sub_name in tensor_name.split(".")[:-1]:
                 if sub_name.isdigit():
                     submodule = submodule[int(sub_name)]
-                else:
+                elif hasattr(submodule, sub_name):
                     submodule = getattr(submodule, sub_name)
+                else:
+                    # Create missing submodule for hybrid architectures (e.g., LFM2 conv layers)
+                    child = QuantizedTensorModule()
+                    setattr(submodule, sub_name, child)
+                    submodule = child
             if isinstance(submodule, QuantizedTensorModule):
                 for q_attr, q_value in [("bits", local_bits), ("_group_size", local_group_size)]:
                     setattr(submodule, q_attr, q_value)

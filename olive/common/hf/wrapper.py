@@ -89,11 +89,18 @@ class UnpackedQKV(nn.Module):
 class LayerWrapper:
     """Wrapper for transformer layer block."""
 
-    FIRST_LAYER_NORM = {"default": "input_layernorm", "gpt2": "ln_1", "opt": "self_attn_layer_norm", "qwen": "ln_1"}
+    FIRST_LAYER_NORM = {
+        "default": "input_layernorm",
+        "gpt2": "ln_1",
+        "lfm2": "operator_norm",
+        "opt": "self_attn_layer_norm",
+        "qwen": "ln_1",
+    }
     SECOND_LAYER_NORM = {
         "default": "post_attention_layernorm",
         "gemma2": "pre_feedforward_layernorm",
         "gpt2": "ln_2",
+        "lfm2": "ffn_norm",
         "opt": "final_layer_norm",
         "qwen": "ln_2",
     }
@@ -109,14 +116,16 @@ class LayerWrapper:
         "default": ["o_proj"],
         "bloom": ["dense"],
         "gpt2": ["c_proj"],
+        "lfm2": ["out_proj"],
         "opt": ["out_proj"],
         "qwen": ["c_proj"],
     }
-    MLP = {"default": "mlp", "opt": ""}
+    MLP = {"default": "mlp", "lfm2": "feed_forward", "opt": ""}
     MLP_INPUTS = {
         "default": ["gate_proj", "up_proj"],
         "bloom": ["dense_h_to_4h"],
         "gpt2": ["c_fc"],
+        "lfm2": ["w1", "w3"],
         "opt": ["fc1"],
         "phi3": ["gate_up_proj"],
         "qwen": ["w1", "w2"],
@@ -125,6 +134,7 @@ class LayerWrapper:
         "default": ["down_proj"],
         "bloom": ["dense_4h_to_h"],
         "gpt2": ["c_proj"],
+        "lfm2": ["w2"],
         "opt": ["fc2"],
         "qwen": ["c_proj"],
     }
@@ -134,8 +144,8 @@ class LayerWrapper:
         self.layer = layer
         self.model_type = model_type
 
-        # Use fail_on_not_found=False to support hybrid architectures (e.g., Qwen3.5)
-        # where some layers use linear attention instead of standard self-attention
+        # Use fail_on_not_found=False to support hybrid architectures (e.g., Qwen3.5, LFM2)
+        # where some layers lack standard self-attention (linear attention or conv layers)
         self.attn, self.attn_name = get_submodules(
             layer, self.ATTENTION, self.model_type, return_name=True, fail_on_not_found=False
         )
@@ -208,7 +218,12 @@ class ModelWrapper:
         "qwen": "transformer.rotary_emb",
     }
     LM_HEAD = {"default": "lm_head"}
-    PRE_HEAD_LAYERNORM = {"default": "model.norm", "gpt2": "transformer.ln_f", "qwen": "transformer.ln_f"}
+    PRE_HEAD_LAYERNORM = {
+        "default": "model.norm",
+        "gpt2": "transformer.ln_f",
+        "lfm2": "model.embedding_norm",
+        "qwen": "transformer.ln_f",
+    }
     LAYERS = {
         "default": "model.layers",
         "bloom": "transformer.h",

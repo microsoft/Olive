@@ -6,7 +6,6 @@
 from olive.evaluator.metric_result import MetricResult
 from olive.search.search_results import SearchResults
 
-# ruff: noqa: PD011
 # pylint: disable=W0212
 
 

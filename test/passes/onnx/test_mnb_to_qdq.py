@@ -148,13 +148,15 @@ def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_sign
     # validate
     original_session = onnxruntime.InferenceSession(str(mnb_path))
     original_session.disable_fallback()
+    # disable qdq to mnb fusion so we can test the output of the DQ nodes directly
+    disabled_optimizers = ["QDQSelectorActionTransformer"]
     if is_symmetric and use_signed_int and not add_zero_point and use_transpose_op:
         # there seems to be a bug in ORT graph optimization which changes the int4 DQ to uint8 DQ
         with pytest.raises(Exception, match="uint8"):
-            onnxruntime.InferenceSession(str(qdq_model.model_path))
+            onnxruntime.InferenceSession(str(qdq_model.model_path), disabled_optimizers=disabled_optimizers)
         return
     else:
-        qdq_session = onnxruntime.InferenceSession(str(qdq_model.model_path))
+        qdq_session = onnxruntime.InferenceSession(str(qdq_model.model_path), disabled_optimizers=disabled_optimizers)
         qdq_session.disable_fallback()
 
     input_data = {"input": np.random.randn(1, 1, in_dim).astype(np.float32)}
@@ -162,11 +164,5 @@ def test_mnb_to_qdq(create_mnb_model, nodes_to_exclude, add_zero_point, use_sign
     qdq_output = qdq_session.run(None, input_data)[0]
     assert original_output.shape == qdq_output.shape
     assert original_output.dtype == qdq_output.dtype
-    if bits == 4 and not use_transpose_op:
-        # Pre transposed DQ model does not match the expected output on x64 CPU
-        # check for assertion failure so we know when the test is fixed
-        with pytest.raises(AssertionError):
-            np.testing.assert_allclose(original_output, qdq_output, atol=1e-4)
-    else:
-        # acc level 4 is used for 8 bit, so the tolerance is higher
-        np.testing.assert_allclose(original_output, qdq_output, atol=1e-2 if bits == 8 else 1e-4)
+    # acc level 4 is used for 8 bit, so the tolerance is higher
+    np.testing.assert_allclose(original_output, qdq_output, atol=1e-2 if bits == 8 else 1e-4)

@@ -69,6 +69,11 @@ If you need to run tests, install the appropriate dependencies from `test/requir
 - Prefer behavior-focused tests over implementation-focused tests.
 - Use the existing naming convention: `test_<method_or_function>_<expected_behavior>[_when_<condition>]`.
 
+## Pull requests
+
+- When creating PRs, use the template at `.github/pull_request_template.md` for the PR body.
+- Fill in the "Describe your changes" section with a clear summary of what changed and why.
+
 ## Security and environment notes
 
 - Do not commit secrets, caches, or generated model artifacts.

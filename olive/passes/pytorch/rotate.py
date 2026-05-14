@@ -166,6 +166,12 @@ class RotateBase(Pass):
     @classmethod
     def fuse_ln_linear(cls, layernorm: nn.Module, linear_layers: Iterable[nn.Linear]):
         """Fuse the linear operations in Layernorm into the adjacent linear blocks."""
+        # Hybrid models (e.g., LFM2) may have layers without attention, passing an empty list.
+        # Skip early to avoid resetting layernorm weights when there are no linears to fuse into.
+        linear_layers = list(linear_layers)
+        if not linear_layers:
+            return
+
         for linear in linear_layers:
             linear_dtype = linear.weight.dtype
 
@@ -571,8 +577,8 @@ class ActQuantLinear(nn.Module):
             zero = torch.round(-xmin / scale)
 
         if self.per_token:
-            scale = scale.view(x_shape[:-1] + (1,))
-            zero = zero.view(x_shape[:-1] + (1,))
+            scale = scale.view((*x_shape[:-1], 1))
+            zero = zero.view((*x_shape[:-1], 1))
         else:
             scale = scale.flatten()
             zero = zero.flatten()
