@@ -11,6 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytest.importorskip("model_generate", reason="model_generate is not installed; skipping all SD model generation tests")
+
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.vitis_ai.vitis_generate_model_sd import VitisGenerateModelSD
