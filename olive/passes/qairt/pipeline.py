@@ -90,9 +90,7 @@ class QairtPipelinePass(Pass):
             ) from exc
 
         if not isinstance(model, HfModelHandler):
-            raise ValueError(
-                f"QairtPipelinePass requires HfModelHandler as input, got {type(model).__name__}"
-            )
+            raise ValueError(f"QairtPipelinePass requires HfModelHandler as input, got {type(model).__name__}")
 
         recipe_path = Path(config.recipe).resolve()
         if not recipe_path.exists():
