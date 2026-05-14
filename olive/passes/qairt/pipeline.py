@@ -108,9 +108,9 @@ class QairtPipelinePass(Pass):
                 "it matches the input model path."
             )
 
-        if config.cache_dir:
+        if config.cache_dir is not None:
             recipe_data["cache_dir"] = config.cache_dir
-        if config.log_level:
+        if config.log_level is not None:
             recipe_data["log_level"] = config.log_level
 
         pipe = LLMPipeline.from_pretrained(model.model_path, recipe=recipe_data)

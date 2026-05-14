@@ -117,7 +117,7 @@ def test_pipeline_pass_success(tmp_path, mock_hf_model, recipe_file, mock_pipeli
     assert result.model_path == str(output_path)
     mock_pipeline_modules["LLMPipeline"].from_pretrained.assert_called_once_with(
         mock_hf_model.model_path,
-        recipe={"cache_dir": "./pipeline_cache", "backend": "HTP", "stages": {}, "model_id_or_path": mock_hf_model.model_path},
+        recipe={"cache_dir": "./pipeline_cache", "backend": "HTP", "stages": {}},
     )
     mock_pipeline_modules["pipeline"].construct.assert_called_once()
     mock_pipeline_modules["pipeline"].export.assert_called_once_with(str(output_path))
