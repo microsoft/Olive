@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 import logging
+import shutil
 from pathlib import Path
 
 from olive.common.config_utils import ParamCategory
@@ -117,5 +118,13 @@ class QairtPipelinePass(Pass):
 
         Path(output_model_path).mkdir(parents=True, exist_ok=True)
         pipe.export(output_model_path)
+
+        # QairtEncapsulation needs config.json and generation_config.json to generate
+        # genai_config.json. Copy them from the source HF model if not already present.
+        for fname in ("config.json", "generation_config.json"):
+            src = Path(model.model_path) / fname
+            dst = Path(output_model_path) / fname
+            if src.exists() and not dst.exists():
+                shutil.copy2(src, dst)
 
         return QairtModelHandler(model_path=output_model_path)
