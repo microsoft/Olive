@@ -2406,6 +2406,14 @@ def _get_node_attrs(node, *attr_names):
     return result
 
 
+def _ensure_msft_opset(model):
+    """Ensure com.microsoft opset import is present in the model."""
+    for opset in model.opset_import:
+        if opset.domain == "com.microsoft":
+            return
+    model.opset_import.append(onnx.helper.make_opsetid("com.microsoft", 1))
+
+
 class QuantizeEmbeddingInt8(ProtoSurgeon):
     """Quantize FP16 embedding to INT8 using GatherBlockQuantized.
 
@@ -2414,8 +2422,7 @@ class QuantizeEmbeddingInt8(ProtoSurgeon):
     """
 
     def __call__(self, model: onnx.ModelProto):
-        import numpy as np
-        from onnx import numpy_helper, helper
+        from onnx import numpy_helper
 
         # Find embedding Gather node and weight
         gather_node, gather_idx = _find_embed_node(model, "Gather", "QuantizeEmbeddingInt8")
@@ -2445,7 +2452,10 @@ class QuantizeEmbeddingInt8(ProtoSurgeon):
 
         logger.info(
             "Quantizing embedding %s (%dx%d) from FP16 to INT8 (block_size=%d)",
-            embed_init.name, vocab_size, hidden_size, block_size,
+            embed_init.name,
+            vocab_size,
+            hidden_size,
+            block_size,
         )
 
         # Per-block INT8 quantization (asymmetric with zero_point=128 for GatherBlockQuantized)
@@ -2463,7 +2473,9 @@ class QuantizeEmbeddingInt8(ProtoSurgeon):
 
         old_size_mb = embed.nbytes / (1024 * 1024)
         new_size_mb = (q_flat.nbytes + scales.nbytes + zero_points.nbytes) / (1024 * 1024)
-        logger.info("Embedding: %.0f MB -> %.0f MB (saved %.0f MB)", old_size_mb, new_size_mb, old_size_mb - new_size_mb)
+        logger.info(
+            "Embedding: %.0f MB -> %.0f MB (saved %.0f MB)", old_size_mb, new_size_mb, old_size_mb - new_size_mb
+        )
 
         # Create new initializers
         qweight_name = embed_init.name + "_Q8"
@@ -2473,8 +2485,11 @@ class QuantizeEmbeddingInt8(ProtoSurgeon):
         model.graph.initializer.append(numpy_helper.from_array(scales, name=scales_name))
         model.graph.initializer.append(numpy_helper.from_array(zero_points, name=zp_name))
 
+        # Ensure com.microsoft opset is declared
+        _ensure_msft_opset(model)
+
         # Create GatherBlockQuantized node
-        gbq_node = helper.make_node(
+        gbq_node = onnx.helper.make_node(
             "GatherBlockQuantized",
             inputs=[qweight_name, gather_node.input[1], scales_name, zp_name],
             outputs=gather_node.output,
@@ -2506,8 +2521,7 @@ class ShareEmbeddingLmHead(ProtoSurgeon):
     """
 
     def __call__(self, model: onnx.ModelProto):
-        import numpy as np
-        from onnx import numpy_helper, helper
+        from onnx import numpy_helper
 
         # Find embedding GatherBlockQuantized
         gbq_node, _ = _find_embed_node(model, "GatherBlockQuantized", "ShareEmbeddingLmHead")
@@ -2543,12 +2557,21 @@ class ShareEmbeddingLmHead(ProtoSurgeon):
         if lm_head_node is None:
             return model
 
+        # Check if already shared (idempotency): lm_head weight input references embedding weight
+        lm_head_weight_input = lm_head_node.input[1]
+        if embed_weight_name in lm_head_weight_input or lm_head_node.input[2] == embed_scales_name:
+            logger.info("lm_head already shares weights with embedding, skipping ShareEmbeddingLmHead")
+            return model
+
         # Get old lm_head attributes
         old_attrs = _get_node_attrs(lm_head_node, "K", "N", "bits", "block_size")
 
         logger.info(
             "Sharing embedding with lm_head: lm_head INT%d (%dx%d, bs=%d) -> INT8 (shared with embedding)",
-            old_attrs.get("bits", 0), old_attrs.get("N", 0), old_attrs.get("K", 0), old_attrs.get("block_size", 0),
+            old_attrs.get("bits", 0),
+            old_attrs.get("N", 0),
+            old_attrs.get("K", 0),
+            old_attrs.get("block_size", 0),
         )
 
         # Remove old lm_head weight initializers
@@ -2564,7 +2587,7 @@ class ShareEmbeddingLmHead(ProtoSurgeon):
         model.graph.initializer.append(numpy_helper.from_array(reshape_shape, name=reshape_shape_name))
 
         reshape_output = "lm_head.MatMulNBits.reshaped_weight"
-        reshape_node = helper.make_node(
+        reshape_node = onnx.helper.make_node(
             "Reshape",
             inputs=[embed_weight_name, reshape_shape_name],
             outputs=[reshape_output],
@@ -2577,8 +2600,11 @@ class ShareEmbeddingLmHead(ProtoSurgeon):
         if embed_zp_name:
             inputs.append(embed_zp_name)
 
+        # Ensure com.microsoft opset is declared
+        _ensure_msft_opset(model)
+
         # Create new INT8 MatMulNBits node
-        new_lm_head = helper.make_node(
+        new_lm_head = onnx.helper.make_node(
             "MatMulNBits",
             inputs=inputs,
             outputs=lm_head_node.output,

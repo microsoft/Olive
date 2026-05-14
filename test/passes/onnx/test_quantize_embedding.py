@@ -3,8 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import numpy as np
-import onnx
-import pytest
 from onnx import TensorProto, helper, numpy_helper
 
 from olive.passes.onnx.graph_surgeries import QuantizeEmbeddingInt8, ShareEmbeddingLmHead
@@ -17,11 +15,12 @@ def _make_model_with_fp16_embed(vocab_size=64, hidden_size=64, block_size=32):
     embed_init = numpy_helper.from_array(embed_weight, name="model.embed_tokens.weight")
 
     input_ids = helper.make_tensor_value_info("input_ids", TensorProto.INT64, ["batch_size", "seq_len"])
-    gather_output = helper.make_tensor_value_info("embed_output", TensorProto.FLOAT16, ["batch_size", "seq_len", hidden_size])
 
     gather_node = helper.make_node(
-        "Gather", inputs=["model.embed_tokens.weight", "input_ids"],
-        outputs=["embed_output"], name="/model/embed_tokens/Gather"
+        "Gather",
+        inputs=["model.embed_tokens.weight", "input_ids"],
+        outputs=["embed_output"],
+        name="/model/embed_tokens/Gather",
     )
 
     # lm_head: MatMulNBits with INT4 weight
@@ -40,21 +39,23 @@ def _make_model_with_fp16_embed(vocab_size=64, hidden_size=64, block_size=32):
         outputs=["logits"],
         name="/lm_head/MatMulNBits",
         domain="com.microsoft",
-        bits=4, block_size=block_size, K=hidden_size, N=vocab_size,
+        bits=4,
+        block_size=block_size,
+        K=hidden_size,
+        N=vocab_size,
     )
-
-    logits = helper.make_tensor_value_info("logits", TensorProto.FLOAT16, ["batch_size", "seq_len", vocab_size])
 
     graph = helper.make_graph(
-        [gather_node, lm_head_node], "test",
-        [input_ids], [logits],
+        [gather_node, lm_head_node],
+        "test",
+        [input_ids],
+        [helper.make_tensor_value_info("logits", TensorProto.FLOAT16, ["batch_size", "seq_len", vocab_size])],
         initializer=[embed_init, lm_weight_init, lm_scales_init, lm_zp_init],
     )
-    model = helper.make_model(
+    return helper.make_model(
         graph,
         opset_imports=[helper.make_opsetid("", 21), helper.make_opsetid("com.microsoft", 1)],
     )
-    return model
 
 
 class TestQuantizeEmbeddingInt8:
@@ -82,13 +83,6 @@ class TestQuantizeEmbeddingInt8:
     def test_reduces_weight_size(self):
         model = _make_model_with_fp16_embed(vocab_size=256, hidden_size=128)
         surgery = QuantizeEmbeddingInt8()
-
-        # Get FP16 weight size before
-        fp16_size = sum(
-            np.prod(list(init.dims)) * 2  # FP16 = 2 bytes
-            for init in model.graph.initializer
-            if init.name == "model.embed_tokens.weight"
-        )
 
         result = surgery(model)
 
@@ -119,9 +113,13 @@ class TestQuantizeEmbeddingInt8:
         embed_init = numpy_helper.from_array(embed_weight, name="model.embed_tokens.weight")
         input_ids = helper.make_tensor_value_info("input_ids", TensorProto.INT64, [1])
         output = helper.make_tensor_value_info("out", TensorProto.FLOAT16, [1, 33])
-        gather = helper.make_node("Gather", ["model.embed_tokens.weight", "input_ids"], ["out"], name="/model/embed_tokens/Gather")
+        gather = helper.make_node(
+            "Gather", ["model.embed_tokens.weight", "input_ids"], ["out"], name="/model/embed_tokens/Gather"
+        )
         graph = helper.make_graph([gather], "test", [input_ids], [output], initializer=[embed_init])
-        model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 21), helper.make_opsetid("com.microsoft", 1)])
+        model = helper.make_model(
+            graph, opset_imports=[helper.make_opsetid("", 21), helper.make_opsetid("com.microsoft", 1)]
+        )
 
         surgery = QuantizeEmbeddingInt8()
         result = surgery(model)
@@ -143,7 +141,7 @@ class TestShareEmbeddingLmHead:
         result = s_surgery(model)
 
         # lm_head should now be INT8
-        lm_head = [n for n in result.graph.node if n.op_type == "MatMulNBits" and "lm_head" in n.name][0]
+        lm_head = next(n for n in result.graph.node if n.op_type == "MatMulNBits" and "lm_head" in n.name)
         attrs = {a.name: a.i for a in lm_head.attribute}
         assert attrs["bits"] == 8
 
@@ -158,6 +156,20 @@ class TestShareEmbeddingLmHead:
         # lm_head should use shared scales
         assert "embed_tokens" in lm_head.input[2]  # scales
 
+    def test_idempotent(self):
+        model = _make_model_with_fp16_embed()
+        q_surgery = QuantizeEmbeddingInt8()
+        model = q_surgery(model)
+
+        s_surgery = ShareEmbeddingLmHead()
+        result1 = s_surgery(model)
+        # Applying again should be a no-op
+        result2 = s_surgery(result1)
+
+        # Should still have exactly 1 Reshape_shared node
+        reshape_count = sum(1 for n in result2.graph.node if "Reshape_shared" in n.name)
+        assert reshape_count == 1
+
     def test_skips_without_gbq(self):
         model = _make_model_with_fp16_embed()
         # Don't quantize embedding first
@@ -171,8 +183,6 @@ class TestShareEmbeddingLmHead:
         model = _make_model_with_fp16_embed()
         q_surgery = QuantizeEmbeddingInt8()
         model = q_surgery(model)
-
-        old_init_names = {init.name for init in model.graph.initializer}
 
         s_surgery = ShareEmbeddingLmHead()
         result = s_surgery(model)

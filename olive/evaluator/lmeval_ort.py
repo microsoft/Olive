@@ -464,9 +464,7 @@ class Prefill:
             )
             if self.position_ids_rank == 3:
                 # mRoPE: expand to [mrope_sections, batch_size, seq_len]
-                mrope_sections = self.io_config["input_shapes"][
-                    self.io_config["input_names"].index("position_ids")
-                ][0]
+                mrope_sections = self.io_config["input_shapes"][self.io_config["input_names"].index("position_ids")][0]
                 pos_ids = pos_ids.unsqueeze(0).expand(mrope_sections, -1, -1)
             inputs["position_ids"] = pos_ids
         if self.io_dtypes.get("past_seq_len") is not None:
@@ -509,15 +507,11 @@ class Prefill:
         for name, info in self.hybrid_states.items():
             # Replace symbolic 'batch_size' with actual batch_size
             shape = [batch_size if s == "batch_size" else s for s in info["shape"]]
-            hybrid_inputs[name] = torch.zeros(
-                shape, dtype=getattr(torch, info["dtype"]), device=self.device
-            )
+            hybrid_inputs[name] = torch.zeros(shape, dtype=getattr(torch, info["dtype"]), device=self.device)
         hybrid_outputs = {}
         for name, info in self.hybrid_state_outputs.items():
             shape = [batch_size if s == "batch_size" else s for s in info["shape"]]
-            hybrid_outputs[name] = torch.zeros(
-                shape, dtype=getattr(torch, info["dtype"]), device=self.device
-            )
+            hybrid_outputs[name] = torch.zeros(shape, dtype=getattr(torch, info["dtype"]), device=self.device)
         self._buffers["hybrid_inputs"] = hybrid_inputs
         self._buffers["hybrid_outputs"] = hybrid_outputs
 
@@ -603,7 +597,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
     def eot_token_id(self):
         return self._eot_token_id
 
-    def tok_encode(self, string: str, **kwargs) -> list[int]:
+    def tok_encode(self, string: str, add_special_tokens: bool | None = None, **kwargs) -> list[int]:
         """Tokenize a string using the model's tokenizer and return a list of token IDs."""
         return self.tokenizer.encode(string).tolist()
 
