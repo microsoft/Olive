@@ -435,6 +435,8 @@ class OliveQuantizedModel:
         from onnxruntime_genai.models.quantized_model import QuantizedDecoderLayer, QuantizedTensorModule, TensorModule
         from safetensors.torch import load_file
 
+        from olive.common.quant.state_dict import QWEIGHT_SUFFIX, QZEROS_SUFFIX, SCALES_SUFFIX
+
         config = quant_attrs["config"]
 
         if config.get("moe"):
@@ -487,37 +489,34 @@ class OliveQuantizedModel:
                     child = QuantizedTensorModule()
                     setattr(submodule, sub_name, child)
                     submodule = child
+
+            attr_name = tensor_name.split(".")[-1]
             if isinstance(submodule, QuantizedTensorModule):
+                # Olive's native quantized checkpoints store buffers as
+                # ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` (typically
+                # ``weight_*``); ``QuantizedTensorModule`` expects bare
+                # ``qweight`` / ``scales`` / ``qzeros`` attributes.
+                for suffix in (QWEIGHT_SUFFIX, SCALES_SUFFIX, QZEROS_SUFFIX):
+                    if attr_name.endswith(suffix):
+                        attr_name = suffix.lstrip("_")
+                        break
+
                 for q_attr, q_value in [("bits", local_bits), ("_group_size", local_group_size)]:
                     setattr(submodule, q_attr, q_value)
                 # in_features is always a multiple of group_size, group_size is a power of 2
                 # assumes no padding
-                if tensor_name.endswith("qweight"):
+                if attr_name == "qweight":
                     out_features, in_features_packed = tensor_value.shape
                     in_features = in_features_packed * 8 // local_bits
                     submodule.in_features = in_features
                     submodule.out_features = out_features
                     num_blocks = in_features // local_group_size if local_group_size != -1 else 1
                     tensor_value = tensor_value.reshape(out_features, num_blocks, -1)
-            setattr(submodule, tensor_name.split(".")[-1], tensor_value)
+            setattr(submodule, attr_name, tensor_value)
 
         for weight_file in Path(input_path).iterdir():
             if weight_file.suffix == ".safetensors":
                 weights = load_file(weight_file)
-
-                # Normalize Olive v4 key layout: ``<dotted>.weight_qweight``
-                # (and ``_scales`` / ``_qzeros``) → ``<dotted>.qweight`` (etc.)
-                # so the existing dotted-path resolver keeps working.
-                normalized: dict[str, "torch.Tensor"] = {}
-                for k, v in weights.items():
-                    for suffix in ("_qweight", "_scales", "_qzeros"):
-                        legacy_suffix = "." + suffix.lstrip("_")
-                        new_suffix = ".weight" + suffix
-                        if k.endswith(new_suffix):
-                            k = k[: -len(new_suffix)] + legacy_suffix
-                            break
-                    normalized[k] = v
-                weights = normalized
 
                 # Map weights to modules
                 for name, tensor in weights.items():

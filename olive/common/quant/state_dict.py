@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 """State-dict helpers for Olive's quantized weight representation.
 
-Olive's quantization layout (Design 3):
+Olive's quantization layout:
 
 * The quantized state of a weight named ``<pname>`` (typically
   ``"weight"`` for ``nn.Linear``/``nn.Embedding``, or e.g.

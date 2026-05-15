@@ -166,7 +166,7 @@ def sort_layers_by_name(layers_dict) -> dict:
 class OliveHfQuantizer(HfQuantizer):
     """Olive quantizer.
 
-    Layout (Design 3, see ``olive/common/quant/state_dict.py``):
+    Layout (see ``olive/common/quant/state_dict.py``):
 
     * Each quantized weight is installed as ``nn.Parameter(QuantTensor)``
       on the original host module (``nn.Linear``, ``nn.Embedding``, or an
