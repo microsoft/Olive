@@ -2450,17 +2450,22 @@ class QuantizeEmbeddingInt8(ProtoSurgeon):
 
         num_blocks = hidden_size // block_size
 
+        # Preserve the model's float dtype for scales so downstream ops (LayerNorm, MatMul, ...)
+        # receive the dtype they expect. FP16 model -> FP16 scales; FP32 model -> FP32 scales.
+        scales_dtype = np.float16 if embed_init.data_type == onnx.TensorProto.FLOAT16 else np.float32
+
         logger.info(
-            "Quantizing embedding %s (%dx%d) from FP16 to INT8 (block_size=%d)",
+            "Quantizing embedding %s (%dx%d) from %s to INT8 (block_size=%d)",
             embed_init.name,
             vocab_size,
             hidden_size,
+            "FP16" if scales_dtype == np.float16 else "FP32",
             block_size,
         )
 
         # Per-block INT8 quantization (asymmetric with zero_point=128 for GatherBlockQuantized)
         blocked = embed.reshape(vocab_size, num_blocks, block_size)
-        scales = (np.abs(blocked).max(axis=2) / 127.0).astype(np.float16)
+        scales = (np.abs(blocked).max(axis=2) / 127.0).astype(scales_dtype)
         scales_f32 = scales.astype(np.float32)
         # Avoid division by zero
         scales_f32 = np.where(scales_f32 == 0, 1.0, scales_f32)
