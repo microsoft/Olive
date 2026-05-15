@@ -374,6 +374,12 @@ EXPORT_QLINEAR_MAPPING = {
 
 def make_export_compatible_quant(model: torch.nn.Module, dynamo: bool) -> torch.nn.Module:
     """Make the model export compatible by replacing the quantized linear layers with 4-bit versions."""
+    # Olive-native path: replace nn.Linear / nn.Embedding whose weight is a
+    # ``QuantTensor`` parameter with the ONNX-exportable wrappers in
+    # ``olive.common.quant.nn``. Done first so subsequent passes that
+    # cast the model dtype don't dequantize through QuantTensor.
+    _replace_olive_quant_tensor_modules(model)
+
     model, modified = _replace_qlinear_modules(
         model, dynamo, EXPORT_QLINEAR_MAPPING, "Making export compatible quantized model"
     )
@@ -381,3 +387,68 @@ def make_export_compatible_quant(model: torch.nn.Module, dynamo: bool) -> torch.
         # set quantization method to None, gptq doesn't allow dtype casting
         model.quantization_method = None
     return model
+
+
+def _replace_olive_quant_tensor_modules(model: torch.nn.Module) -> None:
+    """Swap host ``nn.Linear`` / ``nn.Embedding`` (whose weight is a ``QuantTensor``)
+    with the ONNX-exportable ``QuantLinear`` / ``QuantEmbedding`` wrappers.
+
+    The on-disk buffer layout used by Olive's QuantTensor (packed-uint8
+    along the last dim, per-group scales, optional packed qzeros) is
+    bit-identical to the layout used by ``olive.common.quant.nn``
+    ``QuantLinear`` / ``QuantEmbedding`` — both follow the auto-gptq
+    style. So conversion is a direct buffer copy.
+    """
+    from olive.common.quant.nn import QuantEmbedding, QuantLinear
+    from olive.common.quant.tensor import QuantTensor
+
+    targets: list[tuple[str, torch.nn.Module]] = []
+    for name, module in model.named_modules():
+        if not isinstance(module, (torch.nn.Linear, torch.nn.Embedding)):
+            continue
+        weight = module._parameters.get("weight")
+        if weight is None or not isinstance(weight.data, QuantTensor):
+            continue
+        targets.append((name, module))
+
+    if not targets:
+        return
+
+    for name, module in targets:
+        qt: QuantTensor = module.weight.data  # type: ignore[assignment]
+        if isinstance(module, torch.nn.Embedding):
+            new = QuantEmbedding(
+                num_embeddings=module.num_embeddings,
+                embedding_dim=module.embedding_dim,
+                bits=qt.bits,
+                symmetric=qt.symmetric,
+                group_size=qt.group_size,
+                device=qt.qweight.device,
+                dtype=qt.scales.dtype,
+                padding_idx=module.padding_idx,
+            )
+        else:
+            new = QuantLinear(
+                in_features=module.in_features,
+                out_features=module.out_features,
+                bias=module.bias is not None,
+                bits=qt.bits,
+                symmetric=qt.symmetric,
+                group_size=qt.group_size,
+                device=qt.qweight.device,
+                dtype=qt.scales.dtype,
+            )
+            if module.bias is not None:
+                new.bias = module.bias.detach().clone()
+        new.qweight = qt.qweight.detach().clone()
+        new.scales = qt.scales.detach().clone()
+        if qt.qzeros is not None:
+            new.qzeros = qt.qzeros.detach().clone()
+        set_attr(model, name, new)
+
+    # After all replacements, the original ``quantization_method`` /
+    # ``quantization_config`` set by ``OliveHfQuantizer`` no longer
+    # describes the runtime modules. Clear it so downstream passes
+    # (e.g. dtype casts) treat the model as plain torch.
+    if hasattr(model, "quantization_method"):
+        model.quantization_method = None

@@ -17,8 +17,8 @@ from olive.common.quant.hf_utils import (
     replace_matching_submodules,
     tie_quant_word_embeddings,
 )
-from olive.common.quant.nn import QuantEmbedding, QuantLinear
 from olive.common.quant.patterns import match_skip
+from olive.common.quant.state_dict import install_quant_tensor_param
 from olive.common.quant.tensor import QuantTensor
 from olive.common.quant.utils import WeightQuantizer
 from olive.common.utils import tensor_data_to_device
@@ -175,6 +175,11 @@ def prepare_model(
 
     def should_quantize(module: torch.nn.Module, name: str) -> bool:
         if module in excluded_attn_inputs:
+            return False
+        # already-quantized (QuantTensor weight) — leave it alone so the user
+        # can compose passes on top of a partially-quantized model.
+        weight = getattr(module, "weight", None)
+        if weight is not None and isinstance(weight, QuantTensor):
             return False
         if match_skip(name, skip_patterns):
             return False
@@ -497,68 +502,56 @@ def finalize(
     device: str,
     retie_word_embeddings: bool = False,
 ) -> HfModelHandler:
-    """Finalize quantization by replacing linear and embedding layers with their quantized counterparts.
+    """Finalize quantization by installing ``QuantTensor`` parameters on the host modules.
 
-    Args:
-        model: The HuggingFace model to finalize.
-        output_model_path: Path to save the finalized quantized model.
-        wrapper: ModelWrapper containing the model to finalize.
-        quant_config: Quantization configuration to use.
-        device: Device to perform quantization on.
-        retie_word_embeddings: Whether to retie word embeddings if they were originally tied and have compatible quantization.
+    For every module marked with ``quant_info`` (2D linear / embedding) and
+    every fused-3D MoE experts module marked with ``quant_info_3d``, build a
+    ``QuantTensor`` from the float weight + computed qparams and install it
+    via :func:`install_quant_tensor_param` so that:
 
-    Returns:
-        HfModelHandler with the finalized quantized model.
-
+    * ``module.<pname>`` is an ``nn.Parameter(QuantTensor)`` whose dispatch
+      still drives the original eager forward;
+    * ``module.<pname>_qweight`` / ``_scales`` / ``_qzeros`` are plain
+      buffers (aliasing the QuantTensor's inner tensors), so the model
+      saves cleanly via ``save_pretrained`` / safetensors with **no
+      tensor subclass on disk**.
     """
-
-    def should_quantize(module: torch.nn.Module, _: str) -> bool:
-        return hasattr(module, "quant_info")
-
-    def quantize_and_pack(module: torch.nn.Module, _: str) -> QuantLinear | QuantEmbedding:
-        module.to(device)
-        quant_cls = QuantEmbedding if isinstance(module, torch.nn.Embedding) else QuantLinear
-        return quant_cls.from_module(
-            module.to(device),
-            bits=module.quant_info.quantizer.bits,
-            symmetric=module.quant_info.quantizer.symmetric,
-            group_size=module.quant_info.quantizer.group_size,
-            scales=module.quant_info.scales,
-            zero_points=module.quant_info.zero_points,
-        ).to("cpu")  # move the original module to CPU
-
-    replace_matching_submodules(
-        wrapper.model,
-        should_quantize,
-        quantize_and_pack,
-        description="Quantizing and packing linear layers",
-    )
-
-    # Fused-3D MoE: experts modules carry a per-parameter ``quant_info_3d``
-    # dict. Replace each parameter with a 3D ``QuantTensor`` parameter.
-    # The host module's forward continues to find the parameter at the
-    # same attribute name; eager forwards may go through QuantTensor's
-    # ``__getitem__`` / matmul fallbacks. ONNX export of fused-3D MoE is
-    # deferred to Mobius — Olive only persists the checkpoint.
-    for sub in wrapper.model.modules():
-        info_3d: dict = getattr(sub, "quant_info_3d", None)
-        if not info_3d:
-            continue
-        for pname, qinfo in info_3d.items():
-            param = getattr(sub, pname)
-            if not isinstance(param, torch.nn.Parameter):
-                continue
+    for sub_module in wrapper.model.modules():
+        # ---- 2D path: nn.Linear / nn.Embedding ----------------------
+        qinfo = getattr(sub_module, "quant_info", None)
+        if qinfo is not None and isinstance(sub_module, (torch.nn.Linear, torch.nn.Embedding)):
+            sub_module.to(device)
+            quantizer = qinfo.quantizer
             with torch.no_grad():
-                quantizer = qinfo.quantizer
                 qt = QuantTensor.from_float(
-                    param.detach().to(device).to(param.dtype),
+                    sub_module.weight.detach(),
                     bits=quantizer.bits,
                     symmetric=quantizer.symmetric,
                     group_size=quantizer.group_size,
+                    scales=qinfo.scales,
+                    zero_points=qinfo.zero_points,
                 ).to("cpu")
-            sub._parameters[pname] = torch.nn.Parameter(qt, requires_grad=False)  # pylint: disable=W0212
-        # Tidy up the marker so downstream save/load doesn't trip over it.
-        delattr(sub, "quant_info_3d")
+            sub_module.to("cpu")
+            install_quant_tensor_param(sub_module, "weight", qt)
+            del sub_module.quant_info
+
+        # ---- fused-3D MoE path -------------------------------------
+        info_3d: dict | None = getattr(sub_module, "quant_info_3d", None)
+        if info_3d:
+            for pname, qinfo_3d in info_3d.items():
+                param = sub_module._parameters.get(pname)
+                if param is None:
+                    continue
+                quantizer = qinfo_3d.quantizer
+                with torch.no_grad():
+                    qt = QuantTensor.from_float(
+                        param.detach().to(device),
+                        bits=quantizer.bits,
+                        symmetric=quantizer.symmetric,
+                        group_size=quantizer.group_size,
+                    ).to("cpu")
+                install_quant_tensor_param(sub_module, pname, qt)
+            del sub_module.quant_info_3d
 
     if retie_word_embeddings:
         tie_quant_word_embeddings(wrapper.model)
@@ -567,55 +560,10 @@ def finalize(
     wrapper.model.quantization_method = quant_config.quant_method
     wrapper.model.config.quantization_config = quant_config
 
-    # Flatten any QuantTensor parameters into plain ``register_buffer`` entries so
-    # ``save_pretrained`` (which writes safetensors) can serialize them.
-    # Naming convention: ``<param_name>_qweight`` / ``_scales`` / ``_qzeros``
-    # sit on the same parent module as the original parameter. This matches
-    # the suffix-style layout used by other prequantized formats and lets
-    # downstream loaders (Mobius) discover the buffers without a registry.
-    flatten_quant_tensor_params(wrapper.model)
-
-    # save the quantized model
+    # save the quantized model — state_dict hooks drop QuantTensor entries;
+    # only plain ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` buffers
+    # are written to safetensors.
     wrapper.model.save_pretrained(output_model_path)
     model.save_metadata(output_model_path)
 
     return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)
-
-
-def flatten_quant_tensor_params(module: torch.nn.Module) -> None:
-    """Replace every ``QuantTensor`` ``nn.Parameter`` with plain registered buffers.
-
-    For each parameter ``<name>`` whose data is a :class:`QuantTensor`, the
-    parameter is deleted and the inner tensors are re-attached as
-    ``<name>_qweight``, ``<name>_scales`` (and ``<name>_qzeros`` when
-    asymmetric) on the same parent module. Additional metadata
-    (``bits``, ``group_size``, ``symmetric``, ``shape``) is stored on
-    ``<name>_quant_meta`` for round-trip loading.
-
-    This is used at save time so safetensors / pickle never sees a
-    tensor subclass.
-    """
-    for sub in module.modules():
-        names = [n for n, p in sub.named_parameters(recurse=False) if isinstance(p.data, QuantTensor)]
-        for name in names:
-            qt: QuantTensor = sub._parameters[name].data  # type: ignore[assignment]
-            del sub._parameters[name]
-            sub.register_buffer(f"{name}_qweight", qt.qweight.detach().clone())
-            sub.register_buffer(f"{name}_scales", qt.scales.detach().clone())
-            if qt.qzeros is not None:
-                sub.register_buffer(f"{name}_qzeros", qt.qzeros.detach().clone())
-            # ``register_buffer`` requires Tensors, so the metadata lives
-            # outside the state_dict as a plain attribute. It is consumed
-            # by ``OliveHfQuantizer`` at load time via the
-            # ``quantization_config`` for shape/bits and is also encoded
-            # in the parameter's full name + scales shape if needed.
-            setattr(
-                sub,
-                f"{name}_quant_meta",
-                {
-                    "bits": qt.bits,
-                    "group_size": qt.group_size,
-                    "symmetric": qt.symmetric,
-                    "shape": tuple(qt.shape),
-                },
-            )

@@ -241,6 +241,7 @@ class QuantTensor(torch.Tensor):
         group_size: int,
         symmetric: bool,
         shape: tuple[int, ...],
+        dtype: torch.dtype | None = None,
     ) -> QuantTensor:
         """Reconstruct a ``QuantTensor`` from already-packed buffers."""
         return cls(
@@ -251,7 +252,7 @@ class QuantTensor(torch.Tensor):
             group_size=group_size,
             symmetric=symmetric,
             shape=shape,
-            dtype=scales.dtype,
+            dtype=dtype if dtype is not None else scales.dtype,
         )
 
     # ------------------------------------------------------------------

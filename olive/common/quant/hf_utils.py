@@ -4,22 +4,25 @@
 # --------------------------------------------------------------------------
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
+import torch
 import torch.nn as nn
 from transformers.quantizers.base import HfQuantizer
 from transformers.utils.quantization_config import QuantizationConfigMixin
 
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.patterns import match_override, match_skip
+from olive.common.quant.state_dict import buffer_names, install_quant_tensor_param, refresh_quant_tensor_refs
+from olive.common.quant.tensor import QuantTensor
+from olive.common.quant.utils import WeightQuantizer
 from olive.common.utils import StrEnumBase
 
 if TYPE_CHECKING:
     from tqdm.auto import tqdm
     from transformers import PreTrainedModel
-
-    from olive.common.quant.nn import QuantModule
 
 
 # older transformers expects a StrEnum and accesses .value
@@ -161,22 +164,32 @@ def sort_layers_by_name(layers_dict) -> dict:
 
 
 class OliveHfQuantizer(HfQuantizer):
-    """Olive quantizer."""
+    """Olive quantizer.
+
+    Layout (Design 3, see ``olive/common/quant/state_dict.py``):
+
+    * Each quantized weight is installed as ``nn.Parameter(QuantTensor)``
+      on the original host module (``nn.Linear``, ``nn.Embedding``, or an
+      experts module that owns a fused-3D parameter).
+    * Sibling buffers ``<pname>_qweight`` / ``_scales`` / ``_qzeros``
+      alias the QuantTensor's inner tensors. These are the only things
+      written to safetensors; HF's loader fills them via normal dotted
+      paths. After load we re-bind the QuantTensor inner refs to point
+      at the freshly-loaded buffer storage.
+    """
 
     # only support load and inference, no on-the-fly quantization
     requires_calibration = True
-    modules_to_not_convert: list[str] | None = None
 
     def _process_model_before_weight_loading(
         self, model: PreTrainedModel, keep_in_fp32_modules: list[str] | None = None, **kwargs
     ):
-        from olive.common.quant.nn import QuantEmbedding, QuantLinear
-
         ids_to_skip: list[int] = []
         if not self.quantization_config.lm_head:
             ids_to_skip.append(id(model.get_output_embeddings()))
         if not self.quantization_config.embeds:
             ids_to_skip.append(id(model.get_input_embeddings()))
+        expert_modules: list[tuple[nn.Module, str]] = []
         if not self.quantization_config.moe:
             # Skip every nn.Module under each experts subtree — this both
             # leaves fused-3D experts alone *and* fixes the previous silent
@@ -194,9 +207,22 @@ class OliveHfQuantizer(HfQuantizer):
                 # Not every model is wrappable (e.g., random tests). Falling
                 # back to the previous behaviour (no experts skip) is safe.
                 pass
+        else:
+            # collect (experts_module, dotted_name) so we can also install
+            # 3D placeholders on fused-experts modules below.
+            try:
+                wrapper = ModelWrapper.from_model(model)
+                module_to_name = {id(m): n for n, m in model.named_modules()}
+                for lw in wrapper.get_layer_wrappers():
+                    experts = lw.get_experts(return_name=False)
+                    if experts is None:
+                        continue
+                    expert_modules.append((experts, module_to_name.get(id(experts), "")))
+            except Exception:  # pylint: disable=broad-except
+                pass
 
-        modules_to_not_convert: list[str] = (
-            [name for name, module in model.named_modules() if id(module) in ids_to_skip] if ids_to_skip else []
+        skip_literal_names: set[str] = (
+            {name for name, module in model.named_modules() if id(module) in ids_to_skip} if ids_to_skip else set()
         )
         # Pattern-aware skip list. Plain strings keep their HF substring
         # semantics; ``re:`` opts into regex fullmatch.
@@ -205,47 +231,60 @@ class OliveHfQuantizer(HfQuantizer):
             skip_patterns.extend(self.quantization_config.modules_to_not_convert)
         if keep_in_fp32_modules:
             skip_patterns.extend(keep_in_fp32_modules)
-        self.modules_to_not_convert = modules_to_not_convert
+        self.modules_to_not_convert = sorted(skip_literal_names)
         self._skip_patterns = skip_patterns
 
-        def should_quantize(module: nn.Module, name: str) -> bool:
-            """Check if a module should be quantized."""
+        def _should_quantize(module: nn.Module, name: str) -> bool:
             if not isinstance(module, (nn.Linear, nn.Embedding)):
                 return False
-            if any(literal == name for literal in self.modules_to_not_convert):
+            if name in skip_literal_names:
                 return False
-            return not match_skip(name, self._skip_patterns)
+            return not match_skip(name, skip_patterns)
 
-        def create_quantized_module(module: nn.Linear | nn.Embedding, name: str) -> QuantLinear | QuantEmbedding:
-            """Create a quantized version of a module."""
-            common_kwargs = {
-                **self.quantization_config.get_qlinear_init_args(name),
-                "device": module.weight.device,
-                "dtype": module.weight.dtype,
-            }
-            if isinstance(module, nn.Embedding):
-                return QuantEmbedding(
-                    num_embeddings=module.num_embeddings,
-                    embedding_dim=module.embedding_dim,
-                    padding_idx=module.padding_idx,
-                    **common_kwargs,
-                )
-            return QuantLinear(
-                in_features=module.in_features,
-                out_features=module.out_features,
-                bias=module.bias is not None,
-                **common_kwargs,
+        # 2D placeholders: nn.Linear / nn.Embedding
+        for name, module in list(model.named_modules()):
+            if not _should_quantize(module, name):
+                continue
+            qargs = self.quantization_config.get_qlinear_init_args(name)
+            qt = _build_placeholder_quant_tensor(
+                shape=tuple(module.weight.shape),
+                bits=qargs["bits"],
+                symmetric=qargs["symmetric"],
+                group_size=qargs["group_size"],
+                dtype=module.weight.dtype,
+                device=module.weight.device,
             )
+            install_quant_tensor_param(module, "weight", qt)
 
-        replace_matching_submodules(model, should_quantize, create_quantized_module)
+        # 3D placeholders: fused-experts modules
+        for experts_module, experts_name in expert_modules:
+            for pname, param in list(experts_module._parameters.items()):
+                if param is None or param.dim() != 3 or isinstance(param.data, QuantTensor):
+                    continue
+                full_name = f"{experts_name}.{pname}" if experts_name else pname
+                if full_name in skip_literal_names or match_skip(full_name, skip_patterns):
+                    continue
+                qargs = self.quantization_config.get_qlinear_init_args(full_name)
+                qt = _build_placeholder_quant_tensor(
+                    shape=tuple(param.shape),
+                    bits=qargs["bits"],
+                    symmetric=qargs["symmetric"],
+                    group_size=qargs["group_size"],
+                    dtype=param.dtype,
+                    device=param.device,
+                )
+                install_quant_tensor_param(experts_module, pname, qt)
 
         if self.quantization_config.tie_word_embeddings:
             # doing first time so that the weight load doesn't complain about missing weights
             tie_quant_word_embeddings(model)
 
     def _process_model_after_weight_loading(self, model: PreTrainedModel, **kwargs):
+        # HF's loader assigns freshly-loaded buffer tensors in place, so
+        # re-bind every QuantTensor parameter to point at the current
+        # ``<pname>_qweight`` / ``_scales`` / ``_qzeros`` buffer storages.
+        refresh_quant_tensor_refs(model)
         if self.quantization_config.tie_word_embeddings:
-            # doing again to ensure buffers are tied after loading weights
             tie_quant_word_embeddings(model)
         return model
 
@@ -254,9 +293,57 @@ class OliveHfQuantizer(HfQuantizer):
 
     @property
     def is_trainable(self) -> bool:
-        # TODO(jambayk): investigate what this means (peft, scale+bias, etc.?)
-        # need to support peft, scale+bias comes for free since everything is in torch
         return False
+
+
+def _build_placeholder_quant_tensor(
+    *,
+    shape: tuple[int, ...],
+    bits: int,
+    symmetric: bool,
+    group_size: int,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> QuantTensor:
+    """Build a zero-filled ``QuantTensor`` with the correct buffer shapes.
+
+    This is used as a placeholder before ``from_pretrained`` fills in the
+    real values; the buffer shapes must match what was written at save
+    time so HF's loader assigns into them without complaint.
+    """
+    quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
+    packing_factor = 8 // bits
+    qparam_shape = quantizer.get_qparam_shape(shape)
+
+    if len(shape) == 2:
+        qweight_shape = (shape[0], math.ceil(shape[1] / packing_factor))
+    elif len(shape) == 3:
+        qweight_shape = (shape[0], shape[1], math.ceil(shape[2] / packing_factor))
+    else:
+        raise ValueError(f"QuantTensor placeholder only supports 2D/3D shapes, got {shape}")
+
+    qweight = torch.zeros(qweight_shape, dtype=torch.uint8, device=device)
+    scales = torch.zeros(qparam_shape, dtype=dtype, device=device)
+    qzeros: torch.Tensor | None
+    if symmetric:
+        qzeros = None
+    else:
+        if len(qparam_shape) == 2:
+            qz_shape = (qparam_shape[0], math.ceil(qparam_shape[1] / packing_factor))
+        else:
+            qz_shape = (qparam_shape[0], qparam_shape[1], math.ceil(qparam_shape[2] / packing_factor))
+        qzeros = torch.zeros(qz_shape, dtype=torch.uint8, device=device)
+
+    return QuantTensor.from_packed(
+        qweight=qweight,
+        scales=scales,
+        qzeros=qzeros,
+        bits=bits,
+        group_size=group_size,
+        symmetric=symmetric,
+        shape=shape,
+        dtype=dtype,
+    )
 
 
 def replace_matching_submodules(
@@ -309,56 +396,33 @@ def replace_matching_submodules(
     return module
 
 
-def _repoint_buffer(src: nn.Module, dst: nn.Module, name: str):
-    """Repoint a buffer from src to dst.
+def tie_quant_word_embeddings(model: PreTrainedModel) -> None:
+    """Tie the input and output embeddings when they share a quantized weight.
 
-    Args:
-        src: Source module.
-        dst: Destination module.
-        name: Name of the buffer to repoint.
-
+    Both modules' ``weight`` ``nn.Parameter`` is set to the **same**
+    ``nn.Parameter(QuantTensor)`` object, and the underlying
+    ``weight_qweight`` / ``weight_scales`` / ``weight_qzeros`` buffers
+    are tied (aliased to the input embedding's buffers). This preserves
+    the standard HF tied-weights semantics for the quantized layout.
     """
-    src_buf = getattr(src, name, None)
-
-    # ensure both are None or both exist
-    if src_buf is None:
-        assert getattr(dst, name, None) is None, f"Output embedding has {name} but input does not."
+    src = model.get_input_embeddings()
+    dst = model.get_output_embeddings()
+    if src is None or dst is None:
         return
 
-    # ensure both have the buffer shapes and types match
-    dst_buf = getattr(dst, name, None)
-    assert src_buf.shape == dst_buf.shape, (
-        f"Cannot tie embeddings: input embedding {name} shape {src_buf.shape} "
-        f"does not match output embedding shape {dst_buf.shape}."
-    )
-    assert src_buf.dtype == dst_buf.dtype, (
-        f"Cannot tie embeddings: input embedding {name} dtype {src_buf.dtype} "
-        f"does not match output embedding dtype {dst_buf.dtype}."
-    )
+    # The input embedding owns the canonical QuantTensor + buffers.
+    src_param = src._parameters.get("weight")
+    if src_param is None or not isinstance(src_param.data, QuantTensor):
+        return
 
-    # tie the buffers
-    # pylint: disable=W0212
-    dst._buffers[name] = src_buf
-    dst._non_persistent_buffers_set.add(name)
+    qname, sname, zname = buffer_names("weight")
+    # tie buffers
+    for n in (qname, sname, zname):
+        src_buf = src._buffers.get(n)
+        if src_buf is None:
+            continue
+        dst._buffers[n] = src_buf
 
-
-def tie_quant_modules(src: QuantModule, dst: QuantModule):
-    """Tie the quantization buffers of two QuantModules.
-
-    Args:
-        src: Source QuantModule.
-        dst: Destination QuantModule.
-
-    """
-    for name in ["qweight", "scales", "qzeros"]:
-        _repoint_buffer(src, dst, name)
-
-
-def tie_quant_word_embeddings(model: PreTrainedModel):
-    """Tie the word embeddings and output embeddings if they have the same shape.
-
-    Args:
-        model: The HuggingFace model to tie embeddings for.
-
-    """
-    tie_quant_modules(model.get_input_embeddings(), model.get_output_embeddings())
+    # tie the QuantTensor parameter itself (same Python Parameter object,
+    # so both modules see the same .data and the same inner tensors).
+    dst._parameters["weight"] = src_param

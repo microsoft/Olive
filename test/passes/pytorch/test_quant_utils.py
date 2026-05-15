@@ -2,29 +2,23 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""Unit tests for olive.passes.pytorch.quant_utils helpers.
+"""Unit tests for olive quant state-dict helpers.
 
 The full ``prepare_model`` / ``finalize`` pipeline is exercised end-to-end
-by ``test_rtn.py`` against a real HF model. This file targets the helpers
-that the MoE path adds — primarily ``flatten_quant_tensor_params`` — and
-keeps the tests free of network access.
+by ``test_rtn.py`` against a real HF model. This file targets the
+``install_quant_tensor_param`` helper used by both the 2D linear/embed
+path and the 3D fused-MoE path. The tests stay free of network access.
 """
 
 import torch
 from torch import nn
 
+from olive.common.quant.state_dict import install_quant_tensor_param
 from olive.common.quant.tensor import QuantTensor
-from olive.passes.pytorch.quant_utils import flatten_quant_tensor_params
 
 
 class _ExpertsBlock(nn.Module):
-    """Fake fused-3D experts module (gpt-oss / Qwen3-MoE style).
-
-    Carries a single 3D ``nn.Parameter`` of shape ``(num_experts, out, in)``,
-    matching the layout that ``prepare_model`` annotates with
-    ``quant_info_3d`` and that ``finalize`` rewrites into a 3D
-    :class:`QuantTensor` parameter.
-    """
+    """Fake fused-3D experts module (gpt-oss / Qwen3-MoE style)."""
 
     def __init__(self, num_experts: int = 4, out_features: int = 32, in_features: int = 16):
         super().__init__()
@@ -34,54 +28,63 @@ class _ExpertsBlock(nn.Module):
         )
 
 
-class TestFlattenQuantTensorParams:
-    def test_flatten_3d_quant_tensor_param(self):
+class TestInstallQuantTensorParam:
+    def test_install_3d_quant_tensor(self):
         block = _ExpertsBlock()
         qt = QuantTensor.from_float(block.gate_up_proj.detach(), bits=4, symmetric=True, group_size=16)
-        block._parameters["gate_up_proj"] = nn.Parameter(qt, requires_grad=False)
 
-        flatten_quant_tensor_params(block)
+        install_quant_tensor_param(block, "gate_up_proj", qt)
 
-        # The original parameter is gone, replaced by buffers.
-        assert "gate_up_proj" not in dict(block.named_parameters())
-        buffer_names = dict(block.named_buffers())
-        assert "gate_up_proj_qweight" in buffer_names
-        assert "gate_up_proj_scales" in buffer_names
-        # symmetric → no qzeros buffer
-        assert "gate_up_proj_qzeros" not in buffer_names
-        # metadata stays as a plain attribute (not in state_dict)
-        meta = block.gate_up_proj_quant_meta
-        assert meta["bits"] == 4
-        assert meta["group_size"] == 16
-        assert meta["symmetric"] is True
-        assert tuple(meta["shape"]) == (4, 32, 16)
+        # Parameter is a QuantTensor (tensor subclass parameters return
+        # the subclass instance directly from nn.Parameter.__new__).
+        param = block._parameters["gate_up_proj"]
+        assert isinstance(param, QuantTensor)
+        # Sibling buffers are registered and share storage with the QuantTensor.
+        buffers = dict(block.named_buffers())
+        assert "gate_up_proj_qweight" in buffers
+        assert "gate_up_proj_scales" in buffers
+        assert "gate_up_proj_qzeros" not in buffers  # symmetric → no qzeros
+        assert buffers["gate_up_proj_qweight"] is param.qweight
+        assert buffers["gate_up_proj_scales"] is param.scales
 
-    def test_flatten_asymmetric_emits_qzeros(self):
+    def test_install_asymmetric_emits_qzeros(self):
         block = _ExpertsBlock()
         qt = QuantTensor.from_float(block.gate_up_proj.detach(), bits=4, symmetric=False, group_size=16)
-        block._parameters["gate_up_proj"] = nn.Parameter(qt, requires_grad=False)
 
-        flatten_quant_tensor_params(block)
+        install_quant_tensor_param(block, "gate_up_proj", qt)
 
-        buffer_names = dict(block.named_buffers())
-        assert "gate_up_proj_qzeros" in buffer_names
+        buffers = dict(block.named_buffers())
+        assert "gate_up_proj_qzeros" in buffers
+        assert buffers["gate_up_proj_qzeros"] is block._parameters["gate_up_proj"].qzeros
 
-    def test_state_dict_serializable_after_flatten(self):
-        """After flattening, the module's state_dict must be plain Tensors."""
+    def test_state_dict_drops_quant_tensor_entry(self):
+        """After install, state_dict must contain only plain Tensors (no QuantTensor entry)."""
         block = _ExpertsBlock()
         qt = QuantTensor.from_float(block.gate_up_proj.detach(), bits=4, symmetric=True, group_size=16)
-        block._parameters["gate_up_proj"] = nn.Parameter(qt, requires_grad=False)
 
-        flatten_quant_tensor_params(block)
+        install_quant_tensor_param(block, "gate_up_proj", qt)
 
         sd = block.state_dict()
+        # No QuantTensor instance should appear in the state_dict.
         for key, value in sd.items():
-            assert type(value) is torch.Tensor, f"{key} is not a plain Tensor: {type(value)}"
+            assert not isinstance(value, QuantTensor), f"{key} should not be a QuantTensor"
+        # The plain ``gate_up_proj`` key (the QuantTensor parameter) is dropped;
+        # the buffers carry the on-disk representation.
+        assert "gate_up_proj" not in sd
+        assert "gate_up_proj_qweight" in sd
+        assert "gate_up_proj_scales" in sd
 
-    def test_no_op_on_module_without_quant_tensor(self):
-        """Plain modules pass through unchanged."""
-        block = nn.Linear(8, 8)
-        before = {n: id(p) for n, p in block.named_parameters()}
-        flatten_quant_tensor_params(block)
-        after = {n: id(p) for n, p in block.named_parameters()}
-        assert before == after
+    def test_install_on_linear_module(self):
+        """Smoke test on a normal nn.Linear so that F.linear forward still works."""
+        linear = nn.Linear(16, 32, bias=False)
+        weight = linear.weight.detach().clone()
+        qt = QuantTensor.from_float(weight, bits=4, symmetric=True, group_size=16)
+
+        install_quant_tensor_param(linear, "weight", qt)
+
+        assert isinstance(linear.weight, QuantTensor)
+        # forward dispatches through QuantTensor.__torch_function__ and returns a plain Tensor
+        x = torch.randn(2, 16)
+        y = linear(x)
+        assert y.shape == (2, 32)
+        assert not isinstance(y, QuantTensor)

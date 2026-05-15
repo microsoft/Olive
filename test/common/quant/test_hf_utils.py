@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import pytest
-import torch
 import torch.nn as nn
 from transformers import PretrainedConfig
 from transformers.modeling_utils import PreTrainedModel
@@ -14,12 +13,19 @@ from olive.common.quant.hf_utils import (
     OliveHfQuantizationOverrideConfig,
     OliveHfQuantizer,
     replace_matching_submodules,
-    tie_quant_modules,
     tie_quant_word_embeddings,
 )
-from olive.common.quant.nn import QuantEmbedding, QuantLinear
+from olive.common.quant.tensor import QuantTensor
 
 # pylint: disable=W0212
+
+
+def _is_olive_quant(module: nn.Module) -> bool:
+    """Return True if ``module`` is an nn.Linear/nn.Embedding whose weight is a QuantTensor."""
+    if not isinstance(module, (nn.Linear, nn.Embedding)):
+        return False
+    weight = module._parameters.get("weight")
+    return weight is not None and isinstance(weight.data, QuantTensor)
 
 
 class TestOliveHfQuantizationMethod:
@@ -209,13 +215,13 @@ class TestOliveHfQuantizer:
         # Process model
         quantizer._process_model_before_weight_loading(model)
 
-        # Check that linear layers are replaced with QuantLinear
-        assert isinstance(model.linear1, QuantLinear)
-        assert isinstance(model.linear2, QuantLinear)
+        # Check that linear layers are replaced with QuantTensor weights
+        assert _is_olive_quant(model.linear1)
+        assert _is_olive_quant(model.linear2)
 
         # Check that embeddings and lm_head are NOT quantized by default
-        assert not isinstance(model.embed, QuantEmbedding)
-        assert not isinstance(model.lm_head, QuantLinear)
+        assert not _is_olive_quant(model.embed)
+        assert not _is_olive_quant(model.lm_head)
 
     def test_process_model_with_embeds_quantization(self):
         """Test that embeddings are quantized when embeds=True."""
@@ -229,7 +235,7 @@ class TestOliveHfQuantizer:
         quantizer._process_model_before_weight_loading(model)
 
         # Check that embeddings are quantized
-        assert isinstance(model.embed, QuantEmbedding)
+        assert _is_olive_quant(model.embed)
 
     def test_process_model_with_lm_head_quantization(self):
         """Test that lm_head is quantized when lm_head=True."""
@@ -243,7 +249,7 @@ class TestOliveHfQuantizer:
         quantizer._process_model_before_weight_loading(model)
 
         # Check that lm_head is quantized
-        assert isinstance(model.lm_head, QuantLinear)
+        assert _is_olive_quant(model.lm_head)
 
     def test_process_model_with_modules_to_not_convert(self):
         """Test that specified modules are not converted."""
@@ -263,8 +269,9 @@ class TestOliveHfQuantizer:
 
         # Check that linear1 is NOT quantized
         assert isinstance(model.linear1, nn.Linear)
+        assert not _is_olive_quant(model.linear1)
         # But linear2 should be quantized
-        assert isinstance(model.linear2, QuantLinear)
+        assert _is_olive_quant(model.linear2)
 
     def test_is_serializable(self):
         """Test that quantizer is serializable."""
@@ -357,49 +364,6 @@ class TestReplaceMatchingSubmodules:
         assert isinstance(result.sub[2], nn.Identity)
 
 
-class TestTieQuantModules:
-    def test_tie_quant_linear_modules(self):
-        """Test tying two QuantLinear modules."""
-        # Create two QuantLinear modules
-        qlinear1 = QuantLinear(32, 10, bits=4, symmetric=True, group_size=16)
-        qlinear2 = QuantLinear(32, 10, bits=4, symmetric=True, group_size=16)
-
-        # Set some values in qlinear1
-        qlinear1.qweight.fill_(1)
-        qlinear1.scales.fill_(0.5)
-
-        # Initially different
-        assert not torch.all(qlinear1.qweight == qlinear2.qweight)
-
-        # Tie them
-        tie_quant_modules(qlinear1, qlinear2)
-
-        # Now they should share buffers
-        assert qlinear1.qweight is qlinear2.qweight
-        assert qlinear1.scales is qlinear2.scales
-
-        # Modifications to one should affect the other
-        qlinear1.qweight.fill_(2)
-        assert torch.all(qlinear2.qweight == 2)
-
-    def test_tie_quant_embedding_modules(self):
-        """Test tying two QuantEmbedding modules."""
-        # Create two QuantEmbedding modules
-        qembed1 = QuantEmbedding(100, 64, bits=4, symmetric=True, group_size=16)
-        qembed2 = QuantEmbedding(100, 64, bits=4, symmetric=True, group_size=16)
-
-        # Set some values in qembed1
-        qembed1.qweight.fill_(1)
-        qembed1.scales.fill_(0.5)
-
-        # Tie them
-        tie_quant_modules(qembed1, qembed2)
-
-        # Now they should share buffers
-        assert qembed1.qweight is qembed2.qweight
-        assert qembed1.scales is qembed2.scales
-
-
 class TestTieQuantWordEmbeddings:
     def test_tie_word_embeddings(self):
         """Test tying word embeddings in a model."""
@@ -419,16 +383,17 @@ class TestTieQuantWordEmbeddings:
         # Process model to quantize embeddings
         quantizer._process_model_before_weight_loading(model)
 
-        # Set different values
-        model.embed.qweight.fill_(1)
-        model.lm_head.qweight.fill_(2)
+        # Set different values on the aliased buffers
+        model.embed.weight_qweight.fill_(1)
+        model.lm_head.weight_qweight.fill_(2)
 
         # Tie embeddings
         tie_quant_word_embeddings(model)
 
-        # Now they should share buffers
-        assert model.embed.qweight is model.lm_head.qweight
-        assert model.embed.scales is model.lm_head.scales
+        # Now they should share the underlying buffers and the Parameter
+        assert model.embed.weight_qweight is model.lm_head.weight_qweight
+        assert model.embed.weight_scales is model.lm_head.weight_scales
+        assert model.embed._parameters["weight"] is model.lm_head._parameters["weight"]
 
 
 # -- MoE quantization fixtures and tests --------------------------------------
@@ -509,12 +474,12 @@ class TestOliveHfQuantizerMoE:
 
         for expert in model.model.layers[0].mlp.experts:
             assert isinstance(expert.w1, nn.Linear)
-            assert not isinstance(expert.w1, QuantLinear)
+            assert not _is_olive_quant(expert.w1)
             assert isinstance(expert.w2, nn.Linear)
-            assert not isinstance(expert.w2, QuantLinear)
+            assert not _is_olive_quant(expert.w2)
         # The router (gate) is also under the mlp but not under .experts;
         # it should still be quantized.
-        assert isinstance(model.model.layers[0].mlp.gate, QuantLinear)
+        assert _is_olive_quant(model.model.layers[0].mlp.gate)
 
     def test_module_list_experts_quantized_when_moe_true(self):
         config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=16, moe=True)
@@ -524,8 +489,8 @@ class TestOliveHfQuantizerMoE:
         quantizer._process_model_before_weight_loading(model)
 
         for expert in model.model.layers[0].mlp.experts:
-            assert isinstance(expert.w1, QuantLinear)
-            assert isinstance(expert.w2, QuantLinear)
+            assert _is_olive_quant(expert.w1)
+            assert _is_olive_quant(expert.w2)
 
     def test_moe_default_is_false(self):
         """``moe`` defaults to False — opt-in, matching lm_head / embeds."""
@@ -549,9 +514,9 @@ class TestOliveHfQuantizerMoE:
 
         # gate is skipped via regex
         assert isinstance(model.model.layers[0].mlp.gate, nn.Linear)
-        assert not isinstance(model.model.layers[0].mlp.gate, QuantLinear)
+        assert not _is_olive_quant(model.model.layers[0].mlp.gate)
         # experts are quantized
-        assert isinstance(model.model.layers[0].mlp.experts[0].w1, QuantLinear)
+        assert _is_olive_quant(model.model.layers[0].mlp.experts[0].w1)
 
 
 class TestRegexOverrides:

@@ -505,6 +505,20 @@ class OliveQuantizedModel:
             if weight_file.suffix == ".safetensors":
                 weights = load_file(weight_file)
 
+                # Normalize Olive v4 key layout: ``<dotted>.weight_qweight``
+                # (and ``_scales`` / ``_qzeros``) → ``<dotted>.qweight`` (etc.)
+                # so the existing dotted-path resolver keeps working.
+                normalized: dict[str, "torch.Tensor"] = {}
+                for k, v in weights.items():
+                    for suffix in ("_qweight", "_scales", "_qzeros"):
+                        legacy_suffix = "." + suffix.lstrip("_")
+                        new_suffix = ".weight" + suffix
+                        if k.endswith(new_suffix):
+                            k = k[: -len(new_suffix)] + legacy_suffix
+                            break
+                    normalized[k] = v
+                weights = normalized
+
                 # Map weights to modules
                 for name, tensor in weights.items():
                     if name.endswith("inv_freq"):
