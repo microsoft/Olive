@@ -118,9 +118,21 @@ class QairtPipelinePass(Pass):
         pipe.export(output_model_path)
 
         # QairtEncapsulation needs config.json and generation_config.json to generate
-        # genai_config.json. Copy them from the source HF model if not already present.
+        # genai_config.json. Resolve the local HF cache path (model.model_path may be a
+        # HuggingFace repo ID rather than a local directory) and copy if not already present.
+        try:
+            from huggingface_hub import snapshot_download
+
+            local_model_path = snapshot_download(
+                model.model_path,
+                local_files_only=True,
+                ignore_patterns=["*.pt", "*.bin", "*.safetensors"],
+            )
+        except Exception:
+            local_model_path = model.model_path
+
         for fname in ("config.json", "generation_config.json"):
-            src = Path(model.model_path) / fname
+            src = Path(local_model_path) / fname
             dst = Path(output_model_path) / fname
             if src.exists() and not dst.exists():
                 shutil.copy2(src, dst)
