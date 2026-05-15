@@ -6,8 +6,7 @@
 quantization buffers (``qweight``, ``scales``, ``qzeros``) but presents the
 shape / dtype / device of the dequantized full-precision weight.
 
-Design notes (see ``/datadisks/jambaykinley/archive/qmoe/research.md`` and
-``plan.md``):
+Design notes:
 
 * The class is a **wrapper** subclass (``_make_wrapper_subclass``) — it
   carries no real storage of its own, so the dense FP weight is never
@@ -19,9 +18,8 @@ Design notes (see ``/datadisks/jambaykinley/archive/qmoe/research.md`` and
     conversion pass swaps any ``nn.Linear`` / ``nn.Embedding`` whose
     weight is a ``QuantTensor`` for the existing exportable
     ``QuantLinearNbit`` / ``QuantEmbeddingNbit`` ``nn.Module``s (see
-    ``olive/common/quant/nn.py`` and ``olive/common/hf/quant.py``)
-    *before* the tracer ever inspects the parameter. This keeps the
-    legacy ``com.microsoft::MatMulNBits`` /
+    ``olive/common/hf/quant.py``) *before* the tracer ever inspects
+    the parameter. This keeps the legacy ``com.microsoft::MatMulNBits`` /
     ``com.microsoft::GatherBlockQuantized`` symbolic emission intact.
 * All other ops (including ``model.to(dtype/device)``, ``.detach()``,
   ``.contiguous()``, ``.clone()``) are routed through ``_apply_fn_to_data``
@@ -44,7 +42,6 @@ from olive.common.quant.utils import (
     WeightQuantizer,
     pack_to_uint8,
     unpack_from_uint8,
-    unpack_from_uint8_along_last,
 )
 
 __all__ = ["QuantTensor", "implements"]
@@ -71,28 +68,21 @@ def _midq(bits: int) -> int:
 def _zero_points_or_default(weight: QuantTensor) -> torch.Tensor:
     """Unpack zero_points or return a tensor full of the symmetric mid-q value."""
     if weight.qzeros is not None:
-        return unpack_from_uint8_along_last(weight.qzeros, weight.bits, tuple(weight.scales.shape)).to(torch.int32)
+        return unpack_from_uint8(weight.qzeros, weight.bits, tuple(weight.scales.shape)).to(torch.int32)
     return torch.full(weight.scales.shape, _midq(weight.bits), dtype=torch.int32, device=weight.scales.device)
 
 
 def _dequantize(weight: QuantTensor) -> torch.Tensor:
     """Unpack + dequantize ``weight`` into a dense tensor of ``weight.dtype``."""
+    if weight.dim() not in (2, 3):
+        raise NotImplementedError(f"QuantTensor only supports 2D / 3D layouts, got {weight.dim()}D")
+
     quantizer = WeightQuantizer(
         bits=weight.bits, symmetric=weight.symmetric, group_size=weight.group_size, signed=False
     )
-    if weight.dim() == 2:
-        qw = unpack_from_uint8(weight.qweight, weight.bits, tuple(weight.shape))
-        zp = _zero_points_or_default(weight)
-        return quantizer.dequantize(qw, weight.scales, zp).to(weight.dtype)
-    if weight.dim() == 3:
-        qw = unpack_from_uint8_along_last(weight.qweight, weight.bits, tuple(weight.shape))
-        zp = _zero_points_or_default(weight)
-        leading = weight.shape[0]
-        out = torch.empty(weight.shape, dtype=weight.dtype, device=weight.qweight.device)
-        for i in range(leading):
-            out[i] = quantizer.dequantize(qw[i], weight.scales[i], zp[i]).to(weight.dtype)
-        return out
-    raise NotImplementedError(f"QuantTensor only supports 2D / 3D layouts, got {weight.dim()}D")
+    qw = unpack_from_uint8(weight.qweight, weight.bits, tuple(weight.shape))
+    zp = _zero_points_or_default(weight)
+    return quantizer.dequantize(qw, weight.scales, zp).to(weight.dtype)
 
 
 class QuantTensor(torch.Tensor):
@@ -174,51 +164,32 @@ class QuantTensor(torch.Tensor):
     ) -> QuantTensor:
         """Quantize a 2D or 3D FP weight tensor and produce a ``QuantTensor``.
 
-        For 3D weights the leading dim is iterated and each slice is
-        quantized independently — the resulting qweight retains the
-        leading dim and ``scales`` / ``qzeros`` gain one as well.
+        Quantization is along the last dim — for 3D fused MoE weights of
+        shape ``(num_experts, out, in)`` each ``(out, in)`` slice gets
+        its own per-group scales / zero-points along ``in``, with no
+        explicit leading-dim loop.
         """
         if weight.dim() not in (2, 3):
             raise ValueError(f"QuantTensor only supports 2D and 3D weights, got shape {tuple(weight.shape)}")
 
         quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
-        if weight.dim() == 2:
-            if scales is None or zero_points is None:
-                scales, zero_points = quantizer.find_qparams(weight)
-            else:
-                scales = scales.to(weight.device).to(weight.dtype)
-                zero_points = zero_points.to(weight.device).to(torch.int32)
-            qweight_int = quantizer.quantize(weight, scales, zero_points)
-            qweight_packed = pack_to_uint8(qweight_int, bits).contiguous()
-            scales_packed = scales.reshape(quantizer.get_qparam_shape(weight.shape)).contiguous()
-            if symmetric:
-                qzeros_packed = None
-                if not torch.all(zero_points == quantizer.midq):
-                    raise ValueError("Zero points must equal midq for symmetric quantization")
-            else:
-                qzeros_packed = pack_to_uint8(
-                    zero_points.reshape(quantizer.get_qparam_shape(weight.shape)), bits
-                ).contiguous()
+        qparam_shape = quantizer.get_qparam_shape(tuple(weight.shape))
+
+        if scales is None or zero_points is None:
+            scales, zero_points = quantizer.find_qparams(weight)
         else:
-            # 3D — iterate the leading dim
-            if scales is not None or zero_points is not None:
-                raise NotImplementedError("Pre-computed scales/zero_points are not yet supported for 3D weights")
-            qweight_list, scales_list, zp_list = [], [], []
-            for i in range(weight.shape[0]):
-                s, zp = quantizer.find_qparams(weight[i])
-                qw = quantizer.quantize(weight[i], s, zp)
-                qweight_list.append(pack_to_uint8(qw, bits))
-                scales_list.append(s.reshape(quantizer.get_qparam_shape(weight[i].shape)))
-                zp_list.append(zp.reshape(quantizer.get_qparam_shape(weight[i].shape)))
-            qweight_packed = torch.stack(qweight_list, dim=0).contiguous()
-            scales_packed = torch.stack(scales_list, dim=0).contiguous()
-            if symmetric:
-                qzeros_packed = None
-                for zp in zp_list:
-                    if not torch.all(zp == quantizer.midq):
-                        raise ValueError("Zero points must equal midq for symmetric quantization")
-            else:
-                qzeros_packed = torch.stack([pack_to_uint8(zp, bits) for zp in zp_list], dim=0).contiguous()
+            scales = scales.to(weight.device).to(weight.dtype).reshape(qparam_shape)
+            zero_points = zero_points.to(weight.device).to(torch.int32).reshape(qparam_shape)
+
+        qweight_int = quantizer.quantize(weight, scales, zero_points)
+        qweight_packed = pack_to_uint8(qweight_int, bits).contiguous()
+        scales_packed = scales.reshape(qparam_shape).contiguous()
+        if symmetric:
+            if not torch.all(zero_points == quantizer.midq):
+                raise ValueError("Zero points must equal midq for symmetric quantization")
+            qzeros_packed = None
+        else:
+            qzeros_packed = pack_to_uint8(zero_points.reshape(qparam_shape), bits).contiguous()
 
         return cls(
             qweight=qweight_packed,

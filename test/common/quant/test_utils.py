@@ -98,7 +98,7 @@ class TestWeightQuantizer:
         quantizer = WeightQuantizer(bits=4, symmetric=True, group_size=32)
         shape = (64, 100)  # 100 is not divisible by 32
 
-        with pytest.raises(AssertionError, match=r"in_features .* must be divisible by group_size"):
+        with pytest.raises(AssertionError, match=r"last dim .* must be divisible by group_size"):
             quantizer.get_num_groups(shape)
 
     @pytest.mark.parametrize("group_size", [0, 16, -1])
@@ -398,4 +398,50 @@ class TestPackUnpack:
 
         unpacked = unpack_from_uint8(packed, bits=4, shape=tensor.shape)
         assert unpacked.device.type == device.type
+        assert torch.all(unpacked == tensor.to(torch.int32))
+
+
+class TestNDimensional:
+    """Verify that the quantizer / pack helpers operate identically on N-D tensors,
+    always quantizing along the last dim, without an explicit leading-dim loop.
+    """
+
+    @pytest.mark.parametrize("bits", [2, 4, 8])
+    @pytest.mark.parametrize("group_size", [-1, 16, 32])
+    def test_quantizer_3d_matches_2d_per_slice(self, bits, group_size):
+        """A 3D quantize must match independently quantizing each ``[i]`` slice."""
+        torch.manual_seed(0)
+        weight = torch.randn(3, 8, 64)
+        quantizer = WeightQuantizer(bits=bits, symmetric=False, group_size=group_size)
+
+        scales, zero_points = quantizer.find_qparams(weight)
+        q = quantizer.quantize(weight, scales, zero_points)
+        dq = quantizer.dequantize(q, scales, zero_points)
+
+        # quantization parameters carry shape (num_experts, out, num_groups)
+        num_groups = 1 if group_size == -1 else 64 // group_size
+        assert scales.shape == (3, 8, num_groups)
+        assert zero_points.shape == (3, 8, num_groups)
+        assert q.shape == weight.shape
+        assert dq.shape == weight.shape
+
+        for i in range(weight.shape[0]):
+            s_i, zp_i = quantizer.find_qparams(weight[i])
+            assert torch.equal(scales[i], s_i)
+            assert torch.equal(zero_points[i], zp_i)
+            assert torch.equal(q[i], quantizer.quantize(weight[i], s_i, zp_i))
+
+    @pytest.mark.parametrize("bits", [2, 4, 8])
+    def test_pack_unpack_3d_round_trip(self, bits):
+        """``pack_to_uint8`` / ``unpack_from_uint8`` round-trip on 3D inputs."""
+        torch.manual_seed(0)
+        shape = (3, 8, 64)
+        tensor = torch.randint(0, 2**bits, shape, dtype=torch.uint8)
+
+        packed = pack_to_uint8(tensor, bits)
+        packing_factor = 8 // bits
+        assert packed.shape == (3, 8, 64 // packing_factor)
+
+        unpacked = unpack_from_uint8(packed, bits, shape)
+        assert unpacked.shape == shape
         assert torch.all(unpacked == tensor.to(torch.int32))
