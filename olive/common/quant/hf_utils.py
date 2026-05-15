@@ -11,6 +11,8 @@ import torch.nn as nn
 from transformers.quantizers.base import HfQuantizer
 from transformers.utils.quantization_config import QuantizationConfigMixin
 
+from olive.common.hf.wrapper import ModelWrapper
+from olive.common.quant.patterns import match_override, match_skip
 from olive.common.utils import StrEnumBase
 
 if TYPE_CHECKING:
@@ -58,8 +60,21 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
             -1 = per-channel, >0 = groupwise.
         lm_head: Whether to quantize the language model head.
         embeds: Whether to quantize the input embeddings.
-        modules_to_not_convert : List of module names to exclude from quantization.
+        moe: Whether to quantize MoE expert modules / parameters.
+            When ``False`` (default), every ``nn.Module`` under each
+            experts subtree returned by ``LayerWrapper.get_experts()``
+            is added to the skip set — this both leaves fused-3D
+            experts alone *and* fixes the previous silent quantization
+            of per-expert ``nn.Linear``s in ``ModuleList(Expert)``
+            blocks (Mixtral, PhiMoE, Qwen2/3-MoE).
+        modules_to_not_convert: List of module name patterns to exclude
+            from quantization. Plain strings use **substring** matching
+            (preserving HF semantics); entries prefixed with ``re:`` use
+            ``re.fullmatch``.
         overrides: Per-module overrides for quantization parameters.
+            Keys use **literal equality** matching by default; entries
+            prefixed with ``re:`` use ``re.fullmatch``. Among matching
+            keys, the longest pattern wins (ties broken lexically).
 
     """
 
@@ -71,6 +86,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         group_size: int,
         lm_head: bool = False,
         embeds: bool = False,
+        moe: bool = False,
         modules_to_not_convert: list | None = None,
         overrides: dict | None = None,
         tie_word_embeddings: bool = False,
@@ -84,6 +100,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         self.group_size = group_size
         self.lm_head = lm_head
         self.embeds = embeds
+        self.moe = moe
         self.modules_to_not_convert = modules_to_not_convert
         self.overrides = {
             module_name: OliveHfQuantizationOverrideConfig(**override)
@@ -127,7 +144,9 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
             "symmetric": self.symmetric,
             "group_size": self.group_size,
         }
-        if override := self.overrides.get(module_name):
+        best = match_override(module_name, list(self.overrides.keys())) if self.overrides else None
+        if best is not None:
+            override = self.overrides[best]
             init_args.update({k: v for k, v in override.__dict__.items() if v is not None})
         return init_args
 
@@ -153,24 +172,49 @@ class OliveHfQuantizer(HfQuantizer):
     ):
         from olive.common.quant.nn import QuantEmbedding, QuantLinear
 
-        ids_to_skip = []
+        ids_to_skip: list[int] = []
         if not self.quantization_config.lm_head:
             ids_to_skip.append(id(model.get_output_embeddings()))
         if not self.quantization_config.embeds:
             ids_to_skip.append(id(model.get_input_embeddings()))
-        self.modules_to_not_convert = (
+        if not self.quantization_config.moe:
+            # Skip every nn.Module under each experts subtree — this both
+            # leaves fused-3D experts alone *and* fixes the previous silent
+            # quantization of per-expert nn.Linears inside
+            # ModuleList(Expert) blocks (Mixtral, PhiMoE, Qwen2/3-MoE).
+            try:
+                wrapper = ModelWrapper.from_model(model)
+                for lw in wrapper.get_layer_wrappers():
+                    experts = lw.get_experts(return_name=False)
+                    if experts is None:
+                        continue
+                    for sub in experts.modules():
+                        ids_to_skip.append(id(sub))
+            except Exception:  # pylint: disable=broad-except
+                # Not every model is wrappable (e.g., random tests). Falling
+                # back to the previous behaviour (no experts skip) is safe.
+                pass
+
+        modules_to_not_convert: list[str] = (
             [name for name, module in model.named_modules() if id(module) in ids_to_skip] if ids_to_skip else []
         )
+        # Pattern-aware skip list. Plain strings keep their HF substring
+        # semantics; ``re:`` opts into regex fullmatch.
+        skip_patterns: list[str] = []
         if self.quantization_config.modules_to_not_convert:
-            self.modules_to_not_convert.extend(self.quantization_config.modules_to_not_convert)
+            skip_patterns.extend(self.quantization_config.modules_to_not_convert)
         if keep_in_fp32_modules:
-            self.modules_to_not_convert.extend(keep_in_fp32_modules)
+            skip_patterns.extend(keep_in_fp32_modules)
+        self.modules_to_not_convert = modules_to_not_convert
+        self._skip_patterns = skip_patterns
 
         def should_quantize(module: nn.Module, name: str) -> bool:
             """Check if a module should be quantized."""
-            return isinstance(module, (nn.Linear, nn.Embedding)) and not any(
-                key in name for key in self.modules_to_not_convert
-            )
+            if not isinstance(module, (nn.Linear, nn.Embedding)):
+                return False
+            if any(literal == name for literal in self.modules_to_not_convert):
+                return False
+            return not match_skip(name, self._skip_patterns)
 
         def create_quantized_module(module: nn.Linear | nn.Embedding, name: str) -> QuantLinear | QuantEmbedding:
             """Create a quantized version of a module."""

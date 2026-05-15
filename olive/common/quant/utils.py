@@ -9,7 +9,14 @@ import torch
 
 # TODO(jambayk): consider supporting transposed weights, useful for onnx weights
 class WeightQuantizer:
-    """Class to quantize weight tensors."""
+    """Class to quantize weight tensors.
+
+    Operates on 2D tensors of shape ``(out_features, in_features)`` with
+    the last dimension quantized (groupwise / per-channel / per-tensor).
+    Use :func:`quantize_along_leading_dim` to handle 3D tensors (e.g.
+    fused MoE experts of shape ``(num_experts, out, in)``) by iterating
+    the leading dimension.
+    """
 
     def __init__(self, bits: int = 4, symmetric: bool = True, group_size: int = 0, signed: bool = False):
         """Initialize the quantizer with parameters.
@@ -257,3 +264,69 @@ def unpack_from_uint8(packed_tensor: torch.Tensor, bits: int, shape: tuple[int, 
     unpacked_tensor = unpacked_tensor.reshape(shape[0], -1)
     unpacked_tensor = unpacked_tensor[:, : shape[1]]
     return torch.bitwise_and(unpacked_tensor, maxq).to(torch.int32)
+
+
+@torch.no_grad()
+def quantize_along_leading_dim(
+    quantizer: WeightQuantizer, tensor: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Quantize a 2D or 3D tensor with a :class:`WeightQuantizer`.
+
+    For a 2D input of shape ``(out, in)`` this is equivalent to
+    ``quantizer.find_qparams`` + ``quantizer.quantize``.
+
+    For a 3D input of shape ``(leading, out, in)`` the leading dimension
+    is iterated and each slice is quantized independently. The returned
+    ``qweight`` shares the same shape as the input; ``scales`` /
+    ``zero_points`` carry an additional leading dimension matching the
+    input's leading dim.
+    """
+    if tensor.dim() == 2:
+        scales, zero_points = quantizer.find_qparams(tensor)
+        qweight = quantizer.quantize(tensor, scales, zero_points)
+        return qweight, scales, zero_points
+    if tensor.dim() != 3:
+        raise ValueError(f"Only 2D and 3D tensors are supported, got shape {tuple(tensor.shape)}")
+
+    leading = tensor.shape[0]
+    qweights, scales_list, zp_list = [], [], []
+    for i in range(leading):
+        s, zp = quantizer.find_qparams(tensor[i])
+        qweights.append(quantizer.quantize(tensor[i], s, zp))
+        scales_list.append(s)
+        zp_list.append(zp)
+    return (
+        torch.stack(qweights, dim=0),
+        torch.stack(scales_list, dim=0),
+        torch.stack(zp_list, dim=0),
+    )
+
+
+@torch.no_grad()
+def pack_to_uint8_along_last(tensor: torch.Tensor, bits: int) -> torch.Tensor:
+    """Pack 2/4/8 bit values into uint8 along the last dim, supporting 2D or 3D.
+
+    For 3D inputs (e.g. fused MoE experts) the leading dim is preserved.
+    """
+    if tensor.dim() == 2:
+        return pack_to_uint8(tensor, bits)
+    if tensor.dim() != 3:
+        raise ValueError(f"Only 2D and 3D tensors are supported, got shape {tuple(tensor.shape)}")
+
+    leading = tensor.shape[0]
+    return torch.stack([pack_to_uint8(tensor[i], bits) for i in range(leading)], dim=0)
+
+
+@torch.no_grad()
+def unpack_from_uint8_along_last(packed_tensor: torch.Tensor, bits: int, shape: tuple[int, ...]) -> torch.Tensor:
+    """Unpack uint8-packed values into 2/4/8 bit ints, supporting 2D or 3D."""
+    if len(shape) == 2:
+        return unpack_from_uint8(packed_tensor, bits, shape)
+    if len(shape) != 3:
+        raise ValueError(f"Only 2D and 3D tensors are supported, got shape {shape}")
+
+    leading = shape[0]
+    return torch.stack(
+        [unpack_from_uint8(packed_tensor[i], bits, shape[1:]) for i in range(leading)],
+        dim=0,
+    )

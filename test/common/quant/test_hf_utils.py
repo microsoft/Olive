@@ -429,3 +429,152 @@ class TestTieQuantWordEmbeddings:
         # Now they should share buffers
         assert model.embed.qweight is model.lm_head.qweight
         assert model.embed.scales is model.lm_head.scales
+
+
+# -- MoE quantization fixtures and tests --------------------------------------
+
+
+class MoEConfig(PretrainedConfig):
+    model_type = "moe_simple"
+
+    def __init__(self, hidden_size=64, vocab_size=64, num_experts=4, num_layers=1, **kwargs):
+        super().__init__(**kwargs)
+        self.hidden_size = hidden_size
+        self.vocab_size = vocab_size
+        self.num_experts = num_experts
+        self.num_hidden_layers = num_layers
+        # required by ModelWrapper / LayerWrapper
+        self.num_attention_heads = 4
+        self.num_key_value_heads = 4
+        self.head_dim = hidden_size // 4
+        self.intermediate_size = hidden_size
+
+
+class _MoEExpert(nn.Module):
+    """Per-expert sub-module (ModuleList style — like Mixtral / PhiMoE)."""
+
+    def __init__(self, hidden_size: int):
+        super().__init__()
+        self.w1 = nn.Linear(hidden_size, hidden_size, bias=False)
+        self.w2 = nn.Linear(hidden_size, hidden_size, bias=False)
+
+
+class _MoELayer(nn.Module):
+    def __init__(self, hidden_size: int, num_experts: int):
+        super().__init__()
+        self.mlp = nn.Module()
+        self.mlp.gate = nn.Linear(hidden_size, num_experts, bias=False)
+        self.mlp.experts = nn.ModuleList([_MoEExpert(hidden_size) for _ in range(num_experts)])
+
+
+class MoESimpleModel(PreTrainedModel):
+    config_class = MoEConfig
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.model = nn.Module()
+        self.model.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size)
+        self.model.layers = nn.ModuleList(
+            [_MoELayer(config.hidden_size, config.num_experts) for _ in range(config.num_hidden_layers)]
+        )
+        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+
+    def get_input_embeddings(self):
+        return self.model.embed_tokens
+
+    def get_output_embeddings(self):
+        return self.lm_head
+
+    def set_output_embeddings(self, new_embeddings):
+        self.lm_head = new_embeddings
+
+
+class TestOliveHfQuantizerMoE:
+    """MoE-specific behaviour of ``OliveHfQuantizer``.
+
+    The previous implementation silently quantized every per-expert
+    ``nn.Linear`` in ``ModuleList(Expert)`` blocks (Mixtral / PhiMoE /
+    Qwen2/3-MoE). With the new ``moe`` category flag (default ``False``),
+    every ``nn.Module`` under each experts subtree is added to the skip
+    set — fixing the silent quantization.
+    """
+
+    def test_module_list_experts_skipped_by_default(self):
+        """Regression: ModuleList(Expert) linears must stay as nn.Linear when moe=False."""
+        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=16, moe=False)
+        quantizer = OliveHfQuantizer(config)
+        model = MoESimpleModel(MoEConfig())
+
+        quantizer._process_model_before_weight_loading(model)
+
+        for expert in model.model.layers[0].mlp.experts:
+            assert isinstance(expert.w1, nn.Linear)
+            assert not isinstance(expert.w1, QuantLinear)
+            assert isinstance(expert.w2, nn.Linear)
+            assert not isinstance(expert.w2, QuantLinear)
+        # The router (gate) is also under the mlp but not under .experts;
+        # it should still be quantized.
+        assert isinstance(model.model.layers[0].mlp.gate, QuantLinear)
+
+    def test_module_list_experts_quantized_when_moe_true(self):
+        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=16, moe=True)
+        quantizer = OliveHfQuantizer(config)
+        model = MoESimpleModel(MoEConfig())
+
+        quantizer._process_model_before_weight_loading(model)
+
+        for expert in model.model.layers[0].mlp.experts:
+            assert isinstance(expert.w1, QuantLinear)
+            assert isinstance(expert.w2, QuantLinear)
+
+    def test_moe_default_is_false(self):
+        """``moe`` defaults to False — opt-in, matching lm_head / embeds."""
+        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=16)
+        assert config.moe is False
+
+    def test_regex_skip_pattern(self):
+        """``re:`` prefix opts into regex fullmatch for modules_to_not_convert."""
+        config = OliveHfQuantizationConfig(
+            bits=4,
+            symmetric=True,
+            group_size=16,
+            moe=True,
+            # Quantize experts but keep the router in fp.
+            modules_to_not_convert=["re:.*\\.mlp\\.gate"],
+        )
+        quantizer = OliveHfQuantizer(config)
+        model = MoESimpleModel(MoEConfig())
+
+        quantizer._process_model_before_weight_loading(model)
+
+        # gate is skipped via regex
+        assert isinstance(model.model.layers[0].mlp.gate, nn.Linear)
+        assert not isinstance(model.model.layers[0].mlp.gate, QuantLinear)
+        # experts are quantized
+        assert isinstance(model.model.layers[0].mlp.experts[0].w1, QuantLinear)
+
+
+class TestRegexOverrides:
+    def test_get_qlinear_init_args_with_regex_override(self):
+        overrides = {
+            "re:.*\\.mlp\\.experts\\..*\\.w1": {"bits": 8, "group_size": 32},
+            "model.lm_head": {"bits": 4},
+        }
+        config = OliveHfQuantizationConfig(
+            bits=4,
+            symmetric=True,
+            group_size=128,
+            overrides=overrides,
+        )
+        init_args = config.get_qlinear_init_args("model.layers.0.mlp.experts.0.w1")
+        assert init_args == {"bits": 8, "symmetric": True, "group_size": 32}
+
+    def test_literal_beats_unrelated_regex(self):
+        overrides = {
+            "re:.*\\.w1": {"bits": 8},
+            "model.layers.0.mlp.experts.0.w1": {"bits": 6},
+        }
+        config = OliveHfQuantizationConfig(bits=4, symmetric=True, group_size=128, overrides=overrides)
+        init_args = config.get_qlinear_init_args("model.layers.0.mlp.experts.0.w1")
+        # literal (longer) wins
+        assert init_args["bits"] == 6

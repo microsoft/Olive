@@ -437,6 +437,14 @@ class OliveQuantizedModel:
 
         config = quant_attrs["config"]
 
+        if config.get("moe"):
+            raise NotImplementedError(
+                "ModelBuilder does not support loading Olive-quantized MoE checkpoints "
+                "(``quantization_config.moe == True``). Use the Mobius model builder for "
+                "MoE models or rerun the RTN pass with ``moe=False`` to leave experts in "
+                "their original precision."
+            )
+
         self.quant_type = quant_type
         self.embedding = QuantizedTensorModule() if config["embeds"] else TensorModule()
         self.final_norm = TensorModule()
