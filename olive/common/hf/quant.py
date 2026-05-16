@@ -328,43 +328,54 @@ class QuantLinearNbit(torch.nn.Module):
     ) -> QuantLinearNbit:
         """Create a ``QuantLinearNbit`` from an Olive 2D ``QuantTensor``.
 
-        The QuantTensor stores ``qweight`` packed-along-last (uint8) in
-        ``(out_features, ceil(in_features / pack_factor))`` layout, with
-        ``scales`` of shape ``(out_features, n_groups)`` and optional
-        ``qzeros`` of shape ``(out_features, ceil(n_groups / pack_factor))``.
-        We unpack to dense uint8 / int8 tensors then re-pack into the
-        ``MatMulNBits`` layout via :meth:`pack`.
+        Both layouts pack the quantization axis (the input dim) as uint8
+        with the same in-byte order, so the buffer **bytes** are
+        bit-identical and we only need to reshape:
+
+        * ``QuantTensor.qweight`` ``(out, in / pack_factor)``  ->
+          ``QuantLinearNbit.qweight`` ``(out, n_blocks, blob_size)`` where
+          ``n_blocks * blob_size == in / pack_factor``.
+        * ``scales`` already match in shape (``(out, n_blocks)``).
+        * ``qzeros`` already match in shape; for symmetric weights
+          ``QuantTensor.qzeros`` is ``None`` so we fill the buffer with
+          the packed midq pattern that the contrib op expects.
         """
         from olive.common.quant.tensor import QuantTensor
-        from olive.common.quant.utils import unpack_from_uint8
 
         if not isinstance(qt, QuantTensor) or qt.dim() != 2:
             raise ValueError("QuantLinearNbit.from_quant_tensor requires a 2D QuantTensor")
 
         out_features, in_features = qt.shape
-        # unpack to (out, in) uint8 [0, 2^bits - 1]
-        iweight = unpack_from_uint8(qt.qweight, qt.bits, (out_features, in_features))
-        # unpack zero points; symmetric => midq
-        if qt.qzeros is not None:
-            izeros = unpack_from_uint8(qt.qzeros, qt.bits, tuple(qt.scales.shape))
-        else:
-            izeros = torch.full(
-                tuple(qt.scales.shape),
-                1 << (qt.bits - 1),
-                dtype=torch.uint8,
-                device=qt.qweight.device,
-            )
-
-        # ``from_tensors`` expects iweight as (in, out) and scales/izeros as (n_groups, out)
-        return cls.from_tensors(
-            iweight=iweight.t().contiguous(),
-            scales=qt.scales.t().contiguous(),
-            izeros=izeros.t().contiguous(),
-            group_size=qt.group_size if qt.group_size > 0 else in_features,
+        group_size = qt.group_size if qt.group_size > 0 else in_features
+        new = cls(
+            group_size=group_size,
+            in_features=in_features,
+            out_features=out_features,
+            g_idx=False,
+            bias=bias is not None,
             bits=qt.bits,
-            bias=bias,
+            dtype=qt.scales.dtype,
             dynamo=dynamo,
         )
+
+        # bit-identical layouts -> reshape (no unpack/repack)
+        new.qweight = qt.qweight.detach().clone().reshape(new.qweight.shape).contiguous()
+        new.scales = qt.scales.detach().clone().reshape(new.scales.shape).contiguous()
+        if qt.qzeros is not None:
+            new.qzeros = qt.qzeros.detach().clone().reshape(new.qzeros.shape).contiguous()
+        else:
+            # symmetric: fill the qzeros buffer with packed midq so the
+            # contrib op sees zp=midq everywhere.
+            midq = 1 << (qt.bits - 1)
+            packing_factor = 8 // qt.bits
+            packed_midq = 0
+            for i in range(packing_factor):
+                packed_midq |= midq << (qt.bits * i)
+            new.qzeros = torch.full_like(new.qzeros, packed_midq)
+
+        if bias is not None:
+            new.bias = bias.detach().clone()
+        return new
 
 
 class QuantEmbeddingTorchFunction(torch.autograd.Function):
