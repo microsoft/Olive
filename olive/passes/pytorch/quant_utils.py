@@ -14,10 +14,9 @@ from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.hf_utils import (
     OliveHfQuantizationConfig,
     OliveHfQuantizationMethod,
-    replace_matching_submodules,
     tie_quant_word_embeddings,
 )
-from olive.common.quant.patterns import match_skip
+from olive.common.quant.selection import iter_quant_targets
 from olive.common.quant.state_dict import install_quant_tensor_param
 from olive.common.quant.tensor import QuantTensor
 from olive.common.quant.utils import WeightQuantizer
@@ -152,73 +151,35 @@ def prepare_model(
             else:
                 excluded_attn_inputs.update(attn_inputs[:2])
 
-    # Collect every ``nn.Module`` under any experts subtree, so we can
-    # honour the ``moe`` category flag the same way ``lm_head`` /
-    # ``embeds`` are honoured today.
-    expert_module_ids: set[int] = set()
-    expert_owners: list[tuple[torch.nn.Module, str]] = []  # (experts_module, dotted_name)
-    for layer_wrapper in wrapper.get_layer_wrappers():
-        experts_module = layer_wrapper.get_experts(return_name=False)
-        if experts_module is None:
-            continue
-        # Find the dotted name of this experts module relative to the model root.
-        experts_name = None
-        for name, mod in wrapper.model.named_modules():
-            if mod is experts_module:
-                experts_name = name
-                break
-        expert_owners.append((experts_module, experts_name or ""))
-        for sub in experts_module.modules():
-            expert_module_ids.add(id(sub))
-
     skip_patterns = list(getattr(qcfg, "modules_to_not_convert", None) or [])
 
-    def should_quantize(module: torch.nn.Module, name: str) -> bool:
-        if module in excluded_attn_inputs:
-            return False
-        # already-quantized (QuantTensor weight) — leave it alone so the user
-        # can compose passes on top of a partially-quantized model.
-        weight = getattr(module, "weight", None)
-        if weight is not None and isinstance(weight, QuantTensor):
-            return False
-        if match_skip(name, skip_patterns):
-            return False
-        # category-flag skips (lm_head / embeds / moe) — first rule wins
-        if id(module) in expert_module_ids and not getattr(qcfg, "moe", False):
-            return False
-        if isinstance(module, torch.nn.Linear):
-            return name != lm_head_name or qcfg.lm_head
-        if qcfg.embeds and isinstance(module, torch.nn.Embedding):
-            return name == embeds_name
-        return False
+    fused_targets_by_module: dict[int, dict[str, QuantInfo]] = {}
+    for target in iter_quant_targets(
+        wrapper.model,
+        quantize_lm_head=qcfg.lm_head,
+        quantize_embeds=qcfg.embeds,
+        quantize_moe=getattr(qcfg, "moe", False),
+        skip_patterns=skip_patterns,
+        extra_skip_modules=excluded_attn_inputs,
+    ):
+        qargs = qcfg.get_qlinear_init_args(target.full_name)
+        new_qargs[target.full_name] = qargs
+        if target.kind == "fused_experts":
+            fused_targets_by_module.setdefault(id(target.module), {})[target.param_name] = QuantInfo(
+                quantizer=WeightQuantizer(**qargs)
+            )
+            # Stash the experts module on the dict so we can install
+            # ``quant_info_3d`` below without re-walking.
+            fused_targets_by_module[id(target.module)]["__module__"] = target.module  # type: ignore[assignment]
+        else:
+            target.module.quant_info = QuantInfo(quantizer=WeightQuantizer(**qargs))
 
-    def add_quant_info(module: torch.nn.Module, name: str) -> torch.nn.Module:
-        # TODO(jambayk): validate that the module and config are compatible
-        qargs = qcfg.get_qlinear_init_args(name)
-        module.quant_info = QuantInfo(quantizer=WeightQuantizer(**qargs))
-        new_qargs[name] = qargs
-        return module
-
-    replace_matching_submodules(wrapper.model, should_quantize, add_quant_info, description="Preparing model")
-
-    # Fused-3D MoE: experts modules expose 3D nn.Parameters directly (e.g.
-    # ``gate_up_proj`` of shape ``(num_experts, *, *)``). Annotate the
-    # experts module with a per-parameter quant_info_3d dict so
-    # ``finalize`` can replace each parameter with a QuantTensor.
-    if getattr(qcfg, "moe", False):
-        for experts_module, experts_name in expert_owners:
-            param_qinfos: dict[str, QuantInfo] = {}
-            for pname, param in experts_module.named_parameters(recurse=False):
-                if param.dim() != 3:
-                    continue
-                full_name = f"{experts_name}.{pname}" if experts_name else pname
-                if match_skip(full_name, skip_patterns):
-                    continue
-                qargs = qcfg.get_qlinear_init_args(full_name)
-                param_qinfos[pname] = QuantInfo(quantizer=WeightQuantizer(**qargs))
-                new_qargs[full_name] = qargs
-            if param_qinfos:
-                experts_module.quant_info_3d = param_qinfos
+    # Fused-3D MoE: stamp the per-parameter QuantInfo dict onto each
+    # experts module so ``finalize`` can replace each parameter with a
+    # QuantTensor.
+    for entry in fused_targets_by_module.values():
+        module = entry.pop("__module__")  # type: ignore[arg-type]
+        module.quant_info_3d = entry  # type: ignore[assignment]
 
     # remove overrides for modules not being quantized
     for name in list(qcfg.overrides or {}):

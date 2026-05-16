@@ -199,8 +199,10 @@ def test_model_builder_multi_file_output_preserves_component_filenames(tmp_path,
 
 
 def test_olive_quantized_model_raises_for_moe():
-    """ModelBuilder cannot consume Olive-quantized MoE checkpoints; it must error out
-    cleanly so the user reaches for Mobius (or re-runs RTN without moe=True).
+    """ModelBuilder must reject Olive-quantized MoE checkpoints.
+
+    Errors out cleanly so the user reaches for an alternative builder
+    or re-runs RTN without ``moe=True``.
     """
     from olive.passes.onnx.model_builder import OliveQuantizedModel
 

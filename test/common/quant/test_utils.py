@@ -402,7 +402,9 @@ class TestPackUnpack:
 
 
 class TestNDimensional:
-    """Verify that the quantizer / pack helpers operate identically on N-D tensors,
+    """N-D quantization tests.
+
+    Verify that the quantizer / pack helpers operate identically on N-D tensors,
     always quantizing along the last dim, without an explicit leading-dim loop.
     """
 

@@ -2,8 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""``QuantTensor`` — a wrapper ``torch.Tensor`` subclass that stores weight
-quantization buffers (``qweight``, ``scales``, ``qzeros``) but presents the
+"""QuantTensor — wrapper ``torch.Tensor`` subclass for weight-quantized parameters.
+
+It stores quantization buffers (``qweight``, ``scales``, ``qzeros``) but presents the
 shape / dtype / device of the dequantized full-precision weight.
 
 Design notes:
@@ -51,7 +52,7 @@ _TORCH_FN_TABLE: dict[Callable, Callable] = {}
 
 
 def implements(*torch_fns: Callable) -> Callable[[Callable], Callable]:
-    """Decorator to register a torch-function override for ``QuantTensor``."""
+    """Register a torch-function override for ``QuantTensor``."""
 
     def decorator(fn: Callable) -> Callable:
         for torch_fn in torch_fns:
@@ -304,11 +305,11 @@ class QuantTensor(torch.Tensor):
         aten = torch.ops.aten
 
         if func in (aten.detach.default, aten.clone.default, aten.alias.default, aten.contiguous.default):
-            (self_,) = args
-            return self_._apply_fn_to_data(lambda x: func(x))
+            self_ = args[0]
+            return self_._apply_fn_to_data(func)
 
         if func is aten._to_copy.default:
-            (self_,) = args
+            self_ = args[0]
             dtype = kwargs.get("dtype")
             device = kwargs.get("device")
 
@@ -324,7 +325,8 @@ class QuantTensor(torch.Tensor):
             return self_._apply_fn_to_data(_move)
 
         if func is aten.copy_.default:
-            self_, src = args
+            self_ = args[0]
+            src = args[1]
             if not isinstance(src, QuantTensor):
                 raise TypeError(f"Cannot copy_ a non-QuantTensor source into a QuantTensor (got {type(src)})")
             self_.qweight.copy_(src.qweight)
@@ -358,7 +360,7 @@ def _maybe_dense(x: Any) -> Any:
 
 
 @implements(F.linear)
-def _linear(input: torch.Tensor, weight: QuantTensor, bias: torch.Tensor | None = None) -> torch.Tensor:
+def _linear(input: torch.Tensor, weight: QuantTensor, bias: torch.Tensor | None = None) -> torch.Tensor:  # noqa: A002
     if torch.onnx.is_in_onnx_export():
         raise RuntimeError(
             "Olive QuantTensor cannot be traced by torch.onnx.export directly. "
@@ -378,7 +380,7 @@ def _linear(input: torch.Tensor, weight: QuantTensor, bias: torch.Tensor | None 
 
 @implements(F.embedding)
 def _embedding(
-    input: torch.Tensor,
+    input: torch.Tensor,  # noqa: A002
     weight: QuantTensor,
     padding_idx: int | None = None,
     max_norm: float | None = None,

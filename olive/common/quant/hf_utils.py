@@ -13,8 +13,7 @@ import torch.nn as nn
 from transformers.quantizers.base import HfQuantizer
 from transformers.utils.quantization_config import QuantizationConfigMixin
 
-from olive.common.hf.wrapper import ModelWrapper
-from olive.common.quant.patterns import match_override, match_skip
+from olive.common.quant.patterns import match_override
 from olive.common.quant.state_dict import buffer_names, install_quant_tensor_param, refresh_quant_tensor_refs
 from olive.common.quant.tensor import QuantTensor
 from olive.common.quant.utils import WeightQuantizer
@@ -184,96 +183,45 @@ class OliveHfQuantizer(HfQuantizer):
     def _process_model_before_weight_loading(
         self, model: PreTrainedModel, keep_in_fp32_modules: list[str] | None = None, **kwargs
     ):
-        ids_to_skip: list[int] = []
-        if not self.quantization_config.lm_head:
-            ids_to_skip.append(id(model.get_output_embeddings()))
-        if not self.quantization_config.embeds:
-            ids_to_skip.append(id(model.get_input_embeddings()))
-        expert_modules: list[tuple[nn.Module, str]] = []
-        if not self.quantization_config.moe:
-            # Skip every nn.Module under each experts subtree — this both
-            # leaves fused-3D experts alone *and* fixes the previous silent
-            # quantization of per-expert nn.Linears inside
-            # ModuleList(Expert) blocks (Mixtral, PhiMoE, Qwen2/3-MoE).
-            try:
-                wrapper = ModelWrapper.from_model(model)
-                for lw in wrapper.get_layer_wrappers():
-                    experts = lw.get_experts(return_name=False)
-                    if experts is None:
-                        continue
-                    for sub in experts.modules():
-                        ids_to_skip.append(id(sub))
-            except Exception:  # pylint: disable=broad-except
-                # Not every model is wrappable (e.g., random tests). Falling
-                # back to the previous behaviour (no experts skip) is safe.
-                pass
-        else:
-            # collect (experts_module, dotted_name) so we can also install
-            # 3D placeholders on fused-experts modules below.
-            try:
-                wrapper = ModelWrapper.from_model(model)
-                module_to_name = {id(m): n for n, m in model.named_modules()}
-                for lw in wrapper.get_layer_wrappers():
-                    experts = lw.get_experts(return_name=False)
-                    if experts is None:
-                        continue
-                    expert_modules.append((experts, module_to_name.get(id(experts), "")))
-            except Exception:  # pylint: disable=broad-except
-                pass
+        from olive.common.quant.selection import iter_quant_targets
 
-        skip_literal_names: set[str] = (
-            {name for name, module in model.named_modules() if id(module) in ids_to_skip} if ids_to_skip else set()
-        )
-        # Pattern-aware skip list. Plain strings keep their HF substring
-        # semantics; ``re:`` opts into regex fullmatch.
         skip_patterns: list[str] = []
         if self.quantization_config.modules_to_not_convert:
             skip_patterns.extend(self.quantization_config.modules_to_not_convert)
         if keep_in_fp32_modules:
             skip_patterns.extend(keep_in_fp32_modules)
-        self.modules_to_not_convert = sorted(skip_literal_names)
         self._skip_patterns = skip_patterns
 
-        def _should_quantize(module: nn.Module, name: str) -> bool:
-            if not isinstance(module, (nn.Linear, nn.Embedding)):
-                return False
-            if name in skip_literal_names:
-                return False
-            return not match_skip(name, skip_patterns)
-
-        # 2D placeholders: nn.Linear / nn.Embedding
-        for name, module in list(model.named_modules()):
-            if not _should_quantize(module, name):
-                continue
-            qargs = self.quantization_config.get_qlinear_init_args(name)
+        skip_literal_names: set[str] = set()
+        for target in iter_quant_targets(
+            model,
+            quantize_lm_head=self.quantization_config.lm_head,
+            quantize_embeds=self.quantization_config.embeds,
+            quantize_moe=self.quantization_config.moe,
+            skip_patterns=skip_patterns,
+        ):
+            qargs = self.quantization_config.get_qlinear_init_args(target.full_name)
             qt = _build_placeholder_quant_tensor(
-                shape=tuple(module.weight.shape),
+                shape=target.shape,
                 bits=qargs["bits"],
                 symmetric=qargs["symmetric"],
                 group_size=qargs["group_size"],
-                dtype=module.weight.dtype,
-                device=module.weight.device,
+                dtype=target.dtype,
+                device=target.device,
             )
-            install_quant_tensor_param(module, "weight", qt)
+            install_quant_tensor_param(target.module, target.param_name, qt)
 
-        # 3D placeholders: fused-experts modules
-        for experts_module, experts_name in expert_modules:
-            for pname, param in list(experts_module._parameters.items()):
-                if param is None or param.dim() != 3 or isinstance(param.data, QuantTensor):
-                    continue
-                full_name = f"{experts_name}.{pname}" if experts_name else pname
-                if full_name in skip_literal_names or match_skip(full_name, skip_patterns):
-                    continue
-                qargs = self.quantization_config.get_qlinear_init_args(full_name)
-                qt = _build_placeholder_quant_tensor(
-                    shape=tuple(param.shape),
-                    bits=qargs["bits"],
-                    symmetric=qargs["symmetric"],
-                    group_size=qargs["group_size"],
-                    dtype=param.dtype,
-                    device=param.device,
-                )
-                install_quant_tensor_param(experts_module, pname, qt)
+        # Record literal names of every nn.Linear/Embedding that was
+        # *not* converted so ``modules_to_not_convert`` reflects reality
+        # (mirrors HF quantizer conventions).
+        for name, module in model.named_modules():
+            if not isinstance(module, (nn.Linear, nn.Embedding)):
+                continue
+            if not isinstance(module._parameters.get("weight"), nn.Parameter) or not isinstance(
+                module._parameters["weight"].data, QuantTensor
+            ):
+                skip_literal_names.add(name)
+        self.modules_to_not_convert = sorted(skip_literal_names)
 
         if self.quantization_config.tie_word_embeddings:
             # doing first time so that the weight load doesn't complain about missing weights
@@ -397,22 +345,33 @@ def replace_matching_submodules(
 
 
 def tie_quant_word_embeddings(model: PreTrainedModel) -> None:
-    """Tie the input and output embeddings when they share a quantized weight.
+    """Tie the input and output embeddings when both share a quantized weight.
 
     Both modules' ``weight`` ``nn.Parameter`` is set to the **same**
     ``nn.Parameter(QuantTensor)`` object, and the underlying
     ``weight_qweight`` / ``weight_scales`` / ``weight_qzeros`` buffers
     are tied (aliased to the input embedding's buffers). This preserves
     the standard HF tied-weights semantics for the quantized layout.
+
+    Tying is a no-op unless **both** the input and output embeddings
+    are already backed by compatible ``QuantTensor`` weights with
+    matching shape and dtype.
     """
     src = model.get_input_embeddings()
     dst = model.get_output_embeddings()
     if src is None or dst is None:
         return
 
-    # The input embedding owns the canonical QuantTensor + buffers.
     src_param = src._parameters.get("weight")
-    if src_param is None or not isinstance(src_param.data, QuantTensor):
+    dst_param = dst._parameters.get("weight")
+    if (
+        src_param is None
+        or dst_param is None
+        or not isinstance(src_param.data, QuantTensor)
+        or not isinstance(dst_param.data, QuantTensor)
+    ):
+        return
+    if src_param.shape != dst_param.shape or src_param.dtype != dst_param.dtype:
         return
 
     qname, sname, zname = buffer_names("weight")

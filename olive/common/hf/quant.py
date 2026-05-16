@@ -121,6 +121,8 @@ class QuantLinearTorchFunction(torch.autograd.Function):
         tensor_args = [x, qweight, scales]
         if qzeros is not None:
             tensor_args.append(qzeros)
+        elif g_idx is not None:
+            raise ValueError("MatMulNBits with g_idx requires zero_points; symmetric quantization is not supported.")
         if g_idx is not None:
             tensor_args.append(g_idx)
         attrs = {
@@ -165,6 +167,10 @@ class QuantLinearTorchFunction(torch.autograd.Function):
                 tensor_args = [x, qweight, scales]
                 if qzeros is not None:
                     tensor_args.append(qzeros)
+                elif g_idx is not None:
+                    raise ValueError(
+                        "MatMulNBits with g_idx requires zero_points; symmetric quantization is not supported."
+                    )
                 if g_idx is not None:
                     tensor_args.append(g_idx)
                 attrs = {
@@ -630,9 +636,10 @@ def make_export_compatible_quant(model: torch.nn.Module, dynamo: bool) -> torch.
 
 
 def _replace_olive_quant_tensor_modules(model: torch.nn.Module, dynamo: bool) -> None:
-    """Swap host ``nn.Linear`` / ``nn.Embedding`` whose weight is a ``QuantTensor``
-    with the ONNX-exportable :class:`QuantLinearNbit` / :class:`QuantEmbeddingNbit`
-    wrappers.
+    """Swap host modules whose weight is a ``QuantTensor`` with export-compatible wrappers.
+
+    Targets ``nn.Linear`` / ``nn.Embedding`` and replaces them with
+    :class:`QuantLinearNbit` / :class:`QuantEmbeddingNbit`.
     """
     from olive.common.quant.tensor import QuantTensor
 
