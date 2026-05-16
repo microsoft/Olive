@@ -118,7 +118,13 @@ class QuantLinearTorchFunction(torch.autograd.Function):
     # pylint: disable=W0223,W0221
     @staticmethod
     def symbolic(g, x, qweight, scales, qzeros, g_idx, bits, group_size, in_features, out_features, dynamo):
-        tensor_args = [x, qweight, scales, qzeros]
+        tensor_args = [x, qweight, scales]
+        if qzeros is not None:
+            tensor_args.append(qzeros)
+        elif g_idx is not None:
+            # MatMulNBits inputs are positional; insert a missing-input
+            # placeholder for qzeros so g_idx lands at the correct slot.
+            tensor_args.append(g.op("Constant", value_t=torch.tensor([], dtype=torch.uint8)))
         if g_idx is not None:
             tensor_args.append(g_idx)
         attrs = {
@@ -160,7 +166,11 @@ class QuantLinearTorchFunction(torch.autograd.Function):
         if torch.onnx.is_in_onnx_export():
             if dynamo and hasattr(torch.onnx, "ops"):
                 # torch.onnx.ops was introduced in 2.8
-                tensor_args = [x, qweight, scales, qzeros]
+                tensor_args = [x, qweight, scales]
+                if qzeros is not None:
+                    tensor_args.append(qzeros)
+                elif g_idx is not None:
+                    tensor_args.append(torch.zeros(0, dtype=torch.uint8))
                 if g_idx is not None:
                     tensor_args.append(g_idx)
                 attrs = {
@@ -202,6 +212,7 @@ class QuantLinearNbit(torch.nn.Module):
         bits: int = 4,
         dtype: torch.dtype = torch.float32,
         dynamo: bool = False,
+        has_qzeros: bool = True,
     ):
         super().__init__()
         self.in_features = in_features
@@ -220,10 +231,16 @@ class QuantLinearNbit(torch.nn.Module):
                 dtype=torch.uint8,
             ),
         )
-        self.register_buffer(
-            "qzeros",
-            torch.zeros(out_features, math.ceil(n_blocks_per_col * self.bits / 8), dtype=torch.uint8),
-        )
+        if has_qzeros:
+            self.register_buffer(
+                "qzeros",
+                torch.zeros(out_features, math.ceil(n_blocks_per_col * self.bits / 8), dtype=torch.uint8),
+            )
+        else:
+            # When qzeros is omitted the contrib op interprets the
+            # zero point as the unsigned mid value (e.g. 8 for 4-bit),
+            # which matches Olive's symmetric quantization convention.
+            self.qzeros = None
         self.register_buffer("scales", torch.zeros((out_features, n_blocks_per_col), dtype=dtype))
         if g_idx:
             self.register_buffer(
@@ -255,8 +272,11 @@ class QuantLinearNbit(torch.nn.Module):
     def pack(self, iweight, izeros, scales, g_idx=None):
         """Pack int8 weight and zeros to int4 and int8 respectively.
 
-        iweight, izeros and scales must have out_features as the first dimension
-        iweight, izeros must be uint8 tensors with each holding 4/8 bit values
+        ``iweight`` and ``scales`` must have ``out_features`` as the
+        first dimension. ``iweight`` must be a uint8 tensor with each
+        value holding ``bits`` bits. ``izeros`` may be ``None`` for
+        symmetric quantization (the contrib op then treats the zero
+        point as the unsigned mid value).
         """
         # pylint: disable=W0201
         # shapes for packing
@@ -277,12 +297,15 @@ class QuantLinearNbit(torch.nn.Module):
             iweight = (iweight[:, 0::2] & 0xF) | ((iweight[:, 1::2] & 0xF) << 4)
         self.qweight = iweight.reshape(n, k_blocks, blob_size).contiguous()
 
-        # pad to make the K dimension even
-        izeros = torch.nn.functional.pad(izeros, (0, izeros.shape[-1] & 1), value=0)
-        # pack the zeros
-        if bits == 4:
-            izeros = (izeros[:, 0::2] & 0xF) | ((izeros[:, 1::2] & 0xF) << 4)
-        self.qzeros = izeros.contiguous()
+        if izeros is not None:
+            # pad to make the K dimension even
+            izeros = torch.nn.functional.pad(izeros, (0, izeros.shape[-1] & 1), value=0)
+            # pack the zeros
+            if bits == 4:
+                izeros = (izeros[:, 0::2] & 0xF) | ((izeros[:, 1::2] & 0xF) << 4)
+            self.qzeros = izeros.contiguous()
+        else:
+            self.qzeros = None
 
         self.scales = scales.contiguous()
 
@@ -293,7 +316,7 @@ class QuantLinearNbit(torch.nn.Module):
         cls,
         iweight: torch.Tensor,
         scales: torch.Tensor,
-        izeros: torch.Tensor,
+        izeros: torch.Tensor | None,
         group_size: int,
         bits: int = 4,
         g_idx: torch.Tensor | None = None,
@@ -303,6 +326,8 @@ class QuantLinearNbit(torch.nn.Module):
         """Create a QuantLinearNbit instance from the given tensors.
 
         Weight is expected to be in in_features x out_features layout and unsigned.
+        ``izeros`` may be ``None`` for symmetric quantization — the
+        contrib op then assumes a midq zero point.
         """
         new_qlinear = cls(
             group_size,
@@ -313,8 +338,14 @@ class QuantLinearNbit(torch.nn.Module):
             bits=bits,
             dtype=scales.dtype,
             dynamo=dynamo,
+            has_qzeros=izeros is not None,
         )
-        new_qlinear.pack(iweight.to(torch.uint8).t(), izeros.to(torch.uint8).t(), scales.t(), g_idx)
+        new_qlinear.pack(
+            iweight.to(torch.uint8).t(),
+            izeros.to(torch.uint8).t() if izeros is not None else None,
+            scales.t(),
+            g_idx,
+        )
         if bias is not None:
             new_qlinear.bias = bias.clone()
         return new_qlinear
@@ -337,8 +368,9 @@ class QuantLinearNbit(torch.nn.Module):
           ``n_blocks * blob_size == in / pack_factor``.
         * ``scales`` already match in shape (``(out, n_blocks)``).
         * ``qzeros`` already match in shape; for symmetric weights
-          ``QuantTensor.qzeros`` is ``None`` so we fill the buffer with
-          the packed midq pattern that the contrib op expects.
+          ``QuantTensor.qzeros`` is ``None`` and the contrib op
+          interprets the missing input as a midq zero point, so the
+          export module simply omits the buffer.
         """
         from olive.common.quant.tensor import QuantTensor
 
@@ -356,6 +388,7 @@ class QuantLinearNbit(torch.nn.Module):
             bits=qt.bits,
             dtype=qt.scales.dtype,
             dynamo=dynamo,
+            has_qzeros=qt.qzeros is not None,
         )
 
         # bit-identical layouts -> reshape (no unpack/repack)
@@ -363,15 +396,6 @@ class QuantLinearNbit(torch.nn.Module):
         new.scales = qt.scales.detach().clone().reshape(new.scales.shape).contiguous()
         if qt.qzeros is not None:
             new.qzeros = qt.qzeros.detach().clone().reshape(new.qzeros.shape).contiguous()
-        else:
-            # symmetric: fill the qzeros buffer with packed midq so the
-            # contrib op sees zp=midq everywhere.
-            midq = 1 << (qt.bits - 1)
-            packing_factor = 8 // qt.bits
-            packed_midq = 0
-            for i in range(packing_factor):
-                packed_midq |= midq << (qt.bits * i)
-            new.qzeros = torch.full_like(new.qzeros, packed_midq)
 
         if bias is not None:
             new.bias = bias.detach().clone()
@@ -383,7 +407,7 @@ class QuantEmbeddingTorchFunction(torch.autograd.Function):
 
     # pylint: disable=W0223,W0221
     @staticmethod
-    def symbolic(g, x, qweight, scales, qzeros, bits, group_size, embedding_dim):
+    def symbolic(g, x, qweight, scales, qzeros, bits, group_size, embedding_dim, dynamo):
         tensor_args = [qweight, x, scales]
         if qzeros is not None:
             tensor_args.append(qzeros)
