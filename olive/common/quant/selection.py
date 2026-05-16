@@ -9,6 +9,12 @@ parameters to quantize. Both Olive's HF quantizer (which installs
 :class:`QuantTensor` placeholders before weight loading) and the
 PyTorch RTN/GPTQ passes (which attach calibration metadata) consume
 the same set of targets — only the per-target action differs.
+
+Every target is a single ``nn.Parameter``. The selector makes no
+distinction between 2D linear/embedding weights and 3D fused-MoE
+parameters: downstream code reads ``target.param.shape`` and lets
+:class:`~olive.common.quant.utils.WeightQuantizer` handle any rank
+along the last dim.
 """
 
 from __future__ import annotations
@@ -16,7 +22,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import torch
 import torch.nn as nn
 
 from olive.common.quant.patterns import match_skip
@@ -24,6 +29,8 @@ from olive.common.quant.patterns import match_skip
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
     from typing import Callable
+
+    import torch
 
     from olive.common.hf.wrapper import ModelWrapper
 
@@ -35,30 +42,23 @@ class QuantTarget:
     Attributes:
         module: The owning ``nn.Module``.
         module_name: Dotted name of ``module`` relative to the model root.
-        param_name: Name of the parameter on ``module`` (e.g. ``"weight"``
-            for ``nn.Linear``/``nn.Embedding``; an arbitrary 3D
-            parameter name for a fused-experts module).
-        full_name: ``f"{module_name}.{param_name}"`` (with an exception
-            for ``param_name == "weight"`` on ``nn.Linear``/``nn.Embedding``,
-            in which case ``full_name == module_name`` — matching how
-            overrides and skip patterns have always been keyed).
-        kind: ``"linear"`` for ``nn.Linear``, ``"embedding"`` for
-            ``nn.Embedding``, ``"fused_experts"`` for a 3D parameter on
-            an experts module.
-        shape: Logical (dequantized) shape of the parameter.
-        dtype: Original parameter dtype.
-        device: Original parameter device.
+        pname: Name of the parameter on ``module``.
+        full_name: Key used for overrides / skip-pattern lookups.
+            For ``"weight"`` on ``nn.Linear``/``nn.Embedding`` this is
+            just ``module_name`` (matching the long-standing override
+            convention); otherwise it is ``f"{module_name}.{pname}"``.
 
     """
 
     module: nn.Module
     module_name: str
-    param_name: str
+    pname: str
     full_name: str
-    kind: str
-    shape: tuple[int, ...]
-    dtype: torch.dtype
-    device: torch.device
+
+    @property
+    def param(self) -> torch.nn.Parameter:
+        """The selected parameter."""
+        return self.module._parameters[self.pname]
 
 
 def _collect_experts(
@@ -85,31 +85,30 @@ def iter_quant_targets(
     skip_patterns: Iterable[str] = (),
     extra_skip_modules: Iterable[nn.Module] = (),
     skip_already_quantized: bool = True,
-    consider_linears: bool = True,
-    consider_embeddings: bool = True,
 ) -> Iterator[QuantTarget]:
     """Walk ``model`` once and yield every parameter selected for quantization.
 
+    Yielded parameters are:
+
+    * ``nn.Linear.weight`` and ``nn.Embedding.weight`` (2D), and
+    * direct ``nn.Parameter`` attributes on each experts module
+      (typically 3D fused-MoE weights), when ``quantize_moe=True``.
+
     Selection rules (first matching skip wins):
 
-    * ``extra_skip_modules`` (caller-supplied set, e.g. attention inputs
-      excluded by GPTQ) skips the module by identity.
+    * ``extra_skip_modules`` (caller-supplied set, e.g. attention
+      inputs excluded by GPTQ) skips the module by identity.
     * ``quantize_lm_head=False`` skips the output embedding module.
     * ``quantize_embeds=False`` skips the input embedding module.
-    * ``quantize_moe=False`` skips every ``nn.Module`` under any experts
-      subtree (this both leaves fused-3D experts alone and prevents
-      silently quantizing per-expert ``nn.Linear``s inside
-      ``ModuleList(Expert)`` blocks).
+    * ``quantize_moe=False`` skips every ``nn.Module`` under any
+      experts subtree — this both leaves fused parameters alone *and*
+      prevents silently quantizing per-expert ``nn.Linear``s inside
+      ``ModuleList(Expert)`` blocks.
     * ``skip_patterns`` matches the parameter's ``full_name`` via the
       shared HF-style substring / ``re:``-prefixed regex matcher.
-    * When ``skip_already_quantized=True``, weights that are already a
-      :class:`QuantTensor` are skipped (idempotent re-runs).
-
-    When ``quantize_moe=True`` and an experts module exposes a 3D
-    ``nn.Parameter`` (fused experts), that parameter is yielded as a
-    ``"fused_experts"`` target. Per-expert 2D ``nn.Linear``s inside an
-    ``nn.ModuleList`` experts wrapper continue to come through the
-    regular linear walk.
+    * When ``skip_already_quantized=True`` (default), parameters whose
+      underlying tensor is already a :class:`QuantTensor` are skipped
+      (idempotent re-runs).
     """
     from olive.common.hf.wrapper import ModelWrapper
     from olive.common.quant.tensor import QuantTensor
@@ -117,10 +116,9 @@ def iter_quant_targets(
     try:
         wrapper = ModelWrapper.from_model(model)
     except Exception:  # pylint: disable=broad-except
-        # Not every model is wrappable (e.g., random sklearn-like
-        # test fixtures). Without the wrapper we cannot honour MoE /
-        # lm_head / embeds category flags; fall back to the unfiltered
-        # 2D walk.
+        # Not every model is wrappable (e.g., random test fixtures).
+        # Without the wrapper we cannot honour MoE / lm_head / embeds
+        # category flags; fall back to the unfiltered 2D walk.
         wrapper = None
 
     lm_head_module: nn.Module | None = None
@@ -131,6 +129,7 @@ def iter_quant_targets(
         embed_module = model.get_input_embeddings()
 
     expert_modules = _collect_experts(model, wrapper)
+    expert_module_ids = {id(m) for m, _ in expert_modules}
 
     # ID-based skip set for fast identity checks during the named_modules walk.
     skip_ids: set[int] = {id(m) for m in extra_skip_modules}
@@ -150,54 +149,31 @@ def iter_quant_targets(
             return True
         return bool(patterns) and match_skip(full_name, patterns)
 
-    # 2D pass: every nn.Linear / nn.Embedding under the model.
-    for name, module in model.named_modules():
-        if isinstance(module, nn.Linear) and consider_linears:
-            kind = "linear"
-        elif isinstance(module, nn.Embedding) and consider_embeddings:
-            kind = "embedding"
-        else:
-            continue
-        if _is_skipped(module, name):
-            continue
-        weight = module.weight
-        if skip_already_quantized and isinstance(weight, QuantTensor):
-            continue
-        if weight is None:
-            continue
-        yield QuantTarget(
-            module=module,
-            module_name=name,
-            param_name="weight",
-            full_name=name,
-            kind=kind,
-            shape=tuple(weight.shape),
-            dtype=weight.dtype,
-            device=weight.device,
-        )
+    def _is_already_quantized(param) -> bool:
+        return skip_already_quantized and (isinstance(param, QuantTensor) or isinstance(param.data, QuantTensor))
 
-    # 3D pass: fused-experts modules only when MoE quantization is requested.
-    if not quantize_moe:
-        return
-    for experts_module, experts_name in expert_modules:
-        for pname, param in experts_module.named_parameters(recurse=False):
-            if param is None or param.dim() != 3:
+    for name, module in model.named_modules():
+        # 2D pass: nn.Linear / nn.Embedding ``weight`` (legacy
+        # override-key convention: full_name == module_name).
+        if isinstance(module, (nn.Linear, nn.Embedding)):
+            if _is_skipped(module, name):
                 continue
-            if skip_already_quantized and isinstance(param.data, QuantTensor):
+            weight = module.weight
+            if weight is None or _is_already_quantized(weight):
                 continue
-            full_name = f"{experts_name}.{pname}" if experts_name else pname
-            if _is_skipped(experts_module, full_name):
+            yield QuantTarget(module=module, module_name=name, pname="weight", full_name=name)
+            continue
+
+        # Fused-MoE pass: direct parameters on experts modules.
+        if not quantize_moe or id(module) not in expert_module_ids:
+            continue
+        for pname, param in module.named_parameters(recurse=False):
+            if param is None or _is_already_quantized(param):
                 continue
-            yield QuantTarget(
-                module=experts_module,
-                module_name=experts_name,
-                param_name=pname,
-                full_name=full_name,
-                kind="fused_experts",
-                shape=tuple(param.shape),
-                dtype=param.dtype,
-                device=param.device,
-            )
+            full_name = f"{name}.{pname}" if name else pname
+            if _is_skipped(module, full_name):
+                continue
+            yield QuantTarget(module=module, module_name=name, pname=pname, full_name=full_name)
 
 
 def for_each_target(

@@ -27,23 +27,19 @@ class _Toy(nn.Module):
 
 
 def _names(targets):
-    return sorted((t.full_name, t.kind) for t in targets)
+    return sorted(t.full_name for t in targets)
 
 
 def test_default_skips_lm_head_and_embeds():
     m = _Toy()
     targets = list(iter_quant_targets(m, quantize_lm_head=False, quantize_embeds=False, quantize_moe=False))
-    assert _names(targets) == [("linear", "linear")]
+    assert _names(targets) == ["linear"]
 
 
 def test_include_lm_head_and_embeds():
     m = _Toy()
     targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=False))
-    assert _names(targets) == [
-        ("embed_tokens", "embedding"),
-        ("linear", "linear"),
-        ("lm_head", "linear"),
-    ]
+    assert _names(targets) == ["embed_tokens", "linear", "lm_head"]
 
 
 def test_skip_patterns_filter_by_name():
@@ -57,7 +53,7 @@ def test_skip_patterns_filter_by_name():
             skip_patterns=["re:.*_head"],
         )
     )
-    assert _names(targets) == [("embed_tokens", "embedding"), ("linear", "linear")]
+    assert _names(targets) == ["embed_tokens", "linear"]
 
 
 def test_extra_skip_modules_skip_by_identity():
@@ -71,14 +67,13 @@ def test_extra_skip_modules_skip_by_identity():
             extra_skip_modules={m.linear},
         )
     )
-    assert _names(targets) == [("lm_head", "linear")]
+    assert _names(targets) == ["lm_head"]
 
 
 def test_already_quantized_param_is_skipped():
     from olive.common.quant.tensor import QuantTensor
 
     m = _Toy()
-    # Build a tiny QuantTensor placeholder and stamp it onto m.linear.weight.
     qt = QuantTensor.from_packed(
         qweight=torch.zeros((8, 4), dtype=torch.uint8),
         scales=torch.zeros((8, 1), dtype=torch.float32),
@@ -92,7 +87,7 @@ def test_already_quantized_param_is_skipped():
     m.linear.weight = nn.Parameter(qt, requires_grad=False)
 
     targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=False, quantize_moe=False))
-    assert _names(targets) == [("lm_head", "linear")]
+    assert _names(targets) == ["lm_head"]
 
 
 class _ExpertList(nn.Module):
@@ -160,8 +155,8 @@ def test_moe_enabled_yields_3d_fused_params(monkeypatch):
 
     m = _Model()
     targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
-    fused = [(t.full_name, t.kind, t.shape) for t in targets if t.kind == "fused_experts"]
-    assert sorted(fused) == [
-        ("experts.down_proj", "fused_experts", (4, 16, 8)),
-        ("experts.gate_up_proj", "fused_experts", (4, 8, 16)),
+    fused = sorted((t.full_name, tuple(t.param.shape)) for t in targets)
+    assert fused == [
+        ("experts.down_proj", (4, 16, 8)),
+        ("experts.gate_up_proj", (4, 8, 16)),
     ]

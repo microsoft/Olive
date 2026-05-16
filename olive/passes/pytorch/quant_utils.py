@@ -153,7 +153,6 @@ def prepare_model(
 
     skip_patterns = list(getattr(qcfg, "modules_to_not_convert", None) or [])
 
-    fused_targets_by_module: dict[int, dict[str, QuantInfo]] = {}
     for target in iter_quant_targets(
         wrapper.model,
         quantize_lm_head=qcfg.lm_head,
@@ -164,22 +163,7 @@ def prepare_model(
     ):
         qargs = qcfg.get_qlinear_init_args(target.full_name)
         new_qargs[target.full_name] = qargs
-        if target.kind == "fused_experts":
-            fused_targets_by_module.setdefault(id(target.module), {})[target.param_name] = QuantInfo(
-                quantizer=WeightQuantizer(**qargs)
-            )
-            # Stash the experts module on the dict so we can install
-            # ``quant_info_3d`` below without re-walking.
-            fused_targets_by_module[id(target.module)]["__module__"] = target.module  # type: ignore[assignment]
-        else:
-            target.module.quant_info = QuantInfo(quantizer=WeightQuantizer(**qargs))
-
-    # Fused-3D MoE: stamp the per-parameter QuantInfo dict onto each
-    # experts module so ``finalize`` can replace each parameter with a
-    # QuantTensor.
-    for entry in fused_targets_by_module.values():
-        module = entry.pop("__module__")  # type: ignore[arg-type]
-        module.quant_info_3d = entry  # type: ignore[assignment]
+        target.param.quant_info = QuantInfo(quantizer=WeightQuantizer(**qargs))
 
     # remove overrides for modules not being quantized
     for name in list(qcfg.overrides or {}):
@@ -403,7 +387,7 @@ def run_layerwise_quantization(
 
     for layer_idx, layer in enumerate(wrapper.get_layers(return_name=False)):
         pbar.set_postfix(module=f"layers.{layer_idx}", refresh=False)
-        quantizable_modules = [module for module in layer.modules() if hasattr(module, "quant_info")]
+        quantizable_modules = [module for module in layer.modules() if _module_weight_has_quant_info(module)]
         handles = [module.register_forward_hook(input_hook) for module in quantizable_modules]
 
         if update_before_process:
@@ -455,6 +439,30 @@ def run_layerwise_quantization(
     return device
 
 
+def _module_weight_has_quant_info(module: torch.nn.Module) -> bool:
+    """Return True if ``module.weight`` carries a ``quant_info`` attribute.
+
+    Used by the layerwise discovery in :func:`run_layerwise_quantization`
+    to locate ``nn.Linear`` modules selected for calibrated quantization
+    without depending on a module-level attribute.
+    """
+    weight = getattr(module, "weight", None)
+    return weight is not None and hasattr(weight, "quant_info")
+
+
+def _iter_quant_info_params(model: torch.nn.Module):
+    """Yield ``(module, pname, param, quant_info)`` for every selected parameter."""
+    for sub_module in model.modules():
+        for pname in list(sub_module._parameters):
+            param = sub_module._parameters.get(pname)
+            if param is None:
+                continue
+            info = getattr(param, "quant_info", None)
+            if info is None:
+                continue
+            yield sub_module, pname, param, info
+
+
 def finalize(
     model: HfModelHandler,
     output_model_path: str,
@@ -463,56 +471,38 @@ def finalize(
     device: str,
     retie_word_embeddings: bool = False,
 ) -> HfModelHandler:
-    """Finalize quantization by installing ``QuantTensor`` parameters on the host modules.
+    """Finalize quantization by installing ``QuantTensor`` parameters in place.
 
-    For every module marked with ``quant_info`` (2D linear / embedding) and
-    every fused-3D MoE experts module marked with ``quant_info_3d``, build a
-    ``QuantTensor`` from the float weight + computed qparams and install it
-    via :func:`install_quant_tensor_param` so that:
+    Walks every ``nn.Parameter`` whose tensor has a ``quant_info``
+    attribute (set by :func:`prepare_model`), builds a ``QuantTensor``
+    from the float tensor plus computed qparams, and installs it via
+    :func:`install_quant_tensor_param` so that:
 
-    * ``module.<pname>`` is an ``nn.Parameter(QuantTensor)`` whose dispatch
-      still drives the original eager forward;
+    * ``module.<pname>`` is an ``nn.Parameter(QuantTensor)`` whose
+      dispatch still drives the original eager forward;
     * ``module.<pname>_qweight`` / ``_scales`` / ``_qzeros`` are plain
       buffers (aliasing the QuantTensor's inner tensors), so the model
-      saves cleanly via ``save_pretrained`` / safetensors with **no
-      tensor subclass on disk**.
-    """
-    for sub_module in wrapper.model.modules():
-        # ---- 2D path: nn.Linear / nn.Embedding ----------------------
-        qinfo = getattr(sub_module, "quant_info", None)
-        if qinfo is not None and isinstance(sub_module, (torch.nn.Linear, torch.nn.Embedding)):
-            sub_module.to(device)
-            quantizer = qinfo.quantizer
-            with torch.no_grad():
-                qt = QuantTensor.from_float(
-                    sub_module.weight.detach(),
-                    bits=quantizer.bits,
-                    symmetric=quantizer.symmetric,
-                    group_size=quantizer.group_size,
-                    scales=qinfo.scales,
-                    zero_points=qinfo.zero_points,
-                ).to("cpu")
-            sub_module.to("cpu")
-            install_quant_tensor_param(sub_module, "weight", qt)
-            del sub_module.quant_info
+      saves cleanly via ``save_pretrained`` / safetensors with no
+      tensor subclass on disk.
 
-        # ---- fused-3D MoE path -------------------------------------
-        info_3d: dict | None = getattr(sub_module, "quant_info_3d", None)
-        if info_3d:
-            for pname, qinfo_3d in info_3d.items():
-                param = sub_module._parameters.get(pname)
-                if param is None:
-                    continue
-                quantizer = qinfo_3d.quantizer
-                with torch.no_grad():
-                    qt = QuantTensor.from_float(
-                        param.detach().to(device),
-                        bits=quantizer.bits,
-                        symmetric=quantizer.symmetric,
-                        group_size=quantizer.group_size,
-                    ).to("cpu")
-                install_quant_tensor_param(sub_module, pname, qt)
-            del sub_module.quant_info_3d
+    The same code path handles 2D linear/embedding weights and any
+    higher-rank fused parameter (e.g. 3D MoE experts) — quantization
+    is always along the last dim.
+    """
+    for sub_module, pname, param, info in list(_iter_quant_info_params(wrapper.model)):
+        quantizer = info.quantizer
+        sub_module.to(device)
+        with torch.no_grad():
+            qt = QuantTensor.from_float(
+                param.data.detach(),
+                bits=quantizer.bits,
+                symmetric=quantizer.symmetric,
+                group_size=quantizer.group_size,
+                scales=info.scales,
+                zero_points=info.zero_points,
+            ).to("cpu")
+        sub_module.to("cpu")
+        install_quant_tensor_param(sub_module, pname, qt)
 
     if retie_word_embeddings:
         tie_quant_word_embeddings(wrapper.model)

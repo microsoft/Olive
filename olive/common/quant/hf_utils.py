@@ -199,15 +199,16 @@ class OliveHfQuantizer(HfQuantizer):
             skip_patterns=skip_patterns,
         ):
             qargs = self.quantization_config.get_qlinear_init_args(target.full_name)
+            param = target.param
             qt = _build_placeholder_quant_tensor(
-                shape=target.shape,
+                shape=tuple(param.shape),
                 bits=qargs["bits"],
                 symmetric=qargs["symmetric"],
                 group_size=qargs["group_size"],
-                dtype=target.dtype,
-                device=target.device,
+                dtype=param.dtype,
+                device=param.device,
             )
-            install_quant_tensor_param(target.module, target.param_name, qt)
+            install_quant_tensor_param(target.module, target.pname, qt)
 
         if self.quantization_config.tie_word_embeddings:
             # doing first time so that the weight load doesn't complain about missing weights
@@ -248,13 +249,7 @@ def _build_placeholder_quant_tensor(
     quantizer = WeightQuantizer(bits=bits, symmetric=symmetric, group_size=group_size, signed=False)
     packing_factor = 8 // bits
     qparam_shape = quantizer.get_qparam_shape(shape)
-
-    if len(shape) == 2:
-        qweight_shape = (shape[0], math.ceil(shape[1] / packing_factor))
-    elif len(shape) == 3:
-        qweight_shape = (shape[0], shape[1], math.ceil(shape[2] / packing_factor))
-    else:
-        raise ValueError(f"QuantTensor placeholder only supports 2D/3D shapes, got {shape}")
+    qweight_shape = (*shape[:-1], math.ceil(shape[-1] / packing_factor))
 
     qweight = torch.zeros(qweight_shape, dtype=torch.uint8, device=device)
     scales = torch.zeros(qparam_shape, dtype=dtype, device=device)
@@ -262,10 +257,7 @@ def _build_placeholder_quant_tensor(
     if symmetric:
         qzeros = None
     else:
-        if len(qparam_shape) == 2:
-            qz_shape = (qparam_shape[0], math.ceil(qparam_shape[1] / packing_factor))
-        else:
-            qz_shape = (qparam_shape[0], qparam_shape[1], math.ceil(qparam_shape[2] / packing_factor))
+        qz_shape = (*qparam_shape[:-1], math.ceil(qparam_shape[-1] / packing_factor))
         qzeros = torch.zeros(qz_shape, dtype=torch.uint8, device=device)
 
     return QuantTensor.from_packed(
