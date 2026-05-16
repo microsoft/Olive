@@ -121,10 +121,6 @@ class QuantLinearTorchFunction(torch.autograd.Function):
         tensor_args = [x, qweight, scales]
         if qzeros is not None:
             tensor_args.append(qzeros)
-        elif g_idx is not None:
-            # MatMulNBits inputs are positional; insert a missing-input
-            # placeholder for qzeros so g_idx lands at the correct slot.
-            tensor_args.append(g.op("Constant", value_t=torch.tensor([], dtype=torch.uint8)))
         if g_idx is not None:
             tensor_args.append(g_idx)
         attrs = {
@@ -169,8 +165,6 @@ class QuantLinearTorchFunction(torch.autograd.Function):
                 tensor_args = [x, qweight, scales]
                 if qzeros is not None:
                     tensor_args.append(qzeros)
-                elif g_idx is not None:
-                    tensor_args.append(torch.zeros(0, dtype=torch.uint8))
                 if g_idx is not None:
                     tensor_args.append(g_idx)
                 attrs = {
@@ -452,9 +446,7 @@ class QuantEmbeddingTorchFunction(torch.autograd.Function):
                     version=1,
                 )
             if dynamo:
-                raise NotImplementedError(
-                    "torch dynamo export for quantized embedding requires torch 2.8 or higher."
-                )
+                raise NotImplementedError("torch dynamo export for quantized embedding requires torch 2.8 or higher.")
             return torch.zeros((*x.shape, embedding_dim), dtype=scales.dtype, device=x.device)
         raise NotImplementedError("QuantEmbeddingTorchFunction forward is only implemented for onnx export")
 
