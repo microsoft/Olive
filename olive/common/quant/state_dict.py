@@ -139,7 +139,7 @@ def refresh_quant_tensor_refs(module: torch.nn.Module) -> None:
             # ``param`` itself is the QuantTensor instance stored on the
             # module (``nn.Parameter(qt)`` for a tensor subclass returns
             # the underlying QuantTensor — see ``torch.nn.Parameter.__new__``).
-            if param is None or not isinstance(param, QuantTensor):
+            if param is None or not (isinstance(param, QuantTensor) or isinstance(param.data, QuantTensor)):
                 continue
             qname, sname, zname = buffer_names(pname)
             qweight = sub_module._buffers.get(qname)

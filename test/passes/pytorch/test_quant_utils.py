@@ -88,3 +88,26 @@ class TestInstallQuantTensorParam:
         y = linear(x)
         assert y.shape == (2, 32)
         assert not isinstance(y, QuantTensor)
+
+
+def test_module_weight_has_quant_info_only_for_marked_params():
+    """Regression: discovery must not pick up LayerNorm / Conv2d weights.
+
+    GPTQ / AutoClip discover quantizable layers via
+    ``_module_weight_has_quant_info``. Modules that happen to expose a
+    ``weight`` attribute but never had ``quant_info`` stamped on it must
+    be left alone.
+    """
+    from olive.common.quant.utils import WeightQuantizer
+    from olive.passes.pytorch.quant_utils import QuantInfo, _module_weight_has_quant_info
+
+    ln = nn.LayerNorm(16)
+    conv = nn.Conv2d(3, 8, kernel_size=3)
+    linear_unmarked = nn.Linear(16, 32, bias=False)
+    linear_marked = nn.Linear(16, 32, bias=False)
+    linear_marked.weight.quant_info = QuantInfo(quantizer=WeightQuantizer(bits=4, symmetric=True, group_size=16))
+
+    assert not _module_weight_has_quant_info(ln)
+    assert not _module_weight_has_quant_info(conv)
+    assert not _module_weight_has_quant_info(linear_unmarked)
+    assert _module_weight_has_quant_info(linear_marked)

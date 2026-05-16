@@ -508,6 +508,13 @@ def finalize(
         tie_quant_word_embeddings(wrapper.model)
         quant_config.tie_word_embeddings = True
 
+    if getattr(quant_config, "moe", False):
+        logger.warning(
+            "MoE weights have been quantized as 3D tensor parameters. The resulting checkpoint is "
+            "save/load compatible via transformers but is not directly exportable to ONNX with the "
+            "Olive ONNX conversion pass — consume it via the ORT GenAI model_builder or Mobius."
+        )
+
     wrapper.model.quantization_method = quant_config.quant_method
     wrapper.model.config.quantization_config = quant_config
 

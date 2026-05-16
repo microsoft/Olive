@@ -146,7 +146,7 @@ def iter_quant_targets(
         if not quantize_moe or id(module) not in expert_module_ids:
             continue
         for pname, param in module.named_parameters(recurse=False):
-            if param is None or _is_already_quantized(param):
+            if param is None or param.dim() not in (2, 3) or _is_already_quantized(param):
                 continue
             full_name = f"{name}.{pname}" if name else pname
             if _is_skipped(module, full_name):

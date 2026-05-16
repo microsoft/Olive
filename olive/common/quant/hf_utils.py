@@ -80,8 +80,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
 
     """
 
-    # pylint: disable
-    def __init__(
+    def __init__(  # pylint: disable=super-init-not-called
         self,
         bits: int,
         symmetric: bool,
@@ -94,7 +93,6 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
         tie_word_embeddings: bool = False,
         **kwargs,
     ):
-        # pylint: disable=W0231
         self.quant_method = OliveHfQuantizationMethod.OLIVE
 
         self.bits = bits
@@ -123,7 +121,7 @@ class OliveHfQuantizationConfig(QuantizationConfigMixin):
             overrides = {}
             for module_name, override in self.overrides.items():
                 # remove None or default values from the override
-                cleaned_override = {k: v for k, v in override.__dict__.items() if v is not None and v != output[k]}
+                cleaned_override = {k: v for k, v in override.__dict__.items() if v is not None and v != output.get(k)}
                 if cleaned_override:
                     overrides[module_name] = cleaned_override
             output["overrides"] = sort_layers_by_name(overrides) or None
