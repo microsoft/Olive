@@ -190,9 +190,7 @@ class OliveHfQuantizer(HfQuantizer):
             skip_patterns.extend(self.quantization_config.modules_to_not_convert)
         if keep_in_fp32_modules:
             skip_patterns.extend(keep_in_fp32_modules)
-        self._skip_patterns = skip_patterns
 
-        skip_literal_names: set[str] = set()
         for target in iter_quant_targets(
             model,
             quantize_lm_head=self.quantization_config.lm_head,
@@ -210,18 +208,6 @@ class OliveHfQuantizer(HfQuantizer):
                 device=target.device,
             )
             install_quant_tensor_param(target.module, target.param_name, qt)
-
-        # Record literal names of every nn.Linear/Embedding that was
-        # *not* converted so ``modules_to_not_convert`` reflects reality
-        # (mirrors HF quantizer conventions).
-        for name, module in model.named_modules():
-            if not isinstance(module, (nn.Linear, nn.Embedding)):
-                continue
-            if not isinstance(module._parameters.get("weight"), nn.Parameter) or not isinstance(
-                module._parameters["weight"].data, QuantTensor
-            ):
-                skip_literal_names.add(name)
-        self.modules_to_not_convert = sorted(skip_literal_names)
 
         if self.quantization_config.tie_word_embeddings:
             # doing first time so that the weight load doesn't complain about missing weights
