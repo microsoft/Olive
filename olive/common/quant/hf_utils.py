@@ -191,15 +191,15 @@ class OliveHfQuantizer(HfQuantizer):
         if keep_in_fp32_modules:
             skip_patterns.extend(keep_in_fp32_modules)
 
-        for target in iter_quant_targets(
+        for module, pname, full_name in iter_quant_targets(
             model,
             quantize_lm_head=self.quantization_config.lm_head,
             quantize_embeds=self.quantization_config.embeds,
             quantize_moe=self.quantization_config.moe,
             skip_patterns=skip_patterns,
         ):
-            qargs = self.quantization_config.get_qlinear_init_args(target.full_name)
-            param = target.param
+            qargs = self.quantization_config.get_qlinear_init_args(full_name)
+            param = module._parameters[pname]
             qt = _build_placeholder_quant_tensor(
                 shape=tuple(param.shape),
                 bits=qargs["bits"],
@@ -208,7 +208,7 @@ class OliveHfQuantizer(HfQuantizer):
                 dtype=param.dtype,
                 device=param.device,
             )
-            install_quant_tensor_param(target.module, target.pname, qt)
+            install_quant_tensor_param(module, pname, qt)
 
         if self.quantization_config.tie_word_embeddings:
             # doing first time so that the weight load doesn't complain about missing weights

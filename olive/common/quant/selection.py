@@ -10,16 +10,19 @@ parameters to quantize. Both Olive's HF quantizer (which installs
 PyTorch RTN/GPTQ passes (which attach calibration metadata) consume
 the same set of targets — only the per-target action differs.
 
-Every target is a single ``nn.Parameter``. The selector makes no
-distinction between 2D linear/embedding weights and 3D fused-MoE
-parameters: downstream code reads ``target.param.shape`` and lets
+Every target is a single ``nn.Parameter``, yielded as a
+``(module, pname, full_name)`` tuple. ``full_name`` is the key used
+for overrides / skip-pattern lookups (``module_name`` for ``"weight"``
+on ``nn.Linear`` / ``nn.Embedding``; ``f"{module_name}.{pname}"``
+otherwise). The selector makes no distinction between 2D linear /
+embedding weights and 3D fused-MoE parameters — downstream code reads
+the parameter's own shape and lets
 :class:`~olive.common.quant.utils.WeightQuantizer` handle any rank
 along the last dim.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import torch.nn as nn
@@ -28,37 +31,12 @@ from olive.common.quant.patterns import match_skip
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
-    from typing import Callable
-
-    import torch
 
     from olive.common.hf.wrapper import ModelWrapper
 
 
-@dataclass
-class QuantTarget:
-    """A single parameter selected for quantization.
-
-    Attributes:
-        module: The owning ``nn.Module``.
-        module_name: Dotted name of ``module`` relative to the model root.
-        pname: Name of the parameter on ``module``.
-        full_name: Key used for overrides / skip-pattern lookups.
-            For ``"weight"`` on ``nn.Linear``/``nn.Embedding`` this is
-            just ``module_name`` (matching the long-standing override
-            convention); otherwise it is ``f"{module_name}.{pname}"``.
-
-    """
-
-    module: nn.Module
-    module_name: str
-    pname: str
-    full_name: str
-
-    @property
-    def param(self) -> torch.nn.Parameter:
-        """The selected parameter."""
-        return self.module._parameters[self.pname]
+QuantTarget = tuple[nn.Module, str, str]
+"""``(module, pname, full_name)`` for a single parameter selected for quantization."""
 
 
 def _collect_experts(
@@ -153,15 +131,15 @@ def iter_quant_targets(
         return skip_already_quantized and (isinstance(param, QuantTensor) or isinstance(param.data, QuantTensor))
 
     for name, module in model.named_modules():
-        # 2D pass: nn.Linear / nn.Embedding ``weight`` (legacy
-        # override-key convention: full_name == module_name).
+        # nn.Linear / nn.Embedding ``weight`` — legacy override-key
+        # convention: full_name == module_name.
         if isinstance(module, (nn.Linear, nn.Embedding)):
             if _is_skipped(module, name):
                 continue
             weight = module.weight
             if weight is None or _is_already_quantized(weight):
                 continue
-            yield QuantTarget(module=module, module_name=name, pname="weight", full_name=name)
+            yield module, "weight", name
             continue
 
         # Fused-MoE pass: direct parameters on experts modules.
@@ -173,16 +151,4 @@ def iter_quant_targets(
             full_name = f"{name}.{pname}" if name else pname
             if _is_skipped(module, full_name):
                 continue
-            yield QuantTarget(module=module, module_name=name, pname=pname, full_name=full_name)
-
-
-def for_each_target(
-    model: nn.Module,
-    handler: Callable[[QuantTarget], None],
-    **selection_kwargs,
-) -> list[QuantTarget]:
-    """Run ``handler`` once per target and return the materialised list."""
-    targets = list(iter_quant_targets(model, **selection_kwargs))
-    for t in targets:
-        handler(t)
-    return targets
+            yield module, pname, full_name

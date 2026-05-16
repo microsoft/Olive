@@ -153,7 +153,7 @@ def prepare_model(
 
     skip_patterns = list(getattr(qcfg, "modules_to_not_convert", None) or [])
 
-    for target in iter_quant_targets(
+    for module, pname, full_name in iter_quant_targets(
         wrapper.model,
         quantize_lm_head=qcfg.lm_head,
         quantize_embeds=qcfg.embeds,
@@ -161,9 +161,9 @@ def prepare_model(
         skip_patterns=skip_patterns,
         extra_skip_modules=excluded_attn_inputs,
     ):
-        qargs = qcfg.get_qlinear_init_args(target.full_name)
-        new_qargs[target.full_name] = qargs
-        target.param.quant_info = QuantInfo(quantizer=WeightQuantizer(**qargs))
+        qargs = qcfg.get_qlinear_init_args(full_name)
+        new_qargs[full_name] = qargs
+        module._parameters[pname].quant_info = QuantInfo(quantizer=WeightQuantizer(**qargs))
 
     # remove overrides for modules not being quantized
     for name in list(qcfg.overrides or {}):

@@ -27,7 +27,7 @@ class _Toy(nn.Module):
 
 
 def _names(targets):
-    return sorted(t.full_name for t in targets)
+    return sorted(full_name for _, _, full_name in targets)
 
 
 def test_default_skips_lm_head_and_embeds():
@@ -155,7 +155,7 @@ def test_moe_enabled_yields_3d_fused_params(monkeypatch):
 
     m = _Model()
     targets = list(iter_quant_targets(m, quantize_lm_head=True, quantize_embeds=True, quantize_moe=True))
-    fused = sorted((t.full_name, tuple(t.param.shape)) for t in targets)
+    fused = sorted((full_name, tuple(module._parameters[pname].shape)) for module, pname, full_name in targets)
     assert fused == [
         ("experts.down_proj", (4, 16, 8)),
         ("experts.gate_up_proj", (4, 8, 16)),
