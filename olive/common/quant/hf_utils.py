@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
 from __future__ import annotations
 
 import math
@@ -351,11 +352,15 @@ def tie_quant_word_embeddings(model: PreTrainedModel) -> None:
         return
 
     qname, sname, zname = buffer_names("weight")
-    # tie buffers
+    # Tie buffers, marking the destination copy non-persistent so
+    # ``state_dict()`` / safetensors only emit one set of keys for the
+    # shared tensors (avoids duplicate qweight/scales on disk).
     for n in (qname, sname, zname):
         src_buf = src._buffers.get(n)
         if src_buf is None:
             continue
+        if n in dst._buffers:
+            dst._non_persistent_buffers_set.add(n)
         dst._buffers[n] = src_buf
 
     # tie the QuantTensor parameter itself (same Python Parameter object,

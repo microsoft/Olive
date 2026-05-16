@@ -100,11 +100,8 @@ def iter_quant_targets(
         wrapper = None
 
     lm_head_module: nn.Module | None = None
-    embed_module: nn.Module | None = None
     if hasattr(model, "get_output_embeddings"):
         lm_head_module = model.get_output_embeddings()
-    if hasattr(model, "get_input_embeddings"):
-        embed_module = model.get_input_embeddings()
 
     expert_modules = _collect_experts(model, wrapper)
     expert_module_ids = {id(m) for m, _ in expert_modules}
@@ -113,8 +110,6 @@ def iter_quant_targets(
     skip_ids: set[int] = {id(m) for m in extra_skip_modules}
     if not quantize_lm_head and lm_head_module is not None:
         skip_ids.add(id(lm_head_module))
-    if not quantize_embeds and embed_module is not None:
-        skip_ids.add(id(embed_module))
     if not quantize_moe:
         for experts, _ in expert_modules:
             for sub in experts.modules():
@@ -132,8 +127,12 @@ def iter_quant_targets(
 
     for name, module in model.named_modules():
         # nn.Linear / nn.Embedding ``weight`` — legacy override-key
-        # convention: full_name == module_name.
+        # convention: full_name == module_name. When ``quantize_embeds``
+        # is False every ``nn.Embedding`` is skipped (positional /
+        # token-type / etc.), not just ``model.get_input_embeddings()``.
         if isinstance(module, (nn.Linear, nn.Embedding)):
+            if isinstance(module, nn.Embedding) and not quantize_embeds:
+                continue
             if _is_skipped(module, name):
                 continue
             weight = module.weight

@@ -63,7 +63,7 @@ class TestWeightQuantizer:
 
     def test_invalid_bits(self):
         """Test that invalid bits raise AssertionError."""
-        with pytest.raises(AssertionError, match="Only 4-bit and 8-bit quantization supported"):
+        with pytest.raises(AssertionError, match="Only 2-bit, 4-bit and 8-bit quantization supported"):
             WeightQuantizer(bits=16, symmetric=True, group_size=0)
 
     def test_midq_calculation(self):

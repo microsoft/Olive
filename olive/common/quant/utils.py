@@ -36,7 +36,7 @@ class WeightQuantizer:
             signed: Whether to use signed quantization (default is False, meaning unsigned)
 
         """
-        assert bits in [2, 4, 8], "Only 4-bit and 8-bit quantization supported"
+        assert bits in [2, 4, 8], "Only 2-bit, 4-bit and 8-bit quantization supported"
         self.bits = bits
         self.symmetric = symmetric
         self.group_size = group_size

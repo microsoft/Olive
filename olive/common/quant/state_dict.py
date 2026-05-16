@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
 """State-dict helpers for Olive's quantized weight representation.
 
 Olive's quantization layout:
@@ -74,6 +75,24 @@ def install_state_dict_hooks(module: torch.nn.Module) -> None:
         return
     module._register_state_dict_hook(_save_hook)
     setattr(module, _INSTALLED_FLAG, True)
+
+
+def ensure_state_dict_hooks(model: torch.nn.Module) -> None:
+    """Install the save hook on every submodule that hosts a QuantTensor parameter.
+
+    Belt-and-suspenders for paths that may install a ``QuantTensor``
+    parameter without going through :func:`install_quant_tensor_param`
+    (e.g. retie helpers, future loaders). The hook is idempotent.
+    """
+    from olive.common.quant.tensor import QuantTensor
+
+    for sub_module in model.modules():
+        for param in sub_module._parameters.values():
+            if param is None:
+                continue
+            if isinstance(param, QuantTensor) or isinstance(getattr(param, "data", None), QuantTensor):
+                install_state_dict_hooks(sub_module)
+                break
 
 
 def install_quant_tensor_param(

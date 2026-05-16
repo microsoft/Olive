@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
 from __future__ import annotations
 
 import logging
@@ -489,20 +490,32 @@ def finalize(
     higher-rank fused parameter (e.g. 3D MoE experts) — quantization
     is always along the last dim.
     """
-    for sub_module, pname, param, info in list(_iter_quant_info_params(wrapper.model)):
-        quantizer = info.quantizer
+    # Group selected params by their owning module so the module is
+    # moved to ``device`` once even when it owns multiple quantized
+    # parameters (fused-MoE experts modules carry two 3D tensors).
+    by_module: dict[int, tuple[torch.nn.Module, list[tuple[str, torch.nn.Parameter, QuantInfo]]]] = {}
+    for sub_module, pname, param, info in _iter_quant_info_params(wrapper.model):
+        entry = by_module.setdefault(id(sub_module), (sub_module, []))
+        entry[1].append((pname, param, info))
+
+    for sub_module, params in by_module.values():
         sub_module.to(device)
         with torch.no_grad():
-            qt = QuantTensor.from_float(
-                param.data.detach(),
-                bits=quantizer.bits,
-                symmetric=quantizer.symmetric,
-                group_size=quantizer.group_size,
-                scales=info.scales,
-                zero_points=info.zero_points,
-            ).to("cpu")
+            built = []
+            for pname, param, info in params:
+                quantizer = info.quantizer
+                qt = QuantTensor.from_float(
+                    param.data.detach(),
+                    bits=quantizer.bits,
+                    symmetric=quantizer.symmetric,
+                    group_size=quantizer.group_size,
+                    scales=info.scales,
+                    zero_points=info.zero_points,
+                ).to("cpu")
+                built.append((pname, qt))
         sub_module.to("cpu")
-        install_quant_tensor_param(sub_module, pname, qt)
+        for pname, qt in built:
+            install_quant_tensor_param(sub_module, pname, qt)
 
     if retie_word_embeddings:
         tie_quant_word_embeddings(wrapper.model)

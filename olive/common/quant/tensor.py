@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access,super-init-not-called,redefined-builtin,not-callable
 """QuantTensor — wrapper ``torch.Tensor`` subclass for weight-quantized parameters.
 
 It stores quantization buffers (``qweight``, ``scales``, ``qzeros``) but presents the
@@ -306,7 +307,8 @@ class QuantTensor(torch.Tensor):
 
         if func in (aten.detach.default, aten.clone.default, aten.alias.default, aten.contiguous.default):
             self_ = args[0]
-            return self_._apply_fn_to_data(func)
+            extra_args = args[1:]
+            return self_._apply_fn_to_data(lambda x: func(x, *extra_args, **kwargs))
 
         if func is aten._to_copy.default:
             self_ = args[0]
