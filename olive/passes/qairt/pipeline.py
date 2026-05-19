@@ -137,4 +137,13 @@ class QairtPipelinePass(Pass):
             if src.exists() and not dst.exists():
                 shutil.copy2(src, dst)
 
+        # The pipeline exports chat_template files into a chat_template/ subdirectory.
+        # QairtEncapsulation expects these as flat files in the model root.
+        chat_template_dir = Path(output_model_path) / "chat_template"
+        for fname in ("chat_template.jinja", "tokenizer_config.json"):
+            src = chat_template_dir / fname
+            dst = Path(output_model_path) / fname
+            if src.exists() and not dst.exists():
+                shutil.copy2(src, dst)
+
         return QairtModelHandler(model_path=output_model_path)
