@@ -52,7 +52,7 @@ class QairtPipelinePass(Pass):
                 required=False,
                 default_value=None,
                 description="Log level for underlying QAIRT pipeline components. "
-                "Valid values: DEBUG, INFO, WARN, ERROR. "
+                "Valid values: DEBUG, INFO, WARNING, ERROR, TRACE. "
                 "Overrides the recipe's log_level field when set.",
             ),
         }
@@ -63,6 +63,9 @@ class QairtPipelinePass(Pass):
         config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
+        # Only validates the top-level qairt import. The qairt.experimental.pipeline.*
+        # sub-modules are not checked here; if they are absent (e.g. older SDK), the
+        # error surfaces in _run_for_config instead.
         try:
             import qairt  # noqa: F401  # pylint: disable=unused-import
         except ImportError as exc:
@@ -128,7 +131,12 @@ class QairtPipelinePass(Pass):
                 local_files_only=True,
                 ignore_patterns=["*.pt", "*.bin", "*.safetensors"],
             )
-        except Exception:
+        except Exception as e:
+            logger.warning(
+                "Failed to resolve local HF cache for '%s': %s. File copy will be skipped.",
+                model.model_path,
+                e,
+            )
             local_model_path = model.model_path
 
         for fname in ("config.json", "generation_config.json"):

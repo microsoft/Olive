@@ -8,7 +8,6 @@ import builtins
 from unittest.mock import MagicMock, patch
 
 import pytest
-import yaml
 
 from olive.model import QairtModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
@@ -55,31 +54,19 @@ def mock_pipeline_modules_fixture():
 
 @pytest.fixture(name="recipe_file")
 def recipe_file_fixture(tmp_path):
-    """Write a minimal YAML recipe file with no model_id_or_path."""
-    recipe = {
-        "cache_dir": "./pipeline_cache",
-        "backend": "HTP",
-        "stages": {
-            "model_loader": {},
-            "quantization": {"recipe_name": "lpbq_seqmse"},
-        },
-    }
+    # Content is irrelevant — Recipe.from_file is mocked in every test that uses this fixture.
+    # The file must exist so that the recipe_path.exists() guard in _run_for_config passes.
     path = tmp_path / "recipe.yaml"
-    path.write_text(yaml.dump(recipe))
+    path.write_text("")
     return path
 
 
 @pytest.fixture(name="recipe_file_with_model_id")
 def recipe_file_with_model_id_fixture(tmp_path):
-    """Write a minimal YAML recipe that includes model_id_or_path."""
-    recipe = {
-        "model_id_or_path": "meta-llama/Llama-3.2-3B-Instruct",
-        "cache_dir": "./pipeline_cache",
-        "backend": "HTP",
-        "stages": {"model_loader": {}},
-    }
+    # Content is irrelevant — Recipe.from_file is mocked in every test that uses this fixture.
+    # The file must exist so that the recipe_path.exists() guard in _run_for_config passes.
     path = tmp_path / "recipe_with_model.yaml"
-    path.write_text(yaml.dump(recipe))
+    path.write_text("")
     return path
 
 
