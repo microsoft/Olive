@@ -24,6 +24,21 @@ logger = logging.getLogger(__name__)
 MAX_GENIE_CONTEXT_LENGTH = 4096
 
 
+def _deep_merge(base: dict, overrides: dict) -> dict:
+    """Recursively merge *overrides* into *base*, returning a new dict.
+
+    Nested dicts are merged rather than replaced, so only the keys present in
+    *overrides* are changed; all other keys from *base* are preserved.
+    """
+    result = dict(base)
+    for k, v in overrides.items():
+        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
+            result[k] = _deep_merge(result[k], v)
+        else:
+            result[k] = v
+    return result
+
+
 class QairtEncapsulation(Pass):
     """Encapsulates a QAIRT DLC model with an onnx protobuf."""
 
@@ -48,6 +63,21 @@ class QairtEncapsulation(Pass):
                 ],
                 required=False,
                 description="Opset name and version to be added in the generated context model",
+            ),
+            "genie_overrides": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                required=False,
+                description=(
+                    "Deep-merged into the GenAIConfig before the Genie DLC is produced. "
+                    "Use Python field names (underscores). Nested dicts are merged recursively — "
+                    "only the specified keys are overridden; all other GenAIBuilder defaults are "
+                    "preserved. Any field on GenAIConfig is valid: kv_dim, rope_theta, n_heads, "
+                    "n_layer, n_embd, allow_async_init, enable_graph_switching, "
+                    "positional_encoding (nested dict), etc. Note: top-level rope_theta and "
+                    "rope_scaling are not forwarded by the Genie factory — use "
+                    "positional_encoding.rope_theta to override RoPE theta in the DLC."
+                ),
             ),
         }
 
@@ -75,6 +105,13 @@ class QairtEncapsulation(Pass):
             os.environ["QAIRT_LOG_LEVEL"] = config.log_level
 
         container: qairt_genai.LLMContainer = qairt_genai.LLMContainer.load(model.model_path)
+
+        if config.genie_overrides:
+            gen_ai_cfg = container._gen_ai_config
+            current = gen_ai_cfg.model_dump(mode="json", by_alias=False, exclude_none=True)
+            merged = _deep_merge(current, config.genie_overrides)
+            container._gen_ai_config = gen_ai_cfg.model_validate(merged)
+            logger.info("Applied genie_overrides to GenAIConfig: %s", list(config.genie_overrides.keys()))
 
         # Input/Output metadata
         container.inputs = [("input_ids", TensorProto.INT32, ["batch_size", "sequence_length"])]
