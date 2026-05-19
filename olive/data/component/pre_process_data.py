@@ -291,3 +291,91 @@ def audio_classification_pre_process(
 
     tokenized_datasets = _huggingface_pre_process_helper(dataset, _tokenizer_and_align_labels, max_samples, **kwargs)
     return ClassificationDataset(tokenized_datasets, label_col="label", max_samples=max_samples)
+
+
+@Registry.register_pre_process()
+def speech_transcription_pre_process(
+    dataset,
+    audio_col: str = "audio",
+    text_col: str = "text",
+    sample_rate: int = 16000,
+    max_samples: Optional[int] = None,
+    limit: Optional[float] = None,
+    seed: int = 42,
+    **kwargs,
+):
+    """Pre-process data for speech transcription (ASR) evaluation.
+
+    Loads audio arrays and reference transcription text from a HuggingFace dataset.
+    Returns a dataset of (audio_array, reference_text) pairs suitable for WER evaluation.
+
+    Args:
+        dataset: HuggingFace dataset with audio and text columns.
+        audio_col: Name of the audio column. Defaults to "audio".
+        text_col: Name of the reference text column. Defaults to "text".
+        sample_rate: Target sample rate for audio. Defaults to 16000.
+        max_samples: Maximum number of samples (deprecated, use limit). Defaults to None.
+        limit: Sampling limit following Olive convention:
+            If >= 1: use first N samples.
+            If 0 < limit < 1: randomly sample that percentage.
+            If 0 or None: use all samples.
+        seed: Random seed for percentage-based sampling. Defaults to 42.
+        **kwargs: Additional arguments.
+
+    """
+    from datasets import Audio
+
+    dataset = dataset.cast_column(audio_col, Audio(sampling_rate=sample_rate))
+
+    # Apply sampling: prefer limit over max_samples
+    effective_limit = limit if limit is not None else (max_samples if max_samples else 0)
+    if effective_limit and effective_limit != 0:
+        from random import Random
+
+        total = len(dataset)
+        if 0 < effective_limit < 1:
+            n = max(1, int(total * effective_limit))
+            rng = Random(seed)
+            indices = sorted(rng.sample(range(total), min(n, total)))
+            dataset = dataset.select(indices)
+        elif effective_limit >= 1:
+            n = min(int(effective_limit), total)
+            dataset = dataset.select(range(n))
+
+    class SpeechTranscriptionDataset:
+        """Dataset that returns (audio_array, reference_text) pairs.
+
+        Note: Use batch_size=1 in dataloader config as audio samples have variable lengths.
+        """
+
+        def __init__(self, hf_dataset, audio_column, text_column):
+            self.dataset = hf_dataset
+            self.audio_column = audio_column
+            self.text_column = text_column
+
+        def __len__(self):
+            return len(self.dataset)
+
+        def __getitem__(self, idx):
+            item = self.dataset[idx]
+            import numpy as np
+
+            audio_array = np.array(item[self.audio_column]["array"], dtype=np.float32)
+            reference_text = item[self.text_column]
+            return audio_array, reference_text
+
+        @staticmethod
+        def collate_fn(batch):
+            """Collate variable-length audio batches. Use with batch_size=1 or pad audio."""
+            import numpy as np
+
+            # batch_size=1 is expected for speech evaluation (variable-length audio)
+            if len(batch) == 1:
+                audio, text = batch[0]
+                return (np.expand_dims(audio, 0), [text])
+            # For batch_size > 1, return as lists (no padding)
+            audios = [item[0] for item in batch]
+            texts = [item[1] for item in batch]
+            return (audios, texts)
+
+    return SpeechTranscriptionDataset(dataset, audio_col, text_col)

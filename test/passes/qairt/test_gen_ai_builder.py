@@ -372,7 +372,7 @@ def test_gen_ai_builder_sdk_version_check_old_version(tmp_path, mock_hf_model, m
         disable_search=True,
     )
 
-    with pytest.raises(OSError, match="QairtGenAIBuilder pass is unsupported for QAIRT versions < 2.45.0"):
+    with pytest.raises(OSError, match=r"QairtGenAIBuilder pass is unsupported for QAIRT versions < 2\.45\.0"):
         gen_ai_pass.run(mock_hf_model, str(output_path))
 
 

@@ -53,6 +53,15 @@ def maybe_register_ep_libraries(ep_paths: dict[str, str]):
             if (Path(ort.__file__).parent / "capi" / builtin_library_name).exists():
                 ep_paths[provider] = builtin_library_name
 
+    # ABI Ep
+    if "QNNExecutionProvider" in ep_paths and ep_paths["QNNExecutionProvider"] is None:
+        try:
+            import onnxruntime_qnn as qnn_ep
+
+            ep_paths["QNNExecutionProvider"] = qnn_ep.get_library_path()
+        except ImportError:
+            logger.info("Missing onnxruntime_qnn package. Install it: 'pip install onnxruntime_qnn' ")
+
     for ep_name, ep_path in ep_paths.items():
         if ep_path is None:
             continue

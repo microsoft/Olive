@@ -51,11 +51,11 @@ class TestQuantModule:
     def test_invalid_in_features_for_group_size(self):
         """Test that in_features must be divisible by group_size."""
         # in_features=100 is not divisible by group_size=32
-        with pytest.raises(ValueError, match="cols .* must be divisible by group_size"):
+        with pytest.raises(ValueError, match=r"cols .* must be divisible by group_size"):
             QuantLinear(in_features=100, out_features=20, bits=4, symmetric=True, group_size=32)
 
         # in_features=50 is not divisible by group_size=16
-        with pytest.raises(ValueError, match="cols .* must be divisible by group_size"):
+        with pytest.raises(ValueError, match=r"cols .* must be divisible by group_size"):
             QuantLinear(in_features=50, out_features=20, bits=4, symmetric=True, group_size=16)
 
         # This should work: in_features=64 is divisible by group_size=32
@@ -207,7 +207,7 @@ class TestQuantLinear:
 
         x = torch.randn(16, 64)  # Wrong input features
 
-        with pytest.raises(AssertionError, match="Input shape .* does not match in_features"):
+        with pytest.raises(AssertionError, match=r"Input shape .* does not match in_features"):
             qlinear(x)
 
     def test_from_tensors_with_precomputed_params(self):

@@ -103,7 +103,7 @@ def test_optimum_configs(config, is_valid, tmp_path):
         assert p.validate_config(p.config, None) is False
         with pytest.raises(
             ValueError,
-            match="FP16 export is supported only when exporting on GPU. Please pass the option `--device cuda`.",
+            match=r"FP16 export is supported only when exporting on GPU\. Please pass the option `--device cuda`\.",
         ):
             p.run(input_model, output_folder)
     else:
