@@ -512,6 +512,10 @@ class TestLMEvaluatorModelClass:
         get_model_mock.assert_called_once_with(model_class)
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("lm_eval") is None,
+    reason="lm_eval not installed",
+)
 class TestLMEvalORTGenAIChatTemplate:
     def _bare_instance(self, pretrained: str):
         # pylint: disable=protected-access
