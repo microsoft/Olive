@@ -293,27 +293,20 @@ class Prefill:
         if self.kv_info is None:
             raise ValueError("Invalid io_config: kv_info not found")
 
-        # detect position_ids rank (e.g. 3 for mRoPE models like Qwen3.5)
+        # detect position_ids rank, hybrid state inputs and outputs in a single pass
         self.position_ids_rank = 2
-        if "position_ids" in self.io_config["input_names"]:
-            idx = self.io_config["input_names"].index("position_ids")
-            self.position_ids_rank = len(self.io_config["input_shapes"][idx])
-
-        # detect hybrid state inputs (conv_state, recurrent_state for linear attention layers)
         self.hybrid_states = {}
-        for idx, name in enumerate(self.io_config["input_names"]):
-            if "conv_state" in name or "recurrent_state" in name:
-                shape = self.io_config["input_shapes"][idx]
-                dtype = self.io_config["input_types"][idx]
-                self.hybrid_states[name] = {"shape": shape, "dtype": dtype}
-
-        # detect hybrid state outputs
         self.hybrid_state_outputs = {}
-        for idx, name in enumerate(self.io_config["output_names"]):
-            if "conv_state" in name or "recurrent_state" in name:
-                shape = self.io_config["output_shapes"][idx]
-                dtype = self.io_config["output_types"][idx]
-                self.hybrid_state_outputs[name] = {"shape": shape, "dtype": dtype}
+        for prefix in ("input", "output"):
+            names = self.io_config[f"{prefix}_names"]
+            shapes = self.io_config[f"{prefix}_shapes"]
+            types = self.io_config[f"{prefix}_types"]
+            target = self.hybrid_states if prefix == "input" else self.hybrid_state_outputs
+            for idx, name in enumerate(names):
+                if name == "position_ids":
+                    self.position_ids_rank = len(shapes[idx])
+                elif "conv_state" in name or "recurrent_state" in name:
+                    target[name] = {"shape": shapes[idx], "dtype": types[idx]}
 
         self._session = None
         self._batch_size = None

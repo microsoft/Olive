@@ -90,14 +90,12 @@ def get_kv_info(io_config: dict) -> dict | None:
         return None
 
     # find the actual layer indices (may be non-contiguous after pruning)
-    layer_indices = []
+    layer_indices = set()
     for i_name in io_config["input_names"]:
         m = re.match(kv_format, i_name)
         if m:
-            idx = int(m.group(1))
-            if idx not in layer_indices:
-                layer_indices.append(idx)
-    layer_indices.sort()
+            layer_indices.add(int(m.group(1)))
+    layer_indices = sorted(layer_indices)
 
     past_names = []
     present_to_past = {}

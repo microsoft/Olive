@@ -106,6 +106,14 @@ class ProtoSurgeon(Surgeon):
         return None
 
     @staticmethod
+    def find_node(dag: OnnxDAG, op_type: str, name_substr: str) -> str | None:
+        """Find the first node matching an op_type and name substring."""
+        for name in dag.get_node_names():
+            if dag.get_node_op_type(name) == op_type and name_substr in name:
+                return name
+        return None
+
+    @staticmethod
     def create_new_name(name: str, old_op: str, new_op: str) -> str:
         return name.replace(old_op, new_op) if old_op in name else f"{name}_{new_op}"
 
@@ -2371,49 +2379,6 @@ class TieWordEmbeddings(ProtoSurgeon):
         return np.array_equal(arr0.ravel(), arr1.ravel())
 
 
-def _find_embed_node(model, op_type, label):
-    """Find the embed_tokens node of the given op_type and its index."""
-    for i, node in enumerate(model.graph.node):
-        if node.op_type == op_type and "embed_tokens" in node.name:
-            return node, i
-    logger.warning("No embed_tokens %s node found, skipping %s", op_type, label)
-    return None, None
-
-
-def _find_lm_head_node(model):
-    """Find the lm_head MatMulNBits node and its index."""
-    for i, node in enumerate(model.graph.node):
-        if node.op_type == "MatMulNBits" and "lm_head" in node.name:
-            return node, i
-    logger.warning("No lm_head MatMulNBits found")
-    return None, None
-
-
-def _find_initializer(model, name):
-    """Find an initializer by name."""
-    for init in model.graph.initializer:
-        if init.name == name:
-            return init
-    return None
-
-
-def _get_node_attrs(node, *attr_names):
-    """Extract integer attributes from a node by name."""
-    result = {}
-    for attr in node.attribute:
-        if attr.name in attr_names:
-            result[attr.name] = attr.i
-    return result
-
-
-def _ensure_msft_opset(model):
-    """Ensure com.microsoft opset import is present in the model."""
-    for opset in model.opset_import:
-        if opset.domain == "com.microsoft":
-            return
-    model.opset_import.append(onnx.helper.make_opsetid("com.microsoft", 1))
-
-
 class QuantizeEmbeddingInt8(ProtoSurgeon):
     """Quantize FP16 embedding to INT8 using GatherBlockQuantized.
 
@@ -2424,23 +2389,27 @@ class QuantizeEmbeddingInt8(ProtoSurgeon):
     def __call__(self, model: onnx.ModelProto):
         from onnx import numpy_helper
 
-        # Find embedding Gather node and weight
-        gather_node, gather_idx = _find_embed_node(model, "Gather", "QuantizeEmbeddingInt8")
-        if gather_node is None:
+        dag = OnnxDAG(model)
+
+        # Find embedding Gather node
+        gather_name = self.find_node(dag, "Gather", "embed_tokens")
+        if gather_name is None:
+            logger.warning("No embed_tokens Gather node found, skipping QuantizeEmbeddingInt8")
             return model
 
-        embed_init = _find_initializer(model, gather_node.input[0])
-
-        if embed_init is None:
+        embed_weight_name = dag.get_node_inputs(gather_name)[0]
+        if not dag.is_initializer(embed_weight_name):
             logger.warning("Embedding weight initializer not found, skipping QuantizeEmbeddingInt8")
             return model
+
+        embed_init = dag.get_initializer_proto(embed_weight_name)
 
         # Check if already quantized
         if embed_init.data_type not in (onnx.TensorProto.FLOAT16, onnx.TensorProto.FLOAT):
             logger.info("Embedding is not FP16/FP32, skipping QuantizeEmbeddingInt8")
             return model
 
-        embed = numpy_helper.to_array(embed_init).astype(np.float32)
+        embed = dag.get_initializer_np_array(embed_weight_name).astype(np.float32)
         vocab_size, hidden_size = embed.shape
         block_size = 32
 
@@ -2456,7 +2425,7 @@ class QuantizeEmbeddingInt8(ProtoSurgeon):
 
         logger.info(
             "Quantizing embedding %s (%dx%d) from %s to INT8 (block_size=%d)",
-            embed_init.name,
+            embed_weight_name,
             vocab_size,
             hidden_size,
             "FP16" if scales_dtype == np.float16 else "FP32",
@@ -2482,39 +2451,46 @@ class QuantizeEmbeddingInt8(ProtoSurgeon):
             "Embedding: %.0f MB -> %.0f MB (saved %.0f MB)", old_size_mb, new_size_mb, old_size_mb - new_size_mb
         )
 
+        graph_idx = dag.get_graph_idx(gather_name)
+
         # Create new initializers
-        qweight_name = embed_init.name + "_Q8"
-        scales_name = embed_init.name + "_scales"
-        zp_name = embed_init.name + "_zp"
-        model.graph.initializer.append(numpy_helper.from_array(q_flat, name=qweight_name))
-        model.graph.initializer.append(numpy_helper.from_array(scales, name=scales_name))
-        model.graph.initializer.append(numpy_helper.from_array(zero_points, name=zp_name))
+        qweight_name = embed_weight_name + "_Q8"
+        scales_name = embed_weight_name + "_scales"
+        zp_name = embed_weight_name + "_zp"
+        dag.add_initializer(numpy_helper.from_array(q_flat, name=qweight_name), graph_idx)
+        dag.add_initializer(numpy_helper.from_array(scales, name=scales_name), graph_idx)
+        dag.add_initializer(numpy_helper.from_array(zero_points, name=zp_name), graph_idx)
 
         # Ensure com.microsoft opset is declared
-        _ensure_msft_opset(model)
+        dag.set_opset_import("com.microsoft", 1)
 
         # Create GatherBlockQuantized node
+        gather_inputs = dag.get_node_inputs(gather_name)
+        gather_output = dag.get_node_outputs(gather_name)[0]
+        gbq_output = gather_output + "_gbq"
+        gbq_name = gather_name.replace("Gather", "GatherBlockQuantized")
         gbq_node = onnx.helper.make_node(
             "GatherBlockQuantized",
-            inputs=[qweight_name, gather_node.input[1], scales_name, zp_name],
-            outputs=gather_node.output,
-            name=gather_node.name.replace("Gather", "GatherBlockQuantized"),
+            inputs=[qweight_name, gather_inputs[1], scales_name, zp_name],
+            outputs=[gbq_output],
+            name=gbq_name,
             domain="com.microsoft",
             bits=8,
             block_size=block_size,
             gather_axis=0,
             quantize_axis=1,
         )
+        dag.add_node(gbq_node, graph_idx)
 
-        # Replace Gather with GatherBlockQuantized
-        model.graph.node.remove(gather_node)
-        model.graph.node.insert(gather_idx, gbq_node)
-
-        # Remove old FP16 embedding weight
-        model.graph.initializer.remove(embed_init)
+        # Rewire consumers from old Gather output to new GBQ output and remove old node
+        for consumer in dag.get_consumers(gather_output):
+            dag.replace_node_input(consumer, gather_output, gbq_output)
+        dag.remove_node(gather_name)
+        # Old FP16 embedding weight is auto-cleaned by update() since no consumers remain
 
         logger.info("Replaced Gather with GatherBlockQuantized (INT8)")
-        return model
+        dag.update()
+        return dag.model
 
 
 class ShareEmbeddingLmHead(ProtoSurgeon):
@@ -2528,12 +2504,15 @@ class ShareEmbeddingLmHead(ProtoSurgeon):
     def __call__(self, model: onnx.ModelProto):
         from onnx import numpy_helper
 
+        dag = OnnxDAG(model)
+
         # Find embedding GatherBlockQuantized
-        gbq_node, _ = _find_embed_node(model, "GatherBlockQuantized", "ShareEmbeddingLmHead")
-        if gbq_node is None:
+        gbq_name = self.find_node(dag, "GatherBlockQuantized", "embed_tokens")
+        if gbq_name is None:
+            logger.warning("No embed_tokens GatherBlockQuantized node found, skipping ShareEmbeddingLmHead")
             return model
 
-        attrs = _get_node_attrs(gbq_node, "bits", "block_size")
+        attrs = dag.get_node_attributes(gbq_name)
         gbq_bits = attrs.get("bits", 8)
         gbq_block_size = attrs.get("block_size", 32)
 
@@ -2542,34 +2521,36 @@ class ShareEmbeddingLmHead(ProtoSurgeon):
             return model
 
         # Get embedding weight, scales, zero_points names
-        embed_weight_name = gbq_node.input[0]
-        embed_scales_name = gbq_node.input[2]
-        embed_zp_name = gbq_node.input[3] if len(gbq_node.input) > 3 else None
+        gbq_inputs = dag.get_node_inputs(gbq_name)
+        embed_weight_name = gbq_inputs[0]
+        embed_scales_name = gbq_inputs[2]
+        embed_zp_name = gbq_inputs[3] if len(gbq_inputs) > 3 else None
 
         # Get embedding weight shape to determine K and N
-        embed_weight_init = _find_initializer(model, embed_weight_name)
-        if embed_weight_init is None:
+        if not dag.is_initializer(embed_weight_name):
             logger.warning("Could not find embedding weight initializer")
             return model
 
-        embed_weight = numpy_helper.to_array(embed_weight_init)
+        embed_weight = dag.get_initializer_np_array(embed_weight_name)
 
         vocab_size, hidden_size = embed_weight.shape  # [V, H] for INT8
         num_blocks = hidden_size // gbq_block_size
 
         # Find lm_head MatMulNBits node
-        lm_head_node, lm_head_idx = _find_lm_head_node(model)
-        if lm_head_node is None:
+        lm_head_name = self.find_node(dag, "MatMulNBits", "lm_head")
+        if lm_head_name is None:
+            logger.warning("No lm_head MatMulNBits found")
             return model
 
+        lm_head_inputs = dag.get_node_inputs(lm_head_name)
+
         # Check if already shared (idempotency): lm_head weight input references embedding weight
-        lm_head_weight_input = lm_head_node.input[1]
-        if embed_weight_name in lm_head_weight_input or lm_head_node.input[2] == embed_scales_name:
+        if embed_weight_name in lm_head_inputs[1] or lm_head_inputs[2] == embed_scales_name:
             logger.info("lm_head already shares weights with embedding, skipping ShareEmbeddingLmHead")
             return model
 
         # Get old lm_head attributes
-        old_attrs = _get_node_attrs(lm_head_node, "K", "N", "bits", "block_size")
+        old_attrs = dag.get_node_attributes(lm_head_name)
 
         logger.info(
             "Sharing embedding with lm_head: lm_head INT%d (%dx%d, bs=%d) -> INT8 (shared with embedding)",
@@ -2579,17 +2560,13 @@ class ShareEmbeddingLmHead(ProtoSurgeon):
             old_attrs.get("block_size", 0),
         )
 
-        # Remove old lm_head weight initializers
-        old_init_names = set(lm_head_node.input[1:])  # weight, scales, [zp], [g_idx]
-        to_remove = [init for init in model.graph.initializer if init.name in old_init_names]
-        for init in to_remove:
-            model.graph.initializer.remove(init)
+        graph_idx = dag.get_graph_idx(lm_head_name)
 
         # MatMulNBits needs [N, K_blocks, block_size] but GBQ weight is [V, H].
         # Add a Reshape node to convert, referencing the SAME embedding weight.
         reshape_shape_name = "lm_head.MatMulNBits.reshape_shape"
         reshape_shape = np.array([vocab_size, num_blocks, gbq_block_size], dtype=np.int64)
-        model.graph.initializer.append(numpy_helper.from_array(reshape_shape, name=reshape_shape_name))
+        dag.add_initializer(numpy_helper.from_array(reshape_shape, name=reshape_shape_name), graph_idx)
 
         reshape_output = "lm_head.MatMulNBits.reshaped_weight"
         reshape_node = onnx.helper.make_node(
@@ -2598,22 +2575,26 @@ class ShareEmbeddingLmHead(ProtoSurgeon):
             outputs=[reshape_output],
             name="lm_head/Reshape_shared_weight",
         )
-        model.graph.node.insert(lm_head_idx, reshape_node)
+        dag.add_node(reshape_node, graph_idx)
 
         # Scales and zp: reuse embedding's directly
-        inputs = [lm_head_node.input[0], reshape_output, embed_scales_name]
+        inputs = [lm_head_inputs[0], reshape_output, embed_scales_name]
         if embed_zp_name:
             inputs.append(embed_zp_name)
 
         # Ensure com.microsoft opset is declared
-        _ensure_msft_opset(model)
+        dag.set_opset_import("com.microsoft", 1)
 
         # Create new INT8 MatMulNBits node
+        lm_head_output = dag.get_node_outputs(lm_head_name)[0]
+        new_lm_head_output = lm_head_output + "_shared"
+        new_lm_head_name = lm_head_name + "_shared"
+        lm_head_proto = dag.get_node_proto(lm_head_name)
         new_lm_head = onnx.helper.make_node(
             "MatMulNBits",
             inputs=inputs,
-            outputs=lm_head_node.output,
-            name=lm_head_node.name,
+            outputs=[new_lm_head_output],
+            name=new_lm_head_name,
             domain="com.microsoft",
             bits=8,
             block_size=gbq_block_size,
@@ -2621,15 +2602,27 @@ class ShareEmbeddingLmHead(ProtoSurgeon):
             N=vocab_size,
         )
         # Copy accuracy_level if present
-        for attr in lm_head_node.attribute:
+        for attr in lm_head_proto.attribute:
             if attr.name == "accuracy_level":
                 new_lm_head.attribute.append(attr)
 
-        model.graph.node.remove(lm_head_node)
-        model.graph.node.insert(lm_head_idx + 1, new_lm_head)
+        dag.add_node(new_lm_head, graph_idx)
+
+        # Rewire consumers and remove old node
+        for consumer in dag.get_consumers(lm_head_output):
+            dag.replace_node_input(consumer, lm_head_output, new_lm_head_output)
+        if dag.is_output(lm_head_output):
+            dag.remove_output(lm_head_output)
+            dag.remove_node(lm_head_name)
+            dag.rename_node_output(new_lm_head_name, new_lm_head_output, lm_head_output)
+            dag.make_output(lm_head_output)
+        else:
+            dag.remove_node(lm_head_name)
+        # Old lm_head initializers are auto-cleaned by update() since no consumers remain
 
         logger.info("lm_head now uses INT8 MatMulNBits (shared quantization with embedding)")
-        return model
+        dag.update()
+        return dag.model
 
 
 class ReciprocalMulToDiv(ProtoSurgeon):
