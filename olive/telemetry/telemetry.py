@@ -219,9 +219,11 @@ class TelemetryCacheHandler:
         finally:
             with self._condition:
                 self._callbacks_item_count += args.item_count
+                # Wake threads waiting for flush/shutdown callback accounting.
                 self._condition.notify_all()
 
     def wait_for_callbacks(self, timeout_sec: float, during_flush: bool = False) -> bool:
+        """Wait until callbacks have caught up with logged telemetry items."""
         deadline = time.time() + timeout_sec
         with self._condition:
             while True:
@@ -278,11 +280,9 @@ class TelemetryCacheHandler:
 
         """
         telemetry_cache_dir = None
-        telemetry_cache_dir_override = os.environ.get("OLIVE_TELEMETRY_CACHE_DIR")
+        telemetry_cache_dir_override = (os.environ.get("OLIVE_TELEMETRY_CACHE_DIR") or "").strip()
         if telemetry_cache_dir_override:
-            telemetry_cache_dir_override = telemetry_cache_dir_override.strip()
-            if telemetry_cache_dir_override:
-                telemetry_cache_dir = Path(telemetry_cache_dir_override).expanduser()
+            telemetry_cache_dir = Path(telemetry_cache_dir_override).expanduser()
         if not telemetry_cache_dir:
             telemetry_cache_dir = get_telemetry_base_dir() / "cache"
         return telemetry_cache_dir / self._cache_file_name
@@ -442,7 +442,9 @@ class TelemetryCacheHandler:
 class Telemetry:
     """Wrapper that wires environment configuration into the library logger.
 
-    This is a singleton class - all instances share the same state.
+    This is a per-process singleton class - all instances in a process share the same state.
+    Separate processes get separate in-memory singleton instances and coordinate only through
+    the shared telemetry cache file lock.
     Use Telemetry() to get the singleton instance.
     """
 
@@ -451,11 +453,12 @@ class Telemetry:
 
     def __new__(cls):
         """Create or return the singleton instance."""
-        with cls._lock:
-            if cls._instance is None:
-                instance = super().__new__(cls)
-                instance._initialized = False
-                cls._instance = instance
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    instance = super().__new__(cls)
+                    instance._initialized = False
+                    cls._instance = instance
         return cls._instance
 
     def __init__(self):
@@ -472,7 +475,7 @@ class Telemetry:
             self._logger = self._create_logger()
             event_source.disable()
 
-            is_ci = self._is_ci_environment()
+            is_ci = is_ci_environment()
             self._recipe_only_ci_telemetry = is_ci
             if not is_ci:
                 self._cache_handler = TelemetryCacheHandler(self)
@@ -484,11 +487,6 @@ class Telemetry:
         except Exception:
             # Fail silently — telemetry must never crash the host application
             self._initialized = True
-
-    @staticmethod
-    def _is_ci_environment() -> bool:
-        """Detect CI/CD environments by checking well-known environment variables."""
-        return is_ci_environment()
 
     def _create_logger(self) -> Optional[TelemetryLogger]:
         try:
