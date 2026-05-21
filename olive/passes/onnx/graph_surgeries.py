@@ -2608,6 +2608,14 @@ class ShareEmbeddingLmHead(ProtoSurgeon):
 
         dag.add_node(new_lm_head, graph_idx)
 
+        # Copy value info from old output to new output (needed for graph output serialization)
+        old_vi = dag.get_value_info_proto(lm_head_output)
+        if old_vi is not None:
+            new_vi = onnx.helper.make_tensor_value_info(new_lm_head_output, old_vi.type.tensor_type.elem_type, [])
+            new_vi.CopyFrom(old_vi)
+            new_vi.name = new_lm_head_output
+            dag.add_value_info(new_vi, graph_idx)
+
         # Rewire consumers and remove old node
         for consumer in dag.get_consumers(lm_head_output):
             dag.replace_node_input(consumer, lm_head_output, new_lm_head_output)
