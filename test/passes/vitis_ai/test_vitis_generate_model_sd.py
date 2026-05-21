@@ -3,23 +3,20 @@
 # SPDX-License-Identifier: MIT
 # -------------------------------------------------------------------------
 
-import builtins
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-pytest.importorskip("model_generate", reason="model_generate is not installed; skipping all SD model generation tests")
-
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.vitis_ai.vitis_generate_model_sd import VitisGenerateModelSD
 from test.utils import ONNX_MODEL_PATH, get_onnx_model
 
+pytest.importorskip("model_generate", reason="model_generate is not installed; skipping all SD model generation tests")
+
 _PATCH_GEN = "model_generate.generate_model"
-_PATCH_SUPPORTED = "model_generate.recipes.get_supported_sd_model_types"
 
 
 def _make_pass(**kwargs):
@@ -34,49 +31,16 @@ def _generate_writes_placeholder(**kwargs):
     (out / "optimized.onnx").write_bytes(b"placeholder")
 
 
-def test_get_supported_sd_model_types_wraps_import_error():
-    saved_mods = {
-        k: sys.modules.pop(k) for k in list(sys.modules) if k == "model_generate" or k.startswith("model_generate.")
-    }
-    real_import = builtins.__import__
-
-    def guarded_import(name, glbs=None, locs=None, fromlist=(), level=0):
-        if name == "model_generate.recipes" and fromlist:
-            raise ImportError("simulated missing recipes")
-        return real_import(name, glbs, locs, fromlist, level)
-
-    try:
-        with (
-            patch.object(builtins, "__import__", guarded_import),
-            pytest.raises(ImportError, match="model_generate is required for VitisGenerateModelSD"),
-        ):
-            VitisGenerateModelSD.get_supported_sd_model_types()
-    finally:
-        sys.modules.update(saved_mods)
-
-
-@pytest.mark.parametrize(
-    ("model_type", "supported"),
-    [
-        ("bad", ["unet"]),
-        ("", ["unet", "vae"]),
-    ],
-)
-def test_run_invalid_model_type_raises(model_type, supported, tmp_path):
-    gen = MagicMock()
-    with patch(_PATCH_SUPPORTED, return_value=supported), patch(_PATCH_GEN, gen):
-        p = create_pass_from_dict(
-            VitisGenerateModelSD,
-            {"model_type": model_type, "resolutions": []},
-            disable_search=True,
-        )
-        with pytest.raises(ValueError, match="model_type must be one of"):
+def test_run_raises_on_missing_model_generate(tmp_path):
+    p = _make_pass()
+    with patch.dict("sys.modules", {"model_generate": None}):
+        with pytest.raises(ImportError, match="model_generate is required for VitisGenerateModelSD"):
             p.run(get_onnx_model(), str(tmp_path / "out"))
 
 
 def test_run_includes_resolutions_in_extra_options(tmp_path):
     gen = MagicMock(side_effect=_generate_writes_placeholder)
-    with patch(_PATCH_SUPPORTED, return_value=["unet"]), patch(_PATCH_GEN, gen):
+    with patch(_PATCH_GEN, gen):
         p = create_pass_from_dict(
             VitisGenerateModelSD,
             {
@@ -96,7 +60,7 @@ def test_run_includes_resolutions_in_extra_options(tmp_path):
 
 def test_run_default_resolutions_passed_when_using_defaults(tmp_path):
     gen = MagicMock(side_effect=_generate_writes_placeholder)
-    with patch(_PATCH_SUPPORTED, return_value=["unet"]), patch(_PATCH_GEN, gen):
+    with patch(_PATCH_GEN, gen):
         p = create_pass_from_dict(
             VitisGenerateModelSD,
             {"model_type": "unet"},
@@ -109,7 +73,7 @@ def test_run_default_resolutions_passed_when_using_defaults(tmp_path):
 
 def test_run_omits_resolutions_when_empty_list(tmp_path):
     gen = MagicMock(side_effect=_generate_writes_placeholder)
-    with patch(_PATCH_SUPPORTED, return_value=["unet"]), patch(_PATCH_GEN, gen):
+    with patch(_PATCH_GEN, gen):
         p = create_pass_from_dict(
             VitisGenerateModelSD,
             {"model_type": "unet", "resolutions": []},
@@ -126,7 +90,7 @@ def test_ensure_model_onnx_copies_optimized(tmp_path):
         (out / "optimized.onnx").write_text("from_optimized", encoding="utf-8")
 
     gen = MagicMock(side_effect=write_optimized)
-    with patch(_PATCH_SUPPORTED, return_value=["unet"]), patch(_PATCH_GEN, gen):
+    with patch(_PATCH_GEN, gen):
         p = create_pass_from_dict(
             VitisGenerateModelSD,
             {"model_type": "unet", "resolutions": []},
@@ -146,7 +110,7 @@ def test_ensure_model_onnx_prefers_dd_replaced_over_optimized(tmp_path):
         (dd / "replaced.onnx").write_text("from_dd", encoding="utf-8")
 
     gen = MagicMock(side_effect=write_both)
-    with patch(_PATCH_SUPPORTED, return_value=["unet"]), patch(_PATCH_GEN, gen):
+    with patch(_PATCH_GEN, gen):
         p = create_pass_from_dict(
             VitisGenerateModelSD,
             {"model_type": "unet", "resolutions": []},
@@ -164,7 +128,7 @@ def test_ensure_model_onnx_skips_copy_when_model_onnx_exists(tmp_path):
         (out / "optimized.onnx").write_text("optimized", encoding="utf-8")
 
     gen = MagicMock(side_effect=write_only_original)
-    with patch(_PATCH_SUPPORTED, return_value=["unet"]), patch(_PATCH_GEN, gen):
+    with patch(_PATCH_GEN, gen):
         p = create_pass_from_dict(
             VitisGenerateModelSD,
             {"model_type": "unet", "resolutions": []},
@@ -177,7 +141,7 @@ def test_ensure_model_onnx_skips_copy_when_model_onnx_exists(tmp_path):
 
 def test_ensure_model_onnx_raises_when_no_candidate_files(tmp_path):
     gen = MagicMock()
-    with patch(_PATCH_SUPPORTED, return_value=["unet"]), patch(_PATCH_GEN, gen):
+    with patch(_PATCH_GEN, gen):
         p = create_pass_from_dict(
             VitisGenerateModelSD,
             {"model_type": "unet", "resolutions": []},
@@ -247,7 +211,7 @@ def test_resolve_onnx_input_path_missing_path_raises(tmp_path):
 
 def test_run_requires_onnx_model_handler(tmp_path):
     gen = MagicMock()
-    with patch(_PATCH_SUPPORTED, return_value=["unet"]), patch(_PATCH_GEN, gen):
+    with patch(_PATCH_GEN, gen):
         p = create_pass_from_dict(
             VitisGenerateModelSD,
             {"model_type": "unet", "resolutions": []},

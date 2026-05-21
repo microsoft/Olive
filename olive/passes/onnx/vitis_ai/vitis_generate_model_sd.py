@@ -45,24 +45,6 @@ class VitisGenerateModelSD(Pass):
             ),
         }
 
-    @staticmethod
-    def get_supported_sd_model_types():
-        try:
-            from model_generate.recipes import get_supported_sd_model_types
-        except ImportError as e:
-            raise ImportError(
-                "model_generate is required for VitisGenerateModelSD. Please install the model_generate package."
-            ) from e
-
-        return get_supported_sd_model_types()
-
-    @classmethod
-    def _validate_model_type(cls, model_type: str) -> None:
-        supported_types = cls.get_supported_sd_model_types()
-
-        if model_type not in supported_types:
-            raise ValueError(f"model_type must be one of {', '.join(supported_types)}, got {model_type!r}")
-
     def _run_for_config(
         self,
         model: ONNXModelHandler,
@@ -81,7 +63,6 @@ class VitisGenerateModelSD(Pass):
                 f"VitisGenerateModelSD requires ONNXModelHandler (run OnnxConversion first). Got {type(model).__name__}"
             )
         model_type = config.model_type
-        self._validate_model_type(model_type)
 
         output_dir = Path(output_model_path)
         if output_dir.suffix == ".onnx":
