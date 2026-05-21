@@ -588,6 +588,155 @@ def test_simplifiedlayernorm_to_l2norm_skip(tmp_path, all_ones, output_skip_sum)
     )
 
 
+def check_rmsnorm(
+    original_model_path: str,
+    modified_model_path: str,
+    hidden_size: int,
+    expected_num_nodes: int,
+    has_skip: bool = False,
+):
+    # check output values match
+    input_session = InferenceSession(original_model_path)
+    output_session = InferenceSession(modified_model_path)
+    input_feed = {"x": np.random.randn(1, hidden_size).astype(np.float32)}
+    if has_skip:
+        input_feed["skip"] = np.random.randn(1, hidden_size).astype(np.float32)
+    input_result = input_session.run(None, input_feed)
+    output_result = output_session.run(None, input_feed)
+    for i_r, o_r in zip(input_result, output_result):
+        np.testing.assert_allclose(i_r, o_r, rtol=1e-3, atol=1e-3)
+
+    # count nodes and verify expected op types are present
+    dag = OnnxDAG.from_model_path(modified_model_path)
+    assert len(dag.nodes) == expected_num_nodes
+    op_types = dag.get_node_op_types()
+    assert "Pow" in op_types
+    assert "ReduceMean" in op_types
+    assert "Sqrt" in op_types
+    assert "Div" in op_types
+    assert "Mul" in op_types
+    assert "SimplifiedLayerNormalization" not in op_types
+    assert "SkipSimplifiedLayerNormalization" not in op_types
+
+
+@pytest.mark.parametrize("all_ones", [True, False])
+def test_simplifiedlayernorm_to_rmsnorm(tmp_path, all_ones):
+    # setup
+    hidden_size = 3
+    inputs = [
+        onnx.helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, hidden_size]),
+    ]
+    outputs = [
+        onnx.helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, hidden_size]),
+    ]
+    weight = (np.ones(hidden_size) if all_ones else np.random.randn(hidden_size)).astype(np.float32)
+    initializers = [onnx.numpy_helper.from_array(weight, name="weight")]
+    nodes = [
+        onnx.helper.make_node(
+            "SimplifiedLayerNormalization",
+            inputs=["x", "weight"],
+            outputs=["layernorm_output"],
+            name="layernorm/LayerNorm",
+        ),
+        onnx.helper.make_node("Identity", inputs=["layernorm_output"], outputs=["y"], name="Identity"),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=inputs,
+        outputs=outputs,
+        initializer=initializers,
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    onnx.save(model, str(tmp_path / "input_model.onnx"))
+    input_model = ONNXModelHandler(model_path=str(tmp_path / "input_model.onnx"))
+
+    output_folder = str(tmp_path / "output")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "SimplifiedLayerNormToRMSNorm"}]},
+        disable_search=True,
+    )
+
+    # execute
+    onnx_model = p.run(input_model, output_folder)
+
+    # assert
+    # Pow, ReduceMean, Add(eps), Sqrt, Div, Mul, Identity = 7 nodes
+    check_rmsnorm(str(tmp_path / "input_model.onnx"), onnx_model.model_path, hidden_size, 7)
+
+
+@pytest.mark.parametrize("all_ones", [True, False])
+@pytest.mark.parametrize("output_skip_sum", [True, False])
+def test_simplifiedlayernorm_to_rmsnorm_skip(tmp_path, all_ones, output_skip_sum):
+    # setup
+    hidden_size = 3
+    inputs = [
+        onnx.helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, hidden_size]),
+        onnx.helper.make_tensor_value_info("skip", TensorProto.FLOAT, [1, hidden_size]),
+    ]
+    outputs = [
+        onnx.helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, hidden_size]),
+    ]
+    if output_skip_sum:
+        outputs.append(
+            onnx.helper.make_tensor_value_info("skip_sum", TensorProto.FLOAT, [1, hidden_size]),
+        )
+    initializers = [
+        onnx.numpy_helper.from_array(
+            (np.ones(hidden_size) if all_ones else np.random.randn(hidden_size)).astype(np.float32), name="weight"
+        )
+    ]
+    nodes = [
+        onnx.helper.make_node(
+            "SkipSimplifiedLayerNormalization",
+            inputs=["x", "skip", "weight"],
+            outputs=["layernorm_output"] if not output_skip_sum else ["layernorm_output", "", "", "layernorm_skip_sum"],
+            name="layernorm/LayerNorm",
+            domain=MSFT_DOMAIN,
+        ),
+        onnx.helper.make_node("Identity", inputs=["layernorm_output"], outputs=["y"], name="Identity"),
+    ]
+    if output_skip_sum:
+        nodes.append(
+            onnx.helper.make_node(
+                "Identity", inputs=["layernorm_skip_sum"], outputs=["skip_sum"], name="Identity_skip_sum"
+            )
+        )
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TestGraph",
+        inputs=inputs,
+        outputs=outputs,
+        initializer=initializers,
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    onnx.save(model, str(tmp_path / "input_model.onnx"))
+    input_model = ONNXModelHandler(model_path=str(tmp_path / "input_model.onnx"))
+
+    output_folder = str(tmp_path / "output")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "SimplifiedLayerNormToRMSNorm"}]},
+        disable_search=True,
+    )
+
+    # execute
+    output_model = p.run(input_model, output_folder)
+
+    # assert
+    # Add(skip), Pow, ReduceMean, Add(eps), Sqrt, Div, Mul, Identity[, Identity_skip_sum] = 8 or 9 nodes
+    check_rmsnorm(
+        str(tmp_path / "input_model.onnx"),
+        output_model.model_path,
+        hidden_size,
+        8 + int(output_skip_sum),
+        has_skip=True,
+    )
+
+
 @pytest.mark.parametrize("use_large_cache", [True, False])
 def test_remove_rope_multi_cache(tmp_path, use_large_cache):
     # setup
