@@ -3,11 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import collections
+import inspect
 import logging
 import time
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from functools import partial
+from functools import lru_cache, partial
 from numbers import Number
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Optional, Union
@@ -1513,6 +1514,15 @@ class QNNEvaluator(_OliveEvaluator):
         return FileListCommonDataLoader(dataloader, model.io_config, batch_size=file_chunk_size)
 
 
+@lru_cache(maxsize=1)
+def _simple_evaluate_supports_unsafe_code(simple_evaluate_fn) -> bool:
+    """Check (cached) whether lm-eval's simple_evaluate accepts confirm_run_unsafe_code."""
+    try:
+        return "confirm_run_unsafe_code" in inspect.signature(simple_evaluate_fn).parameters
+    except (TypeError, ValueError):
+        return False
+
+
 @Registry.register("LMEvaluator")
 class LMEvaluator(OliveEvaluator):
     def __init__(self, tasks: list[str], **kwargs):
@@ -1526,6 +1536,7 @@ class LMEvaluator(OliveEvaluator):
         self.ep = kwargs.get("execution_provider")
         self.ep_options = kwargs.get("provider_options")
         self.device = kwargs.get("device")
+        self.confirm_run_unsafe_code = kwargs.get("confirm_run_unsafe_code", False)
 
     def evaluate(
         self,
@@ -1597,15 +1608,19 @@ class LMEvaluator(OliveEvaluator):
         if self.tasks:
             lmmodel = get_model(self.model_class)(**init_args, batch_size=self.batch_size, max_length=self.max_length)
 
-            results = simple_evaluate(
-                model=lmmodel,
-                tasks=self.tasks,
-                task_manager=TaskManager(),
-                log_samples=False,
-                batch_size=self.batch_size,
-                device=device,
-                limit=self.limit,
-            )
+            simple_evaluate_kwargs = {
+                "model": lmmodel,
+                "tasks": self.tasks,
+                "task_manager": TaskManager(),
+                "log_samples": False,
+                "batch_size": self.batch_size,
+                "device": device,
+                "limit": self.limit,
+            }
+            # Only pass confirm_run_unsafe_code when the installed lm-eval version supports it.
+            if _simple_evaluate_supports_unsafe_code(simple_evaluate):
+                simple_evaluate_kwargs["confirm_run_unsafe_code"] = self.confirm_run_unsafe_code
+            results = simple_evaluate(**simple_evaluate_kwargs)
 
             for task_name in sorted(results["results"].keys()):
                 metric_items = sorted(results["results"][task_name].items())

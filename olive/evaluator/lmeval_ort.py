@@ -190,7 +190,10 @@ class LMEvalOnnxBase(TemplateLM):
         raise NotImplementedError("Yet to be implemented!")
 
     def generate_until(self, requests, disable_tqdm: bool = False) -> list[str]:
-        raise NotImplementedError("Yet to be implemented!")
+        raise NotImplementedError(
+            "generate_until is not supported by this model backend. "
+            "Use model_class='ortgenai' for generative tasks such as MBPP or HumanEval."
+        )
 
 
 @register_model("ort")
@@ -514,6 +517,8 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             # Store all EOS IDs for generate_until stop detection,
             # and first/scalar for loglikelihood (TemplateLM.eot_token_id expects int).
             self._eos_token_ids = list(eot) if isinstance(eot, list) else [eot]
+            if not self._eos_token_ids:
+                raise ValueError("genai_config model.eos_token_id must not be an empty list")
             self._eot_token_id = self._eos_token_ids[0]
         self.params = og.GeneratorParams(self.model)
         self.params.set_search_options(max_length=self.max_length, past_present_share_buffer=False)
@@ -575,6 +580,136 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         # ctx_len = inplen + (logits.shape[0] - padding_len_inp), which adjusts for the shorter
         # seq dimension so the continuation slice still lands on the correct positions.
         return torch.cat(all_logits, dim=1)  # [batch, n_logits, vocab]
+
+    def generate_until(self, requests, disable_tqdm: bool = False) -> list[str]:
+        """Generate text until a stop sequence is found or max tokens reached.
+
+        Supports generative evaluation tasks such as MBPP and HumanEval.
+        Each request is a tuple of (context_string, gen_kwargs_dict).
+        """
+        results = []
+        for request in tqdm(requests, desc="Running generate_until", disable=disable_tqdm):
+            context = request.args[0]
+            gen_kwargs = request.args[1] if len(request.args) > 1 and isinstance(request.args[1], dict) else {}
+
+            # Extract stop sequences — normalise str/None/tuple/other-iterables to list[str]
+            until = gen_kwargs.get("until", [])
+            if isinstance(until, str):
+                until = [until]
+            elif until is None:
+                until = []
+            elif not isinstance(until, list):
+                try:
+                    until = list(until)  # handles tuple, set, generator, etc.
+                except TypeError:
+                    until = [until]  # non-iterable scalar fallback
+            until = [stop_seq for stop_seq in until if isinstance(stop_seq, str) and stop_seq]
+
+            # Extract generation parameters
+            max_gen_toks = gen_kwargs.get(
+                "max_gen_toks", gen_kwargs.get("max_new_tokens", gen_kwargs.get("max_tokens"))
+            )
+            try:
+                max_gen_toks = int(max_gen_toks) if max_gen_toks is not None else 256
+            except (TypeError, ValueError):
+                max_gen_toks = 256
+            max_gen_toks = max(max_gen_toks, 0)
+            try:
+                temperature = float(gen_kwargs.get("temperature", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                temperature = 0.0
+            raw_do_sample = gen_kwargs.get("do_sample", None)
+            if raw_do_sample is None:
+                do_sample = temperature > 0
+            elif isinstance(raw_do_sample, bool):
+                do_sample = raw_do_sample
+            elif isinstance(raw_do_sample, str):
+                do_sample = raw_do_sample.lower() not in ("false", "0", "no", "")
+            else:
+                do_sample = bool(raw_do_sample)
+
+            # Tokenize the prompt
+            prompt_ids = self.tokenizer.encode(context).tolist()
+            prompt_len = len(prompt_ids)
+
+            # Compute total max_length: prompt + new tokens, capped by model limit
+            total_max_length = min(prompt_len + max_gen_toks, self.max_length)
+
+            # If the prompt already fills or exceeds the model limit, no generation is possible.
+            if prompt_len >= self.max_length or max_gen_toks == 0:
+                results.append("")
+                if hasattr(request, "cache_hook") and request.cache_hook is not None:
+                    request.cache_hook.add_partial("generate_until", request.args, "")
+                continue
+
+            # Create fresh generator params per request to avoid state leakage
+            params = og.GeneratorParams(self.model)
+            search_options = {
+                "max_length": total_max_length,
+                "past_present_share_buffer": False,
+            }
+            if do_sample:
+                search_options["do_sample"] = True
+                search_options["temperature"] = temperature
+            else:
+                search_options["temperature"] = 0.0
+            params.set_search_options(**search_options)
+
+            # Run generation token by token to check for stop sequences
+            generator = og.Generator(self.model, params)
+            generator.append_tokens([prompt_ids])
+
+            generated_token_ids = []
+            stop_found = False
+            # Character-based rolling tail wide enough to catch any stop sequence
+            # across chunk boundaries, regardless of how many tokens a stop string spans.
+            max_stop_len = max((len(s) for s in until), default=0)
+            tail = ""
+
+            while not generator.is_done():
+                generator.generate_next_token()
+                new_token = generator.get_sequence(0)[-1]
+
+                # Check for EOS token(s)
+                if new_token in self._eos_token_ids:
+                    break
+
+                generated_token_ids.append(new_token)
+
+                # Decode one token at a time only for stop-sequence tail detection.
+                # The final text is produced by decoding the full ID sequence so that
+                # tokenizer whitespace/punctuation normalisation is applied correctly.
+                if until:
+                    chunk = self.tokenizer.decode([new_token])
+                    tail = (tail + chunk)[-(max_stop_len + len(chunk)) :]
+                    for stop_seq in until:
+                        if stop_seq in tail:
+                            stop_found = True
+                            break
+                    if stop_found:
+                        break
+
+            # Decode full token sequence once for correct whitespace/punctuation handling.
+            full_text = self.tokenizer.decode(generated_token_ids) if generated_token_ids else ""
+
+            # Trim at the earliest stop sequence found in the final decoded text.
+            generated_text = full_text
+            if until:
+                earliest = None
+                for stop_seq in until:
+                    idx = full_text.find(stop_seq)
+                    if idx != -1 and (earliest is None or idx < earliest):
+                        earliest = idx
+                if earliest is not None:
+                    generated_text = full_text[:earliest]
+
+            results.append(generated_text)
+
+            # lm-eval cache hook
+            if hasattr(request, "cache_hook") and request.cache_hook is not None:
+                request.cache_hook.add_partial("generate_until", request.args, generated_text)
+
+        return results
 
     def complete(self):
         pass
