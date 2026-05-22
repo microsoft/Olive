@@ -396,14 +396,32 @@ class OliveCache:
             model_attributes = model_json_config.get("model_attributes") or {}
 
             if model_attributes.get("no_flatten"):
-                # Preserve directory structure (e.g., for diffusers models exported by optimum)
+                # Preserve directory structure (e.g., for diffusers models
+                # exported by optimum, or multimodal ORT GenAI packages from
+                # MobiusBuilder where components live in <root>/<component>/).
                 source_path = Path(model_json_config["model_path"])
                 if source_path.exists():
                     shutil.copytree(source_path, actual_output_dir, dirs_exist_ok=overwrite)
 
-                # Update component paths to point to new location
+                # Rewrite each component's model_path so it points into the
+                # new output location while preserving the component's
+                # relative position underneath the package root. Without
+                # rebasing component paths the saved model_config.json
+                # cannot be loaded (and onnx_file_name is left untouched,
+                # so we must not collapse component subdirs into the root).
                 for component in model_json_config["model_components"]:
-                    component["config"]["model_path"] = str(actual_output_dir)
+                    component_config = component["config"]
+                    component_model_path = component_config.get("model_path")
+                    if component_model_path:
+                        try:
+                            relative = Path(component_model_path).resolve().relative_to(source_path.resolve())
+                        except ValueError:
+                            # Component path is not under the composite root;
+                            # fall back to placing it at the package root.
+                            relative = Path()
+                        component_config["model_path"] = str(actual_output_dir / relative)
+                    else:
+                        component_config["model_path"] = str(actual_output_dir)
                 model_json_config["model_path"] = str(actual_output_dir)
             else:
                 copied_components = []
