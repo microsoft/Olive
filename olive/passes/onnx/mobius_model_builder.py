@@ -234,6 +234,13 @@ class MobiusBuilder(Pass):
             model_path=str(output_dir),
             model_attributes={
                 "mobius_package_keys": package_keys,
+                # Preserve the <component>/model.onnx subdirectory layout and
+                # carry sidecar files (genai_config.json, tokenizer.json,
+                # image_processor.json, audio_feature_extraction.json) to the
+                # output directory. Without this, Olive flattens components to
+                # top-level <name>.onnx and drops the sidecars, which breaks
+                # ORT GenAI loading.
+                "no_flatten": True,
                 **(model.model_attributes or {}),
             },
         )
