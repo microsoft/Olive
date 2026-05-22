@@ -48,6 +48,14 @@ class SelectiveMixedPrecision(Pass):
         - iqe: Inverse of Integer Quantization Error based selection.
         - iqe_relative: Relative IQE (between low and high precision) based selection.
         - kld_gradient: KL Divergence gradient based selection.
+
+    For ``kld_gradient`` the peak memory required for KL Divergence scoring can be tuned via
+    ``kld_memory_mode``, which supports ``auto`` (default; picks based on the model size and free
+    device memory), ``full``, ``multi_gpu`` (shards the scoring forward across all visible CUDA
+    devices with ``accelerate``), ``low_memory``, and ``offload``.
+
+    The override map produced by this pass groups Q/K/V projections in the same attention block so
+    they always share precision, which is required for ModelBuilder's GQA fusion.
     """
 
     class Algorithm(StrEnumBase):
