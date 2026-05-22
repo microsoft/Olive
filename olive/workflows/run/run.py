@@ -160,11 +160,6 @@ def run(
     # set tempdir
     set_tempdir(tempdir)
 
-    try:
-        run_config_telemetry_input = _load_config_input_for_telemetry(run_config)
-    except Exception:
-        run_config_telemetry_input = None
-
     package_config_input = package_config
     try:
         package_config_telemetry_input = (
@@ -215,7 +210,7 @@ def run(
         if emit_recipe_telemetry:
             metadata = _build_recipe_result_metadata(
                 run_config,
-                run_config_telemetry_input,
+                None,
                 parsed_run_config,
                 recipe_telemetry_metadata,
                 list_required_packages=list_required_packages,

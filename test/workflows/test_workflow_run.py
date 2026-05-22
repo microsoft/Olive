@@ -195,12 +195,41 @@ def test_run_logs_recipe_result_success(_, mock_run_engine, mock_log_recipe_resu
     assert metadata["is_ci"] is False
     assert metadata["recipe_hash"]
     assert "input_model_name_hash" not in metadata
+    assert "config_overrides" not in metadata
 
+
+@patch("olive.workflows.run.run.log_recipe_result")
+@patch("olive.workflows.run.run.run_engine")
+def test_run_logs_config_overrides_when_recipe_metadata_provides_overrides(mock_run_engine, mock_log_recipe_result):
+    config = {
+        "input_model": {
+            "type": "HfModel",
+            "model_path": "Qwen/Qwen2.5-0.5B-Instruct",
+            "task": "text-generation",
+        }
+    }
+    mock_run_engine.return_value = object()
+
+    olive_run(
+        config,
+        recipe_telemetry_metadata={
+            "recipe_name": "WorkflowRun",
+            "config_overrides": {
+                "input_model": {
+                    "type": "HfModel",
+                    "model_path": "Qwen/Qwen2.5-0.5B-Instruct",
+                },
+                "engine": {"target": "local_system"},
+                "data_path": Path("data"),
+            },
+        },
+    )
+
+    metadata = mock_log_recipe_result.call_args.kwargs["metadata"]
     config_overrides = json.loads(metadata["config_overrides"])
-    assert config_overrides["input_model"]["model_path"] == "<resource>"
+    assert config_overrides["input_model"]["model_path"] == "Qwen/Qwen2.5-0.5B-Instruct"
     assert config_overrides["engine"]["target"] == "<reference>"
-    assert config_overrides["systems"][0]["type"] == "LocalSystem"
-    assert config_overrides["systems"][0]["accelerators"][0]["execution_providers"] == ["CUDAExecutionProvider"]
+    assert config_overrides["data_path"] == "<resource>"
 
 
 @patch("olive.workflows.run.run.log_error")
@@ -389,6 +418,7 @@ def test_classify_input_model_source_does_not_depend_on_local_filesystem(tmp_pat
 
     assert _classify_input_model_source("bert-base-uncased") == "string_name"
     assert _classify_input_model_source("./model.onnx") == "local_file"
+    assert _classify_input_model_source("model.onnx") == "local_file"
 
 
 def test_recipe_hash_does_not_depend_on_local_model_path_presence(tmp_path, monkeypatch):
@@ -402,3 +432,12 @@ def test_recipe_hash_does_not_depend_on_local_model_path_presence(tmp_path, monk
     (tmp_path / "bert-base-uncased").mkdir()
 
     assert _build_recipe_hash(config) == recipe_hash
+
+
+def test_recipe_hash_handles_path_values():
+    config = {
+        "input_model": {"type": "HfModel", "config": {"model_path": Path("model")}},
+        "custom_value": Path("custom"),
+    }
+
+    assert _build_recipe_hash(config)

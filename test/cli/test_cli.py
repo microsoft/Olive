@@ -166,6 +166,15 @@ def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_pat
             "recipe_format": "json",
             "execution_mode": "run",
             "package_config_provided": False,
+            "config_overrides": {
+                "input_model": {
+                    "type": "HfModel",
+                    "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                    "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                },
+                "output_dir": str(Path("new_output_path").resolve()),
+                "log_severity_level": 2,
+            },
         },
     )
 
@@ -210,6 +219,13 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
         list_required_packages=False,
         package_config=None,
         tempdir=None,
+        recipe_telemetry_metadata={
+            "recipe_command": "WorkflowRun",
+            "recipe_source": "config_file",
+            "recipe_format": "json",
+            "execution_mode": "run",
+            "package_config_provided": False,
+        },
     )
 
 
