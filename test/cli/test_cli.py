@@ -321,6 +321,90 @@ def test_capture_onnx_command_fix_shape(_, mock_run, use_model_builder, tmp_path
     assert mock_run.call_count == 1
 
 
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize(
+    ("precision", "use_ort_genai"),
+    [
+        ("fp16", True),
+        ("fp32", False),
+        ("bf16", True),
+    ],
+)
+def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort_genai, tmp_path):
+    # setup
+    output_dir = tmp_path / "output_dir"
+    model_id = "dummy-model-id"
+    command_args = [
+        "capture-onnx-graph",
+        "-m",
+        model_id,
+        "-o",
+        str(output_dir),
+        "--use_mobius_builder",
+        "--precision",
+        precision,
+    ]
+    if use_ort_genai:
+        command_args.append("--use_ort_genai")
+
+    # execute
+    cli_main(command_args)
+
+    config = mock_run.call_args[0][0]
+    assert config["input_model"]["model_path"] == model_id
+    # MobiusBuilder ("b") is the only conversion pass; "c" (OnnxConversion) and "m" (ModelBuilder) are removed.
+    assert "b" in config["passes"]
+    assert "c" not in config["passes"]
+    assert "m" not in config["passes"]
+    assert config["passes"]["b"]["type"] == "MobiusBuilder"
+    assert config["passes"]["b"]["precision"] == precision
+    assert config["passes"]["b"]["runtime"] == ("ort-genai" if use_ort_genai else "none")
+    assert mock_run.call_count == 1
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_capture_onnx_command_use_mobius_builder_rejects_int4(_, __, tmp_path):
+    # setup
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "capture-onnx-graph",
+        "-m",
+        "dummy-model-id",
+        "-o",
+        str(output_dir),
+        "--use_mobius_builder",
+        "--precision",
+        "int4",
+    ]
+
+    # execute / verify
+    with pytest.raises(ValueError, match="MobiusBuilder supports precisions fp32/fp16/bf16"):
+        cli_main(command_args)
+
+
+@patch("olive.workflows.run")
+@patch("huggingface_hub.repo_exists", return_value=True)
+@pytest.mark.parametrize("conflicting_flag", ["--use_model_builder", "--use_dynamo_exporter"])
+def test_capture_onnx_command_use_mobius_builder_rejects_conflicts(_, __, conflicting_flag, tmp_path):
+    # setup
+    output_dir = tmp_path / "output_dir"
+    command_args = [
+        "capture-onnx-graph",
+        "-m",
+        "dummy-model-id",
+        "-o",
+        str(output_dir),
+        "--use_mobius_builder",
+        conflicting_flag,
+    ]
+
+    # execute / verify
+    with pytest.raises(ValueError, match="cannot be combined"):
+        cli_main(command_args)
+
+
 @patch("olive.cli.shared_cache.AzureContainerClientFactory")
 def test_shared_cache_command(mock_AzureContainerClientFactory):
     # setup

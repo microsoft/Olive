@@ -114,6 +114,16 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             help="Whether to use Model Builder to capture ONNX model.",
         )
         mb_group.add_argument(
+            "--use_mobius_builder",
+            action="store_true",
+            help=(
+                "Whether to use MobiusBuilder (mobius-ai) to capture ONNX model. "
+                "Supports multi-component multimodal models (VLMs). "
+                "Requires 'pip install mobius-ai'. "
+                "Mutually exclusive with --use_model_builder and --use_dynamo_exporter."
+            ),
+        )
+        mb_group.add_argument(
             "--precision",
             type=str,
             default="fp16",
@@ -197,8 +207,14 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         is_diffusers_model = input_model_config["type"].lower() == "diffusersmodel"
 
         # whether model is in fp16 or bf16 (currently not supported by CPU EP)
-        is_fp16_or_bf16 = (not self.args.use_model_builder and self.args.torch_dtype == "float16") or (
-            self.args.use_model_builder and self.args.precision in ("fp16", "bf16")
+        is_fp16_or_bf16 = (
+            (
+                not self.args.use_model_builder
+                and not self.args.use_mobius_builder
+                and self.args.torch_dtype == "float16"
+            )
+            or (self.args.use_model_builder and self.args.precision in ("fp16", "bf16"))
+            or (self.args.use_mobius_builder and self.args.precision in ("fp16", "bf16"))
         )
         to_replace = [
             ("input_model", input_model_config),
@@ -213,6 +229,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         if is_diffusers_model:
             del config["passes"]["m"]
+            del config["passes"]["b"]
             to_replace.extend(
                 [
                     (
@@ -223,8 +240,30 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                     (("passes", "c", "target_opset"), self.args.target_opset),
                 ]
             )
+        elif self.args.use_mobius_builder:
+            if self.args.use_model_builder or self.args.use_dynamo_exporter:
+                raise ValueError(
+                    "--use_mobius_builder cannot be combined with --use_model_builder or --use_dynamo_exporter."
+                )
+            if self.args.precision not in ("fp32", "fp16", "bf16"):
+                raise ValueError(
+                    f"MobiusBuilder supports precisions fp32/fp16/bf16; got '{self.args.precision}'. "
+                    "For INT4, capture in fp32/fp16/bf16 first and run a quantization pass afterwards."
+                )
+            del config["passes"]["c"]
+            del config["passes"]["m"]
+            to_replace.extend(
+                [
+                    (("passes", "b", "precision"), self.args.precision),
+                    (
+                        ("passes", "b", "runtime"),
+                        "ort-genai" if self.args.use_ort_genai else "none",
+                    ),
+                ]
+            )
         elif self.args.use_model_builder:
             del config["passes"]["c"]
+            del config["passes"]["b"]
             to_replace.extend(
                 [
                     (("passes", "m", "precision"), self.args.precision),
@@ -245,6 +284,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             if self.args.int4_accuracy_level is not None:
                 to_replace.append((("passes", "m", "int4_accuracy_level"), self.args.int4_accuracy_level))
         else:
+            del config["passes"]["b"]
             to_replace.extend(
                 [
                     (
@@ -300,6 +340,7 @@ TEMPLATE = {
             "type": "OnnxConversion",
         },
         "m": {"type": "ModelBuilder", "metadata_only": False},
+        "b": {"type": "MobiusBuilder"},
         "f": {"type": "DynamicToFixedShape"},
     },
     "host": "local_system",
