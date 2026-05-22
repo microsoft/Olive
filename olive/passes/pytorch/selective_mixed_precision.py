@@ -19,6 +19,7 @@ from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.pytorch.quant_utils import get_qkv_quantization_groups
 from olive.passes.pytorch.train_utils import get_calibration_dataset, kl_div_loss, load_hf_base_model
 from olive.search.search_parameter import Categorical
 
@@ -60,6 +61,25 @@ class SelectiveMixedPrecision(Pass):
         KLD_GRADIENT = "kld_gradient"
         SNR = "snr"
         SNR_RELATIVE = "snr_relative"
+
+    class KldMemoryMode(StrEnumBase):
+        """Memory mode for KL Divergence gradient based selection.
+
+        - ``auto``: pick one of the modes below based on the model size and free device memory.
+        - ``full``: keep a per-layer fp32 gradient accumulator (legacy behaviour, highest peak memory).
+        - ``multi_gpu``: same algorithm as ``full`` but shard teacher and student across all visible
+          CUDA devices via ``accelerate``. Used when the model does not fit on a single GPU but fits
+          across multiple GPUs. Falls back to ``low_memory`` if ``accelerate`` is not installed.
+        - ``low_memory``: stream the alignment to a scalar accumulator per layer; teacher and student
+          stay on device.
+        - ``offload``: also keep teacher and student off device when not in use; lowest peak memory.
+        """
+
+        AUTO = "auto"
+        FULL = "full"
+        MULTI_GPU = "multi_gpu"
+        LOW_MEMORY = "low_memory"
+        OFFLOAD = "offload"
 
     @classmethod
     def _default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
@@ -123,6 +143,19 @@ class SelectiveMixedPrecision(Pass):
                     " kld_gradient algorithms. Must be provided when using these algorithms."
                 ),
             ),
+            "kld_memory_mode": PassConfigParam(
+                type_=SelectiveMixedPrecision.KldMemoryMode,
+                default_value=SelectiveMixedPrecision.KldMemoryMode.AUTO,
+                description=(
+                    "Memory mode for kld_gradient. ``auto`` (default) picks among ``full``, ``multi_gpu``,"
+                    " ``low_memory`` and ``offload`` based on the model size and free device memory."
+                    " ``full`` keeps a per-layer fp32 gradient accumulator (legacy behaviour)."
+                    " ``multi_gpu`` runs the ``full`` algorithm with teacher and student sharded across all"
+                    " visible CUDA devices via ``accelerate``."
+                    " ``low_memory`` streams the alignment to a scalar per layer."
+                    " ``offload`` also keeps teacher and student off device when not in use."
+                ),
+            ),
         }
 
     @classmethod
@@ -165,6 +198,7 @@ class SelectiveMixedPrecision(Pass):
                 config.high_group_size if config.high_group_size is not None else config.group_size,
                 config.high_sym if config.high_sym is not None else config.sym,
                 config.ratio,
+                config.kld_memory_mode,
             )
 
         lm_head_name = model_wrapper.get_lm_head()[1]
@@ -218,6 +252,43 @@ class SelectiveMixedPrecision(Pass):
         return {"bits": bits}, overrides
 
     @staticmethod
+    def get_overrides_from_scores(
+        model_wrapper: ModelWrapper,
+        module_numels: dict[str, int],
+        module_scores: dict[str, float],
+        high_override_config: dict,
+        ratio: float,
+    ) -> tuple[dict[str, dict], int]:
+        """Get high precision overrides from sensitivity scores."""
+        qkv_groups = get_qkv_quantization_groups(model_wrapper, set(module_scores))
+        grouped_modules = {module_name for group in qkv_groups for module_name in group}
+
+        scored_items = [
+            (
+                group,
+                sum(module_numels[module_name] for module_name in group),
+                min(module_scores[name] for name in group),
+            )
+            for group in qkv_groups
+        ]
+        scored_items.extend(
+            ((module_name,), module_numels[module_name], score)
+            for module_name, score in module_scores.items()
+            if module_name not in grouped_modules
+        )
+
+        threshold = sum(module_numels.values()) * (1 - ratio)
+        overrides = {}
+        high_precision_numels = 0
+        for module_names, numels, _ in sorted(scored_items, key=lambda item: item[2]):
+            high_precision_numels += numels
+            overrides.update({module_name: high_override_config.copy() for module_name in module_names})
+            if high_precision_numels >= threshold:
+                break
+
+        return overrides, high_precision_numels
+
+    @staticmethod
     def get_scored_config(
         handler: HfModelHandler,
         model_wrapper: ModelWrapper,
@@ -229,6 +300,7 @@ class SelectiveMixedPrecision(Pass):
         high_group_size: int,
         high_symmetric: bool,
         ratio: float,
+        kld_memory_mode: KldMemoryMode = KldMemoryMode.AUTO,
     ):
         """Get mixed precision config based on sensitivity scores."""
         quantizer = WeightQuantizer(bits=bits, group_size=group_size, symmetric=symmetric)
@@ -239,36 +311,39 @@ class SelectiveMixedPrecision(Pass):
         )
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        algo_func = (
-            SelectiveMixedPrecision.get_kld_scores
-            if algorithm == SelectiveMixedPrecision.Algorithm.KLD_GRADIENT
-            else SelectiveMixedPrecision.get_snr_iqe_scores
-        )
-        module_numels, module_scores = algo_func(
-            handler,
-            model_wrapper.model,
-            algorithm,
-            quantizer,
-            high_quantizer,
-            device,
-        )
+        if algorithm == SelectiveMixedPrecision.Algorithm.KLD_GRADIENT:
+            module_numels, module_scores = SelectiveMixedPrecision.get_kld_scores(
+                handler,
+                model_wrapper.model,
+                algorithm,
+                quantizer,
+                high_quantizer,
+                device,
+                kld_memory_mode,
+            )
+        else:
+            module_numels, module_scores = SelectiveMixedPrecision.get_snr_iqe_scores(
+                handler,
+                model_wrapper.model,
+                algorithm,
+                quantizer,
+                high_quantizer,
+                device,
+            )
 
-        threshold = sum(module_numels.values()) * (1 - ratio)
-        # ascending order, lower score means more sensitive and should be in higher precision
-        sorted_modules = sorted(module_scores, key=lambda item: module_scores[item], reverse=False)
-        overrides = {}
         high_override_config = {"bits": high_bits, "group_size": high_group_size, "symmetric": high_symmetric}
-        total = 0
-        for module_name in sorted_modules:
-            total += module_numels[module_name]
-            overrides[module_name] = high_override_config
-            if total >= threshold:
-                break
+        overrides, high_precision_numels = SelectiveMixedPrecision.get_overrides_from_scores(
+            model_wrapper,
+            module_numels,
+            module_scores,
+            high_override_config,
+            ratio,
+        )
         logger.info(
             "Selected %d modules for high precision out of %d modules. Ratio of low precision: %.4f",
             len(overrides),
             len(module_numels),
-            1 - total / sum(module_numels.values()),
+            1 - high_precision_numels / sum(module_numels.values()),
         )
 
         return {"bits": bits, "group_size": group_size, "symmetric": symmetric}, overrides
@@ -314,6 +389,104 @@ class SelectiveMixedPrecision(Pass):
         return module_numels, module_scores
 
     @staticmethod
+    def _estimate_kld_memory_bytes(model: torch.nn.Module) -> tuple[int, int, int]:
+        """Estimate parameter bytes and peak KLD memory for FULL and LOW_MEMORY modes."""
+        # Activations are bounded by gradient checkpointing; budget this fraction of model bytes as headroom.
+        activation_budget_ratio = 0.2
+        # Multiplicative safety factor applied to absorb allocator fragmentation and short-lived temporaries.
+        memory_safety_factor = 1.2
+        # Bytes per element for the fp32 gradient accumulator held by the FULL mode.
+        fp32_bytes_per_element = 4
+
+        param_bytes = sum(parameter.numel() * parameter.element_size() for parameter in model.parameters())
+        linear_grad_bytes = sum(
+            module.weight.numel() * fp32_bytes_per_element
+            for module in model.modules()
+            if isinstance(module, torch.nn.Linear)
+        )
+        activation_budget = int(activation_budget_ratio * param_bytes)
+
+        full_estimate = int((2 * param_bytes + linear_grad_bytes + activation_budget) * memory_safety_factor)
+        low_estimate = int((2 * param_bytes + activation_budget) * memory_safety_factor)
+        return param_bytes, full_estimate, low_estimate
+
+    @staticmethod
+    def _get_kld_memory_budget(free_bytes: int) -> int:
+        """Return the usable free-memory budget for KLD mode selection."""
+        # Leave ~15% headroom for allocator fragmentation and underestimated activation peaks.
+        free_memory_budget_ratio = 0.85
+        return int(free_bytes * free_memory_budget_ratio)
+
+    @staticmethod
+    def _get_kld_multi_gpu_max_memory(model: torch.nn.Module, free_per_gpu: list[int]) -> dict[int, int]:
+        """Return per-GPU model-copy limits that leave room for FULL-mode KLD memory."""
+        param_bytes, full_estimate, _ = SelectiveMixedPrecision._estimate_kld_memory_bytes(model)
+        # Cap each GPU at the parameter share of the full estimate so the remainder of the budget
+        # stays free for the second model copy, the fp32 grad accumulator, and activations.
+        per_model_memory_fraction = param_bytes / full_estimate if full_estimate else 1.0
+        return {
+            device_idx: int(SelectiveMixedPrecision._get_kld_memory_budget(free_bytes) * per_model_memory_fraction)
+            for device_idx, free_bytes in enumerate(free_per_gpu)
+        }
+
+    @staticmethod
+    def resolve_kld_memory_mode(
+        model: torch.nn.Module,
+        device: str,
+        kld_memory_mode: KldMemoryMode,
+    ) -> KldMemoryMode:
+        """Resolve ``KldMemoryMode.AUTO`` to a concrete mode for ``model`` on ``device``.
+
+        On CPU we always prefer the ``full`` legacy path since host memory is usually ample.
+        On CUDA we estimate the peak device memory for each mode and pick the most accurate
+        mode whose estimate fits in free device memory with safety headroom.
+        """
+        if kld_memory_mode != SelectiveMixedPrecision.KldMemoryMode.AUTO:
+            return kld_memory_mode
+
+        if not device.startswith("cuda") or not torch.cuda.is_available():
+            logger.info("KLD memory mode auto-selected: full (non-CUDA device %s).", device)
+            return SelectiveMixedPrecision.KldMemoryMode.FULL
+
+        gpu_count = torch.cuda.device_count()
+        if gpu_count == 0:
+            logger.warning("CUDA reports available but no devices visible; defaulting to offload.")
+            return SelectiveMixedPrecision.KldMemoryMode.OFFLOAD
+
+        try:
+            free_per_gpu = [torch.cuda.mem_get_info(i)[0] for i in range(gpu_count)]
+        except Exception as exc:  # pragma: no cover - depends on driver/runtime
+            logger.warning("Failed to query free CUDA memory (%s); defaulting to offload.", exc)
+            return SelectiveMixedPrecision.KldMemoryMode.OFFLOAD
+
+        _, full_estimate, low_estimate = SelectiveMixedPrecision._estimate_kld_memory_bytes(model)
+        single_gpu_budget = SelectiveMixedPrecision._get_kld_memory_budget(free_per_gpu[0])
+        multi_gpu_budget = sum(
+            SelectiveMixedPrecision._get_kld_memory_budget(free_bytes) for free_bytes in free_per_gpu
+        )
+
+        if full_estimate <= single_gpu_budget:
+            chosen = SelectiveMixedPrecision.KldMemoryMode.FULL
+        elif gpu_count > 1 and full_estimate <= multi_gpu_budget:
+            chosen = SelectiveMixedPrecision.KldMemoryMode.MULTI_GPU
+        elif low_estimate <= single_gpu_budget:
+            chosen = SelectiveMixedPrecision.KldMemoryMode.LOW_MEMORY
+        else:
+            chosen = SelectiveMixedPrecision.KldMemoryMode.OFFLOAD
+
+        logger.info(
+            "KLD memory mode auto-selected: %s (gpus=%d, full=%.2f GB, low=%.2f GB,"
+            " single_budget=%.2f GB, multi_budget=%.2f GB).",
+            chosen,
+            gpu_count,
+            full_estimate / 1e9,
+            low_estimate / 1e9,
+            single_gpu_budget / 1e9,
+            multi_gpu_budget / 1e9,
+        )
+        return chosen
+
+    @staticmethod
     def get_kld_scores(
         handler: HfModelHandler,
         model: torch.nn.Module,
@@ -321,6 +494,7 @@ class SelectiveMixedPrecision(Pass):
         quantizer: WeightQuantizer,
         high_quantizer: WeightQuantizer,
         device: str,
+        kld_memory_mode: KldMemoryMode = KldMemoryMode.AUTO,
     ) -> tuple[dict[str, int], dict[str, float]]:
         """Compute KL Divergence gradient based sensitivity scores.
 
@@ -333,8 +507,90 @@ class SelectiveMixedPrecision(Pass):
         # TODO(jambayk): make data_config configurable
         data = get_calibration_dataset(handler, max_seq_len=512, max_samples=256)
 
-        model.to(device).eval()
-        q_model = deepcopy(model).to(device).eval()
+        resolved_mode = SelectiveMixedPrecision.resolve_kld_memory_mode(model, device, kld_memory_mode)
+        if resolved_mode == SelectiveMixedPrecision.KldMemoryMode.MULTI_GPU:
+            if not (device.startswith("cuda") and torch.cuda.is_available() and torch.cuda.device_count() > 1):
+                logger.warning(
+                    "kld_memory_mode=multi_gpu requires at least two visible CUDA devices; falling back to low_memory."
+                )
+                resolved_mode = SelectiveMixedPrecision.KldMemoryMode.LOW_MEMORY
+            else:
+                import importlib.util
+
+                if importlib.util.find_spec("accelerate") is None:
+                    logger.warning(
+                        "kld_memory_mode=multi_gpu requires the 'accelerate' package; falling back to low_memory."
+                    )
+                    resolved_mode = SelectiveMixedPrecision.KldMemoryMode.LOW_MEMORY
+        # Offloading between host and device is only meaningful on a non-CPU device; on CPU the
+        # transfers degenerate to no-ops, so we keep the low-memory path to avoid redundant work.
+        offload = resolved_mode == SelectiveMixedPrecision.KldMemoryMode.OFFLOAD and device != "cpu"
+        multi_gpu = resolved_mode == SelectiveMixedPrecision.KldMemoryMode.MULTI_GPU
+        # MULTI_GPU runs the same per-layer fp32 grad accumulator algorithm as FULL, just sharded.
+        full_memory = resolved_mode == SelectiveMixedPrecision.KldMemoryMode.FULL or multi_gpu
+        if multi_gpu:
+            from accelerate import dispatch_model, infer_auto_device_map
+
+            # Keep both copies on CPU before dispatching so deepcopy is safe and the device map
+            # can be inferred once on the un-dispatched model.
+            model.to("cpu").eval()
+            q_model = deepcopy(model).eval()
+            no_split = getattr(model, "_no_split_modules", None) or []
+
+            free_per_gpu = [torch.cuda.mem_get_info(i)[0] for i in range(torch.cuda.device_count())]
+            max_memory = SelectiveMixedPrecision._get_kld_multi_gpu_max_memory(model, free_per_gpu)
+
+            device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=no_split)
+            # Coalesce any sub-decoder-layer placements onto a single device so accelerate hooks do
+            # not need to cross device boundaries inside a transformer block (which breaks pointwise
+            # ops like the MLP gate*up product).
+            coalesced_map: dict[str, object] = {}
+            layer_devices: dict[str, object] = {}
+            for module_name, mapped_device in device_map.items():
+                parts = module_name.split(".")
+                if len(parts) >= 3 and parts[0] == "model" and parts[1] == "layers":
+                    layer_key = ".".join(parts[:3])
+                    layer_devices.setdefault(layer_key, mapped_device)
+                    coalesced_map[module_name] = layer_devices[layer_key]
+                else:
+                    coalesced_map[module_name] = mapped_device
+            device_map = coalesced_map
+            if any(str(mapped_device) in {"cpu", "disk"} for mapped_device in device_map.values()):
+                logger.warning(
+                    "Unable to place kld_memory_mode=multi_gpu fully on CUDA devices; falling back to low_memory."
+                )
+                multi_gpu = False
+                full_memory = False
+            else:
+                # Verify no decoder layer's submodules are spread across devices.
+                layer_groups: dict[str, set] = {}
+                for module_name, mapped_device in device_map.items():
+                    parts = module_name.split(".")
+                    if len(parts) >= 3 and parts[0] == "model" and parts[1] == "layers":
+                        layer_groups.setdefault(parts[2], set()).add(str(mapped_device))
+                split_layers = [layer for layer, devices in layer_groups.items() if len(devices) > 1]
+                if split_layers:
+                    logger.warning(
+                        "kld_memory_mode=multi_gpu device_map split decoder layer(s) %s across "
+                        "devices; falling back to low_memory.",
+                        split_layers[:5],
+                    )
+                    multi_gpu = False
+                    full_memory = False
+                else:
+                    device_counts: dict[str, int] = {}
+                    for mapped_device in device_map.values():
+                        device_counts[str(mapped_device)] = device_counts.get(str(mapped_device), 0) + 1
+                    logger.info(
+                        "kld_memory_mode=multi_gpu device_map: %d entries across %s.",
+                        len(device_map),
+                        device_counts,
+                    )
+                    model = dispatch_model(model, device_map=device_map).eval()
+                    q_model = dispatch_model(q_model, device_map=device_map).eval()
+        if not multi_gpu:
+            model.to("cpu" if offload else device).eval()
+            q_model = deepcopy(model).to(device).eval()
 
         # freeze all parameters
         for param in q_model.parameters():
@@ -345,6 +601,7 @@ class SelectiveMixedPrecision(Pass):
         # replace the weights in qmodel with low-bit quantized weights
         module_numels = {}
         q_layers: dict[str, torch.nn.Module] = {}
+        sensitivity_sums: dict[str, float] = {}
         grad_accum: dict[str, torch.Tensor] = {}
 
         def should_include(module, _):
@@ -357,44 +614,90 @@ class SelectiveMixedPrecision(Pass):
             module.weight.data = low_w
             module.weight.requires_grad = True
             q_layers[module_name] = module
-            grad_accum[module_name] = torch.zeros_like(module.weight.data, dtype=torch.float32)
+            sensitivity_sums[module_name] = 0.0
+            if full_memory:
+                grad_accum[module_name] = torch.zeros_like(module.weight.data, dtype=torch.float32)
             return module
 
         replace_matching_submodules(
             q_model, should_include, process_module, description="Preparing for sensitivity estimation"
         )
 
+        def empty_device_cache():
+            if not (device.startswith("cuda") and torch.cuda.is_available()):
+                return
+            if multi_gpu:
+                for i in range(torch.cuda.device_count()):
+                    with torch.cuda.device(i):
+                        torch.cuda.empty_cache()
+            else:
+                torch.cuda.empty_cache()
+
+        if offload:
+            q_model.to("cpu")
+            empty_device_cache()
+
+        @torch.no_grad()
+        def get_teacher_logits(inputs: dict[str, torch.Tensor]) -> torch.Tensor:
+            if offload:
+                model.to(device)
+            teacher_logits = model(**inputs).logits
+            if offload:
+                model.to("cpu")
+                empty_device_cache()
+            return teacher_logits
+
+        @torch.no_grad()
+        def accumulate_full_grads():
+            for module_name, layer in q_layers.items():
+                if layer.weight.grad is None:
+                    raise ValueError(f"Missing gradient for {module_name} while estimating KLD sensitivity.")
+                grad_accum[module_name] += layer.weight.grad.data.detach().float()
+
+        @torch.no_grad()
+        def accumulate_streaming_sensitivities():
+            for module_name, layer in q_layers.items():
+                if layer.weight.grad is None:
+                    raise ValueError(f"Missing gradient for {module_name} while estimating KLD sensitivity.")
+
+                source_weight = get_attr(model, module_name).weight.data.to(layer.weight.device)
+                high_w = high_quantizer.fake_quantize(source_weight)
+                alignment = layer.weight.grad.data.detach().float() * (layer.weight.data - high_w).float()
+                sensitivity_sums[module_name] += alignment.sum().item()
+                del source_weight, high_w
+
         for batch in tqdm(data, desc="Estimating sensitivities"):
             inputs = {k: v.to(device) for k, v in batch.items()}
 
-            with torch.no_grad():
-                teacher_logits = model(**inputs).logits
+            teacher_logits = get_teacher_logits(inputs)
 
+            if offload:
+                q_model.to(device)
             student_logits = q_model(**inputs).logits
             loss = kl_div_loss(student_logits, teacher_logits).mean()
             loss.backward()
 
-            # accumulate gradients
-            for name, layer in q_layers.items():
-                grad_accum[name] += layer.weight.grad.data.detach().float()
+            if full_memory:
+                accumulate_full_grads()
+            else:
+                accumulate_streaming_sensitivities()
+            q_model.zero_grad(set_to_none=True)
+            if offload:
+                q_model.to("cpu")
+                empty_device_cache()
+            del teacher_logits, student_logits, loss
 
-            # zero grads
-            q_model.zero_grad()
-
-        @torch.no_grad()
-        def compute_sensitivity(module_name: str) -> torch.Tensor:
-            grad = grad_accum[module_name] / len(data)  # average gradient
-
-            # high-precision quantization baseline
-            high_w = high_quantizer.fake_quantize(get_attr(model, module_name).weight.data)
-
-            # get sensitivity
-            param_size_m = module_numels[module_name] / 1e6
-            alignment = (grad * (q_layers[module_name].weight.data - high_w)).sum().item()
-            return alignment / param_size_m
+        if full_memory:
+            with torch.no_grad():
+                for module_name, layer in q_layers.items():
+                    avg_grad = grad_accum[module_name] / len(data)
+                    high_w = high_quantizer.fake_quantize(get_attr(model, module_name).weight.data)
+                    sensitivity_sums[module_name] = (avg_grad * (layer.weight.data - high_w)).sum().item() * len(data)
 
         # negative sensitivity because lower is more sensitive
-        return module_numels, {name: -compute_sensitivity(name) for name in q_layers}
+        return module_numels, {
+            name: -(sensitivity_sums[name] / len(data)) / (module_numels[name] / 1e6) for name in q_layers
+        }
 
     @staticmethod
     def compute_snr(x: torch.Tensor, y: torch.Tensor, eps: float = 1e-12) -> float:
