@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import functools
 import json
+import re
 from copy import deepcopy
 from os import PathLike
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -14,10 +15,9 @@ from olive.common.utils import hash_dict
 from olive.package_config import OlivePackageConfig
 from olive.systems.common import SystemType
 from olive.telemetry.telemetry import is_ci_environment
-from olive.workflows.run.config import RunConfig
 
 if TYPE_CHECKING:
-    from olive.engine.config import RunPassConfig
+    from olive.workflows.run.config import RunConfig
 
 RECIPE_HASH_REDACTED_VALUE = "<resource>"
 CONFIG_REFERENCE_REDACTED_VALUE = "<reference>"
@@ -45,14 +45,18 @@ CONFIG_SNAPSHOT_REDACTED_KEYS = RECIPE_HASH_REDACTED_KEYS | {
     "adapter_path",
     "user_script",
 }
+HF_MODEL_IDENTIFIER_KEYS = {"model_path", "_name_or_path"}
 CONFIG_REFERENCE_KEYS = {"host", "target", "evaluator"}
+LOCAL_MODEL_FILE_SUFFIXES = {".bin", ".model", ".onnx", ".pb", ".pt", ".pth", ".safetensors", ".tflite"}
+HF_CACHE_MODEL_PATTERN = re.compile(r"(?:^|[\\/])models--([^\\/]+)--([^\\/]+)(?:[\\/]|$)")
+HF_REPO_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)?$")
 _NO_OVERRIDE = object()
 
 
 def _build_recipe_result_metadata(
     run_config_input: Union[str, Path, dict],
     run_config_telemetry_input: Optional[Any],
-    run_config: Optional[RunConfig],
+    run_config: Optional["RunConfig"],
     recipe_telemetry_metadata: Optional[dict[str, Any]],
     *,
     list_required_packages: bool,
@@ -65,9 +69,17 @@ def _build_recipe_result_metadata(
     metadata.setdefault("recipe_format", default_format)
     metadata.setdefault("execution_mode", "list_required_packages" if list_required_packages else "run")
     metadata.setdefault("package_config_provided", package_config_provided)
-    metadata.setdefault("config_overrides", _build_config_overrides(run_config_telemetry_input))
+    config_overrides = metadata.pop("config_overrides", _NO_OVERRIDE)
+    if config_overrides is _NO_OVERRIDE:
+        config_overrides = _build_config_overrides(run_config_telemetry_input)
+    elif not isinstance(config_overrides, str):
+        config_overrides = _build_config_overrides(config_overrides)
+    if config_overrides is not None:
+        metadata["config_overrides"] = config_overrides
     if package_config_provided:
-        metadata.setdefault("package_config_overrides", _build_package_config_overrides(package_config_input))
+        package_config_overrides = _build_package_config_overrides(package_config_input)
+        if package_config_overrides is not None:
+            metadata.setdefault("package_config_overrides", package_config_overrides)
     metadata["is_ci"] = is_ci_environment()
 
     if run_config is None:
@@ -78,7 +90,7 @@ def _build_recipe_result_metadata(
     model_metadata = _extract_input_model_metadata(run_config_json["input_model"])
     target_metadata = _extract_target_metadata(run_config)
     host_metadata = _extract_host_metadata(run_config)
-    pass_types = [pass_config.type for pass_config in _get_used_passes_configs(run_config)]
+    pass_types = _get_used_pass_types(run_config)
 
     metadata.setdefault("recipe_name", metadata.get("recipe_command") or run_config.workflow_id)
     metadata.setdefault("workflow_id", run_config.workflow_id)
@@ -208,15 +220,22 @@ def _load_config_input_for_telemetry(config_input: Any) -> Optional[Any]:
     return None
 
 
-def _sanitize_config_snapshot(value: Any, key: Optional[str] = None) -> Any:
+def _sanitize_config_snapshot(value: Any, key: Optional[str] = None, model_type: Optional[str] = None) -> Any:
+    if key in HF_MODEL_IDENTIFIER_KEYS:
+        if str(model_type).lower() == "hfmodel":
+            hf_model_id = _extract_huggingface_model_id(value)
+            if hf_model_id:
+                return hf_model_id
+        return RECIPE_HASH_REDACTED_VALUE
     if key in CONFIG_SNAPSHOT_REDACTED_KEYS or _is_path_like_key(key):
         return RECIPE_HASH_REDACTED_VALUE
     if key in CONFIG_REFERENCE_KEYS and isinstance(value, str):
         return CONFIG_REFERENCE_REDACTED_VALUE
 
     if isinstance(value, dict):
+        child_model_type = _get_model_type(value) or model_type
         if key == "systems":
-            return [_sanitize_config_snapshot(system, "system") for system in value.values()]
+            return [_sanitize_config_snapshot(system, "system", child_model_type) for system in value.values()]
         if key == "passes":
             passes = []
             for pass_configs in value.values():
@@ -224,18 +243,21 @@ def _sanitize_config_snapshot(value: Any, key: Optional[str] = None) -> Any:
                     passes.extend(pass_configs)
                 else:
                     passes.append(pass_configs)
-            return [_sanitize_config_snapshot(pass_config, "pass") for pass_config in passes]
+            return [_sanitize_config_snapshot(pass_config, "pass", child_model_type) for pass_config in passes]
         if key == "evaluators":
-            return [_sanitize_config_snapshot(evaluator, "evaluator_config") for evaluator in value.values()]
+            return [
+                _sanitize_config_snapshot(evaluator, "evaluator_config", child_model_type)
+                for evaluator in value.values()
+            ]
         return {
-            child_key: _sanitize_config_snapshot(child_value, child_key)
+            child_key: _sanitize_config_snapshot(child_value, child_key, child_model_type)
             for child_key, child_value in value.items()
             if child_value is not None
         }
     if isinstance(value, list):
-        return [_sanitize_config_snapshot(item, key) for item in value]
+        return [_sanitize_config_snapshot(item, key, model_type) for item in value]
     if isinstance(value, tuple):
-        return [_sanitize_config_snapshot(item, key) for item in value]
+        return [_sanitize_config_snapshot(item, key, model_type) for item in value]
     if isinstance(value, Path):
         return RECIPE_HASH_REDACTED_VALUE
     if callable(value):
@@ -253,6 +275,35 @@ def _is_path_like_key(key: Optional[str]) -> bool:
     return key in {"path", "paths", "dir", "dirs", "file", "files"} or key.endswith(
         ("_path", "_paths", "_dir", "_dirs", "_file", "_files")
     )
+
+
+def _get_model_type(config: dict[str, Any]) -> Optional[str]:
+    model_type = config.get("type")
+    return str(model_type).lower() if model_type is not None else None
+
+
+def _extract_huggingface_model_id(model_identifier: Any) -> Optional[str]:
+    if not isinstance(model_identifier, str):
+        return None
+
+    identifier = model_identifier.strip()
+    if not identifier:
+        return None
+
+    if identifier.startswith("https://huggingface.co/"):
+        parts = identifier.removeprefix("https://huggingface.co/").strip("/").split("/")
+        if len(parts) >= 2:
+            return f"{parts[0]}/{parts[1]}"
+        if parts and parts[0]:
+            return parts[0]
+
+    if match := HF_CACHE_MODEL_PATTERN.search(identifier):
+        return f"{match.group(1)}/{match.group(2)}"
+
+    if HF_REPO_ID_PATTERN.match(identifier) and not _has_local_model_file_suffix(identifier):
+        return identifier
+
+    return None
 
 
 def _extract_input_model_metadata(input_model_config: dict[str, Any]) -> dict[str, Optional[str]]:
@@ -290,6 +341,8 @@ def _classify_input_model_source(model_identifier: Any) -> str:
 
 
 def _is_explicit_local_model_path(identifier: str) -> bool:
+    if _has_local_model_file_suffix(identifier):
+        return True
     return (
         identifier.startswith(("./", "../", ".\\", "..\\", "~/", "~\\", "/", "\\\\"))
         or PureWindowsPath(identifier).is_absolute()
@@ -297,12 +350,17 @@ def _is_explicit_local_model_path(identifier: str) -> bool:
     )
 
 
-def _extract_target_metadata(run_config: RunConfig) -> dict[str, Optional[str]]:
+def _has_local_model_file_suffix(identifier: str) -> bool:
+    suffix = PureWindowsPath(identifier).suffix or PurePosixPath(identifier).suffix
+    return suffix.lower() in LOCAL_MODEL_FILE_SUFFIXES
+
+
+def _extract_target_metadata(run_config: "RunConfig") -> dict[str, Optional[str]]:
     target_system = run_config.engine.target
     return _extract_system_metadata(target_system, "target")
 
 
-def _extract_host_metadata(run_config: RunConfig) -> dict[str, Optional[str]]:
+def _extract_host_metadata(run_config: "RunConfig") -> dict[str, Optional[str]]:
     host_system = run_config.engine.host
     if host_system is None:
         return {
@@ -340,9 +398,9 @@ def _set_metadata_if_present(metadata: dict[str, Any], values: dict[str, Optiona
             metadata.setdefault(key, value)
 
 
-def _get_used_passes_configs(run_config: RunConfig) -> list["RunPassConfig"]:
+def _get_used_pass_types(run_config: "RunConfig") -> list[str]:
     return (
-        [pass_config for _, pass_configs in run_config.passes.items() for pass_config in pass_configs]
+        [pass_config.type for _, pass_configs in run_config.passes.items() for pass_config in pass_configs]
         if run_config.passes
         else []
     )
@@ -363,4 +421,12 @@ def _redact_recipe_hash_keys(value: Any, key: Optional[str] = None) -> Any:
     elif isinstance(value, list):
         for index, item in enumerate(value):
             value[index] = _redact_recipe_hash_keys(item, key)
+    elif isinstance(value, tuple):
+        return [_redact_recipe_hash_keys(item, key) for item in value]
+    elif isinstance(value, Path):
+        return RECIPE_HASH_REDACTED_VALUE
+    elif callable(value):
+        return CONFIG_CALLABLE_REDACTED_VALUE
+    elif hasattr(value, "value") and isinstance(value.value, (str, int, float, bool)):
+        return value.value
     return value
