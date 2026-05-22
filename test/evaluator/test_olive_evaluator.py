@@ -510,3 +510,51 @@ class TestLMEvaluatorModelClass:
         evaluator.evaluate(model, metrics=[], device=Device.CPU, execution_providers=["CPUExecutionProvider"])
 
         get_model_mock.assert_called_once_with(model_class)
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("lm_eval") is None,
+    reason="lm_eval not installed",
+)
+class TestLMEvalORTGenAIChatTemplate:
+    def _bare_instance(self, pretrained: str):
+        # pylint: disable=protected-access
+        from olive.evaluator.lmeval_ort import LMEvalORTGenAIEvaluator
+
+        instance = object.__new__(LMEvalORTGenAIEvaluator)
+        instance._pretrained = pretrained
+        instance._hf_tokenizer = None
+        return instance
+
+    @pytest.mark.parametrize(
+        ("pretrained", "expected"),
+        [
+            ("/models/lfm2-350m", "__models__lfm2-350m"),
+            ("relative/path/model", "relative__path__model"),
+            ("C:\\models\\lfm2-350m", "C:__models__lfm2-350m"),
+        ],
+    )
+    def test_tokenizer_name_normalizes_separators(self, pretrained, expected):
+        assert self._bare_instance(pretrained).tokenizer_name == expected
+
+    @patch("olive.evaluator.lmeval_ort.AutoTokenizer")
+    def test_apply_chat_template_lazy_loads_hf_tokenizer(self, auto_tokenizer_mock):
+        chat_history = [{"role": "user", "content": "hello"}]
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.apply_chat_template.return_value = "rendered prompt"
+        auto_tokenizer_mock.from_pretrained.return_value = mock_tokenizer
+
+        instance = self._bare_instance("/models/lfm2")
+
+        auto_tokenizer_mock.from_pretrained.assert_not_called()
+        assert instance.apply_chat_template(chat_history) == "rendered prompt"
+        auto_tokenizer_mock.from_pretrained.assert_called_once_with("/models/lfm2")
+
+        instance.apply_chat_template(chat_history, add_generation_prompt=False)
+        auto_tokenizer_mock.from_pretrained.assert_called_once()
+        mock_tokenizer.apply_chat_template.assert_called_with(
+            chat_history,
+            tokenize=False,
+            add_generation_prompt=False,
+            continue_final_message=True,
+        )

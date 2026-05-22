@@ -293,6 +293,21 @@ class Prefill:
         if self.kv_info is None:
             raise ValueError("Invalid io_config: kv_info not found")
 
+        # detect position_ids rank, hybrid state inputs and outputs in a single pass
+        self.position_ids_rank = 2
+        self.hybrid_states = {}
+        self.hybrid_state_outputs = {}
+        for prefix in ("input", "output"):
+            names = self.io_config[f"{prefix}_names"]
+            shapes = self.io_config[f"{prefix}_shapes"]
+            types = self.io_config[f"{prefix}_types"]
+            target = self.hybrid_states if prefix == "input" else self.hybrid_state_outputs
+            for idx, name in enumerate(names):
+                if name == "position_ids":
+                    self.position_ids_rank = len(shapes[idx])
+                elif "conv_state" in name or "recurrent_state" in name:
+                    target[name] = {"shape": shapes[idx], "dtype": types[idx]}
+
         self._session = None
         self._batch_size = None
         self._buffers = None
@@ -331,17 +346,29 @@ class Prefill:
             inputs_to_bind[name] = (self._buffers["inputs"][name], self.io_dtypes[name], shape)
         if "position_ids" in self._buffers["inputs"]:
             # need to reallocate since the position_ids tensor may be sliced
-            inputs_to_bind["position_ids"] = (
-                self._buffers["inputs"]["position_ids"][:batch_size, :seqlen].contiguous(),
-                self.io_dtypes["position_ids"],
-                (batch_size, seqlen),
-            )
+            if self.position_ids_rank == 3:
+                inputs_to_bind["position_ids"] = (
+                    self._buffers["inputs"]["position_ids"][:, :batch_size, :seqlen].contiguous(),
+                    self.io_dtypes["position_ids"],
+                    (self._buffers["inputs"]["position_ids"].shape[0], batch_size, seqlen),
+                )
+            else:
+                inputs_to_bind["position_ids"] = (
+                    self._buffers["inputs"]["position_ids"][:batch_size, :seqlen].contiguous(),
+                    self.io_dtypes["position_ids"],
+                    (batch_size, seqlen),
+                )
         for name in self._buffers["kv_inputs"]:
             inputs_to_bind[name] = (
                 self._buffers["kv_inputs"][name],
                 self.kv_info["dtype"],
                 (batch_size, self.kv_info["num_kv_heads"], 0, self.kv_info["head_size"]),
             )
+        # hybrid state inputs (conv_state, recurrent_state)
+        for name, buf in self._buffers["hybrid_inputs"].items():
+            shape = list(buf.shape)
+            shape[0] = batch_size
+            inputs_to_bind[name] = (buf, self.hybrid_states[name]["dtype"], tuple(shape))
         for name, (buffer, dtype, shape) in inputs_to_bind.items():
             io_binding.bind_input(
                 name,
@@ -363,6 +390,11 @@ class Prefill:
                 self.kv_info["dtype"],
                 (batch_size, self.kv_info["num_kv_heads"], seqlen, self.kv_info["head_size"]),
             )
+        # hybrid state outputs (conv_state, recurrent_state)
+        for name, buf in self._buffers["hybrid_outputs"].items():
+            shape = list(buf.shape)
+            shape[0] = batch_size
+            outputs_to_bind[name] = (buf, self.hybrid_state_outputs[name]["dtype"], tuple(shape))
         for name, (buffer, dtype, shape) in outputs_to_bind.items():
             io_binding.bind_output(
                 name,
@@ -418,11 +450,16 @@ class Prefill:
             )
         }
         if self.io_dtypes.get("position_ids") is not None:
-            inputs["position_ids"] = (
+            pos_ids = (
                 torch.arange(max_length, dtype=getattr(torch, self.io_dtypes["position_ids"]), device=self.device)
                 .unsqueeze(0)
                 .expand(batch_size, -1)
             )
+            if self.position_ids_rank == 3:
+                # mRoPE: expand to [mrope_sections, batch_size, seq_len]
+                mrope_sections = self.io_config["input_shapes"][self.io_config["input_names"].index("position_ids")][0]
+                pos_ids = pos_ids.unsqueeze(0).expand(mrope_sections, -1, -1)
+            inputs["position_ids"] = pos_ids
         if self.io_dtypes.get("past_seq_len") is not None:
             inputs["past_seq_len"] = (
                 torch.tensor(max_length - 1, dtype=getattr(torch, self.io_dtypes["past_seq_len"]), device=self.device)
@@ -457,6 +494,20 @@ class Prefill:
         }
 
         self._buffers = {"inputs": inputs, "outputs": outputs, "kv_inputs": kv_inputs, "kv_outputs": kv_outputs}
+
+        # hybrid state buffers (conv_state, recurrent_state) - zero-initialized
+        hybrid_inputs = {}
+        for name, info in self.hybrid_states.items():
+            # Replace symbolic 'batch_size' with actual batch_size
+            shape = [batch_size if s == "batch_size" else s for s in info["shape"]]
+            hybrid_inputs[name] = torch.zeros(shape, dtype=getattr(torch, info["dtype"]), device=self.device)
+        hybrid_outputs = {}
+        for name, info in self.hybrid_state_outputs.items():
+            shape = [batch_size if s == "batch_size" else s for s in info["shape"]]
+            hybrid_outputs[name] = torch.zeros(shape, dtype=getattr(torch, info["dtype"]), device=self.device)
+        self._buffers["hybrid_inputs"] = hybrid_inputs
+        self._buffers["hybrid_outputs"] = hybrid_outputs
+
         self._batch_size = batch_size
 
 
@@ -498,6 +549,8 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
                 self.config.set_provider_option(ep, key, value)
         self.model = og.Model(self.config)
         self.tokenizer = og.Tokenizer(self.model)
+        self._pretrained = str(pretrained)
+        self._hf_tokenizer: AutoTokenizer | None = None
 
         # consider adding auto batch sizes
         self.batch_size = int(batch_size)
@@ -521,6 +574,20 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         self.device = device
         self._returns_full_logits = self._detect_full_logits()
 
+    @property
+    def tokenizer_name(self) -> str:
+        return self._pretrained.replace("\\", "__").replace("/", "__")
+
+    def apply_chat_template(self, chat_history: list[dict], add_generation_prompt: bool = True) -> str:
+        if self._hf_tokenizer is None:
+            self._hf_tokenizer = AutoTokenizer.from_pretrained(self._pretrained)
+        return self._hf_tokenizer.apply_chat_template(
+            chat_history,
+            tokenize=False,
+            add_generation_prompt=add_generation_prompt,
+            continue_final_message=not add_generation_prompt,
+        )
+
     def _detect_full_logits(self) -> bool:
         """Check if the model returns logits for all input positions or only the last."""
         try:
@@ -539,7 +606,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
     def eot_token_id(self):
         return self._eot_token_id
 
-    def tok_encode(self, string: str, **kwargs) -> list[int]:
+    def tok_encode(self, string: str, add_special_tokens: bool | None = None, **kwargs) -> list[int]:
         """Tokenize a string using the model's tokenizer and return a list of token IDs."""
         return self.tokenizer.encode(string).tolist()
 
