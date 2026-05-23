@@ -682,6 +682,15 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ],
             "run_on_target": true
+        },
+        "RyzenGenerateModelLLM": {
+            "module_path": "olive.passes.onnx.ryzen_ai.ryzen_generate_model_llm.RyzenGenerateModelLLM",
+            "supported_providers": [ "CPUExecutionProvider" ],
+            "supported_accelerators": [ "cpu" ],
+            "supported_precisions": [ "int8" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "run_on_target": true
         }
     },
     "extra_dependencies": {
