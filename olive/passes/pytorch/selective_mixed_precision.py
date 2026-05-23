@@ -586,13 +586,16 @@ class SelectiveMixedPrecision(Pass):
                     multi_gpu = False
                     full_memory = False
                 else:
-                    device_counts: dict[str, int] = {}
-                    for mapped_device in device_map.values():
-                        device_counts[str(mapped_device)] = device_counts.get(str(mapped_device), 0) + 1
+                    layer_device_counts: dict[str, int] = {}
+                    for devices in layer_groups.values():
+                        # layer_groups[layer] is a singleton set after coalescing succeeded above.
+                        (dev,) = devices
+                        layer_device_counts[dev] = layer_device_counts.get(dev, 0) + 1
                     logger.info(
-                        "kld_memory_mode=multi_gpu device_map: %d entries across %s.",
+                        "kld_memory_mode=multi_gpu device_map: %d decoder layers across %s (total %d module entries).",
+                        len(layer_groups),
+                        layer_device_counts,
                         len(device_map),
-                        device_counts,
                     )
                     model = dispatch_model(model, device_map=device_map).eval()
                     q_model = dispatch_model(q_model, device_map=device_map).eval()

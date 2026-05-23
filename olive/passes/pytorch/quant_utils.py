@@ -243,6 +243,9 @@ def prepare_model(
         merged_qcfg_dict["lm_head"] |= qcfg.lm_head
         merged_qcfg_dict["embeds"] |= qcfg.embeds
         qcfg = OliveHfQuantizationConfig(**merged_qcfg_dict)
+        # Re-normalize: the pre-existing overrides we just merged in may violate QKV
+        # consistency on their own, which can break ModelBuilder's GQA fusion.
+        qcfg = normalize_qkv_quant_config(wrapper, qcfg, quantizable_attn_input_names)
 
     word_embeddings_eligible_for_tieing = (
         originally_tied_embeddings

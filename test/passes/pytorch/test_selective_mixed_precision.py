@@ -330,6 +330,56 @@ def test_quant_config_promotes_user_override_conflicts_for_qkv(input_model):
     ] == [PrecisionBits.BITS8, PrecisionBits.BITS8, PrecisionBits.BITS8]
 
 
+def test_prepare_model_renormalizes_qkv_after_merging_existing_quant_config(input_model, monkeypatch):
+    """``prepare_model`` renormalizes QKV after merging a pre-existing ``quantization_config``.
+
+    With ``allow_quantized=True`` (e.g., the RTN path), a model loaded with a
+    ``quantization_config`` whose ``overrides`` already violate QKV consistency must still
+    end up with Q/K/V sharing the most-precise config so ModelBuilder's GQA fusion works.
+    """
+    # Pre-existing quant config has only q_proj at 8-bit; k_proj and v_proj are at the default 4-bit.
+    existing_quantization_config = {
+        "quant_method": "olive",
+        "bits": PrecisionBits.BITS4,
+        "symmetric": False,
+        "group_size": 16,
+        "lm_head": False,
+        "embeds": False,
+        "overrides": {
+            "model.layers.0.self_attn.q_proj": {
+                "bits": PrecisionBits.BITS8,
+                "symmetric": True,
+                "group_size": 16,
+            },
+        },
+    }
+    real_get_hf_model_config = HfModelHandler.get_hf_model_config
+
+    def fake_get_hf_model_config(self, exclude_load_keys=None):
+        cfg = real_get_hf_model_config(self, exclude_load_keys=exclude_load_keys)
+        cfg.quantization_config = dict(existing_quantization_config)
+        return cfg
+
+    monkeypatch.setattr(HfModelHandler, "get_hf_model_config", fake_get_hf_model_config)
+
+    config = SimpleNamespace(
+        bits=PrecisionBits.BITS4,
+        sym=False,
+        group_size=16,
+        lm_head=False,
+        overrides={},
+    )
+
+    _, qcfg, _ = prepare_model(input_model, config, allow_quantized=True)
+
+    qkv_qargs = [qcfg.get_qlinear_init_args(f"model.layers.0.self_attn.{name}_proj") for name in ["q", "k", "v"]]
+    assert qkv_qargs == [
+        {"bits": PrecisionBits.BITS8, "symmetric": True, "group_size": 16},
+        {"bits": PrecisionBits.BITS8, "symmetric": True, "group_size": 16},
+        {"bits": PrecisionBits.BITS8, "symmetric": True, "group_size": 16},
+    ]
+
+
 def test_quant_config_rank_prefers_bits_then_smaller_positive_group_size():
     """Unit test for ``_quant_config_rank`` ordering used to promote QKV groups.
 
@@ -617,6 +667,81 @@ def test_selective_mixed_precision_kld_multi_gpu_uses_constrained_device_map(mon
     assert captured["max_memory"] == {0: 222, 1: 222}
     assert all(memory < 850 for memory in captured["max_memory"].values())
     assert captured["device_maps"] == [{"": 0}, {"": 0}]
+
+
+def test_selective_mixed_precision_kld_multi_gpu_logs_per_layer_device_counts(monkeypatch):
+    """MULTI_GPU diagnostic log reports decoder-layer counts per device, not raw map entries.
+
+    After coalescing sub-decoder-layer placements, the info log must reflect how many distinct
+    ``model.layers.N`` decoder layers ended up on each device, plus the total module-entry
+    count for context.
+    """
+    fake_accelerate = ModuleType("accelerate")
+
+    def fake_infer_auto_device_map(_model, max_memory, no_split_module_classes):
+        # Three decoder layers split across two GPUs, with a sub-module placement that the
+        # coalescing pass must pull back onto the layer's primary device.
+        return {
+            "model.layers.0": 0,
+            "model.layers.0.mlp.down_proj": 1,  # to be coalesced back to device 0
+            "model.layers.1": 0,
+            "model.layers.2": 1,
+            "model.embed_tokens": 0,
+            "lm_head": 1,
+        }
+
+    def fake_dispatch_model(model, device_map):
+        return model
+
+    fake_accelerate.infer_auto_device_map = fake_infer_auto_device_map
+    fake_accelerate.dispatch_model = fake_dispatch_model
+    monkeypatch.setitem(sys.modules, "accelerate", fake_accelerate)
+    original_find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name: object() if name == "accelerate" else original_find_spec(name),
+    )
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
+    monkeypatch.setattr(torch.cuda, "mem_get_info", lambda _i: (1000, 1000))
+    patch_kld_calibration_data(monkeypatch, [])
+    monkeypatch.setattr(smp_module, "replace_matching_submodules", lambda *_args, **_kwargs: None)
+    quantizer, high_quantizer = get_kld_gradient_quantizers()
+
+    import logging as _logging
+
+    captured_logs: list[str] = []
+
+    class _ListHandler(_logging.Handler):
+        def emit(self, record):
+            captured_logs.append(record.getMessage())
+
+    handler = _ListHandler(level=_logging.INFO)
+    smp_module.logger.addHandler(handler)
+    previous_level = smp_module.logger.level
+    smp_module.logger.setLevel(_logging.INFO)
+    try:
+        SelectiveMixedPrecision.get_kld_scores(
+            None,
+            KldGradientTestModel(),
+            SelectiveMixedPrecision.Algorithm.KLD_GRADIENT,
+            quantizer,
+            high_quantizer,
+            device="cuda",
+            kld_memory_mode=SelectiveMixedPrecision.KldMemoryMode.MULTI_GPU,
+        )
+    finally:
+        smp_module.logger.removeHandler(handler)
+        smp_module.logger.setLevel(previous_level)
+
+    device_map_logs = [msg for msg in captured_logs if "kld_memory_mode=multi_gpu device_map" in msg]
+    assert device_map_logs, f"expected an info log describing the multi_gpu device map; got {captured_logs!r}"
+    log = device_map_logs[-1]
+    # 3 decoder layers total: layers 0 and 1 on device 0, layer 2 on device 1.
+    assert "3 decoder layers" in log
+    assert "'0': 2" in log or "0: 2" in log
+    assert "'1': 1" in log or "1: 1" in log
 
 
 def test_selective_mixed_precision_kld_offload_matches_low_memory(monkeypatch):
