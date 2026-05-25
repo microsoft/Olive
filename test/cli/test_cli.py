@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
+from olive.cli.base import TEST_OUTPUT_MARKER_FILE
 from olive.cli.launcher import main as cli_main
 
 
@@ -186,6 +187,53 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
         package_config=None,
         tempdir=None,
     )
+
+
+def test_workflow_run_command_with_test_rejects_non_test_output_dir(tmp_path):
+    config_path = tmp_path / "config.json"
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    (output_dir / "model.onnx").write_text("existing")
+    config_path.write_text(
+        json.dumps(
+            {
+                "input_model": {
+                    "type": "HfModel",
+                    "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                    "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                },
+                "output_dir": str(output_dir),
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="is not marked as an Olive test output directory"):
+        cli_main(["run", "--run-config", str(config_path), "--test"])
+
+
+@patch("olive.workflows.run")
+def test_workflow_run_command_with_test_reuses_test_output_dir(mock_run, tmp_path):
+    config_path = tmp_path / "config.json"
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    (output_dir / TEST_OUTPUT_MARKER_FILE).write_text(json.dumps({"type": "olive_hf_test_output"}))
+    config_path.write_text(
+        json.dumps(
+            {
+                "input_model": {
+                    "type": "HfModel",
+                    "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                    "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                },
+                "output_dir": str(output_dir),
+            }
+        )
+    )
+
+    cli_main(["run", "--run-config", str(config_path), "--test"])
+
+    mock_run.assert_called_once()
+    assert json.loads((output_dir / TEST_OUTPUT_MARKER_FILE).read_text())["type"] == "olive_hf_test_output"
 
 
 def test_workflow_run_command_with_test_requires_hf_input_model(tmp_path):

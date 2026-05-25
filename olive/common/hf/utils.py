@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import inspect
+import json
 import logging
 from copy import deepcopy
 from pathlib import Path
@@ -18,6 +19,34 @@ if TYPE_CHECKING:
     from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 logger = logging.getLogger(__name__)
+TEST_MODEL_MARKER_FILE = "olive_test_model.json"
+
+
+def _get_test_model_marker_path(output_dir: Union[str, Path]) -> Path:
+    return Path(output_dir) / TEST_MODEL_MARKER_FILE
+
+
+def is_test_model_dir(output_dir: Union[str, Path]) -> bool:
+    output_path = Path(output_dir)
+    marker_path = _get_test_model_marker_path(output_path)
+    if not marker_path.is_file():
+        return False
+    if not (output_path / "config.json").is_file():
+        return False
+
+    try:
+        marker = json.loads(marker_path.read_text())
+    except (OSError, ValueError, TypeError):
+        return False
+
+    return marker.get("type") == "olive_hf_test_model"
+
+
+def _write_test_model_marker(output_dir: Union[str, Path], test_model_config: Optional[dict[str, Any]] = None):
+    marker_path = _get_test_model_marker_path(output_dir)
+    marker_path.write_text(
+        json.dumps({"type": "olive_hf_test_model", "test_model_config": test_model_config or {}}, indent=2)
+    )
 
 
 def _apply_test_model_config(
@@ -73,11 +102,12 @@ def _load_test_model(model_class: type, model_config: "PretrainedConfig", trust_
     return model_class.from_config(model_config, **from_config_kwargs)
 
 
-def _save_test_model(model: "PreTrainedModel", output_dir: str):
+def _save_test_model(model: "PreTrainedModel", output_dir: str, test_model_config: Optional[dict[str, Any]] = None):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     logger.info("Saving generated test model to %s", output_path)
     model.save_pretrained(str(output_path))
+    _write_test_model_marker(output_path, test_model_config)
 
 
 def load_model_from_task(
@@ -128,12 +158,18 @@ def load_model_from_task(
     for i, model_class in enumerate(class_tuple):
         try:
             if test_model_config:
-                if test_model_path and (Path(test_model_path) / "config.json").exists():
+                test_model_dir = Path(test_model_path) if test_model_path else None
+                if test_model_dir and is_test_model_dir(test_model_dir):
                     model = from_pretrained(model_class, test_model_path, "model", **kwargs)
                 else:
+                    if test_model_dir and test_model_dir.exists() and any(test_model_dir.iterdir()):
+                        raise ValueError(
+                            f"{test_model_path} exists but is not an Olive test model directory. "
+                            "Please choose an empty folder for --test or reuse a previously saved test model folder."
+                        )
                     model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
                     if test_model_path:
-                        _save_test_model(model, test_model_path)
+                        _save_test_model(model, test_model_path, test_model_config)
             else:
                 model = from_pretrained(model_class, model_name_or_path, "model", **kwargs)
             logger.debug("Loaded model %s with name_or_path %s", model_class, model_name_or_path)

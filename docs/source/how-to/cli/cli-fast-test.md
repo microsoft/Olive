@@ -38,6 +38,7 @@ What this does:
 - `--test out/qwen-test-model` creates a reduced random Qwen model and saves it in `out/qwen-test-model`
 - later runs reuse the same saved test model instead of recreating it
 - `--output_path out/qwen-test-run` gives the smoke test its own output folder, so the generated ONNX artifacts are easy to find
+- Olive marks that output folder as a test-only run and refuses to reuse a non-test conversion folder for `--test`
 
 After the smoke test finishes, look under `out/qwen-test-run` for the exported ONNX model and related files.
 

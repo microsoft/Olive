@@ -17,6 +17,7 @@ import torch
 from huggingface_hub.constants import HF_HUB_CACHE
 from packaging import version
 
+from olive.common.hf.utils import is_test_model_dir
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
@@ -253,7 +254,7 @@ class ModelBuilder(Pass):
                         "ModelBuilder requires test_model_path to be set when test_model_config is provided. "
                         "Please specify the path where the test model should be saved."
                     )
-                if not (Path(model.test_model_path) / "config.json").exists():
+                if not is_test_model_dir(model.test_model_path):
                     model.load_model(cache_model=False)
                 model_path = model.test_model_path
             # provide the model path as input path, model builder uses input_path for quantized models

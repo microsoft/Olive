@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,7 +10,7 @@ import torch
 from transformers import BertConfig, GPT2Config, Qwen3Config
 
 from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
-from olive.common.hf.utils import _apply_test_model_config, _load_test_model, load_model_from_task
+from olive.common.hf.utils import TEST_MODEL_MARKER_FILE, _apply_test_model_config, _load_test_model, load_model_from_task
 
 
 def test_load_model_from_task():
@@ -91,6 +92,7 @@ def test_load_model_from_task_test_model_config_saves_model(tmp_path):
     assert model is created_model
     mock_model_class.from_config.assert_called_once()
     created_model.save_pretrained.assert_called_once_with(str(test_model_path))
+    assert json.loads((test_model_path / TEST_MODEL_MARKER_FILE).read_text())["type"] == "olive_hf_test_model"
 
 
 def test_load_model_from_task_test_model_config_reuses_saved_model(tmp_path):
@@ -98,6 +100,7 @@ def test_load_model_from_task_test_model_config_reuses_saved_model(tmp_path):
     test_model_path = tmp_path / "saved_test_model"
     test_model_path.mkdir()
     (test_model_path / "config.json").write_text("{}")
+    (test_model_path / TEST_MODEL_MARKER_FILE).write_text(json.dumps({"type": "olive_hf_test_model"}))
     loaded_model = MagicMock(spec=torch.nn.Module)
 
     with (
@@ -119,6 +122,30 @@ def test_load_model_from_task_test_model_config_reuses_saved_model(tmp_path):
     assert model is loaded_model
     mock_model_class.from_config.assert_not_called()
     assert mock_from_pretrained.call_args_list[1].args[1] == str(test_model_path)
+
+
+def test_load_model_from_task_test_model_config_rejects_non_test_model_dir(tmp_path):
+    model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
+    test_model_path = tmp_path / "saved_test_model"
+    test_model_path.mkdir()
+    (test_model_path / "config.json").write_text("{}")
+
+    with (
+        patch("transformers.pipelines.check_task") as mock_check_task,
+        patch("olive.common.hf.utils.from_pretrained", return_value=model_config),
+    ):
+        mock_model_class = MagicMock()
+        mock_check_task.return_value = ("text-classification", {"pt": (mock_model_class,)}, None)
+
+        with pytest.raises(ValueError, match="is not an Olive test model directory"):
+            load_model_from_task(
+                "text-classification",
+                "dummy-model",
+                test_model_config={"num_hidden_layers": 2},
+                test_model_path=str(test_model_path),
+            )
+
+    mock_model_class.from_config.assert_not_called()
 
 
 def test_apply_test_model_config_updates_qwen3_layer_types():

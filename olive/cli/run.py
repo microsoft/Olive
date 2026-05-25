@@ -11,6 +11,8 @@ from olive.cli.base import (
     add_logging_options,
     add_telemetry_options,
     get_input_model_config,
+    mark_test_output_path,
+    validate_test_output_path,
 )
 from olive.telemetry import action
 
@@ -77,12 +79,16 @@ class WorkflowRunCommand(BaseOliveCLICommand):
                 # add value to run config directly
                 run_config[rc_key] = arg_value
 
+        output_path = run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")
+        validate_test_output_path(output_path, self.args.test)
         workflow_output = olive_run(
             run_config,
             list_required_packages=self.args.list_required_packages,
             tempdir=self.args.tempdir,
             package_config=self.args.package_config,
         )
+        if self.args.test not in (None, False):
+            mark_test_output_path(output_path)
 
         if self.args.list_required_packages is True:
             print("Required packages listed!")
