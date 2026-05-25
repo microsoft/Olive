@@ -2,7 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import argparse
 import json
+import sys
+import tempfile
+import unittest
 from pathlib import Path
 
 from tokenizers import Tokenizer
@@ -10,19 +14,25 @@ from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace
 from transformers import LlamaConfig, LlamaForCausalLM, PreTrainedTokenizerFast
 
-from olive.cli.launcher import main as cli_main
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+DEFAULT_MODEL_IDS = ("local/tiny-random-llama-a", "local/tiny-random-llama-b")
 
 
 def _save_local_tiny_llama(model_path: Path):
     model = LlamaForCausalLM(
-        LlamaConfig(
-            vocab_size=32,
-            hidden_size=128,
-            intermediate_size=256,
-            num_hidden_layers=2,
-            num_attention_heads=8,
-            num_key_value_heads=8,
-            max_position_embeddings=64,
+        LlamaConfig.from_dict(
+            {
+                "vocab_size": 32,
+                "hidden_size": 128,
+                "intermediate_size": 256,
+                "num_hidden_layers": 2,
+                "num_attention_heads": 8,
+                "num_key_value_heads": 8,
+                "max_position_embeddings": 64,
+            }
         )
     )
     model.save_pretrained(model_path)
@@ -62,14 +72,21 @@ def _set_offline_gptq_data_config(config_path: Path):
     config_path.write_text(json.dumps(config, indent=2))
 
 
-def test_documented_test_model_smoke_flow(tmp_path):
-    model_path = tmp_path / "tiny-random-llama"
-    config_output_dir = tmp_path / "qwen-smoke"
-    test_model_dir = tmp_path / "qwen-test-model"
-    run_output_dir = tmp_path / "qwen-smoke-run"
+def _run_cli_main(args):
+    from olive.cli.launcher import main as cli_main
+
+    cli_main(args)
+
+
+def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
+    model_name = model_id.replace("/", "--")
+    model_path = tmp_path / "models" / model_name
+    config_output_dir = tmp_path / f"{model_name}-smoke"
+    test_model_dir = tmp_path / f"{model_name}-test-model"
+    run_output_dir = tmp_path / f"{model_name}-smoke-run"
 
     _save_local_tiny_llama(model_path)
-    cli_main(
+    _run_cli_main(
         [
             "optimize",
             "-m",
@@ -89,7 +106,7 @@ def test_documented_test_model_smoke_flow(tmp_path):
     config_path = config_output_dir / "config.json"
     assert config_path.exists()
     _set_offline_gptq_data_config(config_path)
-    cli_main(
+    _run_cli_main(
         [
             "run",
             "--config",
@@ -101,6 +118,42 @@ def test_documented_test_model_smoke_flow(tmp_path):
         ]
     )
 
-    assert (test_model_dir / "config.json").exists()
-    assert list(Path(run_output_dir).rglob("*.onnx"))
-    assert (run_output_dir / "genai_config.json").exists()
+    return test_model_dir, run_output_dir
+
+
+class TestCliTestModelSmoke(unittest.TestCase):
+    model_ids = DEFAULT_MODEL_IDS
+    work_dir = None
+
+    def test_documented_test_model_smoke_flow(self):
+        if self.work_dir is None:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                self._assert_smoke_flows(Path(temp_dir))
+        else:
+            work_dir = Path(self.work_dir)
+            work_dir.mkdir(parents=True, exist_ok=True)
+            self._assert_smoke_flows(work_dir)
+
+    def _assert_smoke_flows(self, tmp_path: Path):
+        for model_id in self.model_ids:
+            with self.subTest(model_id=model_id):
+                test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
+                assert (test_model_dir / "config.json").exists()
+                assert list(run_output_dir.rglob("*.onnx"))
+                assert (run_output_dir / "genai_config.json").exists()
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--workdir")
+    parser.add_argument("--model-id", dest="model_ids", action="append")
+    return parser.parse_known_args()
+
+
+if __name__ == "__main__":
+    parsed_args, remaining = _parse_args()
+    if parsed_args.workdir:
+        TestCliTestModelSmoke.work_dir = Path(parsed_args.workdir)
+    if parsed_args.model_ids:
+        TestCliTestModelSmoke.model_ids = tuple(parsed_args.model_ids)
+    unittest.main(argv=[__file__, *remaining])
