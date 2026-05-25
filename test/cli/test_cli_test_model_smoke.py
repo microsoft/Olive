@@ -123,16 +123,16 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
 
 class TestCliTestModelSmoke(unittest.TestCase):
     model_ids = DEFAULT_MODEL_IDS
-    work_dir = None
+    workdir = None
 
     def test_documented_test_model_smoke_flow(self):
-        if self.work_dir is None:
+        if self.workdir is None:
             with tempfile.TemporaryDirectory() as temp_dir:
                 self._assert_smoke_flows(Path(temp_dir))
         else:
-            work_dir = Path(self.work_dir)
-            work_dir.mkdir(parents=True, exist_ok=True)
-            self._assert_smoke_flows(work_dir)
+            workdir = Path(self.workdir)
+            workdir.mkdir(parents=True, exist_ok=True)
+            self._assert_smoke_flows(workdir)
 
     def _assert_smoke_flows(self, tmp_path: Path):
         for model_id in self.model_ids:
@@ -153,7 +153,7 @@ def _parse_args():
 if __name__ == "__main__":
     parsed_args, remaining = _parse_args()
     if parsed_args.workdir:
-        TestCliTestModelSmoke.work_dir = Path(parsed_args.workdir)
+        TestCliTestModelSmoke.workdir = Path(parsed_args.workdir)
     if parsed_args.model_ids:
         TestCliTestModelSmoke.model_ids = tuple(parsed_args.model_ids)
     unittest.main(argv=[__file__, *remaining])
