@@ -16,7 +16,7 @@ olive optimize \
     --device cpu \
     --provider CPUExecutionProvider \
     --precision int4 \
-    --output_path out/qwen-smoke \
+    --output_path out/qwen \
     --dry_run
 ```
 
@@ -28,18 +28,18 @@ Use the generated config with `olive run` and pass `--test` so Olive swaps in a 
 
 ```bash
 olive run \
-    --config out/qwen-smoke/config.json \
+    --config out/qwen/config.json \
     --test out/qwen-test-model \
-    --output_path out/qwen-smoke-run
+    --output_path out/qwen-test-run
 ```
 
 What this does:
 
 - `--test out/qwen-test-model` creates a reduced random Qwen model and saves it in `out/qwen-test-model`
 - later runs reuse the same saved test model instead of recreating it
-- `--output_path out/qwen-smoke-run` gives the smoke test its own output folder, so the generated ONNX artifacts are easy to find
+- `--output_path out/qwen-test-run` gives the smoke test its own output folder, so the generated ONNX artifacts are easy to find
 
-After the smoke test finishes, look under `out/qwen-smoke-run` for the exported ONNX model and related files.
+After the smoke test finishes, look under `out/qwen-test-run` for the exported ONNX model and related files.
 
 This is a quick way to confirm that:
 
@@ -55,7 +55,7 @@ Once the smoke test succeeds, rerun the conversion on the full Qwen checkpoint b
 
 ```bash
 olive run \
-    --config out/qwen-smoke/config.json \
+    --config out/qwen/config.json \
     --output_path out/qwen-full
 ```
 

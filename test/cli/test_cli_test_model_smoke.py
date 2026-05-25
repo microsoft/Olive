@@ -86,9 +86,9 @@ def _run_cli_main(args):
 def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
     model_name = model_id.replace("/", "--")
     model_path = tmp_path / "models" / model_name
-    config_output_dir = tmp_path / f"{model_name}-smoke"
+    config_output_dir = tmp_path / f"{model_name}-test"
     test_model_dir = tmp_path / f"{model_name}-test-model"
-    run_output_dir = tmp_path / f"{model_name}-smoke-run"
+    run_output_dir = tmp_path / f"{model_name}-test-run"
 
     _save_local_tiny_llama(model_path)
     _run_cli_main(
