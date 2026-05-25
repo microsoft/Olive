@@ -24,17 +24,6 @@ DEFAULT_MODEL_IDS = (
     "mistralai/Mistral-7B-Instruct-v0.3",
 )
 MAX_ARTIFACT_SIZE_BYTES = 1024 * 1024
-EXPECTED_TEST_MODEL_FILES = {"config.json", "generation_config.json", "model.safetensors"}
-EXPECTED_RUN_OUTPUT_FILES = {
-    "config.json",
-    "genai_config.json",
-    "generation_config.json",
-    "model.onnx",
-    "model.onnx.data",
-    "model_config.json",
-    "tokenizer.json",
-    "tokenizer_config.json",
-}
 
 
 def _save_local_tiny_llama(model_path: Path):
@@ -151,12 +140,23 @@ class TestCliTestModelSmoke(unittest.TestCase):
             self._assert_smoke_flows(workdir)
 
     def _assert_smoke_flows(self, tmp_path: Path):
+        expected_test_model_files = {"config.json", "generation_config.json", "model.safetensors"}
+        expected_run_output_files = {
+            "config.json",
+            "genai_config.json",
+            "generation_config.json",
+            "model.onnx",
+            "model.onnx.data",
+            "model_config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+        }
         for model_id in self.model_ids:
             with self.subTest(model_id=model_id):
                 config_path, test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
                 assert config_path.exists()
-                assert self._list_relative_files(test_model_dir) == EXPECTED_TEST_MODEL_FILES
-                assert self._list_relative_files(run_output_dir) == EXPECTED_RUN_OUTPUT_FILES
+                assert self._list_relative_files(test_model_dir) == expected_test_model_files
+                assert self._list_relative_files(run_output_dir) == expected_run_output_files
                 self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
                 self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
 
