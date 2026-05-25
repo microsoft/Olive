@@ -584,11 +584,6 @@ def patched_make_embedding(self, embedding):
     import onnx_ir as ir
 
     basename = "/model/embed_tokens"
-    if getattr(self, "int4_tied_embeddings", False) or getattr(self, "shared_embeddings", False):
-        logger.debug(
-            "int4_tied_embedding/shared_embeddings is set to True but will be ignored. Use TieWordEmbeddings graph surgery to tie"
-            " embeddings."
-        )
 
     if hasattr(embedding, "qweight"):
         qweight = "model.embed_tokens.qweight"
