@@ -34,13 +34,6 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     pytest_marker: 'not openvino and not amd'
 
-- template: job_templates/olive-test-cpu-template.yaml
-  parameters:
-    name: Linux_CPU_CI_Test_Model_Smoke
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    pytest_marker: 'not openvino and not amd'
-    test_path: 'test/cli/test_cli_test_model_smoke.py'
-
 - template: job_templates/olive-test-linux-gpu-template.yaml
   parameters:
     name: Linux_GPU_CI_Unit_Test

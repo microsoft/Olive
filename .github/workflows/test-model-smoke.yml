@@ -1,0 +1,33 @@
+name: Test model smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  ubuntu-test-model-smoke:
+    name: Ubuntu test model smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install -r test/requirements-test-cpu.txt
+
+      - name: Run documented smoke test
+        run: |
+          python -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING test/cli/test_cli_test_model_smoke.py
