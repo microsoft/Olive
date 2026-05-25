@@ -141,6 +141,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 assert (test_model_dir / "config.json").exists()
                 assert list(run_output_dir.rglob("*.onnx"))
                 assert (run_output_dir / "genai_config.json").exists()
+                # check that safe-tensors and onnx external data are small (< 1 Mb)
 
 
 def _parse_args():
