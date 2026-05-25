@@ -19,6 +19,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 DEFAULT_MODEL_IDS = ("local/tiny-random-llama-a", "local/tiny-random-llama-b")
+MAX_ARTIFACT_SIZE_BYTES = 1024 * 1024
 
 
 def _save_local_tiny_llama(model_path: Path):
@@ -138,10 +139,15 @@ class TestCliTestModelSmoke(unittest.TestCase):
         for model_id in self.model_ids:
             with self.subTest(model_id=model_id):
                 test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
-                assert (test_model_dir / "config.json").exists()
-                assert list(run_output_dir.rglob("*.onnx"))
-                assert (run_output_dir / "genai_config.json").exists()
-                # check that safe-tensors and onnx external data are small (< 1 Mb)
+                self.assertTrue((test_model_dir / "config.json").exists())
+                self.assertTrue(list(run_output_dir.rglob("*.onnx")))
+                self.assertTrue((run_output_dir / "genai_config.json").exists())
+                self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
+                self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
+
+    def _assert_file_size_below_limit(self, path: Path):
+        self.assertTrue(path.exists(), f"Expected artifact {path} to exist")
+        self.assertLess(path.stat().st_size, MAX_ARTIFACT_SIZE_BYTES, f"Expected artifact {path} to be below 1 MB")
 
 
 def _parse_args():
