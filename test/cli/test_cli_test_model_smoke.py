@@ -24,6 +24,17 @@ DEFAULT_MODEL_IDS = (
     "mistralai/Mistral-7B-Instruct-v0.3",
 )
 MAX_ARTIFACT_SIZE_BYTES = 1024 * 1024
+EXPECTED_TEST_MODEL_FILES = {"config.json", "generation_config.json", "model.safetensors"}
+EXPECTED_RUN_OUTPUT_FILES = {
+    "config.json",
+    "genai_config.json",
+    "generation_config.json",
+    "model.onnx",
+    "model.onnx.data",
+    "model_config.json",
+    "tokenizer.json",
+    "tokenizer_config.json",
+}
 
 
 def _save_local_tiny_llama(model_path: Path):
@@ -123,7 +134,7 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
         ]
     )
 
-    return test_model_dir, run_output_dir
+    return config_path, test_model_dir, run_output_dir
 
 
 class TestCliTestModelSmoke(unittest.TestCase):
@@ -142,16 +153,20 @@ class TestCliTestModelSmoke(unittest.TestCase):
     def _assert_smoke_flows(self, tmp_path: Path):
         for model_id in self.model_ids:
             with self.subTest(model_id=model_id):
-                test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
-                assert (test_model_dir / "config.json").exists()
-                assert list(run_output_dir.rglob("*.onnx"))
-                assert (run_output_dir / "genai_config.json").exists()
+                config_path, test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
+                assert config_path.exists()
+                assert self._list_relative_files(test_model_dir) == EXPECTED_TEST_MODEL_FILES
+                assert self._list_relative_files(run_output_dir) == EXPECTED_RUN_OUTPUT_FILES
                 self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
                 self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
 
     def _assert_file_size_below_limit(self, path: Path):
         assert path.exists()
         assert path.stat().st_size < MAX_ARTIFACT_SIZE_BYTES
+
+    @staticmethod
+    def _list_relative_files(path: Path):
+        return {file_path.relative_to(path).as_posix() for file_path in path.rglob("*") if file_path.is_file()}
 
 
 def _parse_args():
