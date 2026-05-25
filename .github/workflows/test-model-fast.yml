@@ -1,4 +1,4 @@
-name: Test model smoke
+name: Test model fast
 
 on:
   workflow_dispatch:
@@ -10,8 +10,8 @@ on:
       - main
 
 jobs:
-  ubuntu-test-model-smoke:
-    name: Ubuntu test model smoke
+  ubuntu-test-model-fast:
+    name: Ubuntu test model fast
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,6 +28,10 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install -r test/requirements-test-cpu.txt
 
-      - name: Run documented smoke test
+      - name: pip freeze
+        run: |
+          python -m pip freeze
+
+      - name: Run fast test
         run: |
           python -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING test/cli/test_cli_test_model_smoke.py
