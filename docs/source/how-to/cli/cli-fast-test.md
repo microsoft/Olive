@@ -20,7 +20,7 @@ olive optimize \
     --dry_run
 ```
 
-This creates `out/qwen-smoke/config.json` without launching the full conversion yet.
+This creates `out/qwen/config.json` without launching the full conversion yet.
 
 ## Step 2: run a fast smoke test with `olive run --test`
 
