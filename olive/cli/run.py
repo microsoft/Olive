@@ -64,7 +64,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             run_config["input_model"] = input_model_config
         elif self.args.test not in (None, False):
             input_model = run_config.get("input_model")
-            if not isinstance(input_model, dict) or input_model.get("type") != "HfModel":
+            if not isinstance(input_model, dict) or input_model.get("type", "").lower() != "hfmodel":
                 raise ValueError("--test for olive run requires a Hugging Face input_model in the run config.")
             output_path = (
                 self.args.output_path or run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")

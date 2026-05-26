@@ -111,7 +111,13 @@ def _save_test_model(model: "PreTrainedModel", output_dir: str, test_model_confi
 
 
 def _validate_path(test_model_dir: Path, test_model_path: str):
-    if test_model_dir and test_model_dir.exists() and any(test_model_dir.iterdir()):
+    if not test_model_dir or not test_model_dir.exists():
+        return
+
+    if not test_model_dir.is_dir():
+        raise ValueError(f"{test_model_path!r} exists but is not a directory.")
+
+    if any(test_model_dir.iterdir()):
         raise ValueError(
             f"{test_model_path!r} exists but is not an Olive test model directory. "
             "Please choose an empty folder for --test or reuse a previously saved test model folder."
@@ -170,7 +176,7 @@ def load_model_from_task(
                 if test_model_dir and is_test_model_dir(test_model_dir):
                     model = from_pretrained(model_class, test_model_path, "model", **kwargs)
                 else:
-                    _validate_path(test_model_path)
+                    _validate_path(test_model_dir, test_model_path)
                     model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
                     if test_model_path:
                         _save_test_model(model, test_model_path, test_model_config)
