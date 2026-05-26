@@ -170,7 +170,7 @@ def load_model_from_task(
                 if test_model_dir and is_test_model_dir(test_model_dir):
                     model = from_pretrained(model_class, test_model_path, "model", **kwargs)
                 else:
-                    _validate_path(test_model_path)
+                    _validate_path(test_model_dir, test_model_path)
                     model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
                     if test_model_path:
                         _save_test_model(model, test_model_path, test_model_config)
