@@ -66,13 +66,30 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             help="The device used to run the model to capture the ONNX graph.",
         )
 
-        # PyTorch Exporter options
-        pte_group = sub_parser.add_argument_group("PyTorch Exporter options")
-        pte_group.add_argument(
+        # Mutually exclusive exporter flags
+        exporter_group = sub_parser.add_mutually_exclusive_group()
+        exporter_group.add_argument(
             "--use_dynamo_exporter",
             action="store_true",
             help="Whether to use dynamo_export API to export ONNX model.",
         )
+        exporter_group.add_argument(
+            "--use_model_builder",
+            action="store_true",
+            help="Whether to use Model Builder to capture ONNX model.",
+        )
+        exporter_group.add_argument(
+            "--use_mobius_builder",
+            action="store_true",
+            help=(
+                "Whether to use MobiusBuilder (mobius-ai) to capture ONNX model. "
+                "Supports multi-component multimodal models (VLMs). "
+                "Requires 'pip install mobius-ai'."
+            ),
+        )
+
+        # PyTorch Exporter options
+        pte_group = sub_parser.add_argument_group("PyTorch Exporter options")
         pte_group.add_argument(
             "--fixed_param_dict",
             type=parse_dim_dict,
@@ -108,21 +125,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
 
         # Model Builder options
         mb_group = sub_parser.add_argument_group("Model Builder options")
-        mb_group.add_argument(
-            "--use_model_builder",
-            action="store_true",
-            help="Whether to use Model Builder to capture ONNX model.",
-        )
-        mb_group.add_argument(
-            "--use_mobius_builder",
-            action="store_true",
-            help=(
-                "Whether to use MobiusBuilder (mobius-ai) to capture ONNX model. "
-                "Supports multi-component multimodal models (VLMs). "
-                "Requires 'pip install mobius-ai'. "
-                "Mutually exclusive with --use_model_builder and --use_dynamo_exporter."
-            ),
-        )
         mb_group.add_argument(
             "--precision",
             type=str,
@@ -241,10 +243,6 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 ]
             )
         elif self.args.use_mobius_builder:
-            if self.args.use_model_builder or self.args.use_dynamo_exporter:
-                raise ValueError(
-                    "--use_mobius_builder cannot be combined with --use_model_builder or --use_dynamo_exporter."
-                )
             if self.args.precision not in ("fp32", "fp16", "bf16"):
                 raise ValueError(
                     f"MobiusBuilder supports precisions fp32/fp16/bf16; got '{self.args.precision}'. "

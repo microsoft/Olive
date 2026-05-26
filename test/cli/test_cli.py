@@ -401,8 +401,9 @@ def test_capture_onnx_command_use_mobius_builder_rejects_conflicts(_, __, confli
     ]
 
     # execute / verify
-    with pytest.raises(ValueError, match="cannot be combined"):
+    with pytest.raises(SystemExit) as exc_info:
         cli_main(command_args)
+    assert exc_info.value.code == 2
 
 
 @patch("olive.cli.shared_cache.AzureContainerClientFactory")
