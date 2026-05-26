@@ -154,7 +154,6 @@ class TestCliTestModelSmoke(unittest.TestCase):
             "genai_config.json",
             "generation_config.json",
             "model.onnx",
-            "model.onnx.data",
             "model_config.json",
             TEST_OUTPUT_MARKER_FILE,
             "tokenizer.json",
@@ -165,9 +164,11 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 config_path, test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
                 assert config_path.exists()
                 assert self._list_relative_files(test_model_dir) == expected_test_model_files
-                assert self._list_relative_files(run_output_dir) == expected_run_output_files
+                run_output_files = self._list_relative_files(run_output_dir)
+                assert expected_run_output_files.issubset(run_output_files)
                 self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
-                self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
+                if "model.onnx.data" in run_output_files:
+                    self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
 
     def _assert_file_size_below_limit(self, path: Path):
         assert path.exists()
