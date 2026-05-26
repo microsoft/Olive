@@ -5,7 +5,6 @@
 """Thin wrapper around the OneCollector telemetry logger with event helpers."""
 
 import base64
-import errno
 import json
 import os
 import platform
@@ -148,6 +147,9 @@ class TelemetryCacheHandler:
         self._events_logged = 0
         # Prevents concurrent flush operations
         self._is_flushing = False
+        # Tracks whether any replayed event failed during the current flush
+        # so the flush file can be preserved instead of silently dropped.
+        self._flush_failed = False
 
     def shutdown(self) -> None:
         """Signal shutdown to prevent new operations.
@@ -192,11 +194,15 @@ class TelemetryCacheHandler:
                 if self._shutdown:
                     return
 
-                # Skip callbacks from replayed events during flush
-                # If a flush is in progress it means we successfully sent an event,
-                # so it's unlikely that an event would suddenly fail and need to be cached
-                # and we don't need to flush again.
+                # Callbacks for replayed events: don't trigger a new flush or
+                # re-cache, but record whether the replay actually succeeded so
+                # _flush_cache_file can decide whether to delete or restore the
+                # flush file. Falling through to the finally block still
+                # increments _callbacks_item_count so wait_for_callbacks can
+                # complete.
                 if self._is_flushing:
+                    if not args.succeeded:
+                        self._flush_failed = True
                     return
 
                 if args.succeeded:
@@ -264,9 +270,11 @@ class TelemetryCacheHandler:
                 # Fail silently
                 pass
             finally:
-                # Always clear flag, even on exception
+                # Always clear flag, even on exception, and wake any waiters
+                # (e.g. shutdown) that are blocked on _is_flushing becoming False.
                 with self._condition:
                     self._is_flushing = False
+                    self._condition.notify_all()
 
         thread = threading.Thread(target=flush_task, daemon=True)
         thread.start()
@@ -293,13 +301,11 @@ class TelemetryCacheHandler:
         Design decisions:
         - Parse payload to extract individual events (allows filtering)
         - Filter to only critical events near size limit (preserves important data)
-        - Use file locking for multi-process safety (prevents corruption)
-        - Use exponential backoff for file contention (avoids spinning)
+        - Use exclusive file lock to serialize concurrent writers
         - Fail silently on errors (telemetry should never crash app)
 
         Assumptions:
         - JSON operations are fast enough for synchronous execution
-        - File contention is rare and transient (retry a few times)
         - Cache size limits prevent unbounded growth
         - Critical events (heartbeat) are more important than others
         """
@@ -315,35 +321,25 @@ class TelemetryCacheHandler:
 
             cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-            max_retries = 3
-            for attempt in range(max_retries + 1):
-                try:
-                    cache_size = cache_path.stat().st_size if cache_path.exists() else 0
+            cache_size = cache_path.stat().st_size if cache_path.exists() else 0
 
-                    # Hard limit: stop caching entirely to prevent unbounded growth
-                    if cache_size >= HARD_MAX_CACHE_SIZE_BYTES:
-                        return
+            # Hard limit: stop caching entirely to prevent unbounded growth
+            if cache_size >= HARD_MAX_CACHE_SIZE_BYTES:
+                return
 
-                    # Soft limit: keep only critical events to preserve space
-                    if cache_size >= MAX_CACHE_SIZE_BYTES:
-                        entries = [entry for entry in entries if entry["event_name"] in CRITICAL_EVENTS]
-                        if not entries:
-                            return
-
-                    # Append newline-delimited JSON entries
-                    # Use exclusive file lock for multi-process safety
-                    with _exclusive_file_lock(cache_path, mode="a") as cache_file:
-                        for entry in entries:
-                            cache_file.write(json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n")
+            # Soft limit: keep only critical events to preserve space
+            if cache_size >= MAX_CACHE_SIZE_BYTES:
+                entries = [entry for entry in entries if entry["event_name"] in CRITICAL_EVENTS]
+                if not entries:
                     return
-                except OSError as exc:
-                    # Retry only on transient access errors (file locked by another process)
-                    if exc.errno not in {errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK, errno.EBUSY}:
-                        return
-                    if attempt >= max_retries:
-                        return
-                    # Exponential backoff: 50ms, 100ms, 200ms (aligned with C# implementation)
-                    time.sleep(0.05 * (2**attempt))
+
+            # Append newline-delimited JSON entries. The exclusive file lock
+            # blocks until the previous writer releases, which serializes
+            # concurrent writers across processes without an explicit retry
+            # loop.
+            with _exclusive_file_lock(cache_path, mode="a") as cache_file:
+                for entry in entries:
+                    cache_file.write(json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n")
         except Exception:
             # Fail silently - telemetry errors should not crash the application
             return
@@ -392,6 +388,10 @@ class TelemetryCacheHandler:
             with self._condition:
                 if self._shutdown:
                     return
+                # Reset failure tracking so this flush only observes failures
+                # for events it actually replays. _schedule_flush guards
+                # against concurrent flushes, so resetting here is safe.
+                self._flush_failed = False
 
             # Atomically rename to claim ownership — only one process can succeed
             flush_path = cache_path.with_name(f"{cache_path.name}.flush")
@@ -408,7 +408,8 @@ class TelemetryCacheHandler:
                     self._restore_flush_file(flush_path, cache_path)
                 return
 
-            # Replay cached events — _is_flushing flag prevents re-caching
+            # Replay cached events — _is_flushing flag prevents re-caching but
+            # callbacks still update _flush_failed so we can detect failures.
             for entry in entries:
                 try:
                     event_name = entry["event_name"]
@@ -423,11 +424,16 @@ class TelemetryCacheHandler:
                 except Exception:
                     continue
 
-            flush_success = self.wait_for_callbacks(timeout_sec=5.0, during_flush=True)
-            if flush_success:
+            callbacks_completed = self.wait_for_callbacks(timeout_sec=5.0, during_flush=True)
+            with self._condition:
+                replay_failed = self._flush_failed
+
+            # Only delete the flush file when every replayed event was acknowledged
+            # AND none of them failed. Otherwise preserve the cache so a later
+            # flush can retry, guaranteeing we never silently drop events.
+            if callbacks_completed and not replay_failed:
                 flush_path.unlink(missing_ok=True)
             else:
-                # Restore cache for next retry
                 self._restore_flush_file(flush_path, cache_path)
         except Exception:
             # Best-effort restore on failure
@@ -437,6 +443,23 @@ class TelemetryCacheHandler:
     def is_flushing(self) -> bool:
         with self._condition:
             return self._is_flushing
+
+    def wait_until_flush_complete(self, timeout_sec: float) -> bool:
+        """Block until any in-progress flush has finished.
+
+        Returns True if no flush was running (or it finished within the
+        timeout), False if the timeout elapsed while a flush was still in
+        progress. Uses condition-variable signalling rather than polling so
+        the caller wakes immediately when the flush thread clears the flag.
+        """
+        deadline = time.time() + timeout_sec
+        with self._condition:
+            while self._is_flushing:
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    return False
+                self._condition.wait(timeout=remaining)
+            return True
 
 
 class Telemetry:
@@ -605,12 +628,11 @@ class Telemetry:
         3. Shutdown logger (cleans up callbacks automatically)
         """
         try:
-            # Step 1: Wait for pending flush to complete (matches C# 1-second timeout)
-            start_time = time.time()
-            while time.time() - start_time < 1.0:
-                if not self._cache_handler or not self._cache_handler.is_flushing:
-                    break
-                time.sleep(0.05)
+            # Step 1: Wait for any in-flight flush to complete (matches C# 1-second timeout).
+            # Uses condition-variable signalling instead of polling so the wait wakes up
+            # immediately when the flush thread clears _is_flushing.
+            if self._cache_handler:
+                self._cache_handler.wait_until_flush_complete(1.0)
 
             # Step 2: Wait for callbacks/flush to complete before shutting down cache handler
             if self._cache_handler:

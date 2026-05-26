@@ -3,11 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 # pylint: disable=protected-access
+import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
@@ -72,6 +75,110 @@ def test_flush_cache_preserves_nonempty_unreadable_file(tmp_path):
     assert cache_path.exists()
     assert cache_path.read_text(encoding="utf-8") == "not-json\n"
     assert not flush_path.exists()
+
+
+def _write_cache_entry(cache_path, event_name="TestEvent", payload=None):
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "event_name": event_name,
+        "event_data": json.dumps(payload if payload is not None else {"key": "value"}),
+        "ts": 12345,
+        "initTs": 12345,
+    }
+    cache_path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+    return entry
+
+
+def _make_replay_handler(success):
+    telemetry = Mock()
+    handler = TelemetryCacheHandler(telemetry)
+    # Pretend we're already in a flush so callbacks are treated as replays.
+    handler._is_flushing = True
+
+    def fake_log(_event_name, _attrs, _metadata):
+        handler.record_event_logged()
+        handler.on_payload_transmitted(SimpleNamespace(succeeded=success, item_count=1, payload_bytes=b""))
+
+    telemetry.log.side_effect = fake_log
+    return handler, telemetry
+
+
+def test_flush_deletes_cache_when_replay_succeeds(tmp_path):
+    handler, _ = _make_replay_handler(success=True)
+    cache_path = tmp_path / CACHE_FILE_NAME
+    flush_path = cache_path.with_name(f"{cache_path.name}.flush")
+    _write_cache_entry(cache_path)
+
+    handler._flush_cache_file(cache_path)
+
+    assert not cache_path.exists()
+    assert not flush_path.exists()
+
+
+def test_flush_restores_cache_when_replay_fails(tmp_path):
+    handler, _ = _make_replay_handler(success=False)
+    cache_path = tmp_path / CACHE_FILE_NAME
+    flush_path = cache_path.with_name(f"{cache_path.name}.flush")
+    _write_cache_entry(cache_path, event_name="ReplayedEvent")
+
+    handler._flush_cache_file(cache_path)
+
+    # Failed replay must preserve the cached event so a later flush can retry,
+    # rather than silently dropping it.
+    assert cache_path.exists()
+    assert "ReplayedEvent" in cache_path.read_text(encoding="utf-8")
+    assert not flush_path.exists()
+
+
+def test_flush_restores_cache_when_callbacks_timeout(tmp_path, monkeypatch):
+    telemetry = Mock()
+    handler = TelemetryCacheHandler(telemetry)
+    handler._is_flushing = True
+    cache_path = tmp_path / CACHE_FILE_NAME
+    flush_path = cache_path.with_name(f"{cache_path.name}.flush")
+    _write_cache_entry(cache_path, event_name="OrphanedEvent")
+
+    # Simulate replay that logs the event but never fires the callback
+    # (e.g. exporter dropped or stalled). wait_for_callbacks should time out.
+    def fake_log(_event_name, _attrs, _metadata):
+        handler.record_event_logged()
+
+    telemetry.log.side_effect = fake_log
+    monkeypatch.setattr(handler, "wait_for_callbacks", lambda **_: False)
+
+    handler._flush_cache_file(cache_path)
+
+    assert cache_path.exists()
+    assert "OrphanedEvent" in cache_path.read_text(encoding="utf-8")
+    assert not flush_path.exists()
+
+
+def test_wait_until_flush_complete_wakes_when_flush_clears():
+    handler = TelemetryCacheHandler(Mock())
+    handler._is_flushing = True
+
+    def clear_flag():
+        time.sleep(0.05)
+        with handler._condition:
+            handler._is_flushing = False
+            handler._condition.notify_all()
+
+    threading.Thread(target=clear_flag, daemon=True).start()
+
+    start = time.perf_counter()
+    completed = handler.wait_until_flush_complete(1.0)
+    elapsed = time.perf_counter() - start
+
+    assert completed is True
+    # Should wake on notify, not poll the full timeout
+    assert elapsed < 0.5
+
+
+def test_wait_until_flush_complete_returns_false_on_timeout():
+    handler = TelemetryCacheHandler(Mock())
+    handler._is_flushing = True
+
+    assert handler.wait_until_flush_complete(0.05) is False
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows locking behavior is specific to Windows.")
