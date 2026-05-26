@@ -10,7 +10,12 @@ import torch
 from transformers import BertConfig, GPT2Config, Qwen3Config
 
 from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
-from olive.common.hf.utils import TEST_MODEL_MARKER_FILE, _apply_test_model_config, _load_test_model, load_model_from_task
+from olive.common.hf.utils import (
+    TEST_MODEL_MARKER_FILE,
+    _apply_test_model_config,
+    _load_test_model,
+    load_model_from_task,
+)
 
 
 def test_load_model_from_task():

@@ -14,12 +14,12 @@ from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace
 from transformers import LlamaConfig, LlamaForCausalLM, PreTrainedTokenizerFast
 
+from olive.cli.base import TEST_OUTPUT_MARKER_FILE
+from olive.common.hf.utils import TEST_MODEL_MARKER_FILE
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-
-from olive.cli.base import TEST_OUTPUT_MARKER_FILE
-from olive.common.hf.utils import TEST_MODEL_MARKER_FILE
 
 DEFAULT_MODEL_IDS = (
     "local/tiny-random-llama-a",
@@ -143,7 +143,12 @@ class TestCliTestModelSmoke(unittest.TestCase):
             self._assert_smoke_flows(workdir)
 
     def _assert_smoke_flows(self, tmp_path: Path):
-        expected_test_model_files = {"config.json", "generation_config.json", "model.safetensors", TEST_MODEL_MARKER_FILE}
+        expected_test_model_files = {
+            "config.json",
+            "generation_config.json",
+            "model.safetensors",
+            TEST_MODEL_MARKER_FILE,
+        }
         expected_run_output_files = {
             "config.json",
             "genai_config.json",
