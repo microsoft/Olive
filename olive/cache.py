@@ -400,8 +400,31 @@ class OliveCache:
                 # exported by optimum, or multimodal ORT GenAI packages from
                 # MobiusBuilder where components live in <root>/<component>/).
                 source_path = Path(model_json_config["model_path"])
+                source_path_resolved = source_path.resolve()
                 if source_path.exists():
                     shutil.copytree(source_path, actual_output_dir, dirs_exist_ok=overwrite)
+
+                def _rebase_additional_files(config: dict, fallback_dir: Path):
+                    model_attributes = config.get("model_attributes") or {}
+                    additional_files = model_attributes.get("additional_files") or []
+                    if not additional_files:
+                        return
+
+                    rebased_additional_files = []
+                    for additional_file in additional_files:
+                        source_additional_file = Path(additional_file)
+                        try:
+                            relative = source_additional_file.resolve().relative_to(source_path_resolved)
+                            output_additional_file = actual_output_dir / relative
+                        except ValueError:
+                            output_additional_file = fallback_dir / source_additional_file.name
+                            if source_additional_file.exists() and not output_additional_file.exists():
+                                output_additional_file.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(source_additional_file, output_additional_file)
+                        rebased_additional_files.append(str(output_additional_file))
+
+                    model_attributes["additional_files"] = rebased_additional_files
+                    config["model_attributes"] = model_attributes
 
                 # Rewrite each component's model_path so it points into the
                 # new output location while preserving the component's
@@ -409,12 +432,13 @@ class OliveCache:
                 # rebasing component paths the saved model_config.json
                 # cannot be loaded (and onnx_file_name is left untouched,
                 # so we must not collapse component subdirs into the root).
+                _rebase_additional_files(model_json_config, actual_output_dir)
                 for component in model_json_config["model_components"]:
                     component_config = component["config"]
                     component_model_path = component_config.get("model_path")
                     if component_model_path:
                         try:
-                            relative = Path(component_model_path).resolve().relative_to(source_path.resolve())
+                            relative = Path(component_model_path).resolve().relative_to(source_path_resolved)
                         except ValueError:
                             # Component path is not under the composite root;
                             # fall back to placing it at the package root.
@@ -422,6 +446,7 @@ class OliveCache:
                         component_config["model_path"] = str(actual_output_dir / relative)
                     else:
                         component_config["model_path"] = str(actual_output_dir)
+                    _rebase_additional_files(component_config, Path(component_config["model_path"]))
                 model_json_config["model_path"] = str(actual_output_dir)
             else:
                 copied_components = []
