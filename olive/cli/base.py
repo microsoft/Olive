@@ -87,6 +87,8 @@ class BaseOliveCLICommand(ABC):
             if self.args.save_config_file or self.args.dry_run:
                 self._save_config_file(run_config)
             if self.args.dry_run:
+                if getattr(self.args, "test", None) not in (None, False):
+                    mark_test_output_path(self.args.output_path)
                 print("Dry run mode enabled. Configuration file is generated but no optimization is performed.")
                 return None
             workflow_output = olive_run(run_config)
