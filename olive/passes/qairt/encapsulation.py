@@ -79,6 +79,19 @@ class QairtEncapsulation(Pass):
                     "positional_encoding.rope_theta to override RoPE theta in the DLC."
                 ),
             ),
+            "backend_extensions_override": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                required=False,
+                description=(
+                    "Deep-merged into the backend extensions config before the Genie DLC is "
+                    "produced. Use the raw JSON key names (hyphens) as they appear in "
+                    "backend_extensions.json. Nested dicts are merged recursively — only the "
+                    "specified keys are overridden; all other backend extension defaults set "
+                    "by the builder are preserved. If the container has no existing backend "
+                    "extensions config, the override is used as the entire config."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -112,6 +125,12 @@ class QairtEncapsulation(Pass):
             merged = _deep_merge(current, config.genie_overrides)
             container._gen_ai_config = gen_ai_cfg.model_validate(merged)
             logger.info("Applied genie_overrides to GenAIConfig: %s", list(config.genie_overrides.keys()))
+
+        if config.backend_extensions_override:
+            container._backend_extensions_config = _deep_merge(
+                container._backend_extensions_config or {}, config.backend_extensions_override
+            )
+            logger.info("Applied backend_extensions_override: %s", list(config.backend_extensions_override.keys()))
 
         # Input/Output metadata
         container.inputs = [("input_ids", TensorProto.INT32, ["batch_size", "sequence_length"])]
