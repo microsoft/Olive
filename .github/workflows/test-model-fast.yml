@@ -1,3 +1,5 @@
+# This job is run as a github action.
+# It checks Olive works on random and small models.
 name: Test model fast
 
 on:
