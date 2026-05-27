@@ -379,3 +379,86 @@ def speech_transcription_pre_process(
             return (audios, texts)
 
     return SpeechTranscriptionDataset(dataset, audio_col, text_col)
+
+
+@Registry.register_pre_process()
+def vision_vqa_pre_process(
+    dataset,
+    image_col: str = "image",
+    question_col: str = "question",
+    answer_col: str = "answer",
+    max_samples: Optional[int] = None,
+    limit: Optional[float] = None,
+    seed: int = 42,
+    **kwargs,
+):
+    """Pre-process data for vision VQA evaluation.
+
+    Loads image, question, and ground truth answer from a HuggingFace dataset.
+    Returns a dataset of ({"image": image, "question": question}, answer) pairs.
+
+    Args:
+        dataset: HuggingFace dataset with image, question, and answer columns.
+        image_col: Name of the image column. Defaults to "image".
+        question_col: Name of the question column. Defaults to "question".
+        answer_col: Name of the answer column. Defaults to "answer".
+        max_samples: Maximum number of samples (deprecated, use limit). Defaults to None.
+        limit: Sampling limit following Olive convention:
+            If >= 1: use first N samples.
+            If 0 < limit < 1: randomly sample that percentage.
+            If 0 or None: use all samples.
+        seed: Random seed for percentage-based sampling. Defaults to 42.
+        **kwargs: Additional arguments.
+
+    """
+    # Apply sampling: prefer limit over max_samples
+    effective_limit = limit if limit is not None else (max_samples if max_samples else 0)
+    if effective_limit and effective_limit != 0:
+        from random import Random
+
+        total = len(dataset)
+        if 0 < effective_limit < 1:
+            n = max(1, int(total * effective_limit))
+            rng = Random(seed)
+            indices = sorted(rng.sample(range(total), min(n, total)))
+            dataset = dataset.select(indices)
+        elif effective_limit >= 1:
+            n = min(int(effective_limit), total)
+            dataset = dataset.select(range(n))
+
+    class VisionVQADataset:
+        """Dataset that returns (input_dict, answer_text) pairs for VQA evaluation.
+
+        Note: Use batch_size=1 in dataloader config as images have variable sizes.
+        """
+
+        def __init__(self, hf_dataset, image_column, question_column, answer_column):
+            self.dataset = hf_dataset
+            self.image_column = image_column
+            self.question_column = question_column
+            self.answer_column = answer_column
+
+        def __len__(self):
+            return len(self.dataset)
+
+        def __getitem__(self, idx):
+            item = self.dataset[idx]
+            image = item[self.image_column]
+            question = item[self.question_column]
+            answer = item[self.answer_column]
+            # Handle list answers (some datasets have multiple valid answers)
+            if isinstance(answer, list):
+                answer = answer[0] if answer else ""
+            return {"image": image, "question": question}, str(answer)
+
+        @staticmethod
+        def collate_fn(batch):
+            """Collate VQA batches. Use with batch_size=1 for variable-size images."""
+            if len(batch) == 1:
+                input_dict, answer = batch[0]
+                return (input_dict, [answer])
+            inputs = [item[0] for item in batch]
+            answers = [item[1] for item in batch]
+            return (inputs, answers)
+
+    return VisionVQADataset(dataset, image_col, question_col, answer_col)
