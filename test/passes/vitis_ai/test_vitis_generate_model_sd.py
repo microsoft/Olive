@@ -33,9 +33,14 @@ def _generate_writes_placeholder(**kwargs):
 
 def test_run_raises_on_missing_model_generate(tmp_path):
     p = _make_pass()
-    with patch.dict("sys.modules", {"model_generate": None}):
-        with pytest.raises(ImportError, match="model_generate is required for VitisGenerateModelSD"):
-            p.run(get_onnx_model(), str(tmp_path / "out"))
+    with (
+        patch.dict("sys.modules", {"model_generate": None}),
+        pytest.raises(
+            ImportError,
+            match="model_generate is required for VitisGenerateModelSD",
+        ),
+    ):
+        p.run(get_onnx_model(), str(tmp_path / "out"))
 
 
 def test_run_includes_resolutions_in_extra_options(tmp_path):
