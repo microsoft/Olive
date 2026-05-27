@@ -61,7 +61,11 @@ class OliveModelOutput(NamedTuple):
 
 # Text-based accuracy sub-types that work with string predictions/targets
 _TEXT_BASED_ACCURACY_SUBTYPES = {AccuracySubType.WER, AccuracySubType.RTFX}
-_VISION_ACCURACY_SUBTYPES = {AccuracySubType.EXACT_MATCH, AccuracySubType.RELAXED_ACCURACY, AccuracySubType.WORD_SORT_RATIO}
+_VISION_ACCURACY_SUBTYPES = {
+    AccuracySubType.EXACT_MATCH,
+    AccuracySubType.RELAXED_ACCURACY,
+    AccuracySubType.WORD_SORT_RATIO,
+}
 
 # Task-to-metric validation: maps data task types to their allowed vision metrics.
 # Metrics are aligned with standard public vision benchmarks:
@@ -118,10 +122,12 @@ def _validate_vision_task_metric(metric: "Metric") -> None:
         return
 
     task_type = None
-    if metric.data_config and hasattr(metric.data_config, "task_type"):
-        task_type = metric.data_config.task_type
-    elif metric.data_config and hasattr(metric.data_config, "params_config"):
-        task_type = getattr(metric.data_config.params_config, "task_type", None)
+    if metric.data_config:
+        # Extract task from pre_process_data_config params, which is how HuggingfaceContainer
+        # maps task types (e.g., "vision-vqa", "vision-chart-qa", "vision-ocr") to components.
+        pre_process_config = metric.data_config.pre_process_data_config
+        if pre_process_config and pre_process_config.params:
+            task_type = pre_process_config.params.get("task")
 
     if task_type is None:
         # No task type specified, allow any vision metric
@@ -130,8 +136,7 @@ def _validate_vision_task_metric(metric: "Metric") -> None:
     allowed_metrics = _VISION_TASK_METRIC_MAP.get(task_type)
     if allowed_metrics is None:
         raise ValueError(
-            f"Unknown vision task type '{task_type}'. "
-            f"Supported task types: {list(_VISION_TASK_METRIC_MAP.keys())}."
+            f"Unknown vision task type '{task_type}'. Supported task types: {list(_VISION_TASK_METRIC_MAP.keys())}."
         )
 
     for sub in metric.sub_types:

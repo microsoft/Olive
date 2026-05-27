@@ -716,6 +716,6 @@
         "tf": [ "tensorflow==1.15.0" ],
         "torch-tensorrt": [ "torch-tensorrt" ],
         "tune-session-params": [ "psutil" ],
-        "vision": [ "Pillow" ]
+        "vision": [ "pillow" ]
     }
 }
