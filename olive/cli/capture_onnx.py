@@ -194,12 +194,16 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
     def _get_run_config(self, tempdir: str) -> dict:
         config = deepcopy(TEMPLATE)
 
-        # Check if diffusers model detection is needed
-        is_diffusers = is_valid_diffusers_model(self.args.model_name_or_path) if self.args.model_name_or_path else False
-        if is_diffusers:
-            input_model_config = get_diffusers_input_model(self.args, self.args.model_name_or_path)
-        else:
+        if self.args.use_mobius_builder:
             input_model_config = get_input_model_config(self.args)
+        else:
+            is_diffusers = (
+                is_valid_diffusers_model(self.args.model_name_or_path) if self.args.model_name_or_path else False
+            )
+            if is_diffusers:
+                input_model_config = get_diffusers_input_model(self.args, self.args.model_name_or_path)
+            else:
+                input_model_config = get_input_model_config(self.args)
         assert input_model_config["type"].lower() in {
             "hfmodel",
             "pytorchmodel",
@@ -229,20 +233,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             ),
         ]
 
-        if is_diffusers_model:
-            del config["passes"]["m"]
-            del config["passes"]["b"]
-            to_replace.extend(
-                [
-                    (
-                        ("passes", "c", "device"),
-                        self.args.conversion_device if self.args.conversion_device == "cpu" else "cuda",
-                    ),
-                    (("passes", "c", "torch_dtype"), self.args.torch_dtype),
-                    (("passes", "c", "target_opset"), self.args.target_opset),
-                ]
-            )
-        elif self.args.use_mobius_builder:
+        if self.args.use_mobius_builder:
             if self.args.precision not in ("fp32", "fp16", "bf16"):
                 raise ValueError(
                     f"MobiusBuilder supports precisions fp32/fp16/bf16; got '{self.args.precision}'. "
@@ -257,6 +248,19 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                         ("passes", "b", "runtime"),
                         "ort-genai" if self.args.use_ort_genai else "none",
                     ),
+                ]
+            )
+        elif is_diffusers_model:
+            del config["passes"]["m"]
+            del config["passes"]["b"]
+            to_replace.extend(
+                [
+                    (
+                        ("passes", "c", "device"),
+                        self.args.conversion_device if self.args.conversion_device == "cpu" else "cuda",
+                    ),
+                    (("passes", "c", "torch_dtype"), self.args.torch_dtype),
+                    (("passes", "c", "target_opset"), self.args.target_opset),
                 ]
             )
         elif self.args.use_model_builder:
