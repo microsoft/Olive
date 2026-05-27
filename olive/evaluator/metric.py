@@ -40,6 +40,10 @@ class AccuracySubType(StrEnumBase):
     PERPLEXITY = "perplexity"
     WER = "wer"
     RTFX = "rtfx"
+    # Vision metrics
+    EXACT_MATCH = "exact_match"
+    RELAXED_ACCURACY = "relaxed_accuracy"
+    WORD_SORT_RATIO = "word_sort_ratio"
 
 
 class LatencySubType(StrEnumBase):

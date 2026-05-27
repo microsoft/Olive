@@ -61,6 +61,14 @@ class OliveModelOutput(NamedTuple):
 
 # Text-based accuracy sub-types that work with string predictions/targets
 _TEXT_BASED_ACCURACY_SUBTYPES = {AccuracySubType.WER, AccuracySubType.RTFX}
+_VISION_ACCURACY_SUBTYPES = {AccuracySubType.EXACT_MATCH, AccuracySubType.RELAXED_ACCURACY, AccuracySubType.WORD_SORT_RATIO}
+
+# Task-to-metric validation: maps data task types to their allowed vision metrics
+_VISION_TASK_METRIC_MAP = {
+    "vision-vqa": {AccuracySubType.EXACT_MATCH},
+    "vision-chart-qa": {AccuracySubType.RELAXED_ACCURACY},
+    "vision-ocr": {AccuracySubType.WORD_SORT_RATIO},
+}
 
 
 def _is_text_based_metric(metric: "Metric") -> bool:
@@ -78,6 +86,56 @@ def _is_text_based_metric(metric: "Metric") -> bool:
             "(accuracy_score, f1_score, etc.) in the same metric. Please define them as separate metrics."
         )
     return all(text_based)
+
+
+def _is_vision_metric(metric: "Metric") -> bool:
+    """Check if metric uses vision accuracy sub-types (exact_match, relaxed_accuracy, word_sort_ratio).
+
+    Raises ValueError if vision sub-types are mixed with non-vision sub-types,
+    as they require different inference paths.
+    """
+    if metric.type != MetricType.ACCURACY:
+        return False
+    vision_based = [sub.name in _VISION_ACCURACY_SUBTYPES for sub in metric.sub_types]
+    if any(vision_based) and not all(vision_based):
+        raise ValueError(
+            "Cannot mix vision accuracy sub-types (exact_match, relaxed_accuracy, word_sort_ratio) "
+            "with other sub-types in the same metric. Please define them as separate metrics."
+        )
+    return all(vision_based)
+
+
+def _validate_vision_task_metric(metric: "Metric") -> None:
+    """Validate that the vision metric sub-types are compatible with the data task type.
+
+    Raises ValueError if the metric is not compatible with the task.
+    """
+    if not _is_vision_metric(metric):
+        return
+
+    task_type = None
+    if metric.data_config and hasattr(metric.data_config, "task_type"):
+        task_type = metric.data_config.task_type
+    elif metric.data_config and hasattr(metric.data_config, "params_config"):
+        task_type = getattr(metric.data_config.params_config, "task_type", None)
+
+    if task_type is None:
+        # No task type specified, allow any vision metric
+        return
+
+    allowed_metrics = _VISION_TASK_METRIC_MAP.get(task_type)
+    if allowed_metrics is None:
+        raise ValueError(
+            f"Unknown vision task type '{task_type}'. "
+            f"Supported task types: {list(_VISION_TASK_METRIC_MAP.keys())}."
+        )
+
+    for sub in metric.sub_types:
+        if sub.name not in allowed_metrics:
+            raise ValueError(
+                f"Metric sub-type '{sub.name}' is not compatible with task type '{task_type}'. "
+                f"Allowed metrics for '{task_type}': {[m.value for m in allowed_metrics]}."
+            )
 
 
 class OliveEvaluator(ABC):
@@ -518,7 +576,12 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         device: Device = Device.CPU,
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
-        if _is_text_based_metric(metric):
+        if _is_vision_metric(metric):
+            _validate_vision_task_metric(metric)
+            inference_output, targets = self._inference_vision(
+                model, metric, dataloader, post_func, device, execution_providers
+            )
+        elif _is_text_based_metric(metric):
             # Auto-detect genai model by checking for genai_config.json
             genai_config_path = Path(model.model_path).parent / "genai_config.json"
             if genai_config_path.exists():
@@ -645,6 +708,74 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             "total_inference_time": total_inference_time,
         }
         return OliveModelOutput(preds=all_preds, logits=timing_metadata), all_targets
+
+    def _inference_vision(
+        self,
+        model: ONNXModelHandler,
+        metric: Metric,
+        dataloader: "DataLoader",
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Vision-based inference for VQA/OCR metrics (exact_match, relaxed_accuracy, word_sort_ratio).
+
+        The post_func must return predicted answer strings per batch.
+        Labels from the dataloader must be reference answer strings.
+        """
+        session, inference_settings = OnnxEvaluator.get_session_wrapper(
+            model, metric, dataloader, device, execution_providers
+        )
+        io_config = model.io_config
+        run_kwargs = metric.get_run_kwargs()
+
+        all_preds = []
+        all_targets = []
+        output_names = io_config["output_names"]
+        is_single_tensor_output = len(output_names) == 1
+
+        for batch in dataloader:
+            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+            input_feed = format_data(input_data, io_config)
+            result = model.run_session(session, input_feed, **run_kwargs)
+            if is_single_tensor_output:
+                result = torch.from_numpy(result[0]) if hasattr(result[0], "__array__") else torch.tensor(result[0])
+            else:
+                result = {
+                    name: torch.from_numpy(result[i]) if hasattr(result[i], "__array__") else torch.tensor(result[i])
+                    for i, name in enumerate(output_names)
+                }
+            # post_func must decode model output to answer strings
+            outputs = post_func(result) if post_func else result
+            if isinstance(outputs, str):
+                all_preds.append(outputs)
+            elif isinstance(outputs, (list, tuple)):
+                if not outputs:
+                    continue
+                if not isinstance(outputs[0], str):
+                    raise ValueError(
+                        f"post_func must return str or list[str] for vision metrics, "
+                        f"but got list of {type(outputs[0]).__name__}. "
+                        f"Ensure your post_func decodes model output to answer text."
+                    )
+                all_preds.extend(outputs)
+            else:
+                raise ValueError(
+                    f"post_func must return str or list[str] for vision metrics, "
+                    f"but got {type(outputs).__name__}. "
+                    f"Ensure your post_func decodes model output to answer text."
+                )
+            # labels should be reference answer strings
+            if isinstance(labels, (list, tuple)):
+                all_targets.extend(labels)
+            else:
+                all_targets.append(labels)
+
+        tuning_result_file = inference_settings.get("tuning_result_file")
+        if tuning_result_file:
+            dump_tuning_result(session.session, tuning_result_file)
+
+        return OliveModelOutput(preds=all_preds, logits=None), all_targets
 
     def _inference_text_genai(
         self,
@@ -1216,7 +1347,12 @@ class PyTorchEvaluator(_OliveEvaluator):
         device: Device = Device.CPU,
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
-        if _is_text_based_metric(metric):
+        if _is_vision_metric(metric):
+            _validate_vision_task_metric(metric)
+            inference_output, targets = self._inference_vision(
+                model, metric, dataloader, post_func, device, execution_providers
+            )
+        elif _is_text_based_metric(metric):
             inference_output, targets = self._inference_text(
                 model, metric, dataloader, post_func, device, execution_providers
             )
@@ -1301,6 +1437,60 @@ class PyTorchEvaluator(_OliveEvaluator):
             "total_inference_time": total_inference_time,
         }
         return OliveModelOutput(preds=all_preds, logits=timing_metadata), all_targets
+
+    @torch.no_grad()
+    def _inference_vision(
+        self,
+        model: "PyTorchModelHandler",
+        metric: Metric,
+        dataloader: "DataLoader",
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Vision-based inference for VQA/OCR metrics (exact_match, relaxed_accuracy, word_sort_ratio)."""
+        session = model.prepare_session()
+        all_preds = []
+        all_targets = []
+        torch_device = _OliveEvaluator.device_string_to_torch_device(device)
+        run_kwargs = metric.get_run_kwargs()
+        session.to(torch_device)
+
+        for batch in dataloader:
+            input_data_i, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+            input_data = tensor_data_to_device(input_data_i, torch_device)
+            result = model.run_session(session, input_data, **run_kwargs)
+            outputs = post_func(result) if post_func else result
+
+            if isinstance(outputs, str):
+                all_preds.append(outputs)
+            elif isinstance(outputs, (list, tuple)):
+                if not outputs:
+                    continue
+                if not isinstance(outputs[0], str):
+                    raise ValueError(
+                        f"post_func must return str or list[str] for vision metrics, "
+                        f"but got list of {type(outputs[0]).__name__}. "
+                        f"Ensure your post_func decodes model output to answer text."
+                    )
+                all_preds.extend(outputs)
+            else:
+                raise ValueError(
+                    f"post_func must return str or list[str] for vision metrics, "
+                    f"but got {type(outputs).__name__}. "
+                    f"Ensure your post_func decodes model output to answer text."
+                )
+            if isinstance(labels, (list, tuple)):
+                all_targets.extend(labels)
+            else:
+                all_targets.append(labels)
+
+        if torch_device:
+            session.to("cpu")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        return OliveModelOutput(preds=all_preds, logits=None), all_targets
 
     @torch.no_grad()
     def _evaluate_raw_latency(
