@@ -600,6 +600,16 @@
             "run_on_target": true,
             "extra_dependencies": [ "amd-quark" ]
         },
+        "QuarkQuantizationVitisAI": {
+            "module_path": "olive.passes.quark_vitisai.quark_quantization_vitisai.QuarkQuantizationVitisAI",
+            "supported_providers": [ "CPUExecutionProvider", "ROCMExecutionProvider", "CUDAExecutionProvider" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "fp16", "fp32", "bf16" ],
+            "supported_algorithms": [ "awq" ],
+            "supported_quantization_encodings": [  ],
+            "run_on_target": true,
+            "extra_dependencies": [ "amd-quark" ]
+        },
         "QuaRot": {
             "module_path": "olive.passes.pytorch.rotate.QuaRot",
             "supported_providers": [ "*" ],
