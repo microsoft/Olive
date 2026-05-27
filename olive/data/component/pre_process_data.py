@@ -397,6 +397,12 @@ def vision_vqa_pre_process(
     Loads image, question, and ground truth answer from a HuggingFace dataset.
     Returns a dataset of ({"image": image, "question": question}, answer) pairs.
 
+    Note: This returns raw PIL images and question strings. For the PyTorch evaluator,
+    the model's own processor/tokenizer should be applied in the post_func or within
+    the model's forward method. For the ONNX evaluator, provide a custom pre-process
+    component that applies the appropriate processor/tokenizer to produce numeric
+    tensors matching the model's io_config.
+
     Args:
         dataset: HuggingFace dataset with image, question, and answer columns.
         image_col: Name of the image column. Defaults to "image".
