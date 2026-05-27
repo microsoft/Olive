@@ -225,6 +225,8 @@ class ExactMatch(AccuracyBase):
     Compares predicted answer strings to ground truth answers using
     case-insensitive, whitespace-normalized string equality.
     Returns the fraction of samples with an exact match.
+
+    Suitable for benchmarks: AI2D, ScienceQA, TextVQA, MathVista, MMMU, InterGPS.
     """
 
     name: Optional[str] = "exact_match"
@@ -266,6 +268,8 @@ class RelaxedAccuracy(AccuracyBase):
     For numeric answers, allows a ±5% tolerance (standard for ChartQA).
     For non-numeric answers, falls back to exact string match.
     Returns the fraction of samples that match within tolerance.
+
+    Suitable for benchmarks: ChartQA.
     """
 
     name: Optional[str] = "relaxed_accuracy"
@@ -337,6 +341,8 @@ class WordSortRatio(AccuracyBase):
     after sorting words alphabetically. This measures word-level overlap
     regardless of word order.
     Returns the average ratio across all samples.
+
+    Suitable for benchmarks: OCR.
     """
 
     name: Optional[str] = "word_sort_ratio"
