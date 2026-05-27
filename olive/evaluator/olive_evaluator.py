@@ -64,7 +64,7 @@ _TEXT_BASED_ACCURACY_SUBTYPES = {AccuracySubType.WER, AccuracySubType.RTFX}
 _VISION_ACCURACY_SUBTYPES = {AccuracySubType.EXACT_MATCH, AccuracySubType.RELAXED_ACCURACY, AccuracySubType.WORD_SORT_RATIO}
 
 # Task-to-metric validation: maps data task types to their allowed vision metrics.
-# Metrics are aligned with standard vision benchmarks used in LITE (babelbench):
+# Metrics are aligned with standard public vision benchmarks:
 #   - vision-vqa (exact_match): AI2D, ScienceQA, TextVQA, MathVista, MMMU, InterGPS
 #   - vision-chart-qa (relaxed_accuracy): ChartQA (±5% numeric tolerance)
 #   - vision-ocr (word_sort_ratio): OCR (word-level overlap)
