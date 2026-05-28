@@ -306,8 +306,8 @@
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
             "supported_precisions": [ "*" ],
-            "supported_algorithms": [ ],
-            "supported_quantization_encodings": [ ]
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
         },
         "OnnxDynamicQuantization": {
             "module_path": "olive.passes.onnx.quantization.OnnxDynamicQuantization",

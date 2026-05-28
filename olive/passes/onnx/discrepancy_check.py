@@ -14,6 +14,18 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
+def _infer_shape(dynamic_shape, known_values=None):
+    default_values = {
+        "batch_size": 1,
+        "past_sequence_length": 2,
+        "total_sequence_length": 3,
+        "sequence_length": 1,
+    }
+    if known_values:
+        default_values.update(known_values)
+    return tuple(d if isinstance(d, int) else default_values[d] for d in dynamic_shape)
+
+
 class OnnxDiscrepancyCheck(Pass):
     """Validates ONNX model outputs against a reference PyTorch model.
 
@@ -58,14 +70,6 @@ class OnnxDiscrepancyCheck(Pass):
                     "If exceeded, the pass fails."
                 ),
             ),
-            "data_config": PassConfigParam(
-                type_=Union[DataConfig, dict],
-                default_value=None,
-                description=(
-                    "Data configuration for the evaluation dataset. "
-                    "If not provided, a dummy dataset matching the model's IO config is used."
-                ),
-            ),
         }
 
     def _run_for_config(
@@ -79,20 +83,23 @@ class OnnxDiscrepancyCheck(Pass):
         from olive.data.template import dummy_data_config_template
         from olive.model.config.io_config import is_io_config_static
 
-        # Set up data config
-        if config.data_config is not None:
-            data_config = config.data_config
-            if isinstance(data_config, dict):
-                data_config = validate_config(data_config, DataConfig)
-        else:
-            io_config = model.io_config
-            if io_config and is_io_config_static(io_config):
-                data_config = dummy_data_config_template(
-                    io_config.get("input_shapes"), io_config.get("input_names"), io_config.get("input_types")
-                )
-                data_config = validate_config(data_config, DataConfig)
+        io_config = model.io_config
+        if io_config:
+            if is_io_config_static(io_config):
+                input_shapes = io_config.get("input_shapes")
             else:
-                raise RuntimeError("No data_config provided and model IO config is not static.")
+                input_shapes = []
+                known = {}
+                for shape in io_config.get("input_shapes"):
+                    new_shape = _infer_shape(shape, known)
+                    input_shapes.append(new_shape)
+                    known.update(dict(zip(shape, new_shape)))
+            data_config = dummy_data_config_template(
+                input_shapes, io_config.get("input_names"), io_config.get("input_types")
+            )
+            data_config = validate_config(data_config, DataConfig)
+        else:
+            raise RuntimeError(f"No data_config provided and model IO config is not static, io_config={io_config}")
 
         # Create dataloader
         dc = data_config.to_data_container()
