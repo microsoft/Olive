@@ -35,6 +35,21 @@ def test_kquant_find_qparams_beats_min_max_rtn(bits: int, sym: bool):
     assert err_kq < err_rtn
 
 
+@pytest.mark.parametrize("sym", [True, False])
+@pytest.mark.parametrize("values", [0.0, 100.0, -7.5])
+def test_kquant_find_qparams_handles_constant_groups(values: float, sym: bool):
+    weight = torch.full((4, 32), values, dtype=torch.float32)
+    bits = 4
+    group_size = 16
+    maxq, minq = get_maxq_minq(bits, signed=False)
+
+    scales, zero_points = kquant_find_qparams(weight, group_size=group_size, maxq=maxq, minq=minq, symmetric=sym)
+    quantizer = WeightQuantizer(bits=bits, symmetric=sym, group_size=group_size)
+    dq = quantizer.fake_quantize(weight, scales, zero_points)
+    assert torch.isfinite(dq).all()
+    assert torch.allclose(dq, weight, atol=1e-5)
+
+
 @pytest.mark.parametrize("group_size", [-1, 16])
 @pytest.mark.parametrize("sym", [True, False])
 @pytest.mark.parametrize("lm_head", [True, False])

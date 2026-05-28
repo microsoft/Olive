@@ -185,6 +185,7 @@ def kquant_find_qparams(
     if symmetric:
         l_min, l_max = float(minq - midq), float(maxq - midq)
         normalizer = torch.max(torch.abs(data), dim=1, keepdim=True).values
+        normalizer = torch.where(normalizer == 0, torch.ones_like(normalizer), normalizer)
         quant_offset = torch.zeros_like(normalizer)
         nmax = l_max
         candidate_factors = tuple(nmax + _SYM_STEP_DELTA * s for s in _SYM_STEPS)
@@ -202,8 +203,11 @@ def kquant_find_qparams(
         zero_point = torch.full_like(scale, float(midq)).to(torch.int32)
     else:
         l_min, l_max = float(minq), float(maxq)
-        rmin = torch.min(data, dim=1, keepdim=True).values
-        rmax = torch.max(data, dim=1, keepdim=True).values
+        rmin = torch.minimum(torch.min(data, dim=1, keepdim=True).values, torch.zeros((), dtype=data.dtype))
+        rmax = torch.maximum(torch.max(data, dim=1, keepdim=True).values, torch.zeros((), dtype=data.dtype))
+        degenerate = (rmin == 0) & (rmax == 0)
+        rmin = torch.where(degenerate, torch.full_like(rmin, -1.0), rmin)
+        rmax = torch.where(degenerate, torch.full_like(rmax, 1.0), rmax)
         normalizer = rmax - rmin
         candidate_factors = tuple(_ASYM_RRMIN + _ASYM_RDELTA * s + qrange for s in range(_ASYM_NSTEP))
         scale, offset = _kquant_search(
@@ -230,8 +234,8 @@ class KQuant(Pass):
 
     Per-group weight quantization using the iterative weighted-least-squares
     search from llama.cpp's ggml k-quants. Supports both asymmetric (scale and
-    zero point) and symmetric (scale only) variants for 4- and 8-bit weights of
-    ``nn.Linear`` and ``nn.Embedding`` modules.
+    zero point) and symmetric (scale only) variants for 2-, 4-, and 8-bit
+    weights of ``nn.Linear`` and ``nn.Embedding`` modules.
     """
 
     @classmethod
