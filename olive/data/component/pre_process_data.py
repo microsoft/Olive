@@ -452,9 +452,10 @@ def vision_vqa_pre_process(
             image = item[self.image_column]
             question = item[self.question_column]
             answer = item[self.answer_column]
-            # Handle list answers (some datasets have multiple valid answers)
-            if isinstance(answer, list):
-                answer = answer[0] if answer else ""
+            # Handle list/tuple answers (some datasets have multiple valid answers)
+            # Join with | separator so metrics can match against any valid answer
+            if isinstance(answer, (list, tuple)):
+                answer = "|".join(str(a) for a in answer) if answer else ""
             return {"image": image, "question": question}, str(answer)
 
         @staticmethod

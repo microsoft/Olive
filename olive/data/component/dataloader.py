@@ -56,6 +56,14 @@ def no_auto_batch_dataloader(dataset, **kwargs):
 
 
 @Registry.register_dataloader()
+def vision_vqa_dataloader(dataset, batch_size=1, **kwargs):
+    from torch.utils.data import DataLoader
+
+    collate_fn = getattr(dataset, "collate_fn", None)
+    return DataLoader(dataset, batch_size=batch_size, collate_fn=collate_fn, **kwargs)
+
+
+@Registry.register_dataloader()
 def default_calibration_dataloader(
     dataloader,
     model_path: Optional[str] = None,

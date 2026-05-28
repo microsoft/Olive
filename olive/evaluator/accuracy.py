@@ -258,7 +258,13 @@ class ExactMatch(AccuracyBase):
                 f"number of references ({len(refs)}) for exact_match metric."
             )
 
-        correct = sum(1 for p, r in zip(preds, refs) if self._normalize(str(p)) == self._normalize(str(r)))
+        correct = 0
+        for p, r in zip(preds, refs):
+            pred_norm = self._normalize(str(p))
+            # Support multiple valid answers separated by |
+            ref_answers = str(r).split("|") if "|" in str(r) else [str(r)]
+            if any(pred_norm == self._normalize(ref_a) for ref_a in ref_answers):
+                correct += 1
         return correct / len(refs) if refs else 0.0
 
 
@@ -315,23 +321,25 @@ class RelaxedAccuracy(AccuracyBase):
         correct = 0
         for pred, ref in zip(preds, refs):
             pred_str = str(pred)
-            ref_str = str(ref)
-            pred_is_num, pred_val = self._try_parse_number(pred_str)
-            ref_is_num, ref_val = self._try_parse_number(ref_str)
-
-            if pred_is_num and ref_is_num:
-                # Numeric comparison with tolerance
-                if ref_val == 0:
-                    if pred_val == 0:
-                        correct += 1
-                elif abs(pred_val - ref_val) / abs(ref_val) <= tolerance:
-                    correct += 1
-            else:
-                # String comparison (exact match, case-insensitive)
-                if self._normalize(pred_str) == self._normalize(ref_str):
-                    correct += 1
+            # Support multiple valid answers separated by |
+            ref_answers = str(ref).split("|") if "|" in str(ref) else [str(ref)]
+            if self._matches_any(pred_str, ref_answers, tolerance):
+                correct += 1
 
         return correct / len(refs) if refs else 0.0
+
+    def _matches_any(self, pred_str: str, ref_answers: list, tolerance: float) -> bool:
+        """Check if prediction matches any of the reference answers."""
+        pred_is_num, pred_val = self._try_parse_number(pred_str)
+        for ref_str in ref_answers:
+            ref_is_num, ref_val = self._try_parse_number(ref_str)
+            if pred_is_num and ref_is_num:
+                if (ref_val == pred_val) or (ref_val != 0 and abs(pred_val - ref_val) / abs(ref_val) <= tolerance):
+                    return True
+            else:
+                if self._normalize(pred_str) == self._normalize(ref_str):
+                    return True
+        return False
 
 
 class WordSortRatio(AccuracyBase):

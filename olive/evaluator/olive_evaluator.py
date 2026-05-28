@@ -743,6 +743,9 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         output_names = io_config["output_names"]
         is_single_tensor_output = len(output_names) == 1
 
+        # Note: This assumes the model produces the full answer in a single forward pass
+        # (e.g., classification-style VQA models). For autoregressive generation models,
+        # use the PyTorch evaluator with a generation loop in post_func instead.
         for batch in dataloader:
             input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
             input_feed = format_data(input_data, io_config)
