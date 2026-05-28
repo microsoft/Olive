@@ -15,7 +15,14 @@ from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine
-from olive.engine.config import EngineConfig, RunPassConfig
+from olive.engine.config import (
+    BUILD_DEFAULT_KEY,
+    BuildConfig,
+    BuildConfigPartial,
+    EngineConfig,
+    RunPassConfig,
+    merge_build_default,
+)
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
@@ -146,6 +153,44 @@ class RunConfig(NestedConfig):
         ),
     )
     passes: dict[str, list[RunPassConfig]] = Field(default_factory=dict, description="Pass configurations.")
+    builds: dict[str, BuildConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Build configurations. Each entry declares an independent execution unit (a pipeline of passes optionally"
+            " scoped to a subset of input model components and overriding host/target/evaluator). The reserved"
+            " ``_default`` key holds partial defaults that are merged into every sibling build (sibling values fully"
+            " replace defaults; no deep merge). When ``builds`` is omitted, the workflow behaves as before and runs the"
+            " ``passes`` dict as a single implicit pipeline in its declared order."
+        ),
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def expand_build_defaults(cls, values):
+        """Pop ``builds._default`` and merge its partial fields into every sibling build."""
+        if values is None:
+            return {}
+        if not isinstance(values, dict):
+            return values
+        builds = values.get("builds")
+        if not builds or not isinstance(builds, dict):
+            return values
+        default_raw = builds.pop(BUILD_DEFAULT_KEY, None)
+        if default_raw is None:
+            return values
+        # validate default as partial schema (catches unknown keys / wrong types early)
+        default_partial = BuildConfigPartial.model_validate(default_raw).model_dump(exclude_none=True)
+        if not default_partial:
+            # `_default: {}` is a no-op
+            return values
+        if BUILD_DEFAULT_KEY in default_partial:
+            raise ValueError(f"Nested {BUILD_DEFAULT_KEY!r} inside builds._default is not allowed.")
+        for name, sibling in list(builds.items()):
+            if not isinstance(sibling, dict):
+                continue
+            builds[name] = merge_build_default(default_partial, sibling)
+        values["builds"] = builds
+        return values
 
     @model_validator(mode="before")
     @classmethod
@@ -182,6 +227,34 @@ class RunConfig(NestedConfig):
                 systems = self.systems
                 if systems:
                     _validate_python_environment_path(systems)
+        return self
+
+    @model_validator(mode="after")
+    def validate_builds_references(self):  # noqa: N804  # model_validator mode="after" uses self
+        """Verify each build's pipeline / host / target / evaluator references resolve to a known entry."""
+        if not self.builds:
+            return self
+        pass_names = set(self.passes or {})
+        system_names = set(self.systems or {})
+        evaluator_names = set(self.evaluators or {})
+        for build_name, build in self.builds.items():
+            for pass_ref in build.pipeline:
+                if pass_ref not in pass_names:
+                    raise ValueError(
+                        f"Build {build_name!r} pipeline references unknown pass {pass_ref!r}."
+                        f" Known passes: {sorted(pass_names)}."
+                    )
+            for field_name, registry, registry_label in (
+                ("host", system_names, "systems"),
+                ("target", system_names, "systems"),
+                ("evaluator", evaluator_names, "evaluators"),
+            ):
+                value = getattr(build, field_name)
+                if isinstance(value, str) and value not in registry:
+                    raise ValueError(
+                        f"Build {build_name!r} {field_name} references unknown entry {value!r}."
+                        f" Known {registry_label}: {sorted(registry)}."
+                    )
         return self
 
     @field_validator("data_configs", mode="before")
