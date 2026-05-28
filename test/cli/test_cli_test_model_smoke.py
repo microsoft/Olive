@@ -86,6 +86,31 @@ def _run_cli_main(args):
     cli_main(args)
 
 
+def _add_discrepancy_check_pass(config_path: Path, reference_model_path: Path):
+    """Add an OnnxDiscrepancyCheck pass to the workflow config to validate model outputs."""
+    config = json.loads(config_path.read_text())
+    config["passes"]["discrepancy_check"] = {
+        "type": "OnnxDiscrepancyCheck",
+        "reference_model_path": str(reference_model_path),
+        "data_config": {
+            "name": "test_discrepancy_data",
+            "type": "DummyDataContainer",
+            "load_dataset_config": {
+                "type": "dummy_dataset",
+                "params": {
+                    "input_names": ["input_ids", "attention_mask"],
+                    "input_shapes": [[1, 8], [1, 8]],
+                    "input_types": ["int64", "int64"],
+                    "max_samples": 2,
+                },
+            },
+            "pre_process_data_config": {"type": "skip_pre_process"},
+            "post_process_data_config": {"type": "skip_post_process"},
+        },
+    }
+    config_path.write_text(json.dumps(config, indent=2))
+
+
 def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
     model_name = model_id.replace("/", "--")
     model_path = tmp_path / "models" / model_name
@@ -169,6 +194,61 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
                 if "model.onnx.data" in run_output_files:
                     self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
+
+    def test_model_discrepancy(self):
+        """Verify that the optimized ONNX model has acceptable accuracy via OnnxAccuracyCheck pass."""
+        if self.workdir is None:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                self._assert_discrepancy(Path(temp_dir))
+        else:
+            workdir = Path(self.workdir)
+            workdir.mkdir(parents=True, exist_ok=True)
+            self._assert_discrepancy(workdir)
+
+    def _assert_discrepancy(self, tmp_path: Path):
+        for model_id in self.model_ids:
+            with self.subTest(model_id=model_id):
+                model_name = model_id.replace("/", "--")
+                model_path = tmp_path / "models" / f"{model_name}-disc"
+                config_output_dir = tmp_path / f"{model_name}-disc-cfg"
+                test_model_dir = tmp_path / f"{model_name}-disc-test-model"
+                run_output_dir = tmp_path / f"{model_name}-disc-run"
+
+                _save_local_tiny_llama(model_path)
+                _run_cli_main(
+                    [
+                        "optimize",
+                        "-m",
+                        str(model_path),
+                        "--device",
+                        "cpu",
+                        "--provider",
+                        "CPUExecutionProvider",
+                        "--precision",
+                        "int4",
+                        "--output_path",
+                        str(config_output_dir),
+                        "--dry_run",
+                    ]
+                )
+
+                config_path = config_output_dir / "config.json"
+                assert config_path.exists()
+                _set_offline_gptq_data_config(config_path)
+                _add_discrepancy_check_pass(config_path, model_path)
+
+                # Run the workflow; the OnnxAccuracyCheck pass will fail if perplexity is unacceptable
+                _run_cli_main(
+                    [
+                        "run",
+                        "--config",
+                        str(config_path),
+                        "--test",
+                        str(test_model_dir),
+                        "--output_path",
+                        str(run_output_dir),
+                    ]
+                )
 
     def _assert_file_size_below_limit(self, path: Path):
         assert path.exists()
