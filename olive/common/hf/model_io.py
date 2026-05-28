@@ -27,6 +27,7 @@ def get_model_io_config(
     model_name: str,
     task: str,
     model: Optional["PreTrainedModel"] = None,
+    test_model_config: Optional[dict[str, Any]] = None,
     **kwargs,
 ) -> Optional[dict[str, Any]]:
     """Get the input/output config for the model and task.
@@ -35,6 +36,7 @@ def get_model_io_config(
         model_name: The model name or path.
         task: The task type (e.g., "text-generation", "text-classification").
         model: Optional loaded model for input signature inspection.
+        test_model_config: Optional overrides for creating a lightweight random test model from the same config.
         **kwargs: Additional arguments including use_cache.
 
     Returns:
@@ -68,7 +70,7 @@ def get_model_io_config(
         return None
 
     # Get model config
-    model_config = get_model_config(model_name, **kwargs)
+    model_config = get_model_config(model_name, test_model_config=test_model_config, **kwargs)
 
     # Handle PEFT models
     actual_model = model
@@ -92,6 +94,7 @@ def get_model_dummy_input(
     model_name: str,
     task: str,
     model: Optional["PreTrainedModel"] = None,
+    test_model_config: Optional[dict[str, Any]] = None,
     **kwargs,
 ) -> Optional[dict[str, Any]]:
     """Get dummy inputs for the model and task.
@@ -100,6 +103,7 @@ def get_model_dummy_input(
         model_name: The model name or path.
         task: The task type.
         model: Optional loaded model for input signature inspection.
+        test_model_config: Optional overrides for creating a lightweight random test model from the same config.
         **kwargs: Additional arguments including use_cache, batch_size, sequence_length.
 
     Returns:
@@ -133,7 +137,7 @@ def get_model_dummy_input(
         return None
 
     # Get model config (handles MLflow paths)
-    model_config = get_model_config(model_name, **kwargs)
+    model_config = get_model_config(model_name, test_model_config=test_model_config, **kwargs)
 
     # Handle PEFT models
     actual_model = model
