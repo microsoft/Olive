@@ -604,7 +604,7 @@
             "module_path": "olive.passes.pytorch.kquant.KQuant",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "int2", "int4", "int8", "uint2", "uint4", "uint8" ],
+            "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
             "supported_algorithms": [ "kquant" ],
             "supported_quantization_encodings": [  ]
         },
@@ -621,7 +621,7 @@
             "module_path": "olive.passes.pytorch.rtn.Rtn",
             "supported_providers": [ "*" ],
             "supported_accelerators": [ "*" ],
-            "supported_precisions": [ "int2", "int4", "int8", "uint2", "uint4", "uint8" ],
+            "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
             "supported_algorithms": [ "rtn" ],
             "supported_quantization_encodings": [  ]
         },
