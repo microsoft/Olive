@@ -98,6 +98,7 @@ class OnnxDiscrepancyCheck(Pass):
                 input_shapes, io_config.get("input_names"), io_config.get("input_types")
             )
             data_config = validate_config(data_config, DataConfig)
+            data_config.load_dataset_config.params["max_samples"] = 1
         else:
             raise RuntimeError(f"No data_config provided and model IO config is not static, io_config={io_config}")
 
