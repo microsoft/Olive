@@ -213,7 +213,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 assert config_path.exists()
                 _set_offline_gptq_data_config(config_path)
 
-                # Run with --test; OnnxDiscrepancyCheck is auto-injected and validates output quality
+                # Run with --test; OnnxDiscrepancyCheck is auto-injected and reports discrepancy metrics (fails only if thresholds are configured)
                 _run_cli_main(
                     [
                         "run",
