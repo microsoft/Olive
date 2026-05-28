@@ -114,9 +114,7 @@ class OnnxDiscrepancyCheck(Pass):
         ref_model.eval()
 
         # Prepare ONNX session
-        import onnxruntime as ort
-
-        session = ort.InferenceSession(model.model_path)
+        session = model.prepare_session()
         io_config = model.io_config
 
         # Run inference on both and compare
