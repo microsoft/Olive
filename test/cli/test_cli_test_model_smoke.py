@@ -86,31 +86,6 @@ def _run_cli_main(args):
     cli_main(args)
 
 
-def _add_discrepancy_check_pass(config_path: Path, reference_model_path: Path):
-    """Add an OnnxDiscrepancyCheck pass to the workflow config to validate model outputs."""
-    config = json.loads(config_path.read_text())
-    config["passes"]["discrepancy_check"] = {
-        "type": "OnnxDiscrepancyCheck",
-        "reference_model_path": str(reference_model_path),
-        "data_config": {
-            "name": "test_discrepancy_data",
-            "type": "DummyDataContainer",
-            "load_dataset_config": {
-                "type": "dummy_dataset",
-                "params": {
-                    "input_names": ["input_ids", "attention_mask"],
-                    "input_shapes": [[1, 8], [1, 8]],
-                    "input_types": ["int64", "int64"],
-                    "max_samples": 2,
-                },
-            },
-            "pre_process_data_config": {"type": "skip_pre_process"},
-            "post_process_data_config": {"type": "skip_post_process"},
-        },
-    }
-    config_path.write_text(json.dumps(config, indent=2))
-
-
 def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
     model_name = model_id.replace("/", "--")
     model_path = tmp_path / "models" / model_name
@@ -196,7 +171,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
                     self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
 
     def test_model_discrepancy(self):
-        """Verify that the optimized ONNX model has acceptable accuracy via OnnxAccuracyCheck pass."""
+        """Verify that the optimized ONNX model has acceptable discrepancy via OnnxDiscrepancyCheck pass."""
         if self.workdir is None:
             with tempfile.TemporaryDirectory() as temp_dir:
                 self._assert_discrepancy(Path(temp_dir))
@@ -235,9 +210,8 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 config_path = config_output_dir / "config.json"
                 assert config_path.exists()
                 _set_offline_gptq_data_config(config_path)
-                _add_discrepancy_check_pass(config_path, model_path)
 
-                # Run the workflow; the OnnxAccuracyCheck pass will fail if perplexity is unacceptable
+                # Run with --test; OnnxDiscrepancyCheck is auto-injected and validates output quality
                 _run_cli_main(
                     [
                         "run",
