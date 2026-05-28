@@ -14,7 +14,7 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-class VitisGenerateModelLLM(Pass):
+class RyzenGenerateModelLLM(Pass):
     """Olive pass for generating optimized NPU/Hybrid models using AMD Vitis toolchain.
 
     Uses model_generate v2 API which wraps onnx_utils optimize.
