@@ -172,6 +172,7 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
 
     cli_main(command_args)
 
+    test_model_path = str(tmp_path / "output" / "test_model")
     mock_run.assert_called_once_with(
         {
             "input_model": {
@@ -179,9 +180,15 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
                 "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
                 "test_model_config": {"hidden_layers": 2},
-                "test_model_path": str(tmp_path / "output" / "test_model"),
+                "test_model_path": test_model_path,
             },
             "output_dir": str(tmp_path / "output"),
+            "passes": {
+                "discrepancy_check": {
+                    "type": "OnnxDiscrepancyCheck",
+                    "reference_model_path": test_model_path,
+                }
+            },
         },
         list_required_packages=False,
         package_config=None,
