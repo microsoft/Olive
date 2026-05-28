@@ -281,9 +281,12 @@ class KQuant(Pass):
         wrapper, qcfg, retie_word_embeddings = prepare_model(model, config, allow_quantized=True)
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        for _name, module in wrapper.model.named_modules():
-            if not hasattr(module, "quant_info"):
-                continue
+        from tqdm.auto import tqdm
+
+        modules = [(name, m) for name, m in wrapper.model.named_modules() if hasattr(m, "quant_info")]
+        pbar = tqdm(modules, desc="Quantizing modules")
+        for name, module in pbar:
+            pbar.set_postfix(module=name, refresh=False)
             quantizer = module.quant_info.quantizer
 
             weight = module.weight.data.to(device)
@@ -300,5 +303,6 @@ class KQuant(Pass):
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+        pbar.close()
 
         return finalize(model, output_model_path, wrapper, qcfg, device, retie_word_embeddings=retie_word_embeddings)
