@@ -173,7 +173,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
                     self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
 
     def test_model_discrepancy(self):
-        """Verify that the optimized ONNX model has acceptable discrepancy via OnnxDiscrepancyCheck pass."""
+        """Verify that OnnxDiscrepancyCheck runs successfully when auto-injected via --test."""
         if self.workdir is None:
             with tempfile.TemporaryDirectory() as temp_dir:
                 self._assert_discrepancy(Path(temp_dir))
