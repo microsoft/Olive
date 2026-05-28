@@ -81,6 +81,21 @@ def add_discrepancy_check_pass(run_config: dict) -> dict:
     passes["discrepancy_check"] = {
         "type": "OnnxDiscrepancyCheck",
         "reference_model_path": reference_model_path,
+        "data_config": {
+            "name": "discrepancy_check_data",
+            "type": "DummyDataContainer",
+            "load_dataset_config": {
+                "type": "dummy_dataset",
+                "params": {
+                    "input_names": ["input_ids", "attention_mask"],
+                    "input_shapes": [[1, 8], [1, 8]],
+                    "input_types": ["int64", "int64"],
+                    "max_samples": 2,
+                },
+            },
+            "pre_process_data_config": {"type": "skip_pre_process"},
+            "post_process_data_config": {"type": "skip_post_process"},
+        },
     }
     run_config["passes"] = passes
     return run_config
