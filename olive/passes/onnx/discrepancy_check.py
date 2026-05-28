@@ -23,7 +23,19 @@ def _infer_shape(dynamic_shape, known_values=None):
     }
     if known_values:
         default_values.update(known_values)
-    return tuple(d if isinstance(d, int) else default_values[d] for d in dynamic_shape)
+    inferred_shape = []
+    for dim in dynamic_shape:
+        if isinstance(dim, int):
+            inferred_shape.append(dim)
+            continue
+        if dim not in default_values:
+            raise KeyError(
+                f"Unsupported symbolic dimension '{dim}' in shape {dynamic_shape}. "
+                f"Known symbols are: {sorted(default_values)}. "
+                "Update OnnxDiscrepancyCheck to handle this new case."
+            )
+        inferred_shape.append(default_values[dim])
+    return tuple(inferred_shape)
 
 
 class OnnxDiscrepancyCheck(Pass):
