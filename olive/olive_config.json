@@ -303,11 +303,11 @@
         },
         "OnnxDiscrepancyCheck": {
             "module_path": "olive.passes.onnx.discrepancy_check.OnnxDiscrepancyCheck",
-            "supported_providers": ["*"],
-            "supported_accelerators": ["*"],
-            "supported_precisions": ["*"],
-            "supported_algorithms": [],
-            "supported_quantization_encodings": []
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [ ],
+            "supported_quantization_encodings": [ ]
         },
         "OnnxDynamicQuantization": {
             "module_path": "olive.passes.onnx.quantization.OnnxDynamicQuantization",

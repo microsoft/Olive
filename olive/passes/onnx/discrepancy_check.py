@@ -76,7 +76,6 @@ class OnnxDiscrepancyCheck(Pass):
 
         from olive.common.config_utils import validate_config
         from olive.common.utils import format_data
-        from olive.data.config import DataConfig
         from olive.data.template import dummy_data_config_template
         from olive.model.config.io_config import is_io_config_static
 
