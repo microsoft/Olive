@@ -108,7 +108,15 @@ class OnnxDiscrepancyCheck(Pass):
         dataloader = dc.create_dataloader()
 
         # Load reference PyTorch model
-        from transformers import AutoModelForCausalLM
+        from transformers import AutoConfig, AutoModelForCausalLM
+
+        ref_cfg = AutoConfig.from_pretrained(config.reference_model_path)
+        architectures = getattr(ref_cfg, "architectures", None) or []
+        if not any("ForCausalLM" in arch for arch in architectures):
+            raise ValueError(
+                "OnnxDiscrepancyCheck currently supports only HuggingFace causal language models (ForCausalLM). "
+                f"Got architectures={architectures}"
+            )
 
         ref_model = AutoModelForCausalLM.from_pretrained(config.reference_model_path)
         ref_model.eval()
