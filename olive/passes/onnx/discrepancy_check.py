@@ -135,8 +135,7 @@ class OnnxDiscrepancyCheck(Pass):
                     torch_inputs = input_data
 
                 torch_output = ref_model(**torch_inputs)
-                torch_logits = torch_output.logits.numpy()
-
+                torch_logits = torch_output.logits.detach().cpu().numpy()
                 # Run ONNX inference
                 onnx_input_feed = format_data(input_data, io_config)
                 onnx_outputs = session.run(None, onnx_input_feed)
