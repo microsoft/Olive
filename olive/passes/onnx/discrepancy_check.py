@@ -100,8 +100,9 @@ class OnnxDiscrepancyCheck(Pass):
             data_config = validate_config(data_config, DataConfig)
             data_config.load_dataset_config.params["max_samples"] = 1
         else:
-            raise RuntimeError(f"No data_config provided and model IO config is not static, io_config={io_config}")
-
+            raise RuntimeError(
+                f"Model IO config is missing for {model.model_path}; cannot generate dummy inputs for discrepancy check."
+            )
         # Create dataloader
         dc = data_config.to_data_container()
         dataloader = dc.create_dataloader()
