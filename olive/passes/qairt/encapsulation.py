@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 # --------------------------------------------------------------------------
 
+import inspect
 import logging
 import os
 from pathlib import Path
@@ -17,6 +18,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, QairtModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
+from olive.passes.qairt.gen_ai_builder import QairtBackend
 from olive.passes.qairt.utils import QairtLogLevel
 
 logger = logging.getLogger(__name__)
@@ -64,6 +66,11 @@ class QairtEncapsulation(Pass):
                 required=False,
                 description="Opset name and version to be added in the generated context model",
             ),
+            "backend": PassConfigParam(
+                type_=QairtBackend,
+                default_value=QairtBackend.HTP,
+                description="Target accelerator backend for the DLC being encapsulated. Accepted values are 'CPU' and 'HTP'.",
+            ),
             "genie_overrides": PassConfigParam(
                 type_=dict,
                 default_value=None,
@@ -79,7 +86,7 @@ class QairtEncapsulation(Pass):
                     "positional_encoding.rope_theta to override RoPE theta in the DLC."
                 ),
             ),
-            "backend_extensions_override": PassConfigParam(
+            "backend_extensions_overrides": PassConfigParam(
                 type_=dict,
                 default_value=None,
                 required=False,
@@ -92,7 +99,32 @@ class QairtEncapsulation(Pass):
                     "extensions config, the override is used as the entire config."
                 ),
             ),
+            "htp_execution_overrides": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                required=False,
+                description=(
+                    "HTP deployment parameters passed to LLMContainer.export() as an "
+                    "HTPExecutionConfig. Dict keys map directly to HTPExecutionConfig fields: "
+                    "cpu_mask, n_threads, use_mmap, spill_fill_bufsize, mmap_budget, "
+                    "pos_id_dim, kv_update_method, allow_async_init, enable_graph_switching. "
+                    "Requires backend='HTP'. Ignored with a warning if the installed qairt "
+                    "does not support htp_execution_config in LLMContainer.export() "
+                    "(requires qairt-dev with AISW-184594)."
+                ),
+            ),
         }
+
+    @classmethod
+    def validate_config(
+        cls,
+        config: type[BasePassConfig],
+        accelerator_spec: AcceleratorSpec,
+    ) -> bool:
+        if config.htp_execution_overrides and config.backend != QairtBackend.HTP:
+            logger.error("htp_execution_overrides is unsupported on non-HTP backends")
+            return False
+        return True
 
     def _run_for_config(
         self,
@@ -120,17 +152,38 @@ class QairtEncapsulation(Pass):
         container: qairt_genai.LLMContainer = qairt_genai.LLMContainer.load(model.model_path)
 
         if config.genie_overrides:
-            gen_ai_cfg = container._gen_ai_config
-            current = gen_ai_cfg.model_dump(mode="json", by_alias=False, exclude_none=True)
-            merged = _deep_merge(current, config.genie_overrides)
-            container._gen_ai_config = gen_ai_cfg.model_validate(merged)
-            logger.info("Applied genie_overrides to GenAIConfig: %s", list(config.genie_overrides.keys()))
+            if hasattr(container, "_gen_ai_config"):
+                gen_ai_cfg = container._gen_ai_config
+                current = gen_ai_cfg.model_dump(mode="json", by_alias=False, exclude_none=True)
+                merged = _deep_merge(current, config.genie_overrides)
+                container._gen_ai_config = gen_ai_cfg.model_validate(merged)
+                logger.info("Applied genie_overrides to GenAIConfig: %s", list(config.genie_overrides.keys()))
+            else:
+                logger.warning("genie_overrides ignored: _gen_ai_config not found in installed qairt version")
 
-        if config.backend_extensions_override:
-            container._backend_extensions_config = _deep_merge(
-                container._backend_extensions_config or {}, config.backend_extensions_override
-            )
-            logger.info("Applied backend_extensions_override: %s", list(config.backend_extensions_override.keys()))
+        if config.backend_extensions_overrides:
+            if hasattr(container, "_backend_extensions_config"):
+                container._backend_extensions_config = _deep_merge(
+                    container._backend_extensions_config or {}, config.backend_extensions_overrides
+                )
+                logger.info(
+                    "Applied backend_extensions_overrides: %s", list(config.backend_extensions_overrides.keys())
+                )
+            else:
+                logger.warning(
+                    "backend_extensions_overrides ignored: _backend_extensions_config not found in installed qairt version"
+                )
+
+        export_kwargs = {"export_format": qairt.ExportFormat.LM_EXECUTOR}
+        if config.htp_execution_overrides:
+            htp_exec_cfg = qairt_genai.HTPExecutionConfig(**config.htp_execution_overrides)
+            if "htp_execution_config" in inspect.signature(container.export).parameters:
+                export_kwargs["htp_execution_config"] = htp_exec_cfg
+            else:
+                logger.warning(
+                    "htp_execution_overrides ignored: installed qairt does not support "
+                    "htp_execution_config in LLMContainer.export()"
+                )
 
         # Input/Output metadata
         container.inputs = [("input_ids", TensorProto.INT32, ["batch_size", "sequence_length"])]
@@ -149,7 +202,7 @@ class QairtEncapsulation(Pass):
         for name, datatype, shape in container.outputs:
             outputs.append(helper.make_tensor_value_info(name, datatype, shape))
 
-        container.export(output_model_path, export_format=qairt.ExportFormat.LM_EXECUTOR)
+        container.export(output_model_path, **export_kwargs)
 
         # Find the .dlc file in the output directory
         output_path_obj = Path(output_model_path)
