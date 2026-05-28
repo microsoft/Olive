@@ -32,7 +32,7 @@ class OnnxDiscrepancyCheck(Pass):
     This pass does not transform the model. It runs inference on both the
     ONNX model and a reference PyTorch/HuggingFace model with the same inputs,
     then compares outputs element-wise. It reports:
-    - Maximum absolute error (MAE)
+    - Maximum absolute error (MaxAE)
     - Number of elements where the absolute difference exceeds 0.1
     - Number of elements where the absolute difference exceeds 0.01
 
