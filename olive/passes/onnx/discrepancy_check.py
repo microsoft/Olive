@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Optional, Union
+from typing import Optional
 
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
