@@ -567,8 +567,6 @@ class TestVisionMetricValidation:
 
     def _make_vision_metric(self, sub_type_names, task=None):
         """Create a metric with vision sub-types and optional task param."""
-        from unittest.mock import MagicMock
-
         metric = MagicMock()
         metric.type = MetricType.ACCURACY
         metric.sub_types = [MagicMock(name=n) for n in sub_type_names]
