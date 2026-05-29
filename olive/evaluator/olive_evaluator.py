@@ -126,8 +126,14 @@ def _validate_vision_task_metric(metric: "Metric") -> None:
         # Extract task from pre_process_data_config params, which is how HuggingfaceContainer
         # maps task types (e.g., "vision-vqa", "vision-chart-qa", "vision-ocr") to components.
         pre_process_config = metric.data_config.pre_process_data_config
-        if pre_process_config and pre_process_config.params:
-            task_type = pre_process_config.params.get("task")
+        if pre_process_config:
+            if pre_process_config.params:
+                task_type = pre_process_config.params.get("task")
+            # Also try to infer task from the component type name if params don't specify it
+            if task_type is None and pre_process_config.type == "vision_vqa_pre_process":
+                # Default component is used but task param is missing; skip validation
+                # since we can't determine which specific vision task is intended
+                return
 
     if task_type is None:
         # No task type specified, allow any vision metric

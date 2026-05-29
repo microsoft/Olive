@@ -11,13 +11,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from olive.evaluator.metric import AccuracySubType, LatencySubType, ThroughputSubType
+from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricType, ThroughputSubType
 from olive.evaluator.olive_evaluator import (
     OliveEvaluator,
     OliveEvaluatorConfig,
     OnnxEvaluator,
     OpenVINOEvaluator,
     PyTorchEvaluator,
+    _is_vision_metric,
+    _validate_vision_task_metric,
 )
 from olive.exception import OliveEvaluationError
 from olive.hardware.accelerator import Device
@@ -558,3 +560,65 @@ class TestLMEvalORTGenAIChatTemplate:
             add_generation_prompt=False,
             continue_final_message=True,
         )
+
+
+class TestVisionMetricValidation:
+    """Tests for vision metric detection and task/metric validation."""
+
+    def _make_vision_metric(self, sub_type_names, task=None):
+        """Create a metric with vision sub-types and optional task param."""
+        from unittest.mock import MagicMock
+
+        metric = MagicMock()
+        metric.type = MetricType.ACCURACY
+        metric.sub_types = [MagicMock(name=n) for n in sub_type_names]
+        # MagicMock.name is special, set it explicitly
+        for st, name in zip(metric.sub_types, sub_type_names):
+            st.name = name
+
+        if task is not None:
+            metric.data_config.pre_process_data_config.type = "vision_vqa_pre_process"
+            metric.data_config.pre_process_data_config.params = {"task": task}
+        else:
+            metric.data_config = None
+        return metric
+
+    def test_is_vision_metric_with_exact_match(self):
+        metric = self._make_vision_metric(["exact_match"])
+        assert _is_vision_metric(metric) is True
+
+    def test_is_vision_metric_with_relaxed_accuracy(self):
+        metric = self._make_vision_metric(["relaxed_accuracy"])
+        assert _is_vision_metric(metric) is True
+
+    def test_is_vision_metric_with_word_sort_ratio(self):
+        metric = self._make_vision_metric(["word_sort_ratio"])
+        assert _is_vision_metric(metric) is True
+
+    def test_is_vision_metric_returns_false_for_standard(self):
+        metric = self._make_vision_metric(["accuracy_score"])
+        assert _is_vision_metric(metric) is False
+
+    def test_is_vision_metric_raises_on_mixed_subtypes(self):
+        with pytest.raises(ValueError, match="Cannot mix vision accuracy sub-types"):
+            _is_vision_metric(self._make_vision_metric(["exact_match", "accuracy_score"]))
+
+    def test_validate_vision_task_metric_compatible(self):
+        metric = self._make_vision_metric(["exact_match"], task="vision-vqa")
+        # Should not raise
+        _validate_vision_task_metric(metric)
+
+    def test_validate_vision_task_metric_incompatible(self):
+        metric = self._make_vision_metric(["exact_match"], task="vision-ocr")
+        with pytest.raises(ValueError, match="not compatible with task type"):
+            _validate_vision_task_metric(metric)
+
+    def test_validate_vision_task_metric_unknown_task(self):
+        metric = self._make_vision_metric(["exact_match"], task="unknown-task")
+        with pytest.raises(ValueError, match="Unknown vision task type"):
+            _validate_vision_task_metric(metric)
+
+    def test_validate_vision_task_metric_no_task_skips(self):
+        metric = self._make_vision_metric(["exact_match"])
+        # No task specified, should not raise
+        _validate_vision_task_metric(metric)

@@ -398,10 +398,10 @@ def vision_vqa_pre_process(
     Returns a dataset of ({"image": image, "question": question}, answer) pairs.
 
     Note: This returns raw PIL images and question strings. For the PyTorch evaluator,
-    the model's own processor/tokenizer should be applied in the post_func or within
-    the model's forward method. For the ONNX evaluator, provide a custom pre-process
-    component that applies the appropriate processor/tokenizer to produce numeric
-    tensors matching the model's io_config.
+    the model's own processor/tokenizer should be applied within the model's forward
+    method (or via a custom pre-process component). For the ONNX evaluator, provide a
+    custom pre-process component that applies the appropriate processor/tokenizer to
+    produce numeric tensors matching the model's io_config.
 
     Args:
         dataset: HuggingFace dataset with image, question, and answer columns.
@@ -460,7 +460,11 @@ def vision_vqa_pre_process(
 
         @staticmethod
         def collate_fn(batch):
-            """Collate VQA batches. Use with batch_size=1 for variable-size images."""
+            """Collate VQA batches. Use with batch_size=1 for variable-size images.
+
+            Note: answers are always strings at this point (list/tuple answers are
+            joined with "|" in __getitem__), so no list-of-lists issue arises.
+            """
             if len(batch) == 1:
                 input_dict, answer = batch[0]
                 return (input_dict, [answer])
