@@ -99,17 +99,19 @@ class QairtEncapsulation(Pass):
                     "extensions config, the override is used as the entire config."
                 ),
             ),
-            "htp_execution_overrides": PassConfigParam(
+            "engine_config_overrides": PassConfigParam(
                 type_=dict,
                 default_value=None,
                 required=False,
                 description=(
-                    "HTP deployment parameters passed to LLMContainer.export() as an "
-                    "HTPExecutionConfig. Dict keys map directly to HTPExecutionConfig fields: "
-                    "cpu_mask, n_threads, use_mmap, spill_fill_bufsize, mmap_budget, "
+                    "Engine deployment parameters passed to LLMContainer.export() as an "
+                    "EngineConfig. Top-level keys (n_threads) map to EngineConfig fields; "
+                    "HTP-specific keys go under a nested 'htp' dict mapping to HTPEngineConfig "
+                    "fields: cpu_mask, poll, use_mmap, spill_fill_bufsize, mmap_budget, "
                     "pos_id_dim, kv_update_method, allow_async_init, enable_graph_switching. "
+                    "Example: {'n_threads': 0, 'htp': {'cpu_mask': '0xe0', 'poll': False}}. "
                     "Requires backend='HTP'. Ignored with a warning if the installed qairt "
-                    "does not support htp_execution_config in LLMContainer.export() "
+                    "does not support engine_config in LLMContainer.export() "
                     "(requires qairt-dev with AISW-184594)."
                 ),
             ),
@@ -121,8 +123,8 @@ class QairtEncapsulation(Pass):
         config: type[BasePassConfig],
         accelerator_spec: AcceleratorSpec,
     ) -> bool:
-        if config.htp_execution_overrides and config.backend != QairtBackend.HTP:
-            logger.error("htp_execution_overrides is unsupported on non-HTP backends")
+        if config.engine_config_overrides and config.backend != QairtBackend.HTP:
+            logger.error("engine_config_overrides is unsupported on non-HTP backends")
             return False
         return True
 
@@ -175,14 +177,17 @@ class QairtEncapsulation(Pass):
                 )
 
         export_kwargs = {"export_format": qairt.ExportFormat.LM_EXECUTOR}
-        if config.htp_execution_overrides:
-            htp_exec_cfg = qairt_genai.HTPExecutionConfig(**config.htp_execution_overrides)
-            if "htp_execution_config" in inspect.signature(container.export).parameters:
-                export_kwargs["htp_execution_config"] = htp_exec_cfg
+        if config.engine_config_overrides:
+            overrides = config.engine_config_overrides
+            htp_overrides = overrides.pop("htp", None)
+            htp_cfg = qairt_genai.HTPEngineConfig(**htp_overrides) if htp_overrides else None
+            engine_cfg = qairt_genai.EngineConfig(**overrides, htp=htp_cfg)
+            if "engine_config" in inspect.signature(container.export).parameters:
+                export_kwargs["engine_config"] = engine_cfg
             else:
                 logger.warning(
-                    "htp_execution_overrides ignored: installed qairt does not support "
-                    "htp_execution_config in LLMContainer.export()"
+                    "engine_config_overrides ignored: installed qairt does not support "
+                    "engine_config in LLMContainer.export() (requires qairt-dev with AISW-184594)"
                 )
 
         # Input/Output metadata
