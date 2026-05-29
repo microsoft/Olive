@@ -600,6 +600,14 @@
             "run_on_target": true,
             "extra_dependencies": [ "amd-quark" ]
         },
+        "KQuant": {
+            "module_path": "olive.passes.pytorch.kquant.KQuant",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
+            "supported_algorithms": [ "kquant" ],
+            "supported_quantization_encodings": [  ]
+        },
         "QuaRot": {
             "module_path": "olive.passes.pytorch.rotate.QuaRot",
             "supported_providers": [ "*" ],
