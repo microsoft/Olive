@@ -12,6 +12,7 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 - [how to use the `olive finetune` command to create (Q)LoRA adapters](cli/cli-finetune)
 - [How to use the `olive quantize` command to quantize your model with different precisions and techniques such as AWQ](cli/cli-quantize)
 - [How to use the `olive run` command to execute an Olive workflow.](cli/cli-run)
+- [How to convert a Qwen model with a quick `--test` fast check](cli/cli-fast-test)
 
 # Olive Python API
 
@@ -43,6 +44,7 @@ The Olive CLI provides a set of primitives such as `quantize`, `finetune`, `onnx
 
 installation
 cli/cli-optimize
+cli/cli-fast-test
 cli/cli-auto-opt
 cli/cli-finetune
 cli/cli-quantize

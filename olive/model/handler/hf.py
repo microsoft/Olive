@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 @model_handler_registry("HFModel")
 class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):  # pylint: disable=too-many-ancestors
-    resource_keys: tuple[str, ...] = ("model_path", "adapter_path")
-    json_config_keys: tuple[str, ...] = ("task", "load_kwargs")
+    resource_keys: tuple[str, ...] = ("model_path", "adapter_path", "test_model_path")
+    json_config_keys: tuple[str, ...] = ("task", "load_kwargs", "test_model_config")
 
     def __init__(
         self,
@@ -37,6 +37,8 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         load_kwargs: Union[dict[str, Any], HfLoadKwargs] = None,
         io_config: Union[dict[str, Any], IoConfig, str] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        test_model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        test_model_config: Optional[dict[str, Any]] = None,
         model_attributes: Optional[dict[str, Any]] = None,
     ):
         super().__init__(
@@ -48,6 +50,7 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         self.add_resources(locals())
         self.task = task
         self.load_kwargs = validate_config(load_kwargs, HfLoadKwargs, warn_unused_keys=False) if load_kwargs else None
+        self.test_model_config = test_model_config
 
         self.model_attributes = {**self.get_hf_model_config().to_dict(), **(self.model_attributes or {})}
 
@@ -67,12 +70,23 @@ class HfModelHandler(PyTorchModelHandlerBase, MLFlowTransformersMixin, HfMixin):
         """Return the path to the peft adapter."""
         return self.get_resource("adapter_path")
 
+    @property
+    def test_model_path(self) -> str:
+        """Return the optional path to a persisted lightweight test model."""
+        return self.get_resource("test_model_path")
+
     def load_model(self, rank: int = None, cache_model: bool = True) -> "torch.nn.Module":
         """Load the model from the model path."""
         if self.model:
             model = self.model
         else:
-            model = load_model_from_task(self.task, self.model_path, **self.get_load_kwargs())
+            model = load_model_from_task(
+                self.task,
+                self.model_path,
+                test_model_config=self.test_model_config,
+                test_model_path=self.test_model_path,
+                **self.get_load_kwargs(),
+            )
 
             # we only have peft adapters for now
             if self.adapter_path:
