@@ -515,6 +515,23 @@ class Prefill:
 class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
     """Evaluate a model using ONNX Runtime GenAI."""
 
+    _ORT_GENAI_PROVIDER_NAMES = {
+        "cpu": "CPU",
+        "cuda": "cuda",
+        "dml": "DML",
+        "openvino": "OpenVINO",
+        "qnn": "QNN",
+        "vitisai": "VitisAI",
+        "webgpu": "WebGPU",
+        "nvtensorrtrtx": "NvTensorRtRtx",
+    }
+
+    @classmethod
+    def _normalize_provider_name(cls, ep: str) -> tuple[str, str]:
+        """Return the normalized Olive EP key and the provider name expected by ORT GenAI."""
+        normalized_ep = str(ep).lower().replace("executionprovider", "")
+        return normalized_ep, cls._ORT_GENAI_PROVIDER_NAMES.get(normalized_ep, normalized_ep)
+
     def __init__(
         self,
         pretrained: str,
@@ -541,12 +558,14 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
 
         self.config = og.Config(pretrained)
         if ep != "follow_config":
-            ep = ep.lower().replace("executionprovider", "")
+            # Accept Olive-style EP names from recipes while calling ORT GenAI with
+            # the provider names used in genai_config.json/session options.
+            ep, provider_name = self._normalize_provider_name(ep)
             self.config.clear_providers()
             if ep != "cpu":
-                self.config.append_provider(ep)
+                self.config.append_provider(provider_name)
             for key, value in (ep_options or {}).items():
-                self.config.set_provider_option(ep, key, value)
+                self.config.set_provider_option(provider_name, key, value)
         self.model = og.Model(self.config)
         self.tokenizer = og.Tokenizer(self.model)
         self._pretrained = str(pretrained)
@@ -568,10 +587,16 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             # and first/scalar for loglikelihood (TemplateLM.eot_token_id expects int).
             self._eos_token_ids = list(eot) if isinstance(eot, list) else [eot]
             self._eot_token_id = self._eos_token_ids[0]
+            # Mirror the exported GenAI cache-sharing setting when creating GeneratorParams.
+            # Artifacts with shared past/present buffers require the same search option at runtime.
+            self._past_present_share_buffer = genai_config["search"].get("past_present_share_buffer", False)
         self.params = og.GeneratorParams(self.model)
-        self.params.set_search_options(max_length=self.max_length, past_present_share_buffer=False)
+        self.params.set_search_options(
+            max_length=self.max_length,
+            past_present_share_buffer=self._past_present_share_buffer,
+        )
 
-        self.device = device
+        self._device = device
         self._returns_full_logits = self._detect_full_logits()
 
     @property
@@ -593,7 +618,11 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         try:
             dummy_len = 3
             params = og.GeneratorParams(self.model)
-            params.set_search_options(max_length=self.max_length, past_present_share_buffer=False, batch_size=1)
+            params.set_search_options(
+                max_length=self.max_length,
+                past_present_share_buffer=self._past_present_share_buffer,
+                batch_size=1,
+            )
             generator = og.Generator(self.model, params)
             dummy_ids = [[self._eot_token_id] * dummy_len]
             generator.append_tokens(dummy_ids)
@@ -671,7 +700,7 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
             params = og.GeneratorParams(self.model)
             params.set_search_options(
                 max_length=len(input_ids) + max_new_tokens,
-                past_present_share_buffer=False,
+                past_present_share_buffer=self._past_present_share_buffer,
                 batch_size=1,
             )
             if gen_kwargs.get("temperature", 0.0) == 0.0:

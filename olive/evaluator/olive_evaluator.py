@@ -1731,6 +1731,9 @@ class LMEvaluator(OliveEvaluator):
         self.model_class = kwargs.get("model_class")
         self.batch_size = kwargs.get("batch_size", 1)
         self.max_length = kwargs.get("max_length")
+        # Preserve lm-eval bootstrap control from recipe configs. Some generation metrics disable
+        # bootstrap stderr resampling to avoid extra post-processing work on large test sets.
+        self.bootstrap_iters = kwargs.get("bootstrap_iters", 100000)
         self.ep = kwargs.get("execution_provider")
         self.ep_options = kwargs.get("provider_options")
         self.device = kwargs.get("device")
@@ -1813,6 +1816,8 @@ class LMEvaluator(OliveEvaluator):
                 batch_size=self.batch_size,
                 device=device,
                 limit=self.limit,
+                # Forward the configured value instead of letting lm-eval silently use its default.
+                bootstrap_iters=self.bootstrap_iters,
             )
 
             for task_name in sorted(results["results"].keys()):
