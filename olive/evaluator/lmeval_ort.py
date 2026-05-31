@@ -8,6 +8,7 @@ import json
 import logging
 from abc import abstractmethod
 from pathlib import Path
+from typing import ClassVar
 
 import torch
 import torch.nn.functional as F
@@ -515,7 +516,7 @@ class Prefill:
 class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
     """Evaluate a model using ONNX Runtime GenAI."""
 
-    _ORT_GENAI_PROVIDER_NAMES = {
+    _ORT_GENAI_PROVIDER_NAMES: ClassVar[dict[str, str]] = {
         "cpu": "CPU",
         "cuda": "cuda",
         "dml": "DML",
@@ -662,10 +663,10 @@ class LMEvalORTGenAIEvaluator(LMEvalOnnxBase):
         n_logits = max(cont_len, 1)
         prefix_len = seq_len - n_logits
         generator.append_tokens(input_ids[:, : prefix_len + 1].tolist())
-        all_logits = [torch.from_numpy(generator.get_logits()).to(self.device)]
+        all_logits = [torch.from_numpy(generator.get_logits()).to(self._device)]
         for i in range(prefix_len + 1, seq_len):
             generator.append_tokens(input_ids[:, i : i + 1].tolist())
-            all_logits.append(torch.from_numpy(generator.get_logits()).to(self.device))
+            all_logits.append(torch.from_numpy(generator.get_logits()).to(self._device))
 
         # No need to pad to [batch, seq_len, vocab]. The slicing in _loglikelihood_tokens computes
         # ctx_len = inplen + (logits.shape[0] - padding_len_inp), which adjusts for the shorter
