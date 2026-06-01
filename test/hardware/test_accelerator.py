@@ -457,9 +457,7 @@ def test_normalize_accelerators_requires_runtime_webgpu_when_target_used(get_ava
         {
             "type": "LocalSystem",
             "config": {
-                "accelerators": [
-                    {"device": "gpu", "execution_providers": [ExecutionProvider.WebGpuExecutionProvider]}
-                ]
+                "accelerators": [{"device": "gpu", "execution_providers": [ExecutionProvider.WebGpuExecutionProvider]}]
             },
         },
         SystemConfig,
