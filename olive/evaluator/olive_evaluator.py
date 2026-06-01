@@ -594,19 +594,17 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         if _is_vision_metric(metric):
             _validate_vision_task_metric(metric)
             # Auto-detect genai vision model by checking for genai_config.json with vision field
-            use_genai_vision = False
             genai_config_path = Path(model.model_path).parent / "genai_config.json"
+            use_genai_vision = False
             if genai_config_path.exists():
                 import json
 
                 with genai_config_path.open() as f:
-                    genai_config = json.load(f)
-                use_genai_vision = bool(genai_config.get("model", {}).get("vision"))
+                    genai_cfg = json.load(f)
+                use_genai_vision = bool(genai_cfg.get("model", {}).get("vision"))
 
             if use_genai_vision:
-                inference_output, targets = self._inference_vision_genai(
-                    model, metric, dataloader, device, execution_providers
-                )
+                inference_output, targets = self._inference_vision_genai(model, dataloader, device)
             else:
                 inference_output, targets = self._inference_vision(
                     model, metric, dataloader, post_func, device, execution_providers
@@ -813,10 +811,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
     def _inference_vision_genai(
         self,
         model: ONNXModelHandler,
-        metric: Metric,
         dataloader: "DataLoader",
         device: Device = Device.CPU,
-        execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> tuple[OliveModelOutput, Any]:
         """Vision-based inference for VQA/OCR metrics using onnxruntime-genai.
 
@@ -824,6 +820,9 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         Uses og.Model with multimodal processor for vision-language models (e.g., Qwen3-VL).
         The dataloader must yield (input_dict, labels) where input_dict contains
         'image' (PIL Image) and 'question' (str), and labels are reference answer strings.
+
+        Note: GPU/CPU selection is driven by the `device` parameter. onnxruntime-genai uses
+        short provider names internally (e.g., "cuda") which differ from ORT-style EP names.
         """
         try:
             import onnxruntime_genai as og
@@ -839,10 +838,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         from PIL import Image
 
         model_dir = str(Path(model.model_path).parent)
-
-        # Read genai_config for search options
-        with (Path(model_dir) / "genai_config.json").open() as f:
-            genai_config = json.load(f)
 
         # max_length in genai is total sequence length (input + output).
         # Default to 1028 which accommodates image/prompt tokens (~200-500) plus answer tokens.
