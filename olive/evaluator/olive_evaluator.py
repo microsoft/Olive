@@ -593,9 +593,26 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
     ) -> MetricResult:
         if _is_vision_metric(metric):
             _validate_vision_task_metric(metric)
-            inference_output, targets = self._inference_vision(
-                model, metric, dataloader, post_func, device, execution_providers
-            )
+            # Auto-detect genai vision model by checking for genai_config.json with vision field
+            genai_config_path = Path(model.model_path).parent / "genai_config.json"
+            if genai_config_path.exists():
+                import json
+
+                with genai_config_path.open() as f:
+                    genai_config = json.load(f)
+                model_config = genai_config.get("model", {})
+                if model_config.get("vision"):
+                    inference_output, targets = self._inference_vision_genai(
+                        model, metric, dataloader, device, execution_providers
+                    )
+                else:
+                    inference_output, targets = self._inference_vision(
+                        model, metric, dataloader, post_func, device, execution_providers
+                    )
+            else:
+                inference_output, targets = self._inference_vision(
+                    model, metric, dataloader, post_func, device, execution_providers
+                )
         elif _is_text_based_metric(metric):
             # Auto-detect genai model by checking for genai_config.json
             genai_config_path = Path(model.model_path).parent / "genai_config.json"
@@ -792,6 +809,123 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
             dump_tuning_result(session.session, tuning_result_file)
+
+        return OliveModelOutput(preds=all_preds, logits=None), all_targets
+
+    def _inference_vision_genai(
+        self,
+        model: ONNXModelHandler,
+        metric: Metric,
+        dataloader: "DataLoader",
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Vision-based inference for VQA/OCR metrics using onnxruntime-genai.
+
+        Auto-detected when the model directory contains genai_config.json with a vision field.
+        Uses og.Model with multimodal processor for vision-language models (e.g., Qwen3-VL).
+        The dataloader must yield (input_dict, labels) where input_dict contains
+        'image' (PIL Image) and 'question' (str), and labels are reference answer strings.
+        """
+        try:
+            import onnxruntime_genai as og
+        except ImportError:
+            raise ImportError(
+                "onnxruntime-genai is required for genai-based vision evaluation. "
+                "Install it with: pip install onnxruntime-genai"
+            ) from None
+
+        import json
+        import os
+        import tempfile
+
+        from PIL import Image
+
+        model_dir = str(Path(model.model_path).parent)
+
+        # Read genai_config for search options
+        with (Path(model_dir) / "genai_config.json").open() as f:
+            genai_config = json.load(f)
+
+        max_length = genai_config.get("search", {}).get("max_length", 2048)
+
+        # Build og.Model with appropriate execution provider
+        config = og.Config(model_dir)
+        config.clear_providers()
+        if device == Device.GPU:
+            config.append_provider("cuda")
+        og_model = og.Model(config)
+        processor = og_model.create_multimodal_processor()
+        tokenizer = og.Tokenizer(og_model)
+
+        all_preds = []
+        all_targets = []
+
+        for batch in dataloader:
+            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+
+            # input_data is a dict with 'image' (PIL) and 'question' (str)
+            # or a list of such dicts for batch_size > 1
+            items = [input_data] if isinstance(input_data, dict) else input_data
+
+            for item in items:
+                pil_image = item.get("image")
+                question = item.get("question", "")
+
+                if pil_image is None:
+                    all_preds.append("")
+                    continue
+
+                # Ensure PIL Image
+                if not isinstance(pil_image, Image.Image):
+                    pil_image = Image.open(pil_image).convert("RGB")
+
+                # Build chat messages for the vision-language model
+                messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image"},
+                            {"type": "text", "text": question},
+                        ],
+                    }
+                ]
+                messages_json = json.dumps(messages)
+
+                # Save image to temp file for og.Images
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+                    pil_image.save(f, format="PNG")
+                    tmp_path = f.name
+
+                try:
+                    images = og.Images.open(tmp_path)
+                    prompt = tokenizer.apply_chat_template(messages_json, add_generation_prompt=True)
+                    inputs = processor(prompt, images=images)
+
+                    params = og.GeneratorParams(og_model)
+                    params.set_search_options(max_length=max_length, do_sample=False)
+
+                    generator = og.Generator(og_model, params)
+                    generator.set_inputs(inputs)
+
+                    tokens = []
+                    while not generator.is_done():
+                        generator.generate_next_token()
+                        tokens.append(generator.get_next_tokens()[0])
+                    del generator
+
+                    pred = tokenizer.decode(tokens).strip()
+                    all_preds.append(pred)
+                finally:
+                    os.unlink(tmp_path)
+
+            # Collect reference texts
+            if isinstance(labels, (list, tuple)):
+                all_targets.extend(labels)
+            else:
+                all_targets.append(labels)
+
+        del og_model
 
         return OliveModelOutput(preds=all_preds, logits=None), all_targets
 
