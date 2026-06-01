@@ -848,13 +848,15 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         max_length = genai_config.get("search", {}).get("max_length", 2048)
 
         # Build og.Model with appropriate execution provider
+        # Note: onnxruntime-genai uses CPU by default when no provider is appended.
+        # Only non-CPU providers need to be explicitly added.
         config = og.Config(model_dir)
         config.clear_providers()
         if execution_providers:
-            # Honor user-specified execution providers
             for ep in (execution_providers if isinstance(execution_providers, list) else [execution_providers]):
-                ep_lower = ep.lower().replace("executionprovider", "")
-                config.append_provider(ep_lower)
+                if ep == "CPUExecutionProvider":
+                    continue
+                config.append_provider(ep)
         elif device == Device.GPU:
             config.append_provider("cuda")
         og_model = og.Model(config)
