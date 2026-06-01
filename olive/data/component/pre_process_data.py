@@ -410,6 +410,10 @@ def vision_vqa_pre_process(
         image_col: Name of the image column. Defaults to "image".
         question_col: Name of the question column. Defaults to "question".
         answer_col: Name of the answer column. Defaults to "answer".
+        options_col: Name of the options column for multiple-choice questions. If specified,
+            options are formatted as numbered choices and appended to the question. Defaults to "".
+        system_prompt: System prompt to guide model responses (e.g., "Reply with only the
+            option number"). Passed through to the evaluator. Defaults to "".
         max_samples: Maximum number of samples (deprecated, use limit). Defaults to None.
         limit: Sampling limit following Olive convention:
             If >= 1: use first N samples.

@@ -582,6 +582,17 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             dump_tuning_result(session.session, tuning_result_file)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
+    @staticmethod
+    def _load_genai_config(model: ONNXModelHandler) -> Optional[dict]:
+        """Load genai_config.json from the model directory, or return None if not found."""
+        genai_config_path = Path(model.model_path).parent / "genai_config.json"
+        if not genai_config_path.exists():
+            return None
+        import json
+
+        with genai_config_path.open() as f:
+            return json.load(f)
+
     def _evaluate_onnx_accuracy(
         self,
         model: ONNXModelHandler,
@@ -594,14 +605,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         if _is_vision_metric(metric):
             _validate_vision_task_metric(metric)
             # Auto-detect genai vision model by checking for genai_config.json with vision field
-            genai_config_path = Path(model.model_path).parent / "genai_config.json"
-            use_genai_vision = False
-            if genai_config_path.exists():
-                import json
-
-                with genai_config_path.open() as f:
-                    genai_cfg = json.load(f)
-                use_genai_vision = bool(genai_cfg.get("model", {}).get("vision"))
+            genai_cfg = self._load_genai_config(model)
+            use_genai_vision = bool(genai_cfg and genai_cfg.get("model", {}).get("vision"))
 
             if use_genai_vision:
                 inference_output, targets = self._inference_vision_genai(model, dataloader, device)
@@ -611,13 +616,9 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                 )
         elif _is_text_based_metric(metric):
             # Auto-detect genai model by checking for genai_config.json
-            genai_config_path = Path(model.model_path).parent / "genai_config.json"
-            if genai_config_path.exists():
-                import json
-
-                with genai_config_path.open() as f:
-                    genai_config = json.load(f)
-                model_type = genai_config.get("model", {}).get("type", "")
+            genai_cfg = self._load_genai_config(model)
+            if genai_cfg:
+                model_type = genai_cfg.get("model", {}).get("type", "")
 
                 if model_type == "whisper":
                     inference_output, targets = self._inference_text_genai(
@@ -826,11 +827,11 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         """
         try:
             import onnxruntime_genai as og
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "onnxruntime-genai is required for genai-based vision evaluation. "
                 "Install it with: pip install onnxruntime-genai"
-            ) from None
+            ) from e
 
         import json
         import tempfile
@@ -920,17 +921,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     del generator
 
                     pred = tokenizer.decode(tokens).strip()
-                    # Extract leading number from responses like "1. D" or "0. krill"
-                    import re
-                    num_match = re.match(r"^(\d+)", pred)
-                    if num_match:
-                        pred = num_match.group(1)
                     all_preds.append(pred)
-
-                    # Debug logging
-                    debug_path = Path(model_dir) / "vision_eval_debug.jsonl"
-                    with open(debug_path, "a") as f:
-                        f.write(json.dumps({"prompt": messages, "pred": pred, "target": labels}) + "\n")
 
                 # Collect reference texts (aligned with preds including empty ones for None images)
                 if isinstance(labels, (list, tuple)):
