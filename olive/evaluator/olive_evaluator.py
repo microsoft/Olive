@@ -920,7 +920,17 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     del generator
 
                     pred = tokenizer.decode(tokens).strip()
+                    # Extract leading number from responses like "1. D" or "0. krill"
+                    import re
+                    num_match = re.match(r"^(\d+)", pred)
+                    if num_match:
+                        pred = num_match.group(1)
                     all_preds.append(pred)
+
+                    # Debug logging
+                    debug_path = Path(model_dir) / "vision_eval_debug.jsonl"
+                    with open(debug_path, "a") as f:
+                        f.write(json.dumps({"prompt": messages, "pred": pred, "target": labels}) + "\n")
 
                 # Collect reference texts (aligned with preds including empty ones for None images)
                 if isinstance(labels, (list, tuple)):
