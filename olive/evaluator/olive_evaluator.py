@@ -844,10 +844,11 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         with (Path(model_dir) / "genai_config.json").open() as f:
             genai_config = json.load(f)
 
-        # Cap max_length for VQA tasks — answers are typically short (1-50 tokens).
-        # The genai_config may have a very large max_length (e.g., 262144 for context window)
-        # which is not appropriate for answer generation.
-        max_length = min(genai_config.get("search", {}).get("max_length", 2048), 128)
+        # max_length in genai is total sequence length (input + output).
+        # Default to 1028 which accommodates image/prompt tokens (~200-500) plus answer tokens.
+        # Note: genai_config.json's search.max_length is typically the full context window
+        # (e.g., 262144) which is too large — the model will stop at EOS well before this cap.
+        max_length = 1028
 
         # Build og.Model with appropriate execution provider
         # Note: onnxruntime-genai uses CPU by default when no provider is appended.
