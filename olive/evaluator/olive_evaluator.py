@@ -848,15 +848,11 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         # Build og.Model with appropriate execution provider
         # Note: onnxruntime-genai uses CPU by default when no provider is appended.
-        # Only non-CPU providers need to be explicitly added.
+        # Only non-CPU providers need to be explicitly added using short names (e.g., "cuda").
+        # This follows the same pattern as _inference_text_genai and _inference_text_genai_streaming.
         config = og.Config(model_dir)
         config.clear_providers()
-        if execution_providers:
-            for ep in execution_providers if isinstance(execution_providers, list) else [execution_providers]:
-                if ep == "CPUExecutionProvider":
-                    continue
-                config.append_provider(ep)
-        elif device == Device.GPU:
+        if device == Device.GPU:
             config.append_provider("cuda")
         og_model = og.Model(config)
         processor = og_model.create_multimodal_processor()
