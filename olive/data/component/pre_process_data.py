@@ -387,6 +387,7 @@ def vision_vqa_pre_process(
     image_col: str = "image",
     question_col: str = "question",
     answer_col: str = "answer",
+    system_prompt: str = "",
     max_samples: Optional[int] = None,
     limit: Optional[float] = None,
     seed: int = 42,
@@ -438,11 +439,12 @@ def vision_vqa_pre_process(
         Note: Use batch_size=1 in dataloader config as images have variable sizes.
         """
 
-        def __init__(self, hf_dataset, image_column, question_column, answer_column):
+        def __init__(self, hf_dataset, image_column, question_column, answer_column, sys_prompt=""):
             self.dataset = hf_dataset
             self.image_column = image_column
             self.question_column = question_column
             self.answer_column = answer_column
+            self.system_prompt = sys_prompt
 
         def __len__(self):
             return len(self.dataset)
@@ -456,7 +458,7 @@ def vision_vqa_pre_process(
             # Join with | separator so metrics can match against any valid answer
             if isinstance(answer, (list, tuple)):
                 answer = "|".join(str(a) for a in answer) if answer else ""
-            return {"image": image, "question": question}, str(answer)
+            return {"image": image, "question": question, "system_prompt": self.system_prompt}, str(answer)
 
         @staticmethod
         def collate_fn(batch):
@@ -472,4 +474,4 @@ def vision_vqa_pre_process(
             answers = [item[1] for item in batch]
             return (inputs, answers)
 
-    return VisionVQADataset(dataset, image_col, question_col, answer_col)
+    return VisionVQADataset(dataset, image_col, question_col, answer_col, system_prompt)

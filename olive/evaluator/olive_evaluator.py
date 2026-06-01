@@ -874,6 +874,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                 for item in items:
                     pil_image = item.get("image")
                     question = item.get("question", "")
+                    sys_prompt = item.get("system_prompt", "")
 
                     if pil_image is None:
                         # Append empty pred to maintain alignment with targets
@@ -885,7 +886,10 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                         pil_image = Image.open(pil_image).convert("RGB")
 
                     # Build chat messages for the vision-language model
-                    messages = [
+                    messages = []
+                    if sys_prompt:
+                        messages.append({"role": "system", "content": sys_prompt})
+                    messages.append(
                         {
                             "role": "user",
                             "content": [
@@ -893,7 +897,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                                 {"type": "text", "text": question},
                             ],
                         }
-                    ]
+                    )
                     messages_json = json.dumps(messages)
 
                     # Save image to temp file for og.Images (reuse same path to minimize I/O)
