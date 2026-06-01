@@ -4,8 +4,6 @@
 # --------------------------------------------------------------------------
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from olive.passes.onnx.discrepancy_check import _longest_common_token_sequence
 
 
