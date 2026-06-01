@@ -25,6 +25,7 @@ DEFAULT_MODEL_IDS = (
     "local/tiny-random-llama-a",
     "local/tiny-random-llama-b",
     "mistralai/Mistral-7B-Instruct-v0.3",
+    "microsoft/Phi-3-mini-4k-instruct",
 )
 MAX_ARTIFACT_SIZE_BYTES = 1024 * 1024
 
