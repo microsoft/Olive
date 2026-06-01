@@ -12,14 +12,6 @@ from pathlib import Path
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace
-from transformers import (
-    LlamaConfig,
-    LlamaForCausalLM,
-    PreTrainedTokenizerFast,
-    WhisperConfig,
-    WhisperForConditionalGeneration,
-)
-
 from olive.cli.base import TEST_OUTPUT_MARKER_FILE
 from olive.common.hf.utils import TEST_MODEL_MARKER_FILE
 
@@ -41,6 +33,8 @@ MAX_ARTIFACT_SIZE_BYTES = 1024 * 1024
 
 
 def _save_local_tiny_llama(model_path: Path):
+    from transformers import LlamaConfig, LlamaForCausalLM, PreTrainedTokenizerFast
+
     model = LlamaForCausalLM(
         LlamaConfig.from_dict(
             {
@@ -72,6 +66,8 @@ def _save_local_tiny_llama(model_path: Path):
 
 
 def _save_local_tiny_whisper(model_path: Path):
+    from transformers import PreTrainedTokenizerFast, WhisperConfig, WhisperForConditionalGeneration
+
     model = WhisperForConditionalGeneration(
         WhisperConfig(
             vocab_size=32,
