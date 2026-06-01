@@ -213,13 +213,11 @@ class DataConfig(ConfigBase):
         return dc_cls(config=self)
 
     def _update_default_component_type_with_task_type(self, dc_cls, default_components_type):
-        for component_name, config in self.components.items():
+        for config in self.components.values():
             if config and config.params:
                 task_type = config.params.get("task")
                 if task_type:
-                    task_overrides = dc_cls.task_type_components_map.get(
-                        task_type.replace("-with-past", ""), {}
-                    )
+                    task_overrides = dc_cls.task_type_components_map.get(task_type.replace("-with-past", ""), {})
                     # Apply all component overrides for this task type
                     for override_component, override_type in task_overrides.items():
                         default_components_type[override_component] = override_type

@@ -833,7 +833,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                 "Install it with: pip install onnxruntime-genai"
             ) from None
 
-        import io
         import json
         import tempfile
 
@@ -853,7 +852,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         config = og.Config(model_dir)
         config.clear_providers()
         if execution_providers:
-            for ep in (execution_providers if isinstance(execution_providers, list) else [execution_providers]):
+            for ep in execution_providers if isinstance(execution_providers, list) else [execution_providers]:
                 if ep == "CPUExecutionProvider":
                     continue
                 config.append_provider(ep)
@@ -877,7 +876,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                 # or a list of such dicts for batch_size > 1
                 items = [input_data] if isinstance(input_data, dict) else input_data
 
-                for idx, item in enumerate(items):
+                for item in items:
                     pil_image = item.get("image")
                     question = item.get("question", "")
 
