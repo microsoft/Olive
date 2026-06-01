@@ -3053,9 +3053,12 @@ def test_remove_memcpy_chained(tmp_path):
 
 
 def test_unstack_gather_squeeze_weight(tmp_path):
-    """UnstackGatherSqueezeWeight should materialise per-slice 2-D
-    initializers from ``Gather(W_3d, [const], axis=0) → Squeeze([0])`` chains
-    and fold an optional downstream ``Transpose``.
+    """Verify per-slice 2-D weight materialisation and Transpose folding.
+
+    ``UnstackGatherSqueezeWeight`` should rewrite each
+    ``Gather(W_3d, [const], axis=0) → Squeeze([0])`` chain into a 2-D
+    initializer and fold any downstream ``Transpose`` into a
+    pre-transposed initializer.
     """
     input_tensor = helper.make_tensor_value_info("x", TensorProto.FLOAT, [4, 6])
     out0 = helper.make_tensor_value_info("y0", TensorProto.FLOAT, [4, 8])

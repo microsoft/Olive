@@ -3275,12 +3275,17 @@ class UnstackGatherSqueezeWeight(Surgeon):
 
     1. Slicing ``W_3d`` along axis 0 at the constant index ``k``.
     2. Materialising the resulting ``[K, N]`` slice as a brand-new
-       initializer named ``<W_3d_name>__expert_<k>``.
+       initializer named ``<W_3d_name>__slice_<k>``.
     3. Replacing the ``Squeeze`` output's downstream uses with that
        initializer directly.
-    4. Cleaning up the orphaned ``Gather`` and ``Squeeze`` nodes; the
-       3-D weight itself is dropped only if all its uses have been
-       rewritten.
+    4. Folding any downstream ``Transpose(slice_initializer)`` into a
+       pre-transposed initializer named ``<W_3d_name>__slice_<k>__T``.
+       This is required for the common mobius emission pattern
+       ``MatMul(x, Transpose(Squeeze(Gather(...))))``.
+    5. Removing the orphaned ``Gather``, ``Squeeze``, and ``Transpose``
+       nodes plus any initializer (3-D weight, per-Gather index, shared
+       squeeze-axes constant, intermediate slice) that no longer has any
+       node consumer.
 
     After this pass, the downstream ``MatMul`` nodes have a 2-D static
     initializer as their B input, which means weight-quantization passes
@@ -3322,13 +3327,14 @@ class UnstackGatherSqueezeWeight(Surgeon):
             gather_node = gather_value.producer()
             if gather_node is None or gather_node.op_type != "Gather":
                 continue
-            if int(gather_node.attributes.get("axis", ir.AttrInt64("axis", 0)).value) != 0:
+            axis_attr = gather_node.attributes.get("axis")
+            axis_val = int(axis_attr.value) if axis_attr is not None else 0
+            if axis_val != 0:
                 continue
             if len(gather_node.inputs) < 2 or any(i is None for i in gather_node.inputs[:2]):
                 continue
 
             data_value = gather_node.inputs[0]
-            index_value = gather_node.inputs[1]
             if data_value.name not in initializers:
                 continue
             data_init = initializers[data_value.name]
@@ -3364,42 +3370,22 @@ class UnstackGatherSqueezeWeight(Surgeon):
         if not rewrites:
             return model
 
-        source_init_names: set[str] = {
-            g.inputs[0].name for g, _, _ in rewrites if g.inputs[0] is not None
-        }
+        source_init_names: set[str] = {g.inputs[0].name for g, _, _ in rewrites if g.inputs[0] is not None}
 
         # Register all new initializers first.
         for value in new_initializers.values():
             graph.register_initializer(value)
 
         # Rewire each Squeeze output to the new initializer and remove
-        # the now-unused Gather + Squeeze nodes. Indices initializer is
-        # left in place: it may be tiny, and downstream cleanup passes
-        # (e.g. RemoveUnusedOpsetsPass) handle orphan removal.
+        # the now-unused Gather + Squeeze nodes.
         for gather_node, squeeze_node, replacement in rewrites:
             ir.convenience.replace_all_uses_with(squeeze_node.outputs[0], replacement)
             graph.remove(squeeze_node, safe=True)
-            # Gather may still be referenced if another Squeeze hadn't been
-            # rewritten yet (different downstream); only remove if it's now
-            # orphaned.
-            gather_uses = [
-                u for u in graph.all_nodes() if any(i is gather_node.outputs[0] for i in u.inputs)
-            ]
+            # A single Gather output may feed multiple Squeeze chains; only
+            # remove the Gather node once all its consumers are gone.
+            gather_uses = [u for u in graph.all_nodes() if any(i is gather_node.outputs[0] for i in u.inputs)]
             if not gather_uses:
                 graph.remove(gather_node, safe=True)
-
-        # Drop any 3-D source initializers that no longer have any
-        # consumers in the graph after rewrite.
-        used_init_names: set[str] = set()
-        for node in graph.all_nodes():
-            for inp in node.inputs:
-                if inp is not None and inp.name:
-                    used_init_names.add(inp.name)
-        for out in graph.outputs:
-            if out is not None and out.name:
-                used_init_names.add(out.name)
-        for name in [n for n in graph.initializers if n not in used_init_names]:
-            del graph.initializers[name]
 
         # Fold any Transpose(initializer) chain that consumes a newly
         # materialised slice. This keeps the downstream MatMul.B as a
@@ -3409,10 +3395,12 @@ class UnstackGatherSqueezeWeight(Surgeon):
         # fallback emitting ``MatMul(x, Transpose(Squeeze(Gather(...))))``.
         folded_count = self._fold_transpose_of_initializer(graph, new_initializers)
 
-        # Final orphan-initializer cleanup: slices that are now only
-        # referenced through a folded Transpose's pre-image become
-        # unused and should be dropped.
-        used_init_names = set()
+        # Orphan-initializer sweep: drop the original 3-D source weights,
+        # the per-Gather index initializers, the shared squeeze-axes
+        # constant, and any intermediate per-slice initializer that was
+        # consumed only by a folded Transpose. Anything still referenced
+        # by a remaining node or graph output stays.
+        used_init_names: set[str] = set()
         for node in graph.all_nodes():
             for inp in node.inputs:
                 if inp is not None and inp.name:
@@ -3434,11 +3422,12 @@ class UnstackGatherSqueezeWeight(Surgeon):
         return model
 
     @staticmethod
-    def _fold_transpose_of_initializer(
-        graph: ir.Graph, candidate_initializers: dict[str, ir.Value]
-    ) -> int:
-        """Fold ``Transpose(initializer) → matmul.B`` into a new transposed
-        initializer for any Transpose whose input is in ``candidate_initializers``.
+    def _fold_transpose_of_initializer(graph: ir.Graph, candidate_initializers: dict[str, ir.Value]) -> int:
+        """Fold ``Transpose(initializer) → matmul.B`` chains into transposed initializers.
+
+        Replaces any ``Transpose`` node whose input is in
+        ``candidate_initializers`` with a pre-transposed initializer and
+        rewires the downstream consumers to use it directly.
 
         Returns the number of Transpose nodes folded.
         """
@@ -3475,14 +3464,13 @@ class UnstackGatherSqueezeWeight(Surgeon):
         return folded
 
     @staticmethod
-    def _scalar_int_list(
-        node: ir.Node, idx: int, initializers: dict[str, ir.Value]
-    ) -> list[int] | None:
-        """Resolve ``node.inputs[idx]`` to a list[int] if it's a static
-        1-D int initializer; return None otherwise.
+    def _scalar_int_list(node: ir.Node, idx: int, initializers: dict[str, ir.Value]) -> list[int] | None:
+        """Resolve ``node.inputs[idx]`` to a ``list[int]`` if it is a static 1-D int source.
 
-        Handles both standalone initializers and ``Constant`` nodes
-        feeding the input.
+        Returns the resolved list when ``node.inputs[idx]`` is either a
+        static integer initializer or the output of an inline
+        ``Constant`` node carrying ``value`` / ``value_ints`` /
+        ``value_int``; otherwise returns ``None``.
         """
         if idx >= len(node.inputs) or node.inputs[idx] is None:
             return None
@@ -3495,12 +3483,12 @@ class UnstackGatherSqueezeWeight(Surgeon):
         producer = value.producer()
         if producer is not None and producer.op_type == "Constant":
             for attr in producer.attributes.values():
-                if attr.name == "value" and isinstance(attr, ir.AttrTensor):
+                if attr.name == "value" and attr.type == ir.AttributeType.TENSOR:
                     arr = attr.value.numpy()
                     return arr.reshape(-1).astype(np.int64).tolist()
-                if attr.name == "value_ints" and isinstance(attr, ir.AttrInt64s):
+                if attr.name == "value_ints" and attr.type == ir.AttributeType.INTS:
                     return list(attr.value)
-                if attr.name == "value_int" and isinstance(attr, ir.AttrInt64):
+                if attr.name == "value_int" and attr.type == ir.AttributeType.INT:
                     return [int(attr.value)]
         return None
 
