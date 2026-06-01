@@ -237,6 +237,8 @@ class TestCliTestModelSmoke(unittest.TestCase):
         for model_id in self.model_ids:
             with self.subTest(model_id=model_id):
                 _, _, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
+                model_path = tmp_path / "models" / model_id.replace("/", "--")
+                transformers_token = _get_transformers_first_token(model_path, input_ids)
                 # Load the quantized model with genai and generate one token
                 config = og.Config(str(run_output_dir))
                 config.clear_providers()
@@ -249,7 +251,9 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 generator.append_tokens([input_ids])
                 generator.generate_next_token()
                 token = generator.get_next_tokens()[0]
-                assert isinstance(token, int), f"Expected int token, got {type(token)}"
+                assert transformers_token == token, (
+                    f"First token mismatch for {model_id}: transformers={transformers_token}, genai={token}"
+                )
 
     def test_model_discrepancy(self):
         """Verify that OnnxDiscrepancyCheck runs successfully when auto-injected via --test."""
