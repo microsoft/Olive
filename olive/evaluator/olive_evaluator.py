@@ -834,6 +834,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             ) from e
 
         import json
+        import re
         import tempfile
 
         from PIL import Image
@@ -876,6 +877,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     pil_image = item.get("image")
                     question = item.get("question", "")
                     sys_prompt = item.get("system_prompt", "")
+                    extract_number = item.get("extract_number", False)
 
                     if pil_image is None:
                         # Append empty pred to maintain alignment with targets
@@ -921,6 +923,12 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     del generator
 
                     pred = tokenizer.decode(tokens).strip()
+                    # For multiple-choice tasks, extract leading number from responses
+                    # like "1. D" or "0. krill" to match the expected answer format
+                    if extract_number:
+                        num_match = re.match(r"^(\d+)", pred)
+                        if num_match:
+                            pred = num_match.group(1)
                     all_preds.append(pred)
 
                 # Collect reference texts (aligned with preds including empty ones for None images)

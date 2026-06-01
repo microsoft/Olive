@@ -462,17 +462,25 @@ def vision_vqa_pre_process(
             answer = item[self.answer_column]
 
             # Format options into the question if options_col is specified
+            has_options = False
             if self.options_column and self.options_column in item:
                 options = item[self.options_column]
                 if isinstance(options, (list, tuple)):
                     options_text = "\n".join(f"{i}. {opt}" for i, opt in enumerate(options))
                     question = f"{question}\n{options_text}"
+                    has_options = True
 
             # Handle list/tuple answers (some datasets have multiple valid answers)
             # Join with | separator so metrics can match against any valid answer
             if isinstance(answer, (list, tuple)):
                 answer = "|".join(str(a) for a in answer) if answer else ""
-            return {"image": image, "question": question, "system_prompt": self.system_prompt}, str(answer)
+            input_dict = {
+                "image": image,
+                "question": question,
+                "system_prompt": self.system_prompt,
+                "extract_number": has_options,
+            }
+            return input_dict, str(answer)
 
         @staticmethod
         def collate_fn(batch):
