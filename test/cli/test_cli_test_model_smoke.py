@@ -94,6 +94,7 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
     run_output_dir = tmp_path / f"{model_name}-test-run"
 
     _save_local_tiny_llama(model_path)
+    # optimize -m arnir0/Tiny-LLM --device cpu --provider CPUExecutionProvider --precision int4 --output_path dump --dry_run
     _run_cli_main(
         [
             "optimize",
@@ -114,6 +115,7 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
     config_path = config_output_dir / "config.json"
     assert config_path.exists()
     _set_offline_gptq_data_config(config_path)
+    # run --config dump/config.json --test dump/test --output_path dump/run
     _run_cli_main(
         [
             "run",
@@ -169,6 +171,60 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
                 if "model.onnx.data" in run_output_files:
                     self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
+
+    def test_model_discrepancy(self):
+        """Verify that OnnxDiscrepancyCheck runs successfully when auto-injected via --test."""
+        if self.workdir is None:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                self._assert_discrepancy(Path(temp_dir))
+        else:
+            workdir = Path(self.workdir)
+            workdir.mkdir(parents=True, exist_ok=True)
+            self._assert_discrepancy(workdir)
+
+    def _assert_discrepancy(self, tmp_path: Path):
+        for model_id in self.model_ids:
+            with self.subTest(model_id=model_id):
+                model_name = model_id.replace("/", "--")
+                model_path = tmp_path / "models" / f"{model_name}-disc"
+                config_output_dir = tmp_path / f"{model_name}-disc-cfg"
+                test_model_dir = tmp_path / f"{model_name}-disc-test-model"
+                run_output_dir = tmp_path / f"{model_name}-disc-run"
+
+                _save_local_tiny_llama(model_path)
+                _run_cli_main(
+                    [
+                        "optimize",
+                        "-m",
+                        str(model_path),
+                        "--device",
+                        "cpu",
+                        "--provider",
+                        "CPUExecutionProvider",
+                        "--precision",
+                        "int4",
+                        "--output_path",
+                        str(config_output_dir),
+                        "--dry_run",
+                    ]
+                )
+
+                config_path = config_output_dir / "config.json"
+                assert config_path.exists()
+                _set_offline_gptq_data_config(config_path)
+
+                # Run with --test; OnnxDiscrepancyCheck is auto-injected and reports discrepancy metrics (fails only if thresholds are configured)
+                _run_cli_main(
+                    [
+                        "run",
+                        "--config",
+                        str(config_path),
+                        "--test",
+                        str(test_model_dir),
+                        "--output_path",
+                        str(run_output_dir),
+                    ]
+                )
 
     def _assert_file_size_below_limit(self, path: Path):
         assert path.exists()
