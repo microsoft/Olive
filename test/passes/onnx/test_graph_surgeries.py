@@ -3050,3 +3050,73 @@ def test_remove_memcpy_chained(tmp_path):
     x = np.random.randn(4, 8).astype(np.float32)
     result = sess.run(["output"], {"input": x})[0]
     np.testing.assert_allclose(result, np.maximum(x, 0), atol=1e-6)
+
+
+def test_unstack_gather_squeeze_weight(tmp_path):
+    """UnstackGatherSqueezeWeight should materialise per-slice 2-D
+    initializers from ``Gather(W_3d, [const], axis=0) → Squeeze([0])`` chains
+    and fold an optional downstream ``Transpose``.
+    """
+    input_tensor = helper.make_tensor_value_info("x", TensorProto.FLOAT, [4, 6])
+    out0 = helper.make_tensor_value_info("y0", TensorProto.FLOAT, [4, 8])
+    out2 = helper.make_tensor_value_info("y2", TensorProto.FLOAT, [4, 8])
+
+    w3d = np.random.RandomState(0).randn(3, 8, 6).astype(np.float32)
+    w3d_init = numpy_helper.from_array(w3d, name="W3d")
+    idx0_init = numpy_helper.from_array(np.array([0], dtype=np.int64), name="idx0")
+    idx2_init = numpy_helper.from_array(np.array([2], dtype=np.int64), name="idx2")
+    ax_init = numpy_helper.from_array(np.array([0], dtype=np.int64), name="ax0")
+
+    def chain(suffix, idx_name, y_name):
+        return [
+            helper.make_node("Gather", ["W3d", idx_name], [f"g_{suffix}"], axis=0),
+            helper.make_node("Squeeze", [f"g_{suffix}", "ax0"], [f"s_{suffix}"]),
+            helper.make_node("Transpose", [f"s_{suffix}"], [f"t_{suffix}"], perm=[1, 0]),
+            helper.make_node("MatMul", ["x", f"t_{suffix}"], [y_name]),
+        ]
+
+    nodes = chain("a", "idx0", "y0") + chain("b", "idx2", "y2")
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="UnstackTest",
+        inputs=[input_tensor],
+        outputs=[out0, out2],
+        initializer=[w3d_init, idx0_init, idx2_init, ax_init],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 20)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+
+    input_model = ONNXModelHandler(model_path=str(model_path))
+    output_folder = str(tmp_path / "out")
+    p = create_pass_from_dict(
+        GraphSurgeries,
+        {"surgeries": [{"surgeon": "UnstackGatherSqueezeWeight"}]},
+        disable_search=True,
+    )
+    output_model = p.run(input_model, output_folder)
+    g = output_model.load_model().graph
+
+    op_types = [n.op_type for n in g.node]
+    assert op_types == ["MatMul", "MatMul"], op_types
+    init_names = {i.name for i in g.initializer}
+    assert "W3d" not in init_names
+    assert "W3d__slice_0__T" in init_names
+    assert "W3d__slice_2__T" in init_names
+
+    # Verify the materialised initializers match np.transpose of the
+    # original slices.
+    inits = {i.name: numpy_helper.to_array(i) for i in g.initializer}
+    np.testing.assert_array_equal(inits["W3d__slice_0__T"], w3d[0].T)
+    np.testing.assert_array_equal(inits["W3d__slice_2__T"], w3d[2].T)
+
+    # Numerical parity: rewritten model should produce the same output
+    # as the original.
+    sess_orig = InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
+    sess_new = InferenceSession(output_model.model_path, providers=["CPUExecutionProvider"])
+    x = np.random.RandomState(1).randn(4, 6).astype(np.float32)
+    y0_orig, y2_orig = sess_orig.run(None, {"x": x})
+    y0_new, y2_new = sess_new.run(None, {"x": x})
+    np.testing.assert_allclose(y0_new, y0_orig, atol=1e-6)
+    np.testing.assert_allclose(y2_new, y2_orig, atol=1e-6)
