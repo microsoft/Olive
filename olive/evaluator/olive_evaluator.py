@@ -594,21 +594,19 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         if _is_vision_metric(metric):
             _validate_vision_task_metric(metric)
             # Auto-detect genai vision model by checking for genai_config.json with vision field
+            use_genai_vision = False
             genai_config_path = Path(model.model_path).parent / "genai_config.json"
             if genai_config_path.exists():
                 import json
 
                 with genai_config_path.open() as f:
                     genai_config = json.load(f)
-                model_config = genai_config.get("model", {})
-                if model_config.get("vision"):
-                    inference_output, targets = self._inference_vision_genai(
-                        model, metric, dataloader, device, execution_providers
-                    )
-                else:
-                    inference_output, targets = self._inference_vision(
-                        model, metric, dataloader, post_func, device, execution_providers
-                    )
+                use_genai_vision = bool(genai_config.get("model", {}).get("vision"))
+
+            if use_genai_vision:
+                inference_output, targets = self._inference_vision_genai(
+                    model, metric, dataloader, device, execution_providers
+                )
             else:
                 inference_output, targets = self._inference_vision(
                     model, metric, dataloader, post_func, device, execution_providers
@@ -835,8 +833,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                 "Install it with: pip install onnxruntime-genai"
             ) from None
 
+        import io
         import json
-        import os
         import tempfile
 
         from PIL import Image
@@ -852,7 +850,12 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         # Build og.Model with appropriate execution provider
         config = og.Config(model_dir)
         config.clear_providers()
-        if device == Device.GPU:
+        if execution_providers:
+            # Honor user-specified execution providers
+            for ep in (execution_providers if isinstance(execution_providers, list) else [execution_providers]):
+                ep_lower = ep.lower().replace("executionprovider", "")
+                config.append_provider(ep_lower)
+        elif device == Device.GPU:
             config.append_provider("cuda")
         og_model = og.Model(config)
         processor = og_model.create_multimodal_processor()
@@ -861,44 +864,46 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         all_preds = []
         all_targets = []
 
-        for batch in dataloader:
-            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+        # Use a temporary directory for image files to avoid per-file create/delete overhead
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_img_path = Path(tmp_dir) / "input.png"
 
-            # input_data is a dict with 'image' (PIL) and 'question' (str)
-            # or a list of such dicts for batch_size > 1
-            items = [input_data] if isinstance(input_data, dict) else input_data
+            for batch in dataloader:
+                input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
 
-            for item in items:
-                pil_image = item.get("image")
-                question = item.get("question", "")
+                # input_data is a dict with 'image' (PIL) and 'question' (str)
+                # or a list of such dicts for batch_size > 1
+                items = [input_data] if isinstance(input_data, dict) else input_data
 
-                if pil_image is None:
-                    all_preds.append("")
-                    continue
+                for idx, item in enumerate(items):
+                    pil_image = item.get("image")
+                    question = item.get("question", "")
 
-                # Ensure PIL Image
-                if not isinstance(pil_image, Image.Image):
-                    pil_image = Image.open(pil_image).convert("RGB")
+                    if pil_image is None:
+                        # Append empty pred to maintain alignment with targets
+                        all_preds.append("")
+                        continue
 
-                # Build chat messages for the vision-language model
-                messages = [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image"},
-                            {"type": "text", "text": question},
-                        ],
-                    }
-                ]
-                messages_json = json.dumps(messages)
+                    # Ensure PIL Image
+                    if not isinstance(pil_image, Image.Image):
+                        pil_image = Image.open(pil_image).convert("RGB")
 
-                # Save image to temp file for og.Images
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-                    pil_image.save(f, format="PNG")
-                    tmp_path = f.name
+                    # Build chat messages for the vision-language model
+                    messages = [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "image"},
+                                {"type": "text", "text": question},
+                            ],
+                        }
+                    ]
+                    messages_json = json.dumps(messages)
 
-                try:
-                    images = og.Images.open(tmp_path)
+                    # Save image to temp file for og.Images (reuse same path to minimize I/O)
+                    pil_image.save(str(tmp_img_path), format="PNG")
+                    images = og.Images.open(str(tmp_img_path))
+
                     prompt = tokenizer.apply_chat_template(messages_json, add_generation_prompt=True)
                     inputs = processor(prompt, images=images)
 
@@ -916,14 +921,12 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
                     pred = tokenizer.decode(tokens).strip()
                     all_preds.append(pred)
-                finally:
-                    os.unlink(tmp_path)
 
-            # Collect reference texts
-            if isinstance(labels, (list, tuple)):
-                all_targets.extend(labels)
-            else:
-                all_targets.append(labels)
+                # Collect reference texts (aligned with preds including empty ones for None images)
+                if isinstance(labels, (list, tuple)):
+                    all_targets.extend(labels)
+                else:
+                    all_targets.append(labels)
 
         del og_model
 
