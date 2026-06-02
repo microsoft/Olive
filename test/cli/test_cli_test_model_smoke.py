@@ -203,6 +203,8 @@ class TestCliTestModelSmoke(unittest.TestCase):
                         self._assert_discrepancy_mobius(tmp_path, model_id)
                     elif exporter == EXPORTER_TORCH:
                         self._assert_discrepancy_torch_export(tmp_path, model_id)
+                    else:
+                        self.fail(f"Unknown exporter: {exporter!r}")
 
     @staticmethod
     def _run_discrepancy_with_test(config_path: Path, test_model_dir: Path, run_output_dir: Path):
