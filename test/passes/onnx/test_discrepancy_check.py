@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import sys
 from unittest.mock import MagicMock, patch
 
 from olive.passes.onnx.discrepancy_check import _longest_common_token_sequence
@@ -95,7 +96,7 @@ class TestCompareGeneration:
         mock_og.Generator.return_value = mock_generator
 
         with (
-            patch("olive.passes.onnx.discrepancy_check.og", mock_og),
+            patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
             patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
         ):
             pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
@@ -147,10 +148,12 @@ class TestCompareGeneration:
         mock_generator.get_next_tokens = get_next_tokens_side_effect
         mock_og.Generator.return_value = mock_generator
 
-        with patch("olive.passes.onnx.discrepancy_check.og", mock_og):
-            with patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer):
-                pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
-                result = pass_instance.compare_generation(config, mock_ref_model)
+        with (
+            patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_generation(config, mock_ref_model)
 
         # All 5 tokens match
         assert result == 5
