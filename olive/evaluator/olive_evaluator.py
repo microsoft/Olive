@@ -606,7 +606,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             _validate_vision_task_metric(metric)
             # Auto-detect genai vision model by checking for genai_config.json with vision field
             genai_cfg = self._load_genai_config(model)
-            use_genai_vision = bool(genai_cfg and genai_cfg.get("model", {}).get("vision"))
+            use_genai_vision = genai_cfg is not None and "vision" in genai_cfg.get("model", {})
 
             if use_genai_vision:
                 inference_output, targets = self._inference_vision_genai(model, dataloader, device)
