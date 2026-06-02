@@ -280,6 +280,11 @@ class ModelBuilder(Pass):
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
 
+        # onnxruntime-genai's create_model calls os.listdir(cache_dir) unconditionally during
+        # save_model, which raises FileNotFoundError if the directory does not yet exist (e.g.
+        # in a fresh CI environment where no HuggingFace model has been downloaded before).
+        Path(HF_HUB_CACHE).mkdir(parents=True, exist_ok=True)
+
         try:
             logger.debug("Building model with the following args: %s", extra_args)
             create_model(

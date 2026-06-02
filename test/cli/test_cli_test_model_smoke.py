@@ -70,21 +70,23 @@ def _save_local_tiny_whisper(model_path: Path):
     from transformers import PreTrainedTokenizerFast, WhisperConfig, WhisperForConditionalGeneration
 
     model = WhisperForConditionalGeneration(
-        WhisperConfig(
-            num_mel_bins=80,
-            encoder_layers=2,
-            encoder_attention_heads=4,
-            decoder_layers=2,
-            decoder_attention_heads=4,
-            d_model=64,
-            encoder_ffn_dim=128,
-            decoder_ffn_dim=128,
-            max_source_positions=16,
-            max_target_positions=16,
-            pad_token_id=0,
-            bos_token_id=1,
-            eos_token_id=2,
-            decoder_start_token_id=1,
+        WhisperConfig.from_dict(
+            {
+                "num_mel_bins": 80,
+                "encoder_layers": 2,
+                "encoder_attention_heads": 4,
+                "decoder_layers": 2,
+                "decoder_attention_heads": 4,
+                "d_model": 64,
+                "encoder_ffn_dim": 128,
+                "decoder_ffn_dim": 128,
+                "max_source_positions": 16,
+                "max_target_positions": 16,
+                "pad_token_id": 0,
+                "bos_token_id": 1,
+                "eos_token_id": 2,
+                "decoder_start_token_id": 1,
+            }
         )
     )
     model.save_pretrained(model_path)
