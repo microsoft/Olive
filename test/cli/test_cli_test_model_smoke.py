@@ -204,6 +204,20 @@ class TestCliTestModelSmoke(unittest.TestCase):
                     elif exporter == EXPORTER_TORCH:
                         self._assert_discrepancy_torch_export(tmp_path, model_id)
 
+    @staticmethod
+    def _run_discrepancy_with_test(config_path: Path, test_model_dir: Path, run_output_dir: Path):
+        _run_cli_main(
+            [
+                "run",
+                "--config",
+                str(config_path),
+                "--test",
+                str(test_model_dir),
+                "--output_path",
+                str(run_output_dir),
+            ]
+        )
+
     def _assert_discrepancy_model_builder(self, tmp_path: Path, model_id: str):
         model_name = model_id.replace("/", "--")
         model_path = tmp_path / "models" / f"{model_name}-disc"
@@ -234,17 +248,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
         _set_offline_gptq_data_config(config_path)
 
         # Run with --test; OnnxDiscrepancyCheck is auto-injected and reports discrepancy metrics
-        _run_cli_main(
-            [
-                "run",
-                "--config",
-                str(config_path),
-                "--test",
-                str(test_model_dir),
-                "--output_path",
-                str(run_output_dir),
-            ]
-        )
+        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
 
     def _assert_discrepancy_mobius(self, tmp_path: Path, model_id: str):
         model_name = model_id.replace("/", "--")
@@ -283,17 +287,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
         config_path = tmp_path / f"{model_name}-mobius-disc-config.json"
         config_path.write_text(json.dumps(run_config, indent=2))
 
-        _run_cli_main(
-            [
-                "run",
-                "--config",
-                str(config_path),
-                "--test",
-                str(test_model_dir),
-                "--output_path",
-                str(run_output_dir),
-            ]
-        )
+        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
 
     def _assert_discrepancy_torch_export(self, tmp_path: Path, model_id: str):
         import torch
