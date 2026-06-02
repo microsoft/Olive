@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import onnx_ir as ir
+from onnx_ir.passes.common.unused_removal import RemoveUnusedNodesPass
 
 from olive.constants import MSFT_DOMAIN
 from olive.model.utils import resolve_onnx_path
@@ -138,7 +139,7 @@ class OnnxMoEQuantization(Pass):
                 f"OnnxMoEQuantization: block_size must be 0 or a power of two ≥ 16, got {config.block_size}."
             )
 
-        converted = self._convert_moe_to_qmoe(
+        converted = _convert_moe_to_qmoe(
             ir_model,
             bits=config.bits,
             block_size=config.block_size,
@@ -147,157 +148,154 @@ class OnnxMoEQuantization(Pass):
         )
         logger.info("OnnxMoEQuantization: converted %d MoE node(s) to QMoE.", converted)
 
-        # Drop initializers that are no longer referenced (the original 3-D
-        # fp16 weights are replaced by new uint8 weight + fp16 scale tensors).
-        self._drop_unused_initializers(ir_model.graph)
+        # Drop the original 3-D fp16 weight initializers (now replaced by
+        # quantized uint8 weight + fp16 scale initializers). Defer to
+        # onnx_ir's standard dead-code elimination pass so this stays
+        # consistent with other consumers of the IR.
+        RemoveUnusedNodesPass()(ir_model)
 
         return ir_model_to_olive_model(ir_model, output_model_path, config)
 
-    @staticmethod
-    def _drop_unused_initializers(graph: ir.Graph) -> None:
-        used: set[str] = set()
-        for node in graph.all_nodes():
-            for inp in node.inputs:
-                if inp is not None and inp.name:
-                    used.add(inp.name)
-        for out in graph.outputs:
-            if out is not None and out.name:
-                used.add(out.name)
-        unused = [name for name in graph.initializers if name not in used]
-        for name in unused:
-            del graph.initializers[name]
-        if unused:
-            logger.info("OnnxMoEQuantization: removed %d orphan initializers.", len(unused))
 
-    def _convert_moe_to_qmoe(
-        self,
-        ir_model: ir.Model,
-        bits: int,
-        block_size: int,
-        nodes_to_exclude: list[str],
-        force_arch: int,
-    ) -> int:
-        graph = ir_model.graph
-        initializers: dict[str, ir.Value] = dict(graph.initializers)
-        excluded = set(nodes_to_exclude)
-        converted = 0
+# ---------------------------------------------------------------------------
+# Graph rewrite helpers (module-private, per Google-style guide preference for
+# free functions over static / class methods when no shared state is involved)
+# ---------------------------------------------------------------------------
 
-        for node in list(graph.all_nodes()):
-            if node.op_type != _MOE_OP_TYPE or node.domain != MSFT_DOMAIN:
-                continue
-            if node.name in excluded:
-                logger.debug("Skipping MoE node %s (in nodes_to_exclude).", node.name)
-                continue
 
-            try:
-                qmoe_node = self._convert_single_moe(
-                    node, initializers, bits=bits, block_size=block_size, force_arch=force_arch
-                )
-            except _UnsupportedMoEError as exc:
-                logger.warning("Skipping MoE node %s: %s", node.name or "<anon>", exc)
-                continue
+def _convert_moe_to_qmoe(
+    ir_model: ir.Model,
+    bits: int,
+    block_size: int,
+    nodes_to_exclude: list[str],
+    force_arch: int,
+) -> int:
+    """Walk ``ir_model.graph`` and rewrite every MoE node to a QMoE node.
 
-            ir.convenience.replace_nodes_and_values(graph, node, [node], [qmoe_node], node.outputs, qmoe_node.outputs)
-            converted += 1
+    Returns the number of nodes successfully converted. Nodes whose weights
+    can't be statically quantized (e.g. dynamic weight inputs, shape that
+    doesn't divide cleanly into pack tiles) are skipped with a logger
+    warning rather than aborting the whole pass.
+    """
+    graph = ir_model.graph
+    initializers: dict[str, ir.Value] = dict(graph.initializers)
+    excluded = set(nodes_to_exclude)
+    converted = 0
 
-        return converted
+    for node in list(graph.all_nodes()):
+        if node.op_type != _MOE_OP_TYPE or node.domain != MSFT_DOMAIN:
+            continue
+        if node.name in excluded:
+            logger.debug("Skipping MoE node %s (in nodes_to_exclude).", node.name)
+            continue
 
-    def _convert_single_moe(
-        self,
-        node: ir.Node,
-        initializers: dict[str, ir.Value],
-        bits: int,
-        block_size: int,
-        force_arch: int,
-    ) -> ir.Node:
-        # Extract and validate weight initializers.
-        fc1_w_value = _get_input(node, _MOE_INPUT_INDEX["fc1_W"])
-        fc2_w_value = _get_input(node, _MOE_INPUT_INDEX["fc2_W"])
-        fc1_array = _require_initializer(fc1_w_value, "fc1_experts_weights", initializers)
-        fc2_array = _require_initializer(fc2_w_value, "fc2_experts_weights", initializers)
+        try:
+            qmoe_node = _convert_single_moe(node, initializers, bits=bits, block_size=block_size, force_arch=force_arch)
+        except _UnsupportedMoEError as exc:
+            logger.warning("Skipping MoE node %s: %s", node.name or "<anon>", exc)
+            continue
 
-        if fc1_array.ndim != 3 or fc2_array.ndim != 3:
-            raise _UnsupportedMoEError(
-                f"Expected 3-D weights; got fc1.ndim={fc1_array.ndim}, fc2.ndim={fc2_array.ndim}."
-            )
+        ir.convenience.replace_nodes_and_values(graph, node, [node], [qmoe_node], node.outputs, qmoe_node.outputs)
+        converted += 1
 
-        num_experts = fc1_array.shape[0]
-        if fc2_array.shape[0] != num_experts:
-            raise _UnsupportedMoEError(f"fc1/fc2 num_experts disagree: {fc1_array.shape[0]} vs {fc2_array.shape[0]}.")
+    return converted
 
-        # Quantize each expert weight independently and stack.
-        fc1_qweights, fc1_scales = _quantize_stacked_weights(
-            fc1_array, bits=bits, block_size=block_size, force_arch=force_arch
-        )
-        fc2_qweights, fc2_scales = _quantize_stacked_weights(
-            fc2_array, bits=bits, block_size=block_size, force_arch=force_arch
-        )
 
-        # Build new initializers, named to keep the original tensor name as a prefix.
-        graph = node.graph
-        fc1_w_init = _make_initializer(f"{fc1_w_value.name}_q", fc1_qweights)
-        fc1_s_init = _make_initializer(f"{fc1_w_value.name}_scales", fc1_scales)
-        fc2_w_init = _make_initializer(f"{fc2_w_value.name}_q", fc2_qweights)
-        fc2_s_init = _make_initializer(f"{fc2_w_value.name}_scales", fc2_scales)
-        for init in (fc1_w_init, fc1_s_init, fc2_w_init, fc2_s_init):
-            graph.register_initializer(init)
+def _convert_single_moe(
+    node: ir.Node,
+    initializers: dict[str, ir.Value],
+    bits: int,
+    block_size: int,
+    force_arch: int,
+) -> ir.Node:
+    """Build the QMoE replacement for a single MoE node.
 
-        # Carry biases through unchanged.
-        fc1_bias = _maybe_input(node, _MOE_INPUT_INDEX["fc1_b"])
-        fc2_bias = _maybe_input(node, _MOE_INPUT_INDEX["fc2_b"])
-        fc3_w = _maybe_input(node, _MOE_INPUT_INDEX["fc3_W"])
-        if fc3_w is not None:
-            raise _UnsupportedMoEError("fc3 inputs are not yet supported by this pass.")
+    Quantizes the per-expert FC1/FC2 initializers and registers the new
+    initializers on the same graph as ``node``. Raises
+    ``_UnsupportedMoEError`` if the node's shape, dtype, or input set
+    isn't something this pass can handle (the caller logs and skips).
+    """
+    fc1_w_value = _get_input(node, _MOE_INPUT_INDEX["fc1_W"])
+    fc2_w_value = _get_input(node, _MOE_INPUT_INDEX["fc2_W"])
+    fc1_array = _require_initializer(fc1_w_value, "fc1_experts_weights", initializers)
+    fc2_array = _require_initializer(fc2_w_value, "fc2_experts_weights", initializers)
 
-        # QMoE inputs (zero_points left absent because we use symmetric int4/int8):
-        #   0: input
-        #   1: router_probs
-        #   2: fc1_experts_weights        (quantized)
-        #   3: fc1_scales
-        #   4: fc1_zero_points            (None — symmetric)
-        #   5: fc1_experts_bias
-        #   6: fc2_experts_weights        (quantized)
-        #   7: fc2_scales
-        #   8: fc2_zero_points            (None)
-        #   9: fc2_experts_bias
-        qmoe_inputs = [
-            _get_input(node, _MOE_INPUT_INDEX["input"]),
-            _get_input(node, _MOE_INPUT_INDEX["router_probs"]),
-            fc1_w_init,
-            fc1_s_init,
-            None,
-            fc1_bias,
-            fc2_w_init,
-            fc2_s_init,
-            None,
-            fc2_bias,
-        ]
+    if fc1_array.ndim != 3 or fc2_array.ndim != 3:
+        raise _UnsupportedMoEError(f"Expected 3-D weights; got fc1.ndim={fc1_array.ndim}, fc2.ndim={fc2_array.ndim}.")
 
-        # Copy all routing / activation attributes verbatim, then add the
-        # quantization-specific ones.
-        new_attrs = list(node.attributes.values())
-        new_attrs.append(ir.AttrInt64("expert_weight_bits", bits))
-        if block_size > 0:
-            new_attrs.append(ir.AttrInt64("block_size", block_size))
-        # ``quant_type`` defaults to "int" in the schema; emit it explicitly
-        # for forward compatibility against future schema revisions that may
-        # introduce other defaults.
-        if not any(a.name == "quant_type" for a in node.attributes.values()):
-            new_attrs.append(ir.AttrString("quant_type", "int"))
+    num_experts = fc1_array.shape[0]
+    if fc2_array.shape[0] != num_experts:
+        raise _UnsupportedMoEError(f"fc1/fc2 num_experts disagree: {fc1_array.shape[0]} vs {fc2_array.shape[0]}.")
 
-        output_value = ir.Value(name=node.outputs[0].name)
-        return ir.Node(
-            domain=MSFT_DOMAIN,
-            op_type=_QMOE_OP_TYPE,
-            inputs=qmoe_inputs,
-            attributes=new_attrs,
-            outputs=[output_value],
-            name=node.name + "_QMoE" if node.name else None,
-        )
+    fc1_qweights, fc1_scales = _quantize_stacked_weights(
+        fc1_array, bits=bits, block_size=block_size, force_arch=force_arch
+    )
+    fc2_qweights, fc2_scales = _quantize_stacked_weights(
+        fc2_array, bits=bits, block_size=block_size, force_arch=force_arch
+    )
+
+    graph = node.graph
+    fc1_w_init = _make_initializer(f"{fc1_w_value.name}_q", fc1_qweights)
+    fc1_s_init = _make_initializer(f"{fc1_w_value.name}_scales", fc1_scales)
+    fc2_w_init = _make_initializer(f"{fc2_w_value.name}_q", fc2_qweights)
+    fc2_s_init = _make_initializer(f"{fc2_w_value.name}_scales", fc2_scales)
+    for init in (fc1_w_init, fc1_s_init, fc2_w_init, fc2_s_init):
+        graph.register_initializer(init)
+
+    fc1_bias = _maybe_input(node, _MOE_INPUT_INDEX["fc1_b"])
+    fc2_bias = _maybe_input(node, _MOE_INPUT_INDEX["fc2_b"])
+    fc3_w = _maybe_input(node, _MOE_INPUT_INDEX["fc3_W"])
+    if fc3_w is not None:
+        raise _UnsupportedMoEError("fc3 inputs are not yet supported by this pass.")
+
+    # QMoE input layout (zero_points stay absent because we use symmetric
+    # int4/int8):
+    #   0: input
+    #   1: router_probs
+    #   2: fc1_experts_weights    (quantized)
+    #   3: fc1_scales
+    #   4: fc1_zero_points        (None — symmetric)
+    #   5: fc1_experts_bias
+    #   6: fc2_experts_weights    (quantized)
+    #   7: fc2_scales
+    #   8: fc2_zero_points        (None)
+    #   9: fc2_experts_bias
+    qmoe_inputs = [
+        _get_input(node, _MOE_INPUT_INDEX["input"]),
+        _get_input(node, _MOE_INPUT_INDEX["router_probs"]),
+        fc1_w_init,
+        fc1_s_init,
+        None,
+        fc1_bias,
+        fc2_w_init,
+        fc2_s_init,
+        None,
+        fc2_bias,
+    ]
+
+    new_attrs = list(node.attributes.values())
+    new_attrs.append(ir.AttrInt64("expert_weight_bits", bits))
+    if block_size > 0:
+        new_attrs.append(ir.AttrInt64("block_size", block_size))
+    # ``quant_type`` defaults to ``"int"`` in the schema; emit it
+    # explicitly so future schema revisions changing the default don't
+    # silently alter behaviour for our exported models.
+    if not any(a.name == "quant_type" for a in node.attributes.values()):
+        new_attrs.append(ir.AttrString("quant_type", "int"))
+
+    output_value = ir.Value(name=node.outputs[0].name)
+    return ir.Node(
+        domain=MSFT_DOMAIN,
+        op_type=_QMOE_OP_TYPE,
+        inputs=qmoe_inputs,
+        attributes=new_attrs,
+        outputs=[output_value],
+        name=node.name + "_QMoE" if node.name else None,
+    )
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Small graph / value helpers
 # ---------------------------------------------------------------------------
 
 
