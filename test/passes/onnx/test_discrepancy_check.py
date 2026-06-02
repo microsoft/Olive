@@ -102,6 +102,7 @@ class TestCompareGeneration:
             pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
             result = pass_instance.compare_generation(config, mock_ref_model)
 
+        mock_generator.append_tokens.assert_called_once_with([[1, 2, 3]])
         # Common prefix: [1, 2, 3, 10, 11] = 5 tokens before divergence
         assert result == 5
 
@@ -155,5 +156,6 @@ class TestCompareGeneration:
             pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
             result = pass_instance.compare_generation(config, mock_ref_model)
 
+        mock_generator.append_tokens.assert_called_once_with([[10, 20]])
         # All 5 tokens match
         assert result == 5

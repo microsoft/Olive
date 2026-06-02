@@ -256,7 +256,10 @@ class OnnxDiscrepancyCheck(Pass):
 
     def compare_generation(self, config: type[BasePassConfig], ref_model) -> int:
         """Run generation on both transformers and GenAI, return longest common token sequence length."""
-        import onnxruntime_genai as og
+        try:
+            import onnxruntime_genai as og
+        except ImportError as exc:
+            raise ImportError("Please install `onnxruntime-genai` to enable generation comparison.") from exc
         from transformers import AutoTokenizer
 
         tokenizer = AutoTokenizer.from_pretrained(config.reference_model_path)
@@ -280,12 +283,11 @@ class OnnxDiscrepancyCheck(Pass):
 
         params = og.GeneratorParams(genai_model)
         params.set_search_options(max_length=len(genai_input_ids) + config.generate_max_new_tokens, do_sample=False)
-        params.input_ids = genai_input_ids
 
         generator = og.Generator(genai_model, params)
+        generator.append_tokens([genai_input_ids])
         genai_tokens = list(genai_input_ids)
         while not generator.is_done():
-            generator.compute_logits()
             generator.generate_next_token()
             genai_tokens.append(generator.get_next_tokens()[0])
         del generator
