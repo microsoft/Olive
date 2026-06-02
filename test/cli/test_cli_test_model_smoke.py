@@ -290,64 +290,37 @@ class TestCliTestModelSmoke(unittest.TestCase):
         self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
 
     def _assert_discrepancy_torch_export(self, tmp_path: Path, model_id: str):
-        import torch
-
-        from olive.hardware.accelerator import AcceleratorSpec, Device
-        from olive.hardware.constants import ExecutionProvider
-        from olive.model import ONNXModelHandler
-        from olive.passes.olive_pass import create_pass_from_dict
-        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
-
         model_name = model_id.replace("/", "--")
         model_path = tmp_path / "models" / f"{model_name}-torch-disc"
-        onnx_dir = tmp_path / f"{model_name}-torch-disc-onnx"
-        onnx_dir.mkdir(parents=True, exist_ok=True)
+        test_model_dir = tmp_path / f"{model_name}-torch-disc-test-model"
+        run_output_dir = tmp_path / f"{model_name}-torch-disc-run"
 
         _save_local_tiny_llama(model_path)
 
-        from transformers import AutoModelForCausalLM
-
-        ref_model = AutoModelForCausalLM.from_pretrained(model_path)
-        ref_model.eval()
-
-        class _LogitsOnlyWrapper(torch.nn.Module):
-            def __init__(self, model):
-                super().__init__()
-                self.model = model
-
-            def forward(self, input_ids, attention_mask):
-                return self.model(input_ids=input_ids, attention_mask=attention_mask, use_cache=False).logits
-
-        wrapper = _LogitsOnlyWrapper(ref_model)
-        wrapper.eval()
-
-        dummy_input_ids = torch.randint(0, 32, (1, 4))
-        dummy_attention_mask = torch.ones(1, 4, dtype=torch.int64)
-        onnx_path = onnx_dir / "model.onnx"
-
-        torch.onnx.export(
-            wrapper,
-            (dummy_input_ids, dummy_attention_mask),
-            str(onnx_path),
-            input_names=["input_ids", "attention_mask"],
-            output_names=["logits"],
-            dynamo=False,
-        )
-        assert onnx_path.exists()
-
-        onnx_model = ONNXModelHandler(model_path=str(onnx_dir), onnx_file_name="model.onnx")
-        accelerator_spec = AcceleratorSpec(
-            accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
-        )
-        discrepancy_pass = create_pass_from_dict(
-            OnnxDiscrepancyCheck,
-            {"reference_model_path": str(model_path)},
-            disable_search=True,
-            accelerator_spec=accelerator_spec,
-        )
-        output_path = tmp_path / f"{model_name}-torch-disc-output"
-        result = discrepancy_pass.run(onnx_model, output_path)
-        assert isinstance(result, ONNXModelHandler)
+        run_config = {
+            "input_model": {
+                "type": "HfModel",
+                "model_path": str(model_path),
+            },
+            "systems": {
+                "local_system": {
+                    "type": "LocalSystem",
+                    "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+                }
+            },
+            "output_dir": str(run_output_dir),
+            "host": "local_system",
+            "target": "local_system",
+            "passes": {
+                "conversion": {
+                    "type": "OnnxConversion",
+                    "use_dynamo_exporter": False,
+                }
+            },
+        }
+        config_path = tmp_path / f"{model_name}-torch-disc-config.json"
+        config_path.write_text(json.dumps(run_config, indent=2))
+        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
 
     def _assert_file_size_below_limit(self, path: Path):
         assert path.exists()
