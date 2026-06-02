@@ -114,7 +114,7 @@ class OnnxDiscrepancyCheck(Pass):
             ),
             "generate_max_new_tokens": PassConfigParam(
                 type_=int,
-                default_value=64,
+                default_value=32,
                 description="Maximum number of new tokens to generate for the token sequence comparison.",
             ),
             "min_longest_common_tokens": PassConfigParam(
