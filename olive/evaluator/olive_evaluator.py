@@ -843,9 +843,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         try:
             from PIL import Image
         except ImportError as e:
-            raise ImportError(
-                "Pillow is required for vision evaluation. Install it with: pip install Pillow"
-            ) from e
+            raise ImportError("Pillow is required for vision evaluation. Install it with: pip install Pillow") from e
 
         model_dir = str(Path(model.model_path).parent)
 
