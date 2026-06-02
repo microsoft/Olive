@@ -673,13 +673,17 @@ class TestOnnxEvaluatorGenaiVisionDetection:
         config = {"model": {"vision": {"inputs": "pixel_values"}}}
         model = self._make_model_with_genai_config(tmp_path, config)
 
-        with patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai, \
-             patch.object(OnnxEvaluator, "_inference_vision") as mock_vision, \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute, \
-             patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True), \
-             patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"), \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg, \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io") as mock_gen:
+        with (
+            patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai,
+            patch.object(OnnxEvaluator, "_inference_vision") as mock_vision,
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute,
+            patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True),
+            patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"),
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg,
+            patch(
+                "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io"
+            ) as mock_gen,
+        ):
             mock_genai.return_value = (OliveModelOutput(preds=["answer"], logits=None), ["answer"])
             mock_compute.return_value = MagicMock()
             metric = self._make_vision_accuracy_metric()
@@ -699,13 +703,17 @@ class TestOnnxEvaluatorGenaiVisionDetection:
         config = {"model": {"vision": {}}}
         model = self._make_model_with_genai_config(tmp_path, config)
 
-        with patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai, \
-             patch.object(OnnxEvaluator, "_inference_vision") as mock_vision, \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute, \
-             patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True), \
-             patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"), \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg, \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io") as mock_gen:
+        with (
+            patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai,
+            patch.object(OnnxEvaluator, "_inference_vision") as mock_vision,
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute,
+            patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True),
+            patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"),
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg,
+            patch(
+                "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io"
+            ) as mock_gen,
+        ):
             mock_genai.return_value = (OliveModelOutput(preds=["answer"], logits=None), ["answer"])
             mock_compute.return_value = MagicMock()
             metric = self._make_vision_accuracy_metric()
@@ -725,13 +733,17 @@ class TestOnnxEvaluatorGenaiVisionDetection:
         config = {"model": {"type": "whisper"}}
         model = self._make_model_with_genai_config(tmp_path, config)
 
-        with patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai, \
-             patch.object(OnnxEvaluator, "_inference_vision") as mock_vision, \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute, \
-             patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True), \
-             patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"), \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg, \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io") as mock_gen:
+        with (
+            patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai,
+            patch.object(OnnxEvaluator, "_inference_vision") as mock_vision,
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute,
+            patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True),
+            patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"),
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg,
+            patch(
+                "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io"
+            ) as mock_gen,
+        ):
             mock_vision.return_value = (OliveModelOutput(preds=["answer"], logits=None), ["answer"])
             mock_compute.return_value = MagicMock()
             metric = self._make_vision_accuracy_metric()
@@ -750,13 +762,17 @@ class TestOnnxEvaluatorGenaiVisionDetection:
 
         model = self._make_model_with_genai_config(tmp_path, None)
 
-        with patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai, \
-             patch.object(OnnxEvaluator, "_inference_vision") as mock_vision, \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute, \
-             patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True), \
-             patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"), \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg, \
-             patch("olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io") as mock_gen:
+        with (
+            patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai,
+            patch.object(OnnxEvaluator, "_inference_vision") as mock_vision,
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute,
+            patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True),
+            patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"),
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg,
+            patch(
+                "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io"
+            ) as mock_gen,
+        ):
             mock_vision.return_value = (OliveModelOutput(preds=["answer"], logits=None), ["answer"])
             mock_compute.return_value = MagicMock()
             metric = self._make_vision_accuracy_metric()
