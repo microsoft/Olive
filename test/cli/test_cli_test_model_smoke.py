@@ -281,7 +281,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
         return {file_path.relative_to(path).as_posix() for file_path in path.rglob("*") if file_path.is_file()}
 
 
-def _run_whisper_capture_onnx_flow(tmp_path: Path, model_id: str):
+def _run_whisper_capture_onnx_flow(tmp_path: Path, model_id: str, precision: str = "fp32"):
     """Export a tiny local Whisper model to ONNX via capture-onnx-graph with Model Builder."""
     model_name = model_id.replace("/", "--")
     model_path = tmp_path / "models" / model_name
@@ -295,7 +295,7 @@ def _run_whisper_capture_onnx_flow(tmp_path: Path, model_id: str):
             str(model_path),
             "--use_model_builder",
             "--precision",
-            "fp32",
+            precision,
             "--output_path",
             str(run_output_dir),
         ]
@@ -308,6 +308,7 @@ class TestCliWhisperSmoke(unittest.TestCase):
     """Smoke tests for Whisper encoder-decoder models exported via capture-onnx-graph."""
 
     model_ids = DEFAULT_WHISPER_MODEL_IDS
+    precision = "fp32"
     workdir = None
 
     def test_whisper_capture_onnx_graph(self):
@@ -325,7 +326,7 @@ class TestCliWhisperSmoke(unittest.TestCase):
         expected_decoder_file = "decoder.onnx"
         for model_id in self.model_ids:
             with self.subTest(model_id=model_id):
-                run_output_dir = _run_whisper_capture_onnx_flow(tmp_path, model_id)
+                run_output_dir = _run_whisper_capture_onnx_flow(tmp_path, model_id, self.precision)
                 output_files = self._list_relative_files(run_output_dir)
                 assert expected_encoder_file in output_files, (
                     f"Expected {expected_encoder_file} in output, got: {output_files}"
