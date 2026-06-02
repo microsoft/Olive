@@ -5,6 +5,7 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
+from typing import Optional
 
 from pydantic import Field, field_validator
 
@@ -42,6 +43,21 @@ class ModelConfig(NestedConfig):
     def create_model(self):
         cls = get_model_handler(self.type)
         return cls(**self.config)
+
+    def get_components(self) -> Optional[list[str]]:
+        """Return the list of component names exposed by this input model, or None if single-component.
+
+        * ``CompositeModel`` -> the configured ``model_component_names`` list.
+        * ``DiffusersModel`` -> the variant-specific exportable components (via the handler).
+        * Anything else -> ``None`` (single-component model).
+        """
+        model_type = self.type
+        if model_type == "compositemodel":
+            return list(self.config.get("model_component_names") or [])
+        if model_type == "diffusersmodel":
+            handler = self.create_model()
+            return [str(c) for c in handler.get_exportable_components()]
+        return None
 
     def select_components(self, names: list[str]) -> "ModelConfig":
         """Return a new ModelConfig holding only the named components of a CompositeModel.
