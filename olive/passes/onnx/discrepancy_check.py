@@ -243,7 +243,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         # Generation token sequence comparison (transformers vs ONNX Runtime GenAI)
         if config.genai_model_path:
-            longest_common = self._compare_generation(config, ref_model)
+            longest_common = self.compare_generation(config, ref_model)
             if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
                 raise RuntimeError(
                     f"ONNX model discrepancy check failed:\n"
@@ -254,7 +254,7 @@ class OnnxDiscrepancyCheck(Pass):
         # Return the model unchanged
         return model
 
-    def _compare_generation(self, config: type[BasePassConfig], ref_model) -> int:
+    def compare_generation(self, config: type[BasePassConfig], ref_model) -> int:
         """Run generation on both transformers and GenAI, return longest common token sequence length."""
         import onnxruntime_genai as og
         from transformers import AutoTokenizer

@@ -43,11 +43,11 @@ class TestLongestCommonTokenSequence:
 
 
 class TestCompareGeneration:
-    """Unit tests for OnnxDiscrepancyCheck._compare_generation."""
+    """Unit tests for OnnxDiscrepancyCheck.compare_generation."""
 
     @patch("olive.passes.onnx.discrepancy_check.og", create=True)
     def test_compare_generation_returns_common_prefix_length(self):
-        """Test that _compare_generation correctly computes the common prefix length."""
+        """Test that compare_generation correctly computes the common prefix length."""
         import torch
 
         from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
@@ -95,10 +95,12 @@ class TestCompareGeneration:
         mock_generator.get_next_tokens = get_next_tokens_side_effect
         mock_og.Generator.return_value = mock_generator
 
-        with patch("olive.passes.onnx.discrepancy_check.og", mock_og):
-            with patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer):
-                pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
-                result = pass_instance._compare_generation(config, mock_ref_model)
+        with (
+            patch("olive.passes.onnx.discrepancy_check.og", mock_og),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_generation(config, mock_ref_model)
 
         # Common prefix: [1, 2, 3, 10, 11] = 5 tokens before divergence
         assert result == 5
@@ -150,7 +152,7 @@ class TestCompareGeneration:
         with patch("olive.passes.onnx.discrepancy_check.og", mock_og):
             with patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer):
                 pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
-                result = pass_instance._compare_generation(config, mock_ref_model)
+                result = pass_instance.compare_generation(config, mock_ref_model)
 
         # All 5 tokens match
         assert result == 5
