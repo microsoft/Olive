@@ -282,8 +282,8 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 },
                 "discrepancy_check": {
                     "type": "OnnxDiscrepancyCheck",
-                    "reference_model_path": str(model_path),
-                },
+                    "reference_model_path": str(test_model_dir),
+                }
             },
         }
         config_path = tmp_path / f"{model_name}-mobius-disc-config.json"
