@@ -2,6 +2,7 @@
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: MIT
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
 
 import builtins
 import json
