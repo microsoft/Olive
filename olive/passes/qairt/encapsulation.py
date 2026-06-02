@@ -171,18 +171,18 @@ class QairtEncapsulation(Pass):
 
         if config.genie_overrides:
             if hasattr(container, "_gen_ai_config"):
-                gen_ai_cfg = container._gen_ai_config
+                gen_ai_cfg = container._gen_ai_config  # pylint: disable=protected-access
                 current = gen_ai_cfg.model_dump(mode="json", by_alias=False, exclude_none=True)
                 merged = _deep_merge(current, config.genie_overrides)
-                container._gen_ai_config = gen_ai_cfg.model_validate(merged)
+                container._gen_ai_config = gen_ai_cfg.model_validate(merged)  # pylint: disable=protected-access
                 logger.info("Applied genie_overrides to GenAIConfig: %s", list(config.genie_overrides.keys()))
             else:
                 logger.warning("genie_overrides ignored: _gen_ai_config not found in installed qairt version")
 
         if config.backend_extensions_overrides:
             if hasattr(container, "_backend_extensions_config"):
-                container._backend_extensions_config = _deep_merge(
-                    container._backend_extensions_config or {}, config.backend_extensions_overrides
+                container._backend_extensions_config = _deep_merge(  # pylint: disable=protected-access
+                    container._backend_extensions_config or {}, config.backend_extensions_overrides  # pylint: disable=protected-access
                 )
                 logger.info(
                     "Applied backend_extensions_overrides: %s", list(config.backend_extensions_overrides.keys())

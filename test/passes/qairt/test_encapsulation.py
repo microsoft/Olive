@@ -974,6 +974,7 @@ def test_encapsulation_genie_overrides_applied(tmp_path, mock_qairt_model, mock_
         "positional_encoding": {"type": "rope", "rope_dim": 64},
     }
     mock_container._gen_ai_config.model_dump.return_value = initial_gen_ai_state
+    original_gen_ai_config_mock = mock_container._gen_ai_config
 
     def mock_export(output_dir, export_format):
         Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -1016,14 +1017,14 @@ def test_encapsulation_genie_overrides_applied(tmp_path, mock_qairt_model, mock_
         encap_pass.run(mock_qairt_model, str(output_path))
 
     # model_dump was called to capture current state
-    mock_container._gen_ai_config.model_dump.assert_called_once_with(mode="json", by_alias=False, exclude_none=True)
+    original_gen_ai_config_mock.model_dump.assert_called_once_with(mode="json", by_alias=False, exclude_none=True)
     # model_validate was called with the deep-merged result
     expected_merged = {
         **initial_gen_ai_state,
         "kv_dim": 128,
         "positional_encoding": {"type": "rope", "rope_dim": 64, "rope_theta": 500000.0},
     }
-    mock_container._gen_ai_config.model_validate.assert_called_once_with(expected_merged)
+    original_gen_ai_config_mock.model_validate.assert_called_once_with(expected_merged)
 
 
 def test_encapsulation_no_genie_overrides_leaves_gen_ai_config_untouched(
@@ -1088,7 +1089,7 @@ def test_encapsulation_no_genie_overrides_leaves_gen_ai_config_untouched(
 
 
 def test_encapsulation_default_config_includes_backend(mock_accelerator_spec):
-    """backend is present in _default_config with HTP as the default."""
+    """Backend is present in _default_config with HTP as the default."""
     from olive.passes.qairt.gen_ai_builder import QairtBackend
 
     config = QairtEncapsulation._default_config(mock_accelerator_spec)  # pylint: disable=protected-access
@@ -1104,12 +1105,12 @@ def test_encapsulation_default_config_includes_backend_extensions_overrides(mock
     assert config["backend_extensions_overrides"].required is False
 
 
-def test_encapsulation_default_config_includes_htp_execution_overrides(mock_accelerator_spec):
-    """htp_execution_overrides is present in _default_config with None default."""
+def test_encapsulation_default_config_includes_engine_config_overrides(mock_accelerator_spec):
+    """engine_config_overrides is present in _default_config with None default."""
     config = QairtEncapsulation._default_config(mock_accelerator_spec)  # pylint: disable=protected-access
-    assert "htp_execution_overrides" in config
-    assert config["htp_execution_overrides"].default_value is None
-    assert config["htp_execution_overrides"].required is False
+    assert "engine_config_overrides" in config
+    assert config["engine_config_overrides"].default_value is None
+    assert config["engine_config_overrides"].required is False
 
 
 def test_encapsulation_backend_extensions_overrides_merges_into_existing(tmp_path, mock_qairt_model, mock_qairt_modules):
@@ -1277,33 +1278,33 @@ def test_encapsulation_no_backend_extensions_overrides_leaves_config_untouched(
 # ---------------------------------------------------------------------------
 
 
-def test_encapsulation_validate_config_rejects_htp_execution_overrides_on_non_htp(mock_accelerator_spec):
-    """validate_config returns False when htp_execution_overrides is set on a non-HTP backend."""
+def test_encapsulation_validate_config_rejects_engine_config_overrides_on_non_htp(mock_accelerator_spec):
+    """validate_config returns False when engine_config_overrides is set on a non-HTP backend."""
     encap_pass = create_pass_from_dict(
         QairtEncapsulation,
-        {"backend": "CPU", "htp_execution_overrides": {"n_threads": 4}},
+        {"backend": "CPU", "engine_config_overrides": {"n_threads": 0, "htp": {"cpu_mask": "0x3"}}},
         disable_search=True,
     )
     assert encap_pass.validate_config(encap_pass.config, mock_accelerator_spec) is False
 
 
-def test_encapsulation_validate_config_accepts_htp_execution_overrides_on_htp(mock_accelerator_spec):
-    """validate_config returns True when htp_execution_overrides is set on HTP backend."""
+def test_encapsulation_validate_config_accepts_engine_config_overrides_on_htp(mock_accelerator_spec):
+    """validate_config returns True when engine_config_overrides is set on HTP backend."""
     encap_pass = create_pass_from_dict(
         QairtEncapsulation,
-        {"backend": "HTP", "htp_execution_overrides": {"n_threads": 4}},
+        {"backend": "HTP", "engine_config_overrides": {"n_threads": 4}},
         disable_search=True,
     )
     assert encap_pass.validate_config(encap_pass.config, mock_accelerator_spec) is True
 
 
 # ---------------------------------------------------------------------------
-# htp_execution_overrides integration tests
+# engine_config_overrides integration tests
 # ---------------------------------------------------------------------------
 
 
-def test_encapsulation_htp_execution_overrides_applied_when_supported(tmp_path, mock_qairt_model, mock_qairt_modules):
-    """htp_execution_overrides is passed to export() when the installed qairt supports it."""
+def test_encapsulation_engine_config_overrides_applied_when_supported(tmp_path, mock_qairt_model, mock_qairt_modules):
+    """engine_config_overrides is passed to export() when the installed qairt supports it."""
     import inspect
 
     output_path = tmp_path / "output"
@@ -1316,7 +1317,7 @@ def test_encapsulation_htp_execution_overrides_applied_when_supported(tmp_path, 
     mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
     mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
 
-    def mock_export(output_dir, export_format, htp_execution_config=None):
+    def mock_export(output_dir, export_format, engine_config=None):
         Path(output_dir).mkdir(parents=True, exist_ok=True)
         (Path(output_dir) / "model.dlc").write_text("dummy dlc")
 
@@ -1349,25 +1350,27 @@ def test_encapsulation_htp_execution_overrides_applied_when_supported(tmp_path, 
         mock_helper.make_opsetid.return_value = MagicMock()
         mock_helper.make_model.return_value = MagicMock()
 
-        fake_htp_cfg = MagicMock()
-        mock_qairt_modules["gen_ai_api"].HTPExecutionConfig.return_value = fake_htp_cfg
+        fake_engine_cfg = MagicMock()
+        mock_qairt_modules["gen_ai_api"].EngineConfig.return_value = fake_engine_cfg
+        mock_qairt_modules["gen_ai_api"].HTPEngineConfig.return_value = MagicMock()
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "HTP", "htp_execution_overrides": {"n_threads": 4, "cpu_mask": "0x3"}},
+            {"backend": "HTP", "engine_config_overrides": {"n_threads": 4, "htp": {"cpu_mask": "0x3"}}},
             disable_search=True,
         )
         encap_pass.run(mock_qairt_model, str(output_path))
 
-    mock_qairt_modules["gen_ai_api"].HTPExecutionConfig.assert_called_once_with(n_threads=4, cpu_mask="0x3")
+    mock_qairt_modules["gen_ai_api"].HTPEngineConfig.assert_called_once_with(cpu_mask="0x3")
+    mock_qairt_modules["gen_ai_api"].EngineConfig.assert_called_once_with(n_threads=4, htp=mock_qairt_modules["gen_ai_api"].HTPEngineConfig.return_value)
     _, call_kwargs = mock_container.export.call_args
-    assert call_kwargs.get("htp_execution_config") is fake_htp_cfg
+    assert call_kwargs.get("engine_config") is fake_engine_cfg
 
 
-def test_encapsulation_htp_execution_overrides_skipped_when_not_supported(
+def test_encapsulation_engine_config_overrides_skipped_when_not_supported(
     tmp_path, mock_qairt_model, mock_qairt_modules
 ):
-    """htp_execution_overrides is ignored with a warning when export() has no htp_execution_config param."""
+    """engine_config_overrides is ignored with a warning when export() has no engine_config param."""
     import inspect
 
     output_path = tmp_path / "output"
@@ -1416,15 +1419,15 @@ def test_encapsulation_htp_execution_overrides_skipped_when_not_supported(
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "HTP", "htp_execution_overrides": {"n_threads": 4}},
+            {"backend": "HTP", "engine_config_overrides": {"n_threads": 4}},
             disable_search=True,
         )
         encap_pass.run(mock_qairt_model, str(output_path))
 
     warning_messages = [str(call) for call in mock_logger.warning.call_args_list]
-    assert any("htp_execution_overrides ignored" in msg for msg in warning_messages)
+    assert any("engine_config_overrides ignored" in msg for msg in warning_messages)
     _, call_kwargs = mock_container.export.call_args
-    assert "htp_execution_config" not in call_kwargs
+    assert "engine_config" not in call_kwargs
 
 
 # ---------------------------------------------------------------------------
