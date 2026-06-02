@@ -45,7 +45,6 @@ class TestLongestCommonTokenSequence:
 class TestCompareGeneration:
     """Unit tests for OnnxDiscrepancyCheck.compare_generation."""
 
-    @patch("olive.passes.onnx.discrepancy_check.og", create=True)
     def test_compare_generation_returns_common_prefix_length(self):
         """Test that compare_generation correctly computes the common prefix length."""
         import torch
@@ -105,7 +104,6 @@ class TestCompareGeneration:
         # Common prefix: [1, 2, 3, 10, 11] = 5 tokens before divergence
         assert result == 5
 
-    @patch("olive.passes.onnx.discrepancy_check.og", create=True)
     def test_compare_generation_fully_matching(self):
         """Test when both outputs are identical."""
         import torch
