@@ -249,6 +249,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
     def _assert_discrepancy_mobius(self, tmp_path: Path, model_id: str):
         model_name = model_id.replace("/", "--")
         model_path = tmp_path / "models" / f"{model_name}-mobius-disc"
+        test_model_dir = tmp_path / f"{model_name}-mobius-disc-test-model"
         run_output_dir = tmp_path / f"{model_name}-mobius-disc-run"
 
         _save_local_tiny_llama(model_path)
@@ -287,6 +288,8 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 "run",
                 "--config",
                 str(config_path),
+                "--test",
+                str(test_model_dir),
                 "--output_path",
                 str(run_output_dir),
             ]
