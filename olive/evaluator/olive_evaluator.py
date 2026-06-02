@@ -590,8 +590,11 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             return None
         import json
 
-        with genai_config_path.open() as f:
-            return json.load(f)
+        try:
+            with genai_config_path.open(encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in genai config file: {genai_config_path}") from e
 
     def _evaluate_onnx_accuracy(
         self,
@@ -837,7 +840,12 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         import re
         import tempfile
 
-        from PIL import Image
+        try:
+            from PIL import Image
+        except ImportError as e:
+            raise ImportError(
+                "Pillow is required for vision evaluation. Install it with: pip install Pillow"
+            ) from e
 
         model_dir = str(Path(model.model_path).parent)
 
@@ -886,7 +894,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
                     # Ensure PIL Image
                     if not isinstance(pil_image, Image.Image):
-                        pil_image = Image.open(pil_image).convert("RGB")
+                        with Image.open(pil_image) as img:
+                            pil_image = img.convert("RGB")
 
                     # Build chat messages for the vision-language model
                     messages = []
