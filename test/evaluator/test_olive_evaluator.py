@@ -620,3 +620,167 @@ class TestVisionMetricValidation:
         metric = self._make_vision_metric(["exact_match"])
         # No task specified, should not raise
         _validate_vision_task_metric(metric)
+
+
+class TestOnnxEvaluatorGenaiVisionDetection:
+    """Tests for genai vision model detection and dispatch via the public evaluate() method."""
+
+    def _make_model_with_genai_config(self, tmp_path, genai_config_content):
+        """Create a mock ONNXModelHandler with a genai_config.json in its directory."""
+        import json
+
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        model_dir = tmp_path / "model"
+        model_dir.mkdir()
+        model_file = model_dir / "text.onnx"
+        model_file.write_text("")  # dummy file
+
+        if genai_config_content is not None:
+            config_path = model_dir / "genai_config.json"
+            config_path.write_text(json.dumps(genai_config_content))
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = str(model_file)
+        model.framework = "onnx"
+        return model
+
+    def _make_vision_accuracy_metric(self):
+        """Create a metric that triggers the vision accuracy evaluation path."""
+        metric = MagicMock()
+        metric.name = "accuracy"
+        metric.type = MetricType.ACCURACY
+        metric.sub_types = [MagicMock()]
+        metric.sub_types[0].name = "exact_match"
+        metric.data_config = None
+        metric.user_config = MagicMock()
+        metric.user_config.user_script = None
+        metric.user_config.script_dir = None
+        metric.user_config.data_dir = None
+        metric.user_config.batch_size = 1
+        metric.user_config.dataloader_func = None
+        metric.user_config.post_processing_func = None
+        metric.user_config.evaluate_func = None
+        metric.user_config.input_names = None
+        metric.user_config.input_shapes = None
+        metric.backend = "huggingface_metrics"
+        return metric
+
+    def test_genai_vision_detected_when_vision_field_present(self, tmp_path):
+        """Dispatch to genai vision path when genai_config.json has a vision field."""
+        from olive.evaluator.olive_evaluator import OliveModelOutput
+
+        config = {"model": {"vision": {"inputs": "pixel_values"}}}
+        model = self._make_model_with_genai_config(tmp_path, config)
+
+        with (
+            patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai,
+            patch.object(OnnxEvaluator, "_inference_vision") as mock_vision,
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute,
+            patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True),
+            patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"),
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg,
+            patch(
+                "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io"
+            ) as mock_gen,
+        ):
+            mock_genai.return_value = (OliveModelOutput(preds=["answer"], logits=None), ["answer"])
+            mock_compute.return_value = MagicMock()
+            metric = self._make_vision_accuracy_metric()
+            mock_gen.return_value = metric
+            mock_get_cfg.return_value = (MagicMock(), None, None)
+
+            evaluator = OnnxEvaluator()
+            evaluator.evaluate(model, [metric], Device.CPU, None)
+
+            mock_genai.assert_called_once()
+            mock_vision.assert_not_called()
+
+    def test_genai_vision_detected_with_empty_vision_object(self, tmp_path):
+        """Dispatch to genai vision path even when vision value is an empty dict."""
+        from olive.evaluator.olive_evaluator import OliveModelOutput
+
+        config = {"model": {"vision": {}}}
+        model = self._make_model_with_genai_config(tmp_path, config)
+
+        with (
+            patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai,
+            patch.object(OnnxEvaluator, "_inference_vision") as mock_vision,
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute,
+            patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True),
+            patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"),
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg,
+            patch(
+                "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io"
+            ) as mock_gen,
+        ):
+            mock_genai.return_value = (OliveModelOutput(preds=["answer"], logits=None), ["answer"])
+            mock_compute.return_value = MagicMock()
+            metric = self._make_vision_accuracy_metric()
+            mock_gen.return_value = metric
+            mock_get_cfg.return_value = (MagicMock(), None, None)
+
+            evaluator = OnnxEvaluator()
+            evaluator.evaluate(model, [metric], Device.CPU, None)
+
+            mock_genai.assert_called_once()
+            mock_vision.assert_not_called()
+
+    def test_standard_vision_when_no_vision_field(self, tmp_path):
+        """Dispatch to standard vision path when genai_config has no vision field."""
+        from olive.evaluator.olive_evaluator import OliveModelOutput
+
+        config = {"model": {"type": "whisper"}}
+        model = self._make_model_with_genai_config(tmp_path, config)
+
+        with (
+            patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai,
+            patch.object(OnnxEvaluator, "_inference_vision") as mock_vision,
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute,
+            patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True),
+            patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"),
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg,
+            patch(
+                "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io"
+            ) as mock_gen,
+        ):
+            mock_vision.return_value = (OliveModelOutput(preds=["answer"], logits=None), ["answer"])
+            mock_compute.return_value = MagicMock()
+            metric = self._make_vision_accuracy_metric()
+            mock_gen.return_value = metric
+            mock_get_cfg.return_value = (MagicMock(), None, None)
+
+            evaluator = OnnxEvaluator()
+            evaluator.evaluate(model, [metric], Device.CPU, None)
+
+            mock_vision.assert_called_once()
+            mock_genai.assert_not_called()
+
+    def test_standard_vision_when_no_genai_config(self, tmp_path):
+        """Dispatch to standard vision path when genai_config.json is missing."""
+        from olive.evaluator.olive_evaluator import OliveModelOutput
+
+        model = self._make_model_with_genai_config(tmp_path, None)
+
+        with (
+            patch.object(OnnxEvaluator, "_inference_vision_genai") as mock_genai,
+            patch.object(OnnxEvaluator, "_inference_vision") as mock_vision,
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy") as mock_compute,
+            patch("olive.evaluator.olive_evaluator._is_vision_metric", return_value=True),
+            patch("olive.evaluator.olive_evaluator._validate_vision_task_metric"),
+            patch("olive.evaluator.olive_evaluator.OliveEvaluator.get_user_config") as mock_get_cfg,
+            patch(
+                "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io"
+            ) as mock_gen,
+        ):
+            mock_vision.return_value = (OliveModelOutput(preds=["answer"], logits=None), ["answer"])
+            mock_compute.return_value = MagicMock()
+            metric = self._make_vision_accuracy_metric()
+            mock_gen.return_value = metric
+            mock_get_cfg.return_value = (MagicMock(), None, None)
+
+            evaluator = OnnxEvaluator()
+            evaluator.evaluate(model, [metric], Device.CPU, None)
+
+            mock_vision.assert_called_once()
+            mock_genai.assert_not_called()
