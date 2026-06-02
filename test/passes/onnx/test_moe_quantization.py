@@ -218,3 +218,80 @@ def test_invalid_block_size_rejected(tmp_path):
     p = create_pass_from_dict(OnnxMoEQuantization, {"bits": 4, "block_size": 24}, disable_search=True)
     with pytest.raises(ValueError, match="power of two"):
         p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "out"))
+
+
+def test_moe_to_qmoe_handles_explicit_empty_optional_inputs(tmp_path):
+    """Convert an MoE node with explicit empty-string optional inputs.
+
+    Optional fc1_bias, fc3_W, and fc3_bias slots are present as empty
+    strings rather than absent slots; the pass should treat them as
+    missing and still convert the node.
+    """
+    # _build_moe_model already emits inputs=['x','router','fc1_W','','fc2_W']; here we
+    # extend it to also include empty fc3 slots to exercise the slot-7 boundary.
+    model_path, _, _ = _build_moe_model(tmp_path)
+    m = onnx.load(model_path)
+    moe = m.graph.node[0]
+    # Append empty fc2_bias, fc3_W, fc3_bias slots.
+    moe.input.extend(["", "", ""])
+    onnx.save(m, model_path)
+
+    p = create_pass_from_dict(OnnxMoEQuantization, {"bits": 4}, disable_search=True)
+    with patch(
+        "olive.passes.onnx.moe_quantization._load_cuda_pack_fn",
+        return_value=_fake_pack_weights_for_cuda_mixed_gemm,
+    ):
+        output_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "out"))
+    g = output_model.load_model().graph
+    qmoe_nodes = [n for n in g.node if n.op_type == "QMoE"]
+    assert len(qmoe_nodes) == 1, "MoE node with empty optional slots should still be converted."
+
+
+def test_n_not_divisible_by_pack_factor_skipped(tmp_path):
+    """Skip MoE nodes whose N is incompatible with the 4-bit packing factor.
+
+    N (== 2*inter for fc1) not divisible by pack_factor (== 2 for int4)
+    should be rejected with a clear error and the MoE node left
+    unchanged.
+    """
+    # Construct an MoE node with an odd fc1 second dimension.
+    rng = np.random.RandomState(0)
+    fc1 = rng.randn(2, 3, 8).astype(np.float32)  # E=2, N=3 (odd), K=8
+    fc2 = rng.randn(2, 8, 4).astype(np.float32)
+    inputs = [
+        helper.make_tensor_value_info("x", TensorProto.FLOAT, [None, 8]),
+        helper.make_tensor_value_info("r", TensorProto.FLOAT, [None, 2]),
+    ]
+    out = helper.make_tensor_value_info("y", TensorProto.FLOAT, [None, 8])
+    moe = helper.make_node(
+        "MoE",
+        ["x", "r", "fc1_W", "", "fc2_W"],
+        ["y"],
+        name="m",
+        domain="com.microsoft",
+        k=1,
+        activation_type="silu",
+    )
+    graph = helper.make_graph(
+        [moe],
+        "g",
+        inputs,
+        [out],
+        initializer=[numpy_helper.from_array(fc1, "fc1_W"), numpy_helper.from_array(fc2, "fc2_W")],
+    )
+    model = helper.make_model(
+        graph,
+        opset_imports=[helper.make_opsetid("", 20), helper.make_opsetid("com.microsoft", 1)],
+    )
+    model.ir_version = 10
+    p_in = tmp_path / "m.onnx"
+    onnx.save(model, p_in)
+
+    p = create_pass_from_dict(OnnxMoEQuantization, {"bits": 4}, disable_search=True)
+    with patch(
+        "olive.passes.onnx.moe_quantization._load_cuda_pack_fn",
+        return_value=_fake_pack_weights_for_cuda_mixed_gemm,
+    ):
+        output_model = p.run(ONNXModelHandler(model_path=str(p_in)), str(tmp_path / "out"))
+    g = output_model.load_model().graph
+    assert [n.op_type for n in g.node] == ["MoE"], "Odd-N MoE node should be skipped, not crash."

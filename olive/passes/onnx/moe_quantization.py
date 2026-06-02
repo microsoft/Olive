@@ -312,9 +312,19 @@ def _get_input(node: ir.Node, idx: int) -> ir.Value:
 
 
 def _maybe_input(node: ir.Node, idx: int) -> ir.Value | None:
+    """Return the optional input at ``idx``, treating empty / missing slots as absent.
+
+    ONNX represents an unset optional input either as a slot past the end of the
+    inputs list, or as an in-place placeholder with an empty name. ``onnx_ir``
+    typically maps the latter to ``None``, but defensively handle the
+    ``ir.Value(name="")`` case too so callers can rely on ``None`` meaning absent.
+    """
     if idx >= len(node.inputs):
         return None
-    return node.inputs[idx]
+    value = node.inputs[idx]
+    if value is None or not value.name:
+        return None
+    return value
 
 
 def _require_initializer(value: ir.Value, what: str, initializers: dict[str, ir.Value]) -> np.ndarray:
@@ -407,7 +417,20 @@ def _quantize_one_expert(
     block_per_k = k // effective_block
 
     pack_factor = 8 // bits  # 2 for int4, 1 for int8
+    if n % pack_factor != 0:
+        raise _UnsupportedMoEError(f"N ({n}) must be divisible by pack_factor ({pack_factor}) for {bits}-bit packing.")
+    if effective_block % pack_factor != 0:
+        raise _UnsupportedMoEError(
+            f"block_size ({effective_block}) must be divisible by pack_factor ({pack_factor}) for {bits}-bit packing."
+        )
     blob_size = effective_block // pack_factor
+    # The pybind quantize_matmul_{4,8}bits binding takes raw contiguous buffers
+    # for ``scale`` and ``zero_point``; pybind11's buffer-protocol overload
+    # accepts any shape with the same total element count. Matching the layout
+    # used in the upstream ORT test harness
+    # (onnxruntime/test/python/transformers/test_qmoe_cuda.py::quant_dequant_blockwise)
+    # keeps the on-disk byte order obvious — 2-D ``[N, block_per_k]`` for scale,
+    # 2-D ``[N, ceil(block_per_k / pack_factor)]`` for zero_point.
     q_weight = np.zeros((n, block_per_k, blob_size), dtype=np.uint8)
     scale = np.zeros((n, block_per_k), dtype=np.float32)
     zero_point = np.zeros((n, (block_per_k + pack_factor - 1) // pack_factor), dtype=np.uint8)
