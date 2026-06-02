@@ -2,9 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import inspect
+import json
 import logging
+from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from transformers import AutoConfig, AutoModel, AutoTokenizer, GenerationConfig
 
@@ -16,9 +19,118 @@ if TYPE_CHECKING:
     from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 logger = logging.getLogger(__name__)
+TEST_MODEL_MARKER_FILE = "olive_test_model.json"
 
 
-def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTrainedModel":
+def _get_test_model_marker_path(output_dir: Union[str, Path]) -> Path:
+    return Path(output_dir) / TEST_MODEL_MARKER_FILE
+
+
+def is_test_model_dir(output_dir: Union[str, Path]) -> bool:
+    output_path = Path(output_dir)
+    marker_path = _get_test_model_marker_path(output_path)
+    if not marker_path.is_file():
+        return False
+    if not (output_path / "config.json").is_file():
+        return False
+
+    try:
+        marker = json.loads(marker_path.read_text())
+    except (OSError, ValueError, TypeError):
+        return False
+
+    return marker.get("type") == "olive_hf_test_model"
+
+
+def _write_test_model_marker(output_dir: Union[str, Path], test_model_config: Optional[dict[str, Any]] = None):
+    marker_path = _get_test_model_marker_path(output_dir)
+    marker_path.write_text(
+        json.dumps({"type": "olive_hf_test_model", "test_model_config": test_model_config or {}}, indent=2)
+    )
+
+
+def _apply_test_model_config(
+    model_config: "PretrainedConfig", test_model_config: Optional[dict[str, Any]] = None
+) -> "PretrainedConfig":
+    """Apply lightweight test-model overrides to a model config."""
+    if not test_model_config:
+        return model_config
+
+    model_config = deepcopy(model_config)
+    if "hidden_layers" in test_model_config:
+        hidden_layers = test_model_config["hidden_layers"]
+    elif "num_hidden_layers" in test_model_config:
+        hidden_layers = test_model_config["num_hidden_layers"]
+    else:
+        hidden_layers = 2
+    if hidden_layers < 1:
+        raise ValueError("test_model_config.hidden_layers must be greater than 0.")
+
+    updated = False
+    # Common Hugging Face configs do not use a single canonical field:
+    # BERT-style models use num_hidden_layers while GPT-style models often use n_layer/n_layers/num_layers.
+    for attr_name in ("num_hidden_layers", "num_layers", "n_layer", "n_layers"):
+        if hasattr(model_config, attr_name):
+            setattr(model_config, attr_name, hidden_layers)
+            updated = True
+
+    if not updated:
+        raise ValueError("Unable to create a test model because the config does not expose a hidden-layer count.")
+
+    layer_types = getattr(model_config, "layer_types", None)
+    if isinstance(layer_types, (list, tuple)):
+        model_config.layer_types = layer_types[:hidden_layers]
+
+    dtype = getattr(model_config, "dtype", None)
+    if dtype == "auto":
+        # This is not allowed anymore with transformers >=4.57,
+        # we select float16 instead.
+        model_config.dtype = "float16"
+
+    return model_config
+
+
+def _load_test_model(model_class: type, model_config: "PretrainedConfig", trust_remote_code: Optional[bool] = None):
+    """Instantiate a random-initialized HF model from config for test mode."""
+    from_config_signature = inspect.signature(model_class.from_config)
+    supports_trust_remote_code = "trust_remote_code" in from_config_signature.parameters or any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in from_config_signature.parameters.values()
+    )
+    from_config_kwargs = {}
+    if supports_trust_remote_code and trust_remote_code is not None:
+        from_config_kwargs["trust_remote_code"] = trust_remote_code
+    return model_class.from_config(model_config, **from_config_kwargs)
+
+
+def _save_test_model(model: "PreTrainedModel", output_dir: str, test_model_config: Optional[dict[str, Any]] = None):
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    logger.info("Saving generated test model to %s", output_path)
+    model.save_pretrained(str(output_path))
+    _write_test_model_marker(output_path, test_model_config)
+
+
+def _validate_path(test_model_dir: Path, test_model_path: str):
+    if not test_model_dir or not test_model_dir.exists():
+        return
+
+    if not test_model_dir.is_dir():
+        raise ValueError(f"{test_model_path!r} exists but is not a directory.")
+
+    if any(test_model_dir.iterdir()):
+        raise ValueError(
+            f"{test_model_path!r} exists but is not an Olive test model directory. "
+            "Please choose an empty folder for --test or reuse a previously saved test model folder."
+        )
+
+
+def load_model_from_task(
+    task: str,
+    model_name_or_path: str,
+    test_model_config: Optional[dict[str, Any]] = None,
+    test_model_path: Optional[str] = None,
+    **kwargs,
+) -> "PreTrainedModel":
     """Load huggingface model from task and model_name_or_path."""
     from transformers.pipelines import check_task
 
@@ -31,7 +143,7 @@ def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTr
     else:
         raise ValueError("unsupported transformers version")
 
-    model_config = get_model_config(model_name_or_path, **kwargs)
+    model_config = get_model_config(model_name_or_path, test_model_config=test_model_config, **kwargs)
     if getattr(model_config, "quantization_config", None):
         if not isinstance(model_config.quantization_config, dict):
             model_config.quantization_config = model_config.quantization_config.to_dict()
@@ -59,10 +171,22 @@ def load_model_from_task(task: str, model_name_or_path: str, **kwargs) -> "PreTr
     model = None
     for i, model_class in enumerate(class_tuple):
         try:
-            model = from_pretrained(model_class, model_name_or_path, "model", **kwargs)
+            if test_model_config:
+                test_model_dir = Path(test_model_path) if test_model_path else None
+                if test_model_dir and is_test_model_dir(test_model_dir):
+                    model = from_pretrained(model_class, test_model_path, "model", **kwargs)
+                else:
+                    _validate_path(test_model_dir, test_model_path)
+                    model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
+                    if test_model_path:
+                        _save_test_model(model, test_model_path, test_model_config)
+            else:
+                model = from_pretrained(model_class, model_name_or_path, "model", **kwargs)
             logger.debug("Loaded model %s with name_or_path %s", model_class, model_name_or_path)
             break
         except (OSError, ValueError) as e:
+            if test_model_config:
+                raise
             if i == len(class_tuple) - 1:
                 # len(class_tuple) == 1 covers most common tasks like text-generation, text-classification, etc
                 # error could be device OOM, device_map: "auto" not supported, etc
@@ -94,14 +218,16 @@ def from_pretrained(cls, model_name_or_path: str, mlflow_dir: str, **kwargs):
     return cls.from_pretrained(get_pretrained_name_or_path(model_name_or_path, mlflow_dir), **kwargs)
 
 
-def get_model_config(model_name_or_path: str, **kwargs) -> "PretrainedConfig":
+def get_model_config(
+    model_name_or_path: str, test_model_config: Optional[dict[str, Any]] = None, **kwargs
+) -> "PretrainedConfig":
     """Get HF Config for the given model_name_or_path."""
     model_config = from_pretrained(AutoConfig, model_name_or_path, "config", **kwargs)
 
     # add quantization config
     quantization_config = kwargs.get("quantization_config")
     if not quantization_config:
-        return model_config
+        return _apply_test_model_config(model_config, test_model_config)
 
     if hasattr(model_config, "quantization_config") and model_config.quantization_config:
         logger.warning(
@@ -111,7 +237,7 @@ def get_model_config(model_name_or_path: str, **kwargs) -> "PretrainedConfig":
         )
     else:
         model_config.quantization_config = quantization_config
-    return model_config
+    return _apply_test_model_config(model_config, test_model_config)
 
 
 def save_model_config(config: Union["PretrainedConfig", "GenerationConfig"], output_dir: str, **kwargs):

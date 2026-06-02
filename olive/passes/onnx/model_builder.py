@@ -17,6 +17,7 @@ import torch
 from huggingface_hub.constants import HF_HUB_CACHE
 from packaging import version
 
+from olive.common.hf.utils import is_test_model_dir
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
@@ -247,6 +248,15 @@ class ModelBuilder(Pass):
             input_path = str(model.get_resource("model_path"))
         else:
             model_path = model.model_name_or_path
+            if model.test_model_config:
+                if not model.test_model_path:
+                    raise ValueError(
+                        "ModelBuilder requires test_model_path to be set when test_model_config is provided. "
+                        "Please specify the path where the test model should be saved."
+                    )
+                if not is_test_model_dir(model.test_model_path):
+                    model.load_model(cache_model=False)
+                model_path = model.test_model_path
             # provide the model path as input path, model builder uses input_path for quantized models
             input_path = model_path
             if model.adapter_path:
@@ -575,11 +585,6 @@ def patched_make_embedding(self, embedding):
     import onnx_ir as ir
 
     basename = "/model/embed_tokens"
-    if getattr(self, "int4_tied_embeddings", False) or getattr(self, "shared_embeddings", False):
-        logger.debug(
-            "int4_tied_embedding/shared_embeddings is set to True but will be ignored. Use TieWordEmbeddings graph surgery to tie"
-            " embeddings."
-        )
 
     if hasattr(embedding, "qweight"):
         qweight = "model.embed_tokens.qweight"
