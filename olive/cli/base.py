@@ -17,6 +17,74 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
+TEST_OUTPUT_MARKER_FILE = "olive_test_output.json"
+
+
+def _get_test_output_marker_path(output_path: str) -> Path:
+    return Path(output_path) / TEST_OUTPUT_MARKER_FILE
+
+
+def is_test_output_dir(output_path: str) -> bool:
+    marker_path = _get_test_output_marker_path(output_path)
+    if not marker_path.is_file():
+        return False
+
+    try:
+        marker = json.loads(marker_path.read_text())
+    except (OSError, TypeError, ValueError):
+        return False
+
+    return marker.get("type") == "olive_hf_test_output"
+
+
+def validate_test_output_path(output_path: Optional[str], test_value) -> None:
+    if test_value in (None, False) or not output_path:
+        return
+
+    output_dir = Path(output_path)
+    if not output_dir.exists():
+        return
+    if not output_dir.is_dir():
+        raise ValueError(f"--output_path {output_path} must be a directory.")
+    if any(output_dir.iterdir()) and not is_test_output_dir(output_path):
+        raise ValueError(
+            f"--output_path {output_path} already exists and is not marked as an Olive test output directory. "
+            "Use a dedicated output folder for --test runs."
+        )
+
+
+def mark_test_output_path(output_path: Optional[str]) -> None:
+    if not output_path:
+        return
+
+    output_dir = Path(output_path)
+    if not output_dir.is_dir():
+        return
+
+    _get_test_output_marker_path(output_path).write_text(json.dumps({"type": "olive_hf_test_output"}, indent=2))
+
+
+def add_discrepancy_check_pass(run_config: dict) -> dict:
+    """Inject OnnxDiscrepancyCheck pass when --test is active and not already configured."""
+    passes = run_config.get("passes", {})
+    # Skip if already configured
+    for pass_config in passes.values():
+        if isinstance(pass_config, dict) and pass_config.get("type", "").lower() == "onnxdiscrepancycheck":
+            return run_config
+
+    # Get the reference model path from the input_model test_model_path
+    input_model = run_config.get("input_model", {})
+    reference_model_path = input_model.get("test_model_path")
+    if not reference_model_path:
+        return run_config
+
+    passes["discrepancy_check"] = {
+        "type": "OnnxDiscrepancyCheck",
+        "reference_model_path": reference_model_path,
+    }
+    run_config["passes"] = passes
+    return run_config
+
 
 class BaseOliveCLICommand(ABC):
     allow_unknown_args: ClassVar[bool] = False
@@ -33,16 +101,23 @@ class BaseOliveCLICommand(ABC):
 
         from olive.workflows import run as olive_run
 
+        validate_test_output_path(self.args.output_path, getattr(self.args, "test", None))
         Path(self.args.output_path).mkdir(parents=True, exist_ok=True)
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
+            if getattr(self.args, "test", None) not in (None, False):
+                run_config = add_discrepancy_check_pass(run_config)
             if self.args.save_config_file or self.args.dry_run:
                 self._save_config_file(run_config)
             if self.args.dry_run:
+                if getattr(self.args, "test", None) not in (None, False):
+                    mark_test_output_path(self.args.output_path)
                 print("Dry run mode enabled. Configuration file is generated but no optimization is performed.")
                 return None
             workflow_output = olive_run(run_config)
+            if getattr(self.args, "test", None) not in (None, False):
+                mark_test_output_path(self.args.output_path)
             if not workflow_output.has_output_model():
                 print("No output model produced. Please check the log for details.")
             else:
@@ -82,6 +157,21 @@ class BaseOliveCLICommand(ABC):
         raise NotImplementedError
 
 
+def add_hf_test_model_config(input_model: dict, test_value, output_path: Optional[str] = None) -> dict:
+    if test_value in (None, False):
+        return input_model
+
+    test_model_output_path = test_value
+    # Use 2 layers to keep the test model fast and lightweight while preserving the original architecture family.
+    input_model["test_model_config"] = {"hidden_layers": 2}
+    if test_model_output_path is True:
+        if not output_path:
+            raise ValueError("--test requires an explicit folder when output_path is not available.")
+        test_model_output_path = str(Path(output_path) / "test_model")
+    input_model["test_model_path"] = test_model_output_path
+    return input_model
+
+
 def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS) -> dict:
     """Get the input model config for HuggingFace model.
 
@@ -105,7 +195,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
         input_model["adapter_path"] = args.adapter_path
     if getattr(args, "trust_remote_code", None) is not None:
         input_model["load_kwargs"]["trust_remote_code"] = args.trust_remote_code
-    return input_model
+    return add_hf_test_model_config(input_model, getattr(args, "test", None), getattr(args, "output_path", None))
 
 
 def _get_onnx_input_model(args: Namespace, model_path: str) -> dict:
@@ -370,6 +460,16 @@ def add_input_model_options(
         )
         model_group.add_argument(
             "--trust_remote_code", action="store_true", help="Trust remote code when loading a huggingface model."
+        )
+        model_group.add_argument(
+            "--test",
+            type=str,
+            nargs="?",
+            const=True,
+            help=(
+                "Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. "
+                "Optionally provide a folder where the generated test model should be saved and reused."
+            ),
         )
 
     if enable_hf_adapter:

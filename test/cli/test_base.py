@@ -229,6 +229,38 @@ def test_insert_input_model_invalid_hf_model_name():
         get_input_model_config(args)
 
 
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_get_input_model_config_hf_test_model(_):
+    args = SimpleNamespace(
+        model_name_or_path="hf_model",
+        trust_remote_code=False,
+        task="text-generation",
+        model_script=None,
+        script_dir=None,
+        test="saved_test_model",
+    )
+
+    config = get_input_model_config(args)
+
+    assert config["test_model_config"] == {"hidden_layers": 2}
+    assert config["test_model_path"] == "saved_test_model"
+
+
+@patch("huggingface_hub.repo_exists", return_value=True)
+def test_get_input_model_config_hf_test_model_requires_path_without_output_path(_):
+    args = SimpleNamespace(
+        model_name_or_path="hf_model",
+        trust_remote_code=False,
+        task="text-generation",
+        model_script=None,
+        script_dir=None,
+        test=True,
+    )
+
+    with pytest.raises(ValueError, match=r"--test requires an explicit folder when output_path is not available\."):
+        get_input_model_config(args)
+
+
 def test_insert_input_model_cli_output_model():
     # setup
     model_path = str(Path(__file__).parent.resolve() / "output_model")

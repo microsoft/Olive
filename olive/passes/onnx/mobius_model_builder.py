@@ -201,7 +201,9 @@ class MobiusBuilder(Pass):
             )
 
         # Multi-component model (VLMs, encoder-decoders, diffusion pipelines):
-        # mobius saves each component to <output_dir>/<key>/model.onnx.
+        # mobius saves each component to <output_dir>/<key>/model.onnx with shared
+        # sidecar files (genai_config.json, tokenizer.json, image_processor.json,
+        # audio_feature_extraction.json) at output_dir root.
         components = []
         for key in package_keys:
             component_dir = output_dir / key
@@ -211,18 +213,20 @@ class MobiusBuilder(Pass):
                     f"MobiusBuilder: expected output file not found: {onnx_path}. "
                     f"mobius.build() may have failed silently for component '{key}'."
                 )
-            additional_files = sorted(
+            # Per-component additional files: only files that live inside the
+            # component's own directory. Shared sidecars (genai_config, tokenizer,
+            # image_processor) are attached to the composite handler below so
+            # they land in the output root, not duplicated in every component.
+            component_additional_files = sorted(
                 {str(fp) for fp in component_dir.iterdir()} - {str(onnx_path), str(onnx_path) + ".data"}
             )
-            # Include ORT GenAI artifacts from root output_dir (shared across components)
-            additional_files = sorted(set(additional_files) | set(genai_artifacts.values()))
             components.append(
                 ONNXModelHandler(
                     model_path=str(component_dir),
                     onnx_file_name="model.onnx",
                     model_attributes={
                         "mobius_component": key,
-                        "additional_files": additional_files,
+                        "additional_files": component_additional_files,
                         **(model.model_attributes or {}),
                     },
                 )
@@ -234,6 +238,15 @@ class MobiusBuilder(Pass):
             model_path=str(output_dir),
             model_attributes={
                 "mobius_package_keys": package_keys,
+                # Preserve the <component>/model.onnx subdirectory layout so
+                # ORT GenAI can resolve each component by its "filename" key.
+                # Without this, Olive's cache flattens components to top-level
+                # <name>.onnx files and breaks GenAI loading.
+                "no_flatten": True,
+                # Shared package-level sidecars carried via the composite handler
+                # so they end up at the package root (alongside genai_config.json),
+                # not duplicated into each <component>/ subdirectory.
+                "additional_files": sorted(set(genai_artifacts.values())),
                 **(model.model_attributes or {}),
             },
         )
