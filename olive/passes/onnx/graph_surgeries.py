@@ -18,7 +18,12 @@ import onnx
 import onnxscript
 from onnx import ModelProto, TensorProto
 from onnx.helper import make_tensor
-from onnx_ir.passes.common import DeduplicateHashedInitializersPass, InlinePass, RemoveUnusedOpsetsPass
+from onnx_ir.passes.common import (
+    DeduplicateHashedInitializersPass,
+    InlinePass,
+    RemoveUnusedNodesPass,
+    RemoveUnusedOpsetsPass,
+)
 from onnxscript import ir, rewriter
 from onnxscript.rewriter import pattern
 
@@ -3306,66 +3311,20 @@ class UnstackGatherSqueezeWeight(Surgeon):
     """
 
     def call_ir(self, model: ir.Model) -> ir.Model:
+        # Defer to module-level free functions (Google style preference
+        # for free functions over static methods when no class state is
+        # involved).
         graph = model.graph
-        # Build name → ir.Value initializer map for quick lookup.
         initializers: dict[str, ir.Value] = dict(graph.initializers)
 
         new_initializers: dict[str, ir.Value] = {}
-        rewrites: list[tuple[ir.Node, ir.Node, ir.Value]] = []
         # (gather_node, squeeze_node, replacement_initializer_value)
+        rewrites: list[tuple[ir.Node, ir.Node, ir.Value]] = []
 
         for node in list(graph.all_nodes()):
-            if node.op_type != "Squeeze":
-                continue
-            if len(node.inputs) < 1 or node.inputs[0] is None:
-                continue
-            squeeze_axes = self._scalar_int_list(node, idx=1, initializers=initializers)
-            if squeeze_axes != [0]:
-                continue
-
-            gather_value = node.inputs[0]
-            gather_node = gather_value.producer()
-            if gather_node is None or gather_node.op_type != "Gather":
-                continue
-            axis_attr = gather_node.attributes.get("axis")
-            axis_val = int(axis_attr.value) if axis_attr is not None else 0
-            if axis_val != 0:
-                continue
-            if len(gather_node.inputs) < 2 or any(i is None for i in gather_node.inputs[:2]):
-                continue
-
-            data_value = gather_node.inputs[0]
-            if data_value.name not in initializers:
-                continue
-            data_init = initializers[data_value.name]
-            if data_init.const_value is None:
-                continue
-            data_array = data_init.const_value.numpy()
-            if data_array.ndim != 3:
-                continue
-
-            idx_list = self._scalar_int_list(gather_node, idx=1, initializers=initializers)
-            if idx_list is None or len(idx_list) != 1:
-                continue
-            slice_idx = idx_list[0]
-            if not 0 <= slice_idx < data_array.shape[0]:
-                continue
-
-            slice_array = data_array[slice_idx]
-            slice_name = f"{data_value.name}__slice_{slice_idx}"
-            if slice_name in new_initializers:
-                replacement = new_initializers[slice_name]
-            else:
-                slice_tensor = ir.Tensor(slice_array, name=slice_name)
-                replacement = ir.Value(
-                    name=slice_name,
-                    type=ir.TensorType(slice_tensor.dtype),
-                    shape=ir.Shape(slice_array.shape),
-                    const_value=slice_tensor,
-                )
-                new_initializers[slice_name] = replacement
-
-            rewrites.append((gather_node, node, replacement))
+            rewrite = _try_match_gather_squeeze(node, initializers, new_initializers)
+            if rewrite is not None:
+                rewrites.append(rewrite)
 
         if not rewrites:
             return model
@@ -3393,23 +3352,14 @@ class UnstackGatherSqueezeWeight(Surgeon):
         # OnnxKQuantQuantization (which require ``inputs[1].is_initializer()``)
         # pick it up. The most common producer is the mobius MoE
         # fallback emitting ``MatMul(x, Transpose(Squeeze(Gather(...))))``.
-        folded_count = self._fold_transpose_of_initializer(graph, new_initializers)
+        folded_count = _fold_transpose_of_initializer(graph, new_initializers)
 
-        # Orphan-initializer sweep: drop the original 3-D source weights,
-        # the per-Gather index initializers, the shared squeeze-axes
-        # constant, and any intermediate per-slice initializer that was
-        # consumed only by a folded Transpose. Anything still referenced
-        # by a remaining node or graph output stays.
-        used_init_names: set[str] = set()
-        for node in graph.all_nodes():
-            for inp in node.inputs:
-                if inp is not None and inp.name:
-                    used_init_names.add(inp.name)
-        for out in graph.outputs:
-            if out is not None and out.name:
-                used_init_names.add(out.name)
-        for name in [n for n in graph.initializers if n not in used_init_names]:
-            del graph.initializers[name]
+        # Defer orphan cleanup to onnx_ir's standard dead-code-elimination
+        # pass instead of re-implementing the sweep here. This drops the
+        # original 3-D source weights, the per-Gather index initializers,
+        # the shared squeeze-axes constant, and any intermediate per-slice
+        # initializer that was consumed only by a folded Transpose.
+        RemoveUnusedNodesPass()(model)
 
         logger.info(
             "UnstackGatherSqueezeWeight: materialised %d per-slice initializers from "
@@ -3421,76 +3371,146 @@ class UnstackGatherSqueezeWeight(Surgeon):
         )
         return model
 
-    @staticmethod
-    def _fold_transpose_of_initializer(graph: ir.Graph, candidate_initializers: dict[str, ir.Value]) -> int:
-        """Fold ``Transpose(initializer) → matmul.B`` chains into transposed initializers.
 
-        Replaces any ``Transpose`` node whose input is in
-        ``candidate_initializers`` with a pre-transposed initializer and
-        rewires the downstream consumers to use it directly.
+# Free functions used by ``UnstackGatherSqueezeWeight``. Kept at module
+# scope (not as class methods) per Google's Python style guide: prefer
+# module-level helpers when no class state is involved.
 
-        Returns the number of Transpose nodes folded.
-        """
-        folded = 0
-        for node in list(graph.all_nodes()):
-            if node.op_type != "Transpose":
-                continue
-            if len(node.inputs) != 1 or node.inputs[0] is None:
-                continue
-            src = node.inputs[0]
-            if src.name not in candidate_initializers:
-                continue
-            if src.const_value is None:
-                continue
-            perm_attr = node.attributes.get("perm")
-            arr = src.const_value.numpy()
-            perm = list(perm_attr.value) if perm_attr is not None else list(range(arr.ndim))[::-1]
-            transposed = np.transpose(arr, perm)
-            new_name = f"{src.name}__T"
-            if new_name in graph.initializers:
-                new_value = graph.initializers[new_name]
-            else:
-                new_tensor = ir.Tensor(transposed, name=new_name)
-                new_value = ir.Value(
-                    name=new_name,
-                    type=ir.TensorType(new_tensor.dtype),
-                    shape=ir.Shape(transposed.shape),
-                    const_value=new_tensor,
-                )
-                graph.register_initializer(new_value)
-            ir.convenience.replace_all_uses_with(node.outputs[0], new_value)
-            graph.remove(node, safe=True)
-            folded += 1
-        return folded
 
-    @staticmethod
-    def _scalar_int_list(node: ir.Node, idx: int, initializers: dict[str, ir.Value]) -> list[int] | None:
-        """Resolve ``node.inputs[idx]`` to a ``list[int]`` if it is a static 1-D int source.
+def _try_match_gather_squeeze(
+    node: ir.Node,
+    initializers: dict[str, ir.Value],
+    new_initializers: dict[str, ir.Value],
+) -> tuple[ir.Node, ir.Node, ir.Value] | None:
+    """Match a ``Gather(W_3d, [const], axis=0) → Squeeze([0])`` chain at ``node``.
 
-        Returns the resolved list when ``node.inputs[idx]`` is either a
-        static integer initializer or the output of an inline
-        ``Constant`` node carrying ``value`` / ``value_ints`` /
-        ``value_int``; otherwise returns ``None``.
-        """
-        if idx >= len(node.inputs) or node.inputs[idx] is None:
-            return None
-        value = node.inputs[idx]
-        # Initializer path
-        if value.name in initializers and initializers[value.name].const_value is not None:
-            arr = initializers[value.name].const_value.numpy()
-            return arr.reshape(-1).astype(np.int64).tolist()
-        # Inline Constant node path
-        producer = value.producer()
-        if producer is not None and producer.op_type == "Constant":
-            for attr in producer.attributes.values():
-                if attr.name == "value" and attr.type == ir.AttributeType.TENSOR:
-                    arr = attr.value.numpy()
-                    return arr.reshape(-1).astype(np.int64).tolist()
-                if attr.name == "value_ints" and attr.type == ir.AttributeType.INTS:
-                    return list(attr.value)
-                if attr.name == "value_int" and attr.type == ir.AttributeType.INT:
-                    return [int(attr.value)]
+    Returns ``(gather_node, squeeze_node, replacement_initializer)`` on a
+    successful match, or ``None`` otherwise. On match, the
+    ``replacement_initializer`` is also recorded in
+    ``new_initializers`` so callers can register it later.
+    """
+    if node.op_type != "Squeeze":
         return None
+    if len(node.inputs) < 1 or node.inputs[0] is None:
+        return None
+    squeeze_axes = _scalar_int_list(node, idx=1, initializers=initializers)
+    if squeeze_axes != [0]:
+        return None
+
+    gather_value = node.inputs[0]
+    gather_node = gather_value.producer()
+    if gather_node is None or gather_node.op_type != "Gather":
+        return None
+    axis_attr = gather_node.attributes.get("axis")
+    axis_val = int(axis_attr.value) if axis_attr is not None else 0
+    if axis_val != 0:
+        return None
+    if len(gather_node.inputs) < 2 or any(i is None for i in gather_node.inputs[:2]):
+        return None
+
+    data_value = gather_node.inputs[0]
+    if data_value.name not in initializers:
+        return None
+    data_init = initializers[data_value.name]
+    if data_init.const_value is None:
+        return None
+    data_array = data_init.const_value.numpy()
+    if data_array.ndim != 3:
+        return None
+
+    idx_list = _scalar_int_list(gather_node, idx=1, initializers=initializers)
+    if idx_list is None or len(idx_list) != 1:
+        return None
+    slice_idx = idx_list[0]
+    if not 0 <= slice_idx < data_array.shape[0]:
+        return None
+
+    slice_array = data_array[slice_idx]
+    slice_name = f"{data_value.name}__slice_{slice_idx}"
+    if slice_name in new_initializers:
+        replacement = new_initializers[slice_name]
+    else:
+        slice_tensor = ir.Tensor(slice_array, name=slice_name)
+        replacement = ir.Value(
+            name=slice_name,
+            type=ir.TensorType(slice_tensor.dtype),
+            shape=ir.Shape(slice_array.shape),
+            const_value=slice_tensor,
+        )
+        new_initializers[slice_name] = replacement
+
+    return gather_node, node, replacement
+
+
+def _fold_transpose_of_initializer(graph: ir.Graph, candidate_initializers: dict[str, ir.Value]) -> int:
+    """Fold ``Transpose(initializer) → matmul.B`` chains into transposed initializers.
+
+    Replaces any ``Transpose`` node whose input is in
+    ``candidate_initializers`` with a pre-transposed initializer and
+    rewires the downstream consumers to use it directly.
+
+    Returns the number of Transpose nodes folded.
+    """
+    folded = 0
+    for node in list(graph.all_nodes()):
+        if node.op_type != "Transpose":
+            continue
+        if len(node.inputs) != 1 or node.inputs[0] is None:
+            continue
+        src = node.inputs[0]
+        if src.name not in candidate_initializers:
+            continue
+        if src.const_value is None:
+            continue
+        perm_attr = node.attributes.get("perm")
+        arr = src.const_value.numpy()
+        perm = list(perm_attr.value) if perm_attr is not None else list(range(arr.ndim))[::-1]
+        transposed = np.transpose(arr, perm)
+        new_name = f"{src.name}__T"
+        if new_name in graph.initializers:
+            new_value = graph.initializers[new_name]
+        else:
+            new_tensor = ir.Tensor(transposed, name=new_name)
+            new_value = ir.Value(
+                name=new_name,
+                type=ir.TensorType(new_tensor.dtype),
+                shape=ir.Shape(transposed.shape),
+                const_value=new_tensor,
+            )
+            graph.register_initializer(new_value)
+        ir.convenience.replace_all_uses_with(node.outputs[0], new_value)
+        graph.remove(node, safe=True)
+        folded += 1
+    return folded
+
+
+def _scalar_int_list(node: ir.Node, idx: int, initializers: dict[str, ir.Value]) -> list[int] | None:
+    """Resolve ``node.inputs[idx]`` to a ``list[int]`` if it is a static 1-D int source.
+
+    Returns the resolved list when ``node.inputs[idx]`` is either a
+    static integer initializer or the output of an inline
+    ``Constant`` node carrying ``value`` / ``value_ints`` /
+    ``value_int``; otherwise returns ``None``.
+    """
+    if idx >= len(node.inputs) or node.inputs[idx] is None:
+        return None
+    value = node.inputs[idx]
+    # Initializer path
+    if value.name in initializers and initializers[value.name].const_value is not None:
+        arr = initializers[value.name].const_value.numpy()
+        return arr.reshape(-1).astype(np.int64).tolist()
+    # Inline Constant node path
+    producer = value.producer()
+    if producer is not None and producer.op_type == "Constant":
+        for attr in producer.attributes.values():
+            if attr.name == "value" and attr.type == ir.AttributeType.TENSOR:
+                arr = attr.value.numpy()
+                return arr.reshape(-1).astype(np.int64).tolist()
+            if attr.name == "value_ints" and attr.type == ir.AttributeType.INTS:
+                return list(attr.value)
+            if attr.name == "value_int" and attr.type == ir.AttributeType.INT:
+                return [int(attr.value)]
+    return None
 
 
 class GraphSurgeries(Pass):
