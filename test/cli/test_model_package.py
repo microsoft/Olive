@@ -208,17 +208,18 @@ class TestGeneratePackageMultiVariant:
         assert manifest["producer"]["model_name"] == "test_model"
         assert manifest["producer"]["model_version"] == "2.0"
 
-        # metadata uses ep_compatibility[]
+        # metadata uses inline EP (v4 schema)
         metadata = json.loads((out / "model" / "metadata.json").read_text())
+        assert metadata["schema_version"] == 1
+        assert metadata["component_name"] == "model"
         assert set(metadata["variants"]) == {"soc_60", "soc_73"}
         for variant_payload in metadata["variants"].values():
-            ep_compat = variant_payload["ep_compatibility"]
-            assert ep_compat == [{"ep": "QNNExecutionProvider", "device": "NPU"}]
+            assert variant_payload == {"ep": "QNNExecutionProvider", "device": "NPU"}
 
-        # variant.json contains files[] with filename
+        # variant.json is never emitted under v4; the ONNX file still lands in
+        # the variant directory.
         for v in ("soc_60", "soc_73"):
-            variant_json = json.loads((out / "model" / v / "variant.json").read_text())
-            assert variant_json["files"][0]["filename"] == "model.onnx"
+            assert not (out / "model" / v / "variant.json").exists()
             assert (out / "model" / v / "model.onnx").is_file()
 
 
@@ -234,13 +235,13 @@ class TestGeneratePackageSingleSource:
         assert manifest["components"] == ["model"]
         metadata = json.loads((out / "model" / "metadata.json").read_text())
         assert "cpu_x64" in metadata["variants"]
-        assert metadata["variants"]["cpu_x64"]["ep_compatibility"] == [{"ep": "CPUExecutionProvider"}]
+        assert metadata["variants"]["cpu_x64"] == {"ep": "CPUExecutionProvider"}
         # No shared_weights because nothing to dedup.
         assert not (out / "model" / "shared_weights").exists()
 
 
 # ---------------------------------------------------------------------------
-# Writer: layout + manifest + metadata + variant.json
+# Writer: layout + manifest + metadata
 # ---------------------------------------------------------------------------
 
 
@@ -265,7 +266,8 @@ class TestWriteModelPackageLayout:
 
         assert (out / "manifest.json").is_file()
         assert (out / "decoder" / "metadata.json").is_file()
-        assert (out / "decoder" / "cpu" / "variant.json").is_file()
+        # variant.json is never emitted under v4.
+        assert not (out / "decoder" / "cpu" / "variant.json").exists()
         assert (out / "decoder" / "cpu" / "model.onnx").is_file()
         assert not (out / "models").exists()
 
@@ -289,6 +291,9 @@ class TestWriteModelPackageLayout:
         manifest = json.loads((out / "manifest.json").read_text())
         assert manifest["schema_version"] == 1
         assert manifest["components"] == ["decoder"]
+        assert manifest["package_name"] == "package"
+        assert manifest["package_version"] == "1.0"
+        assert manifest["configs_dir"] == "configs"
         assert manifest["producer"] == {
             "tool": "olive-ai",
             "tool_version": "1.2.3",
@@ -299,7 +304,7 @@ class TestWriteModelPackageLayout:
         assert "component_models" not in manifest
         assert "model_version" not in manifest
 
-    def test_metadata_uses_ep_compatibility_array(self, tmp_path):
+    def test_metadata_uses_inline_ep(self, tmp_path):
         onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
         out = tmp_path / "package"
 
@@ -312,14 +317,19 @@ class TestWriteModelPackageLayout:
                     onnx_files=[onnx_path],
                     ep="QNNExecutionProvider",
                     device="NPU",
-                    compatibility=["soc_60", "soc_69"],
+                    compatibility_string="soc_60,soc_69",
                 )
             ],
         )
 
         metadata = json.loads((out / "decoder" / "metadata.json").read_text())
-        ep_compat = metadata["variants"]["qnn-npu"]["ep_compatibility"]
-        assert ep_compat == [{"ep": "QNNExecutionProvider", "device": "NPU", "compatibility": ["soc_60", "soc_69"]}]
+        assert metadata["schema_version"] == 1
+        assert metadata["component_name"] == "decoder"
+        assert metadata["variants"]["qnn-npu"] == {
+            "ep": "QNNExecutionProvider",
+            "device": "NPU",
+            "compatibility_string": "soc_60,soc_69",
+        }
         assert "model_variants" not in metadata
 
     def test_metadata_omits_optional_fields_when_unset(self, tmp_path):
@@ -339,17 +349,16 @@ class TestWriteModelPackageLayout:
         )
 
         metadata = json.loads((out / "decoder" / "metadata.json").read_text())
-        ep_compat = metadata["variants"]["cpu"]["ep_compatibility"][0]
-        assert ep_compat == {"ep": "CPUExecutionProvider"}
+        assert metadata["variants"]["cpu"] == {"ep": "CPUExecutionProvider"}
 
-    def test_variant_json_carries_session_and_provider_options(self, tmp_path):
+    def test_overlay_carries_session_and_provider_options(self, tmp_path):
         onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
         out = tmp_path / "package"
 
         inference = {
             "session_options": {"graph_optimization_level": 3},
-            "execution_provider": ["CPUExecutionProvider"],
-            "provider_options": [{"intra_op_num_threads": 4}],
+            "execution_provider": ["CUDAExecutionProvider"],
+            "provider_options": [{"device_id": "0"}],
         }
 
         write_model_package(
@@ -357,24 +366,29 @@ class TestWriteModelPackageLayout:
             variants=[
                 VariantSpec(
                     component_name="decoder",
-                    variant_name="cpu",
+                    variant_name="cuda",
                     onnx_files=[onnx_path],
-                    ep="CPUExecutionProvider",
+                    ep="CUDAExecutionProvider",
                     inference_settings=inference,
                 )
             ],
         )
 
-        variant = json.loads((out / "decoder" / "cpu" / "variant.json").read_text())
-        assert variant["files"] == [
-            {
-                "filename": "model.onnx",
-                "session_options": {"graph_optimization_level": 3},
-                "provider_options": {"intra_op_num_threads": 4},
+        # Runtime fields go to genai_config_overlay.json, not variant.json.
+        assert not (out / "decoder" / "cuda" / "variant.json").exists()
+        overlay = json.loads((out / "decoder" / "cuda" / "genai_config_overlay.json").read_text())
+        assert overlay == {
+            "model": {
+                "decoder": {
+                    "session_options": {
+                        "graph_optimization_level": 3,
+                        "provider_options": [{"cuda": {"device_id": "0"}}],
+                    }
+                }
             }
-        ]
+        }
 
-    def test_provider_options_match_ep_by_name(self, tmp_path):
+    def test_overlay_provider_options_match_ep_by_name(self, tmp_path):
         """When inference_settings has multiple EPs, pick the one whose name matches VariantSpec.ep."""
         onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
         out = tmp_path / "package"
@@ -398,18 +412,37 @@ class TestWriteModelPackageLayout:
             ],
         )
 
-        variant = json.loads((out / "decoder" / "qnn" / "variant.json").read_text())
-        assert variant["files"][0].get("provider_options") == {"backend_path": "QnnHtp.so"}
-        assert "session_options" not in variant["files"][0]
+        overlay = json.loads((out / "decoder" / "qnn" / "genai_config_overlay.json").read_text())
+        assert overlay["model"]["decoder"]["session_options"]["provider_options"] == [
+            {"qnn": {"backend_path": "QnnHtp.so"}}
+        ]
+
+    def test_overlay_omitted_for_cpu_variant_without_options(self, tmp_path):
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+        out = tmp_path / "package"
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="cpu",
+                    onnx_files=[onnx_path],
+                    ep="CPUExecutionProvider",
+                )
+            ],
+        )
+
+        assert not (out / "decoder" / "cpu" / "genai_config_overlay.json").exists()
 
 
 # ---------------------------------------------------------------------------
-# Writer: shared_weights / external-data dedup
+# Writer: external-data blobs are always kept inline per variant (no dedup)
 # ---------------------------------------------------------------------------
 
 
-class TestSharedWeightsDedup:
-    def test_dedups_identical_external_data_across_variants(self, tmp_path):
+class TestExternalDataInline:
+    def test_keeps_identical_external_data_inline_in_each_variant(self, tmp_path):
         blob = b"\x00\x01\x02\x03" * 64
         a = _make_onnx_with_external(tmp_path / "a" / "model.onnx", "model.onnx.data", blob)
         b = _make_onnx_with_external(tmp_path / "b" / "model.onnx", "model.onnx.data", blob)
@@ -433,22 +466,15 @@ class TestSharedWeightsDedup:
             ],
         )
 
-        shared_root = out / "decoder" / "shared_weights"
-        assert shared_root.is_dir()
-        sha_dirs = list(shared_root.iterdir())
-        assert len(sha_dirs) == 1
-        sha = sha_dirs[0].name
-        assert (shared_root / sha / "model.onnx.data").is_file()
-        assert not (out / "decoder" / "v1" / "model.onnx.data").exists()
-        assert not (out / "decoder" / "v2" / "model.onnx.data").exists()
-
+        # The ORT v4 package format has no cross-variant weight sharing: even
+        # identical blobs stay inline in each variant directory, and neither
+        # shared_weights/ nor variant.json is emitted.
+        assert not (out / "decoder" / "shared_weights").exists()
         for v in ("v1", "v2"):
-            variant = json.loads((out / "decoder" / v / "variant.json").read_text())
-            entry = variant["files"][0]
-            assert entry["filename"] == "model.onnx"
-            assert entry["shared_files"] == {"model.onnx.data": sha}
+            assert (out / "decoder" / v / "model.onnx.data").is_file()
+            assert not (out / "decoder" / v / "variant.json").exists()
 
-    def test_keeps_external_data_inline_when_unique(self, tmp_path):
+    def test_keeps_distinct_external_data_inline_per_variant(self, tmp_path):
         a = _make_onnx_with_external(tmp_path / "a" / "model.onnx", "model.onnx.data", b"a-bytes" * 32)
         b = _make_onnx_with_external(tmp_path / "b" / "model.onnx", "model.onnx.data", b"b-bytes" * 32)
         out = tmp_path / "package"
@@ -475,9 +501,9 @@ class TestSharedWeightsDedup:
         assert (out / "decoder" / "v1" / "model.onnx.data").is_file()
         assert (out / "decoder" / "v2" / "model.onnx.data").is_file()
 
+        # variant.json is never emitted under the v4 schema.
         for v in ("v1", "v2"):
-            variant = json.loads((out / "decoder" / v / "variant.json").read_text())
-            assert "shared_files" not in variant["files"][0]
+            assert not (out / "decoder" / v / "variant.json").exists()
 
     def test_single_variant_keeps_blob_inline(self, tmp_path):
         onnx_path = _make_onnx_with_external(tmp_path / "src" / "model.onnx", "model.onnx.data", b"x" * 128)
@@ -497,8 +523,8 @@ class TestSharedWeightsDedup:
 
         assert (out / "decoder" / "cpu" / "model.onnx.data").is_file()
         assert not (out / "decoder" / "shared_weights").exists()
-        variant = json.loads((out / "decoder" / "cpu" / "variant.json").read_text())
-        assert "shared_files" not in variant["files"][0]
+        # variant.json is never emitted under the v4 schema.
+        assert not (out / "decoder" / "cpu" / "variant.json").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -711,7 +737,7 @@ class TestDisambiguateVariantNames:
 
 
 class TestCompatibilityFromOnnxMetadata:
-    def test_splits_comma_delimited_metadata(self, tmp_path):
+    def test_passes_through_comma_delimited_metadata(self, tmp_path):
         # setup: source with QNNExecutionProvider compat info in ONNX metadata_props
         src = _create_source_dir(
             tmp_path,
@@ -725,11 +751,11 @@ class TestCompatibilityFromOnnxMetadata:
         # execute
         cmd.run()
 
-        # assert: compatibility array reflects the comma-split list
+        # assert: compatibility_string passes the raw opaque string through verbatim
         metadata = json.loads((out / "model" / "metadata.json").read_text())
-        ep_compat = metadata["variants"]["soc_60"]["ep_compatibility"][0]
-        assert ep_compat["ep"] == "QNNExecutionProvider"
-        assert ep_compat["compatibility"] == ["soc_60", "soc_69", "soc_73"]
+        variant = metadata["variants"]["soc_60"]
+        assert variant["ep"] == "QNNExecutionProvider"
+        assert variant["compatibility_string"] == "soc_60,soc_69,soc_73"
 
 
 # ---------------------------------------------------------------------------
@@ -796,11 +822,11 @@ class TestCompositeBuild:
         cmd.run()
 
         # assert: encoder uses target-level, decoder uses component-level
-        encoder_v = json.loads((out / "encoder" / "soc_60" / "variant.json").read_text())
-        assert encoder_v["files"][0]["session_options"] == {"graph_optimization_level": 1}
+        encoder_overlay = json.loads((out / "encoder" / "soc_60" / "genai_config_overlay.json").read_text())
+        assert encoder_overlay["model"]["encoder"]["session_options"]["graph_optimization_level"] == 1
 
-        decoder_v = json.loads((out / "decoder" / "soc_60" / "variant.json").read_text())
-        assert decoder_v["files"][0]["session_options"] == {"graph_optimization_level": 99}
+        decoder_overlay = json.loads((out / "decoder" / "soc_60" / "genai_config_overlay.json").read_text())
+        assert decoder_overlay["model"]["decoder"]["session_options"]["graph_optimization_level"] == 99
 
 
 # ---------------------------------------------------------------------------

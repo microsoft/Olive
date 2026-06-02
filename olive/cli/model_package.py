@@ -19,23 +19,25 @@ Output layout (per the ORT model-package proposal)::
     │   └── <consumer-shared assets>           # tokenizer, genai_config, ...
     └── <component>/
         ├── metadata.json
-        ├── shared_weights/
-        │   └── <sha256>/<blob>                # opt-in cross-variant dedup
         └── <variant>/
-            ├── variant.json
+            ├── genai_config_overlay.json      # optional: per-variant runtime fields
             ├── model.onnx
-            └── ...
+            └── ...                            # external-data blobs (inline)
 
 Notes:
-- ``shared_weights`` is opt-in per blob. A blob whose SHA-256 appears in only
-  one variant stays inline next to its ONNX file in the variant directory,
-  keeping the single-variant case loadable by stock ORT.
-- Cross-variant dedup moves a duplicated blob to
-  ``<component>/shared_weights/<sha256>/<basename>`` and records the mapping
-  in the per-file ``shared_files`` map of the variant's ``variant.json``.
-  Loading such a variant requires a model-package-aware consumer.
-- ``genai_config.json`` is copied verbatim into ``<output>/configs/``;
-  per-variant overlays are ORT-GenAI's responsibility, not Olive's.
+- ``metadata.json`` is selection-only. Each variant declares a single
+  execution provider inline (``ep``) plus optional ``device`` and opaque
+  ``compatibility_string`` (ORT v4 schema).
+- Each variant directory is self-contained: the ONNX file and any external-data
+  blobs it references are copied inline so stock ORT can load it directly. The
+  ORT v4 package format has no cross-variant weight-sharing mechanism
+  (``variant.json`` was removed), so blobs are never deduplicated across
+  variants.
+- ``genai_config.json`` is copied verbatim into ``<output>/configs/``. Under
+  the v4 schema per-variant runtime fields (``session_options``,
+  ``provider_options``) are expressed as a per-variant
+  ``genai_config_overlay.json`` (an RFC 7386 JSON Merge Patch applied on top of
+  ``configs/genai_config.json``).
 
 """
 
@@ -62,8 +64,30 @@ logger = logging.getLogger(__name__)
 # rather than under <package>/configs/.
 _MODEL_SUFFIXES = {".onnx", ".bin", ".data", ".xml"}
 
-# Schema version emitted in manifest.json. Keep in sync with the proposal.
+# Schema versions emitted in the package JSON files. Keep in sync with the
+# ORT v4 model-package schema.
 _MANIFEST_SCHEMA_VERSION = 1
+_METADATA_SCHEMA_VERSION = 1
+
+# Directory under the package root that holds consumer-shared config assets
+# (genai_config base, tokenizer, processor configs, chat templates).
+_CONFIGS_DIR = "configs"
+
+# Map canonical ONNX Runtime EP names to the short provider aliases used inside
+# genai_config.json's ``session_options.provider_options`` list. Mirrors the
+# aliases ORT-GenAI accepts (see ORT-GenAI src/config.cpp provider dispatch).
+_EP_TO_GENAI: dict[str, str] = {
+    "CPUExecutionProvider": "cpu",
+    "CUDAExecutionProvider": "cuda",
+    "DmlExecutionProvider": "dml",
+    "WebGpuExecutionProvider": "webgpu",
+    "JsExecutionProvider": "web",
+    "QNNExecutionProvider": "qnn",
+    "OpenVINOExecutionProvider": "openvino",
+    "ROCMExecutionProvider": "rocm",
+    "TensorrtExecutionProvider": "tensorrt",
+    "NvTensorRTRTXExecutionProvider": "NvTensorRtRtx",
+}
 
 # Hash chunk size for SHA-256 over external-data blobs.
 _HASH_CHUNK = 1024 * 1024
@@ -175,6 +199,8 @@ class ModelPackageCommand(BaseOliveCLICommand):
             variants=variants,
             config_files=config_files,
             producer_info=producer_info,
+            package_name=self.args.model_name or output_dir.name,
+            package_version=self.args.model_version,
         )
 
         logger.info("Model package generated at %s", output_dir)
@@ -191,7 +217,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
         for target_name, _src, model_config in targets:
             attrs = _get_model_attributes(model_config)
             onnx_path = _resolve_onnx_path(model_config)
-            ep, device, compatibility = _ep_device_compatibility(attrs, onnx_path)
+            ep, device, compatibility_string = _ep_device_compatibility(attrs, onnx_path)
             variants.append(
                 VariantSpec(
                     component_name=component_name,
@@ -199,7 +225,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
                     onnx_files=[onnx_path],
                     ep=ep,
                     device=device,
-                    compatibility=compatibility,
+                    compatibility_string=compatibility_string,
                     inference_settings=model_config.get("config", {}).get("inference_settings") or {},
                 )
             )
@@ -228,7 +254,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
                 comp_attrs.update(_get_model_attributes(comp_config))
 
                 onnx_path = _resolve_onnx_path(comp_config)
-                ep, device, compatibility = _ep_device_compatibility(comp_attrs, onnx_path)
+                ep, device, compatibility_string = _ep_device_compatibility(comp_attrs, onnx_path)
 
                 spec = VariantSpec(
                     component_name=comp_name,
@@ -236,7 +262,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
                     onnx_files=[onnx_path],
                     ep=ep,
                     device=device,
-                    compatibility=compatibility,
+                    compatibility_string=compatibility_string,
                     inference_settings=comp_inference,
                 )
                 component_variants.setdefault(comp_name, []).append(spec)
@@ -355,7 +381,7 @@ class VariantSpec:
     onnx_files: list[Path]
     ep: str
     device: Optional[str] = None
-    compatibility: list[str] = field(default_factory=list)
+    compatibility_string: Optional[str] = None
     inference_settings: dict[str, Any] = field(default_factory=dict)
     consumer_metadata: Optional[dict[str, Any]] = None
 
@@ -365,6 +391,8 @@ def write_model_package(
     variants: list[VariantSpec],
     config_files: Optional[dict[str, Path]] = None,
     producer_info: Optional[dict[str, Any]] = None,
+    package_name: Optional[str] = None,
+    package_version: str = "1.0",
 ) -> None:
     """Materialize a model package on disk.
 
@@ -378,9 +406,11 @@ def write_model_package(
         different sources should be byte-identical; the first wins on
         conflict and a warning is logged.
     :param producer_info: Olive-specific provenance recorded under
-        ``manifest.producer``. Schema-tolerated extra field (the proposal
-        defines only ``schema_version``, ``components``, and
-        ``merge_provenance``; producers may add namespaced extras).
+        ``manifest.producer``. Schema-tolerated extra field; producers may add
+        namespaced extras.
+    :param package_name: Name recorded under ``manifest.package_name``.
+        Defaults to the output directory name.
+    :param package_version: Version recorded under ``manifest.package_version``.
     """
     if not variants:
         raise ValueError("write_model_package requires at least one variant.")
@@ -388,6 +418,12 @@ def write_model_package(
     output_dir = Path(output_dir)
     _ensure_empty_output_dir(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Map each package component to the genai_config role that references it, so
+    # per-variant overlays patch the right ``model.<role>`` block. Roles can be
+    # named differently from components, so we resolve via the base config's
+    # ``model.<role>.component`` pointers and fall back to the component name.
+    component_to_role = _resolve_component_roles(config_files)
 
     # Group by component while preserving insertion order.
     components: dict[str, list[VariantSpec]] = {}
@@ -409,31 +445,36 @@ def write_model_package(
             seen.add(v.variant_name)
 
     for comp_name, comp_variants in components.items():
-        _write_component(output_dir, comp_name, comp_variants)
+        _write_component(output_dir, comp_name, comp_variants, component_to_role.get(comp_name, comp_name))
 
     if config_files:
         _copy_config_files(output_dir, config_files)
 
-    _write_manifest(output_dir, list(components.keys()), producer_info)
+    _write_manifest(
+        output_dir, list(components.keys()), producer_info, package_name or output_dir.name, package_version
+    )
 
 
-def _write_component(output_dir: Path, component_name: str, comp_variants: list[VariantSpec]) -> None:
+def _write_component(
+    output_dir: Path,
+    component_name: str,
+    comp_variants: list[VariantSpec],
+    component_role: str,
+) -> None:
     component_dir = output_dir / component_name
     component_dir.mkdir(parents=True, exist_ok=True)
 
-    # First pass: copy each variant's ONNX file(s) and discover external-data
-    # references. We hash blobs as we copy so multi-variant packages don't
-    # re-read the data later.
-    blob_index: dict[str, dict[str, Any]] = {}
-    variant_files: dict[str, list[tuple[str, list[tuple[str, str]]]]] = {}
-
+    # Copy each variant's ONNX file(s) along with any external-data blobs they
+    # reference, keeping everything inline in the variant directory so each
+    # variant is self-contained and loadable by stock ORT. The ORT v4 package
+    # format has no cross-variant weight-sharing mechanism (variant.json was
+    # removed), so we never deduplicate blobs across variants.
     for v in comp_variants:
         if not v.onnx_files:
             raise ValueError(f"Variant '{v.variant_name}' under component '{component_name}' has no ONNX files.")
 
         variant_dir = component_dir / v.variant_name
         variant_dir.mkdir(parents=True, exist_ok=True)
-        files_for_variant: list[tuple[str, list[tuple[str, str]]]] = []
 
         for onnx_src in v.onnx_files:
             onnx_src_path = Path(onnx_src)
@@ -445,7 +486,6 @@ def _write_component(output_dir: Path, component_name: str, comp_variants: list[
 
             ext_refs = _discover_external_data(onnx_src_path)
             external_root = onnx_src_path.parent.resolve()
-            blob_records: list[tuple[str, str]] = []
             for graph_location in ext_refs:
                 blob_src = (onnx_src_path.parent / graph_location).resolve()
                 if not blob_src.is_relative_to(external_root):
@@ -469,94 +509,115 @@ def _write_component(output_dir: Path, component_name: str, comp_variants: list[
                 if not blob_dst.exists():
                     shutil.copy2(str(blob_src), str(blob_dst))
 
-                sha = _sha256_file(blob_dst)
-                blob_records.append((graph_location, sha))
+        # Per-variant runtime fields flow through genai_config_overlay.json.
+        _write_genai_config_overlay(variant_dir, component_role, v)
 
-                entry = blob_index.setdefault(
-                    sha, {"first_path": blob_dst, "occurrences": 0, "basename": Path(graph_location).name}
-                )
-                entry["occurrences"] += 1
-
-            files_for_variant.append((onnx_dst.name, blob_records))
-
-        variant_files[v.variant_name] = files_for_variant
-
-    # Second pass: dedup any blob that appears in 2+ variants of this
-    # component into <component>/shared_weights/<sha>/<basename>. Single-
-    # occurrence blobs stay inline so single-variant packages remain
-    # loadable without the package API.
-    shared_weights_dir = component_dir / "shared_weights"
-    shared_blob_paths: dict[str, Path] = {}
-    for sha, entry in blob_index.items():
-        if entry["occurrences"] < 2:
-            continue
-        sha_dir = shared_weights_dir / sha
-        sha_dir.mkdir(parents=True, exist_ok=True)
-        target = sha_dir / entry["basename"]
-        if not target.exists():
-            shutil.copy2(str(entry["first_path"]), str(target))
-        shared_blob_paths[sha] = target
-
-    # Third pass: for each variant, remove deduped blobs from the variant
-    # directory and emit variant.json with the right shared_files map per
-    # files[i]. Then emit metadata.json for the component.
-    for v in comp_variants:
-        variant_dir = component_dir / v.variant_name
-        files_payload: list[dict[str, Any]] = []
-        for onnx_filename, blob_records in variant_files[v.variant_name]:
-            shared_files: dict[str, str] = {}
-            for graph_location, sha in blob_records:
-                if sha in shared_blob_paths:
-                    inline = variant_dir / graph_location
-                    if inline.exists():
-                        inline.unlink()
-                        # Clean up any now-empty parent directories created for
-                        # nested graph_location paths, but stop at variant_dir.
-                        parent = inline.parent
-                        while parent != variant_dir and parent.is_dir() and not any(parent.iterdir()):
-                            parent.rmdir()
-                            parent = parent.parent
-                    shared_files[graph_location] = sha
-
-            file_entry: dict[str, Any] = {"filename": onnx_filename}
-            so = (v.inference_settings or {}).get("session_options") or {}
-            po = _provider_options_for_ep(v.inference_settings or {}, v.ep)
-            if so:
-                file_entry["session_options"] = so
-            if po:
-                file_entry["provider_options"] = po
-            if shared_files:
-                file_entry["shared_files"] = shared_files
-            files_payload.append(file_entry)
-
-        variant_payload: dict[str, Any] = {"files": files_payload}
-        if v.consumer_metadata is not None:
-            variant_payload["consumer_metadata"] = v.consumer_metadata
-        _write_json(variant_dir / "variant.json", variant_payload)
-
-    _write_metadata(component_dir, comp_variants)
+    _write_metadata(component_dir, component_name, comp_variants)
 
 
-def _write_metadata(component_dir: Path, comp_variants: list[VariantSpec]) -> None:
+def _write_metadata(component_dir: Path, component_name: str, comp_variants: list[VariantSpec]) -> None:
     variants_payload: dict[str, Any] = {}
     for v in comp_variants:
-        ep_entry: dict[str, Any] = {"ep": v.ep}
+        # ORT v4: EP fields are inline on the variant object; a variant targets
+        # a single execution provider.
+        variant_obj: dict[str, Any] = {"ep": v.ep}
         if v.device:
-            ep_entry["device"] = v.device
-        if v.compatibility:
-            ep_entry["compatibility"] = list(v.compatibility)
-        variants_payload[v.variant_name] = {"ep_compatibility": [ep_entry]}
-    _write_json(component_dir / "metadata.json", {"variants": variants_payload})
+            variant_obj["device"] = v.device
+        if v.compatibility_string:
+            variant_obj["compatibility_string"] = v.compatibility_string
+        variants_payload[v.variant_name] = variant_obj
+    _write_json(
+        component_dir / "metadata.json",
+        {
+            "schema_version": _METADATA_SCHEMA_VERSION,
+            "component_name": component_name,
+            "variants": variants_payload,
+        },
+    )
+
+
+def _genai_provider_name(ep: str) -> str:
+    """Map a canonical ORT EP name to the genai_config provider alias."""
+    if ep in _EP_TO_GENAI:
+        return _EP_TO_GENAI[ep]
+    # Best-effort fallback: strip the ExecutionProvider suffix and lowercase.
+    return ep[: -len("ExecutionProvider")].lower() if ep.endswith("ExecutionProvider") else ep
+
+
+def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: VariantSpec) -> None:
+    """Emit a per-variant ``genai_config_overlay.json`` (RFC 7386 merge patch).
+
+    Under the ORT v4 schema per-variant runtime fields are no longer read from
+    variant.json; they flow through a JSON Merge Patch applied on top of the
+    package's base ``configs/genai_config.json``. We express the variant's
+    ``session_options`` and EP-scoped ``provider_options`` under the role that
+    references this component (``model.<role>.session_options``).
+    """
+    inference = v.inference_settings or {}
+    session_options: dict[str, Any] = dict(inference.get("session_options") or {})
+    provider_options = _provider_options_for_ep(inference, v.ep)
+
+    # For non-CPU variants always declare the provider so the merged config
+    # appends the right EP at session-construction time (the base config copied
+    # into configs/ is from a single source and may target a different EP).
+    # CPU is ORT-GenAI's default, so only declare it when there are real options.
+    if v.ep != "CPUExecutionProvider" or provider_options:
+        session_options["provider_options"] = [{_genai_provider_name(v.ep): provider_options}]
+
+    if not session_options:
+        return
+
+    overlay = {"model": {component_role: {"session_options": session_options}}}
+    _write_json(variant_dir / "genai_config_overlay.json", overlay)
+
+
+def _resolve_component_roles(config_files: Optional[dict[str, Path]]) -> dict[str, str]:
+    """Map each package component to the genai_config role that references it.
+
+    The base ``genai_config.json`` declares roles under ``model.<role>`` and
+    each role names the package component it loads via a ``component`` field.
+    Per-variant overlays must patch ``model.<role>``, which can differ from the
+    component name, so we invert that mapping here. Returns an empty map when no
+    base config is available (callers fall back to the component name).
+    """
+    if not config_files:
+        return {}
+    src = config_files.get("genai_config.json")
+    if src is None:
+        return {}
+    try:
+        with Path(src).open(encoding="utf-8") as fh:
+            config = json.load(fh)
+    except Exception:
+        logger.debug("Could not read genai_config.json from %s for role mapping.", src, exc_info=True)
+        return {}
+
+    model_block = config.get("model")
+    if not isinstance(model_block, dict):
+        return {}
+
+    component_to_role: dict[str, str] = {}
+    for role, role_block in model_block.items():
+        if isinstance(role_block, dict):
+            component = role_block.get("component")
+            if isinstance(component, str) and component and component not in component_to_role:
+                component_to_role[component] = role
+    return component_to_role
 
 
 def _write_manifest(
     output_dir: Path,
     components: list[str],
     producer_info: Optional[dict[str, Any]],
+    package_name: str,
+    package_version: str,
 ) -> None:
     manifest: dict[str, Any] = {
         "schema_version": _MANIFEST_SCHEMA_VERSION,
+        "package_name": package_name,
+        "package_version": package_version,
         "components": components,
+        "configs_dir": _CONFIGS_DIR,
     }
     if producer_info:
         # Olive-specific provenance under a namespaced key so future schema
@@ -571,7 +632,7 @@ def _write_manifest(
 
 
 def _copy_config_files(output_dir: Path, config_files: dict[str, Path]) -> None:
-    configs_dir = output_dir / "configs"
+    configs_dir = output_dir / _CONFIGS_DIR
     configs_dir.mkdir(parents=True, exist_ok=True)
     configs_root = configs_dir.resolve()
     for name, src in config_files.items():
@@ -589,8 +650,8 @@ def _copy_config_files(output_dir: Path, config_files: dict[str, Path]) -> None:
             if not _paths_equal(src_path, dest):
                 logger.warning(
                     "configs/%s already present and differs from %s; keeping the existing copy. "
-                    "Per-variant config differences belong in variant.json's consumer_metadata, "
-                    "which is consumer-defined and out of Olive's scope.",
+                    "Per-variant config differences belong in genai_config_overlay.json, "
+                    "not in the shared configs/ directory.",
                     name,
                     src_path,
                 )
@@ -813,12 +874,19 @@ def _resolve_onnx_path(model_config: dict) -> Path:
     raise FileNotFoundError(f"model_path does not exist: {p}")
 
 
-def _ep_device_compatibility(attrs: dict, onnx_path: Path) -> tuple[str, Optional[str], list[str]]:
-    """Extract (ep, device, compatibility[]) for one variant from Olive metadata."""
+def _ep_device_compatibility(attrs: dict, onnx_path: Path) -> tuple[str, Optional[str], Optional[str]]:
+    """Extract (ep, device, compatibility_string) for one variant from Olive metadata.
+
+    Under the ORT v4 schema each variant declares a single opaque
+    ``compatibility_string``. Olive stores the EP-side preference as a
+    comma-delimited string in the ONNX metadata prop ``ep_compatibility_info.<EP>``;
+    it is passed through verbatim (ORT does not interpret the encoding).
+    """
     ep = attrs.get("ep") or "CPUExecutionProvider"
     device = attrs.get("device") or None
-    compatibility = parse_compatibility_strings(_extract_ep_compatibility_from_onnx(onnx_path, ep))
-    return ep, device, compatibility
+    raw = _extract_ep_compatibility_from_onnx(onnx_path, ep)
+    compatibility_string = raw.strip() if raw and raw.strip() else None
+    return ep, device, compatibility_string
 
 
 def _extract_ep_compatibility_from_onnx(model_path: Path, ep: str = "") -> Optional[str]:
