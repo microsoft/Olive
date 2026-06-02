@@ -12,6 +12,7 @@ from pathlib import Path
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace
+
 from olive.cli.base import TEST_OUTPUT_MARKER_FILE
 from olive.common.hf.utils import TEST_MODEL_MARKER_FILE
 
@@ -70,7 +71,6 @@ def _save_local_tiny_whisper(model_path: Path):
 
     model = WhisperForConditionalGeneration(
         WhisperConfig(
-            vocab_size=32,
             num_mel_bins=80,
             encoder_layers=2,
             encoder_attention_heads=4,
