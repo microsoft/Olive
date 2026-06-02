@@ -29,13 +29,29 @@ MAX_GENIE_CONTEXT_LENGTH = 4096
 def _deep_merge(base: dict, overrides: dict) -> dict:
     """Recursively merge *overrides* into *base*, returning a new dict.
 
-    Nested dicts are merged rather than replaced, so only the keys present in
-    *overrides* are changed; all other keys from *base* are preserved.
+    Nested dicts are merged rather than replaced. Lists of dicts are merged
+    element-wise by index — the override list need not be the same length as
+    the base list; extra base elements are preserved and extra override
+    elements are appended. A ``None`` override value deletes the key from
+    the result.
     """
     result = dict(base)
     for k, v in overrides.items():
-        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
+        if v is None:
+            result.pop(k, None)
+        elif k in result and isinstance(result[k], dict) and isinstance(v, dict):
             result[k] = _deep_merge(result[k], v)
+        elif k in result and isinstance(result[k], list) and isinstance(v, list):
+            merged = []
+            for i, ov in enumerate(v):
+                if i < len(result[k]) and isinstance(result[k][i], dict) and isinstance(ov, dict):
+                    merged.append(_deep_merge(result[k][i], ov))
+                elif i < len(result[k]):
+                    merged.append(ov)
+                else:
+                    merged.append(ov)
+            merged.extend(result[k][len(v):])
+            result[k] = merged
         else:
             result[k] = v
     return result
