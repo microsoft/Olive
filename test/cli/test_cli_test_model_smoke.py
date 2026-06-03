@@ -194,7 +194,9 @@ class TestCliTestModelSmoke(unittest.TestCase):
     def _assert_discrepancy(self, tmp_path: Path):
         for exporter in self.exporters:
             if exporter == EXPORTER_MOBIUS and not _HAS_MOBIUS:
-                self.fail("Requested exporter 'mobius' but mobius-ai is not installed. Install mobius-ai or remove '--exporter mobius'.")
+                self.fail(
+                    "Requested exporter 'mobius' but mobius-ai is not installed. Install mobius-ai or remove '--exporter mobius'."
+                )
             for model_id in self.model_ids:
                 with self.subTest(model_id=model_id, exporter=exporter):
                     if exporter == EXPORTER_MODEL_BUILDER:
@@ -283,7 +285,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 "discrepancy_check": {
                     "type": "OnnxDiscrepancyCheck",
                     "reference_model_path": str(test_model_dir),
-                }
+                },
             },
         }
         config_path = tmp_path / f"{model_name}-mobius-disc-config.json"
