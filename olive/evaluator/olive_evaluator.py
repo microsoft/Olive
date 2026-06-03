@@ -582,6 +582,20 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             dump_tuning_result(session.session, tuning_result_file)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
+    @staticmethod
+    def _load_genai_config(model: ONNXModelHandler) -> Optional[dict]:
+        """Load genai_config.json from the model directory, or return None if not found."""
+        genai_config_path = Path(model.model_path).parent / "genai_config.json"
+        if not genai_config_path.exists():
+            return None
+        import json
+
+        try:
+            with genai_config_path.open(encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in genai config file: {genai_config_path}") from e
+
     def _evaluate_onnx_accuracy(
         self,
         model: ONNXModelHandler,
@@ -593,18 +607,21 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
     ) -> MetricResult:
         if _is_vision_metric(metric):
             _validate_vision_task_metric(metric)
-            inference_output, targets = self._inference_vision(
-                model, metric, dataloader, post_func, device, execution_providers
-            )
+            # Auto-detect genai vision model by checking for genai_config.json with vision field
+            genai_cfg = self._load_genai_config(model)
+            use_genai_vision = genai_cfg is not None and "vision" in genai_cfg.get("model", {})
+
+            if use_genai_vision:
+                inference_output, targets = self._inference_vision_genai(model, dataloader, device)
+            else:
+                inference_output, targets = self._inference_vision(
+                    model, metric, dataloader, post_func, device, execution_providers
+                )
         elif _is_text_based_metric(metric):
             # Auto-detect genai model by checking for genai_config.json
-            genai_config_path = Path(model.model_path).parent / "genai_config.json"
-            if genai_config_path.exists():
-                import json
-
-                with genai_config_path.open() as f:
-                    genai_config = json.load(f)
-                model_type = genai_config.get("model", {}).get("type", "")
+            genai_cfg = self._load_genai_config(model)
+            if genai_cfg:
+                model_type = genai_cfg.get("model", {}).get("type", "")
 
                 if model_type == "whisper":
                     inference_output, targets = self._inference_text_genai(
@@ -792,6 +809,142 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         tuning_result_file = inference_settings.get("tuning_result_file")
         if tuning_result_file:
             dump_tuning_result(session.session, tuning_result_file)
+
+        return OliveModelOutput(preds=all_preds, logits=None), all_targets
+
+    def _inference_vision_genai(
+        self,
+        model: ONNXModelHandler,
+        dataloader: "DataLoader",
+        device: Device = Device.CPU,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Vision-based inference for VQA/OCR metrics using onnxruntime-genai.
+
+        Auto-detected when the model directory contains genai_config.json with a vision field.
+        Uses og.Model with multimodal processor for vision-language models (e.g., Qwen3-VL).
+        The dataloader must yield (input_dict, labels) where input_dict contains
+        'image' (PIL Image) and 'question' (str), and labels are reference answer strings.
+
+        Note: GPU/CPU selection is driven by the `device` parameter. onnxruntime-genai uses
+        short provider names internally (e.g., "cuda") which differ from ORT-style EP names.
+        """
+        try:
+            import onnxruntime_genai as og
+        except ImportError as e:
+            raise ImportError(
+                "onnxruntime-genai is required for genai-based vision evaluation. "
+                "Install it with: pip install onnxruntime-genai"
+            ) from e
+
+        import json
+        import re
+        import tempfile
+
+        try:
+            from PIL import Image
+        except ImportError as e:
+            raise ImportError("Pillow is required for vision evaluation. Install it with: pip install Pillow") from e
+
+        model_dir = str(Path(model.model_path).parent)
+
+        # max_length in genai is total sequence length (input + output).
+        # Default to 1028 which accommodates image/prompt tokens (~200-500) plus answer tokens.
+        # Note: genai_config.json's search.max_length is typically the full context window
+        # (e.g., 262144) which is too large — the model will stop at EOS well before this cap.
+        max_length = 1028
+
+        # Build og.Model with appropriate execution provider
+        # Note: onnxruntime-genai uses CPU by default when no provider is appended.
+        # Only non-CPU providers need to be explicitly added using short names (e.g., "cuda").
+        # This follows the same pattern as _inference_text_genai and _inference_text_genai_streaming.
+        config = og.Config(model_dir)
+        config.clear_providers()
+        if device == Device.GPU:
+            config.append_provider("cuda")
+        og_model = og.Model(config)
+        processor = og_model.create_multimodal_processor()
+        tokenizer = og.Tokenizer(og_model)
+
+        all_preds = []
+        all_targets = []
+
+        # Use a temporary directory for image files to avoid per-file create/delete overhead
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_img_path = Path(tmp_dir) / "input.png"
+
+            for batch in dataloader:
+                input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+
+                # input_data is a dict with 'image' (PIL) and 'question' (str)
+                # or a list of such dicts for batch_size > 1
+                items = [input_data] if isinstance(input_data, dict) else input_data
+
+                for item in items:
+                    pil_image = item.get("image")
+                    question = item.get("question", "")
+                    sys_prompt = item.get("system_prompt", "")
+                    extract_number = item.get("extract_number", False)
+
+                    if pil_image is None:
+                        # Append empty pred to maintain alignment with targets
+                        all_preds.append("")
+                        continue
+
+                    # Ensure PIL Image
+                    if not isinstance(pil_image, Image.Image):
+                        with Image.open(pil_image) as img:
+                            pil_image = img.convert("RGB")
+
+                    # Build chat messages for the vision-language model
+                    messages = []
+                    if sys_prompt:
+                        messages.append({"role": "system", "content": sys_prompt})
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "image"},
+                                {"type": "text", "text": question},
+                            ],
+                        }
+                    )
+                    messages_json = json.dumps(messages)
+
+                    # Save image to temp file for og.Images (reuse same path to minimize I/O)
+                    pil_image.save(str(tmp_img_path), format="PNG")
+                    images = og.Images.open(str(tmp_img_path))
+
+                    prompt = tokenizer.apply_chat_template(messages_json, add_generation_prompt=True)
+                    inputs = processor(prompt, images=images)
+
+                    params = og.GeneratorParams(og_model)
+                    params.set_search_options(max_length=max_length, do_sample=False)
+
+                    generator = og.Generator(og_model, params)
+                    generator.set_inputs(inputs)
+
+                    tokens = []
+                    while not generator.is_done():
+                        generator.generate_next_token()
+                        tokens.append(generator.get_next_tokens()[0])
+                    del generator
+
+                    pred = tokenizer.decode(tokens).strip()
+                    # For multiple-choice tasks, extract leading number from responses
+                    # like "1. D" or "0. krill" to match the expected answer format
+                    if extract_number:
+                        num_match = re.match(r"^(\d+)", pred)
+                        if num_match:
+                            pred = num_match.group(1)
+                    all_preds.append(pred)
+
+                # Collect reference texts (aligned with preds including empty ones for None images)
+                if isinstance(labels, (list, tuple)):
+                    all_targets.extend(labels)
+                else:
+                    all_targets.append(labels)
+
+        del og_model
 
         return OliveModelOutput(preds=all_preds, logits=None), all_targets
 

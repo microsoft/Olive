@@ -387,6 +387,8 @@ def vision_vqa_pre_process(
     image_col: str = "image",
     question_col: str = "question",
     answer_col: str = "answer",
+    options_col: str = "",
+    system_prompt: str = "",
     max_samples: Optional[int] = None,
     limit: Optional[float] = None,
     seed: int = 42,
@@ -408,6 +410,10 @@ def vision_vqa_pre_process(
         image_col: Name of the image column. Defaults to "image".
         question_col: Name of the question column. Defaults to "question".
         answer_col: Name of the answer column. Defaults to "answer".
+        options_col: Name of the options column for multiple-choice questions. If specified,
+            options are formatted as numbered choices and appended to the question. Defaults to "".
+        system_prompt: System prompt to guide model responses (e.g., "Reply with only the
+            option number"). Passed through to the evaluator. Defaults to "".
         max_samples: Maximum number of samples (deprecated, use limit). Defaults to None.
         limit: Sampling limit following Olive convention:
             If >= 1: use first N samples.
@@ -438,11 +444,13 @@ def vision_vqa_pre_process(
         Note: Use batch_size=1 in dataloader config as images have variable sizes.
         """
 
-        def __init__(self, hf_dataset, image_column, question_column, answer_column):
+        def __init__(self, hf_dataset, image_column, question_column, answer_column, options_column="", sys_prompt=""):
             self.dataset = hf_dataset
             self.image_column = image_column
             self.question_column = question_column
             self.answer_column = answer_column
+            self.options_column = options_column
+            self.system_prompt = sys_prompt
 
         def __len__(self):
             return len(self.dataset)
@@ -452,11 +460,27 @@ def vision_vqa_pre_process(
             image = item[self.image_column]
             question = item[self.question_column]
             answer = item[self.answer_column]
+
+            # Format options into the question if options_col is specified
+            has_options = False
+            if self.options_column and self.options_column in item:
+                options = item[self.options_column]
+                if isinstance(options, (list, tuple)):
+                    options_text = "\n".join(f"{i}. {opt}" for i, opt in enumerate(options))
+                    question = f"{question}\n{options_text}"
+                    has_options = True
+
             # Handle list/tuple answers (some datasets have multiple valid answers)
             # Join with | separator so metrics can match against any valid answer
             if isinstance(answer, (list, tuple)):
                 answer = "|".join(str(a) for a in answer) if answer else ""
-            return {"image": image, "question": question}, str(answer)
+            input_dict = {
+                "image": image,
+                "question": question,
+                "system_prompt": self.system_prompt,
+                "extract_number": has_options,
+            }
+            return input_dict, str(answer)
 
         @staticmethod
         def collate_fn(batch):
@@ -472,4 +496,4 @@ def vision_vqa_pre_process(
             answers = [item[1] for item in batch]
             return (inputs, answers)
 
-    return VisionVQADataset(dataset, image_col, question_col, answer_col)
+    return VisionVQADataset(dataset, image_col, question_col, answer_col, options_col, system_prompt)
