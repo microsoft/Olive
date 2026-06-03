@@ -17,12 +17,13 @@ Output layout (per the ORT model-package proposal)::
     ├── manifest.json
     ├── configs/
     │   └── <consumer-shared assets>           # tokenizer, genai_config, ...
-    └── <component>/
-        ├── metadata.json
-        └── <variant>/
-            ├── genai_config_overlay.json      # optional: per-variant runtime fields
-            ├── model.onnx
-            └── ...                            # external-data blobs (inline)
+    └── models/
+        └── <component>/
+            ├── metadata.json
+            └── <variant>/
+                ├── genai_config_overlay.json      # optional: per-variant runtime fields
+                ├── model.onnx
+                └── ...                            # external-data blobs (inline)
 
 Notes:
 - ``metadata.json`` is selection-only. Each variant declares a single
@@ -69,20 +70,33 @@ _METADATA_SCHEMA_VERSION = 1
 # (genai_config base, tokenizer, processor configs, chat templates).
 _CONFIGS_DIR = "configs"
 
+# Directory under the package root that holds per-component subdirectories.
+# Required by the ORT model-package schema; ORT's model-package loader
+# discovers components via ``<package>/models/<component>/metadata.json``.
+_MODELS_DIR = "models"
+
 # Map canonical ONNX Runtime EP names to the short provider aliases used inside
-# genai_config.json's ``session_options.provider_options`` list. Mirrors the
-# aliases ORT-GenAI accepts (see ORT-GenAI src/config.cpp provider dispatch).
+# genai_config.json's ``session_options.provider_options`` list. Matches the
+# accepted aliases reported by ORT-GenAI when it parses an unknown provider name
+# ("Currently supported values are 'DML'/'DmlExecutionProvider', ...").
 _EP_TO_GENAI: dict[str, str] = {
-    "CPUExecutionProvider": "cpu",
+    "CPUExecutionProvider": "CPU",
     "CUDAExecutionProvider": "cuda",
-    "DmlExecutionProvider": "dml",
-    "WebGpuExecutionProvider": "webgpu",
-    "JsExecutionProvider": "web",
-    "QNNExecutionProvider": "qnn",
-    "OpenVINOExecutionProvider": "openvino",
+    "DmlExecutionProvider": "DML",
+    "WebGpuExecutionProvider": "WebGPU",
+    "JsExecutionProvider": "JS",
+    "QNNExecutionProvider": "QNN",
+    "OpenVINOExecutionProvider": "OpenVINO",
     "ROCMExecutionProvider": "rocm",
     "TensorrtExecutionProvider": "tensorrt",
     "NvTensorRTRTXExecutionProvider": "NvTensorRtRtx",
+    "XnnpackExecutionProvider": "XNNPACK",
+    "WebNNExecutionProvider": "WEBNN",
+    "AzureExecutionProvider": "AZURE",
+    "VitisAIExecutionProvider": "VitisAI",
+    "CoreMLExecutionProvider": "CoreML",
+    "MIGraphXExecutionProvider": "MIGraphX",
+    "SNPEExecutionProvider": "SNPE",
 }
 
 # Hash chunk size for SHA-256 over external-data blobs.
@@ -156,9 +170,10 @@ class ModelPackageCommand(BaseOliveCLICommand):
             model_config = self._read_model_config(source_path)
             targets.append((target_name, source_path, model_config))
 
-        types = {targets[i][2].get("type") for i in range(len(targets))}
-        if types - {"ONNXModel", "CompositeModel"}:
-            unsupported = sorted(types - {"ONNXModel", "CompositeModel"})
+        types = {(targets[i][2].get("type") or "").lower() for i in range(len(targets))}
+        supported = {"onnxmodel", "compositemodel"}
+        if types - supported:
+            unsupported = sorted(types - supported)
             raise ValueError(
                 f"Unsupported source model type(s) {unsupported!r}. "
                 "generate-model-package supports ONNXModel and CompositeModel only."
@@ -168,7 +183,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
                 f"Sources mix model types {sorted(types)!r}. All sources must share the same type "
                 "(all ONNXModel or all CompositeModel)."
             )
-        is_composite = next(iter(types)) == "CompositeModel"
+        is_composite = next(iter(types)) == "compositemodel"
 
         if is_composite:
             variants = self._build_composite_variants(targets)
@@ -213,7 +228,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
         for target_name, _src, model_config in targets:
             attrs = _get_model_attributes(model_config)
             onnx_path = _resolve_onnx_path(model_config)
-            ep, device, compatibility_string = _ep_device_compatibility(attrs, onnx_path)
+            ep, device, compatibility_string = _ep_device_compatibility(attrs, onnx_path, target_name)
             variants.append(
                 VariantSpec(
                     component_name=component_name,
@@ -250,7 +265,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
                 comp_attrs.update(_get_model_attributes(comp_config))
 
                 onnx_path = _resolve_onnx_path(comp_config)
-                ep, device, compatibility_string = _ep_device_compatibility(comp_attrs, onnx_path)
+                ep, device, compatibility_string = _ep_device_compatibility(comp_attrs, onnx_path, target_name)
 
                 spec = VariantSpec(
                     component_name=comp_name,
@@ -443,8 +458,18 @@ def write_model_package(
     for comp_name, comp_variants in components.items():
         _write_component(output_dir, comp_name, comp_variants, component_to_role.get(comp_name, comp_name))
 
+    # Build the role -> component map needed by _copy_config_files so it can
+    # inject ``model.<role>.component`` markers into the base genai_config. ORT
+    # requires every role-block to declare which package component it loads;
+    # without those markers ORT-GenAI's variant auto-selection fails with
+    # "the genai config does not reference any package components".
+    role_to_component: dict[str, str] = {}
+    for comp_name in components:
+        role = component_to_role.get(comp_name, comp_name)
+        role_to_component.setdefault(role, comp_name)
+
     if config_files:
-        _copy_config_files(output_dir, config_files)
+        _copy_config_files(output_dir, config_files, role_to_component)
 
     _write_manifest(
         output_dir, list(components.keys()), producer_info, package_name or output_dir.name, package_version
@@ -457,7 +482,7 @@ def _write_component(
     comp_variants: list[VariantSpec],
     component_role: str,
 ) -> None:
-    component_dir = output_dir / component_name
+    component_dir = output_dir / _MODELS_DIR / component_name
     component_dir.mkdir(parents=True, exist_ok=True)
 
     # Copy each variant's ONNX file(s) along with any external-data blobs they
@@ -543,25 +568,44 @@ def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: Varia
 
     Per-variant runtime fields flow through a JSON Merge Patch applied on top of
     the package's base ``configs/genai_config.json``. We express the variant's
-    ``session_options`` and EP-scoped ``provider_options`` under the role that
-    references this component (``model.<role>.session_options``).
+    ``filename`` (the variant-local ONNX file basename), ``session_options`` and
+    EP-scoped ``provider_options`` under the role that references this component
+    (``model.<role>``). The base config has those keys stripped (see
+    ``_strip_variant_specific``); each variant overlay puts them back so ORT
+    resolves files inside the chosen variant directory.
     """
     inference = v.inference_settings or {}
     session_options: dict[str, Any] = dict(inference.get("session_options") or {})
     provider_options = _provider_options_for_ep(inference, v.ep)
 
-    # For non-CPU variants always declare the provider so the merged config
-    # appends the right EP at session-construction time (the base config copied
-    # into configs/ is from a single source and may target a different EP).
-    # CPU is ORT-GenAI's default, so only declare it when there are real options.
-    if v.ep != "CPUExecutionProvider" or provider_options:
-        session_options["provider_options"] = [{_genai_provider_name(v.ep): provider_options}]
+    # Always declare the variant's EP under session_options.provider_options so
+    # the merged genai_config tells ORT-GenAI which EP to register for this
+    # variant. Without an explicit entry ORT-GenAI fails session construction
+    # with "No execution providers were provided or selected" even when the
+    # variant's metadata.json ep matches the user's request.
+    session_options["provider_options"] = [{_genai_provider_name(v.ep): provider_options}]
 
-    if not session_options:
-        return
+    role_patch: dict[str, Any] = {}
+    if v.onnx_files:
+        role_patch["filename"] = Path(v.onnx_files[0]).name
+    role_patch["session_options"] = session_options
 
-    overlay = {"model": {component_role: {"session_options": session_options}}}
+    overlay = {"model": {component_role: role_patch}}
     _write_json(variant_dir / "genai_config_overlay.json", overlay)
+
+
+def _strip_variant_specific(node: Any, keys: tuple[str, ...] = ("filename", "session_options")) -> Any:
+    """Recursively drop variant-specific keys from a genai_config-shaped dict.
+
+    ``filename`` and ``session_options`` are intrinsically variant-specific and
+    must not live in the package's base ``configs/genai_config.json``; per-variant
+    ``genai_config_overlay.json`` files patch them back in. Returns a deep copy.
+    """
+    if isinstance(node, dict):
+        return {k: _strip_variant_specific(v, keys) for k, v in node.items() if k not in keys}
+    if isinstance(node, list):
+        return [_strip_variant_specific(v, keys) for v in node]
+    return node
 
 
 def _resolve_component_roles(config_files: Optional[dict[str, Path]]) -> dict[str, str]:
@@ -624,7 +668,11 @@ def _write_manifest(
 # ---------------------------------------------------------------------------
 
 
-def _copy_config_files(output_dir: Path, config_files: dict[str, Path]) -> None:
+def _copy_config_files(
+    output_dir: Path,
+    config_files: dict[str, Path],
+    role_to_component: Optional[dict[str, str]] = None,
+) -> None:
     configs_dir = output_dir / _CONFIGS_DIR
     configs_dir.mkdir(parents=True, exist_ok=True)
     configs_root = configs_dir.resolve()
@@ -649,12 +697,49 @@ def _copy_config_files(output_dir: Path, config_files: dict[str, Path]) -> None:
                     src_path,
                 )
             continue
+        if name == "genai_config.json" and src_path.is_file():
+            # Strip variant-specific keys from the base genai_config and inject
+            # ``model.<role>.component`` markers so ORT-GenAI can resolve each
+            # role to a package component (and apply the right per-variant
+            # overlay). Each variant's genai_config_overlay.json patches the
+            # stripped keys back in.
+            try:
+                with src_path.open(encoding="utf-8") as fh:
+                    base_genai = json.load(fh)
+                stripped = _strip_variant_specific(base_genai)
+                if role_to_component:
+                    _inject_role_components(stripped, role_to_component)
+                _write_json(dest, stripped)
+                continue
+            except Exception:
+                logger.debug(
+                    "Failed to strip variant-specific keys from %s; falling back to verbatim copy.",
+                    src_path,
+                    exc_info=True,
+                )
         if src_path.is_dir():
             shutil.copytree(str(src_path), str(dest))
         elif src_path.is_file():
             shutil.copy2(str(src_path), str(dest))
         else:
             logger.warning("Config source %s does not exist; skipping.", src_path)
+
+
+def _inject_role_components(genai: dict, role_to_component: dict[str, str]) -> None:
+    """Inject ``model.<role>.component = <component>`` markers in-place.
+
+    ORT-GenAI's model-package variant selection requires every role block in
+    the base ``configs/genai_config.json`` to declare which package component
+    serves it. Olive-generated source ``genai_config.json`` typically lacks
+    these markers because the source is a flat-directory build, not a package.
+    """
+    model_block = genai.get("model")
+    if not isinstance(model_block, dict):
+        return
+    for role, component in role_to_component.items():
+        role_block = model_block.get(role)
+        if isinstance(role_block, dict):
+            role_block["component"] = component
 
 
 def _paths_equal(a: Path, b: Path) -> bool:
@@ -867,19 +952,58 @@ def _resolve_onnx_path(model_config: dict) -> Path:
     raise FileNotFoundError(f"model_path does not exist: {p}")
 
 
-def _ep_device_compatibility(attrs: dict, onnx_path: Path) -> tuple[str, Optional[str], Optional[str]]:
+def _ep_device_compatibility(
+    attrs: dict, onnx_path: Path, variant_name: Optional[str] = None
+) -> tuple[str, Optional[str], Optional[str]]:
     """Extract (ep, device, compatibility_string) for one variant from Olive metadata.
 
     Each variant declares a single opaque ``compatibility_string``. Olive stores
     the EP-side preference as a comma-delimited string in the ONNX metadata prop
     ``ep_compatibility_info.<EP>``; it is passed through verbatim (ORT does not
     interpret the encoding).
+
+    When ``model_attributes.ep`` is absent, fall back to a common-variant-name
+    heuristic (``gpu``/``cuda`` → CUDA, ``qnn`` → QNN, etc.) so users who don't
+    manually annotate their Olive outputs still get distinct EP entries in each
+    component's metadata.json. Final fallback is CPU.
     """
-    ep = attrs.get("ep") or "CPUExecutionProvider"
+    ep = attrs.get("ep") or _guess_ep_from_variant_name(variant_name) or "CPUExecutionProvider"
     device = attrs.get("device") or None
     raw = _extract_ep_compatibility_from_onnx(onnx_path, ep)
     compatibility_string = raw.strip() if raw and raw.strip() else None
     return ep, device, compatibility_string
+
+
+# Best-effort mapping from common Olive output / EP-build directory names to
+# canonical ORT EP strings. Used only as a fallback when model_attributes.ep is
+# not set. Keep substrings short and lowercased; matched via ``in``.
+_VARIANT_NAME_EP_HINTS: tuple[tuple[str, str], ...] = (
+    ("cuda", "CUDAExecutionProvider"),
+    ("gpu", "CUDAExecutionProvider"),
+    ("trt", "TensorrtExecutionProvider"),
+    ("tensorrt", "TensorrtExecutionProvider"),
+    ("rocm", "ROCMExecutionProvider"),
+    ("dml", "DmlExecutionProvider"),
+    ("directml", "DmlExecutionProvider"),
+    ("qnn", "QNNExecutionProvider"),
+    ("npu", "QNNExecutionProvider"),
+    ("openvino", "OpenVINOExecutionProvider"),
+    ("ovep", "OpenVINOExecutionProvider"),
+    ("webgpu", "WebGpuExecutionProvider"),
+    ("xnnpack", "XnnpackExecutionProvider"),
+    ("coreml", "CoreMLExecutionProvider"),
+    ("cpu", "CPUExecutionProvider"),
+)
+
+
+def _guess_ep_from_variant_name(variant_name: Optional[str]) -> Optional[str]:
+    if not variant_name:
+        return None
+    name = variant_name.lower()
+    for hint, ep in _VARIANT_NAME_EP_HINTS:
+        if hint in name:
+            return ep
+    return None
 
 
 def _extract_ep_compatibility_from_onnx(model_path: Path, ep: str = "") -> Optional[str]:
