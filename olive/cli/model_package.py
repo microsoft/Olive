@@ -27,17 +27,13 @@ Output layout (per the ORT model-package proposal)::
 Notes:
 - ``metadata.json`` is selection-only. Each variant declares a single
   execution provider inline (``ep``) plus optional ``device`` and opaque
-  ``compatibility_string`` (ORT v4 schema).
+  ``compatibility_string``.
 - Each variant directory is self-contained: the ONNX file and any external-data
-  blobs it references are copied inline so stock ORT can load it directly. The
-  ORT v4 package format has no cross-variant weight-sharing mechanism
-  (``variant.json`` was removed), so blobs are never deduplicated across
-  variants.
-- ``genai_config.json`` is copied verbatim into ``<output>/configs/``. Under
-  the v4 schema per-variant runtime fields (``session_options``,
-  ``provider_options``) are expressed as a per-variant
-  ``genai_config_overlay.json`` (an RFC 7386 JSON Merge Patch applied on top of
-  ``configs/genai_config.json``).
+  blobs it references are copied inline so stock ORT can load it directly.
+- ``genai_config.json`` is copied verbatim into ``<output>/configs/``.
+  Per-variant runtime fields (``session_options``, ``provider_options``) are
+  expressed as a per-variant ``genai_config_overlay.json`` (an RFC 7386 JSON
+  Merge Patch applied on top of ``configs/genai_config.json``).
 
 """
 
@@ -65,7 +61,7 @@ logger = logging.getLogger(__name__)
 _MODEL_SUFFIXES = {".onnx", ".bin", ".data", ".xml"}
 
 # Schema versions emitted in the package JSON files. Keep in sync with the
-# ORT v4 model-package schema.
+# ORT model-package schema.
 _MANIFEST_SCHEMA_VERSION = 1
 _METADATA_SCHEMA_VERSION = 1
 
@@ -466,9 +462,7 @@ def _write_component(
 
     # Copy each variant's ONNX file(s) along with any external-data blobs they
     # reference, keeping everything inline in the variant directory so each
-    # variant is self-contained and loadable by stock ORT. The ORT v4 package
-    # format has no cross-variant weight-sharing mechanism (variant.json was
-    # removed), so we never deduplicate blobs across variants.
+    # variant is self-contained and loadable by stock ORT.
     for v in comp_variants:
         if not v.onnx_files:
             raise ValueError(f"Variant '{v.variant_name}' under component '{component_name}' has no ONNX files.")
@@ -518,8 +512,8 @@ def _write_component(
 def _write_metadata(component_dir: Path, component_name: str, comp_variants: list[VariantSpec]) -> None:
     variants_payload: dict[str, Any] = {}
     for v in comp_variants:
-        # ORT v4: EP fields are inline on the variant object; a variant targets
-        # a single execution provider.
+        # EP fields are inline on the variant object; a variant targets a
+        # single execution provider.
         variant_obj: dict[str, Any] = {"ep": v.ep}
         if v.device:
             variant_obj["device"] = v.device
@@ -547,9 +541,8 @@ def _genai_provider_name(ep: str) -> str:
 def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: VariantSpec) -> None:
     """Emit a per-variant ``genai_config_overlay.json`` (RFC 7386 merge patch).
 
-    Under the ORT v4 schema per-variant runtime fields are no longer read from
-    variant.json; they flow through a JSON Merge Patch applied on top of the
-    package's base ``configs/genai_config.json``. We express the variant's
+    Per-variant runtime fields flow through a JSON Merge Patch applied on top of
+    the package's base ``configs/genai_config.json``. We express the variant's
     ``session_options`` and EP-scoped ``provider_options`` under the role that
     references this component (``model.<role>.session_options``).
     """
@@ -877,10 +870,10 @@ def _resolve_onnx_path(model_config: dict) -> Path:
 def _ep_device_compatibility(attrs: dict, onnx_path: Path) -> tuple[str, Optional[str], Optional[str]]:
     """Extract (ep, device, compatibility_string) for one variant from Olive metadata.
 
-    Under the ORT v4 schema each variant declares a single opaque
-    ``compatibility_string``. Olive stores the EP-side preference as a
-    comma-delimited string in the ONNX metadata prop ``ep_compatibility_info.<EP>``;
-    it is passed through verbatim (ORT does not interpret the encoding).
+    Each variant declares a single opaque ``compatibility_string``. Olive stores
+    the EP-side preference as a comma-delimited string in the ONNX metadata prop
+    ``ep_compatibility_info.<EP>``; it is passed through verbatim (ORT does not
+    interpret the encoding).
     """
     ep = attrs.get("ep") or "CPUExecutionProvider"
     device = attrs.get("device") or None

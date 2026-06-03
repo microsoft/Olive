@@ -208,7 +208,7 @@ class TestGeneratePackageMultiVariant:
         assert manifest["producer"]["model_name"] == "test_model"
         assert manifest["producer"]["model_version"] == "2.0"
 
-        # metadata uses inline EP (v4 schema)
+        # metadata uses inline EP
         metadata = json.loads((out / "model" / "metadata.json").read_text())
         assert metadata["schema_version"] == 1
         assert metadata["component_name"] == "model"
@@ -216,8 +216,8 @@ class TestGeneratePackageMultiVariant:
         for variant_payload in metadata["variants"].values():
             assert variant_payload == {"ep": "QNNExecutionProvider", "device": "NPU"}
 
-        # variant.json is never emitted under v4; the ONNX file still lands in
-        # the variant directory.
+        # No variant.json is emitted; the ONNX file lands in the variant
+        # directory.
         for v in ("soc_60", "soc_73"):
             assert not (out / "model" / v / "variant.json").exists()
             assert (out / "model" / v / "model.onnx").is_file()
@@ -266,7 +266,7 @@ class TestWriteModelPackageLayout:
 
         assert (out / "manifest.json").is_file()
         assert (out / "decoder" / "metadata.json").is_file()
-        # variant.json is never emitted under v4.
+        # No variant.json is emitted.
         assert not (out / "decoder" / "cpu" / "variant.json").exists()
         assert (out / "decoder" / "cpu" / "model.onnx").is_file()
         assert not (out / "models").exists()
@@ -466,9 +466,8 @@ class TestExternalDataInline:
             ],
         )
 
-        # The ORT v4 package format has no cross-variant weight sharing: even
-        # identical blobs stay inline in each variant directory, and neither
-        # shared_weights/ nor variant.json is emitted.
+        # Each variant keeps its own external-data blob inline; no shared_weights
+        # directory or variant.json is emitted.
         assert not (out / "decoder" / "shared_weights").exists()
         for v in ("v1", "v2"):
             assert (out / "decoder" / v / "model.onnx.data").is_file()
@@ -501,7 +500,7 @@ class TestExternalDataInline:
         assert (out / "decoder" / "v1" / "model.onnx.data").is_file()
         assert (out / "decoder" / "v2" / "model.onnx.data").is_file()
 
-        # variant.json is never emitted under the v4 schema.
+        # No variant.json is emitted.
         for v in ("v1", "v2"):
             assert not (out / "decoder" / v / "variant.json").exists()
 
@@ -523,7 +522,7 @@ class TestExternalDataInline:
 
         assert (out / "decoder" / "cpu" / "model.onnx.data").is_file()
         assert not (out / "decoder" / "shared_weights").exists()
-        # variant.json is never emitted under the v4 schema.
+        # No variant.json is emitted.
         assert not (out / "decoder" / "cpu" / "variant.json").exists()
 
 
