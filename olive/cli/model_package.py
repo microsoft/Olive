@@ -75,6 +75,12 @@ _CONFIGS_DIR = "configs"
 # discovers components via ``<package>/models/<component>/metadata.json``.
 _MODELS_DIR = "models"
 
+# Conventional directory suffix for an ORT model package. Not enforced by
+# ORT/ORT-GenAI loaders (they probe structure, not filenames), but matches
+# the canonical naming used in ORT's model-package documentation and the
+# reference ``build_packages.py`` examples.
+_PACKAGE_SUFFIX = ".ortpackage"
+
 # Map canonical ONNX Runtime EP names to the short provider aliases used inside
 # genai_config.json's ``session_options.provider_options`` list. Matches the
 # accepted aliases reported by ORT-GenAI when it parses an unknown provider name
@@ -139,7 +145,11 @@ class ModelPackageCommand(BaseOliveCLICommand):
             "--output_path",
             type=str,
             required=True,
-            help="Output directory for the model package. Must be empty or non-existent.",
+            help=(
+                "Output directory for the model package. The ``.ortpackage`` "
+                "suffix is appended automatically if missing. Must be empty "
+                "or non-existent."
+            ),
         )
 
         sub_parser.add_argument(
@@ -164,6 +174,9 @@ class ModelPackageCommand(BaseOliveCLICommand):
     def run(self):
         sources = self._parse_sources()
         output_dir = Path(self.args.output_path)
+        if output_dir.suffix != _PACKAGE_SUFFIX:
+            output_dir = output_dir.with_name(output_dir.name + _PACKAGE_SUFFIX)
+        package_default_name = output_dir.stem
 
         targets = []
         for target_name, source_path in sources:
@@ -200,7 +213,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
             producer_info["tool_version"] = _olive_version
         except Exception:
             logger.debug("Could not read olive.__version__", exc_info=True)
-        producer_info["model_name"] = self.args.model_name or output_dir.name
+        producer_info["model_name"] = self.args.model_name or package_default_name
         producer_info["model_version"] = self.args.model_version
         if task:
             producer_info["task"] = task
@@ -210,7 +223,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
             variants=variants,
             config_files=config_files,
             producer_info=producer_info,
-            package_name=self.args.model_name or output_dir.name,
+            package_name=self.args.model_name or package_default_name,
             package_version=self.args.model_version,
         )
 
