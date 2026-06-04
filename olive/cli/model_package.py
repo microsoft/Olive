@@ -597,13 +597,24 @@ def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: Varia
     inference = v.inference_settings or {}
     session_options: dict[str, Any] = dict(inference.get("session_options") or {})
     provider_options = _provider_options_for_ep(inference, v.ep)
+    genai_ep = _genai_provider_name(v.ep)
 
-    # Always declare the variant's EP under session_options.provider_options so
-    # the merged genai_config tells ORT-GenAI which EP to register for this
-    # variant. Without an explicit entry ORT-GenAI fails session construction
-    # with "No execution providers were provided or selected" even when the
-    # variant's metadata.json ep matches the user's request.
-    session_options["provider_options"] = [{_genai_provider_name(v.ep): provider_options}]
+    # ORT-GenAI's FinalizeConfig builds session_options.providers from
+    # provider_options[*].name (src/config.cpp:1643-1645), and
+    # SetProviderSessionOptions then registers each named provider. CPU is not
+    # in the dispatch table (src/models/session_options.cpp:150-159); it has no
+    # configurable options, and ORT InferenceSession adds it implicitly when no
+    # other EP is registered (onnxruntime/core/session/inference_session.cc:
+    # SetCpuProviderWasImplicitlyAdded). For CPU variants we therefore emit an
+    # empty list rather than a sentinel ``[{"CPU": {}}]`` entry. For every
+    # other EP we name it explicitly (NormalizeProviderName canonicalises the
+    # case for QNN/DML/OpenVINO/etc., and "cuda" is already lowercase in the
+    # dispatch table). This matches the convention used by reference ORT model
+    # packages and avoids registering CPU through the V1 no-op path.
+    if genai_ep == "CPU":
+        session_options["provider_options"] = []
+    else:
+        session_options["provider_options"] = [{genai_ep: provider_options}]
 
     role_patch: dict[str, Any] = {"session_options": session_options}
     if v.onnx_files:

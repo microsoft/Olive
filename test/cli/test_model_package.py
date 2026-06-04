@@ -417,12 +417,15 @@ class TestWriteModelPackageLayout:
             {"qnn": {"backend_path": "QnnHtp.so"}}
         ]
 
-    def test_overlay_always_emits_provider_options_for_cpu(self, tmp_path):
-        """Plain CPU variants still get an overlay so ORT-GenAI sees an explicit
-        provider entry. The base config strips ``session_options`` (variant-
-        specific), so without this overlay session construction would fail with
-        "No execution providers were provided or selected" even though the
-        variant's metadata.json names CPUExecutionProvider.
+    def test_overlay_emits_empty_provider_options_for_cpu(self, tmp_path):
+        """CPU variants emit ``provider_options: []`` rather than a sentinel entry.
+
+        ``[{"CPU": {}}]`` is not needed: ORT-GenAI's dispatch table has no CPU
+        handler (src/models/session_options.cpp), and ORT InferenceSession
+        implicitly registers the CPU EP when no other provider is selected
+        (onnxruntime/core/session/inference_session.cc), so the explicit entry
+        would only trigger a V1 no-op registration. An empty list matches the
+        convention used by reference ORT model packages.
         """
         onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
         out = tmp_path / "package"
@@ -444,7 +447,7 @@ class TestWriteModelPackageLayout:
             "model": {
                 "decoder": {
                     "filename": "model.onnx",
-                    "session_options": {"provider_options": [{"CPU": {}}]},
+                    "session_options": {"provider_options": []},
                 }
             }
         }
@@ -835,14 +838,10 @@ class TestCompositeBuild:
         cmd.run()
 
         # assert: encoder uses target-level, decoder uses component-level
-        encoder_overlay = json.loads(
-            (out / "models" / "encoder" / "soc_60" / "genai_config_overlay.json").read_text()
-        )
+        encoder_overlay = json.loads((out / "models" / "encoder" / "soc_60" / "genai_config_overlay.json").read_text())
         assert encoder_overlay["model"]["encoder"]["session_options"]["graph_optimization_level"] == 1
 
-        decoder_overlay = json.loads(
-            (out / "models" / "decoder" / "soc_60" / "genai_config_overlay.json").read_text()
-        )
+        decoder_overlay = json.loads((out / "models" / "decoder" / "soc_60" / "genai_config_overlay.json").read_text())
         assert decoder_overlay["model"]["decoder"]["session_options"]["graph_optimization_level"] == 99
 
 
