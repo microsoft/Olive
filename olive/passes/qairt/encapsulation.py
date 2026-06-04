@@ -18,7 +18,6 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler, QairtModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
-from olive.passes.qairt.gen_ai_builder import QairtBackend
 from olive.passes.qairt.utils import QairtLogLevel
 
 logger = logging.getLogger(__name__)
@@ -82,11 +81,6 @@ class QairtEncapsulation(Pass):
                 required=False,
                 description="Opset name and version to be added in the generated context model",
             ),
-            "backend": PassConfigParam(
-                type_=QairtBackend,
-                default_value=QairtBackend.HTP,
-                description="Target accelerator backend for the DLC being encapsulated. Accepted values are 'CPU' and 'HTP'.",
-            ),
             "genie_overrides": PassConfigParam(
                 type_=dict,
                 default_value=None,
@@ -126,23 +120,11 @@ class QairtEncapsulation(Pass):
                     "fields: cpu_mask, poll, use_mmap, spill_fill_bufsize, mmap_budget, "
                     "pos_id_dim, kv_update_method, allow_async_init, enable_graph_switching. "
                     "Example: {'n_threads': 0, 'htp': {'cpu_mask': '0xe0', 'poll': False}}. "
-                    "Requires backend='HTP'. Ignored with a warning if the installed qairt "
-                    "does not support engine_config in LLMContainer.export() "
-                    "(requires qairt-dev with AISW-184594)."
+                    "Ignored with a warning if the installed qairt does not support engine_config "
+                    "in LLMContainer.export() (requires qairt-dev with AISW-184594)."
                 ),
             ),
         }
-
-    @classmethod
-    def validate_config(
-        cls,
-        config: type[BasePassConfig],
-        accelerator_spec: AcceleratorSpec,
-    ) -> bool:
-        if config.engine_config_overrides and config.backend != QairtBackend.HTP:
-            logger.error("engine_config_overrides is unsupported on non-HTP backends")
-            return False
-        return True
 
     def _run_for_config(
         self,

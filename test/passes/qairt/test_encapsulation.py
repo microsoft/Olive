@@ -96,7 +96,7 @@ def test_encapsulation_successful_execution(tmp_path, mock_qairt_model, mock_qai
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU"},
+            {},
             disable_search=True,
         )
 
@@ -172,7 +172,7 @@ def test_encapsulation_multiple_dlc_files(tmp_path, mock_qairt_model, mock_qairt
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU"},
+            {},
             disable_search=True,
         )
 
@@ -209,7 +209,7 @@ def test_encapsulation_no_dlc_file(tmp_path, mock_qairt_model, mock_qairt_module
 
     encap_pass = create_pass_from_dict(
         QairtEncapsulation,
-        {"backend": "CPU"},
+        {},
         disable_search=True,
     )
 
@@ -267,7 +267,7 @@ def test_encapsulation_with_checker(tmp_path, mock_qairt_model, mock_qairt_modul
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU", "run_checker": True},
+            {"run_checker": True},
             disable_search=True,
         )
 
@@ -330,7 +330,7 @@ def test_encapsulation_custom_opset_imports(tmp_path, mock_qairt_model, mock_qai
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU", "opset_imports": custom_opsets},
+            {"opset_imports": custom_opsets},
             disable_search=True,
         )
 
@@ -394,7 +394,7 @@ def test_encapsulation_missing_config_json(tmp_path, mock_qairt_model, mock_qair
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU"},
+            {},
             disable_search=True,
         )
 
@@ -455,7 +455,7 @@ def test_encapsulation_missing_generation_config(tmp_path, mock_qairt_model, moc
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU"},
+            {},
             disable_search=True,
         )
 
@@ -476,7 +476,7 @@ def test_encapsulation_import_error_qairt(tmp_path, mock_qairt_model):
     with patch("builtins.__import__", side_effect=import_side_effect):
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU"},
+            {},
             disable_search=True,
         )
 
@@ -537,7 +537,7 @@ def test_encapsulation_passthrough_files(tmp_path, mock_qairt_model, mock_qairt_
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU"},
+            {},
             disable_search=True,
         )
 
@@ -558,7 +558,7 @@ def test_encapsulation_sdk_version_check_old_version(tmp_path, mock_qairt_model,
 
     encap_pass = create_pass_from_dict(
         QairtEncapsulation,
-        {"backend": "CPU"},
+        {},
         disable_search=True,
     )
 
@@ -629,7 +629,7 @@ def test_encapsulation_sdk_version_check_valid_version(tmp_path, mock_qairt_mode
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU"},
+            {},
             disable_search=True,
         )
 
@@ -1079,7 +1079,7 @@ def test_encapsulation_genie_overrides_applied(tmp_path, mock_qairt_model, mock_
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU", "genie_overrides": overrides},
+            {"genie_overrides": overrides},
             disable_search=True,
         )
 
@@ -1143,7 +1143,7 @@ def test_encapsulation_no_genie_overrides_leaves_gen_ai_config_untouched(
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU"},
+            {},
             disable_search=True,
         )
 
@@ -1155,15 +1155,6 @@ def test_encapsulation_no_genie_overrides_leaves_gen_ai_config_untouched(
 # ---------------------------------------------------------------------------
 # backend_extensions_override integration tests
 # ---------------------------------------------------------------------------
-
-
-def test_encapsulation_default_config_includes_backend(mock_accelerator_spec):
-    """Backend is present in _default_config with HTP as the default."""
-    from olive.passes.qairt.gen_ai_builder import QairtBackend
-
-    config = QairtEncapsulation._default_config(mock_accelerator_spec)  # pylint: disable=protected-access
-    assert "backend" in config
-    assert config["backend"].default_value == QairtBackend.HTP
 
 
 def test_encapsulation_default_config_includes_backend_extensions_overrides(mock_accelerator_spec):
@@ -1227,7 +1218,7 @@ def test_encapsulation_backend_extensions_overrides_merges_into_existing(tmp_pat
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU", "backend_extensions_overrides": {"context": {"n-threads": 4}}},
+            {"backend_extensions_overrides": {"context": {"n-threads": 4}}},
             disable_search=True,
         )
         encap_pass.run(mock_qairt_model, str(output_path))
@@ -1281,7 +1272,7 @@ def test_encapsulation_backend_extensions_overrides_from_empty(tmp_path, mock_qa
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU", "backend_extensions_overrides": {"context": {"n-threads": 4}}},
+            {"backend_extensions_overrides": {"context": {"n-threads": 4}}},
             disable_search=True,
         )
         encap_pass.run(mock_qairt_model, str(output_path))
@@ -1336,35 +1327,10 @@ def test_encapsulation_no_backend_extensions_overrides_leaves_config_untouched(
         mock_helper.make_opsetid.return_value = MagicMock()
         mock_helper.make_model.return_value = MagicMock()
 
-        encap_pass = create_pass_from_dict(QairtEncapsulation, {"backend": "CPU"}, disable_search=True)
+        encap_pass = create_pass_from_dict(QairtEncapsulation, {}, disable_search=True)
         encap_pass.run(mock_qairt_model, str(output_path))
 
     assert mock_container._backend_extensions_config is original_ext_cfg
-
-
-# ---------------------------------------------------------------------------
-# validate_config tests
-# ---------------------------------------------------------------------------
-
-
-def test_encapsulation_validate_config_rejects_engine_config_overrides_on_non_htp(mock_accelerator_spec):
-    """validate_config returns False when engine_config_overrides is set on a non-HTP backend."""
-    encap_pass = create_pass_from_dict(
-        QairtEncapsulation,
-        {"backend": "CPU", "engine_config_overrides": {"n_threads": 0, "htp": {"cpu_mask": "0x3"}}},
-        disable_search=True,
-    )
-    assert encap_pass.validate_config(encap_pass.config, mock_accelerator_spec) is False
-
-
-def test_encapsulation_validate_config_accepts_engine_config_overrides_on_htp(mock_accelerator_spec):
-    """validate_config returns True when engine_config_overrides is set on HTP backend."""
-    encap_pass = create_pass_from_dict(
-        QairtEncapsulation,
-        {"backend": "HTP", "engine_config_overrides": {"n_threads": 4}},
-        disable_search=True,
-    )
-    assert encap_pass.validate_config(encap_pass.config, mock_accelerator_spec) is True
 
 
 # ---------------------------------------------------------------------------
@@ -1425,7 +1391,7 @@ def test_encapsulation_engine_config_overrides_applied_when_supported(tmp_path, 
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "HTP", "engine_config_overrides": {"n_threads": 4, "htp": {"cpu_mask": "0x3"}}},
+            {"engine_config_overrides": {"n_threads": 4, "htp": {"cpu_mask": "0x3"}}},
             disable_search=True,
         )
         encap_pass.run(mock_qairt_model, str(output_path))
@@ -1488,7 +1454,7 @@ def test_encapsulation_engine_config_overrides_skipped_when_not_supported(
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "HTP", "engine_config_overrides": {"n_threads": 4}},
+            {"engine_config_overrides": {"n_threads": 4}},
             disable_search=True,
         )
         encap_pass.run(mock_qairt_model, str(output_path))
@@ -1551,7 +1517,7 @@ def test_encapsulation_genie_overrides_skipped_when_private_attr_missing(
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU", "genie_overrides": {"kv_dim": 128}},
+            {"genie_overrides": {"kv_dim": 128}},
             disable_search=True,
         )
         encap_pass.run(mock_qairt_model, str(output_path))
@@ -1607,7 +1573,7 @@ def test_encapsulation_backend_extensions_overrides_skipped_when_private_attr_mi
 
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
-            {"backend": "CPU", "backend_extensions_overrides": {"context": {"n-threads": 4}}},
+            {"backend_extensions_overrides": {"context": {"n-threads": 4}}},
             disable_search=True,
         )
         encap_pass.run(mock_qairt_model, str(output_path))
