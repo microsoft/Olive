@@ -848,10 +848,10 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         model_dir = str(Path(model.model_path).parent)
 
         # max_length in genai is total sequence length (input + output).
-        # Default to 1028 which accommodates image/prompt tokens (~200-500) plus answer tokens.
-        # Note: genai_config.json's search.max_length is typically the full context window
-        # (e.g., 262144) which is too large — the model will stop at EOS well before this cap.
-        max_length = 1028
+        # Vision prompts with images can exceed 1800 tokens (due to vision patches from
+        # smart_resize), so use 3000 to provide ample headroom. The model will stop at
+        # EOS well before this cap — we only need 1-2 generated tokens for VQA.
+        max_length = 3000
 
         # Build og.Model with appropriate execution provider
         # Note: onnxruntime-genai uses CPU by default when no provider is appended.
@@ -930,12 +930,19 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     del generator
 
                     pred = tokenizer.decode(tokens).strip()
-                    # For multiple-choice tasks, extract leading number from responses
-                    # like "1. D" or "0. krill" to match the expected answer format
-                    if extract_number:
-                        num_match = re.match(r"^(\d+)", pred)
+
+                    # For multiple-choice tasks, extract the first 1-4 digit from responses
+                    # like "2", "The answer is 3", or "1. D" to match the expected answer format
+                    if extract_number and pred:
+                        num_match = re.search(r"\b([1-4])\b", pred)
                         if num_match:
                             pred = num_match.group(1)
+                        else:
+                            # Fallback: find any single digit 1-4 in the response
+                            for ch in pred:
+                                if ch in "1234":
+                                    pred = ch
+                                    break
                     all_preds.append(pred)
 
                 # Collect reference texts (aligned with preds including empty ones for None images)
