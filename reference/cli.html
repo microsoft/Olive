@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Command Line Tools &#8212; Olive main documentation</title>
+    <title>Command Line Tools &#8212; Olive 0.12.1 documentation</title>
   
   
   
@@ -27,8 +27,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
@@ -37,55 +37,48 @@
     <link rel="stylesheet" type="text/css" href="../_static/css/header.css?v=5dcc4e7b" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
     <script src="../_static/jquery.js?v=5d32c60e"></script>
     <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-    <script src="../_static/documentation_options.js?v=a8da1a53"></script>
-    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
-    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/documentation_options.js?v=c5b435e8"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'reference/cli';</script>
     <script>
-        DOCUMENTATION_OPTIONS.theme_version = '0.18.0';
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = './_static/versions.json';
-        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'main';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '0.12.1';
         DOCUMENTATION_OPTIONS.show_version_warning_banner =
             true;
         </script>
-    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Olive Options" href="options.html" />
     <link rel="prev" title="Reference" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="main" />
-  
-    
-    <script src="../_static/searchtools.js"></script>
-    <script src="../_static/language_data.js"></script>
-    <script src="../searchindex.js"></script>
-  
+  <meta name="docsearch:version" content="0.12.1" />
   </head>
-  <body data-default-mode="">
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
   
   
   <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
-
   
   <div id="pst-scroll-pixel-helper"></div>
   
   <button type="button" class="btn rounded-pill" id="pst-back-to-top">
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
-  
-  
-  
+
   
   <dialog id="pst-search-dialog">
     
@@ -111,7 +104,7 @@
 </div>
 
   
-    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
 <div class="bd-header__inner bd-page-width">
   <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
     <span class="fa-solid fa-bars"></span>
@@ -133,7 +126,7 @@
   
   
   
-    <p class="title logo__title">Olive main documentation</p>
+    <p class="title logo__title">Olive 0.12.1 documentation</p>
   
 </a></div>
     
@@ -192,13 +185,6 @@
 <li class=" ">
   <a class="nav-link dropdown-item nav-internal" href="../blogs/index.html">
     Blogs
-  </a>
-</li>
-
-
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../privacy.html">
-    Privacy
   </a>
 </li>
 
@@ -331,13 +317,6 @@
   </a>
 </li>
 
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../privacy.html">
-    Privacy
-  </a>
-</li>
-
   </ul>
 </nav></div>
           
@@ -437,7 +416,7 @@
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">run</span><span class="o">-</span><span class="n">config</span> <span class="n">RUN_CONFIG</span> <span class="p">[</span><span class="o">--</span><span class="n">list_required_packages</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">package</span><span class="o">-</span><span class="n">config</span> <span class="n">PACKAGE_CONFIG</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                 <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                 <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
@@ -480,9 +459,6 @@
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
-<dt><kbd>--test</kbd></dt>
-<dd><p>Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. Optionally provide a folder where the generated test model should be saved and reused.</p>
-</dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
 </dd>
@@ -502,7 +478,7 @@
 <h1>Optimize<a class="headerlink" href="#optimize" title="Link to this heading">#</a></h1>
 <p>Optimize input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models).</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">optimize</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">WebGpuExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">}]</span>
@@ -532,9 +508,6 @@
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--test</kbd></dt>
-<dd><p>Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. Optionally provide a folder where the generated test model should be saved and reused.</p>
 </dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
@@ -631,10 +604,10 @@
 <h1>Quantization<a class="headerlink" href="#quantization" title="Link to this heading">#</a></h1>
 <p>Quantize PyTorch or ONNX model using various Quantization algorithms.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">quantize</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">algorithm</span> <span class="p">{</span><span class="n">awq</span><span class="p">,</span><span class="n">gptq</span><span class="p">,</span><span class="n">hqq</span><span class="p">,</span><span class="n">kquant</span><span class="p">,</span><span class="n">rtn</span><span class="p">,</span><span class="n">spinquant</span><span class="p">,</span><span class="n">quarot</span><span class="p">,</span><span class="n">lpbq</span><span class="p">,</span><span class="n">seqmse</span><span class="p">,</span><span class="n">adaround</span><span class="p">}]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">algorithm</span> <span class="p">{</span><span class="n">awq</span><span class="p">,</span><span class="n">gptq</span><span class="p">,</span><span class="n">hqq</span><span class="p">,</span><span class="n">rtn</span><span class="p">,</span><span class="n">spinquant</span><span class="p">,</span><span class="n">quarot</span><span class="p">,</span><span class="n">lpbq</span><span class="p">,</span><span class="n">seqmse</span><span class="p">,</span><span class="n">adaround</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">uint4</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">uint16</span><span class="p">,</span><span class="n">uint32</span><span class="p">,</span><span class="n">fp4</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">nf4</span><span class="p">,</span><span class="n">bf16</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">act_precision</span> <span class="p">{</span><span class="n">int4</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">uint4</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">uint16</span><span class="p">,</span><span class="n">uint32</span><span class="p">,</span><span class="n">fp4</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">nf4</span><span class="p">,</span><span class="n">bf16</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">implementation</span> <span class="n">IMPLEMENTATION</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">use_qdq_encoding</span><span class="p">]</span>
@@ -664,9 +637,6 @@
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
-<dt><kbd>--test</kbd></dt>
-<dd><p>Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. Optionally provide a folder where the generated test model should be saved and reused.</p>
-</dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
 </dd>
@@ -681,7 +651,7 @@
 <p>Default: <code class="docutils literal notranslate"><span class="pre">quantized-model</span></code></p>
 </dd>
 <dt><kbd>--algorithm</kbd></dt>
-<dd><p>Possible choices: awq, gptq, hqq, kquant, rtn, spinquant, quarot, lpbq, seqmse, adaround</p>
+<dd><p>Possible choices: awq, gptq, hqq, rtn, spinquant, quarot, lpbq, seqmse, adaround</p>
 <p>List of quantization algorithms to run.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">'rtn'</span></code></p>
 </dd>
@@ -773,17 +743,17 @@
 <h1>Capture Onnx Graph<a class="headerlink" href="#capture-onnx-graph" title="Link to this heading">#</a></h1>
 <p>Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model or PyTorch model.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span>
-                                <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">model_variant</span> <span class="p">{</span><span class="n">auto</span><span class="p">,</span><span class="n">sd</span><span class="p">,</span><span class="n">sdxl</span><span class="p">,</span><span class="n">sd3</span><span class="p">,</span><span class="n">flux</span><span class="p">,</span><span class="n">sana</span><span class="p">}]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">conversion_device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">}]</span>
-                                <span class="p">[</span><span class="o">--</span><span class="n">use_dynamo_exporter</span> <span class="o">|</span> <span class="o">--</span><span class="n">use_model_builder</span> <span class="o">|</span> <span class="o">--</span><span class="n">use_mobius_builder</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">use_dynamo_exporter</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">fixed_param_dict</span> <span class="n">FIXED_PARAM_DICT</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">past_key_value_name</span> <span class="n">PAST_KEY_VALUE_NAME</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">torch_dtype</span> <span class="n">TORCH_DTYPE</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">target_opset</span> <span class="n">TARGET_OPSET</span><span class="p">]</span>
+                                <span class="p">[</span><span class="o">--</span><span class="n">use_model_builder</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">precision</span> <span class="p">{</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp32</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">bf16</span><span class="p">}]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">int4_block_size</span> <span class="p">{</span><span class="mi">16</span><span class="p">,</span><span class="mi">32</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">128</span><span class="p">,</span><span class="mi">256</span><span class="p">}]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">int4_accuracy_level</span> <span class="n">INT4_ACCURACY_LEVEL</span><span class="p">]</span>
@@ -811,9 +781,6 @@
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
-<dt><kbd>--test</kbd></dt>
-<dd><p>Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. Optionally provide a folder where the generated test model should be saved and reused.</p>
-</dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
 </dd>
@@ -836,18 +803,6 @@
 <dd><p>Possible choices: cpu, gpu</p>
 <p>The device used to run the model to capture the ONNX graph.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">'cpu'</span></code></p>
-</dd>
-<dt><kbd>--use_dynamo_exporter</kbd></dt>
-<dd><p>Whether to use dynamo_export API to export ONNX model.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--use_model_builder</kbd></dt>
-<dd><p>Whether to use Model Builder to capture ONNX model.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--use_mobius_builder</kbd></dt>
-<dd><p>Whether to use MobiusBuilder (mobius-ai) to capture ONNX model. Supports multi-component multimodal models (VLMs). Requires ‘pip install mobius-ai’.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--use_ort_genai</kbd></dt>
 <dd><p>Use OnnxRuntime generate() API to run the model</p>
@@ -880,6 +835,10 @@
 <section id="olive.cli.launcher-get_cli_parser-pytorch-exporter-options">
 <h2>PyTorch Exporter options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-pytorch-exporter-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
+<dt><kbd>--use_dynamo_exporter</kbd></dt>
+<dd><p>Whether to use dynamo_export API to export ONNX model.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
 <dt><kbd>--fixed_param_dict</kbd></dt>
 <dd><p>Fix dynamic input shapes by providing a dictionary of dimension names and values, e.g., ‘batch_size=1,max_length=128’</p>
 </dd>
@@ -899,6 +858,10 @@
 <section id="olive.cli.launcher-get_cli_parser-model-builder-options">
 <h2>Model Builder options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-model-builder-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
+<dt><kbd>--use_model_builder</kbd></dt>
+<dd><p>Whether to use Model Builder to capture ONNX model.</p>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
+</dd>
 <dt><kbd>--precision</kbd></dt>
 <dd><p>Possible choices: fp16, fp32, int4, bf16</p>
 <p>The precision of the ONNX model. This is used by Model Builder</p>
@@ -933,7 +896,7 @@
 <p>Run a single pass on the input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models).</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span><span class="o">-</span><span class="k">pass</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">name</span> <span class="n">PASS_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">config</span> <span class="n">PASS_CONFIG</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="nb">list</span><span class="o">-</span><span class="n">passes</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">,</span><span class="n">WebGpuExecutionProvider</span><span class="p">}]</span>
@@ -963,9 +926,6 @@
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--test</kbd></dt>
-<dd><p>Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. Optionally provide a folder where the generated test model should be saved and reused.</p>
 </dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
@@ -1016,7 +976,7 @@
 <h1>Finetune<a class="headerlink" href="#finetune" title="Link to this heading">#</a></h1>
 <p>Fine-tune a model on a dataset using HuggingFace peft. Huggingface training arguments can be provided along with the defined options.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">method</span> <span class="p">{</span><span class="n">lora</span><span class="p">,</span><span class="n">qlora</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">lora_r</span> <span class="n">LORA_R</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">lora_alpha</span> <span class="n">LORA_ALPHA</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">target_modules</span> <span class="n">TARGET_MODULES</span><span class="p">]</span>
@@ -1047,9 +1007,6 @@
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--test</kbd></dt>
-<dd><p>Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. Optionally provide a folder where the generated test model should be saved and reused.</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
@@ -1357,7 +1314,7 @@
 <h1>Auto-Optimization<a class="headerlink" href="#auto-optimization" title="Link to this heading">#</a></h1>
 <p>Automatically optimize the input model for the given target and precision.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                      <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">provider</span> <span class="p">{</span><span class="n">CPUExecutionProvider</span><span class="p">,</span><span class="n">CUDAExecutionProvider</span><span class="p">,</span><span class="n">DmlExecutionProvider</span><span class="p">,</span><span class="n">JsExecutionProvider</span><span class="p">,</span><span class="n">MIGraphXExecutionProvider</span><span class="p">,</span><span class="n">NvTensorRTRTXExecutionProvider</span><span class="p">,</span><span class="n">OpenVINOExecutionProvider</span><span class="p">,</span><span class="n">QNNExecutionProvider</span><span class="p">,</span><span class="n">ROCMExecutionProvider</span><span class="p">,</span><span class="n">TensorrtExecutionProvider</span><span class="p">,</span><span class="n">VitisAIExecutionProvider</span><span class="p">,</span><span class="n">WebGpuExecutionProvider</span><span class="p">}]</span>
@@ -1389,9 +1346,6 @@
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--test</kbd></dt>
-<dd><p>Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. Optionally provide a folder where the generated test model should be saved and reused.</p>
 </dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
@@ -1726,8 +1680,7 @@
 <h1>Generate Cost Model for Model Splitting<a class="headerlink" href="#generate-cost-model-for-model-splitting" title="Link to this heading">#</a></h1>
 <p>Generate a cost model for a given model and save it as a csv file. This cost model is consumed by the CaptureSplitInfo pass. Only supports HfModel.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">cost</span><span class="o">-</span><span class="n">model</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                                 <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span>
-                                 <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+                                 <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="p">{</span><span class="n">fp32</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">uint32</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">uint16</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">uint4</span><span class="p">,</span><span class="n">nf4</span><span class="p">,</span><span class="n">fp4</span><span class="p">}]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
@@ -1744,9 +1697,6 @@
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--test</kbd></dt>
-<dd><p>Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. Optionally provide a folder where the generated test model should be saved and reused.</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
 <dd><p>Path to save the command output.</p>
@@ -1828,14 +1778,13 @@
 <h1>Benchmark<a class="headerlink" href="#benchmark" title="Link to this heading">#</a></h1>
 <p>Run benchmarking using llm-eval.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">benchmark</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
-                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
+                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                        <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                        <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="o">--</span><span class="n">tasks</span> <span class="p">[</span><span class="n">TASKS</span> <span class="o">...</span><span class="p">]</span>
                        <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">cpu</span><span class="p">,</span><span class="n">gpu</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">batch_size</span> <span class="n">BATCH_SIZE</span><span class="p">]</span>
                        <span class="p">[</span><span class="o">--</span><span class="n">max_length</span> <span class="n">MAX_LENGTH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">limit</span> <span class="n">LIMIT</span><span class="p">]</span>
-                       <span class="p">[</span><span class="o">--</span><span class="n">backend</span> <span class="p">{</span><span class="n">auto</span><span class="p">,</span><span class="n">ort</span><span class="p">,</span><span class="n">ortgenai</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
-                       <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span>
-                       <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
+                       <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
+                       <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">account_name</span> <span class="n">ACCOUNT_NAME</span><span class="p">]</span>
                        <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
@@ -1851,9 +1800,6 @@
 <dt><kbd>--trust_remote_code</kbd></dt>
 <dd><p>Trust remote code when loading a huggingface model.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
-</dd>
-<dt><kbd>--test</kbd></dt>
-<dd><p>Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. Optionally provide a folder where the generated test model should be saved and reused.</p>
 </dd>
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Local folder or huggingface id.</p>
@@ -1915,11 +1861,6 @@
 <dd><p>Number (or percentage of dataset) of samples to use for evaluation.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></p>
 </dd>
-<dt><kbd>--backend</kbd></dt>
-<dd><p>Possible choices: auto, ort, ortgenai</p>
-<p>Backend for ONNX model evaluation. Use ‘auto’ to infer backend from model type.</p>
-<p>Default: <code class="docutils literal notranslate"><span class="pre">'auto'</span></code></p>
-</dd>
 </dl>
 </section>
 </section>
@@ -1937,16 +1878,16 @@
 <h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-s, --source</kbd></dt>
-<dd><p>Source Olive output directory. Repeat to add multiple variants. A single source is allowed (single-variant package).</p>
+<dd><p>Source Olive output directory. Can be specified multiple times.</p>
 </dd>
 <dt><kbd>-o, --output_path</kbd></dt>
-<dd><p>Output directory for the model package. Must be empty or non-existent.</p>
+<dd><p>Output directory for the merged model package.</p>
 </dd>
 <dt><kbd>--model_name</kbd></dt>
-<dd><p>Optional model name recorded under manifest.producer.</p>
+<dd><p>Model name for the manifest. If not set, derived from the output directory name.</p>
 </dd>
 <dt><kbd>--model_version</kbd></dt>
-<dd><p>Optional model version recorded under manifest.producer. Default: 1.0</p>
+<dd><p>Model version string for the manifest. Default: 1.0</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">'1.0'</span></code></p>
 </dd>
 <dt><kbd>--log_level</kbd></dt>
@@ -2056,38 +1997,38 @@ Specifies the format of the model. For available options, refer to <a class="ref
     class="page-toc tocsection onthispage">
     <i class="fa-solid fa-list"></i> On this page
   </div>
-  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="pst-show_toc_level nav section-nav flex-column">
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Command Line Tools</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run">Run</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run">Run</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-model-options-(not-required)">Model options (not required)</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#optimize">Optimize</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#optimize">Optimize</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#quantization">Quantization</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#quantization">Quantization</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#capture-onnx-graph">Capture Onnx Graph</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#capture-onnx-graph">Capture Onnx Graph</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-pytorch-exporter-options">PyTorch Exporter options</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-model-builder-options">Model Builder options</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run-pass">Run Pass</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run-pass">Run Pass</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#finetune">Finetune</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#finetune">Finetune</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lora-options">LoRA options</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#diffusion-lora">Diffusion LoRA</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#diffusion-lora">Diffusion LoRA</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lora-options">LoRA options</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-dreambooth-options">DreamBooth options</a></li>
@@ -2096,40 +2037,40 @@ Specifies the format of the model. For available options, refer to <a class="ref
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-flux-options">Flux options</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-optimization">Auto-Optimization</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-optimization">Auto-Optimization</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-adapters">Generate Adapters</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-adapters">Generate Adapters</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#convert-adapters">Convert Adapters</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#convert-adapters">Convert Adapters</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-cost-model-for-model-splitting">Generate Cost Model for Model Splitting</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-cost-model-for-model-splitting">Generate Cost Model for Model Splitting</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-qualcomm-sdk">Configure Qualcomm SDK</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-qualcomm-sdk">Configure Qualcomm SDK</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#shared-cache">Shared Cache</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#shared-cache">Shared Cache</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#benchmark">Benchmark</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#benchmark">Benchmark</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lm-eval-evaluator-options">lm-eval evaluator options</a></li>
 </ul>
 </li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-model-package">Generate Model Package</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-model-package">Generate Model Package</a><ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
@@ -2152,8 +2093,8 @@ Specifies the format of the model. For available options, refer to <a class="ref
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085"></script>
-<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085"></script>
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -2179,7 +2120,7 @@ Specifies the format of the model. For available options, refer to <a class="ref
         <div class="footer-item">
 <p class="theme-version">
   <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.18.0.
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
 </p></div>
       
     </div>
