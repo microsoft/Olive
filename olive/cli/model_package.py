@@ -93,7 +93,7 @@ _EP_TO_GENAI: dict[str, str] = {
     "DmlExecutionProvider": "DML",
     "WebGpuExecutionProvider": "WebGPU",
     "JsExecutionProvider": "JS",
-    "QNNExecutionProvider": "QNN",
+    "QNNExecutionProvider": "qnn",
     "OpenVINOExecutionProvider": "OpenVINO",
     "ROCMExecutionProvider": "rocm",
     "TensorrtExecutionProvider": "tensorrt",
@@ -605,10 +605,12 @@ def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: Varia
     # variant's metadata.json ep matches the user's request.
     session_options["provider_options"] = [{_genai_provider_name(v.ep): provider_options}]
 
-    role_patch: dict[str, Any] = {}
+    role_patch: dict[str, Any] = {"session_options": session_options}
     if v.onnx_files:
+        # The base config strips ``filename`` (it was a variant-specific path
+        # like ``decoder/model.onnx``); the loader resolves the variant ONNX as
+        # ``<variant_dir>/<filename>``, so emit the basename here.
         role_patch["filename"] = Path(v.onnx_files[0]).name
-    role_patch["session_options"] = session_options
 
     overlay = {"model": {component_role: role_patch}}
     _write_json(variant_dir / "genai_config_overlay.json", overlay)

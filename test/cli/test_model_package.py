@@ -178,7 +178,7 @@ class TestGeneratePackageMultiVariant:
         # setup
         src1 = _create_source_dir(tmp_path, "soc_60", {"ep": "QNNExecutionProvider", "device": "NPU"})
         src2 = _create_source_dir(tmp_path, "soc_73", {"ep": "QNNExecutionProvider", "device": "NPU"})
-        out = tmp_path / "out"
+        out = tmp_path / "out.ortpackage"
         cmd = _make_command(
             [
                 "generate-model-package",
@@ -198,9 +198,9 @@ class TestGeneratePackageMultiVariant:
         # execute
         cmd.run()
 
-        # assert: top-level layout (no models/ wrapper)
+        # assert: top-level manifest + components under models/
         assert (out / "manifest.json").is_file()
-        assert not (out / "models").exists()
+        assert (out / "models").is_dir()
 
         manifest = json.loads((out / "manifest.json").read_text())
         assert manifest["schema_version"] == 1
@@ -209,7 +209,7 @@ class TestGeneratePackageMultiVariant:
         assert manifest["producer"]["model_version"] == "2.0"
 
         # metadata uses inline EP
-        metadata = json.loads((out / "model" / "metadata.json").read_text())
+        metadata = json.loads((out / "models" / "model" / "metadata.json").read_text())
         assert metadata["schema_version"] == 1
         assert metadata["component_name"] == "model"
         assert set(metadata["variants"]) == {"soc_60", "soc_73"}
@@ -219,25 +219,25 @@ class TestGeneratePackageMultiVariant:
         # No variant.json is emitted; the ONNX file lands in the variant
         # directory.
         for v in ("soc_60", "soc_73"):
-            assert not (out / "model" / v / "variant.json").exists()
-            assert (out / "model" / v / "model.onnx").is_file()
+            assert not (out / "models" / "model" / v / "variant.json").exists()
+            assert (out / "models" / "model" / v / "model.onnx").is_file()
 
 
 class TestGeneratePackageSingleSource:
     def test_single_source_is_valid_package(self, tmp_path):
         src = _create_source_dir(tmp_path, "cpu_x64", {"ep": "CPUExecutionProvider"})
-        out = tmp_path / "out"
+        out = tmp_path / "out.ortpackage"
         cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
 
         cmd.run()
 
         manifest = json.loads((out / "manifest.json").read_text())
         assert manifest["components"] == ["model"]
-        metadata = json.loads((out / "model" / "metadata.json").read_text())
+        metadata = json.loads((out / "models" / "model" / "metadata.json").read_text())
         assert "cpu_x64" in metadata["variants"]
         assert metadata["variants"]["cpu_x64"] == {"ep": "CPUExecutionProvider"}
         # No shared_weights because nothing to dedup.
-        assert not (out / "model" / "shared_weights").exists()
+        assert not (out / "models" / "model" / "shared_weights").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -265,11 +265,10 @@ class TestWriteModelPackageLayout:
         )
 
         assert (out / "manifest.json").is_file()
-        assert (out / "decoder" / "metadata.json").is_file()
+        assert (out / "models" / "decoder" / "metadata.json").is_file()
         # No variant.json is emitted.
-        assert not (out / "decoder" / "cpu" / "variant.json").exists()
-        assert (out / "decoder" / "cpu" / "model.onnx").is_file()
-        assert not (out / "models").exists()
+        assert not (out / "models" / "decoder" / "cpu" / "variant.json").exists()
+        assert (out / "models" / "decoder" / "cpu" / "model.onnx").is_file()
 
     def test_manifest_uses_proposal_schema(self, tmp_path):
         onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
@@ -322,7 +321,7 @@ class TestWriteModelPackageLayout:
             ],
         )
 
-        metadata = json.loads((out / "decoder" / "metadata.json").read_text())
+        metadata = json.loads((out / "models" / "decoder" / "metadata.json").read_text())
         assert metadata["schema_version"] == 1
         assert metadata["component_name"] == "decoder"
         assert metadata["variants"]["qnn-npu"] == {
@@ -348,7 +347,7 @@ class TestWriteModelPackageLayout:
             ],
         )
 
-        metadata = json.loads((out / "decoder" / "metadata.json").read_text())
+        metadata = json.loads((out / "models" / "decoder" / "metadata.json").read_text())
         assert metadata["variants"]["cpu"] == {"ep": "CPUExecutionProvider"}
 
     def test_overlay_carries_session_and_provider_options(self, tmp_path):
@@ -375,15 +374,16 @@ class TestWriteModelPackageLayout:
         )
 
         # Runtime fields go to genai_config_overlay.json, not variant.json.
-        assert not (out / "decoder" / "cuda" / "variant.json").exists()
-        overlay = json.loads((out / "decoder" / "cuda" / "genai_config_overlay.json").read_text())
+        assert not (out / "models" / "decoder" / "cuda" / "variant.json").exists()
+        overlay = json.loads((out / "models" / "decoder" / "cuda" / "genai_config_overlay.json").read_text())
         assert overlay == {
             "model": {
                 "decoder": {
+                    "filename": "model.onnx",
                     "session_options": {
                         "graph_optimization_level": 3,
                         "provider_options": [{"cuda": {"device_id": "0"}}],
-                    }
+                    },
                 }
             }
         }
@@ -412,12 +412,18 @@ class TestWriteModelPackageLayout:
             ],
         )
 
-        overlay = json.loads((out / "decoder" / "qnn" / "genai_config_overlay.json").read_text())
+        overlay = json.loads((out / "models" / "decoder" / "qnn" / "genai_config_overlay.json").read_text())
         assert overlay["model"]["decoder"]["session_options"]["provider_options"] == [
             {"qnn": {"backend_path": "QnnHtp.so"}}
         ]
 
-    def test_overlay_omitted_for_cpu_variant_without_options(self, tmp_path):
+    def test_overlay_always_emits_provider_options_for_cpu(self, tmp_path):
+        """Plain CPU variants still get an overlay so ORT-GenAI sees an explicit
+        provider entry. The base config strips ``session_options`` (variant-
+        specific), so without this overlay session construction would fail with
+        "No execution providers were provided or selected" even though the
+        variant's metadata.json names CPUExecutionProvider.
+        """
         onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
         out = tmp_path / "package"
 
@@ -433,7 +439,15 @@ class TestWriteModelPackageLayout:
             ],
         )
 
-        assert not (out / "decoder" / "cpu" / "genai_config_overlay.json").exists()
+        overlay = json.loads((out / "models" / "decoder" / "cpu" / "genai_config_overlay.json").read_text())
+        assert overlay == {
+            "model": {
+                "decoder": {
+                    "filename": "model.onnx",
+                    "session_options": {"provider_options": [{"CPU": {}}]},
+                }
+            }
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -468,10 +482,10 @@ class TestExternalDataInline:
 
         # Each variant keeps its own external-data blob inline; no shared_weights
         # directory or variant.json is emitted.
-        assert not (out / "decoder" / "shared_weights").exists()
+        assert not (out / "models" / "decoder" / "shared_weights").exists()
         for v in ("v1", "v2"):
-            assert (out / "decoder" / v / "model.onnx.data").is_file()
-            assert not (out / "decoder" / v / "variant.json").exists()
+            assert (out / "models" / "decoder" / v / "model.onnx.data").is_file()
+            assert not (out / "models" / "decoder" / v / "variant.json").exists()
 
     def test_keeps_distinct_external_data_inline_per_variant(self, tmp_path):
         a = _make_onnx_with_external(tmp_path / "a" / "model.onnx", "model.onnx.data", b"a-bytes" * 32)
@@ -496,13 +510,13 @@ class TestExternalDataInline:
             ],
         )
 
-        assert not (out / "decoder" / "shared_weights").exists()
-        assert (out / "decoder" / "v1" / "model.onnx.data").is_file()
-        assert (out / "decoder" / "v2" / "model.onnx.data").is_file()
+        assert not (out / "models" / "decoder" / "shared_weights").exists()
+        assert (out / "models" / "decoder" / "v1" / "model.onnx.data").is_file()
+        assert (out / "models" / "decoder" / "v2" / "model.onnx.data").is_file()
 
         # No variant.json is emitted.
         for v in ("v1", "v2"):
-            assert not (out / "decoder" / v / "variant.json").exists()
+            assert not (out / "models" / "decoder" / v / "variant.json").exists()
 
     def test_single_variant_keeps_blob_inline(self, tmp_path):
         onnx_path = _make_onnx_with_external(tmp_path / "src" / "model.onnx", "model.onnx.data", b"x" * 128)
@@ -520,10 +534,10 @@ class TestExternalDataInline:
             ],
         )
 
-        assert (out / "decoder" / "cpu" / "model.onnx.data").is_file()
-        assert not (out / "decoder" / "shared_weights").exists()
+        assert (out / "models" / "decoder" / "cpu" / "model.onnx.data").is_file()
+        assert not (out / "models" / "decoder" / "shared_weights").exists()
         # No variant.json is emitted.
-        assert not (out / "decoder" / "cpu" / "variant.json").exists()
+        assert not (out / "models" / "decoder" / "cpu" / "variant.json").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -744,14 +758,14 @@ class TestCompatibilityFromOnnxMetadata:
             {"ep": "QNNExecutionProvider", "device": "NPU"},
             onnx_metadata={"ep_compatibility_info.QNNExecutionProvider": "soc_60,soc_69,soc_73"},
         )
-        out = tmp_path / "out"
+        out = tmp_path / "out.ortpackage"
         cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
 
         # execute
         cmd.run()
 
         # assert: compatibility_string passes the raw opaque string through verbatim
-        metadata = json.loads((out / "model" / "metadata.json").read_text())
+        metadata = json.loads((out / "models" / "model" / "metadata.json").read_text())
         variant = metadata["variants"]["soc_60"]
         assert variant["ep"] == "QNNExecutionProvider"
         assert variant["compatibility_string"] == "soc_60,soc_69,soc_73"
@@ -774,7 +788,7 @@ def _create_composite_source(
     """Create an Olive-style composite source dir."""
     source_dir = tmp_path / name
     source_dir.mkdir(parents=True)
-    cfg = {"model_components": components, "component_names": component_names}
+    cfg = {"model_components": components, "model_component_names": component_names}
     if target_inference is not None:
         cfg["inference_settings"] = target_inference
     if target_attrs is not None:
@@ -814,17 +828,21 @@ class TestCompositeBuild:
             target_inference=target_inference,
             target_attrs={"ep": "CPUExecutionProvider"},
         )
-        out = tmp_path / "out"
+        out = tmp_path / "out.ortpackage"
         cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
 
         # execute
         cmd.run()
 
         # assert: encoder uses target-level, decoder uses component-level
-        encoder_overlay = json.loads((out / "encoder" / "soc_60" / "genai_config_overlay.json").read_text())
+        encoder_overlay = json.loads(
+            (out / "models" / "encoder" / "soc_60" / "genai_config_overlay.json").read_text()
+        )
         assert encoder_overlay["model"]["encoder"]["session_options"]["graph_optimization_level"] == 1
 
-        decoder_overlay = json.loads((out / "decoder" / "soc_60" / "genai_config_overlay.json").read_text())
+        decoder_overlay = json.loads(
+            (out / "models" / "decoder" / "soc_60" / "genai_config_overlay.json").read_text()
+        )
         assert decoder_overlay["model"]["decoder"]["session_options"]["graph_optimization_level"] == 99
 
 
