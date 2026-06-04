@@ -49,7 +49,7 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
                     merged.append(ov)
                 else:
                     merged.append(ov)
-            merged.extend(result[k][len(v):])
+            merged.extend(result[k][len(v) :])
             result[k] = merged
         else:
             result[k] = v
@@ -164,7 +164,8 @@ class QairtEncapsulation(Pass):
         if config.backend_extensions_overrides:
             if hasattr(container, "_backend_extensions_config"):
                 container._backend_extensions_config = _deep_merge(  # pylint: disable=protected-access
-                    container._backend_extensions_config or {}, config.backend_extensions_overrides  # pylint: disable=protected-access
+                    container._backend_extensions_config or {},  # pylint: disable=protected-access
+                    config.backend_extensions_overrides,
                 )
                 logger.info(
                     "Applied backend_extensions_overrides: %s", list(config.backend_extensions_overrides.keys())

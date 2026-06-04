@@ -1173,7 +1173,9 @@ def test_encapsulation_default_config_includes_engine_config_overrides(mock_acce
     assert config["engine_config_overrides"].required is False
 
 
-def test_encapsulation_backend_extensions_overrides_merges_into_existing(tmp_path, mock_qairt_model, mock_qairt_modules):
+def test_encapsulation_backend_extensions_overrides_merges_into_existing(
+    tmp_path, mock_qairt_model, mock_qairt_modules
+):
     """Override is deep-merged into the existing _backend_extensions_config."""
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
@@ -1397,7 +1399,9 @@ def test_encapsulation_engine_config_overrides_applied_when_supported(tmp_path, 
         encap_pass.run(mock_qairt_model, str(output_path))
 
     mock_qairt_modules["gen_ai_api"].HTPEngineConfig.assert_called_once_with(cpu_mask="0x3")
-    mock_qairt_modules["gen_ai_api"].EngineConfig.assert_called_once_with(n_threads=4, htp=mock_qairt_modules["gen_ai_api"].HTPEngineConfig.return_value)
+    mock_qairt_modules["gen_ai_api"].EngineConfig.assert_called_once_with(
+        n_threads=4, htp=mock_qairt_modules["gen_ai_api"].HTPEngineConfig.return_value
+    )
     _, call_kwargs = mock_container.export.call_args
     assert call_kwargs.get("engine_config") is fake_engine_cfg
 
