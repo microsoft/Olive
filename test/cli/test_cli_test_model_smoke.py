@@ -13,7 +13,6 @@ from pathlib import Path
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace
-from transformers import LlamaConfig, LlamaForCausalLM, PreTrainedTokenizerFast
 
 from olive.cli.base import TEST_OUTPUT_MARKER_FILE
 from olive.common.hf.utils import TEST_MODEL_MARKER_FILE
@@ -26,6 +25,7 @@ DEFAULT_MODEL_IDS = (
     "local/tiny-random-llama-a",
     "local/tiny-random-llama-b",
     "mistralai/Mistral-7B-Instruct-v0.3",
+    "microsoft/Phi-3-mini-4k-instruct",
 )
 MAX_ARTIFACT_SIZE_BYTES = 1024 * 1024
 
@@ -38,6 +38,8 @@ _HAS_MOBIUS = importlib.util.find_spec("mobius") is not None
 
 
 def _save_local_tiny_llama(model_path: Path):
+    from transformers import LlamaConfig, LlamaForCausalLM, PreTrainedTokenizerFast
+
     model = LlamaForCausalLM(
         LlamaConfig.from_dict(
             {
