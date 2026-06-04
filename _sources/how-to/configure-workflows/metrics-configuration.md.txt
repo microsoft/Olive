@@ -128,3 +128,156 @@ If you have multiple metrics to evaluate, you can configure them in the followin
 ```{Note}
 If you have more than one metric, you need to specify `priority: {RANK}`, which Olive will use to determine the best model.
 ```
+
+## Speech Evaluation Metrics (WER and RTFx)
+
+Olive supports Word Error Rate (WER) and Real-Time Factor (RTFx) as built-in accuracy sub-types for evaluating speech/ASR models.
+
+### Using WER with the accuracy metric type
+
+WER can be used as an accuracy sub-type when your data pipeline returns text predictions and references:
+
+```json
+{
+    "name": "speech_accuracy",
+    "type": "accuracy",
+    "data_config": "speech_data_config",
+    "sub_types": [
+        {"name": "wer", "priority": 1, "higher_is_better": false},
+        {"name": "rtfx", "priority": 2, "higher_is_better": true}
+    ]
+}
+```
+
+```{Note}
+- `wer` (Word Error Rate): Measures transcription errors. Lower is better (defaults to `higher_is_better: false`).
+- `rtfx` (Real-Time Factor): Ratio of audio duration to inference time. Higher means faster (defaults to `higher_is_better: true`).
+```
+
+## Vision Evaluation Metrics
+
+Olive provides three built-in accuracy sub-types for evaluating vision/multimodal models:
+
+| Metric | Task Type | Description | Suitable Benchmarks |
+|--------|-----------|-------------|---------------------|
+| `exact_match` | `vision-vqa` | Case-insensitive string equality | AI2D, ScienceQA, TextVQA, MMMU |
+| `relaxed_accuracy` | `vision-chart-qa` | ±5% numeric tolerance for numbers | ChartQA |
+| `word_sort_ratio` | `vision-ocr` | Word-level overlap ratio | OCR benchmarks |
+
+### Example: VQA with TextVQA (exact_match)
+
+```json
+{
+    "data_configs": [
+        {
+            "name": "textvqa_data",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": {
+                "data_name": "facebook/textvqa",
+                "split": "validation"
+            },
+            "pre_process_data_config": {
+                "type": "vision_vqa_pre_process",
+                "image_col": "image",
+                "question_col": "question",
+                "answer_col": "answers",
+                "limit": 100
+            },
+            "dataloader_config": {
+                "batch_size": 1
+            }
+        }
+    ],
+    "metrics": [
+        {
+            "name": "vqa_accuracy",
+            "type": "accuracy",
+            "data_config": "textvqa_data",
+            "sub_types": [
+                {"name": "exact_match", "priority": 1, "goal": {"type": "max-degradation", "value": 0.05}}
+            ]
+        }
+    ]
+}
+```
+
+### Example: ChartQA with relaxed_accuracy
+
+```json
+{
+    "data_configs": [
+        {
+            "name": "chartqa_data",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": {
+                "data_name": "HuggingFaceM4/ChartQA",
+                "split": "test"
+            },
+            "pre_process_data_config": {
+                "type": "vision_vqa_pre_process",
+                "image_col": "image",
+                "question_col": "question",
+                "answer_col": "answer",
+                "limit": 100
+            },
+            "dataloader_config": {
+                "batch_size": 1
+            }
+        }
+    ],
+    "metrics": [
+        {
+            "name": "chart_accuracy",
+            "type": "accuracy",
+            "data_config": "chartqa_data",
+            "sub_types": [
+                {"name": "relaxed_accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.05}}
+            ]
+        }
+    ]
+}
+```
+
+### Example: OCR with DocumentVQA (word_sort_ratio)
+
+```json
+{
+    "data_configs": [
+        {
+            "name": "docvqa_data",
+            "type": "HuggingfaceContainer",
+            "load_dataset_config": {
+                "data_name": "HuggingFaceM4/DocumentVQA",
+                "split": "validation"
+            },
+            "pre_process_data_config": {
+                "type": "vision_vqa_pre_process",
+                "image_col": "image",
+                "question_col": "question",
+                "answer_col": "answers",
+                "limit": 100
+            },
+            "dataloader_config": {
+                "batch_size": 1
+            }
+        }
+    ],
+    "metrics": [
+        {
+            "name": "ocr_accuracy",
+            "type": "accuracy",
+            "data_config": "docvqa_data",
+            "sub_types": [
+                {"name": "word_sort_ratio", "priority": 1, "goal": {"type": "max-degradation", "value": 0.05}}
+            ]
+        }
+    ]
+}
+```
+
+```{Note}
+- Vision metrics compare predicted answer strings to ground truth. The model's `post_func` must decode model output into text.
+- Use `batch_size: 1` since images have variable sizes.
+- Multiple valid answers (lists) are joined with `|` and the metric matches against any valid answer.
+- For ONNX models, provide a custom pre-process that applies the processor/tokenizer to produce numeric tensors.
+```

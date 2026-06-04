@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>How To Configure Olive Engine &#8212; Olive main documentation</title>
+    <title>How to convert a Qwen model with a quick --test smoke check &#8212; Olive main documentation</title>
   
   
   
@@ -50,7 +50,7 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/configure-workflows/engine-configuration';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'how-to/cli/cli-fast-test';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.18.0';
         DOCUMENTATION_OPTIONS.theme_switcher_json_url = './_static/versions.json';
@@ -61,8 +61,8 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Olive Design" href="../extending/design.html" />
-    <link rel="prev" title="How to Define host or target Systems" href="systems.html" />
+    <link rel="next" title="How To Use auto-opt Command" href="cli-auto-opt.html" />
+    <link rel="prev" title="How To Use optimize Command" href="cli-optimize.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="main" />
@@ -410,7 +410,7 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">How Tos</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How To Configure Olive Engine</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">How to convert a Qwen model with a quick <code class="docutils literal notranslate"><span class="pre">--test</span></code> smoke check</span></li>
   </ul>
 </nav>
 </div>
@@ -427,80 +427,76 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="how-to-configure-olive-engine">
-<h1>How To Configure Olive Engine<a class="headerlink" href="#how-to-configure-olive-engine" title="Link to this heading">#</a></h1>
-<p>Engine, in Olive, is the driver of the entire workflow. Engine dictates how a model gets processed, cached, evaluated, and finally packaged. As a developer, you can configure each of these aspects of the engine through the various available options.</p>
-<section id="output-configuration">
-<h2>Output configuration<a class="headerlink" href="#output-configuration" title="Link to this heading">#</a></h2>
-<p>Use <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> option to provide a path to customize where the generated outputs gets saved. For dry runs i.e. process the model but generate no output, set <code class="docutils literal notranslate"><span class="pre">no_artifacts</span></code> option to true.</p>
-<p>Below is an example of providing a locally saved ONNX model as input and customizing the output path.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/model.onnx&quot;</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="c1">//...</span>
-<span class="w">    </span><span class="nt">&quot;no_artifacts&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;output_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/where/generated/model/gets/saved&quot;</span>
-<span class="p">}</span>
+  <section id="how-to-convert-a-qwen-model-with-a-quick-test-smoke-check">
+<h1>How to convert a Qwen model with a quick <code class="docutils literal notranslate"><span class="pre">--test</span></code> smoke check<a class="headerlink" href="#how-to-convert-a-qwen-model-with-a-quick-test-smoke-check" title="Link to this heading">#</a></h1>
+<p>If you are converting a large language model, it is often useful to validate the Olive command, environment, and conversion recipe on a much smaller model before spending time on the full checkpoint.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">--test</span></code> option does that for Hugging Face models. Olive keeps the same model architecture, reduces it to a random 2-layer test model, saves it to the folder you provide, and reuses that folder on later runs.</p>
+<p>This example uses <a class="reference external" href="https://huggingface.co/Qwen/Qwen3-0.6B"><code class="docutils literal notranslate"><span class="pre">Qwen/Qwen3-0.6B</span></code></a>, but the same pattern works for other supported Hugging Face LLMs.</p>
+<section id="step-1-generate-the-workflow-config">
+<h2>Step 1: generate the workflow config<a class="headerlink" href="#step-1-generate-the-workflow-config" title="Link to this heading">#</a></h2>
+<p>Start by generating the config that Olive will run for the Qwen conversion.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>optimize<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--model_name_or_path<span class="w"> </span>Qwen/Qwen3-0.6B<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--provider<span class="w"> </span>CPUExecutionProvider<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--precision<span class="w"> </span>int4<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output_path<span class="w"> </span>out/qwen<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--dry_run
 </pre></div>
 </div>
+<p>This creates <code class="docutils literal notranslate"><span class="pre">out/qwen/config.json</span></code> without launching the full conversion yet.</p>
 </section>
-<section id="caching-configuration">
-<h2>Caching configuration<a class="headerlink" href="#caching-configuration" title="Link to this heading">#</a></h2>
-<p>Developers have a few different options to customize caching.</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">cache_dir</span></code>: [str]:  Use this option to customize where local caching is saved.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cache_config</span></code>: [CacheConfig]: Use this option to customize shared i.e. in Azure cloud. Shared cache can be toggled ON and OFF using the <code class="docutils literal notranslate"><span class="pre">enable_shared_cache</span></code> option.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">enable_shared_cache</span></code>: [bool]: Toggle to enable/disable use of shared cache.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">clean_cache</span></code>: [bool]: To clean the local cache on next run, set <code class="docutils literal notranslate"><span class="pre">clean_cache</span></code> to true.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">clean_evaluation_cache</span></code>: [bool]: To force clean only the evaluation results cache, set this to true.</p></li>
-</ul>
-<p><strong>NOTE</strong>: Don’t forget to toggle the <code class="docutils literal notranslate"><span class="pre">clean_cache</span></code> option back to default to avoid force cleaning previously generated cache on each run. Cache helps improve performance and cleaning the cache on each run and degrade performance substantially.</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="c1">//...</span>
-<span class="w">    </span><span class="nt">&quot;cache_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/local/dir&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;cache_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;account_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;account-name&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;container_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;container-name&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;update_shared_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;enable_shared_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;clean_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;clean_evaluation_cache&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">    </span><span class="c1">//...</span>
-<span class="p">}</span>
+<section id="step-2-run-a-fast-smoke-test-with-olive-run-test">
+<h2>Step 2: run a fast smoke test with <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span> <span class="pre">--test</span></code><a class="headerlink" href="#step-2-run-a-fast-smoke-test-with-olive-run-test" title="Link to this heading">#</a></h2>
+<p>Use the generated config with <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span></code> and pass <code class="docutils literal notranslate"><span class="pre">--test</span></code> so Olive swaps in a reduced random Qwen model.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>out/qwen/config.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--test<span class="w"> </span>out/qwen-test-model<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output_path<span class="w"> </span>out/qwen-test-run
 </pre></div>
 </div>
-<p>For detailed discussion on configuring shared cache, see <a class="reference internal" href="#../../features/azure-ai/shared-model-cache.md"><span class="xref myst">shared-cache</span></a>.</p>
+<p>What this does:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--test</span> <span class="pre">out/qwen-test-model</span></code> creates a reduced random Qwen model and saves it in <code class="docutils literal notranslate"><span class="pre">out/qwen-test-model</span></code></p></li>
+<li><p>later runs reuse the same saved test model instead of recreating it</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--output_path</span> <span class="pre">out/qwen-test-run</span></code> gives the smoke test its own output folder, so the generated ONNX artifacts are easy to find</p></li>
+<li><p>Olive marks that output folder as a test-only run and refuses to reuse a non-test conversion folder for <code class="docutils literal notranslate"><span class="pre">--test</span></code></p></li>
+</ul>
+<p>After the smoke test finishes, look under <code class="docutils literal notranslate"><span class="pre">out/qwen-test-run</span></code> for the exported ONNX model and related files.</p>
+<p>This is a quick way to confirm that:</p>
+<ul class="simple">
+<li><p>Olive can load the source model</p></li>
+<li><p>the selected optimization recipe is valid for your setup</p></li>
+<li><p>the conversion path completes before you run the full model</p></li>
+</ul>
+<p>If you omit the folder and just pass <code class="docutils literal notranslate"><span class="pre">--test</span></code>, <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span></code> will save the reduced model under <code class="docutils literal notranslate"><span class="pre">&lt;output_path&gt;/test_model</span></code>.</p>
 </section>
-<section id="logging-configuration">
-<h2>Logging configuration<a class="headerlink" href="#logging-configuration" title="Link to this heading">#</a></h2>
-<p>Logging is controlled by four different options, all configurable as input to the engine.</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">log_severity_level</span></code>: [int]: Controls verbosity of logging output from Olive.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ort_log_severity_level</span></code>: [int]: Controls verbosity of logging from use of ONNX runtime.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ort_py_log_severity_level</span></code>: [int]: Set logging verbosity of ONNX runtime python module.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">log_to_file</span></code>: [str]: Set this to redirect all console logs to a local file.</p></li>
-</ul>
-<p>Developers can configure each of the above three flags to any of the following to control the verbosity of the output log during workflow runs.</p>
-<ul class="simple">
-<li><p>0: VERBOSE (or DEBUG)</p></li>
-<li><p>1: INFO</p></li>
-<li><p>2: WARNING</p></li>
-<li><p>3: ERROR</p></li>
-<li><p>4: FATAL (or CRITICAL)</p></li>
-</ul>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">    </span><span class="c1">//...</span>
-<span class="w">    </span><span class="nt">&quot;log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;ort_log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;ort_py_log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;log_to_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path/to/a/local/file&quot;</span>
-<span class="p">}</span>
+<section id="step-3-run-the-full-conversion">
+<h2>Step 3: run the full conversion<a class="headerlink" href="#step-3-run-the-full-conversion" title="Link to this heading">#</a></h2>
+<p>Once the smoke test succeeds, rerun the conversion on the full Qwen checkpoint by removing <code class="docutils literal notranslate"><span class="pre">--test</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>olive<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>out/qwen/config.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output_path<span class="w"> </span>out/qwen-full
 </pre></div>
 </div>
-<p><strong>NOTE</strong>: If <code class="docutils literal notranslate"><span class="pre">log_to_file</span></code> is a relative path, it is considered relative to the current working directory.</p>
+<p>At this point you know the Olive command and the conversion recipe already worked on the lightweight test model, so you can focus on the full-model run instead of debugging both at once.</p>
+</section>
+<section id="why-keep-the-test-model-folder">
+<h2>Why keep the test model folder?<a class="headerlink" href="#why-keep-the-test-model-folder" title="Link to this heading">#</a></h2>
+<p>The saved test model is useful beyond the first smoke test:</p>
+<ul class="simple">
+<li><p>you can rerun the reduced conversion quickly while iterating on options</p></li>
+<li><p>you can reuse the same HF test model later when comparing the Hugging Face model against the exported ONNX model</p></li>
+<li><p>you avoid recreating a new random test checkpoint every time</p></li>
+</ul>
+</section>
+<section id="related-docs">
+<h2>Related docs<a class="headerlink" href="#related-docs" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="cli-optimize.html"><span class="doc std std-doc">How to use the <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">optimize</span></code> command to optimize a Pytorch model</span></a></p></li>
+<li><p><a class="reference internal" href="../configure-workflows/build-workflow.html"><span class="doc std std-doc">How to write a new workflow from scratch</span></a></p></li>
+<li><p><a class="reference internal" href="../../reference/cli.html"><span class="doc std std-doc">CLI reference</span></a></p></li>
+</ul>
 </section>
 </section>
 
@@ -515,20 +511,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="systems.html"
+       href="cli-optimize.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">How to Define <code class="docutils literal notranslate"><span class="pre">host</span></code> or <code class="docutils literal notranslate"><span class="pre">target</span></code> Systems</p>
+        <p class="prev-next-title">How To Use <code class="docutils literal notranslate"><span class="pre">optimize</span></code> Command</p>
       </div>
     </a>
     <a class="right-next"
-       href="../extending/design.html"
+       href="cli-auto-opt.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Olive Design</p>
+        <p class="prev-next-title">How To Use <code class="docutils literal notranslate"><span class="pre">auto-opt</span></code> Command</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -551,9 +547,11 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#output-configuration">Output configuration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#caching-configuration">Caching configuration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#logging-configuration">Logging configuration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-generate-the-workflow-config">Step 1: generate the workflow config</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-a-fast-smoke-test-with-olive-run-test">Step 2: run a fast smoke test with <code class="docutils literal notranslate"><span class="pre">olive</span> <span class="pre">run</span> <span class="pre">--test</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-run-the-full-conversion">Step 3: run the full conversion</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-keep-the-test-model-folder">Why keep the test model folder?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#related-docs">Related docs</a></li>
 </ul>
   </nav></div>
 
