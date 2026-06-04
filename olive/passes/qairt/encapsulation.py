@@ -83,44 +83,22 @@ class QairtEncapsulation(Pass):
                 type_=dict,
                 default_value=None,
                 required=False,
-                description=(
-                    "Deep-merged into the GenAIConfig before the Genie DLC is produced. "
-                    "Use Python field names (underscores). Nested dicts are merged recursively — "
-                    "only the specified keys are overridden; all other GenAIBuilder defaults are "
-                    "preserved. Any field on GenAIConfig is valid: kv_dim, rope_theta, n_heads, "
-                    "n_layer, n_embd, allow_async_init, enable_graph_switching, "
-                    "positional_encoding (nested dict), etc. Note: top-level rope_theta and "
-                    "rope_scaling are not forwarded by the Genie factory — use "
-                    "positional_encoding.rope_theta to override RoPE theta in the DLC."
-                ),
+                description="Override GenAIConfig fields before DLC export without modifying the builder pass. "
+                "Only the specified keys are changed; all other builder defaults are preserved.",
             ),
             "backend_extensions_overrides": PassConfigParam(
                 type_=dict,
                 default_value=None,
                 required=False,
-                description=(
-                    "Deep-merged into the backend extensions config before the Genie DLC is "
-                    "produced. Use the raw JSON key names (hyphens) as they appear in "
-                    "backend_extensions.json. Nested dicts are merged recursively — only the "
-                    "specified keys are overridden; all other backend extension defaults set "
-                    "by the builder are preserved. If the container has no existing backend "
-                    "extensions config, the override is used as the entire config."
-                ),
+                description="Override backend extension settings (context, devices, memory, groupContext) "
+                "before DLC export. Use the same key names as backend_extensions.json.",
             ),
             "engine_config_overrides": PassConfigParam(
                 type_=dict,
                 default_value=None,
                 required=False,
-                description=(
-                    "Engine deployment parameters passed to LLMContainer.export() as an "
-                    "EngineConfig. Top-level keys (n_threads) map to EngineConfig fields; "
-                    "HTP-specific keys go under a nested 'htp' dict mapping to HTPEngineConfig "
-                    "fields: cpu_mask, poll, use_mmap, spill_fill_bufsize, mmap_budget, "
-                    "pos_id_dim, kv_update_method, allow_async_init, enable_graph_switching. "
-                    "Example: {'n_threads': 0, 'htp': {'cpu_mask': '0xe0', 'poll': False}}. "
-                    "Ignored with a warning if the installed qairt does not support engine_config "
-                    "in LLMContainer.export() (requires qairt-dev with AISW-184594)."
-                ),
+                description="Set engine deployment parameters (e.g. n_threads, cpu_mask) passed to the "
+                "Genie runtime at export. HTP-specific settings go under a nested 'htp' key.",
             ),
         }
 
