@@ -542,6 +542,72 @@ class TestExternalDataInline:
         # No variant.json is emitted.
         assert not (out / "models" / "decoder" / "cpu" / "variant.json").exists()
 
+    def test_copies_model_suffix_sidecars_into_variant_dir(self, tmp_path):
+        """Sidecars next to an EPContext stub get copied into the variant dir.
+
+        OpenVINO/QNN-style sidecars (e.g. ``.xml``/``.bin`` next to an EPContext stub
+        ``.onnx``) aren't referenced through ONNX initializer external_data, so the
+        writer sweeps the source directory and copies every model-suffix file next to
+        the variant ONNX. Non-model files like ``.bak`` and ``.json`` are left alone.
+        """
+        src_dir = tmp_path / "src"
+        onnx_path = _make_onnx_inline(src_dir / "openvino_model_dy.onnx")
+        (src_dir / "openvino_model_dy.xml").write_bytes(b"<openvino-ir/>")
+        (src_dir / "openvino_model_dy.bin").write_bytes(b"\x01\x02\x03\x04" * 64)
+        # Files that must NOT be picked up by the sidecar sweep:
+        (src_dir / "openvino_model_dy.onnx.bak").write_bytes(b"stale")
+        (src_dir / "tokenizer.json").write_text("{}")
+
+        out = tmp_path / "package"
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="openvino_gpu",
+                    onnx_files=[onnx_path],
+                    ep="OpenVINOExecutionProvider",
+                )
+            ],
+        )
+
+        variant_dir = out / "models" / "decoder" / "openvino_gpu"
+        assert (variant_dir / "openvino_model_dy.onnx").is_file()
+        assert (variant_dir / "openvino_model_dy.xml").is_file()
+        assert (variant_dir / "openvino_model_dy.bin").is_file()
+        assert (variant_dir / "openvino_model_dy.bin").read_bytes() == b"\x01\x02\x03\x04" * 64
+        # .bak and .json must stay out of the variant dir; .bak has the wrong suffix
+        # and .json belongs under configs/, not next to the ONNX.
+        assert not (variant_dir / "openvino_model_dy.onnx.bak").exists()
+        assert not (variant_dir / "tokenizer.json").exists()
+
+    def test_sidecar_sweep_does_not_overwrite_external_data(self, tmp_path):
+        """External-data blobs are not overwritten by the sidecar sweep.
+
+        Blobs already copied through the ONNX initializer path must not be overwritten
+        by the broader source-directory sweep — the existing copy is authoritative
+        (it came from the ONNX it belongs to).
+        """
+        blob = b"\xaa" * 256
+        onnx_path = _make_onnx_with_external(tmp_path / "src" / "model.onnx", "model.onnx.data", blob)
+        out = tmp_path / "package"
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="cpu",
+                    onnx_files=[onnx_path],
+                    ep="CPUExecutionProvider",
+                )
+            ],
+        )
+
+        copied = out / "models" / "decoder" / "cpu" / "model.onnx.data"
+        assert copied.is_file()
+        assert copied.read_bytes() == blob
+
 
 # ---------------------------------------------------------------------------
 # Writer: configs/ + safety

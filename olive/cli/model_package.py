@@ -515,6 +515,7 @@ def _write_component(
         variant_dir = component_dir / v.variant_name
         variant_dir.mkdir(parents=True, exist_ok=True)
 
+        source_dirs: set[Path] = set()
         for onnx_src in v.onnx_files:
             onnx_src_path = Path(onnx_src)
             if not onnx_src_path.is_file():
@@ -522,6 +523,7 @@ def _write_component(
 
             onnx_dst = variant_dir / onnx_src_path.name
             shutil.copy2(str(onnx_src_path), str(onnx_dst))
+            source_dirs.add(onnx_src_path.parent.resolve())
 
             ext_refs = _discover_external_data(onnx_src_path)
             external_root = onnx_src_path.parent.resolve()
@@ -547,6 +549,24 @@ def _write_component(
                 blob_dst.parent.mkdir(parents=True, exist_ok=True)
                 if not blob_dst.exists():
                     shutil.copy2(str(blob_src), str(blob_dst))
+
+        # Sweep each source directory for remaining model-suffix sidecar files
+        # (e.g. an EPContext stub ``.onnx`` typically points at a same-stem
+        # ``.xml``/``.bin`` pair for OpenVINO or a ``.bin`` context blob for
+        # QNN; these sidecars don't appear in the ONNX initializer
+        # ``external_data`` table so the standard external-data copy above
+        # misses them). Each Olive source directory holds the artifacts for a
+        # single variant, so any file with a model suffix is part of this
+        # variant and belongs next to the ONNX. Duplicates already copied as
+        # external-data are skipped.
+        for src_dir in sorted(source_dirs):
+            for entry in sorted(src_dir.iterdir()):
+                if not entry.is_file() or entry.suffix not in _MODEL_SUFFIXES:
+                    continue
+                dst = variant_dir / entry.name
+                if dst.exists():
+                    continue
+                shutil.copy2(str(entry), str(dst))
 
         # Per-variant runtime fields flow through genai_config_overlay.json.
         _write_genai_config_overlay(variant_dir, component_role, v)
