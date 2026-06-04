@@ -86,21 +86,54 @@ def _make_onnx_with_external(
 def _create_source_dir(
     tmp_path: Path,
     name: str,
-    model_attributes: dict,
     *,
+    ep: str = "CPUExecutionProvider",
     onnx_metadata: dict[str, str] | None = None,
-    inference_settings: dict | None = None,
+    filename: str = "model.onnx",
+    provider_options: dict | None = None,
+    session_options_extras: dict | None = None,
+    role: str = "decoder",
 ) -> Path:
-    """Create a fake Olive output directory with model_config.json and a real ONNX file."""
+    """Create a fake GenAI-shaped source directory.
+
+    Writes a minimal ``genai_config.json`` describing one role (default
+    ``decoder``) with ``filename``, plus a real ONNX file at the role's
+    filename. Optionally seeds the role's ``session_options.provider_options``
+    with the canonical alias for the supplied ``ep`` so the packager's
+    EP-derivation logic resolves the variant to that EP. No
+    ``model_config.json`` is written — the packager is genai_config-driven.
+    """
     source_dir = tmp_path / name
     source_dir.mkdir(parents=True)
-    onnx_path = source_dir / "model.onnx"
+    onnx_path = source_dir / filename
     _make_onnx_inline(onnx_path, metadata_props=onnx_metadata)
-    cfg: dict = {"model_path": str(onnx_path), "model_attributes": model_attributes}
-    if inference_settings is not None:
-        cfg["inference_settings"] = inference_settings
-    model_config = {"type": "ONNXModel", "config": cfg}
-    (source_dir / "model_config.json").write_text(json.dumps(model_config))
+
+    ep_to_alias = {
+        "CPUExecutionProvider": "CPU",
+        "CUDAExecutionProvider": "cuda",
+        "QNNExecutionProvider": "qnn",
+        "OpenVINOExecutionProvider": "OpenVINO",
+        "VitisAIExecutionProvider": "VitisAI",
+        "WebGpuExecutionProvider": "WebGPU",
+        "DmlExecutionProvider": "DML",
+        "TensorrtExecutionProvider": "tensorrt",
+        "ROCMExecutionProvider": "rocm",
+        "CoreMLExecutionProvider": "CoreML",
+        "XnnpackExecutionProvider": "XNNPACK",
+    }
+    alias = ep_to_alias.get(ep, "CPU")
+    session_options: dict = dict(session_options_extras or {})
+    if alias == "CPU":
+        session_options.setdefault("provider_options", [])
+    else:
+        session_options.setdefault("provider_options", [{alias: provider_options or {}}])
+
+    genai = {
+        "model": {
+            role: {"filename": filename, "session_options": session_options},
+        }
+    }
+    (source_dir / "genai_config.json").write_text(json.dumps(genai))
     return source_dir
 
 
@@ -120,32 +153,33 @@ def _make_command(args_list):
 
 class TestSourceValidation:
     def test_accepts_single_source(self, tmp_path):
-        src = _create_source_dir(tmp_path, "soc_60", {"ep": "QNNExecutionProvider"})
+        src = _create_source_dir(tmp_path, "soc_60", ep="QNNExecutionProvider")
         cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(tmp_path / "out")])
 
         sources = cmd._parse_sources()
 
         assert sources == [("soc_60", src)]
 
-    def test_rejects_missing_model_config(self, tmp_path):
-        """A source with NEITHER model_config.json nor genai_config.json is rejected.
+    def test_rejects_missing_genai_config(self, tmp_path):
+        """A source without ``genai_config.json`` is rejected.
 
-        A genai_config-only source is now accepted (covered separately by
-        ``TestPipelineAndSynthesis``); only the truly empty / non-source
-        directory should fail.
+        The packager is genai_config-driven: it lifts the model layout
+        (role filenames, session_options, pipeline) directly from the
+        source's genai_config. A directory lacking that file has no way to
+        describe its contents to the packager.
         """
         no_config = tmp_path / "no_config"
         no_config.mkdir()
-        valid = _create_source_dir(tmp_path, "valid", {"ep": "QNNExecutionProvider"})
+        valid = _create_source_dir(tmp_path, "valid", ep="QNNExecutionProvider")
         cmd = _make_command(
             ["generate-model-package", "-s", str(no_config), "-s", str(valid), "-o", str(tmp_path / "out")]
         )
 
-        with pytest.raises(ValueError, match=r"model_config\.json"):
+        with pytest.raises(ValueError, match=r"genai_config\.json"):
             cmd._parse_sources()
 
     def test_rejects_nonexistent_path(self, tmp_path):
-        valid = _create_source_dir(tmp_path, "valid", {"ep": "QNNExecutionProvider"})
+        valid = _create_source_dir(tmp_path, "valid", ep="QNNExecutionProvider")
         cmd = _make_command(
             ["generate-model-package", "-s", "/nonexistent/path", "-s", str(valid), "-o", str(tmp_path / "out")]
         )
@@ -155,16 +189,16 @@ class TestSourceValidation:
 
     def test_rejects_duplicate_source_basenames(self, tmp_path):
         # Two source dirs share basename "soc_60" — variant names would collide.
-        src_a = _create_source_dir(tmp_path / "a", "soc_60", {"ep": "QNNExecutionProvider"})
-        src_b = _create_source_dir(tmp_path / "b", "soc_60", {"ep": "QNNExecutionProvider"})
+        src_a = _create_source_dir(tmp_path / "a", "soc_60", ep="QNNExecutionProvider")
+        src_b = _create_source_dir(tmp_path / "b", "soc_60", ep="QNNExecutionProvider")
         cmd = _make_command(["generate-model-package", "-s", str(src_a), "-s", str(src_b), "-o", str(tmp_path / "out")])
 
         with pytest.raises(ValueError, match="share the directory name"):
             cmd._parse_sources()
 
     def test_parses_two_valid_sources(self, tmp_path):
-        src1 = _create_source_dir(tmp_path, "soc_60", {"ep": "QNNExecutionProvider"})
-        src2 = _create_source_dir(tmp_path, "soc_73", {"ep": "QNNExecutionProvider"})
+        src1 = _create_source_dir(tmp_path, "soc_60", ep="QNNExecutionProvider")
+        src2 = _create_source_dir(tmp_path, "soc_73", ep="QNNExecutionProvider")
         cmd = _make_command(["generate-model-package", "-s", str(src1), "-s", str(src2), "-o", str(tmp_path / "out")])
 
         sources = cmd._parse_sources()
@@ -182,8 +216,8 @@ class TestSourceValidation:
 class TestGeneratePackageMultiVariant:
     def test_writes_proposal_layout(self, tmp_path):
         # setup
-        src1 = _create_source_dir(tmp_path, "soc_60", {"ep": "QNNExecutionProvider", "device": "NPU"})
-        src2 = _create_source_dir(tmp_path, "soc_73", {"ep": "QNNExecutionProvider", "device": "NPU"})
+        src1 = _create_source_dir(tmp_path, "soc_60", ep="QNNExecutionProvider")
+        src2 = _create_source_dir(tmp_path, "soc_73", ep="QNNExecutionProvider")
         out = tmp_path / "out.ortpackage"
         cmd = _make_command(
             [
@@ -210,40 +244,42 @@ class TestGeneratePackageMultiVariant:
 
         manifest = json.loads((out / "manifest.json").read_text())
         assert manifest["schema_version"] == 1
-        assert manifest["components"] == ["model"]
+        # ``decoder`` (not ``model``) — the genai_config role is ``decoder``,
+        # so _extract_task -> ``text_generation`` -> component dir ``decoder``.
+        assert manifest["components"] == ["decoder"]
         assert manifest["producer"]["model_name"] == "test_model"
         assert manifest["producer"]["model_version"] == "2.0"
 
         # metadata uses inline EP
-        metadata = json.loads((out / "models" / "model" / "metadata.json").read_text())
+        metadata = json.loads((out / "models" / "decoder" / "metadata.json").read_text())
         assert metadata["schema_version"] == 1
-        assert metadata["component_name"] == "model"
+        assert metadata["component_name"] == "decoder"
         assert set(metadata["variants"]) == {"soc_60", "soc_73"}
         for variant_payload in metadata["variants"].values():
-            assert variant_payload == {"ep": "QNNExecutionProvider", "device": "NPU"}
+            assert variant_payload == {"ep": "QNNExecutionProvider"}
 
         # No variant.json is emitted; the ONNX file lands in the variant
         # directory.
         for v in ("soc_60", "soc_73"):
-            assert not (out / "models" / "model" / v / "variant.json").exists()
-            assert (out / "models" / "model" / v / "model.onnx").is_file()
+            assert not (out / "models" / "decoder" / v / "variant.json").exists()
+            assert (out / "models" / "decoder" / v / "model.onnx").is_file()
 
 
 class TestGeneratePackageSingleSource:
     def test_single_source_is_valid_package(self, tmp_path):
-        src = _create_source_dir(tmp_path, "cpu_x64", {"ep": "CPUExecutionProvider"})
+        src = _create_source_dir(tmp_path, "cpu_x64", ep="CPUExecutionProvider")
         out = tmp_path / "out.ortpackage"
         cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
 
         cmd.run()
 
         manifest = json.loads((out / "manifest.json").read_text())
-        assert manifest["components"] == ["model"]
-        metadata = json.loads((out / "models" / "model" / "metadata.json").read_text())
+        assert manifest["components"] == ["decoder"]
+        metadata = json.loads((out / "models" / "decoder" / "metadata.json").read_text())
         assert "cpu_x64" in metadata["variants"]
         assert metadata["variants"]["cpu_x64"] == {"ep": "CPUExecutionProvider"}
         # No shared_weights because nothing to dedup.
-        assert not (out / "models" / "model" / "shared_weights").exists()
+        assert not (out / "models" / "decoder" / "shared_weights").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -866,38 +902,6 @@ class TestConfigsAndSafety:
 
 
 # ---------------------------------------------------------------------------
-# CLI: mixed source types
-# ---------------------------------------------------------------------------
-
-
-class TestMixedSourceTypes:
-    def test_rejects_mixed_onnx_and_composite(self, tmp_path):
-        # setup: one ONNXModel source, one CompositeModel source
-        onnx_src = _create_source_dir(tmp_path, "onnx_src", {"ep": "CPUExecutionProvider"})
-        comp_src = tmp_path / "comp_src"
-        comp_src.mkdir()
-        comp_onnx = _make_onnx_inline(comp_src / "comp.onnx")
-        (comp_src / "model_config.json").write_text(
-            json.dumps(
-                {
-                    "type": "CompositeModel",
-                    "config": {
-                        "model_components": [{"type": "ONNXModel", "config": {"model_path": str(comp_onnx)}}],
-                        "component_names": ["decoder"],
-                    },
-                }
-            )
-        )
-        cmd = _make_command(
-            ["generate-model-package", "-s", str(onnx_src), "-s", str(comp_src), "-o", str(tmp_path / "out")]
-        )
-
-        # execute + assert
-        with pytest.raises(ValueError, match="mix model types"):
-            cmd.run()
-
-
-# ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
 
@@ -938,7 +942,7 @@ class TestCompatibilityFromOnnxMetadata:
         src = _create_source_dir(
             tmp_path,
             "soc_60",
-            {"ep": "QNNExecutionProvider", "device": "NPU"},
+            ep="QNNExecutionProvider",
             onnx_metadata={"ep_compatibility_info.QNNExecutionProvider": "soc_60,soc_69,soc_73"},
         )
         out = tmp_path / "out.ortpackage"
@@ -948,106 +952,14 @@ class TestCompatibilityFromOnnxMetadata:
         cmd.run()
 
         # assert: compatibility_string passes the raw opaque string through verbatim
-        metadata = json.loads((out / "models" / "model" / "metadata.json").read_text())
+        metadata = json.loads((out / "models" / "decoder" / "metadata.json").read_text())
         variant = metadata["variants"]["soc_60"]
         assert variant["ep"] == "QNNExecutionProvider"
         assert variant["compatibility_string"] == "soc_60,soc_69,soc_73"
 
 
 # ---------------------------------------------------------------------------
-# CLI: composite (per-component inference_settings precedence)
-# ---------------------------------------------------------------------------
-
-
-def _create_composite_source(
-    tmp_path: Path,
-    name: str,
-    components: list[dict],
-    component_names: list[str],
-    *,
-    target_inference: dict | None = None,
-    target_attrs: dict | None = None,
-) -> Path:
-    """Create an Olive-style composite source dir."""
-    source_dir = tmp_path / name
-    source_dir.mkdir(parents=True)
-    cfg = {"model_components": components, "model_component_names": component_names}
-    if target_inference is not None:
-        cfg["inference_settings"] = target_inference
-    if target_attrs is not None:
-        cfg["model_attributes"] = target_attrs
-    (source_dir / "model_config.json").write_text(json.dumps({"type": "CompositeModel", "config": cfg}))
-    return source_dir
-
-
-class TestCompositeBuild:
-    def test_per_component_inference_settings_wins(self, tmp_path):
-        # setup: component-level inference_settings should override target-level
-        comp_a_onnx = _make_onnx_inline(tmp_path / "comp_a" / "model.onnx")
-        comp_b_onnx = _make_onnx_inline(tmp_path / "comp_b" / "model.onnx")
-
-        target_inference = {
-            "session_options": {"graph_optimization_level": 1},
-            "execution_provider": ["CPUExecutionProvider"],
-            "provider_options": [{}],
-        }
-        comp_b_inference = {
-            "session_options": {"graph_optimization_level": 99},
-            "execution_provider": ["CPUExecutionProvider"],
-            "provider_options": [{}],
-        }
-        components = [
-            {"type": "ONNXModel", "config": {"model_path": str(comp_a_onnx)}},
-            {
-                "type": "ONNXModel",
-                "config": {"model_path": str(comp_b_onnx), "inference_settings": comp_b_inference},
-            },
-        ]
-        src = _create_composite_source(
-            tmp_path,
-            "soc_60",
-            components,
-            ["encoder", "decoder"],
-            target_inference=target_inference,
-            target_attrs={"ep": "CPUExecutionProvider"},
-        )
-        out = tmp_path / "out.ortpackage"
-        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
-
-        # execute
-        cmd.run()
-
-        # assert: encoder uses target-level, decoder uses component-level
-        encoder_overlay = json.loads((out / "models" / "encoder" / "soc_60" / "genai_config_overlay.json").read_text())
-        assert encoder_overlay["model"]["encoder"]["session_options"]["graph_optimization_level"] == 1
-
-        decoder_overlay = json.loads((out / "models" / "decoder" / "soc_60" / "genai_config_overlay.json").read_text())
-        assert decoder_overlay["model"]["decoder"]["session_options"]["graph_optimization_level"] == 99
-
-
-# ---------------------------------------------------------------------------
-# CLI: unsupported model type
-# ---------------------------------------------------------------------------
-
-
-class TestUnsupportedModelType:
-    def test_rejects_pytorch_model(self, tmp_path):
-        # setup: a source whose model_config declares an unsupported type
-        source_dir = tmp_path / "pytorch_src"
-        source_dir.mkdir()
-        (source_dir / "model_config.json").write_text(
-            json.dumps({"type": "PyTorchModel", "config": {"model_path": "pt"}})
-        )
-        out = tmp_path / "out"
-        cmd = _make_command(["generate-model-package", "-s", str(source_dir), "-o", str(out)])
-
-        # execute + assert
-        with pytest.raises(ValueError, match="Unsupported source model type"):
-            cmd.run()
-
-
-# ---------------------------------------------------------------------------
-# Pipeline sources (multi-stage exports, e.g. QNN) and model_config synthesis
+# Pipeline sources (multi-stage exports, e.g. QNN) and VLM multi-role overlay
 # ---------------------------------------------------------------------------
 
 
@@ -1063,11 +975,10 @@ def _create_pipeline_source(
 ) -> Path:
     """Build a fake GenAI-shaped multi-stage source dir (e.g. QNN pipeline).
 
-    The source has ONE genai_config.json + N real ONNX stage files and NO
-    model_config.json — exercising the synthesis path. ``stage_with_options``
-    is the only stage carrying provider_options (per QNN convention where
-    embedding / transformer-head run on CPU and only the prompt / iter
-    stages carry the HTP options).
+    The source has ONE genai_config.json + N real ONNX stage files (no
+    ``model_config.json``). ``stage_with_options`` is the only stage carrying
+    provider_options (per QNN convention where embedding / transformer-head
+    run on CPU and only the prompt / iter stages carry the HTP options).
     """
     source_dir = tmp_path / name
     source_dir.mkdir(parents=True)
@@ -1107,38 +1018,54 @@ def _create_pipeline_source(
     return source_dir
 
 
-class TestPipelineAndSynthesis:
-    """Pipeline multi-stage sources + ``model_config.json`` synthesis."""
+def _create_vlm_source(tmp_path: Path, name: str) -> Path:
+    """Build a fake flat VLM source (vision + embedding + decoder ONNXs in one dir).
 
-    def test_accepts_source_without_model_config_when_genai_config_present(self, tmp_path):
-        """A source carrying only ``genai_config.json`` + ONNX files is accepted.
+    Mirrors the shape of real-world VLM packages where a single source dir
+    holds multiple roles' ONNX files alongside one ``genai_config.json`` that
+    references each role's ``filename``. The packager must restore EVERY
+    role's filename in the per-variant overlay — not just the primary one —
+    or the GenAI loader cannot locate the vision/embedding ONNXs at load
+    time.
+    """
+    source_dir = tmp_path / name
+    source_dir.mkdir(parents=True)
+    for fname in ("vision.onnx", "embedding.onnx", "text.onnx"):
+        _make_onnx_inline(source_dir / fname)
+    genai = {
+        "model": {
+            "type": "qwen3vl",
+            "vocab_size": 151936,
+            "vision": {
+                "filename": "vision.onnx",
+                "session_options": {"provider_options": []},
+            },
+            "embedding": {
+                "filename": "embedding.onnx",
+                "session_options": {"provider_options": []},
+            },
+            "decoder": {
+                "head_size": 128,
+                "filename": "text.onnx",
+                "session_options": {"provider_options": []},
+            },
+        }
+    }
+    (source_dir / "genai_config.json").write_text(json.dumps(genai))
+    return source_dir
 
-        Useful for packaging GenAI-shaped exports downloaded from a hub: no
-        Olive workflow was used so no ``model_config.json`` exists, but
-        ``genai_config.json`` is enough for the packager to derive the EP,
-        component name, and per-variant overlay structure.
-        """
-        src = _create_pipeline_source(
-            tmp_path,
-            "qnn_npu",
-            stage_filenames=["embed.onnx", "ctx.onnx", "iter.onnx", "head.onnx"],
-            stage_with_options="prompt-processor",
-            provider_alias="qnn",
-            provider_options={"soc_model": "60"},
-        )
-        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(tmp_path / "out")])
 
-        sources = cmd._parse_sources()
-        assert sources == [("qnn_npu", src)]
+class TestPipelineSources:
+    """Pipeline multi-stage sources (e.g. QNN)."""
 
-    def test_rejects_source_without_model_config_or_genai_config(self, tmp_path):
-        """A source with neither config file is rejected with a clear error."""
+    def test_rejects_source_without_genai_config(self, tmp_path):
+        """A source without ``genai_config.json`` is rejected with a clear error."""
         empty = tmp_path / "empty"
         empty.mkdir()
         _make_onnx_inline(empty / "model.onnx")
         cmd = _make_command(["generate-model-package", "-s", str(empty), "-o", str(tmp_path / "out")])
 
-        with pytest.raises(ValueError, match=r"neither model_config\.json nor genai_config\.json"):
+        with pytest.raises(ValueError, match=r"no genai_config\.json"):
             cmd._parse_sources()
 
     def test_packs_pipeline_with_all_stage_onnx_files(self, tmp_path):
@@ -1268,33 +1195,70 @@ class TestPipelineAndSynthesis:
         )
         assert overlay["model"]["decoder"]["session_options"]["provider_options"] == [{"VitisAI": {}}]
 
-    def test_unreachable_model_path_is_repointed_to_source_dir(self, tmp_path):
-        """A stale ``model_path`` (e.g. copied from another machine) is repaired.
 
-        The original ``model_attributes`` are preserved (they remain valid
-        descriptors of the model itself); only the on-disk path is patched
-        so the local ONNX file is the one actually packaged.
-        """
-        source_dir = tmp_path / "stale"
-        source_dir.mkdir()
-        _make_onnx_inline(source_dir / "model.onnx")
-        (source_dir / "genai_config.json").write_text(
-            json.dumps({"model": {"vocab_size": 100, "decoder": {"filename": "model.onnx"}}})
-        )
-        (source_dir / "model_config.json").write_text(
-            json.dumps(
-                {
-                    "type": "ONNXModel",
-                    "config": {
-                        "model_path": "/nonexistent/elsewhere/model.onnx",
-                        "model_attributes": {"task": "text-generation", "vocab_size": 100},
-                    },
-                }
-            )
-        )
+class TestVLMMultiRoleOverlay:
+    """Multi-role (vision + embedding + decoder) overlay restoration for VLM sources.
+
+    A flat VLM source dir packs >1 ONNX file referenced by >1 role in the
+    same ``genai_config.json``. The sidecar sweep copies every ONNX into
+    the variant directory, but the loader still needs the overlay to
+    declare ``filename`` for each role — the base genai_config strips
+    every role's filename and session_options. Without the multi-role
+    overlay lift the package would only restore the primary role
+    (``decoder``) and the loader would fail when it looks for the vision
+    or embedding ONNX.
+    """
+
+    def test_overlay_restores_filename_for_every_role(self, tmp_path):
+        src = _create_vlm_source(tmp_path, "cpu_and_mobile")
         out = tmp_path / "out"
-        cmd = _make_command(["generate-model-package", "-s", str(source_dir), "-o", str(out)])
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
 
         cmd.run()
 
-        assert (out.with_suffix(".ortpackage") / "models" / "decoder" / "stale" / "model.onnx").is_file()
+        overlay_path = (
+            out.with_suffix(".ortpackage") / "models" / "decoder" / "cpu_and_mobile" / "genai_config_overlay.json"
+        )
+        overlay = json.loads(overlay_path.read_text())
+        model = overlay["model"]
+        # The VLM fix: every role with a filename in the source must appear
+        # in the overlay with that filename restored.
+        assert model["vision"]["filename"] == "vision.onnx"
+        assert model["embedding"]["filename"] == "embedding.onnx"
+        assert model["decoder"]["filename"] == "text.onnx"
+
+    def test_variant_dir_contains_all_role_onnxs(self, tmp_path):
+        """Sidecar sweep copies every ONNX next to the primary in the variant dir.
+
+        The single component directory holds the vision, embedding, and
+        decoder ONNXs side-by-side; without this the overlay's filename
+        restoration would resolve to missing files.
+        """
+        src = _create_vlm_source(tmp_path, "cpu_and_mobile")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        variant_dir = out.with_suffix(".ortpackage") / "models" / "decoder" / "cpu_and_mobile"
+        for fname in ("vision.onnx", "embedding.onnx", "text.onnx"):
+            assert (variant_dir / fname).is_file(), f"missing {fname} in variant dir"
+
+    def test_base_genai_injects_component_marker_for_every_role(self, tmp_path):
+        """Every multi-role source role gets a ``component=<comp>`` marker in base.
+
+        The merged config the loader sees must know which component
+        directory each role lives in. The base genai_config injects a
+        ``component`` field for every role so per-variant lookups resolve
+        to the correct on-disk variant directory.
+        """
+        src = _create_vlm_source(tmp_path, "cpu_and_mobile")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        base = json.loads((out.with_suffix(".ortpackage") / "configs" / "genai_config.json").read_text())
+        model = base["model"]
+        for role in ("vision", "embedding", "decoder"):
+            assert model[role]["component"] == "decoder", f"role {role} missing component marker"

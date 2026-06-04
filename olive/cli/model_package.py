@@ -186,30 +186,18 @@ class ModelPackageCommand(BaseOliveCLICommand):
             output_dir = output_dir.with_name(output_dir.name + _PACKAGE_SUFFIX)
         package_default_name = output_dir.stem
 
-        targets = []
+        targets: list[tuple[str, Path, dict]] = []
         for target_name, source_path in sources:
-            model_config = self._read_model_config(source_path)
-            targets.append((target_name, source_path, model_config))
+            source_genai = _load_source_genai(source_path)
+            if not isinstance(source_genai, dict):
+                raise ValueError(
+                    f"Source {source_path} has an unreadable genai_config.json. "
+                    "The packager is genai_config-driven; the file must be valid JSON describing "
+                    "the model layout (role filenames, session_options, etc.)."
+                )
+            targets.append((target_name, source_path, source_genai))
 
-        types = {(targets[i][2].get("type") or "").lower() for i in range(len(targets))}
-        supported = {"onnxmodel", "compositemodel"}
-        if types - supported:
-            unsupported = sorted(types - supported)
-            raise ValueError(
-                f"Unsupported source model type(s) {unsupported!r}. "
-                "generate-model-package supports ONNXModel and CompositeModel only."
-            )
-        if len(types) > 1:
-            raise ValueError(
-                f"Sources mix model types {sorted(types)!r}. All sources must share the same type "
-                "(all ONNXModel or all CompositeModel)."
-            )
-        is_composite = next(iter(types)) == "compositemodel"
-
-        if is_composite:
-            variants = self._build_composite_variants(targets)
-        else:
-            variants = self._build_single_variants(targets)
+        variants = self._build_variants(targets)
 
         config_files = self._collect_config_files(targets)
 
@@ -242,110 +230,58 @@ class ModelPackageCommand(BaseOliveCLICommand):
     # VariantSpec construction
     # ------------------------------------------------------------------
 
-    def _build_single_variants(self, targets: list[tuple[str, Path, dict]]) -> list["VariantSpec"]:
+    def _build_variants(self, targets: list[tuple[str, Path, dict]]) -> list["VariantSpec"]:
         task = self._extract_task(targets)
         component_name = _task_to_component_name(task)
         variants: list[VariantSpec] = []
-        for target_name, source_path, model_config in targets:
-            attrs = _get_model_attributes(model_config)
-            source_genai = _load_source_genai(source_path)
+        for target_name, source_path, source_genai in targets:
             # Pipeline sources (e.g. QNN multi-stage exports) declare each
             # stage's ONNX inside ``genai_config.model.<role>.pipeline``;
             # there can be multiple ``.onnx`` files in the source directory
-            # so the single-ONNX resolver would fail. We list them all here
-            # and let the writer's copy loop fan them out into the variant
-            # directory; the overlay writer lifts the pipeline structure
-            # verbatim from the source genai_config.
+            # so we list them all here and let the writer's copy loop fan
+            # them out into the variant directory. The overlay writer lifts
+            # the pipeline structure verbatim from the source genai_config.
+            primary_role = _pick_primary_role(source_genai)
             pipeline_files = _resolve_pipeline_onnx_files(source_path, source_genai)
             if pipeline_files:
                 onnx_files = pipeline_files
-                ep = (
-                    attrs.get("ep")
-                    or _derive_ep_from_genai(source_genai, _pick_primary_role(source_genai))
-                    or (model_config.get("config", {}).get("inference_settings") or {}).get(
-                        "execution_provider", [None]
-                    )[0]
-                    or _guess_ep_from_variant_name(target_name)
-                    or "CPUExecutionProvider"
-                )
-                device = attrs.get("device") or None
-                compatibility_string = None
             else:
-                onnx_files = [_resolve_onnx_path(model_config)]
-                # When the source has its own genai_config and ``attrs.ep``
-                # is absent, the genai's ``provider_options`` are a stronger
-                # signal than the variant-directory-name heuristic — e.g. a
-                # directory named ``vitia_npu`` should be VitisAI rather
-                # than QNN (``npu`` hint wins by accident).
-                attrs_for_compat = dict(attrs)
-                if not attrs_for_compat.get("ep"):
-                    derived = _derive_ep_from_genai(source_genai, _pick_primary_role(source_genai))
-                    if derived:
-                        attrs_for_compat["ep"] = derived
-                ep, device, compatibility_string = _ep_device_compatibility(
-                    attrs_for_compat, onnx_files[0], target_name
-                )
+                # Flat single-ONNX source: take the primary role's filename
+                # from genai_config (the same field the GenAI loader uses
+                # at runtime). Normalise to basename — some Olive exports
+                # write paths like ``decoder/model.onnx`` but every variant
+                # directory in the package is flat.
+                if primary_role is None:
+                    raise ValueError(
+                        f"Source {source_path} has no role in genai_config.json with a "
+                        "``filename`` or ``pipeline``; cannot determine which ONNX file(s) "
+                        "to package."
+                    )
+                role_body = source_genai["model"][primary_role]
+                filename = role_body.get("filename")
+                if not isinstance(filename, str) or not filename:
+                    raise ValueError(f"Source {source_path} role {primary_role!r} has no ``filename``.")
+                onnx_files = [source_path / Path(filename).name]
+
+            ep = (
+                _derive_ep_from_genai(source_genai, primary_role)
+                or _guess_ep_from_variant_name(target_name)
+                or "CPUExecutionProvider"
+            )
+            raw_compat = _extract_ep_compatibility_from_onnx(onnx_files[0], ep) if onnx_files else None
+            compatibility_string = raw_compat.strip() if raw_compat and raw_compat.strip() else None
+
             variants.append(
                 VariantSpec(
                     component_name=component_name,
                     variant_name=target_name,
                     onnx_files=onnx_files,
                     ep=ep,
-                    device=device,
                     compatibility_string=compatibility_string,
-                    inference_settings=model_config.get("config", {}).get("inference_settings") or {},
                     source_genai=source_genai,
                 )
             )
         return variants
-
-    def _build_composite_variants(self, targets: list[tuple[str, Path, dict]]) -> list["VariantSpec"]:
-        from collections import OrderedDict
-
-        # Track per-component variants in source insertion order.
-        component_variants: dict[str, list[VariantSpec]] = OrderedDict()
-
-        for target_name, source_path, model_config in targets:
-            target_attrs = _get_model_attributes(model_config)
-            target_inference = model_config.get("config", {}).get("inference_settings") or {}
-            target_genai = _load_source_genai(source_path)
-            components = model_config["config"].get("model_components", [])
-            component_names = model_config["config"].get("model_component_names", [])
-
-            if not components:
-                raise ValueError(f"Composite source {target_name!r} declares no model_components.")
-            if len(components) != len(component_names):
-                raise ValueError(
-                    f"Composite source {target_name!r} has {len(components)} model_components but "
-                    f"{len(component_names)} model_component_names; counts must match."
-                )
-
-            for comp_config, comp_name in zip(components, component_names):
-                # Component-level inference_settings overrides target-level if present.
-                comp_inference = comp_config.get("config", {}).get("inference_settings") or target_inference
-                # Component-level model_attributes overlay target-level.
-                comp_attrs = dict(target_attrs)
-                comp_attrs.update(_get_model_attributes(comp_config))
-
-                onnx_path = _resolve_onnx_path(comp_config)
-                ep, device, compatibility_string = _ep_device_compatibility(comp_attrs, onnx_path, target_name)
-
-                spec = VariantSpec(
-                    component_name=comp_name,
-                    variant_name=target_name,
-                    onnx_files=[onnx_path],
-                    ep=ep,
-                    device=device,
-                    compatibility_string=compatibility_string,
-                    inference_settings=comp_inference,
-                    source_genai=target_genai,
-                )
-                component_variants.setdefault(comp_name, []).append(spec)
-
-        flat: list[VariantSpec] = []
-        for comp_specs in component_variants.values():
-            flat.extend(comp_specs)
-        return flat
 
     # ------------------------------------------------------------------
     # Config file handling
@@ -355,31 +291,18 @@ class ModelPackageCommand(BaseOliveCLICommand):
     def _collect_config_files(targets: list[tuple[str, Path, dict]]) -> dict[str, Path]:
         """Pick consumer-shared config files (genai_config, tokenizer, ...).
 
-        Source-of-truth order:
-        1. ``model_attributes.additional_files`` of any source that has it.
-        2. Otherwise, the first source's non-model files.
+        Sweeps the first source's directory for any non-ONNX/binary files
+        (tokenizer assets, genai_config.json, chat_template, processor_config,
+        etc.). Subsequent sources don't add files — the package emits one
+        shared base config set.
         """
         config_entries: dict[str, Path] = {}
-
-        for _target_name, _source_path, model_config in targets:
-            attrs = _get_model_attributes(model_config)
-            for fp in attrs.get("additional_files", []):
-                p = Path(fp)
-                if (p.is_file() or p.is_dir()) and p.name not in config_entries:
-                    config_entries[p.name] = p
+        for _target_name, source_path, _source_genai in targets:
+            for f in sorted(source_path.iterdir()):
+                if (f.is_file() and f.suffix not in _MODEL_SUFFIXES) or f.is_dir():
+                    config_entries[f.name] = f
             if config_entries:
                 break
-
-        if not config_entries:
-            for _target_name, source_path, _model_config in targets:
-                for f in sorted(source_path.iterdir()):
-                    if f.name == "model_config.json":
-                        continue
-                    if (f.is_file() and f.suffix not in _MODEL_SUFFIXES) or f.is_dir():
-                        config_entries[f.name] = f
-                if config_entries:
-                    break
-
         return config_entries
 
     # ------------------------------------------------------------------
@@ -393,14 +316,15 @@ class ModelPackageCommand(BaseOliveCLICommand):
             path = Path(source)
             if not path.is_dir():
                 raise ValueError(f"Source path does not exist or is not a directory: {path}")
-            # Either an Olive-emitted ``model_config.json`` or a stand-alone
-            # GenAI export (which carries its own ``genai_config.json``) is
-            # acceptable; the latter is synthesized into a model_config below.
-            if not (path / "model_config.json").is_file() and not (path / "genai_config.json").is_file():
+            # ``genai_config.json`` is the single source of truth: it tells
+            # us which ONNX files are roles vs pipeline stages, the EP for
+            # each role (via session_options.provider_options), and the
+            # variant-specific model scalars to lift into the overlay.
+            if not (path / "genai_config.json").is_file():
                 raise ValueError(
-                    f"Source {path} has neither model_config.json nor genai_config.json. "
-                    "Provide an Olive output directory or a GenAI-shaped source "
-                    "containing genai_config.json plus its ONNX files."
+                    f"Source {path} has no genai_config.json. Each source must be a "
+                    "GenAI-shaped directory containing genai_config.json plus the ONNX "
+                    "file(s) it references."
                 )
             name = path.name
             if name in seen_names:
@@ -414,95 +338,29 @@ class ModelPackageCommand(BaseOliveCLICommand):
             raise ValueError("At least one --source directory is required.")
         return sources
 
-    @staticmethod
-    def _read_model_config(source_path: Path) -> dict:
-        """Return the source's ``model_config.json``, synthesizing one if absent.
-
-        Olive-emitted directories ship a ``model_config.json``; GenAI-shaped
-        directories (e.g. ones downloaded straight from a model hub) only
-        ship ``genai_config.json``. For the latter we derive enough of an
-        Olive-shaped config from the genai file and a directory scan so the
-        rest of the packager can stay single-codepath.
-
-        An existing ``model_config.json`` whose ``model_path`` no longer
-        resolves on this machine (a common state when artifacts are copied
-        between hosts) is repaired in-memory: ``model_path`` is rewritten to
-        point at ``source_path`` so the local ONNX is used. The original
-        ``model_attributes`` (vocab_size, num_hidden_layers, ...) are kept
-        because they remain valid descriptors of the model itself.
-        """
-        config_path = source_path / "model_config.json"
-        if config_path.is_file():
-            with config_path.open() as f:
-                model_config = json.load(f)
-            cfg = model_config.get("config") or {}
-            raw_path = cfg.get("model_path")
-            if raw_path and not Path(raw_path).exists():
-                logger.info(
-                    "model_config.json in %s references unreachable model_path %r; repointing to the source directory.",
-                    source_path,
-                    raw_path,
-                )
-                cfg["model_path"] = str(source_path)
-                model_config["config"] = cfg
-            return model_config
-        return _synthesize_model_config_from_source(source_path, _load_source_genai(source_path))
-
     # ------------------------------------------------------------------
     # Task extraction
     # ------------------------------------------------------------------
 
     @staticmethod
     def _extract_task(targets: list[tuple[str, Path, dict]]) -> str:
-        # An explicit ``model_attributes.task`` takes precedence: an Olive
-        # workflow records it from its own config, and a synthesized
-        # model_config (for sources lacking model_config.json) carries it
-        # directly. Falling through to the HuggingFace Hub lookup is only
-        # needed for older workflows that recorded ``_name_or_path`` but no
-        # task. Returns the underscore-normalised form (``text_generation``)
-        # so ``_task_to_component_name`` can resolve a component name.
-        for _target_name, _source_path, model_config in targets:
-            attrs = _get_model_attributes(model_config)
-            task = attrs.get("task")
-            if isinstance(task, str) and task:
-                return task.replace("-", "_")
-
-        model_name_or_path = ""
-        for _target_name, _source_path, model_config in targets:
-            attrs = _get_model_attributes(model_config)
-            model_name_or_path = attrs.get("_name_or_path", "")
-            if model_name_or_path:
-                break
-
-        if model_name_or_path:
-            try:
-                from huggingface_hub import model_info
-
-                info = model_info(model_name_or_path)
-                tag = info.pipeline_tag or ""
-                return tag.replace("-", "_")
-            except Exception:
-                logger.debug("Could not fetch task from HuggingFace Hub for %s", model_name_or_path, exc_info=True)
-
-        # Last-ditch: peek at each source's genai_config.json. GenAI roles
-        # map cleanly to tasks (``decoder`` → text generation, etc.), and a
-        # source without an Olive model_config typically still ships this
-        # file. Keeps the component directory name consistent
-        # (``models/decoder/...``) instead of falling through to the
-        # generic ``models/model/...``.
-        for _target_name, source_path, _model_config in targets:
-            source_genai = _load_source_genai(source_path)
+        # Inspect each source's genai_config.json roles to infer the task.
+        # GenAI roles map cleanly to tasks (``decoder`` → text generation;
+        # both ``encoder`` and ``decoder`` → text2text generation), and the
+        # task in turn names the component directory under ``models/``.
+        # Returns the underscore-normalised form (``text_generation``) so
+        # ``_task_to_component_name`` can resolve a component name.
+        for _target_name, _source_path, source_genai in targets:
             if not isinstance(source_genai, dict):
                 continue
             model_block = source_genai.get("model")
             if not isinstance(model_block, dict):
                 continue
             roles = {k for k, v in model_block.items() if isinstance(v, dict)}
-            if "decoder" in roles:
-                return "text_generation"
             if "encoder" in roles and "decoder" in roles:
                 return "text2text_generation"
-
+            if "decoder" in roles:
+                return "text_generation"
         return ""
 
 
@@ -597,9 +455,25 @@ def write_model_package(
     # without those markers ORT-GenAI's variant auto-selection fails with
     # "the genai config does not reference any package components".
     role_to_component: dict[str, str] = {}
+    # Seed from each variant's source genai_config: every role that appears
+    # under ``model.<role>`` (vision, embedding, decoder, ...) gets mapped
+    # to that variant's component_name. Multi-role sources (e.g. VLMs)
+    # share a single component dir, so all of their roles end up pointing
+    # at the same component — which is what the loader needs to find each
+    # role's ONNX file inside the package.
+    for v in variants:
+        src_genai = getattr(v, "source_genai", None) or {}
+        model_block = src_genai.get("model") if isinstance(src_genai, dict) else None
+        if isinstance(model_block, dict):
+            for role_name, role_body in model_block.items():
+                if isinstance(role_body, dict):
+                    role_to_component.setdefault(role_name, v.component_name)
+    # Fallback for components whose variants carried no usable source_genai:
+    # map the component name to itself as the role, matching the legacy
+    # writer behaviour for direct ``write_model_package`` callers.
     for comp_name in components:
-        role = component_to_role.get(comp_name, comp_name)
-        role_to_component.setdefault(role, comp_name)
+        explicit_role = component_to_role.get(comp_name, comp_name)
+        role_to_component.setdefault(explicit_role, comp_name)
 
     if config_files:
         _copy_config_files(output_dir, config_files, role_to_component)
@@ -719,26 +593,50 @@ def _genai_provider_name(ep: str) -> str:
 def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: VariantSpec) -> None:
     """Emit a per-variant ``genai_config_overlay.json`` (RFC 7386 merge patch).
 
-    Per-variant runtime fields flow through a JSON Merge Patch applied on top of
-    the package's base ``configs/genai_config.json``. We express the variant's
-    ``filename`` (the variant-local ONNX file basename), ``session_options`` and
-    EP-scoped ``provider_options`` under the role that references this component
-    (``model.<role>``). The base config has those keys stripped (see
-    ``_strip_variant_specific``); each variant overlay puts them back so ORT
-    resolves files inside the chosen variant directory.
+    Per-variant runtime fields flow through a JSON Merge Patch applied on top
+    of the package's base ``configs/genai_config.json``. The base has every
+    role's ``filename`` / ``session_options`` / ``pipeline`` stripped (see
+    ``_strip_variant_specific``); this overlay restores them.
 
-    Pipeline variants (multi-stage exports, e.g. QNN) are handled by lifting
-    the source genai_config's ``model.<role>`` block verbatim — pipeline
-    stage filenames are inside the array entries, and per-stage
-    ``session_options.provider_options`` already carry the right EP-scoped
-    options. The base has ``pipeline`` stripped because GenAI's overlay
-    parser would otherwise append the variant's array onto the base's,
-    producing duplicated stages.
+    When the variant carries its source ``genai_config.json`` (the default
+    CLI path) we lift every role's per-variant body verbatim — including
+    non-primary roles (e.g. a VLM source has ``vision``/``embedding``/
+    ``decoder`` roles, each with its own filename and session_options).
+    Without this multi-role lift the loader would lose all but the primary
+    role's filename and the package wouldn't load.
+
+    Pipeline-shaped roles (multi-stage exports, e.g. QNN) are covered by the
+    same lift: ``pipeline`` is in the strip set so the base loses it, the
+    overlay restores it (with per-stage ``filename`` + per-stage
+    ``session_options.provider_options`` preserved as-is). The strip is
+    required because GenAI's overlay parser appends arrays rather than
+    replacing them — a pipeline in both base and overlay would duplicate
+    every stage.
+
+    Direct ``write_model_package`` callers that don't pass ``source_genai``
+    fall back to the legacy ``inference_settings``-driven shape so existing
+    programmatic tests keep working.
     """
-    pipeline_role_body = _pipeline_role_body_for_overlay(v.source_genai, component_role)
-    if pipeline_role_body is not None:
-        role_patch: dict[str, Any] = pipeline_role_body
+    src_genai = v.source_genai or {}
+    src_model = src_genai.get("model") if isinstance(src_genai, dict) else None
+
+    model_patch: dict[str, Any] = {}
+
+    if isinstance(src_model, dict):
+        # New path: lift every role's per-variant fields. Each role in the
+        # source genai_config (vision, embedding, decoder, ...) gets its
+        # filename + session_options + pipeline copied into the overlay
+        # under the same role name.
+        for role_name, role_body in src_model.items():
+            if not isinstance(role_body, dict):
+                continue
+            role_patch = _lift_role_overlay_body(role_body)
+            if role_patch:
+                model_patch[role_name] = role_patch
     else:
+        # Legacy path: callers that don't pass source_genai (writer-only
+        # tests) construct a single-role overlay from VariantSpec's
+        # inference_settings.
         inference = v.inference_settings or {}
         session_options: dict[str, Any] = dict(inference.get("session_options") or {})
         provider_options = _provider_options_for_ep(inference, v.ep)
@@ -746,83 +644,70 @@ def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: Varia
 
         # ORT-GenAI's FinalizeConfig builds session_options.providers from
         # provider_options[*].name (src/config.cpp:1643-1645), and
-        # SetProviderSessionOptions then registers each named provider. CPU is not
-        # in the dispatch table (src/models/session_options.cpp:150-159); it has no
-        # configurable options, and ORT InferenceSession adds it implicitly when no
-        # other EP is registered (onnxruntime/core/session/inference_session.cc:
-        # SetCpuProviderWasImplicitlyAdded). For CPU variants we therefore emit an
-        # empty list rather than a sentinel ``[{"CPU": {}}]`` entry. For every
-        # other EP we name it explicitly (NormalizeProviderName canonicalises the
-        # case for QNN/DML/OpenVINO/etc., and "cuda" is already lowercase in the
-        # dispatch table). This matches the convention used by reference ORT model
-        # packages and avoids registering CPU through the V1 no-op path.
+        # SetProviderSessionOptions then registers each named provider. CPU
+        # is not in the dispatch table (src/models/session_options.cpp:
+        # 150-159); it has no configurable options, and ORT InferenceSession
+        # adds it implicitly when no other EP is registered. We therefore
+        # emit ``provider_options: []`` for CPU variants and an explicit
+        # named entry for every other EP.
         if genai_ep == "CPU":
             session_options["provider_options"] = []
         else:
             session_options["provider_options"] = [{genai_ep: provider_options}]
 
-        role_patch = {"session_options": session_options}
+        legacy_patch: dict[str, Any] = {"session_options": session_options}
         if v.onnx_files:
-            # The base config strips ``filename`` (it was a variant-specific path
-            # like ``decoder/model.onnx``); the loader resolves the variant ONNX as
-            # ``<variant_dir>/<filename>``, so emit the basename here.
-            role_patch["filename"] = Path(v.onnx_files[0]).name
+            # The base strips ``filename``; the loader resolves the variant
+            # ONNX as ``<variant_dir>/<filename>``, so emit the basename.
+            legacy_patch["filename"] = Path(v.onnx_files[0]).name
+        model_patch[component_role] = legacy_patch
 
-    model_patch: dict[str, Any] = {component_role: role_patch}
     # Lift per-variant model-level scalars from the variant's own
-    # genai_config.json. The base config strips these (see
-    # ``_strip_variant_specific``) because they legitimately differ across
-    # variants (e.g. NPU runtime caps ``context_length`` at 4224 while CPU/CUDA
-    # use the full 131072; pad_token_id can differ when one exporter uses the
-    # EOS as PAD and another uses the sentinel). Without this lift the merged
-    # config would silently use whichever variant happened to win the base
+    # genai_config.json. The base config strips these because they
+    # legitimately differ across variants (e.g. NPU runtime caps
+    # ``context_length`` at 4224 while CPU/CUDA use the full 131072;
+    # pad_token_id can differ when one exporter uses the EOS as PAD and
+    # another uses the sentinel). Without this lift the merged config
+    # would silently use whichever variant happened to win the base
     # selection.
-    src_genai = v.source_genai or {}
-    src_model = src_genai.get("model") if isinstance(src_genai, dict) else None
     if isinstance(src_model, dict):
         for k in _VARIANT_LEVEL_MODEL_KEYS:
             if k in src_model:
-                # Deep-copy via JSON round-trip so we never share refs with the
-                # caller's dict; arrays in particular must be independent
-                # because GenAI's overlay parser treats arrays as append-merge.
+                # Deep-copy via JSON round-trip so we never share refs with
+                # the caller's dict; arrays in particular must be
+                # independent because GenAI's overlay parser treats arrays
+                # as append-merge.
                 model_patch[k] = json.loads(json.dumps(src_model[k]))
 
     overlay = {"model": model_patch}
     _write_json(variant_dir / "genai_config_overlay.json", overlay)
 
 
-def _pipeline_role_body_for_overlay(source_genai: Optional[dict], component_role: str) -> Optional[dict]:
-    """If ``source_genai`` declares a pipeline for ``component_role``, return its overlay body.
+def _lift_role_overlay_body(role_body: dict) -> dict:
+    """Lift the per-variant fields from a single source genai_config role body.
 
-    Returns a deep-copied ``{"pipeline": [...], "session_options": {...}}``
-    dict ready to drop under ``model.<role>`` in the overlay. The source's
-    per-stage ``filename`` + ``session_options.provider_options`` are
-    preserved verbatim (each stage's EP options were validated by the
-    producing toolchain and copying them as-is avoids the EP-canonicalisation
-    bookkeeping the flat-variant path otherwise has to do). Returns
-    ``None`` when no pipeline applies — caller falls back to the flat
-    overlay shape.
+    Each role body may carry ``filename`` (flat-variant primary file),
+    ``pipeline`` (multi-stage), and ``session_options`` (provider_options +
+    EP knobs). All three are stripped from the base genai_config; this
+    helper recovers them as the role's overlay patch.
+
+    Filename values are normalised to basename — some Olive exporters write
+    paths like ``decoder/model.onnx`` but every variant directory in the
+    package is flat, so any path prefix the source carried would mis-route
+    the loader. Pipeline and session_options are deep-copied verbatim to
+    preserve the producing toolchain's per-stage EP knobs and avoid
+    aliasing with the caller's dict.
     """
-    if not isinstance(source_genai, dict):
-        return None
-    model_block = source_genai.get("model")
-    if not isinstance(model_block, dict):
-        return None
-    role_body = model_block.get(component_role)
-    if not isinstance(role_body, dict):
-        return None
-    pipeline = role_body.get("pipeline")
-    if not isinstance(pipeline, list) or not pipeline:
-        return None
-
-    patch: dict[str, Any] = {"pipeline": json.loads(json.dumps(pipeline))}
-    # The role-level ``session_options`` carries the decoder's
-    # ``intra_op_num_threads`` / ``log_id`` / etc.; per-stage session_options
-    # nested inside ``pipeline`` are independent and already covered by the
-    # deep copy above.
+    patch: dict[str, Any] = {}
+    filename = role_body.get("filename")
+    if isinstance(filename, str) and filename:
+        patch["filename"] = Path(filename).name
     so = role_body.get("session_options")
     if isinstance(so, dict):
         patch["session_options"] = json.loads(json.dumps(so))
+    pipeline = role_body.get("pipeline")
+    if isinstance(pipeline, list) and pipeline:
+        patch["pipeline"] = json.loads(json.dumps(pipeline))
     return patch
 
 
@@ -1183,12 +1068,8 @@ def disambiguate_variant_names(candidates: list[tuple[str, str]]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Olive model-config helpers
+# genai_config helpers
 # ---------------------------------------------------------------------------
-
-
-def _get_model_attributes(model_config: dict) -> dict:
-    return model_config.get("config", {}).get("model_attributes") or {}
 
 
 def _load_source_genai(source_path: Path) -> Optional[dict]:
@@ -1312,118 +1193,10 @@ def _derive_ep_from_genai(source_genai: Optional[dict], role: Optional[str]) -> 
     return None
 
 
-def _synthesize_model_config_from_source(source_path: Path, source_genai: Optional[dict]) -> dict:
-    """Build a minimal Olive-shaped ``model_config`` dict from a source dir.
-
-    Triggered when a source has no ``model_config.json`` (e.g. assets
-    downloaded directly from a model hub rather than emitted by an Olive
-    workflow). The synthesized config carries just enough for the rest of
-    the packager: a ``model_path`` (the source directory) and an
-    ``inference_settings`` derived from ``genai_config.json`` so the
-    per-variant overlay writer ends up with the right EP.
-
-    Pipeline-shaped sources (multiple ONNX stages declared under
-    ``model.<role>.pipeline``) are detected here too: when present we copy
-    the pipeline stages into ``model_attributes.onnx_files`` so the
-    builder can pass all stages downstream without re-reading the
-    genai_config.
-    """
-    role = _pick_primary_role(source_genai)
-    ep = (
-        _derive_ep_from_genai(source_genai, role)
-        or _guess_ep_from_variant_name(source_path.name)
-        or "CPUExecutionProvider"
-    )
-
-    inference_settings: dict[str, Any] = {"execution_provider": [ep], "provider_options": [{}]}
-    if isinstance(source_genai, dict) and role:
-        role_body = (source_genai.get("model") or {}).get(role)
-        if isinstance(role_body, dict):
-            so = role_body.get("session_options")
-            if isinstance(so, dict):
-                # Lift the role-level provider_options when present; for
-                # pipeline sources this is usually empty (per-stage options
-                # live inside ``pipeline[i].<stage>.session_options`` and the
-                # overlay writer lifts them verbatim), but for flat sources
-                # this is the one place that carries the EP-specific knobs.
-                po = so.get("provider_options")
-                if isinstance(po, list) and po:
-                    for entry in po:
-                        if isinstance(entry, dict):
-                            for alias, opts in entry.items():
-                                if _GENAI_TO_EP.get(alias.lower()) == ep and isinstance(opts, dict):
-                                    inference_settings["provider_options"] = [opts]
-                                    break
-
-    model_attributes: dict[str, Any] = {"task": "text-generation", "ep": ep}
-
-    return {
-        "type": "ONNXModel",
-        "config": {
-            "model_path": str(source_path),
-            "model_attributes": model_attributes,
-            "inference_settings": inference_settings,
-        },
-    }
-
-
-def _resolve_onnx_path(model_config: dict) -> Path:
-    """Resolve the ONNX file path from an Olive model config.
-
-    The config's ``model_path`` may be either:
-    - the ONNX file itself (a ``LocalFile`` resource),
-    - a directory containing the ONNX file (a ``LocalFolder`` resource),
-      in which case ``onnx_file_name`` (or a single ``.onnx`` in the dir)
-      identifies the actual file.
-    """
-    cfg = model_config.get("config", {}) or {}
-    raw = cfg.get("model_path")
-    if not raw:
-        raise ValueError("Model config has no model_path.")
-    p = Path(raw)
-    if p.is_file():
-        return p
-    if p.is_dir():
-        onnx_name = cfg.get("onnx_file_name")
-        if onnx_name:
-            candidate = p / onnx_name
-            if candidate.is_file():
-                return candidate
-        onnx_files = list(p.glob("*.onnx"))
-        if len(onnx_files) == 1:
-            return onnx_files[0]
-        raise ValueError(
-            f"Cannot resolve a unique ONNX file under {p}; "
-            "set onnx_file_name in the model config or pass the file path directly."
-        )
-    raise FileNotFoundError(f"model_path does not exist: {p}")
-
-
-def _ep_device_compatibility(
-    attrs: dict, onnx_path: Path, variant_name: Optional[str] = None
-) -> tuple[str, Optional[str], Optional[str]]:
-    """Extract (ep, device, compatibility_string) for one variant from Olive metadata.
-
-    Each variant declares a single opaque ``compatibility_string``. Olive stores
-    the EP-side preference as a comma-delimited string in the ONNX metadata prop
-    ``ep_compatibility_info.<EP>``; it is passed through verbatim (ORT does not
-    interpret the encoding).
-
-    When ``model_attributes.ep`` is absent, fall back to a common-variant-name
-    heuristic (``gpu``/``cuda`` → CUDA, ``qnn`` → QNN, etc.) so users who don't
-    manually annotate their Olive outputs still get distinct EP entries in each
-    component's metadata.json. Final fallback is CPU.
-    """
-    ep = attrs.get("ep") or _guess_ep_from_variant_name(variant_name) or "CPUExecutionProvider"
-    device = attrs.get("device") or None
-    raw = _extract_ep_compatibility_from_onnx(onnx_path, ep)
-    compatibility_string = raw.strip() if raw and raw.strip() else None
-    return ep, device, compatibility_string
-
-
 # Best-effort mapping from common Olive output / EP-build directory names to
-# canonical ORT EP strings. Used only as a fallback when model_attributes.ep is
-# not set. Keep substrings short and lowercased; matched via ``in``.
+# canonical ORT EP strings. Used only as a fallback when neither
+# ``genai_config.json``'s ``provider_options`` nor any explicit metadata
+# names the EP. Keep substrings short and lowercased; matched via ``in``.
 _VARIANT_NAME_EP_HINTS: tuple[tuple[str, str], ...] = (
     ("cuda", "CUDAExecutionProvider"),
     ("gpu", "CUDAExecutionProvider"),
