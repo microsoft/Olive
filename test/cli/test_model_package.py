@@ -128,6 +128,12 @@ class TestSourceValidation:
         assert sources == [("soc_60", src)]
 
     def test_rejects_missing_model_config(self, tmp_path):
+        """A source with NEITHER model_config.json nor genai_config.json is rejected.
+
+        A genai_config-only source is now accepted (covered separately by
+        ``TestPipelineAndSynthesis``); only the truly empty / non-source
+        directory should fail.
+        """
         no_config = tmp_path / "no_config"
         no_config.mkdir()
         valid = _create_source_dir(tmp_path, "valid", {"ep": "QNNExecutionProvider"})
@@ -1038,3 +1044,257 @@ class TestUnsupportedModelType:
         # execute + assert
         with pytest.raises(ValueError, match="Unsupported source model type"):
             cmd.run()
+
+
+# ---------------------------------------------------------------------------
+# Pipeline sources (multi-stage exports, e.g. QNN) and model_config synthesis
+# ---------------------------------------------------------------------------
+
+
+def _create_pipeline_source(
+    tmp_path: Path,
+    name: str,
+    *,
+    stage_filenames: list[str],
+    stage_with_options: str,
+    provider_alias: str,
+    provider_options: dict,
+    extra_files: dict[str, str] | None = None,
+) -> Path:
+    """Build a fake GenAI-shaped multi-stage source dir (e.g. QNN pipeline).
+
+    The source has ONE genai_config.json + N real ONNX stage files and NO
+    model_config.json — exercising the synthesis path. ``stage_with_options``
+    is the only stage carrying provider_options (per QNN convention where
+    embedding / transformer-head run on CPU and only the prompt / iter
+    stages carry the HTP options).
+    """
+    source_dir = tmp_path / name
+    source_dir.mkdir(parents=True)
+    for fname in stage_filenames:
+        _make_onnx_inline(source_dir / fname)
+
+    pipeline_stages = []
+    stage_names = ["embedding", "prompt-processor", "token-generator", "transformer-head"][: len(stage_filenames)]
+    for stage_name, fname in zip(stage_names, stage_filenames):
+        body: dict = {"filename": fname, "inputs": [], "outputs": []}
+        if stage_name == stage_with_options:
+            body["session_options"] = {
+                "provider_options": [{provider_alias: provider_options}],
+            }
+        pipeline_stages.append({stage_name: body})
+
+    genai = {
+        "model": {
+            "type": "phi3-pipeline",
+            "context_length": 4096,
+            "pad_token_id": 199999,
+            "eos_token_id": [200020, 199999],
+            "bos_token_id": 199999,
+            "vocab_size": 200064,
+            "decoder": {
+                "head_size": 128,
+                "session_options": {"log_id": "onnxruntime-genai"},
+                "pipeline": pipeline_stages,
+            },
+        }
+    }
+    (source_dir / "genai_config.json").write_text(json.dumps(genai))
+
+    if extra_files:
+        for fname, content in extra_files.items():
+            (source_dir / fname).write_text(content)
+    return source_dir
+
+
+class TestPipelineAndSynthesis:
+    """Pipeline multi-stage sources + ``model_config.json`` synthesis."""
+
+    def test_accepts_source_without_model_config_when_genai_config_present(self, tmp_path):
+        """A source carrying only ``genai_config.json`` + ONNX files is accepted.
+
+        Useful for packaging GenAI-shaped exports downloaded from a hub: no
+        Olive workflow was used so no ``model_config.json`` exists, but
+        ``genai_config.json`` is enough for the packager to derive the EP,
+        component name, and per-variant overlay structure.
+        """
+        src = _create_pipeline_source(
+            tmp_path,
+            "qnn_npu",
+            stage_filenames=["embed.onnx", "ctx.onnx", "iter.onnx", "head.onnx"],
+            stage_with_options="prompt-processor",
+            provider_alias="qnn",
+            provider_options={"soc_model": "60"},
+        )
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(tmp_path / "out")])
+
+        sources = cmd._parse_sources()
+        assert sources == [("qnn_npu", src)]
+
+    def test_rejects_source_without_model_config_or_genai_config(self, tmp_path):
+        """A source with neither config file is rejected with a clear error."""
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        _make_onnx_inline(empty / "model.onnx")
+        cmd = _make_command(["generate-model-package", "-s", str(empty), "-o", str(tmp_path / "out")])
+
+        with pytest.raises(ValueError, match=r"neither model_config\.json nor genai_config\.json"):
+            cmd._parse_sources()
+
+    def test_packs_pipeline_with_all_stage_onnx_files(self, tmp_path):
+        """All pipeline-stage ONNX files land in the variant directory.
+
+        The single-ONNX resolver would fail because the source has >1 ONNX;
+        the pipeline resolver enumerates stage filenames from the source
+        genai_config so every stage is copied next to the variant's
+        overlay.
+        """
+        stage_files = ["phi_embed.onnx", "phi_ctx.onnx", "phi_iter.onnx", "phi_head.onnx"]
+        src = _create_pipeline_source(
+            tmp_path,
+            "qnn_npu",
+            stage_filenames=stage_files,
+            stage_with_options="prompt-processor",
+            provider_alias="qnn",
+            provider_options={"soc_model": "60"},
+        )
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out), "--model_name", "phi-pipe"])
+
+        cmd.run()
+
+        variant_dir = out.with_suffix(".ortpackage") / "models" / "decoder" / "qnn_npu"
+        assert variant_dir.is_dir()
+        for fname in stage_files:
+            assert (variant_dir / fname).is_file(), f"missing stage file {fname}"
+
+    def test_pipeline_overlay_lifts_full_stage_structure_from_source(self, tmp_path):
+        """The variant overlay carries the pipeline list with per-stage options.
+
+        The producing toolchain decided per-stage EP knobs (soc_model,
+        htp_performance_mode, etc.); copying them verbatim avoids the
+        overlay writer having to re-derive each one and guarantees the
+        loader sees the exact same configuration the source intended.
+        """
+        src = _create_pipeline_source(
+            tmp_path,
+            "qnn_npu",
+            stage_filenames=["e.onnx", "c.onnx", "i.onnx", "h.onnx"],
+            stage_with_options="prompt-processor",
+            provider_alias="qnn",
+            provider_options={"htp_performance_mode": "burst", "soc_model": "60"},
+        )
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        overlay_path = out.with_suffix(".ortpackage") / "models" / "decoder" / "qnn_npu" / "genai_config_overlay.json"
+        overlay = json.loads(overlay_path.read_text())
+        decoder = overlay["model"]["decoder"]
+        assert "pipeline" in decoder
+        stage_names = [next(iter(stage)) for stage in decoder["pipeline"]]
+        assert stage_names == ["embedding", "prompt-processor", "token-generator", "transformer-head"]
+        prompt_stage = decoder["pipeline"][1]["prompt-processor"]
+        assert prompt_stage["filename"] == "c.onnx"
+        assert prompt_stage["session_options"]["provider_options"] == [
+            {"qnn": {"htp_performance_mode": "burst", "soc_model": "60"}}
+        ]
+        # decoder-level session_options also lifted from source so log_id etc. survive.
+        assert decoder["session_options"]["log_id"] == "onnxruntime-genai"
+
+    def test_base_genai_strips_pipeline_field(self, tmp_path):
+        """``pipeline`` lives only in the overlay; base must not duplicate it.
+
+        GenAI's overlay parser appends arrays rather than replacing them
+        (``src/config.cpp:PipelineModelObject_Element``), so a ``pipeline``
+        in both base and overlay would double every stage. The strip is the
+        guard.
+        """
+        src = _create_pipeline_source(
+            tmp_path,
+            "qnn_npu",
+            stage_filenames=["e.onnx", "c.onnx", "i.onnx", "h.onnx"],
+            stage_with_options="prompt-processor",
+            provider_alias="qnn",
+            provider_options={"soc_model": "60"},
+        )
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        base = json.loads((out.with_suffix(".ortpackage") / "configs" / "genai_config.json").read_text())
+        decoder = base["model"]["decoder"]
+        assert "pipeline" not in decoder, "base genai_config must not retain the pipeline array"
+
+    def test_flat_source_ep_derived_from_source_genai_when_attrs_missing(self, tmp_path):
+        """For flat sources, source genai's ``provider_options`` overrules name guess.
+
+        A directory named ``vitia_npu`` would otherwise be heuristically
+        classified as QNN (the ``npu`` substring wins by accident); the
+        source genai_config saying ``provider_options: [{"VitisAI": {}}]``
+        is the authoritative signal.
+        """
+        source_dir = tmp_path / "vitia_npu"
+        source_dir.mkdir()
+        _make_onnx_inline(source_dir / "model.onnx")
+        (source_dir / "genai_config.json").write_text(
+            json.dumps(
+                {
+                    "model": {
+                        "type": "phi3",
+                        "vocab_size": 200064,
+                        "decoder": {
+                            "head_size": 128,
+                            "filename": "model.onnx",
+                            "session_options": {"provider_options": [{"VitisAI": {}}]},
+                        },
+                    }
+                }
+            )
+        )
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(source_dir), "-o", str(out)])
+
+        cmd.run()
+
+        metadata = json.loads((out.with_suffix(".ortpackage") / "models" / "decoder" / "metadata.json").read_text())
+        assert metadata["variants"]["vitia_npu"]["ep"] == "VitisAIExecutionProvider"
+        overlay = json.loads(
+            (
+                out.with_suffix(".ortpackage") / "models" / "decoder" / "vitia_npu" / "genai_config_overlay.json"
+            ).read_text()
+        )
+        assert overlay["model"]["decoder"]["session_options"]["provider_options"] == [{"VitisAI": {}}]
+
+    def test_unreachable_model_path_is_repointed_to_source_dir(self, tmp_path):
+        """A stale ``model_path`` (e.g. copied from another machine) is repaired.
+
+        The original ``model_attributes`` are preserved (they remain valid
+        descriptors of the model itself); only the on-disk path is patched
+        so the local ONNX file is the one actually packaged.
+        """
+        source_dir = tmp_path / "stale"
+        source_dir.mkdir()
+        _make_onnx_inline(source_dir / "model.onnx")
+        (source_dir / "genai_config.json").write_text(
+            json.dumps({"model": {"vocab_size": 100, "decoder": {"filename": "model.onnx"}}})
+        )
+        (source_dir / "model_config.json").write_text(
+            json.dumps(
+                {
+                    "type": "ONNXModel",
+                    "config": {
+                        "model_path": "/nonexistent/elsewhere/model.onnx",
+                        "model_attributes": {"task": "text-generation", "vocab_size": 100},
+                    },
+                }
+            )
+        )
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(source_dir), "-o", str(out)])
+
+        cmd.run()
+
+        assert (out.with_suffix(".ortpackage") / "models" / "decoder" / "stale" / "model.onnx").is_file()
