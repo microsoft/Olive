@@ -45,8 +45,6 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
             for i, ov in enumerate(v):
                 if i < len(result[k]) and isinstance(result[k][i], dict) and isinstance(ov, dict):
                     merged.append(_deep_merge(result[k][i], ov))
-                elif i < len(result[k]):
-                    merged.append(ov)
                 else:
                     merged.append(ov)
             merged.extend(result[k][len(v) :])
@@ -177,7 +175,7 @@ class QairtEncapsulation(Pass):
 
         export_kwargs = {"export_format": qairt.ExportFormat.LM_EXECUTOR}
         if config.engine_config_overrides:
-            overrides = config.engine_config_overrides
+            overrides = dict(config.engine_config_overrides)
             htp_overrides = overrides.pop("htp", None)
             htp_cfg = qairt_genai.HTPEngineConfig(**htp_overrides) if htp_overrides else None
             engine_cfg = qairt_genai.EngineConfig(**overrides, htp=htp_cfg)
