@@ -3,9 +3,43 @@
 # SPDX-License-Identifier: MIT
 # --------------------------------------------------------------------------
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+
+def _make_minimal_onnx(path):
+    """Write a minimal ONNX model to *path* so create_genai_config can load it."""
+    import onnx
+    from onnx import TensorProto
+
+    input_tensor = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
+    output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
+    node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
+    graph = onnx.helper.make_graph([node], "g", [input_tensor], [output_tensor])
+    model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
+    onnx.save(model, path)
+
+
+@pytest.fixture(name="mock_container")
+def mock_container_fixture(tmp_path):
+    """Provide a pre-configured LLMContainer mock with input/output metadata and an export stub.
+
+    Tests are responsible for wiring LLMContainer.load.return_value so they can customise
+    container attributes before the pass runs.
+    """
+    container = MagicMock()
+    container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
+    container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
+
+    def mock_export(output_dir, *args, **kwargs):
+        output_dir_path = Path(output_dir)
+        output_dir_path.mkdir(parents=True, exist_ok=True)
+        (output_dir_path / "model.dlc").write_text("dummy dlc content")
+
+    container.export.side_effect = mock_export
+    return container
 
 
 @pytest.fixture(name="mock_qairt_modules")

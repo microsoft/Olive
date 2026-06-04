@@ -6,28 +6,38 @@
 
 import builtins
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import onnx
 import pytest
+from conftest import _make_minimal_onnx
 
-from olive.model import ONNXModelHandler
+from olive.model import ONNXModelHandler, QairtModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.qairt.encapsulation import QairtEncapsulation
 
 
-def test_encapsulation_default_config(mock_accelerator_spec):
-    """Test that the default config is correctly generated."""
-    config = QairtEncapsulation._default_config(mock_accelerator_spec)  # pylint: disable=protected-access
+@pytest.mark.parametrize(
+    ("key", "expected_default", "expected_required"),
+    [
+        ("log_level", None, False),
+        ("run_checker", False, False),
+        ("opset_imports", [["com.microsoft", 1]], False),
+        ("genie_overrides", None, False),
+        ("backend_extensions_overrides", None, False),
+        ("engine_config_overrides", None, False),
+    ],
+)
+def test_encapsulation_default_config(key, expected_default, expected_required, mock_accelerator_spec):
+    config = QairtEncapsulation._default_config(mock_accelerator_spec)
+    assert key in config
+    assert config[key].default_value == expected_default
+    assert config[key].required is expected_required
 
-    assert "log_level" in config
-    assert "run_checker" in config
-    assert config["run_checker"].default_value is False
-    assert "opset_imports" in config
-    assert config["opset_imports"].default_value == [["com.microsoft", 1]]
 
-
-def test_encapsulation_successful_execution(tmp_path, mock_qairt_model, mock_qairt_modules):
+def test_encapsulation_successful_execution(tmp_path, mock_qairt_model, mock_qairt_modules, mock_container):
     """Test successful encapsulation of a QAIRT model."""
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
@@ -49,51 +59,14 @@ def test_encapsulation_successful_execution(tmp_path, mock_qairt_model, mock_qai
     gen_config_data = {"eos_token_id": 2, "pad_token_id": 0}
     (model_path / "generation_config.json").write_text(json.dumps(gen_config_data))
 
-    # Mock export to create a .dlc file
-    def mock_export(output_dir, export_format):
-        output_dir_path = Path(output_dir)
-        output_dir_path.mkdir(parents=True, exist_ok=True)
-        (output_dir_path / "model.dlc").write_text("dummy dlc content")
-
-    # Mock LLMContainer
-    mock_container = MagicMock()
-    mock_container.export = MagicMock(side_effect=mock_export)
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
-
     # Configure LLMContainer.load to return our mock_container
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    # Mock onnx module - but let save actually create a file
-    def mock_save_func(model_def, path):
-        # Create a minimal valid ONNX file so create_genai_config can load it
-        import onnx
-        from onnx import TensorProto
-
-        # Create a minimal valid ONNX model
-        input_tensor = onnx.helper.make_tensor_value_info(
-            "input_ids", TensorProto.INT32, ["batch_size", "sequence_length"]
-        )
-        output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])
-
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "test_graph", [input_tensor], [output_tensor])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-
-        onnx.save(model, path)
-
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func) as mock_save,
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)) as mock_save,
         patch("olive.passes.qairt.encapsulation.checker"),
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {},
@@ -118,7 +91,7 @@ def test_encapsulation_successful_execution(tmp_path, mock_qairt_model, mock_qai
         mock_save.assert_called_once()
 
 
-def test_encapsulation_multiple_dlc_files(tmp_path, mock_qairt_model, mock_qairt_modules):
+def test_encapsulation_multiple_dlc_files(tmp_path, mock_qairt_model, mock_qairt_modules, mock_container):
     """Test that a warning is logged when multiple DLC files are found."""
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
@@ -128,13 +101,8 @@ def test_encapsulation_multiple_dlc_files(tmp_path, mock_qairt_model, mock_qairt
     (model_path / "config.json").write_text('{"model_type": "llama", "hidden_size": 4096}')
     (model_path / "generation_config.json").write_text('{"eos_token_id": 2}')
 
-    # Mock LLMContainer
-    mock_container = MagicMock()
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
-
-    # Mock export to create multiple .dlc files
-    def mock_export(output_dir, export_format):
+    # Override export to create multiple .dlc files
+    def mock_export(output_dir, *args, **kwargs):
         output_dir_path = Path(output_dir)
         output_dir_path.mkdir(parents=True, exist_ok=True)
         (output_dir_path / "model1.dlc").write_text("dummy dlc 1")
@@ -143,33 +111,12 @@ def test_encapsulation_multiple_dlc_files(tmp_path, mock_qairt_model, mock_qairt
     mock_container.export.side_effect = mock_export
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    # Mock save to create actual ONNX file
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        input_tensor = onnx.helper.make_tensor_value_info(
-            "input_ids", TensorProto.INT32, ["batch_size", "sequence_length"]
-        )
-        output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "test_graph", [input_tensor], [output_tensor])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
         patch("olive.passes.qairt.encapsulation.logger") as mock_logger,
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {},
@@ -183,7 +130,7 @@ def test_encapsulation_multiple_dlc_files(tmp_path, mock_qairt_model, mock_qairt
         assert isinstance(result, ONNXModelHandler)
 
 
-def test_encapsulation_no_dlc_file(tmp_path, mock_qairt_model, mock_qairt_modules):
+def test_encapsulation_no_dlc_file(tmp_path, mock_qairt_model, mock_qairt_modules, mock_container):
     """Test that FileNotFoundError is raised when no DLC file is found."""
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
@@ -193,13 +140,8 @@ def test_encapsulation_no_dlc_file(tmp_path, mock_qairt_model, mock_qairt_module
     (model_path / "config.json").write_text('{"model_type": "llama"}')
     (model_path / "generation_config.json").write_text('{"eos_token_id": 2}')
 
-    # Mock LLMContainer
-    mock_container = MagicMock()
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
-
-    # Mock export to NOT create any .dlc files
-    def mock_export(output_dir, export_format):
+    # Override export to NOT create any .dlc files
+    def mock_export(output_dir, *args, **kwargs):
         output_dir_path = Path(output_dir)
         output_dir_path.mkdir(parents=True, exist_ok=True)
         # Don't create any .dlc files
@@ -217,7 +159,7 @@ def test_encapsulation_no_dlc_file(tmp_path, mock_qairt_model, mock_qairt_module
         encap_pass.run(mock_qairt_model, str(output_path))
 
 
-def test_encapsulation_with_checker(tmp_path, mock_qairt_model, mock_qairt_modules):
+def test_encapsulation_with_checker(tmp_path, mock_qairt_model, mock_qairt_modules, mock_container):
     """Test that ONNX checker is called when run_checker is True."""
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
@@ -227,44 +169,13 @@ def test_encapsulation_with_checker(tmp_path, mock_qairt_model, mock_qairt_modul
     (model_path / "config.json").write_text('{"model_type": "llama", "hidden_size": 4096}')
     (model_path / "generation_config.json").write_text('{"eos_token_id": 2}')
 
-    # Mock LLMContainer
-    mock_container = MagicMock()
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
-
-    def mock_export(output_dir, export_format):
-        output_dir_path = Path(output_dir)
-        output_dir_path.mkdir(parents=True, exist_ok=True)
-        (output_dir_path / "model.dlc").write_text("dummy dlc")
-
-    mock_container.export.side_effect = mock_export
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        input_tensor = onnx.helper.make_tensor_value_info(
-            "input_ids", TensorProto.INT32, ["batch_size", "sequence_length"]
-        )
-        output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "test_graph", [input_tensor], [output_tensor])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker") as mock_checker,
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {"run_checker": True},
@@ -278,7 +189,7 @@ def test_encapsulation_with_checker(tmp_path, mock_qairt_model, mock_qairt_modul
         assert isinstance(result, ONNXModelHandler)
 
 
-def test_encapsulation_custom_opset_imports(tmp_path, mock_qairt_model, mock_qairt_modules):
+def test_encapsulation_custom_opset_imports(tmp_path, mock_qairt_model, mock_qairt_modules, mock_container):
     """Test that custom opset imports are used."""
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
@@ -288,44 +199,13 @@ def test_encapsulation_custom_opset_imports(tmp_path, mock_qairt_model, mock_qai
     (model_path / "config.json").write_text('{"model_type": "llama", "hidden_size": 4096}')
     (model_path / "generation_config.json").write_text('{"eos_token_id": 2}')
 
-    # Mock LLMContainer
-    mock_container = MagicMock()
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
-
-    def mock_export(output_dir, export_format):
-        output_dir_path = Path(output_dir)
-        output_dir_path.mkdir(parents=True, exist_ok=True)
-        (output_dir_path / "model.dlc").write_text("dummy dlc")
-
-    mock_container.export.side_effect = mock_export
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
-
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        input_tensor = onnx.helper.make_tensor_value_info(
-            "input_ids", TensorProto.INT32, ["batch_size", "sequence_length"]
-        )
-        output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "test_graph", [input_tensor], [output_tensor])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
 
     with (
         patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         custom_opsets = [["com.microsoft", 1], ["ai.onnx", 14]]
 
         encap_pass = create_pass_from_dict(
@@ -341,125 +221,40 @@ def test_encapsulation_custom_opset_imports(tmp_path, mock_qairt_model, mock_qai
         assert isinstance(result, ONNXModelHandler)
 
 
-def test_encapsulation_missing_config_json(tmp_path, mock_qairt_model, mock_qairt_modules):
-    """Test that ValueError is raised when config.json is missing."""
+@pytest.mark.parametrize(
+    ("file_to_remove", "expected_match"),
+    [
+        ("config.json", r"Cannot create gen_ai_config\.json if source model config doesn't exist"),
+        ("generation_config.json", r"Cannot create gen_ai_config\.json if generation config doesn't exist"),
+    ],
+)
+def test_encapsulation_missing_required_file(
+    file_to_remove, expected_match, tmp_path, mock_qairt_model, mock_qairt_modules, mock_container
+):
+    """Test that ValueError is raised when a required source config file is missing."""
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
 
-    # Don't create config.json in the source model directory
+    # Populate both required files, then remove the one under test
     model_path = Path(mock_qairt_model.model_path)
-    # Remove config.json if it exists
-    config_file = model_path / "config.json"
-    if config_file.exists():
-        config_file.unlink()
-    (model_path / "generation_config.json").write_text('{"eos_token_id": 2}')
-
-    # Mock LLMContainer
-    mock_container = MagicMock()
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
-
-    def mock_export(output_dir, export_format):
-        output_dir_path = Path(output_dir)
-        output_dir_path.mkdir(parents=True, exist_ok=True)
-        (output_dir_path / "model.dlc").write_text("dummy dlc")
-
-    mock_container.export.side_effect = mock_export
-    mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
-
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        input_tensor = onnx.helper.make_tensor_value_info(
-            "input_ids", TensorProto.INT32, ["batch_size", "sequence_length"]
-        )
-        output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "test_graph", [input_tensor], [output_tensor])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
-    with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
-        patch("olive.passes.qairt.encapsulation.checker"),
-    ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
-        encap_pass = create_pass_from_dict(
-            QairtEncapsulation,
-            {},
-            disable_search=True,
-        )
-
-        with pytest.raises(ValueError, match=r"Cannot create gen_ai_config\.json if source model config doesn't exist"):
-            encap_pass.run(mock_qairt_model, str(output_path))
-
-
-def test_encapsulation_missing_generation_config(tmp_path, mock_qairt_model, mock_qairt_modules):
-    """Test that ValueError is raised when generation_config.json is missing."""
-    output_path = tmp_path / "output"
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    # Create config.json but not generation_config.json in the source model directory
-    model_path = Path(mock_qairt_model.model_path)
-    # Remove generation_config.json if it exists
-    gen_config_file = model_path / "generation_config.json"
-    if gen_config_file.exists():
-        gen_config_file.unlink()
     (model_path / "config.json").write_text('{"model_type": "llama", "hidden_size": 4096}')
+    (model_path / "generation_config.json").write_text('{"eos_token_id": 2}')
+    (model_path / file_to_remove).unlink()
 
-    # Mock LLMContainer
-    mock_container = MagicMock()
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
-
-    def mock_export(output_dir, export_format):
-        output_dir_path = Path(output_dir)
-        output_dir_path.mkdir(parents=True, exist_ok=True)
-        (output_dir_path / "model.dlc").write_text("dummy dlc")
-
-    mock_container.export.side_effect = mock_export
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        input_tensor = onnx.helper.make_tensor_value_info(
-            "input_ids", TensorProto.INT32, ["batch_size", "sequence_length"]
-        )
-        output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "test_graph", [input_tensor], [output_tensor])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {},
             disable_search=True,
         )
 
-        with pytest.raises(ValueError, match=r"Cannot create gen_ai_config\.json if generation config doesn't exist"):
+        with pytest.raises(ValueError, match=expected_match):
             encap_pass.run(mock_qairt_model, str(output_path))
 
 
@@ -484,7 +279,7 @@ def test_encapsulation_import_error_qairt(tmp_path, mock_qairt_model):
             encap_pass.run(mock_qairt_model, str(tmp_path / "output"))
 
 
-def test_encapsulation_passthrough_files(tmp_path, mock_qairt_model, mock_qairt_modules):
+def test_encapsulation_passthrough_files(tmp_path, mock_qairt_model, mock_qairt_modules, mock_container):
     """Test that passthrough files are copied to output."""
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
@@ -497,44 +292,13 @@ def test_encapsulation_passthrough_files(tmp_path, mock_qairt_model, mock_qairt_
     (model_path / "tokenizer.json").write_text('{"vocab": {}}')
     (model_path / "tokenizer_config.json").write_text('{"model_max_length": 2048}')
 
-    # Mock LLMContainer
-    mock_container = MagicMock()
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
-
-    def mock_export(output_dir, export_format):
-        output_dir_path = Path(output_dir)
-        output_dir_path.mkdir(parents=True, exist_ok=True)
-        (output_dir_path / "model.dlc").write_text("dummy dlc")
-
-    mock_container.export.side_effect = mock_export
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        input_tensor = onnx.helper.make_tensor_value_info(
-            "input_ids", TensorProto.INT32, ["batch_size", "sequence_length"]
-        )
-        output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "test_graph", [input_tensor], [output_tensor])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {},
@@ -566,89 +330,101 @@ def test_encapsulation_sdk_version_check_old_version(tmp_path, mock_qairt_model,
         encap_pass.run(mock_qairt_model, str(output_path))
 
 
-def test_encapsulation_sdk_version_check_valid_version(tmp_path, mock_qairt_model, mock_qairt_modules):
-    """Test that encapsulation works with QAIRT SDK version >= 2.45.0."""
+def test_encapsulation_epcontext_node_outputs(tmp_path, mock_qairt_model, mock_qairt_modules, mock_container):
+    """The encapsulated model contains a single EPContext node with the expected attributes."""
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
 
-    # Mock SDK version to be >= 2.45.0
-    mock_qairt_modules["qairt"].__sdk_version__ = "2.45.0"
-
-    # Create required config files
     model_path = Path(mock_qairt_model.model_path)
-    config_data = {
-        "model_type": "llama",
-        "hidden_size": 4096,
-        "num_attention_heads": 32,
-        "num_hidden_layers": 32,
-        "num_key_value_heads": 32,
-        "max_position_embeddings": 2048,
-        "bos_token_id": 1,
-        "vocab_size": 32000,
-    }
-    (model_path / "config.json").write_text(json.dumps(config_data))
+    (model_path / "config.json").write_text('{"model_type": "llama", "hidden_size": 4096}')
     (model_path / "generation_config.json").write_text('{"eos_token_id": 2}')
 
-    # Mock LLMContainer
-    mock_container = MagicMock()
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
-
-    def mock_export(output_dir, export_format):
-        output_dir_path = Path(output_dir)
-        output_dir_path.mkdir(parents=True, exist_ok=True)
-        (output_dir_path / "model.dlc").write_text("dummy dlc")
-
-    mock_container.export.side_effect = mock_export
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        input_tensor = onnx.helper.make_tensor_value_info(
-            "input_ids", TensorProto.INT32, ["batch_size", "sequence_length"]
-        )
-        output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "test_graph", [input_tensor], [output_tensor])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
-    with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
-        patch("olive.passes.qairt.encapsulation.checker"),
-    ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
+    # Note: helper and save are NOT mocked, so the real ONNX model is written to disk.
+    with patch("olive.passes.qairt.encapsulation.checker"):
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {},
             disable_search=True,
         )
+        encap_pass.run(mock_qairt_model, str(output_path))
 
-        # Should not raise an error
-        result = encap_pass.run(mock_qairt_model, str(output_path))
-        assert result is not None
+    dlc_files = list(output_path.glob("*.dlc"))
+    assert len(dlc_files) == 1
+    dlc_filename = dlc_files[0].name
+
+    model_def = onnx.load(output_path / "model.onnx")
+    assert model_def.ir_version == 10
+
+    assert len(model_def.graph.node) == 1
+    node = model_def.graph.node[0]
+    assert node.op_type == "EPContext"
+    assert node.domain == "com.microsoft"
+
+    attrs = {attr.name: onnx.helper.get_attribute_value(attr) for attr in node.attribute}
+    assert attrs["ep_context_type"] == b"dlc"
+    assert attrs["ep_dlc_context"] == dlc_filename.encode()
+    assert attrs["source"] == b"QAIRTExport"
 
 
-def _make_minimal_onnx(path):
-    """Write a minimal ONNX model to *path* so create_genai_config can load it."""
-    import onnx
-    from onnx import TensorProto
+def test_encapsulation_log_level_sets_env(tmp_path, mock_qairt_model, mock_qairt_modules, mock_container):
+    """Setting log_level exports QAIRT_LOG_LEVEL into the environment."""
+    output_path = tmp_path / "output"
+    output_path.mkdir(parents=True, exist_ok=True)
 
-    input_tensor = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-    output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
-    node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-    graph = onnx.helper.make_graph([node], "g", [input_tensor], [output_tensor])
-    model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-    onnx.save(model, path)
+    model_path = Path(mock_qairt_model.model_path)
+    (model_path / "config.json").write_text('{"model_type": "llama", "hidden_size": 4096}')
+    (model_path / "generation_config.json").write_text('{"eos_token_id": 2}')
+
+    mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
+
+    with (
+        patch.dict(os.environ, {}, clear=False),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
+        patch("olive.passes.qairt.encapsulation.checker"),
+    ):
+        encap_pass = create_pass_from_dict(
+            QairtEncapsulation,
+            {"log_level": "ERROR"},
+            disable_search=True,
+        )
+        encap_pass.run(mock_qairt_model, str(output_path))
+
+        assert os.environ.get("QAIRT_LOG_LEVEL") == "ERROR"
+
+
+def test_encapsulation_sequence_lengths_wiring(tmp_path, mock_qairt_modules, mock_container):
+    """sequence_lengths from the model is plumbed into create_genai_config to cap max_length."""
+    output_path = tmp_path / "output"
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    source_path = tmp_path / "source_model"
+    source_path.mkdir(parents=True, exist_ok=True)
+    (source_path / "config.json").write_text(json.dumps({"model_type": "llama", "max_position_embeddings": 4096}))
+    (source_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+    (source_path / "model.dlc").write_text("dummy dlc content")
+    model = QairtModelHandler(model_path=str(source_path), model_attributes={"sequence_lengths": [32, 128]})
+
+    mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
+
+    with (
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
+        patch("olive.passes.qairt.encapsulation.checker"),
+    ):
+        encap_pass = create_pass_from_dict(
+            QairtEncapsulation,
+            {},
+            disable_search=True,
+        )
+        encap_pass.run(model, str(output_path))
+
+    with open(output_path / "genai_config.json") as f:
+        result = json.load(f)
+
+    assert result["search"]["max_length"] == 4096 - 32
 
 
 def test_create_genai_config_head_size_valid(tmp_path):
@@ -1011,15 +787,7 @@ def test_deep_merge_none_override_deletes_key():
 # ---------------------------------------------------------------------------
 
 
-def test_encapsulation_default_config_includes_genie_overrides(mock_accelerator_spec):
-    """genie_overrides is present in _default_config with None default."""
-    config = QairtEncapsulation._default_config(mock_accelerator_spec)  # pylint: disable=protected-access
-    assert "genie_overrides" in config
-    assert config["genie_overrides"].default_value is None
-    assert config["genie_overrides"].required is False
-
-
-def test_encapsulation_genie_overrides_applied(tmp_path, mock_qairt_model, mock_qairt_modules):
+def test_encapsulation_genie_overrides_applied(tmp_path, mock_qairt_model, mock_qairt_modules, mock_container):
     """When genie_overrides is set, _gen_ai_config is deep-merged before export."""
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
@@ -1027,10 +795,6 @@ def test_encapsulation_genie_overrides_applied(tmp_path, mock_qairt_model, mock_
     model_path = Path(mock_qairt_model.model_path)
     (model_path / "config.json").write_text(json.dumps({"model_type": "llama", "hidden_size": 4096}))
     (model_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
-
-    mock_container = MagicMock()
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
 
     # Represent the existing GenAIConfig state after LLMContainer.load()
     initial_gen_ai_state = {
@@ -1045,38 +809,15 @@ def test_encapsulation_genie_overrides_applied(tmp_path, mock_qairt_model, mock_
     mock_container._gen_ai_config.model_dump.return_value = initial_gen_ai_state
     original_gen_ai_config_mock = mock_container._gen_ai_config
 
-    def mock_export(output_dir, export_format):
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        (Path(output_dir) / "model.dlc").write_text("dummy dlc")
-
-    mock_container.export.side_effect = mock_export
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
-
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        inp = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-        out = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "g", [inp], [out])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
 
     overrides = {"kv_dim": 128, "positional_encoding": {"rope_theta": 500000.0}}
 
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {"genie_overrides": overrides},
@@ -1097,7 +838,7 @@ def test_encapsulation_genie_overrides_applied(tmp_path, mock_qairt_model, mock_
 
 
 def test_encapsulation_no_genie_overrides_leaves_gen_ai_config_untouched(
-    tmp_path, mock_qairt_model, mock_qairt_modules
+    tmp_path, mock_qairt_model, mock_qairt_modules, mock_container
 ):
     """When genie_overrides is None, _gen_ai_config.model_dump is never called."""
     output_path = tmp_path / "output"
@@ -1107,40 +848,13 @@ def test_encapsulation_no_genie_overrides_leaves_gen_ai_config_untouched(
     (model_path / "config.json").write_text(json.dumps({"model_type": "llama", "hidden_size": 4096}))
     (model_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
 
-    mock_container = MagicMock()
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
-
-    def mock_export(output_dir, export_format):
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        (Path(output_dir) / "model.dlc").write_text("dummy dlc")
-
-    mock_container.export.side_effect = mock_export
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        inp = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-        out = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "g", [inp], [out])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {},
@@ -1157,24 +871,8 @@ def test_encapsulation_no_genie_overrides_leaves_gen_ai_config_untouched(
 # ---------------------------------------------------------------------------
 
 
-def test_encapsulation_default_config_includes_backend_extensions_overrides(mock_accelerator_spec):
-    """backend_extensions_overrides is present in _default_config with None default."""
-    config = QairtEncapsulation._default_config(mock_accelerator_spec)  # pylint: disable=protected-access
-    assert "backend_extensions_overrides" in config
-    assert config["backend_extensions_overrides"].default_value is None
-    assert config["backend_extensions_overrides"].required is False
-
-
-def test_encapsulation_default_config_includes_engine_config_overrides(mock_accelerator_spec):
-    """engine_config_overrides is present in _default_config with None default."""
-    config = QairtEncapsulation._default_config(mock_accelerator_spec)  # pylint: disable=protected-access
-    assert "engine_config_overrides" in config
-    assert config["engine_config_overrides"].default_value is None
-    assert config["engine_config_overrides"].required is False
-
-
 def test_encapsulation_backend_extensions_overrides_merges_into_existing(
-    tmp_path, mock_qairt_model, mock_qairt_modules
+    tmp_path, mock_qairt_model, mock_qairt_modules, mock_container
 ):
     """Override is deep-merged into the existing _backend_extensions_config."""
     output_path = tmp_path / "output"
@@ -1183,41 +881,14 @@ def test_encapsulation_backend_extensions_overrides_merges_into_existing(
     (model_path / "config.json").write_text(json.dumps({"model_type": "llama", "hidden_size": 4096}))
     (model_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
 
-    mock_container = MagicMock()
     mock_container._backend_extensions_config = {"context": {"n-threads": 6, "kv-cache-size": 512}}
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
-
-    def mock_export(output_dir, export_format):
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        (Path(output_dir) / "model.dlc").write_text("dummy dlc")
-
-    mock_container.export.side_effect = mock_export
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        inp = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-        out = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "g", [inp], [out])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {"backend_extensions_overrides": {"context": {"n-threads": 4}}},
@@ -1229,12 +900,11 @@ def test_encapsulation_backend_extensions_overrides_merges_into_existing(
     assert mock_container._backend_extensions_config == {"context": {"n-threads": 4, "kv-cache-size": 512}}
 
 
-def test_encapsulation_backend_extensions_overrides_from_empty(tmp_path, mock_qairt_model, mock_qairt_modules):
+def test_encapsulation_backend_extensions_overrides_from_empty(
+    tmp_path, mock_qairt_model, mock_qairt_modules, mock_container
+):
     """When the container has no existing backend extensions config, the override becomes the config."""
-    mock_container = MagicMock()
     mock_container._backend_extensions_config = None
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
 
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
@@ -1242,36 +912,13 @@ def test_encapsulation_backend_extensions_overrides_from_empty(tmp_path, mock_qa
     (model_path / "config.json").write_text(json.dumps({"model_type": "llama", "hidden_size": 4096}))
     (model_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
 
-    def mock_export(output_dir, export_format):
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        (Path(output_dir) / "model.dlc").write_text("dummy dlc")
-
-    mock_container.export.side_effect = mock_export
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        inp = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-        out = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "g", [inp], [out])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {"backend_extensions_overrides": {"context": {"n-threads": 4}}},
@@ -1283,15 +930,11 @@ def test_encapsulation_backend_extensions_overrides_from_empty(tmp_path, mock_qa
 
 
 def test_encapsulation_no_backend_extensions_overrides_leaves_config_untouched(
-    tmp_path, mock_qairt_model, mock_qairt_modules
+    tmp_path, mock_qairt_model, mock_qairt_modules, mock_container
 ):
     """When backend_extensions_overrides is None the container config is not touched."""
     original_ext_cfg = {"context": {"n-threads": 6}}
-
-    mock_container = MagicMock()
     mock_container._backend_extensions_config = original_ext_cfg
-    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
-    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
 
     output_path = tmp_path / "output"
     output_path.mkdir(parents=True, exist_ok=True)
@@ -1299,36 +942,13 @@ def test_encapsulation_no_backend_extensions_overrides_leaves_config_untouched(
     (model_path / "config.json").write_text(json.dumps({"model_type": "llama", "hidden_size": 4096}))
     (model_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
 
-    def mock_export(output_dir, export_format):
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        (Path(output_dir) / "model.dlc").write_text("dummy dlc")
-
-    mock_container.export.side_effect = mock_export
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        inp = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-        out = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "g", [inp], [out])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(QairtEncapsulation, {}, disable_search=True)
         encap_pass.run(mock_qairt_model, str(output_path))
 
@@ -1361,32 +981,14 @@ def test_encapsulation_engine_config_overrides_applied_when_supported(tmp_path, 
     mock_container.export = MagicMock(side_effect=mock_export)
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        inp = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-        out = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "g", [inp], [out])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     fake_sig = inspect.signature(mock_export)
 
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
         patch("olive.passes.qairt.encapsulation.inspect.signature", return_value=fake_sig),
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         fake_engine_cfg = MagicMock()
         mock_qairt_modules["gen_ai_api"].EngineConfig.return_value = fake_engine_cfg
         mock_qairt_modules["gen_ai_api"].HTPEngineConfig.return_value = MagicMock()
@@ -1429,33 +1031,15 @@ def test_encapsulation_engine_config_overrides_skipped_when_not_supported(
     mock_container.export = MagicMock(side_effect=mock_export_old)
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        inp = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-        out = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "g", [inp], [out])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     fake_sig = inspect.signature(mock_export_old)
 
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
         patch("olive.passes.qairt.encapsulation.inspect.signature", return_value=fake_sig),
         patch("olive.passes.qairt.encapsulation.logger") as mock_logger,
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {"engine_config_overrides": {"n_threads": 4}},
@@ -1495,30 +1079,12 @@ def test_encapsulation_genie_overrides_skipped_when_private_attr_missing(
     mock_container.export = MagicMock(side_effect=mock_export)
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        inp = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-        out = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "g", [inp], [out])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
         patch("olive.passes.qairt.encapsulation.logger") as mock_logger,
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {"genie_overrides": {"kv_dim": 128}},
@@ -1551,30 +1117,12 @@ def test_encapsulation_backend_extensions_overrides_skipped_when_private_attr_mi
     mock_container.export = MagicMock(side_effect=mock_export)
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
-    def mock_save_func(model_def, path):
-        import onnx
-        from onnx import TensorProto
-
-        inp = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-        out = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
-        node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-        graph = onnx.helper.make_graph([node], "g", [inp], [out])
-        model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-        onnx.save(model, path)
-
     with (
-        patch("olive.passes.qairt.encapsulation.helper") as mock_helper,
-        patch("olive.passes.qairt.encapsulation.save", side_effect=mock_save_func),
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
         patch("olive.passes.qairt.encapsulation.logger") as mock_logger,
     ):
-        mock_helper.make_node.return_value = MagicMock()
-        mock_helper.make_attribute.return_value = MagicMock()
-        mock_helper.make_tensor_value_info.return_value = MagicMock()
-        mock_helper.make_graph.return_value = MagicMock()
-        mock_helper.make_opsetid.return_value = MagicMock()
-        mock_helper.make_model.return_value = MagicMock()
-
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {"backend_extensions_overrides": {"context": {"n-threads": 4}}},
