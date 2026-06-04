@@ -78,7 +78,12 @@
         "precision",
         "recall",
         "auroc",
-        "perplexity"
+        "perplexity",
+        "wer",
+        "rtfx",
+        "exact_match",
+        "relaxed_accuracy",
+        "word_sort_ratio"
       ],
       "title": "AccuracySubType",
       "type": "string"
