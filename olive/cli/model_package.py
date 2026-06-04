@@ -31,9 +31,11 @@ Notes:
   ``compatibility_string``.
 - Each variant directory is self-contained: the ONNX file and any external-data
   blobs it references are copied inline so stock ORT can load it directly.
-- ``genai_config.json`` is copied verbatim into ``<output>/configs/``.
-  Per-variant runtime fields (``session_options``, ``provider_options``) are
-  expressed as a per-variant ``genai_config_overlay.json`` (an RFC 7386 JSON
+- ``genai_config.json`` is canonicalized into ``<output>/configs/``: variant-
+  specific runtime fields (``filename``, ``session_options``) are stripped from
+  the base and each role gets a ``component`` pointer so ORT GenAI can map
+  roles to ``models/<component>/`` at load time. The stripped fields are
+  re-injected per variant as a ``genai_config_overlay.json`` (an RFC 7386 JSON
   Merge Patch applied on top of ``configs/genai_config.json``).
 
 """
@@ -265,10 +267,15 @@ class ModelPackageCommand(BaseOliveCLICommand):
             target_attrs = _get_model_attributes(model_config)
             target_inference = model_config.get("config", {}).get("inference_settings") or {}
             components = model_config["config"].get("model_components", [])
-            component_names = model_config["config"].get("component_names", [])
+            component_names = model_config["config"].get("model_component_names", [])
 
             if not components:
                 raise ValueError(f"Composite source {target_name!r} declares no model_components.")
+            if len(components) != len(component_names):
+                raise ValueError(
+                    f"Composite source {target_name!r} has {len(components)} model_components but "
+                    f"{len(component_names)} model_component_names; counts must match."
+                )
 
             for comp_config, comp_name in zip(components, component_names):
                 # Component-level inference_settings overrides target-level if present.
@@ -624,11 +631,18 @@ def _strip_variant_specific(node: Any, keys: tuple[str, ...] = ("filename", "ses
 def _resolve_component_roles(config_files: Optional[dict[str, Path]]) -> dict[str, str]:
     """Map each package component to the genai_config role that references it.
 
-    The base ``genai_config.json`` declares roles under ``model.<role>`` and
-    each role names the package component it loads via a ``component`` field.
-    Per-variant overlays must patch ``model.<role>``, which can differ from the
-    component name, so we invert that mapping here. Returns an empty map when no
-    base config is available (callers fall back to the component name).
+    The base ``genai_config.json`` declares roles under ``model.<role>``. The
+    role name and component directory name are not always the same (e.g.
+    Mobius emits role ``vision`` for a component dir named ``vision_encoder``),
+    so per-variant overlays need a role lookup. We try two signals in order:
+
+    1. ``model.<role>.component`` (explicit pointer, ORT spec).
+    2. The first path segment of ``model.<role>.filename`` — Mobius and other
+       flat-dir producers write paths like ``vision_encoder/model.onnx`` so the
+       directory naturally names the component.
+
+    Returns an empty map when no base config is available; callers fall back
+    to the component name as the role.
     """
     if not config_files:
         return {}
@@ -648,10 +662,17 @@ def _resolve_component_roles(config_files: Optional[dict[str, Path]]) -> dict[st
 
     component_to_role: dict[str, str] = {}
     for role, role_block in model_block.items():
-        if isinstance(role_block, dict):
-            component = role_block.get("component")
-            if isinstance(component, str) and component and component not in component_to_role:
-                component_to_role[component] = role
+        if not isinstance(role_block, dict):
+            continue
+        component = role_block.get("component")
+        if not (isinstance(component, str) and component):
+            filename = role_block.get("filename")
+            if isinstance(filename, str) and filename:
+                parts = Path(filename).parts
+                if len(parts) >= 2:
+                    component = parts[0]
+        if isinstance(component, str) and component and component not in component_to_role:
+            component_to_role[component] = role
     return component_to_role
 
 
