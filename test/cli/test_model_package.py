@@ -452,6 +452,114 @@ class TestWriteModelPackageLayout:
             }
         }
 
+    def test_overlay_lifts_per_variant_model_level_fields(self, tmp_path):
+        """Per-variant ``context_length`` (and similar) flows from source to overlay.
+
+        Each variant's source ``genai_config.json`` is the source of truth for
+        model-level scalars that legitimately vary across variants of the same
+        model (e.g. an NPU build caps ``context_length`` while the GPU build
+        does not). The writer strips these from the base config and re-supplies
+        them per variant; without this lift the merged config would silently
+        use whichever variant's base happened to win.
+        """
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+        out = tmp_path / "package"
+
+        npu_source_genai = {
+            "model": {
+                "type": "phi3",
+                "context_length": 4224,
+                "pad_token_id": 200020,
+                "eos_token_id": [200020, 199999],
+                "bos_token_id": 199999,
+                "vocab_size": 200064,
+                "decoder": {"head_size": 128, "filename": "model.onnx", "session_options": {}},
+            }
+        }
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="npu",
+                    onnx_files=[onnx_path],
+                    ep="OpenVINOExecutionProvider",
+                    source_genai=npu_source_genai,
+                )
+            ],
+        )
+
+        overlay = json.loads((out / "models" / "decoder" / "npu" / "genai_config_overlay.json").read_text())
+        model_patch = overlay["model"]
+        assert model_patch["context_length"] == 4224
+        assert model_patch["pad_token_id"] == 200020
+        assert model_patch["eos_token_id"] == [200020, 199999]
+        assert model_patch["bos_token_id"] == 199999
+        assert model_patch["type"] == "phi3"
+        # ``vocab_size`` is structural (shared across all variants of a model)
+        # and is not in the per-variant lift list, so it must NOT appear in
+        # the overlay — otherwise it would duplicate the base copy.
+        assert "vocab_size" not in model_patch
+
+    def test_base_genai_strips_per_variant_model_fields(self, tmp_path):
+        """The base ``configs/genai_config.json`` must not carry per-variant fields.
+
+        If ``context_length`` (or similar) lived in the base, GenAI's overlay
+        merge would still honour the per-variant value (overlay scalar wins),
+        but ``_VARIANT_LEVEL_MODEL_KEYS`` includes arrays (``eos_token_id``)
+        whose presence in the base would trigger GenAI's array-append merge
+        semantics — the merged result would duplicate the array. So the base
+        must be free of every variant-level model key.
+        """
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+        out = tmp_path / "package"
+        cfg = tmp_path / "configs_src" / "genai_config.json"
+        cfg.parent.mkdir(parents=True)
+        cfg.write_text(
+            json.dumps(
+                {
+                    "model": {
+                        "type": "phi3",
+                        "context_length": 131072,
+                        "pad_token_id": 199999,
+                        "eos_token_id": [200020, 199999],
+                        "bos_token_id": 199999,
+                        "vocab_size": 200064,
+                        "decoder": {
+                            "head_size": 128,
+                            "filename": "model.onnx",
+                            "session_options": {"log_id": "x"},
+                        },
+                    }
+                }
+            )
+        )
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="cpu",
+                    onnx_files=[onnx_path],
+                    ep="CPUExecutionProvider",
+                )
+            ],
+            config_files={"genai_config.json": cfg},
+        )
+
+        base = json.loads((out / "configs" / "genai_config.json").read_text())
+        model = base["model"]
+        for stripped in ("context_length", "pad_token_id", "eos_token_id", "bos_token_id", "type"):
+            assert stripped not in model, f"base genai_config must not contain {stripped!r}"
+        # Variant-specific decoder fields also stripped.
+        assert "filename" not in model["decoder"]
+        assert "session_options" not in model["decoder"]
+        # Structural shared fields remain.
+        assert model["vocab_size"] == 200064
+        assert model["decoder"]["head_size"] == 128
+
 
 # ---------------------------------------------------------------------------
 # Writer: external-data blobs are always kept inline per variant (no dedup)

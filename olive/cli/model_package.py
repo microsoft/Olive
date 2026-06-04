@@ -240,7 +240,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
         task = self._extract_task(targets)
         component_name = _task_to_component_name(task)
         variants: list[VariantSpec] = []
-        for target_name, _src, model_config in targets:
+        for target_name, source_path, model_config in targets:
             attrs = _get_model_attributes(model_config)
             onnx_path = _resolve_onnx_path(model_config)
             ep, device, compatibility_string = _ep_device_compatibility(attrs, onnx_path, target_name)
@@ -253,6 +253,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
                     device=device,
                     compatibility_string=compatibility_string,
                     inference_settings=model_config.get("config", {}).get("inference_settings") or {},
+                    source_genai=_load_source_genai(source_path),
                 )
             )
         return variants
@@ -263,9 +264,10 @@ class ModelPackageCommand(BaseOliveCLICommand):
         # Track per-component variants in source insertion order.
         component_variants: dict[str, list[VariantSpec]] = OrderedDict()
 
-        for target_name, _src, model_config in targets:
+        for target_name, source_path, model_config in targets:
             target_attrs = _get_model_attributes(model_config)
             target_inference = model_config.get("config", {}).get("inference_settings") or {}
+            target_genai = _load_source_genai(source_path)
             components = model_config["config"].get("model_components", [])
             component_names = model_config["config"].get("model_component_names", [])
 
@@ -295,6 +297,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
                     device=device,
                     compatibility_string=compatibility_string,
                     inference_settings=comp_inference,
+                    source_genai=target_genai,
                 )
                 component_variants.setdefault(comp_name, []).append(spec)
 
@@ -415,6 +418,11 @@ class VariantSpec:
     compatibility_string: Optional[str] = None
     inference_settings: dict[str, Any] = field(default_factory=dict)
     consumer_metadata: Optional[dict[str, Any]] = None
+    # The variant's source ``genai_config.json`` (parsed). Used to lift
+    # per-variant fields (context_length, pad_token_id, decoder.inputs, ...)
+    # into the variant overlay. Kept as a deep object rather than a path so
+    # callers can synthesize it without touching disk.
+    source_genai: Optional[dict[str, Any]] = None
 
 
 def write_model_package(
@@ -643,16 +651,57 @@ def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: Varia
         # ``<variant_dir>/<filename>``, so emit the basename here.
         role_patch["filename"] = Path(v.onnx_files[0]).name
 
-    overlay = {"model": {component_role: role_patch}}
+    model_patch: dict[str, Any] = {component_role: role_patch}
+    # Lift per-variant model-level scalars from the variant's own
+    # genai_config.json. The base config strips these (see
+    # ``_strip_variant_specific``) because they legitimately differ across
+    # variants (e.g. NPU runtime caps ``context_length`` at 4224 while CPU/CUDA
+    # use the full 131072; pad_token_id can differ when one exporter uses the
+    # EOS as PAD and another uses the sentinel). Without this lift the merged
+    # config would silently use whichever variant happened to win the base
+    # selection.
+    src_genai = v.source_genai or {}
+    src_model = src_genai.get("model") if isinstance(src_genai, dict) else None
+    if isinstance(src_model, dict):
+        for k in _VARIANT_LEVEL_MODEL_KEYS:
+            if k in src_model:
+                # Deep-copy via JSON round-trip so we never share refs with the
+                # caller's dict; arrays in particular must be independent
+                # because GenAI's overlay parser treats arrays as append-merge.
+                model_patch[k] = json.loads(json.dumps(src_model[k]))
+
+    overlay = {"model": model_patch}
     _write_json(variant_dir / "genai_config_overlay.json", overlay)
 
 
-def _strip_variant_specific(node: Any, keys: tuple[str, ...] = ("filename", "session_options")) -> Any:
+# Per-variant model-level keys that we strip from the package's base
+# genai_config.json and re-supply from each variant's source. These appear
+# directly under ``model`` (not nested under ``model.<role>``) and we have
+# observed them to legitimately diverge across variants of the same model
+# (NPU context truncation, exporter-specific pad token encoding, etc.). Kept
+# minimal: only add a key here when we have evidence it varies AND its base
+# value would be wrong for some variant.
+_VARIANT_LEVEL_MODEL_KEYS: tuple[str, ...] = (
+    "context_length",
+    "pad_token_id",
+    "eos_token_id",
+    "bos_token_id",
+    "type",
+)
+
+
+def _strip_variant_specific(
+    node: Any,
+    keys: tuple[str, ...] = ("filename", "session_options", *_VARIANT_LEVEL_MODEL_KEYS),
+) -> Any:
     """Recursively drop variant-specific keys from a genai_config-shaped dict.
 
     ``filename`` and ``session_options`` are intrinsically variant-specific and
     must not live in the package's base ``configs/genai_config.json``; per-variant
-    ``genai_config_overlay.json`` files patch them back in. Returns a deep copy.
+    ``genai_config_overlay.json`` files patch them back in. The same logic
+    applies to per-variant model-level scalars listed in
+    ``_VARIANT_LEVEL_MODEL_KEYS`` (e.g. ``context_length`` differs between NPU
+    and GPU variants of the same model). Returns a deep copy.
     """
     if isinstance(node, dict):
         return {k: _strip_variant_specific(v, keys) for k, v in node.items() if k not in keys}
@@ -985,6 +1034,26 @@ def disambiguate_variant_names(candidates: list[tuple[str, str]]) -> list[str]:
 
 def _get_model_attributes(model_config: dict) -> dict:
     return model_config.get("config", {}).get("model_attributes") or {}
+
+
+def _load_source_genai(source_path: Path) -> Optional[dict]:
+    """Return the parsed ``<source>/genai_config.json`` if present.
+
+    Each variant's source directory carries its own genai_config; the writer
+    lifts per-variant model-level fields from it into the variant overlay.
+    Missing or unparseable files yield ``None`` rather than failing so a
+    source without genai_config (e.g. a pure-ONNX export not destined for
+    GenAI) can still be packaged.
+    """
+    path = Path(source_path) / "genai_config.json"
+    if not path.is_file():
+        return None
+    try:
+        with path.open(encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:
+        logger.debug("Could not parse %s; skipping per-variant model-field lift.", path, exc_info=True)
+        return None
 
 
 def _resolve_onnx_path(model_config: dict) -> Path:
