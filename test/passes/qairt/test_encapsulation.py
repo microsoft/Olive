@@ -938,6 +938,74 @@ def test_deep_merge_base_unmodified():
     assert base["a"]["b"] == 1
 
 
+def test_deep_merge_list_of_dicts_merged_elementwise():
+    """List-of-dicts elements are merged element-wise; base keys absent from the override are preserved.
+
+    This is the core regression test for the backend_extensions_overrides bug where
+    context[weight_sharing_enabled] and devices[device_id/soc_model/dsp_arch/cores] were
+    being dropped because the override list fully replaced the base list.
+    """
+    from olive.passes.qairt.encapsulation import _deep_merge
+
+    base = {
+        "context": [{"weight_sharing_enabled": True}],
+        "devices": [{"device_id": 0, "soc_model": 60, "dsp_arch": "v73", "cores": [{"core_id": 0}]}],
+        "memory": {"mem_type": "shared_buffer"},
+    }
+    overrides = {
+        "context": [{"reused_io_limit_mb": 100}],
+        "devices": [{"pd_session": "unsigned"}],
+    }
+    result = _deep_merge(base, overrides)
+
+    # context: override key added, base key preserved
+    assert result["context"] == [{"weight_sharing_enabled": True, "reused_io_limit_mb": 100}]
+    # devices: override key added, all base keys preserved
+    assert result["devices"] == [
+        {"device_id": 0, "soc_model": 60, "dsp_arch": "v73", "cores": [{"core_id": 0}], "pd_session": "unsigned"}
+    ]
+    # memory: untouched
+    assert result["memory"] == {"mem_type": "shared_buffer"}
+
+
+def test_deep_merge_list_override_shorter_than_base_preserves_tail():
+    """Extra base list elements beyond the override length are appended to the result."""
+    from olive.passes.qairt.encapsulation import _deep_merge
+
+    base = {"graphs": [{"vtcm_mb": 8, "graph_names": ["g1"]}, {"vtcm_mb": 8, "graph_names": ["g2"]}]}
+    overrides = {"graphs": [{"vtcm_mb": 16}]}
+    result = _deep_merge(base, overrides)
+
+    assert result["graphs"] == [
+        {"vtcm_mb": 16, "graph_names": ["g1"]},
+        {"vtcm_mb": 8, "graph_names": ["g2"]},
+    ]
+
+
+def test_deep_merge_list_override_longer_than_base_appends_extras():
+    """Extra override list elements beyond the base length are appended."""
+    from olive.passes.qairt.encapsulation import _deep_merge
+
+    base = {"items": [{"a": 1}]}
+    overrides = {"items": [{"a": 2}, {"b": 3}]}
+    result = _deep_merge(base, overrides)
+
+    assert result["items"] == [{"a": 2}, {"b": 3}]
+
+
+def test_deep_merge_none_override_deletes_key():
+    """A None override value removes the key from the result entirely."""
+    from olive.passes.qairt.encapsulation import _deep_merge
+
+    base = {"context": [{"weight_sharing_enabled": True}], "graphs": [{"vtcm_mb": 8}], "memory": {}}
+    overrides = {"graphs": None}
+    result = _deep_merge(base, overrides)
+
+    assert "graphs" not in result
+    assert "context" in result
+    assert "memory" in result
+
+
 # ---------------------------------------------------------------------------
 # genie_overrides integration tests
 # ---------------------------------------------------------------------------
