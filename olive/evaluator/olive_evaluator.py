@@ -888,37 +888,37 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                         all_preds.append("")
                         continue
 
-                    # Ensure PIL Image
-                    if not isinstance(pil_image, Image.Image):
-                        with Image.open(pil_image) as img:
-                            pil_image = img.convert("RGB")
-
-                    # Build chat messages for the vision-language model
-                    messages = []
-                    if sys_prompt:
-                        messages.append({"role": "system", "content": sys_prompt})
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "image"},
-                                {"type": "text", "text": question},
-                            ],
-                        }
-                    )
-                    messages_json = json.dumps(messages)
-
-                    # Save image to temp file for og.Images (reuse same path to minimize I/O)
-                    pil_image.save(str(tmp_img_path), format="PNG")
-                    images = og.Images.open(str(tmp_img_path))
-
-                    prompt = tokenizer.apply_chat_template(messages_json, add_generation_prompt=True)
-                    inputs = processor(prompt, images=images)
-
-                    params = og.GeneratorParams(og_model)
-                    params.set_search_options(max_length=max_length, do_sample=False)
-
                     try:
+                        # Ensure PIL Image
+                        if not isinstance(pil_image, Image.Image):
+                            with Image.open(pil_image) as img:
+                                pil_image = img.convert("RGB")
+
+                        # Build chat messages for the vision-language model
+                        messages = []
+                        if sys_prompt:
+                            messages.append({"role": "system", "content": sys_prompt})
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "image"},
+                                    {"type": "text", "text": question},
+                                ],
+                            }
+                        )
+                        messages_json = json.dumps(messages)
+
+                        # Save image to temp file for og.Images (reuse same path to minimize I/O)
+                        pil_image.save(str(tmp_img_path), format="PNG")
+                        images = og.Images.open(str(tmp_img_path))
+
+                        prompt = tokenizer.apply_chat_template(messages_json, add_generation_prompt=True)
+                        inputs = processor(prompt, images=images)
+
+                        params = og.GeneratorParams(og_model)
+                        params.set_search_options(max_length=max_length, do_sample=False)
+
                         generator = og.Generator(og_model, params)
                         generator.set_inputs(inputs)
 
@@ -929,8 +929,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                         del generator
 
                         pred = tokenizer.decode(tokens).strip()
-                    except RuntimeError as e:
-                        logger.warning("Skipping sample due to runtime error: %s", e)
+                    except Exception as e:
+                        logger.warning("Skipping sample due to error: %s", e)
                         pred = ""
 
                     # For multiple-choice tasks, extract the answer digit from responses
