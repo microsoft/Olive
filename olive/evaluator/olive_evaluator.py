@@ -848,10 +848,9 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         model_dir = str(Path(model.model_path).parent)
 
         # max_length in genai is total sequence length (input + output).
-        # Default to 1028 which accommodates image/prompt tokens (~200-500) plus answer tokens.
-        # Note: genai_config.json's search.max_length is typically the full context window
-        # (e.g., 262144) which is too large — the model will stop at EOS well before this cap.
-        max_length = 1028
+        # Use genai_config's search.max_length if available, otherwise default to 8192
+        # to accommodate large image token counts (e.g., 5000+ for high-res images).
+        max_length = genai_cfg.get("search", {}).get("max_length", 8192)
 
         # Build og.Model with appropriate execution provider
         # Note: onnxruntime-genai uses CPU by default when no provider is appended.
