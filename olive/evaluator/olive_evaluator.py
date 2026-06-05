@@ -850,7 +850,13 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         # max_length in genai is total sequence length (input + output).
         # Use genai_config's search.max_length if available, otherwise default to 8192
         # to accommodate large image token counts (e.g., 5000+ for high-res images).
-        max_length = genai_cfg.get("search", {}).get("max_length", 8192)
+        genai_config_path = Path(model_dir) / "genai_config.json"
+        if genai_config_path.exists():
+            with open(genai_config_path) as f:
+                _genai_cfg = json.load(f)
+        else:
+            _genai_cfg = {}
+        max_length = _genai_cfg.get("search", {}).get("max_length", 8192)
 
         # Build og.Model with appropriate execution provider
         # Note: onnxruntime-genai uses CPU by default when no provider is appended.
