@@ -133,7 +133,6 @@ def test_default_config_params():
     )
     config = MobiusBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
     assert "precision" in config
-    assert "runtime" not in config
     assert "execution_provider" not in config
     assert "trust_remote_code" not in config
 

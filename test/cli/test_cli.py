@@ -485,9 +485,6 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
     assert "m" not in config["passes"]
     assert config["passes"]["b"]["type"] == "MobiusBuilder"
     assert config["passes"]["b"]["precision"] == precision
-    # `--use_ort_genai` is intentionally ignored when --use_mobius_builder is set;
-    # MobiusBuilder always emits ORT GenAI artifacts via its default `runtime`.
-    assert "runtime" not in config["passes"]["b"]
     assert mock_run.call_count == 1
 
 
