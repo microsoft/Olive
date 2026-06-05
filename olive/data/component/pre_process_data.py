@@ -468,13 +468,13 @@ def vision_vqa_pre_process(
             # Format options into the question if options_col is specified
             # Use 1-based numbering (1, 2, 3, 4) which aligns with how VLMs are
             # typically prompted and avoids confusion with diagram region labels.
-            has_options = False
+            num_choices = 0
             if self.options_column and self.options_column in item:
                 options = item[self.options_column]
-                if isinstance(options, (list, tuple)):
+                if isinstance(options, (list, tuple)) and len(options) > 0:
+                    num_choices = len(options)
                     options_text = "\n".join(f"{i + 1}. {opt}" for i, opt in enumerate(options))
                     question = f"{question}\n{options_text}"
-                    has_options = True
 
             # Handle list/tuple answers (some datasets have multiple valid answers)
             # Join with | separator so metrics can match against any valid answer
@@ -482,9 +482,7 @@ def vision_vqa_pre_process(
                 answer = "|".join(str(a) for a in answer) if answer else ""
 
             # Convert 0-based answer index to 1-based to match the option numbering
-            num_choices = 0
-            if has_options:
-                num_choices = len(options)
+            if num_choices > 0:
                 try:
                     idx = int(answer)
                     answer = str(idx + 1)
