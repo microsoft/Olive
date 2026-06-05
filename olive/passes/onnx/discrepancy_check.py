@@ -117,8 +117,11 @@ class OnnxDiscrepancyCheck(Pass):
             ),
             "timing_iterations": PassConfigParam(
                 type_=int,
-                default_value=10,
-                description="Number of timed iterations to measure inference speedup (ONNX vs PyTorch).",
+                default_value=5,
+                description=(
+                    "Number of timed iterations to measure inference speedup (ONNX vs PyTorch). "
+                    "Set to 0 to disable speedup measurement."
+                ),
             ),
             "generate_prompt": PassConfigParam(
                 type_=str,
@@ -253,9 +256,21 @@ class OnnxDiscrepancyCheck(Pass):
         )
 
         # Measure inference speedup (ONNX vs PyTorch) on the target device
-        self._measure_speedup(
-            ref_model, session, dataloader, io_config, torch_device, config.warmup_iterations, config.timing_iterations
-        )
+        if config.timing_iterations > 0:
+            self._measure_speedup(
+                ref_model,
+                session,
+                dataloader,
+                io_config,
+                torch_device,
+                config.warmup_iterations,
+                config.timing_iterations,
+            )
+        else:
+            logger.info(
+                "OnnxDiscrepancyCheck speedup measurement skipped because timing_iterations=%d.",
+                config.timing_iterations,
+            )
 
         # Check thresholds
         failures = []
@@ -290,6 +305,13 @@ class OnnxDiscrepancyCheck(Pass):
         self, ref_model, session, dataloader, io_config, torch_device, warmup_iterations, timing_iterations
     ):
         """Measure inference speedup of ONNX over PyTorch on the target device."""
+        if timing_iterations <= 0:
+            logger.info(
+                "OnnxDiscrepancyCheck speedup measurement skipped because timing_iterations=%d.",
+                timing_iterations,
+            )
+            return None
+
         import torch
 
         from olive.common.utils import format_data

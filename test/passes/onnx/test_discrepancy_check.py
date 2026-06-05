@@ -159,3 +159,32 @@ class TestCompareGeneration:
         mock_generator.append_tokens.assert_called_once_with([[10, 20]])
         # All 5 tokens match
         assert result == 5
+
+
+class TestSpeedupSettings:
+    def test_timing_iterations_default_is_5(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_config = OnnxDiscrepancyCheck._default_config(None)
+        assert pass_config["timing_iterations"].default_value == 5
+
+    def test_measure_speedup_skips_when_timing_iterations_is_zero(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        ref_model = MagicMock()
+        session = MagicMock()
+
+        result = pass_instance._measure_speedup(
+            ref_model=ref_model,
+            session=session,
+            dataloader=MagicMock(),
+            io_config=MagicMock(),
+            torch_device=MagicMock(),
+            warmup_iterations=3,
+            timing_iterations=0,
+        )
+
+        assert result is None
+        ref_model.assert_not_called()
+        session.run.assert_not_called()
