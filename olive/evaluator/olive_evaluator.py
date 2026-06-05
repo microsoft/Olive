@@ -856,7 +856,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                 _genai_cfg = json.load(f)
         else:
             _genai_cfg = {}
-        max_length = _genai_cfg.get("search", {}).get("max_length", 8192)
+        max_length = min(_genai_cfg.get("search", {}).get("max_length", 8192), 8192)
 
         # Build og.Model with appropriate execution provider
         # Note: onnxruntime-genai uses CPU by default when no provider is appended.
