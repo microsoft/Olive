@@ -947,7 +947,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                             pred = num_match.group(1)
                         else:
                             # Fallback: find any single digit in the valid range
-                            valid_digits = set(str(d) for d in range(1, num_choices + 1))
+                            valid_digits = {str(d) for d in range(1, num_choices + 1)}
                             for ch in pred:
                                 if ch in valid_digits:
                                     pred = ch

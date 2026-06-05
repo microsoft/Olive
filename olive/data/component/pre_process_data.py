@@ -447,7 +447,16 @@ def vision_vqa_pre_process(
         Note: Use batch_size=1 in dataloader config as images have variable sizes.
         """
 
-        def __init__(self, hf_dataset, image_column, question_column, answer_column, options_column="", sys_prompt="", max_length=4096):
+        def __init__(
+            self,
+            hf_dataset,
+            image_column,
+            question_column,
+            answer_column,
+            options_column="",
+            sys_prompt="",
+            max_length=4096,
+        ):
             self.dataset = hf_dataset
             self.image_column = image_column
             self.question_column = question_column
