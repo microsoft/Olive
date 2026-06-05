@@ -289,6 +289,7 @@ Please also find the detailed options from following table for each pass:
 | [OnnxOpVersionConversion](pass.rst#onnxopversionconversion) | Convert a Onnx model to target op version |
 | [OnnxScriptFusion](pass.rst#onnxscriptfusion) | Fuse Ops using onnxscript |
 | [ModelBuilder](pass.rst#modelbuilder) | Convert a generative PyTorch model to ONNX model using [ONNX Runtime Generative AI](https://github.com/microsoft/onnxruntime-genai) module |
+| [MobiusBuilder](pass.rst#mobius_builder) | Build ONNX models from a HuggingFace model ID using the mobius package; supports optional component filtering via `components_to_export` |
 | [OnnxPeepholeOptimizer](pass.rst#onnxpeepholeoptimizer) | Optimize ONNX model by fusing nodes. |
 | [OnnxTransformersOptimization](pass.rst#onnxtransformersoptimization) | Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time. It is based on onnxruntime.transformers.optimizer. |
 | [OrtSessionParamsTuning](pass.rst#ortsessionparamstuning) | Optimize ONNX Runtime inference settings. |

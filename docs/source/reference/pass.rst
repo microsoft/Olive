@@ -206,6 +206,12 @@ ModelBuilder
 ------------
 .. autoconfigclass:: olive.passes.ModelBuilder
 
+.. _mobius_builder:
+
+MobiusBuilder
+-------------
+.. autoconfigclass:: olive.passes.MobiusBuilder
+
 .. _aimet_quantization:
 
 AimetQuantization

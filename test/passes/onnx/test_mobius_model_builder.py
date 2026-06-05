@@ -74,24 +74,40 @@ def _make_pass(ep: str = ExecutionProvider.CPUExecutionProvider) -> MobiusBuilde
 
 
 def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
-    """Create a fake ModelPackage that writes dummy .onnx files when .save() is called."""
+    """Create a fake ModelPackage that writes dummy .onnx files when .save() is called.
 
-    def _save(directory: str, **_kwargs):
+    Respects the optional ``components`` filter kwarg passed to ``save()``: only writes
+    files for components for which ``components(name)`` returns True (or all if None).
+
+    ``pkg.save.__signature__`` is set explicitly so that ``inspect.signature(pkg.save)``
+    reports ``components`` in its parameters.  This lets production code use signature
+    introspection (instead of a try/except TypeError) to detect kwarg support.
+    """
+    import inspect as _inspect
+
+    def _save(directory: str, components=None, **_kwargs):
         out = Path(directory)
         if len(keys) == 1:
-            # Single-component: saved as <dir>/model.onnx
-            (out / "model.onnx").write_text("dummy")
+            # Single-component: saved as <dir>/model.onnx.
+            # Apply the components filter consistently with multi-component behaviour.
+            key = keys[0]
+            if components is None or components(key):
+                (out / "model.onnx").write_text("dummy")
         else:
             # Multi-component: saved as <dir>/<key>/model.onnx
             for k in keys:
-                (out / k).mkdir(parents=True, exist_ok=True)
-                (out / k / "model.onnx").write_text("dummy")
+                if components is None or components(k):
+                    (out / k).mkdir(parents=True, exist_ok=True)
+                    (out / k / "model.onnx").write_text("dummy")
 
     pkg = MagicMock()
     pkg.keys.return_value = keys
     pkg.__iter__ = MagicMock(return_value=iter(keys))
     pkg.items.return_value = [(k, MagicMock()) for k in keys]
     pkg.save.side_effect = _save
+    # Set __signature__ so inspect.signature(pkg.save) sees 'components' in parameters,
+    # matching a real modern-API mobius ModelPackage.save().
+    pkg.save.__signature__ = _inspect.signature(_save)
     return pkg
 
 
@@ -472,3 +488,237 @@ def test_no_warning_when_trust_remote_code_false(tmp_path):
 
     warning_messages = [call.args[0] for call in mock_logger.warning.call_args_list]
     assert not any("trust_remote_code" in msg for msg in warning_messages)
+
+
+# ---------------------------------------------------------------------------
+# components_to_export filter tests
+# ---------------------------------------------------------------------------
+
+
+def test_components_to_export_filters_subset(tmp_path):
+    """Only requested components are saved and returned when components_to_export is set."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": ["vision_encoder", "embedding"]},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["vision_encoder", "embedding"]
+
+    # pkg.save must have been called with a components filter that excludes decoder
+    save_kwargs = pkg.save.call_args.kwargs
+    components_filter = save_kwargs.get("components")
+    assert components_filter is not None
+    assert components_filter("vision_encoder") is True
+    assert components_filter("embedding") is True
+    assert components_filter("decoder") is False
+
+    # Verify skipped component directory is absent from disk
+    assert (out / "vision_encoder" / "model.onnx").exists(), "vision_encoder should be on disk"
+    assert (out / "embedding" / "model.onnx").exists(), "embedding should be on disk"
+    assert not (out / "decoder").exists(), "decoder directory should not exist on disk (was skipped)"
+
+
+def test_components_to_export_none_exports_all(tmp_path):
+    """All components are exported when components_to_export is None (default)."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    with _patch_build(pkg):
+        result = _make_pass().run(_make_hf_model("org/vlm"), out)
+
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == keys
+    # pkg.save must have been called without a filter (components=None)
+    save_kwargs = pkg.save.call_args.kwargs
+    assert save_kwargs.get("components") is None
+
+
+def test_components_to_export_single_component_via_filter(tmp_path):
+    """Filtering a multi-component model to one component returns CompositeModelHandler with one component.
+
+    Unlike an architecturally single-component model (which uses root layout), a
+    filtered multi-component model still uses the component sub-directory layout,
+    so we always return CompositeModelHandler for multi-component packages.
+    """
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)
+
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": ["decoder"]},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    # Multi-component model filtered to 1 → still CompositeModelHandler (component sub-dir layout)
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["decoder"]
+
+
+def test_components_to_export_unknown_component_raises(tmp_path):
+    """ValueError when components_to_export names a component not in the package."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder"]
+    pkg = _fake_pkg(keys, out)
+
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": ["nonexistent"]},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg), pytest.raises(ValueError, match="unknown component"):
+        p.run(_make_hf_model("org/vlm"), out)
+
+
+def test_components_to_export_empty_list_raises(tmp_path):
+    """components_to_export=[] must raise ValueError — empty list is always a mistake."""
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder"]
+    pkg = _fake_pkg(keys, out)
+
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": []},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg), pytest.raises(ValueError, match="cannot be empty"):
+        p.run(_make_hf_model("org/vlm"), out)
+
+
+def test_components_to_export_in_default_config():
+    """components_to_export parameter must appear in _default_config with None default."""
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    config = MobiusBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
+    assert "components_to_export" in config
+    assert config["components_to_export"].default_value is None
+    assert config["components_to_export"].required is False
+
+
+def test_pkg_save_old_api_no_components_kwarg_falls_back_gracefully(tmp_path):
+    """When pkg.save() has no 'components' kwarg (old mobius), fall back to saving all and log a warning.
+
+    The production code uses inspect.signature to detect kwarg support rather than a
+    try/except TypeError.  This test exercises that detection path when the installed
+    mobius version exposes a save() without the 'components' parameter.
+    """
+    import inspect as _inspect
+
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+
+    # Old API: no 'components' kwarg — saves all components unconditionally.
+    def _save_old_api(directory: str, **kwargs):
+        d = Path(directory)
+        for k in keys:
+            (d / k).mkdir(parents=True, exist_ok=True)
+            (d / k / "model.onnx").write_text("dummy")
+
+    pkg = MagicMock()
+    pkg.keys.return_value = keys
+    pkg.__iter__ = MagicMock(return_value=iter(keys))
+    pkg.items.return_value = [(k, MagicMock()) for k in keys]
+    pkg.save.side_effect = _save_old_api
+    # Set __signature__ WITHOUT 'components' so inspect.signature detects the old API.
+    pkg.save.__signature__ = _inspect.signature(_save_old_api)
+
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": ["vision_encoder", "embedding"]},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with (
+        _patch_build(pkg),
+        patch("olive.passes.onnx.mobius_model_builder.logger") as mock_logger,
+    ):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    # Old API saved all 3 components to disk (no filter applied), but the returned
+    # CompositeModelHandler only includes the requested components (built from package_keys).
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["vision_encoder", "embedding"]
+
+    # All 3 component directories are on disk — old API couldn't filter, so decoder is an orphan.
+    for k in keys:
+        assert (out / k / "model.onnx").exists(), f"{k}/model.onnx should be on disk"
+
+    # pkg.save must NOT have been called with a 'components=' kwarg (fallback path).
+    assert "components" not in pkg.save.call_args.kwargs
+
+    # A warning must have been logged about the missing kwarg support.
+    warning_messages = [str(call) for call in mock_logger.warning.call_args_list]
+    assert any("components" in msg and "mobius" in msg for msg in warning_messages)
+
+
+def test_pkg_save_components_kwarg_detected_and_filter_applied(tmp_path):
+    """When pkg.save() signature includes 'components', the filter is passed and applied.
+
+    Regression test for the inspect.signature detection path: verifies that the
+    production code correctly calls pkg.save(components=filter) when the kwarg
+    is present in the signature, and that only the requested components land on disk.
+    """
+    out = tmp_path / "out"
+    keys = ["decoder", "vision_encoder", "embedding"]
+    pkg = _fake_pkg(keys, out)  # _fake_pkg uses spec=_save which has 'components' in signature
+
+    accelerator_spec = AcceleratorSpec(
+        accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
+    )
+    p = create_pass_from_dict(
+        MobiusBuilder,
+        {"precision": "fp16", "components_to_export": ["vision_encoder", "embedding"]},
+        disable_search=True,
+        accelerator_spec=accelerator_spec,
+    )
+
+    with _patch_build(pkg):
+        result = p.run(_make_hf_model("org/vlm"), out)
+
+    # Only the requested components should be returned.
+    assert isinstance(result, CompositeModelHandler)
+    assert result.model_component_names == ["vision_encoder", "embedding"]
+
+    # pkg.save must have been called WITH the 'components=' kwarg (modern API path).
+    assert "components" in pkg.save.call_args.kwargs
+
+    # Requested components must be on disk; decoder must not be.
+    assert (out / "vision_encoder" / "model.onnx").exists()
+    assert (out / "embedding" / "model.onnx").exists()
+    assert not (out / "decoder").exists(), "decoder must not be written when filtered out"

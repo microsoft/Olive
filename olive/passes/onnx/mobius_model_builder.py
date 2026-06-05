@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -46,6 +47,19 @@ class MobiusBuilder(Pass):
     pass returns a :class:`~olive.model.handler.composite.CompositeModelHandler`
     whose components are individual :class:`~olive.model.ONNXModelHandler` objects.
     Single-component models return a plain :class:`~olive.model.ONNXModelHandler`.
+
+    Use ``components_to_export`` to export only a subset of components.  This is
+    useful when some components (e.g. a text decoder) are already exported and
+    you only need the remaining ones (e.g. vision encoder and embedding)::
+
+        {
+            "type": "MobiusBuilder",
+            "model_path": "mistralai/Ministral-3B-Instruct-2512",
+            "components_to_export": ["vision_encoder", "embedding"]
+        }
+
+    Raises :class:`ValueError` if ``components_to_export`` is an empty list or
+    contains names not present in the built package.
 
     Requires ``mobius-ai`` to be installed::
 
@@ -107,6 +121,20 @@ class MobiusBuilder(Pass):
                     "configs alongside the ONNX models. 'none' to skip."
                 ),
             ),
+            "components_to_export": PassConfigParam(
+                type_=list[str],
+                required=False,
+                default_value=None,
+                description=(
+                    "Optional list of component names to export from a multi-component model "
+                    "(e.g. ['vision', 'embedding'] to skip the decoder). "
+                    "When set, only the named components are saved and returned; "
+                    "all others are discarded after the mobius build step. "
+                    "When not set (None), all components are exported (default, backward compatible). "
+                    "Raises ValueError if the list is empty or if any specified name is not found in "
+                    "the model's components."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -152,6 +180,13 @@ class MobiusBuilder(Pass):
         if trust_remote_code:
             logger.warning("MobiusBuilder: trust_remote_code=True — only use with trusted model sources.")
 
+        # Validate components_to_export early (before the expensive build step).
+        if config.components_to_export is not None and len(config.components_to_export) == 0:
+            raise ValueError(
+                "MobiusBuilder: components_to_export cannot be empty. "
+                "Pass None to export all components, or specify at least one component name."
+            )
+
         output_dir = Path(output_model_path)
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -163,10 +198,43 @@ class MobiusBuilder(Pass):
             trust_remote_code=trust_remote_code,
         )
 
+        # Determine which package components to export.
+        all_keys = list(pkg.keys())
+        if config.components_to_export is not None:
+            requested = set(config.components_to_export)
+            unknown = requested - set(all_keys)
+            if unknown:
+                raise ValueError(
+                    f"MobiusBuilder: components_to_export contains unknown component(s): {sorted(unknown)}. "
+                    f"Available components from this model: {sorted(all_keys)}"
+                )
+            package_keys = [k for k in all_keys if k in requested]
+            logger.info(
+                "MobiusBuilder: exporting subset of components %s (skipping %s)",
+                package_keys,
+                [k for k in all_keys if k not in requested],
+            )
+
+            def components_filter(name: str) -> bool:
+                return name in requested
+        else:
+            package_keys = all_keys
+            components_filter = None
+
         # ModelPackage.save() handles both single and multi-component layouts:
         #   single component  → <output_dir>/model.onnx
         #   multi-component   → <output_dir>/<name>/model.onnx  for each key
-        pkg.save(str(output_dir))
+        # Check the installed mobius version supports the 'components' kwarg before passing it,
+        # rather than using a try/except (which could mask real errors or leave orphan dirs).
+        if "components" in inspect.signature(pkg.save).parameters:
+            pkg.save(str(output_dir), components=components_filter)
+        else:
+            if components_filter is not None:
+                logger.warning(
+                    "MobiusBuilder: installed mobius version does not support the 'components' filter kwarg; "
+                    "all components will be saved. Upgrade mobius to enable selective export."
+                )
+            pkg.save(str(output_dir))
 
         # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
         # files, processor configs) when runtime is set to ort-genai.
@@ -174,10 +242,12 @@ class MobiusBuilder(Pass):
         if config.runtime == self.MobiusRuntime.ORT_GENAI:
             genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
 
-        package_keys = list(pkg.keys())
         logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)
 
-        if len(package_keys) == 1:
+        # Use the single-component (root layout) path only when the model is
+        # architecturally single-component.  A multi-component model filtered
+        # down to one component still uses component sub-directories on disk.
+        if len(all_keys) == 1:
             # Single-component model (most LLMs): return a plain ONNXModelHandler.
             onnx_path = output_dir / "model.onnx"
             if not onnx_path.exists():
