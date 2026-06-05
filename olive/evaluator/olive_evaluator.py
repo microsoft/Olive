@@ -883,7 +883,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     pil_image = item.get("image")
                     question = item.get("question", "")
                     sys_prompt = item.get("system_prompt", "")
-                    extract_number = item.get("extract_number", False)
+                    extract_option_letter = item.get("extract_option_letter", False)
 
                     if pil_image is None:
                         # Append empty pred to maintain alignment with targets
@@ -930,12 +930,12 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     del generator
 
                     pred = tokenizer.decode(tokens).strip()
-                    # For multiple-choice tasks, extract leading number from responses
-                    # like "1. D" or "0. krill" to match the expected answer format
-                    if extract_number:
-                        num_match = re.match(r"^(\d+)", pred)
-                        if num_match:
-                            pred = num_match.group(1)
+                    # For multiple-choice tasks, extract the option letter from responses
+                    # like "A", "B. explanation", or "The answer is C"
+                    if extract_option_letter:
+                        letter_match = re.search(r"\b([A-Z])\b", pred)
+                        if letter_match:
+                            pred = letter_match.group(1)
                     all_preds.append(pred)
 
                 # Collect reference texts (aligned with preds including empty ones for None images)

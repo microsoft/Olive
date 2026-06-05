@@ -466,7 +466,8 @@ def vision_vqa_pre_process(
             if self.options_column and self.options_column in item:
                 options = item[self.options_column]
                 if isinstance(options, (list, tuple)):
-                    options_text = "\n".join(f"{i}. {opt}" for i, opt in enumerate(options))
+                    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    options_text = "\n".join(f"{letters[i]}. {opt}" for i, opt in enumerate(options))
                     question = f"{question}\n{options_text}"
                     has_options = True
 
@@ -478,7 +479,7 @@ def vision_vqa_pre_process(
                 "image": image,
                 "question": question,
                 "system_prompt": self.system_prompt,
-                "extract_number": has_options,
+                "extract_option_letter": has_options,
             }
             return input_dict, str(answer)
 
