@@ -38,6 +38,20 @@ def _infer_shape(dynamic_shape, known_values=None):
     return tuple(inferred_shape)
 
 
+def _longest_common_token_sequence(seq_a: list[int], seq_b: list[int]) -> int:
+    """Compute the length of the longest common token sequence starting from the beginning.
+
+    Counts how many tokens match consecutively from the start of both sequences
+    before the first divergence.
+    """
+    length = 0
+    for a, b in zip(seq_a, seq_b):
+        if a != b:
+            break
+        length += 1
+    return length
+
+
 class OnnxDiscrepancyCheck(Pass):
     """Validates ONNX model outputs against a reference PyTorch model.
 
@@ -47,6 +61,8 @@ class OnnxDiscrepancyCheck(Pass):
     - Maximum absolute error (MaxAE)
     - Number of elements where the absolute difference exceeds 0.1
     - Number of elements where the absolute difference exceeds 0.01
+    - Longest common token sequence from the beginning between transformers
+      generate and ONNX Runtime GenAI generate (when enabled)
 
     The pass fails if any configured threshold is exceeded.
     """
@@ -80,6 +96,34 @@ class OnnxDiscrepancyCheck(Pass):
                 description=(
                     "Maximum acceptable number of elements with absolute difference > 0.01. "
                     "If exceeded, the pass fails."
+                ),
+            ),
+            "genai_model_path": PassConfigParam(
+                type_=Optional[str],
+                default_value=None,
+                description=(
+                    "Path to the ONNX Runtime GenAI model directory. When provided, the pass "
+                    "runs token generation using both transformers and ONNX Runtime GenAI, then "
+                    "computes the longest common token sequence from the beginning of their outputs."
+                ),
+            ),
+            "generate_prompt": PassConfigParam(
+                type_=str,
+                default_value="The capital of France is",
+                description="Text prompt used for generation comparison between transformers and GenAI.",
+            ),
+            "generate_max_new_tokens": PassConfigParam(
+                type_=int,
+                default_value=32,
+                description="Maximum number of new tokens to generate for the token sequence comparison.",
+            ),
+            "min_longest_common_tokens": PassConfigParam(
+                type_=Optional[int],
+                default_value=None,
+                description=(
+                    "Minimum acceptable length of the longest common token sequence from the "
+                    "beginning between transformers and GenAI outputs. If the actual value is "
+                    "below this threshold, the pass fails."
                 ),
             ),
         }
@@ -197,5 +241,65 @@ class OnnxDiscrepancyCheck(Pass):
         if failures:
             raise RuntimeError("ONNX model discrepancy check failed:\n" + "\n".join(f"  - {f}" for f in failures))
 
+        # Generation token sequence comparison (transformers vs ONNX Runtime GenAI)
+        if config.genai_model_path:
+            longest_common = self.compare_generation(config, ref_model)
+            if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
+                raise RuntimeError(
+                    f"ONNX model discrepancy check failed:\n"
+                    f"  - Longest common token sequence length {longest_common} is below "
+                    f"threshold {config.min_longest_common_tokens}"
+                )
+
         # Return the model unchanged
         return model
+
+    def compare_generation(self, config: type[BasePassConfig], ref_model) -> int:
+        """Run generation on both transformers and GenAI, return longest common token sequence length."""
+        try:
+            import onnxruntime_genai as og
+        except ImportError as exc:
+            raise ImportError("Please install `onnxruntime-genai` to enable generation comparison.") from exc
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(config.reference_model_path)
+
+        # Transformers generation
+        input_ids = tokenizer(config.generate_prompt, return_tensors="pt").input_ids
+        import torch
+
+        with torch.no_grad():
+            transformers_output = ref_model.generate(
+                input_ids,
+                max_new_tokens=config.generate_max_new_tokens,
+                do_sample=False,
+            )
+        transformers_tokens = transformers_output[0].tolist()
+
+        # ONNX Runtime GenAI generation
+        genai_model = og.Model(config.genai_model_path)
+        genai_tokenizer = og.Tokenizer(genai_model)
+        genai_input_ids = genai_tokenizer.encode(config.generate_prompt)
+
+        params = og.GeneratorParams(genai_model)
+        params.set_search_options(max_length=len(genai_input_ids) + config.generate_max_new_tokens, do_sample=False)
+
+        generator = og.Generator(genai_model, params)
+        generator.append_tokens([genai_input_ids])
+        genai_tokens = list(genai_input_ids)
+        while not generator.is_done():
+            generator.generate_next_token()
+            genai_tokens.append(generator.get_next_tokens()[0])
+        del generator
+
+        longest_common = _longest_common_token_sequence(transformers_tokens, genai_tokens)
+
+        logger.info(
+            "OnnxDiscrepancyCheck generation comparison: "
+            "transformers_len=%d, genai_len=%d, longest_common_token_sequence=%d",
+            len(transformers_tokens),
+            len(genai_tokens),
+            longest_common,
+        )
+
+        return longest_common
