@@ -847,11 +847,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         model_dir = str(Path(model.model_path).parent)
 
-        # max_length in genai is total sequence length (input + output).
-        # Default to 1028 which accommodates image/prompt tokens (~200-500) plus answer tokens.
-        # Note: genai_config.json's search.max_length is typically the full context window
-        # (e.g., 262144) which is too large — the model will stop at EOS well before this cap.
-        max_length = 1028
+        # Default max_length; can be overridden per-sample from the data config.
+        default_max_length = 4096
 
         # Build og.Model with appropriate execution provider
         # Note: onnxruntime-genai uses CPU by default when no provider is appended.
@@ -872,6 +869,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_img_path = Path(tmp_dir) / "input.png"
 
+            sample_idx = 0
             for batch in dataloader:
                 input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
 
@@ -883,59 +881,77 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     pil_image = item.get("image")
                     question = item.get("question", "")
                     sys_prompt = item.get("system_prompt", "")
-                    extract_number = item.get("extract_number", False)
+                    num_choices = item.get("num_choices", 0)
+                    max_length = item.get("max_length", default_max_length)
 
                     if pil_image is None:
                         # Append empty pred to maintain alignment with targets
                         all_preds.append("")
+                        sample_idx += 1
                         continue
 
-                    # Ensure PIL Image
-                    if not isinstance(pil_image, Image.Image):
-                        with Image.open(pil_image) as img:
-                            pil_image = img.convert("RGB")
+                    try:
+                        # Ensure PIL Image
+                        if not isinstance(pil_image, Image.Image):
+                            with Image.open(pil_image) as img:
+                                pil_image = img.convert("RGB")
 
-                    # Build chat messages for the vision-language model
-                    messages = []
-                    if sys_prompt:
-                        messages.append({"role": "system", "content": sys_prompt})
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "image"},
-                                {"type": "text", "text": question},
-                            ],
-                        }
-                    )
-                    messages_json = json.dumps(messages)
+                        # Build chat messages for the vision-language model
+                        messages = []
+                        if sys_prompt:
+                            messages.append({"role": "system", "content": sys_prompt})
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "image"},
+                                    {"type": "text", "text": question},
+                                ],
+                            }
+                        )
+                        messages_json = json.dumps(messages)
 
-                    # Save image to temp file for og.Images (reuse same path to minimize I/O)
-                    pil_image.save(str(tmp_img_path), format="PNG")
-                    images = og.Images.open(str(tmp_img_path))
+                        # Save image to temp file for og.Images (reuse same path to minimize I/O)
+                        pil_image.save(str(tmp_img_path), format="PNG")
+                        images = og.Images.open(str(tmp_img_path))
 
-                    prompt = tokenizer.apply_chat_template(messages_json, add_generation_prompt=True)
-                    inputs = processor(prompt, images=images)
+                        prompt = tokenizer.apply_chat_template(messages_json, add_generation_prompt=True)
+                        inputs = processor(prompt, images=images)
 
-                    params = og.GeneratorParams(og_model)
-                    params.set_search_options(max_length=max_length, do_sample=False)
+                        params = og.GeneratorParams(og_model)
+                        params.set_search_options(max_length=max_length, do_sample=False)
 
-                    generator = og.Generator(og_model, params)
-                    generator.set_inputs(inputs)
+                        generator = og.Generator(og_model, params)
+                        generator.set_inputs(inputs)
 
-                    tokens = []
-                    while not generator.is_done():
-                        generator.generate_next_token()
-                        tokens.append(generator.get_next_tokens()[0])
-                    del generator
+                        tokens = []
+                        while not generator.is_done():
+                            generator.generate_next_token()
+                            tokens.append(generator.get_next_tokens()[0])
+                        del generator
 
-                    pred = tokenizer.decode(tokens).strip()
-                    # For multiple-choice tasks, extract leading number from responses
-                    # like "1. D" or "0. krill" to match the expected answer format
-                    if extract_number:
-                        num_match = re.match(r"^(\d+)", pred)
+                        pred = tokenizer.decode(tokens).strip()
+                    except Exception as e:
+                        logger.warning("Skipping sample %d due to error: %s", sample_idx, e)
+                        pred = ""
+
+                    sample_idx += 1
+
+                    # For multiple-choice tasks, extract the answer digit from responses
+                    # like "2", "The answer is 3", or "1. D" to match the expected answer format.
+                    # Only enabled when num_choices is between 1 and 9 (single-digit options).
+                    if 1 <= num_choices <= 9 and pred:
+                        pattern = rf"\b([1-{num_choices}])\b"
+                        num_match = re.search(pattern, pred)
                         if num_match:
                             pred = num_match.group(1)
+                        else:
+                            # Fallback: find any single digit in the valid range
+                            valid_digits = {str(d) for d in range(1, num_choices + 1)}
+                            for ch in pred:
+                                if ch in valid_digits:
+                                    pred = ch
+                                    break
                     all_preds.append(pred)
 
                 # Collect reference texts (aligned with preds including empty ones for None images)
