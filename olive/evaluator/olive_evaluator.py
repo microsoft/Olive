@@ -847,11 +847,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         model_dir = str(Path(model.model_path).parent)
 
-        # max_length in genai is total sequence length (input + output).
-        # Vision prompts with large images can exceed 3000 tokens (due to vision patches
-        # from smart_resize). Use 4096 as a safe upper bound for most VLMs.
-        # The model will stop at EOS well before this cap.
-        max_length = 4096
+        # Default max_length; can be overridden per-sample from the data config.
+        default_max_length = 4096
 
         # Build og.Model with appropriate execution provider
         # Note: onnxruntime-genai uses CPU by default when no provider is appended.
@@ -884,6 +881,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     question = item.get("question", "")
                     sys_prompt = item.get("system_prompt", "")
                     num_choices = item.get("num_choices", 0)
+                    max_length = item.get("max_length", default_max_length)
 
                     if pil_image is None:
                         # Append empty pred to maintain alignment with targets

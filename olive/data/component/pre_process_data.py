@@ -389,6 +389,7 @@ def vision_vqa_pre_process(
     answer_col: str = "answer",
     options_col: str = "",
     system_prompt: str = "",
+    max_length: int = 4096,
     max_samples: Optional[int] = None,
     limit: Optional[float] = None,
     seed: int = 42,
@@ -414,6 +415,8 @@ def vision_vqa_pre_process(
             options are formatted as numbered choices and appended to the question. Defaults to "".
         system_prompt: System prompt to guide model responses (e.g., "Reply with only the
             option number"). Passed through to the evaluator. Defaults to "".
+        max_length: Maximum generation length (input + output tokens) for the VLM. Vision prompts
+            with large images can exceed 3000 tokens due to vision patches. Defaults to 4096.
         max_samples: Maximum number of samples (deprecated, use limit). Defaults to None.
         limit: Sampling limit following Olive convention:
             If >= 1: use first N samples.
@@ -444,13 +447,14 @@ def vision_vqa_pre_process(
         Note: Use batch_size=1 in dataloader config as images have variable sizes.
         """
 
-        def __init__(self, hf_dataset, image_column, question_column, answer_column, options_column="", sys_prompt=""):
+        def __init__(self, hf_dataset, image_column, question_column, answer_column, options_column="", sys_prompt="", max_length=4096):
             self.dataset = hf_dataset
             self.image_column = image_column
             self.question_column = question_column
             self.answer_column = answer_column
             self.options_column = options_column
             self.system_prompt = sys_prompt
+            self.max_length = max_length
 
         def __len__(self):
             return len(self.dataset)
@@ -492,6 +496,7 @@ def vision_vqa_pre_process(
                 "question": question,
                 "system_prompt": self.system_prompt,
                 "num_choices": num_choices,
+                "max_length": self.max_length,
             }
             return input_dict, str(answer)
 
@@ -509,4 +514,4 @@ def vision_vqa_pre_process(
             answers = [item[1] for item in batch]
             return (inputs, answers)
 
-    return VisionVQADataset(dataset, image_col, question_col, answer_col, options_col, system_prompt)
+    return VisionVQADataset(dataset, image_col, question_col, answer_col, options_col, system_prompt, max_length)
