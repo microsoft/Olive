@@ -869,6 +869,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_img_path = Path(tmp_dir) / "input.png"
 
+            sample_idx = 0
             for batch in dataloader:
                 input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
 
@@ -886,6 +887,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     if pil_image is None:
                         # Append empty pred to maintain alignment with targets
                         all_preds.append("")
+                        sample_idx += 1
                         continue
 
                     try:
@@ -930,8 +932,10 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
                         pred = tokenizer.decode(tokens).strip()
                     except Exception as e:
-                        logger.warning("Skipping sample due to error: %s", e)
+                        logger.warning("Skipping sample %d due to error: %s", sample_idx, e)
                         pred = ""
+
+                    sample_idx += 1
 
                     # For multiple-choice tasks, extract the answer digit from responses
                     # like "2", "The answer is 3", or "1. D" to match the expected answer format.
