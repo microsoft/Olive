@@ -51,7 +51,12 @@ class HfMixin:
         :param exclude_load_keys: list of keys to exclude from load_kwargs
         :return: generation config or None
         """
-        return get_generation_config(self.model_path, **self.get_load_kwargs(exclude_load_keys))
+        # Generation config loading should not receive model-loading-only kwargs such as
+        # dtype, device placement, or quantization settings.
+        generation_config_exclude_keys = {"torch_dtype", "dtype", "device_map", "max_memory", "quantization_config"}
+        if exclude_load_keys:
+            generation_config_exclude_keys.update(exclude_load_keys)
+        return get_generation_config(self.model_path, **self.get_load_kwargs(list(generation_config_exclude_keys)))
 
     def get_hf_tokenizer(self) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
         """Get tokenizer for the model."""

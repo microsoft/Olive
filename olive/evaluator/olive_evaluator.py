@@ -847,16 +847,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         model_dir = str(Path(model.model_path).parent)
 
-        # max_length in genai is total sequence length (input + output).
-        # Use genai_config's search.max_length if available, otherwise default to 8192
-        # to accommodate large image token counts (e.g., 5000+ for high-res images).
-        genai_config_path = Path(model_dir) / "genai_config.json"
-        if genai_config_path.exists():
-            with open(genai_config_path) as f:
-                _genai_cfg = json.load(f)
-        else:
-            _genai_cfg = {}
-        max_length = min(_genai_cfg.get("search", {}).get("max_length", 8192), 8192)
+        # Default max_length; can be overridden per-sample from the data config.
+        default_max_length = 4096
 
         # Build og.Model with appropriate execution provider
         # Note: onnxruntime-genai uses CPU by default when no provider is appended.
@@ -877,6 +869,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_img_path = Path(tmp_dir) / "input.png"
 
+            sample_idx = 0
             for batch in dataloader:
                 input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
 
@@ -889,55 +882,78 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     question = item.get("question", "")
                     sys_prompt = item.get("system_prompt", "")
                     extract_option_letter = item.get("extract_option_letter", False)
+                    num_choices = item.get("num_choices", 0)
+                    max_length = item.get("max_length", default_max_length)
 
                     if pil_image is None:
                         # Append empty pred to maintain alignment with targets
                         all_preds.append("")
+                        sample_idx += 1
                         continue
 
-                    # Ensure PIL Image
-                    if not isinstance(pil_image, Image.Image):
-                        with Image.open(pil_image) as img:
-                            pil_image = img.convert("RGB")
+                    try:
+                        # Ensure PIL Image
+                        if not isinstance(pil_image, Image.Image):
+                            with Image.open(pil_image) as img:
+                                pil_image = img.convert("RGB")
 
-                    # Build chat messages for the vision-language model
-                    messages = []
-                    if sys_prompt:
-                        messages.append({"role": "system", "content": sys_prompt})
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "image"},
-                                {"type": "text", "text": question},
-                            ],
-                        }
-                    )
-                    messages_json = json.dumps(messages)
+                        # Build chat messages for the vision-language model
+                        messages = []
+                        if sys_prompt:
+                            messages.append({"role": "system", "content": sys_prompt})
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "image"},
+                                    {"type": "text", "text": question},
+                                ],
+                            }
+                        )
+                        messages_json = json.dumps(messages)
 
-                    # Save image to temp file for og.Images (reuse same path to minimize I/O)
-                    pil_image.save(str(tmp_img_path), format="PNG")
-                    images = og.Images.open(str(tmp_img_path))
+                        # Save image to temp file for og.Images (reuse same path to minimize I/O)
+                        pil_image.save(str(tmp_img_path), format="PNG")
+                        images = og.Images.open(str(tmp_img_path))
 
-                    prompt = tokenizer.apply_chat_template(messages_json, add_generation_prompt=True)
-                    inputs = processor(prompt, images=images)
+                        prompt = tokenizer.apply_chat_template(messages_json, add_generation_prompt=True)
+                        inputs = processor(prompt, images=images)
 
-                    params = og.GeneratorParams(og_model)
-                    params.set_search_options(max_length=max_length, do_sample=False)
+                        params = og.GeneratorParams(og_model)
+                        params.set_search_options(max_length=max_length, do_sample=False)
 
-                    generator = og.Generator(og_model, params)
-                    generator.set_inputs(inputs)
+                        generator = og.Generator(og_model, params)
+                        generator.set_inputs(inputs)
 
-                    tokens = []
-                    while not generator.is_done():
-                        generator.generate_next_token()
-                        tokens.append(generator.get_next_tokens()[0])
-                    del generator
+                        tokens = []
+                        while not generator.is_done():
+                            generator.generate_next_token()
+                            tokens.append(generator.get_next_tokens()[0])
+                        del generator
 
-                    pred = tokenizer.decode(tokens).strip()
-                    # For multiple-choice tasks, extract the option letter from responses
-                    # like "A", "B. explanation", or "The answer is C"
-                    if extract_option_letter:
+                        pred = tokenizer.decode(tokens).strip()
+                    except Exception as e:
+                        logger.warning("Skipping sample %d due to error: %s", sample_idx, e)
+                        pred = ""
+
+                    sample_idx += 1
+
+                    # For multiple-choice tasks, extract the answer from responses.
+                    # First try digit extraction (for 1-based numbered options),
+                    # then fall back to letter extraction (for A/B/C/D options).
+                    if 1 <= num_choices <= 9 and pred:
+                        pattern = rf"\b([1-{num_choices}])\b"
+                        num_match = re.search(pattern, pred)
+                        if num_match:
+                            pred = num_match.group(1)
+                        else:
+                            # Fallback: find any single digit in the valid range
+                            valid_digits = {str(d) for d in range(1, num_choices + 1)}
+                            for ch in pred:
+                                if ch in valid_digits:
+                                    pred = ch
+                                    break
+                    elif extract_option_letter and pred:
                         letter_match = re.search(r"\b([A-Z])\b", pred)
                         if letter_match:
                             pred = letter_match.group(1)
@@ -1889,6 +1905,9 @@ class LMEvaluator(OliveEvaluator):
         self.model_class = kwargs.get("model_class")
         self.batch_size = kwargs.get("batch_size", 1)
         self.max_length = kwargs.get("max_length")
+        # Preserve lm-eval bootstrap control from recipe configs. Some generation metrics disable
+        # bootstrap stderr resampling to avoid extra post-processing work on large test sets.
+        self.bootstrap_iters = kwargs.get("bootstrap_iters", 100000)
         self.ep = kwargs.get("execution_provider")
         self.ep_options = kwargs.get("provider_options")
         self.device = kwargs.get("device")
@@ -1971,6 +1990,8 @@ class LMEvaluator(OliveEvaluator):
                 batch_size=self.batch_size,
                 device=device,
                 limit=self.limit,
+                # Forward the configured value instead of letting lm-eval silently use its default.
+                bootstrap_iters=self.bootstrap_iters,
             )
 
             for task_name in sorted(results["results"].keys()):

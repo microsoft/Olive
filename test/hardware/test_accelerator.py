@@ -429,6 +429,17 @@ def test_normalize_accelerators(
             },
             ("npu", [ExecutionProvider.QNNExecutionProvider], 1e9),
         ),
+        (
+            {
+                "type": "LocalSystem",
+                "config": {
+                    "accelerators": [
+                        {"device": "gpu", "execution_providers": [ExecutionProvider.WebGpuExecutionProvider]}
+                    ]
+                },
+            },
+            ("gpu", [ExecutionProvider.WebGpuExecutionProvider]),
+        ),
     ],
 )
 def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
@@ -438,6 +449,26 @@ def test_normalize_accelerators_skip_ep_check(system_config, expected_acc):
     assert normalized_accs.config.accelerators[0].execution_providers == expected_acc[1]
     if len(expected_acc) == 3:
         assert normalized_accs.config.accelerators[0].memory == expected_acc[2]
+
+
+@patch("olive.systems.local.get_ort_available_providers")
+def test_normalize_accelerators_requires_runtime_webgpu_when_target_used(get_available_providers_mock):
+    system_config = validate_config(
+        {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": [{"device": "gpu", "execution_providers": [ExecutionProvider.WebGpuExecutionProvider]}]
+            },
+        },
+        SystemConfig,
+    )
+    get_available_providers_mock.return_value = [
+        ExecutionProvider.CUDAExecutionProvider,
+        ExecutionProvider.CPUExecutionProvider,
+    ]
+
+    with pytest.raises(ValueError, match="None of the execution providers"):
+        AcceleratorNormalizer(system_config, skip_supported_eps_check=False).normalize()
 
 
 @pytest.mark.parametrize(
