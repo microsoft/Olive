@@ -214,6 +214,7 @@ class ModelBuilder(Pass):
         output_model_path: str,
     ) -> ONNXModelHandler:
         from onnxruntime_genai.models.builder import create_model
+
         self.maybe_patch_quant()
 
         precision = config.precision
