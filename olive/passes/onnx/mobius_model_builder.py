@@ -54,12 +54,6 @@ class MobiusBuilder(Pass):
     See https://github.com/onnxruntime/mobius
     """
 
-    class MobiusRuntime(StrEnumBase):
-        """Target runtimes for genai config generation."""
-
-        NONE = "none"
-        ORT_GENAI = "ort-genai"
-
     class MobiusEP(StrEnumBase):
         """Execution providers supported by mobius."""
 
@@ -95,16 +89,6 @@ class MobiusBuilder(Pass):
                     "Model weight / compute precision. One of: fp32, fp16, bf16. "
                     "Defaults to fp32. For INT4 quantization, run an Olive "
                     "quantization pass (e.g. OnnxMatMulNBits) after this pass."
-                ),
-            ),
-            "runtime": PassConfigParam(
-                type_=MobiusBuilder.MobiusRuntime,
-                required=False,
-                default_value=MobiusBuilder.MobiusRuntime.ORT_GENAI,
-                description=(
-                    "Target runtime. 'ort-genai' (default) generates "
-                    "genai_config.json, tokenizer files, and processor "
-                    "configs alongside the ONNX models. 'none' to skip."
                 ),
             ),
         }
@@ -169,10 +153,8 @@ class MobiusBuilder(Pass):
         pkg.save(str(output_dir))
 
         # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
-        # files, processor configs) when runtime is set to ort-genai.
-        genai_artifacts = {}
-        if config.runtime == self.MobiusRuntime.ORT_GENAI:
-            genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
+        # files, processor configs) alongside the ONNX models.
+        genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
 
         package_keys = list(pkg.keys())
         logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)

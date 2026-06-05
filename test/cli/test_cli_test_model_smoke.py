@@ -280,7 +280,6 @@ class TestCliTestModelSmoke(unittest.TestCase):
                 "mobius_builder": {
                     "type": "MobiusBuilder",
                     "precision": "fp32",
-                    "runtime": "none",
                 },
                 "discrepancy_check": {
                     "type": "OnnxDiscrepancyCheck",
