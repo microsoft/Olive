@@ -848,10 +848,10 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         model_dir = str(Path(model.model_path).parent)
 
         # max_length in genai is total sequence length (input + output).
-        # Vision prompts with images can exceed 1800 tokens (due to vision patches from
-        # smart_resize), so use 3000 to provide ample headroom. The model will stop at
-        # EOS well before this cap — we only need 1-2 generated tokens for VQA.
-        max_length = 3000
+        # Vision prompts with large images can exceed 3000 tokens (due to vision patches
+        # from smart_resize). Use 4096 as a safe upper bound for most VLMs.
+        # The model will stop at EOS well before this cap.
+        max_length = 4096
 
         # Build og.Model with appropriate execution provider
         # Note: onnxruntime-genai uses CPU by default when no provider is appended.
@@ -883,7 +883,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     pil_image = item.get("image")
                     question = item.get("question", "")
                     sys_prompt = item.get("system_prompt", "")
-                    extract_number = item.get("extract_number", False)
+                    num_choices = item.get("num_choices", 0)
 
                     if pil_image is None:
                         # Append empty pred to maintain alignment with targets
@@ -920,27 +920,34 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     params = og.GeneratorParams(og_model)
                     params.set_search_options(max_length=max_length, do_sample=False)
 
-                    generator = og.Generator(og_model, params)
-                    generator.set_inputs(inputs)
+                    try:
+                        generator = og.Generator(og_model, params)
+                        generator.set_inputs(inputs)
 
-                    tokens = []
-                    while not generator.is_done():
-                        generator.generate_next_token()
-                        tokens.append(generator.get_next_tokens()[0])
-                    del generator
+                        tokens = []
+                        while not generator.is_done():
+                            generator.generate_next_token()
+                            tokens.append(generator.get_next_tokens()[0])
+                        del generator
 
-                    pred = tokenizer.decode(tokens).strip()
+                        pred = tokenizer.decode(tokens).strip()
+                    except RuntimeError as e:
+                        logger.warning("Skipping sample due to runtime error: %s", e)
+                        pred = ""
 
-                    # For multiple-choice tasks, extract the first 1-4 digit from responses
-                    # like "2", "The answer is 3", or "1. D" to match the expected answer format
-                    if extract_number and pred:
-                        num_match = re.search(r"\b([1-4])\b", pred)
+                    # For multiple-choice tasks, extract the answer digit from responses
+                    # like "2", "The answer is 3", or "1. D" to match the expected answer format.
+                    # Only enabled when num_choices is between 1 and 9 (single-digit options).
+                    if 1 <= num_choices <= 9 and pred:
+                        pattern = rf"\b([1-{num_choices}])\b"
+                        num_match = re.search(pattern, pred)
                         if num_match:
                             pred = num_match.group(1)
                         else:
-                            # Fallback: find any single digit 1-4 in the response
+                            # Fallback: find any single digit in the valid range
+                            valid_digits = set(str(d) for d in range(1, num_choices + 1))
                             for ch in pred:
-                                if ch in "1234":
+                                if ch in valid_digits:
                                     pred = ch
                                     break
                     all_preds.append(pred)

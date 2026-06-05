@@ -478,18 +478,20 @@ def vision_vqa_pre_process(
                 answer = "|".join(str(a) for a in answer) if answer else ""
 
             # Convert 0-based answer index to 1-based to match the option numbering
+            num_choices = 0
             if has_options:
+                num_choices = len(options)
                 try:
                     idx = int(answer)
                     answer = str(idx + 1)
                 except (ValueError, TypeError):
-                    pass
+                    pass  # answer is already a non-numeric string (e.g., text label)
 
             input_dict = {
                 "image": image,
                 "question": question,
                 "system_prompt": self.system_prompt,
-                "extract_number": has_options,
+                "num_choices": num_choices,
             }
             return input_dict, str(answer)
 
