@@ -117,6 +117,7 @@ class EPContextBinaryGenerator(Pass):
             "session_options": config.session_options,
             "embed_context": config.embed_context,
             "disable_cpu_fallback": config.disable_cpu_fallback,
+            "model": model,
         }
 
         if isinstance(model, ONNXModelHandler):
@@ -243,6 +244,7 @@ class EPContextBinaryGenerator(Pass):
         share_ep_contexts: bool = False,
         stop_share_ep_contexts: bool = False,
         ignore_missing_cb_bin: bool = False,
+        model: Optional[Union[ONNXModelHandler, CompositeModelHandler]] = None,
     ) -> ONNXModelHandler:
         """Generate context binary for the model.
 
@@ -271,7 +273,7 @@ class EPContextBinaryGenerator(Pass):
         if execution_provider == ExecutionProvider.QNNExecutionProvider:
             if str(device).lower() == "gpu":
                 provider_options["backend_path"] = "libQnnGpu.so" if platform.system() == "Linux" else "QnnGpu.dll"
-                update_llm_pipeline_genai_config_gpu_ctxbin(model_path)
+                update_llm_pipeline_genai_config_gpu_ctxbin(model, Path(output_model_path))
             else:
                 provider_options["backend_path"] = "libQnnHtp.so" if platform.system() == "Linux" else "QnnHtp.dll"
                 if share_ep_contexts:
