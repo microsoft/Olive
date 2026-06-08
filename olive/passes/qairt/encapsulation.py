@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 # --------------------------------------------------------------------------
 
+import copy
 import inspect
 import logging
 import os
@@ -46,11 +47,16 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
                 if i < len(result[k]) and isinstance(result[k][i], dict) and isinstance(ov, dict):
                     merged.append(_deep_merge(result[k][i], ov))
                 else:
-                    merged.append(ov)
-            merged.extend(result[k][len(v) :])
+                    merged.append(copy.deepcopy(ov))
+            merged.extend(copy.deepcopy(item) for item in result[k][len(v) :])
             result[k] = merged
         else:
-            result[k] = v
+            result[k] = copy.deepcopy(v)
+    # Deep-copy any base values that were not touched by overrides so the
+    # returned dict is fully independent of base.
+    for k, existing in result.items():
+        if k not in overrides:
+            result[k] = copy.deepcopy(existing)
     return result
 
 

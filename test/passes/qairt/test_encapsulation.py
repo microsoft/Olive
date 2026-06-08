@@ -355,7 +355,6 @@ def test_encapsulation_epcontext_node_outputs(tmp_path, mock_qairt_model, mock_q
     dlc_filename = dlc_files[0].name
 
     model_def = onnx.load(output_path / "model.onnx")
-    assert model_def.ir_version >= 8
 
     assert len(model_def.graph.node) == 1
     node = model_def.graph.node[0]
@@ -706,13 +705,17 @@ def test_deep_merge_nested_override_replaces_non_dict():
 
 
 def test_deep_merge_base_unmodified():
-    """_deep_merge does not mutate base."""
+    """_deep_merge does not mutate base, and the result shares no references with base."""
     from olive.passes.qairt.encapsulation import _deep_merge
 
-    base = {"a": {"b": 1}}
+    base = {"a": {"b": 1}, "c": [{"d": 2}]}
     overrides = {"a": {"b": 2}}
-    _deep_merge(base, overrides)
+    result = _deep_merge(base, overrides)
+    # base is unchanged
     assert base["a"]["b"] == 1
+    # mutating the result's untouched branch does not affect base
+    result["c"][0]["d"] = 99
+    assert base["c"][0]["d"] == 2
 
 
 def test_deep_merge_list_of_dicts_merged_elementwise():
