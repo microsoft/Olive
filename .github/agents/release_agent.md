@@ -57,11 +57,11 @@ Use this exact release-note structure:
 
 ## New Features
 
-- <Feature name> ([#PR](https://github.com/microsoft/Olive/pull/PR), by @author): <Concise description of what was added and why it matters.>
+- Feature name ([#1234](https://github.com/microsoft/Olive/pull/1234), by @username): Concise description of what was added and why it matters.
 
 ## Improvements
 
-- <Improvement name> ([#PR](https://github.com/microsoft/Olive/pull/PR), by @author): <Concise description of what was improved.>
+- Improvement name ([#1234](https://github.com/microsoft/Olive/pull/1234), by @username): Concise description of what was improved.
 
 ## Security
 
