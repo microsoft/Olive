@@ -386,6 +386,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         # Transformers generation
         input_ids = tokenizer(config.generate_prompt, return_tensors="pt").input_ids
+        input_ids = input_ids.to(ref_model.device)
         import torch
 
         with torch.no_grad():
@@ -394,7 +395,7 @@ class OnnxDiscrepancyCheck(Pass):
                 max_new_tokens=config.generate_max_new_tokens,
                 do_sample=False,
             )
-        transformers_tokens = transformers_output[0].tolist()
+        transformers_tokens = transformers_output[0].cpu().tolist()
 
         # ONNX Runtime GenAI generation
         genai_model = og.Model(config.genai_model_path)
