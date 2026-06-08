@@ -65,7 +65,7 @@ Use this exact release-note structure:
 
 ## Security
 
-- <Security change name> ([#PR](https://github.com/microsoft/Olive/pull/PR), by @author): <Concise description of the security hardening or dependency/security-related change.>
+- Security change name ([#1234](https://github.com/microsoft/Olive/pull/1234), by @username): Concise description of the security hardening or dependency/security-related change.
 
 Only include sections that have relevant entries.
 
