@@ -850,7 +850,7 @@
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--use_ort_genai</kbd></dt>
-<dd><p>Use OnnxRuntime generate() API to run the model</p>
+<dd><p>Use OnnxRuntime generate() API to run the model. Ignored when –use_mobius_builder is set (mobius always emits ORT GenAI artifacts).</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">False</span></code></p>
 </dd>
 <dt><kbd>--log_level</kbd></dt>
@@ -901,7 +901,7 @@
 <dl class="option-list">
 <dt><kbd>--precision</kbd></dt>
 <dd><p>Possible choices: fp16, fp32, int4, bf16</p>
-<p>The precision of the ONNX model. This is used by Model Builder</p>
+<p>The precision of the ONNX model. Used by Model Builder and Mobius Builder.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">'fp16'</span></code></p>
 </dd>
 <dt><kbd>--int4_block_size</kbd></dt>
