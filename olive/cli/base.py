@@ -87,6 +87,25 @@ def add_discrepancy_check_pass(run_config: dict) -> dict:
     return run_config
 
 
+def save_discrepancy_check_results(workflow_output, output_path: str) -> None:
+    """Save discrepancy check results from model attributes to the output directory."""
+    if not workflow_output or not workflow_output.has_output_model():
+        return
+
+    best = workflow_output.get_best_candidate()
+    if not best:
+        return
+
+    model_attrs = best.model_config.get("model_attributes") or {}
+    results = model_attrs.get("discrepancy_check_results")
+    if not results:
+        return
+
+    report_path = Path(output_path) / "discrepancy_check_results.json"
+    report_path.write_text(json.dumps(results, indent=2))
+    print(f"OnnxDiscrepancyCheck results saved to {report_path}")
+
+
 class BaseOliveCLICommand(ABC):
     allow_unknown_args: ClassVar[bool] = False
 
@@ -119,6 +138,7 @@ class BaseOliveCLICommand(ABC):
             workflow_output = olive_run(run_config)
             if getattr(self.args, "test", None) not in (None, False):
                 mark_test_output_path(self.args.output_path)
+                save_discrepancy_check_results(workflow_output, self.args.output_path)
             if not workflow_output.has_output_model():
                 print("No output model produced. Please check the log for details.")
             else:

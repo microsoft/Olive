@@ -270,6 +270,11 @@ class OnnxDiscrepancyCheck(Pass):
         report_path.write_text(json.dumps(results, indent=2))
         print(f"OnnxDiscrepancyCheck results saved to {report_path}")
 
+        # Store results in model attributes so the CLI can persist them in the output directory
+        model_attributes = dict(model.model_attributes) if model.model_attributes else {}
+        model_attributes["discrepancy_check_results"] = results
+        model.model_attributes = model_attributes
+
         if results["status"] == "failed":
             raise RuntimeError(
                 "ONNX model discrepancy check failed:\n" + "\n".join(f"  - {f}" for f in results["failures"])
