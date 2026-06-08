@@ -77,6 +77,14 @@ class OnnxDiscrepancyCheck(Pass):
                 required=True,
                 description="Path to the reference PyTorch/HuggingFace model to compare against.",
             ),
+            "export_reference_onnx": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=(
+                    "Save the reference PyTorch model weights (state_dict) alongside the results. "
+                    "This allows direct comparison between the reference and optimized models."
+                ),
+            ),
             "max_mae": PassConfigParam(
                 type_=Optional[float],
                 default_value=None,
@@ -179,9 +187,12 @@ class OnnxDiscrepancyCheck(Pass):
         ref_model = AutoModelForCausalLM.from_pretrained(config.reference_model_path)
         ref_model.eval()
 
+        # Save reference PyTorch model for direct comparison
+        if config.export_reference_onnx:
+            self._export_reference_model(ref_model, output_model_path)
+
         # Prepare ONNX session
         session = model.prepare_session()
-        io_config = model.io_config
 
         # Run inference on both and compare
         all_max_abs_diff = []
@@ -333,3 +344,15 @@ class OnnxDiscrepancyCheck(Pass):
         logger.info(gen_summary)
 
         return longest_common
+
+    def _export_reference_model(self, ref_model, output_model_path: str):
+        """Save the reference PyTorch model weights for direct comparison."""
+        import torch
+
+        output_dir = Path(output_model_path)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        ref_pt_path = output_dir / "reference_model.pt"
+        torch.save(ref_model.state_dict(), str(ref_pt_path))
+        print(f"OnnxDiscrepancyCheck: reference PyTorch model saved to {ref_pt_path}")
+        logger.info("Reference PyTorch model saved to %s", ref_pt_path)
