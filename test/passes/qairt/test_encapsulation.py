@@ -1012,6 +1012,51 @@ def test_encapsulation_engine_config_overrides_applied_when_supported(tmp_path, 
     assert call_kwargs.get("engine_config") is fake_engine_cfg
 
 
+def test_encapsulation_engine_config_overrides_without_htp(tmp_path, mock_qairt_model, mock_qairt_modules):
+    """engine_config_overrides without an 'htp' key constructs EngineConfig with htp=None."""
+    import inspect
+
+    output_path = tmp_path / "output"
+    output_path.mkdir(parents=True, exist_ok=True)
+    model_path = Path(mock_qairt_model.model_path)
+    (model_path / "config.json").write_text(json.dumps({"model_type": "llama", "hidden_size": 4096}))
+    (model_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 2}))
+
+    mock_container = MagicMock()
+    mock_container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
+    mock_container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
+
+    def mock_export(output_dir, export_format, engine_config=None):
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        (Path(output_dir) / "model.dlc").write_text("dummy dlc")
+
+    mock_container.export = MagicMock(side_effect=mock_export)
+    mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
+
+    fake_sig = inspect.signature(mock_export)
+
+    with (
+        patch("olive.passes.qairt.encapsulation.helper"),
+        patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
+        patch("olive.passes.qairt.encapsulation.checker"),
+        patch("olive.passes.qairt.encapsulation.inspect.signature", return_value=fake_sig),
+    ):
+        fake_engine_cfg = MagicMock()
+        mock_qairt_modules["gen_ai_api"].EngineConfig.return_value = fake_engine_cfg
+
+        encap_pass = create_pass_from_dict(
+            QairtEncapsulation,
+            {"engine_config_overrides": {"n_threads": 4}},
+            disable_search=True,
+        )
+        encap_pass.run(mock_qairt_model, str(output_path))
+
+    mock_qairt_modules["gen_ai_api"].HTPEngineConfig.assert_not_called()
+    mock_qairt_modules["gen_ai_api"].EngineConfig.assert_called_once_with(n_threads=4, htp=None)
+    _, call_kwargs = mock_container.export.call_args
+    assert call_kwargs.get("engine_config") is fake_engine_cfg
+
+
 def test_encapsulation_engine_config_overrides_skipped_when_not_supported(
     tmp_path, mock_qairt_model, mock_qairt_modules
 ):

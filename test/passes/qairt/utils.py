@@ -9,9 +9,12 @@ from pathlib import Path
 def make_minimal_onnx(path: Path) -> None:
     """Write a minimal ONNX model to *path* for use in tests.
 
-    Mirrors the LM_EXECUTOR shape: INT32 input_ids [batch, seq] →
-    Cast → FLOAT → Reshape → FLOAT logits [batch, 1, vocab_size].
-    The graph is schema-valid for opset 14 and passes onnx.checker.
+    Graph: INT32 input_ids [batch_size, sequence_length]
+           → Cast (FLOAT)
+           → Reshape [0, 1, -1]  (last dim inferred from sequence_length)
+           → FLOAT logits [batch_size, 1, sequence_length]
+
+    The model is schema-valid for opset 14 and passes onnx.checker.
     """
     import onnx
     from onnx import TensorProto
