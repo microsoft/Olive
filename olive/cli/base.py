@@ -82,6 +82,7 @@ def add_discrepancy_check_pass(run_config: dict) -> dict:
     passes["discrepancy_check"] = {
         "type": "OnnxDiscrepancyCheck",
         "reference_model_path": reference_model_path,
+        "max_mae": 0.1,
     }
     run_config["passes"] = passes
     return run_config
