@@ -77,6 +77,14 @@ class OnnxDiscrepancyCheck(Pass):
                 required=True,
                 description="Path to the reference PyTorch/HuggingFace model to compare against.",
             ),
+            "report_output_dir": PassConfigParam(
+                type_=Optional[str],
+                default_value=None,
+                description=(
+                    "Directory where discrepancy check results and reference model are saved. "
+                    "If not specified, results are written to the pass cache directory."
+                ),
+            ),
             "export_reference_onnx": PassConfigParam(
                 type_=bool,
                 default_value=True,
@@ -188,8 +196,9 @@ class OnnxDiscrepancyCheck(Pass):
         ref_model.eval()
 
         # Save reference PyTorch model for direct comparison
+        report_dir = config.report_output_dir or output_model_path
         if config.export_reference_onnx:
-            self._export_reference_model(ref_model, output_model_path)
+            self._export_reference_model(ref_model, report_dir)
 
         # Prepare ONNX session
         session = model.prepare_session()
@@ -281,8 +290,8 @@ class OnnxDiscrepancyCheck(Pass):
                 print(f"ONNX model discrepancy check FAILED:\n  - {gen_failure}")
                 logger.error("ONNX model discrepancy check FAILED: %s", gen_failure)
 
-        # Save results to disk in the pass output folder
-        report_path = Path(output_model_path) / "discrepancy_check_results.json"
+        # Save results to disk
+        report_path = Path(report_dir) / "discrepancy_check_results.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps(results, indent=2))
         print(f"OnnxDiscrepancyCheck results saved to {report_path}")

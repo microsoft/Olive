@@ -78,11 +78,15 @@ def add_discrepancy_check_pass(run_config: dict) -> dict:
     if not reference_model_path:
         return run_config
 
+    # Determine output directory for discrepancy results
+    report_dir = run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")
+
     print(f"Adding OnnxDiscrepancyCheck pass with reference_model_path={reference_model_path}")
     passes["discrepancy_check"] = {
         "type": "OnnxDiscrepancyCheck",
         "reference_model_path": reference_model_path,
         "max_mae": 0.1,
+        "report_output_dir": report_dir,
     }
     run_config["passes"] = passes
     return run_config
