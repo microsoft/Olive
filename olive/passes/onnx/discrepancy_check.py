@@ -2,7 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
+from pathlib import Path
 from typing import Optional
 
 from olive.data.config import DataConfig
@@ -216,14 +218,20 @@ class OnnxDiscrepancyCheck(Pass):
         count_above_0_1 = sum(all_count_above_0_1)
         count_above_0_01 = sum(all_count_above_0_01)
 
-        logger.info(
-            "OnnxDiscrepancyCheck: max_abs_error=%.6f, elements_above_0.1=%d/%d, elements_above_0.01=%d/%d",
-            max_abs_error,
-            count_above_0_1,
-            total_elements,
-            count_above_0_01,
-            total_elements,
+        results = {
+            "max_abs_error": max_abs_error,
+            "elements_above_0_1": count_above_0_1,
+            "elements_above_0_01": count_above_0_01,
+            "total_elements": total_elements,
+        }
+
+        summary = (
+            f"OnnxDiscrepancyCheck: max_abs_error={max_abs_error:.6f}, "
+            f"elements_above_0.1={count_above_0_1}/{total_elements}, "
+            f"elements_above_0.01={count_above_0_01}/{total_elements}"
         )
+        print(summary)
+        logger.info(summary)
 
         # Check thresholds
         failures = []
@@ -239,17 +247,33 @@ class OnnxDiscrepancyCheck(Pass):
             )
 
         if failures:
-            raise RuntimeError("ONNX model discrepancy check failed:\n" + "\n".join(f"  - {f}" for f in failures))
+            results["status"] = "failed"
+            results["failures"] = failures
+        else:
+            results["status"] = "passed"
 
         # Generation token sequence comparison (transformers vs ONNX Runtime GenAI)
         if config.genai_model_path:
             longest_common = self.compare_generation(config, ref_model)
+            results["longest_common_token_sequence"] = longest_common
+            results["genai_model_path"] = config.genai_model_path
             if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
-                raise RuntimeError(
-                    f"ONNX model discrepancy check failed:\n"
-                    f"  - Longest common token sequence length {longest_common} is below "
+                results["status"] = "failed"
+                results.setdefault("failures", []).append(
+                    f"Longest common token sequence length {longest_common} is below "
                     f"threshold {config.min_longest_common_tokens}"
                 )
+
+        # Save results to disk in the pass output folder
+        report_path = Path(output_model_path) / "discrepancy_check_results.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(results, indent=2))
+        print(f"OnnxDiscrepancyCheck results saved to {report_path}")
+
+        if results["status"] == "failed":
+            raise RuntimeError(
+                "ONNX model discrepancy check failed:\n" + "\n".join(f"  - {f}" for f in results["failures"])
+            )
 
         # Return the model unchanged
         return model
@@ -294,12 +318,12 @@ class OnnxDiscrepancyCheck(Pass):
 
         longest_common = _longest_common_token_sequence(transformers_tokens, genai_tokens)
 
-        logger.info(
-            "OnnxDiscrepancyCheck generation comparison: "
-            "transformers_len=%d, genai_len=%d, longest_common_token_sequence=%d",
-            len(transformers_tokens),
-            len(genai_tokens),
-            longest_common,
+        gen_summary = (
+            f"OnnxDiscrepancyCheck generation comparison: "
+            f"transformers_len={len(transformers_tokens)}, genai_len={len(genai_tokens)}, "
+            f"longest_common_token_sequence={longest_common}"
         )
+        print(gen_summary)
+        logger.info(gen_summary)
 
         return longest_common
