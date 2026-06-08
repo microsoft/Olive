@@ -33,9 +33,9 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
     element-wise by index — the override list need not be the same length as
     the base list; extra base elements are preserved and extra override
     elements are appended. A ``None`` override value deletes the key from
-    the result.
+    the result. The returned dict shares no references with *base*.
     """
-    result = dict(base)
+    result = copy.deepcopy(base)
     for k, v in overrides.items():
         if v is None:
             result.pop(k, None)
@@ -52,11 +52,6 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
             result[k] = merged
         else:
             result[k] = copy.deepcopy(v)
-    # Deep-copy any base values that were not touched by overrides so the
-    # returned dict is fully independent of base.
-    for k, existing in result.items():
-        if k not in overrides:
-            result[k] = copy.deepcopy(existing)
     return result
 
 
@@ -160,7 +155,10 @@ class QairtEncapsulation(Pass):
         export_kwargs = {"export_format": qairt.ExportFormat.LM_EXECUTOR}
         if config.engine_config_overrides:
             try:
-                supports_engine_config = "engine_config" in inspect.signature(container.export).parameters
+                sig = inspect.signature(container.export).parameters
+                supports_engine_config = "engine_config" in sig or any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values()
+                )
             except (TypeError, ValueError):
                 supports_engine_config = False
             if supports_engine_config:
