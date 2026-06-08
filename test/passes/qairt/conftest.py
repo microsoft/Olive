@@ -9,21 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-def _make_minimal_onnx(path):
-    """Write a minimal ONNX model to *path* so create_genai_config can load it."""
-    import onnx
-    from onnx import TensorProto
-
-    input_tensor = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-    output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
-    node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
-    graph = onnx.helper.make_graph([node], "g", [input_tensor], [output_tensor])
-    model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])
-    onnx.save(model, path)
-
-
 @pytest.fixture(name="mock_container")
-def mock_container_fixture(tmp_path):
+def mock_container_fixture():
     """Provide a pre-configured LLMContainer mock with input/output metadata and an export stub.
 
     Tests are responsible for wiring LLMContainer.load.return_value so they can customise

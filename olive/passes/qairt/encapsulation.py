@@ -162,7 +162,8 @@ class QairtEncapsulation(Pass):
             else:
                 logger.warning(
                     "engine_config_overrides ignored: installed qairt does not support "
-                    "engine_config in LLMContainer.export() (requires qairt-dev with AISW-184594)"
+                    "engine_config in LLMContainer.export(). Upgrade qairt-dev to a version "
+                    "that exposes engine_config in LLMContainer.export()."
                 )
 
         # Input/Output metadata

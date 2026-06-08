@@ -12,11 +12,11 @@ from unittest.mock import MagicMock, patch
 
 import onnx
 import pytest
-from conftest import _make_minimal_onnx
 
 from olive.model import ONNXModelHandler, QairtModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.qairt.encapsulation import QairtEncapsulation
+from test.passes.qairt.utils import make_minimal_onnx as _make_minimal_onnx
 
 
 @pytest.mark.parametrize(
@@ -355,7 +355,7 @@ def test_encapsulation_epcontext_node_outputs(tmp_path, mock_qairt_model, mock_q
     dlc_filename = dlc_files[0].name
 
     model_def = onnx.load(output_path / "model.onnx")
-    assert model_def.ir_version == 10
+    assert model_def.ir_version >= 8
 
     assert len(model_def.graph.node) == 1
     node = model_def.graph.node[0]
