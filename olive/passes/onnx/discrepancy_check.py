@@ -198,6 +198,12 @@ class OnnxDiscrepancyCheck(Pass):
         execution_provider = self.accelerator_spec.execution_provider if self.accelerator_spec else None
         if device is None:
             device = Device.CPU
+        elif not isinstance(device, Device):
+            try:
+                device = Device(str(device).lower())
+            except ValueError:
+                logger.warning("Unknown accelerator_type=%s; falling back to CPU.", device)
+                device = Device.CPU
 
         # Determine the torch device matching the accelerator spec
         torch_device = torch.device("cpu")
