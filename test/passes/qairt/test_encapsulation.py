@@ -224,8 +224,8 @@ def test_encapsulation_custom_opset_imports(tmp_path, mock_qairt_model, mock_qai
 @pytest.mark.parametrize(
     ("file_to_remove", "expected_match"),
     [
-        ("config.json", r"Cannot create gen_ai_config\.json if source model config doesn't exist"),
-        ("generation_config.json", r"Cannot create gen_ai_config\.json if generation config doesn't exist"),
+        ("config.json", r"Cannot create genai_config\.json if source model config doesn't exist"),
+        ("generation_config.json", r"Cannot create genai_config\.json if generation config doesn't exist"),
     ],
 )
 def test_encapsulation_missing_required_file(

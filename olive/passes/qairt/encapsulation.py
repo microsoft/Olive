@@ -48,7 +48,7 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
                     merged.append(_deep_merge(result[k][i], ov))
                 else:
                     merged.append(copy.deepcopy(ov))
-            merged.extend(copy.deepcopy(item) for item in result[k][len(v) :])
+            merged.extend(result[k][len(v) :])
             result[k] = merged
         else:
             result[k] = copy.deepcopy(v)
@@ -164,7 +164,7 @@ class QairtEncapsulation(Pass):
             if supports_engine_config:
                 overrides = dict(config.engine_config_overrides)
                 htp_overrides = overrides.pop("htp", None)
-                htp_cfg = qairt_genai.HTPEngineConfig(**htp_overrides) if htp_overrides else None
+                htp_cfg = qairt_genai.HTPEngineConfig(**(htp_overrides or {})) if htp_overrides is not None else None
                 engine_cfg = qairt_genai.EngineConfig(**overrides, htp=htp_cfg)
                 export_kwargs["engine_config"] = engine_cfg
             else:
@@ -289,12 +289,12 @@ def create_genai_config(
     source_config_path = Path(output_path) / "config.json"
 
     if not source_config_path.exists():
-        raise ValueError("Cannot create gen_ai_config.json if source model config doesn't exist.")
+        raise ValueError("Cannot create genai_config.json if source model config doesn't exist.")
 
     generation_config_path = Path(output_path) / "generation_config.json"
 
     if not generation_config_path.exists():
-        raise ValueError("Cannot create gen_ai_config.json if generation config doesn't exist")
+        raise ValueError("Cannot create genai_config.json if generation config doesn't exist")
 
     genai_config = {
         "model": {
