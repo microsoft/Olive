@@ -939,9 +939,13 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     sample_idx += 1
 
                     # For multiple-choice tasks, extract the answer from responses.
-                    # First try digit extraction (for 1-based numbered options),
-                    # then fall back to letter extraction (for A/B/C/D options).
-                    if 1 <= num_choices <= 9 and pred:
+                    # Letter extraction takes priority when options are labeled A/B/C/D.
+                    # Digit extraction is used when options are numbered 1/2/3/4.
+                    if extract_option_letter and pred:
+                        letter_match = re.search(r"\b([A-Z])\b", pred)
+                        if letter_match:
+                            pred = letter_match.group(1)
+                    elif 1 <= num_choices <= 9 and pred:
                         pattern = rf"\b([1-{num_choices}])\b"
                         num_match = re.search(pattern, pred)
                         if num_match:
@@ -953,10 +957,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                                 if ch in valid_digits:
                                     pred = ch
                                     break
-                    elif extract_option_letter and pred:
-                        letter_match = re.search(r"\b([A-Z])\b", pred)
-                        if letter_match:
-                            pred = letter_match.group(1)
                     all_preds.append(pred)
 
                 # Collect reference texts (aligned with preds including empty ones for None images)

@@ -483,7 +483,6 @@ def vision_vqa_pre_process(
                 options = item[self.options_column]
                 if isinstance(options, (list, tuple)):
                     has_options = True
-                    num_choices = len(options)
                     letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     options_text = "\n".join(
                         f"{letters[i] if i < len(letters) else str(i)}. {opt}" for i, opt in enumerate(options)
