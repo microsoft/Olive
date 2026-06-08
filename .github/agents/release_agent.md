@@ -53,7 +53,7 @@ The final output must summarize all relevant changes since the previous release 
 
 Use this exact release-note structure:
 
-# Olive <version>
+# Olive {version}
 
 ## New Features
 
