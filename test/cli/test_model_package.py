@@ -86,21 +86,54 @@ def _make_onnx_with_external(
 def _create_source_dir(
     tmp_path: Path,
     name: str,
-    model_attributes: dict,
     *,
+    ep: str = "CPUExecutionProvider",
     onnx_metadata: dict[str, str] | None = None,
-    inference_settings: dict | None = None,
+    filename: str = "model.onnx",
+    provider_options: dict | None = None,
+    session_options_extras: dict | None = None,
+    role: str = "decoder",
 ) -> Path:
-    """Create a fake Olive output directory with model_config.json and a real ONNX file."""
+    """Create a fake GenAI-shaped source directory.
+
+    Writes a minimal ``genai_config.json`` describing one role (default
+    ``decoder``) with ``filename``, plus a real ONNX file at the role's
+    filename. Optionally seeds the role's ``session_options.provider_options``
+    with the canonical alias for the supplied ``ep`` so the packager's
+    EP-derivation logic resolves the variant to that EP. No
+    ``model_config.json`` is written — the packager is genai_config-driven.
+    """
     source_dir = tmp_path / name
     source_dir.mkdir(parents=True)
-    onnx_path = source_dir / "model.onnx"
+    onnx_path = source_dir / filename
     _make_onnx_inline(onnx_path, metadata_props=onnx_metadata)
-    cfg: dict = {"model_path": str(onnx_path), "model_attributes": model_attributes}
-    if inference_settings is not None:
-        cfg["inference_settings"] = inference_settings
-    model_config = {"type": "ONNXModel", "config": cfg}
-    (source_dir / "model_config.json").write_text(json.dumps(model_config))
+
+    ep_to_alias = {
+        "CPUExecutionProvider": "CPU",
+        "CUDAExecutionProvider": "cuda",
+        "QNNExecutionProvider": "qnn",
+        "OpenVINOExecutionProvider": "OpenVINO",
+        "VitisAIExecutionProvider": "VitisAI",
+        "WebGpuExecutionProvider": "WebGPU",
+        "DmlExecutionProvider": "DML",
+        "TensorrtExecutionProvider": "tensorrt",
+        "ROCMExecutionProvider": "rocm",
+        "CoreMLExecutionProvider": "CoreML",
+        "XnnpackExecutionProvider": "XNNPACK",
+    }
+    alias = ep_to_alias.get(ep, "CPU")
+    session_options: dict = dict(session_options_extras or {})
+    if alias == "CPU":
+        session_options.setdefault("provider_options", [])
+    else:
+        session_options.setdefault("provider_options", [{alias: provider_options or {}}])
+
+    genai = {
+        "model": {
+            role: {"filename": filename, "session_options": session_options},
+        }
+    }
+    (source_dir / "genai_config.json").write_text(json.dumps(genai))
     return source_dir
 
 
@@ -120,26 +153,33 @@ def _make_command(args_list):
 
 class TestSourceValidation:
     def test_accepts_single_source(self, tmp_path):
-        src = _create_source_dir(tmp_path, "soc_60", {"ep": "QNNExecutionProvider"})
+        src = _create_source_dir(tmp_path, "soc_60", ep="QNNExecutionProvider")
         cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(tmp_path / "out")])
 
         sources = cmd._parse_sources()
 
         assert sources == [("soc_60", src)]
 
-    def test_rejects_missing_model_config(self, tmp_path):
+    def test_rejects_missing_genai_config(self, tmp_path):
+        """A source without ``genai_config.json`` is rejected.
+
+        The packager is genai_config-driven: it lifts the model layout
+        (role filenames, session_options, pipeline) directly from the
+        source's genai_config. A directory lacking that file has no way to
+        describe its contents to the packager.
+        """
         no_config = tmp_path / "no_config"
         no_config.mkdir()
-        valid = _create_source_dir(tmp_path, "valid", {"ep": "QNNExecutionProvider"})
+        valid = _create_source_dir(tmp_path, "valid", ep="QNNExecutionProvider")
         cmd = _make_command(
             ["generate-model-package", "-s", str(no_config), "-s", str(valid), "-o", str(tmp_path / "out")]
         )
 
-        with pytest.raises(ValueError, match=r"model_config\.json"):
+        with pytest.raises(ValueError, match=r"genai_config\.json"):
             cmd._parse_sources()
 
     def test_rejects_nonexistent_path(self, tmp_path):
-        valid = _create_source_dir(tmp_path, "valid", {"ep": "QNNExecutionProvider"})
+        valid = _create_source_dir(tmp_path, "valid", ep="QNNExecutionProvider")
         cmd = _make_command(
             ["generate-model-package", "-s", "/nonexistent/path", "-s", str(valid), "-o", str(tmp_path / "out")]
         )
@@ -149,16 +189,16 @@ class TestSourceValidation:
 
     def test_rejects_duplicate_source_basenames(self, tmp_path):
         # Two source dirs share basename "soc_60" — variant names would collide.
-        src_a = _create_source_dir(tmp_path / "a", "soc_60", {"ep": "QNNExecutionProvider"})
-        src_b = _create_source_dir(tmp_path / "b", "soc_60", {"ep": "QNNExecutionProvider"})
+        src_a = _create_source_dir(tmp_path / "a", "soc_60", ep="QNNExecutionProvider")
+        src_b = _create_source_dir(tmp_path / "b", "soc_60", ep="QNNExecutionProvider")
         cmd = _make_command(["generate-model-package", "-s", str(src_a), "-s", str(src_b), "-o", str(tmp_path / "out")])
 
         with pytest.raises(ValueError, match="share the directory name"):
             cmd._parse_sources()
 
     def test_parses_two_valid_sources(self, tmp_path):
-        src1 = _create_source_dir(tmp_path, "soc_60", {"ep": "QNNExecutionProvider"})
-        src2 = _create_source_dir(tmp_path, "soc_73", {"ep": "QNNExecutionProvider"})
+        src1 = _create_source_dir(tmp_path, "soc_60", ep="QNNExecutionProvider")
+        src2 = _create_source_dir(tmp_path, "soc_73", ep="QNNExecutionProvider")
         cmd = _make_command(["generate-model-package", "-s", str(src1), "-s", str(src2), "-o", str(tmp_path / "out")])
 
         sources = cmd._parse_sources()
@@ -176,9 +216,9 @@ class TestSourceValidation:
 class TestGeneratePackageMultiVariant:
     def test_writes_proposal_layout(self, tmp_path):
         # setup
-        src1 = _create_source_dir(tmp_path, "soc_60", {"ep": "QNNExecutionProvider", "device": "NPU"})
-        src2 = _create_source_dir(tmp_path, "soc_73", {"ep": "QNNExecutionProvider", "device": "NPU"})
-        out = tmp_path / "out"
+        src1 = _create_source_dir(tmp_path, "soc_60", ep="QNNExecutionProvider")
+        src2 = _create_source_dir(tmp_path, "soc_73", ep="QNNExecutionProvider")
+        out = tmp_path / "out.ortpackage"
         cmd = _make_command(
             [
                 "generate-model-package",
@@ -198,49 +238,52 @@ class TestGeneratePackageMultiVariant:
         # execute
         cmd.run()
 
-        # assert: top-level layout (no models/ wrapper)
+        # assert: top-level manifest + components under models/
         assert (out / "manifest.json").is_file()
-        assert not (out / "models").exists()
+        assert (out / "models").is_dir()
 
         manifest = json.loads((out / "manifest.json").read_text())
         assert manifest["schema_version"] == 1
-        assert manifest["components"] == ["model"]
+        # ``decoder`` (not ``model``) — the genai_config role is ``decoder``,
+        # so _extract_task -> ``text_generation`` -> component dir ``decoder``.
+        assert manifest["components"] == ["decoder"]
         assert manifest["producer"]["model_name"] == "test_model"
         assert manifest["producer"]["model_version"] == "2.0"
 
-        # metadata uses ep_compatibility[]
-        metadata = json.loads((out / "model" / "metadata.json").read_text())
+        # metadata uses inline EP
+        metadata = json.loads((out / "models" / "decoder" / "metadata.json").read_text())
+        assert metadata["schema_version"] == 1
+        assert metadata["component_name"] == "decoder"
         assert set(metadata["variants"]) == {"soc_60", "soc_73"}
         for variant_payload in metadata["variants"].values():
-            ep_compat = variant_payload["ep_compatibility"]
-            assert ep_compat == [{"ep": "QNNExecutionProvider", "device": "NPU"}]
+            assert variant_payload == {"ep": "QNNExecutionProvider"}
 
-        # variant.json contains files[] with filename
+        # No variant.json is emitted; the ONNX file lands in the variant
+        # directory.
         for v in ("soc_60", "soc_73"):
-            variant_json = json.loads((out / "model" / v / "variant.json").read_text())
-            assert variant_json["files"][0]["filename"] == "model.onnx"
-            assert (out / "model" / v / "model.onnx").is_file()
+            assert not (out / "models" / "decoder" / v / "variant.json").exists()
+            assert (out / "models" / "decoder" / v / "model.onnx").is_file()
 
 
 class TestGeneratePackageSingleSource:
     def test_single_source_is_valid_package(self, tmp_path):
-        src = _create_source_dir(tmp_path, "cpu_x64", {"ep": "CPUExecutionProvider"})
-        out = tmp_path / "out"
+        src = _create_source_dir(tmp_path, "cpu_x64", ep="CPUExecutionProvider")
+        out = tmp_path / "out.ortpackage"
         cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
 
         cmd.run()
 
         manifest = json.loads((out / "manifest.json").read_text())
-        assert manifest["components"] == ["model"]
-        metadata = json.loads((out / "model" / "metadata.json").read_text())
+        assert manifest["components"] == ["decoder"]
+        metadata = json.loads((out / "models" / "decoder" / "metadata.json").read_text())
         assert "cpu_x64" in metadata["variants"]
-        assert metadata["variants"]["cpu_x64"]["ep_compatibility"] == [{"ep": "CPUExecutionProvider"}]
+        assert metadata["variants"]["cpu_x64"] == {"ep": "CPUExecutionProvider"}
         # No shared_weights because nothing to dedup.
-        assert not (out / "model" / "shared_weights").exists()
+        assert not (out / "models" / "decoder" / "shared_weights").exists()
 
 
 # ---------------------------------------------------------------------------
-# Writer: layout + manifest + metadata + variant.json
+# Writer: layout + manifest + metadata
 # ---------------------------------------------------------------------------
 
 
@@ -264,10 +307,10 @@ class TestWriteModelPackageLayout:
         )
 
         assert (out / "manifest.json").is_file()
-        assert (out / "decoder" / "metadata.json").is_file()
-        assert (out / "decoder" / "cpu" / "variant.json").is_file()
-        assert (out / "decoder" / "cpu" / "model.onnx").is_file()
-        assert not (out / "models").exists()
+        assert (out / "models" / "decoder" / "metadata.json").is_file()
+        # No variant.json is emitted.
+        assert not (out / "models" / "decoder" / "cpu" / "variant.json").exists()
+        assert (out / "models" / "decoder" / "cpu" / "model.onnx").is_file()
 
     def test_manifest_uses_proposal_schema(self, tmp_path):
         onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
@@ -289,6 +332,9 @@ class TestWriteModelPackageLayout:
         manifest = json.loads((out / "manifest.json").read_text())
         assert manifest["schema_version"] == 1
         assert manifest["components"] == ["decoder"]
+        assert manifest["package_name"] == "package"
+        assert manifest["package_version"] == "1.0"
+        assert manifest["configs_dir"] == "configs"
         assert manifest["producer"] == {
             "tool": "olive-ai",
             "tool_version": "1.2.3",
@@ -299,7 +345,7 @@ class TestWriteModelPackageLayout:
         assert "component_models" not in manifest
         assert "model_version" not in manifest
 
-    def test_metadata_uses_ep_compatibility_array(self, tmp_path):
+    def test_metadata_uses_inline_ep(self, tmp_path):
         onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
         out = tmp_path / "package"
 
@@ -312,14 +358,19 @@ class TestWriteModelPackageLayout:
                     onnx_files=[onnx_path],
                     ep="QNNExecutionProvider",
                     device="NPU",
-                    compatibility=["soc_60", "soc_69"],
+                    compatibility_string="soc_60,soc_69",
                 )
             ],
         )
 
-        metadata = json.loads((out / "decoder" / "metadata.json").read_text())
-        ep_compat = metadata["variants"]["qnn-npu"]["ep_compatibility"]
-        assert ep_compat == [{"ep": "QNNExecutionProvider", "device": "NPU", "compatibility": ["soc_60", "soc_69"]}]
+        metadata = json.loads((out / "models" / "decoder" / "metadata.json").read_text())
+        assert metadata["schema_version"] == 1
+        assert metadata["component_name"] == "decoder"
+        assert metadata["variants"]["qnn-npu"] == {
+            "ep": "QNNExecutionProvider",
+            "device": "NPU",
+            "compatibility_string": "soc_60,soc_69",
+        }
         assert "model_variants" not in metadata
 
     def test_metadata_omits_optional_fields_when_unset(self, tmp_path):
@@ -338,18 +389,17 @@ class TestWriteModelPackageLayout:
             ],
         )
 
-        metadata = json.loads((out / "decoder" / "metadata.json").read_text())
-        ep_compat = metadata["variants"]["cpu"]["ep_compatibility"][0]
-        assert ep_compat == {"ep": "CPUExecutionProvider"}
+        metadata = json.loads((out / "models" / "decoder" / "metadata.json").read_text())
+        assert metadata["variants"]["cpu"] == {"ep": "CPUExecutionProvider"}
 
-    def test_variant_json_carries_session_and_provider_options(self, tmp_path):
+    def test_overlay_carries_session_and_provider_options(self, tmp_path):
         onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
         out = tmp_path / "package"
 
         inference = {
             "session_options": {"graph_optimization_level": 3},
-            "execution_provider": ["CPUExecutionProvider"],
-            "provider_options": [{"intra_op_num_threads": 4}],
+            "execution_provider": ["CUDAExecutionProvider"],
+            "provider_options": [{"device_id": "0"}],
         }
 
         write_model_package(
@@ -357,24 +407,30 @@ class TestWriteModelPackageLayout:
             variants=[
                 VariantSpec(
                     component_name="decoder",
-                    variant_name="cpu",
+                    variant_name="cuda",
                     onnx_files=[onnx_path],
-                    ep="CPUExecutionProvider",
+                    ep="CUDAExecutionProvider",
                     inference_settings=inference,
                 )
             ],
         )
 
-        variant = json.loads((out / "decoder" / "cpu" / "variant.json").read_text())
-        assert variant["files"] == [
-            {
-                "filename": "model.onnx",
-                "session_options": {"graph_optimization_level": 3},
-                "provider_options": {"intra_op_num_threads": 4},
+        # Runtime fields go to genai_config_overlay.json, not variant.json.
+        assert not (out / "models" / "decoder" / "cuda" / "variant.json").exists()
+        overlay = json.loads((out / "models" / "decoder" / "cuda" / "genai_config_overlay.json").read_text())
+        assert overlay == {
+            "model": {
+                "decoder": {
+                    "filename": "model.onnx",
+                    "session_options": {
+                        "graph_optimization_level": 3,
+                        "provider_options": [{"cuda": {"device_id": "0"}}],
+                    },
+                }
             }
-        ]
+        }
 
-    def test_provider_options_match_ep_by_name(self, tmp_path):
+    def test_overlay_provider_options_match_ep_by_name(self, tmp_path):
         """When inference_settings has multiple EPs, pick the one whose name matches VariantSpec.ep."""
         onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
         out = tmp_path / "package"
@@ -398,18 +454,162 @@ class TestWriteModelPackageLayout:
             ],
         )
 
-        variant = json.loads((out / "decoder" / "qnn" / "variant.json").read_text())
-        assert variant["files"][0].get("provider_options") == {"backend_path": "QnnHtp.so"}
-        assert "session_options" not in variant["files"][0]
+        overlay = json.loads((out / "models" / "decoder" / "qnn" / "genai_config_overlay.json").read_text())
+        assert overlay["model"]["decoder"]["session_options"]["provider_options"] == [
+            {"qnn": {"backend_path": "QnnHtp.so"}}
+        ]
+
+    def test_overlay_emits_empty_provider_options_for_cpu(self, tmp_path):
+        """CPU variants emit ``provider_options: []`` rather than a sentinel entry.
+
+        ``[{"CPU": {}}]`` is not needed: ORT-GenAI's dispatch table has no CPU
+        handler (src/models/session_options.cpp), and ORT InferenceSession
+        implicitly registers the CPU EP when no other provider is selected
+        (onnxruntime/core/session/inference_session.cc), so the explicit entry
+        would only trigger a V1 no-op registration. An empty list matches the
+        convention used by reference ORT model packages.
+        """
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+        out = tmp_path / "package"
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="cpu",
+                    onnx_files=[onnx_path],
+                    ep="CPUExecutionProvider",
+                )
+            ],
+        )
+
+        overlay = json.loads((out / "models" / "decoder" / "cpu" / "genai_config_overlay.json").read_text())
+        assert overlay == {
+            "model": {
+                "decoder": {
+                    "filename": "model.onnx",
+                    "session_options": {"provider_options": []},
+                }
+            }
+        }
+
+    def test_overlay_lifts_per_variant_model_level_fields(self, tmp_path):
+        """Per-variant ``context_length`` (and similar) flows from source to overlay.
+
+        Each variant's source ``genai_config.json`` is the source of truth for
+        model-level scalars that legitimately vary across variants of the same
+        model (e.g. an NPU build caps ``context_length`` while the GPU build
+        does not). The writer strips these from the base config and re-supplies
+        them per variant; without this lift the merged config would silently
+        use whichever variant's base happened to win.
+        """
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+        out = tmp_path / "package"
+
+        npu_source_genai = {
+            "model": {
+                "type": "phi3",
+                "context_length": 4224,
+                "pad_token_id": 200020,
+                "eos_token_id": [200020, 199999],
+                "bos_token_id": 199999,
+                "vocab_size": 200064,
+                "decoder": {"head_size": 128, "filename": "model.onnx", "session_options": {}},
+            }
+        }
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="npu",
+                    onnx_files=[onnx_path],
+                    ep="OpenVINOExecutionProvider",
+                    source_genai=npu_source_genai,
+                )
+            ],
+        )
+
+        overlay = json.loads((out / "models" / "decoder" / "npu" / "genai_config_overlay.json").read_text())
+        model_patch = overlay["model"]
+        assert model_patch["context_length"] == 4224
+        assert model_patch["pad_token_id"] == 200020
+        assert model_patch["eos_token_id"] == [200020, 199999]
+        assert model_patch["bos_token_id"] == 199999
+        assert model_patch["type"] == "phi3"
+        # ``vocab_size`` is structural (shared across all variants of a model)
+        # and is not in the per-variant lift list, so it must NOT appear in
+        # the overlay — otherwise it would duplicate the base copy.
+        assert "vocab_size" not in model_patch
+
+    def test_base_genai_strips_per_variant_model_fields(self, tmp_path):
+        """The base ``configs/genai_config.json`` must not carry per-variant fields.
+
+        If ``context_length`` (or similar) lived in the base, GenAI's overlay
+        merge would still honour the per-variant value (overlay scalar wins),
+        but ``_VARIANT_LEVEL_MODEL_KEYS`` includes arrays (``eos_token_id``)
+        whose presence in the base would trigger GenAI's array-append merge
+        semantics — the merged result would duplicate the array. So the base
+        must be free of every variant-level model key.
+        """
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+        out = tmp_path / "package"
+        cfg = tmp_path / "configs_src" / "genai_config.json"
+        cfg.parent.mkdir(parents=True)
+        cfg.write_text(
+            json.dumps(
+                {
+                    "model": {
+                        "type": "phi3",
+                        "context_length": 131072,
+                        "pad_token_id": 199999,
+                        "eos_token_id": [200020, 199999],
+                        "bos_token_id": 199999,
+                        "vocab_size": 200064,
+                        "decoder": {
+                            "head_size": 128,
+                            "filename": "model.onnx",
+                            "session_options": {"log_id": "x"},
+                        },
+                    }
+                }
+            )
+        )
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="cpu",
+                    onnx_files=[onnx_path],
+                    ep="CPUExecutionProvider",
+                )
+            ],
+            config_files={"genai_config.json": cfg},
+        )
+
+        base = json.loads((out / "configs" / "genai_config.json").read_text())
+        model = base["model"]
+        for stripped in ("context_length", "pad_token_id", "eos_token_id", "bos_token_id", "type"):
+            assert stripped not in model, f"base genai_config must not contain {stripped!r}"
+        # Variant-specific decoder fields also stripped.
+        assert "filename" not in model["decoder"]
+        assert "session_options" not in model["decoder"]
+        # Structural shared fields remain.
+        assert model["vocab_size"] == 200064
+        assert model["decoder"]["head_size"] == 128
 
 
 # ---------------------------------------------------------------------------
-# Writer: shared_weights / external-data dedup
+# Writer: external-data blobs are always kept inline per variant (no dedup)
 # ---------------------------------------------------------------------------
 
 
-class TestSharedWeightsDedup:
-    def test_dedups_identical_external_data_across_variants(self, tmp_path):
+class TestExternalDataInline:
+    def test_keeps_identical_external_data_inline_in_each_variant(self, tmp_path):
         blob = b"\x00\x01\x02\x03" * 64
         a = _make_onnx_with_external(tmp_path / "a" / "model.onnx", "model.onnx.data", blob)
         b = _make_onnx_with_external(tmp_path / "b" / "model.onnx", "model.onnx.data", blob)
@@ -433,22 +633,14 @@ class TestSharedWeightsDedup:
             ],
         )
 
-        shared_root = out / "decoder" / "shared_weights"
-        assert shared_root.is_dir()
-        sha_dirs = list(shared_root.iterdir())
-        assert len(sha_dirs) == 1
-        sha = sha_dirs[0].name
-        assert (shared_root / sha / "model.onnx.data").is_file()
-        assert not (out / "decoder" / "v1" / "model.onnx.data").exists()
-        assert not (out / "decoder" / "v2" / "model.onnx.data").exists()
-
+        # Each variant keeps its own external-data blob inline; no shared_weights
+        # directory or variant.json is emitted.
+        assert not (out / "models" / "decoder" / "shared_weights").exists()
         for v in ("v1", "v2"):
-            variant = json.loads((out / "decoder" / v / "variant.json").read_text())
-            entry = variant["files"][0]
-            assert entry["filename"] == "model.onnx"
-            assert entry["shared_files"] == {"model.onnx.data": sha}
+            assert (out / "models" / "decoder" / v / "model.onnx.data").is_file()
+            assert not (out / "models" / "decoder" / v / "variant.json").exists()
 
-    def test_keeps_external_data_inline_when_unique(self, tmp_path):
+    def test_keeps_distinct_external_data_inline_per_variant(self, tmp_path):
         a = _make_onnx_with_external(tmp_path / "a" / "model.onnx", "model.onnx.data", b"a-bytes" * 32)
         b = _make_onnx_with_external(tmp_path / "b" / "model.onnx", "model.onnx.data", b"b-bytes" * 32)
         out = tmp_path / "package"
@@ -471,13 +663,13 @@ class TestSharedWeightsDedup:
             ],
         )
 
-        assert not (out / "decoder" / "shared_weights").exists()
-        assert (out / "decoder" / "v1" / "model.onnx.data").is_file()
-        assert (out / "decoder" / "v2" / "model.onnx.data").is_file()
+        assert not (out / "models" / "decoder" / "shared_weights").exists()
+        assert (out / "models" / "decoder" / "v1" / "model.onnx.data").is_file()
+        assert (out / "models" / "decoder" / "v2" / "model.onnx.data").is_file()
 
+        # No variant.json is emitted.
         for v in ("v1", "v2"):
-            variant = json.loads((out / "decoder" / v / "variant.json").read_text())
-            assert "shared_files" not in variant["files"][0]
+            assert not (out / "models" / "decoder" / v / "variant.json").exists()
 
     def test_single_variant_keeps_blob_inline(self, tmp_path):
         onnx_path = _make_onnx_with_external(tmp_path / "src" / "model.onnx", "model.onnx.data", b"x" * 128)
@@ -495,10 +687,76 @@ class TestSharedWeightsDedup:
             ],
         )
 
-        assert (out / "decoder" / "cpu" / "model.onnx.data").is_file()
-        assert not (out / "decoder" / "shared_weights").exists()
-        variant = json.loads((out / "decoder" / "cpu" / "variant.json").read_text())
-        assert "shared_files" not in variant["files"][0]
+        assert (out / "models" / "decoder" / "cpu" / "model.onnx.data").is_file()
+        assert not (out / "models" / "decoder" / "shared_weights").exists()
+        # No variant.json is emitted.
+        assert not (out / "models" / "decoder" / "cpu" / "variant.json").exists()
+
+    def test_copies_model_suffix_sidecars_into_variant_dir(self, tmp_path):
+        """Sidecars next to an EPContext stub get copied into the variant dir.
+
+        OpenVINO/QNN-style sidecars (e.g. ``.xml``/``.bin`` next to an EPContext stub
+        ``.onnx``) aren't referenced through ONNX initializer external_data, so the
+        writer sweeps the source directory and copies every model-suffix file next to
+        the variant ONNX. Non-model files like ``.bak`` and ``.json`` are left alone.
+        """
+        src_dir = tmp_path / "src"
+        onnx_path = _make_onnx_inline(src_dir / "openvino_model_dy.onnx")
+        (src_dir / "openvino_model_dy.xml").write_bytes(b"<openvino-ir/>")
+        (src_dir / "openvino_model_dy.bin").write_bytes(b"\x01\x02\x03\x04" * 64)
+        # Files that must NOT be picked up by the sidecar sweep:
+        (src_dir / "openvino_model_dy.onnx.bak").write_bytes(b"stale")
+        (src_dir / "tokenizer.json").write_text("{}")
+
+        out = tmp_path / "package"
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="openvino_gpu",
+                    onnx_files=[onnx_path],
+                    ep="OpenVINOExecutionProvider",
+                )
+            ],
+        )
+
+        variant_dir = out / "models" / "decoder" / "openvino_gpu"
+        assert (variant_dir / "openvino_model_dy.onnx").is_file()
+        assert (variant_dir / "openvino_model_dy.xml").is_file()
+        assert (variant_dir / "openvino_model_dy.bin").is_file()
+        assert (variant_dir / "openvino_model_dy.bin").read_bytes() == b"\x01\x02\x03\x04" * 64
+        # .bak and .json must stay out of the variant dir; .bak has the wrong suffix
+        # and .json belongs under configs/, not next to the ONNX.
+        assert not (variant_dir / "openvino_model_dy.onnx.bak").exists()
+        assert not (variant_dir / "tokenizer.json").exists()
+
+    def test_sidecar_sweep_does_not_overwrite_external_data(self, tmp_path):
+        """External-data blobs are not overwritten by the sidecar sweep.
+
+        Blobs already copied through the ONNX initializer path must not be overwritten
+        by the broader source-directory sweep — the existing copy is authoritative
+        (it came from the ONNX it belongs to).
+        """
+        blob = b"\xaa" * 256
+        onnx_path = _make_onnx_with_external(tmp_path / "src" / "model.onnx", "model.onnx.data", blob)
+        out = tmp_path / "package"
+
+        write_model_package(
+            output_dir=out,
+            variants=[
+                VariantSpec(
+                    component_name="decoder",
+                    variant_name="cpu",
+                    onnx_files=[onnx_path],
+                    ep="CPUExecutionProvider",
+                )
+            ],
+        )
+
+        copied = out / "models" / "decoder" / "cpu" / "model.onnx.data"
+        assert copied.is_file()
+        assert copied.read_bytes() == blob
 
 
 # ---------------------------------------------------------------------------
@@ -644,38 +902,6 @@ class TestConfigsAndSafety:
 
 
 # ---------------------------------------------------------------------------
-# CLI: mixed source types
-# ---------------------------------------------------------------------------
-
-
-class TestMixedSourceTypes:
-    def test_rejects_mixed_onnx_and_composite(self, tmp_path):
-        # setup: one ONNXModel source, one CompositeModel source
-        onnx_src = _create_source_dir(tmp_path, "onnx_src", {"ep": "CPUExecutionProvider"})
-        comp_src = tmp_path / "comp_src"
-        comp_src.mkdir()
-        comp_onnx = _make_onnx_inline(comp_src / "comp.onnx")
-        (comp_src / "model_config.json").write_text(
-            json.dumps(
-                {
-                    "type": "CompositeModel",
-                    "config": {
-                        "model_components": [{"type": "ONNXModel", "config": {"model_path": str(comp_onnx)}}],
-                        "component_names": ["decoder"],
-                    },
-                }
-            )
-        )
-        cmd = _make_command(
-            ["generate-model-package", "-s", str(onnx_src), "-s", str(comp_src), "-o", str(tmp_path / "out")]
-        )
-
-        # execute + assert
-        with pytest.raises(ValueError, match="mix model types"):
-            cmd.run()
-
-
-# ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
 
@@ -711,114 +937,328 @@ class TestDisambiguateVariantNames:
 
 
 class TestCompatibilityFromOnnxMetadata:
-    def test_splits_comma_delimited_metadata(self, tmp_path):
+    def test_passes_through_comma_delimited_metadata(self, tmp_path):
         # setup: source with QNNExecutionProvider compat info in ONNX metadata_props
         src = _create_source_dir(
             tmp_path,
             "soc_60",
-            {"ep": "QNNExecutionProvider", "device": "NPU"},
+            ep="QNNExecutionProvider",
             onnx_metadata={"ep_compatibility_info.QNNExecutionProvider": "soc_60,soc_69,soc_73"},
         )
-        out = tmp_path / "out"
+        out = tmp_path / "out.ortpackage"
         cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
 
         # execute
         cmd.run()
 
-        # assert: compatibility array reflects the comma-split list
-        metadata = json.loads((out / "model" / "metadata.json").read_text())
-        ep_compat = metadata["variants"]["soc_60"]["ep_compatibility"][0]
-        assert ep_compat["ep"] == "QNNExecutionProvider"
-        assert ep_compat["compatibility"] == ["soc_60", "soc_69", "soc_73"]
+        # assert: compatibility_string passes the raw opaque string through verbatim
+        metadata = json.loads((out / "models" / "decoder" / "metadata.json").read_text())
+        variant = metadata["variants"]["soc_60"]
+        assert variant["ep"] == "QNNExecutionProvider"
+        assert variant["compatibility_string"] == "soc_60,soc_69,soc_73"
 
 
 # ---------------------------------------------------------------------------
-# CLI: composite (per-component inference_settings precedence)
+# Pipeline sources (multi-stage exports, e.g. QNN) and VLM multi-role overlay
 # ---------------------------------------------------------------------------
 
 
-def _create_composite_source(
+def _create_pipeline_source(
     tmp_path: Path,
     name: str,
-    components: list[dict],
-    component_names: list[str],
     *,
-    target_inference: dict | None = None,
-    target_attrs: dict | None = None,
+    stage_filenames: list[str],
+    stage_with_options: str,
+    provider_alias: str,
+    provider_options: dict,
+    extra_files: dict[str, str] | None = None,
 ) -> Path:
-    """Create an Olive-style composite source dir."""
+    """Build a fake GenAI-shaped multi-stage source dir (e.g. QNN pipeline).
+
+    The source has ONE genai_config.json + N real ONNX stage files (no
+    ``model_config.json``). ``stage_with_options`` is the only stage carrying
+    provider_options (per QNN convention where embedding / transformer-head
+    run on CPU and only the prompt / iter stages carry the HTP options).
+    """
     source_dir = tmp_path / name
     source_dir.mkdir(parents=True)
-    cfg = {"model_components": components, "component_names": component_names}
-    if target_inference is not None:
-        cfg["inference_settings"] = target_inference
-    if target_attrs is not None:
-        cfg["model_attributes"] = target_attrs
-    (source_dir / "model_config.json").write_text(json.dumps({"type": "CompositeModel", "config": cfg}))
+    for fname in stage_filenames:
+        _make_onnx_inline(source_dir / fname)
+
+    pipeline_stages = []
+    stage_names = ["embedding", "prompt-processor", "token-generator", "transformer-head"][: len(stage_filenames)]
+    for stage_name, fname in zip(stage_names, stage_filenames):
+        body: dict = {"filename": fname, "inputs": [], "outputs": []}
+        if stage_name == stage_with_options:
+            body["session_options"] = {
+                "provider_options": [{provider_alias: provider_options}],
+            }
+        pipeline_stages.append({stage_name: body})
+
+    genai = {
+        "model": {
+            "type": "phi3-pipeline",
+            "context_length": 4096,
+            "pad_token_id": 199999,
+            "eos_token_id": [200020, 199999],
+            "bos_token_id": 199999,
+            "vocab_size": 200064,
+            "decoder": {
+                "head_size": 128,
+                "session_options": {"log_id": "onnxruntime-genai"},
+                "pipeline": pipeline_stages,
+            },
+        }
+    }
+    (source_dir / "genai_config.json").write_text(json.dumps(genai))
+
+    if extra_files:
+        for fname, content in extra_files.items():
+            (source_dir / fname).write_text(content)
     return source_dir
 
 
-class TestCompositeBuild:
-    def test_per_component_inference_settings_wins(self, tmp_path):
-        # setup: component-level inference_settings should override target-level
-        comp_a_onnx = _make_onnx_inline(tmp_path / "comp_a" / "model.onnx")
-        comp_b_onnx = _make_onnx_inline(tmp_path / "comp_b" / "model.onnx")
+def _create_vlm_source(tmp_path: Path, name: str) -> Path:
+    """Build a fake flat VLM source (vision + embedding + decoder ONNXs in one dir).
 
-        target_inference = {
-            "session_options": {"graph_optimization_level": 1},
-            "execution_provider": ["CPUExecutionProvider"],
-            "provider_options": [{}],
-        }
-        comp_b_inference = {
-            "session_options": {"graph_optimization_level": 99},
-            "execution_provider": ["CPUExecutionProvider"],
-            "provider_options": [{}],
-        }
-        components = [
-            {"type": "ONNXModel", "config": {"model_path": str(comp_a_onnx)}},
-            {
-                "type": "ONNXModel",
-                "config": {"model_path": str(comp_b_onnx), "inference_settings": comp_b_inference},
+    Mirrors the shape of real-world VLM packages where a single source dir
+    holds multiple roles' ONNX files alongside one ``genai_config.json`` that
+    references each role's ``filename``. The packager must restore EVERY
+    role's filename in the per-variant overlay — not just the primary one —
+    or the GenAI loader cannot locate the vision/embedding ONNXs at load
+    time.
+    """
+    source_dir = tmp_path / name
+    source_dir.mkdir(parents=True)
+    for fname in ("vision.onnx", "embedding.onnx", "text.onnx"):
+        _make_onnx_inline(source_dir / fname)
+    genai = {
+        "model": {
+            "type": "qwen3vl",
+            "vocab_size": 151936,
+            "vision": {
+                "filename": "vision.onnx",
+                "session_options": {"provider_options": []},
             },
-        ]
-        src = _create_composite_source(
+            "embedding": {
+                "filename": "embedding.onnx",
+                "session_options": {"provider_options": []},
+            },
+            "decoder": {
+                "head_size": 128,
+                "filename": "text.onnx",
+                "session_options": {"provider_options": []},
+            },
+        }
+    }
+    (source_dir / "genai_config.json").write_text(json.dumps(genai))
+    return source_dir
+
+
+class TestPipelineSources:
+    """Pipeline multi-stage sources (e.g. QNN)."""
+
+    def test_rejects_source_without_genai_config(self, tmp_path):
+        """A source without ``genai_config.json`` is rejected with a clear error."""
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        _make_onnx_inline(empty / "model.onnx")
+        cmd = _make_command(["generate-model-package", "-s", str(empty), "-o", str(tmp_path / "out")])
+
+        with pytest.raises(ValueError, match=r"no genai_config\.json"):
+            cmd._parse_sources()
+
+    def test_packs_pipeline_with_all_stage_onnx_files(self, tmp_path):
+        """All pipeline-stage ONNX files land in the variant directory.
+
+        The single-ONNX resolver would fail because the source has >1 ONNX;
+        the pipeline resolver enumerates stage filenames from the source
+        genai_config so every stage is copied next to the variant's
+        overlay.
+        """
+        stage_files = ["phi_embed.onnx", "phi_ctx.onnx", "phi_iter.onnx", "phi_head.onnx"]
+        src = _create_pipeline_source(
             tmp_path,
-            "soc_60",
-            components,
-            ["encoder", "decoder"],
-            target_inference=target_inference,
-            target_attrs={"ep": "CPUExecutionProvider"},
+            "qnn_npu",
+            stage_filenames=stage_files,
+            stage_with_options="prompt-processor",
+            provider_alias="qnn",
+            provider_options={"soc_model": "60"},
+        )
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out), "--model_name", "phi-pipe"])
+
+        cmd.run()
+
+        variant_dir = out.with_suffix(".ortpackage") / "models" / "decoder" / "qnn_npu"
+        assert variant_dir.is_dir()
+        for fname in stage_files:
+            assert (variant_dir / fname).is_file(), f"missing stage file {fname}"
+
+    def test_pipeline_overlay_lifts_full_stage_structure_from_source(self, tmp_path):
+        """The variant overlay carries the pipeline list with per-stage options.
+
+        The producing toolchain decided per-stage EP knobs (soc_model,
+        htp_performance_mode, etc.); copying them verbatim avoids the
+        overlay writer having to re-derive each one and guarantees the
+        loader sees the exact same configuration the source intended.
+        """
+        src = _create_pipeline_source(
+            tmp_path,
+            "qnn_npu",
+            stage_filenames=["e.onnx", "c.onnx", "i.onnx", "h.onnx"],
+            stage_with_options="prompt-processor",
+            provider_alias="qnn",
+            provider_options={"htp_performance_mode": "burst", "soc_model": "60"},
         )
         out = tmp_path / "out"
         cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
 
-        # execute
         cmd.run()
 
-        # assert: encoder uses target-level, decoder uses component-level
-        encoder_v = json.loads((out / "encoder" / "soc_60" / "variant.json").read_text())
-        assert encoder_v["files"][0]["session_options"] == {"graph_optimization_level": 1}
+        overlay_path = out.with_suffix(".ortpackage") / "models" / "decoder" / "qnn_npu" / "genai_config_overlay.json"
+        overlay = json.loads(overlay_path.read_text())
+        decoder = overlay["model"]["decoder"]
+        assert "pipeline" in decoder
+        stage_names = [next(iter(stage)) for stage in decoder["pipeline"]]
+        assert stage_names == ["embedding", "prompt-processor", "token-generator", "transformer-head"]
+        prompt_stage = decoder["pipeline"][1]["prompt-processor"]
+        assert prompt_stage["filename"] == "c.onnx"
+        assert prompt_stage["session_options"]["provider_options"] == [
+            {"qnn": {"htp_performance_mode": "burst", "soc_model": "60"}}
+        ]
+        # decoder-level session_options also lifted from source so log_id etc. survive.
+        assert decoder["session_options"]["log_id"] == "onnxruntime-genai"
 
-        decoder_v = json.loads((out / "decoder" / "soc_60" / "variant.json").read_text())
-        assert decoder_v["files"][0]["session_options"] == {"graph_optimization_level": 99}
+    def test_base_genai_strips_pipeline_field(self, tmp_path):
+        """``pipeline`` lives only in the overlay; base must not duplicate it.
 
+        GenAI's overlay parser appends arrays rather than replacing them
+        (``src/config.cpp:PipelineModelObject_Element``), so a ``pipeline``
+        in both base and overlay would double every stage. The strip is the
+        guard.
+        """
+        src = _create_pipeline_source(
+            tmp_path,
+            "qnn_npu",
+            stage_filenames=["e.onnx", "c.onnx", "i.onnx", "h.onnx"],
+            stage_with_options="prompt-processor",
+            provider_alias="qnn",
+            provider_options={"soc_model": "60"},
+        )
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
 
-# ---------------------------------------------------------------------------
-# CLI: unsupported model type
-# ---------------------------------------------------------------------------
+        cmd.run()
 
+        base = json.loads((out.with_suffix(".ortpackage") / "configs" / "genai_config.json").read_text())
+        decoder = base["model"]["decoder"]
+        assert "pipeline" not in decoder, "base genai_config must not retain the pipeline array"
 
-class TestUnsupportedModelType:
-    def test_rejects_pytorch_model(self, tmp_path):
-        # setup: a source whose model_config declares an unsupported type
-        source_dir = tmp_path / "pytorch_src"
+    def test_flat_source_ep_derived_from_source_genai_when_attrs_missing(self, tmp_path):
+        """For flat sources, source genai's ``provider_options`` overrules name guess.
+
+        A directory named ``vitia_npu`` would otherwise be heuristically
+        classified as QNN (the ``npu`` substring wins by accident); the
+        source genai_config saying ``provider_options: [{"VitisAI": {}}]``
+        is the authoritative signal.
+        """
+        source_dir = tmp_path / "vitia_npu"
         source_dir.mkdir()
-        (source_dir / "model_config.json").write_text(
-            json.dumps({"type": "PyTorchModel", "config": {"model_path": "pt"}})
+        _make_onnx_inline(source_dir / "model.onnx")
+        (source_dir / "genai_config.json").write_text(
+            json.dumps(
+                {
+                    "model": {
+                        "type": "phi3",
+                        "vocab_size": 200064,
+                        "decoder": {
+                            "head_size": 128,
+                            "filename": "model.onnx",
+                            "session_options": {"provider_options": [{"VitisAI": {}}]},
+                        },
+                    }
+                }
+            )
         )
         out = tmp_path / "out"
         cmd = _make_command(["generate-model-package", "-s", str(source_dir), "-o", str(out)])
 
-        # execute + assert
-        with pytest.raises(ValueError, match="Unsupported source model type"):
-            cmd.run()
+        cmd.run()
+
+        metadata = json.loads((out.with_suffix(".ortpackage") / "models" / "decoder" / "metadata.json").read_text())
+        assert metadata["variants"]["vitia_npu"]["ep"] == "VitisAIExecutionProvider"
+        overlay = json.loads(
+            (
+                out.with_suffix(".ortpackage") / "models" / "decoder" / "vitia_npu" / "genai_config_overlay.json"
+            ).read_text()
+        )
+        assert overlay["model"]["decoder"]["session_options"]["provider_options"] == [{"VitisAI": {}}]
+
+
+class TestVLMMultiRoleOverlay:
+    """Multi-role (vision + embedding + decoder) overlay restoration for VLM sources.
+
+    A flat VLM source dir packs >1 ONNX file referenced by >1 role in the
+    same ``genai_config.json``. The sidecar sweep copies every ONNX into
+    the variant directory, but the loader still needs the overlay to
+    declare ``filename`` for each role — the base genai_config strips
+    every role's filename and session_options. Without the multi-role
+    overlay lift the package would only restore the primary role
+    (``decoder``) and the loader would fail when it looks for the vision
+    or embedding ONNX.
+    """
+
+    def test_overlay_restores_filename_for_every_role(self, tmp_path):
+        src = _create_vlm_source(tmp_path, "cpu_and_mobile")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        overlay_path = (
+            out.with_suffix(".ortpackage") / "models" / "decoder" / "cpu_and_mobile" / "genai_config_overlay.json"
+        )
+        overlay = json.loads(overlay_path.read_text())
+        model = overlay["model"]
+        # The VLM fix: every role with a filename in the source must appear
+        # in the overlay with that filename restored.
+        assert model["vision"]["filename"] == "vision.onnx"
+        assert model["embedding"]["filename"] == "embedding.onnx"
+        assert model["decoder"]["filename"] == "text.onnx"
+
+    def test_variant_dir_contains_all_role_onnxs(self, tmp_path):
+        """Sidecar sweep copies every ONNX next to the primary in the variant dir.
+
+        The single component directory holds the vision, embedding, and
+        decoder ONNXs side-by-side; without this the overlay's filename
+        restoration would resolve to missing files.
+        """
+        src = _create_vlm_source(tmp_path, "cpu_and_mobile")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        variant_dir = out.with_suffix(".ortpackage") / "models" / "decoder" / "cpu_and_mobile"
+        for fname in ("vision.onnx", "embedding.onnx", "text.onnx"):
+            assert (variant_dir / fname).is_file(), f"missing {fname} in variant dir"
+
+    def test_base_genai_injects_component_marker_for_every_role(self, tmp_path):
+        """Every multi-role source role gets a ``component=<comp>`` marker in base.
+
+        The merged config the loader sees must know which component
+        directory each role lives in. The base genai_config injects a
+        ``component`` field for every role so per-variant lookups resolve
+        to the correct on-disk variant directory.
+        """
+        src = _create_vlm_source(tmp_path, "cpu_and_mobile")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        base = json.loads((out.with_suffix(".ortpackage") / "configs" / "genai_config.json").read_text())
+        model = base["model"]
+        for role in ("vision", "embedding", "decoder"):
+            assert model[role]["component"] == "decoder", f"role {role} missing component marker"

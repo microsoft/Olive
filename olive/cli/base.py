@@ -64,6 +64,28 @@ def mark_test_output_path(output_path: Optional[str]) -> None:
     _get_test_output_marker_path(output_path).write_text(json.dumps({"type": "olive_hf_test_output"}, indent=2))
 
 
+def add_discrepancy_check_pass(run_config: dict) -> dict:
+    """Inject OnnxDiscrepancyCheck pass when --test is active and not already configured."""
+    passes = run_config.get("passes", {})
+    # Skip if already configured
+    for pass_config in passes.values():
+        if isinstance(pass_config, dict) and pass_config.get("type", "").lower() == "onnxdiscrepancycheck":
+            return run_config
+
+    # Get the reference model path from the input_model test_model_path
+    input_model = run_config.get("input_model", {})
+    reference_model_path = input_model.get("test_model_path")
+    if not reference_model_path:
+        return run_config
+
+    passes["discrepancy_check"] = {
+        "type": "OnnxDiscrepancyCheck",
+        "reference_model_path": reference_model_path,
+    }
+    run_config["passes"] = passes
+    return run_config
+
+
 class BaseOliveCLICommand(ABC):
     allow_unknown_args: ClassVar[bool] = False
 
@@ -84,6 +106,8 @@ class BaseOliveCLICommand(ABC):
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
+            if getattr(self.args, "test", None) not in (None, False):
+                run_config = add_discrepancy_check_pass(run_config)
             if self.args.save_config_file or self.args.dry_run:
                 self._save_config_file(run_config)
             if self.args.dry_run:

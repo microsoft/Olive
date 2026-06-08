@@ -350,6 +350,73 @@ class TestCache:
         with open(output_json_path) as f:
             assert expected_output_path == json.load(f)["config"]["model_path"]
 
+    def test_save_model_no_flatten_rebases_component_and_additional_file_paths(self, tmp_path):
+        # setup
+        model_id = "composite_model"
+        cache = CacheConfig(cache_dir=tmp_path / "cache").create_cache()
+
+        source_dir = tmp_path / "source_model"
+        decoder_dir = source_dir / "decoder"
+        embedding_dir = source_dir / "embedding"
+        decoder_dir.mkdir(parents=True, exist_ok=True)
+        embedding_dir.mkdir(parents=True, exist_ok=True)
+        (decoder_dir / "model.onnx").write_text("decoder")
+        (embedding_dir / "model.onnx").write_text("embedding")
+        (decoder_dir / "decoder_local.txt").write_text("decoder local")
+        (source_dir / "genai_config.json").write_text("{}")
+        (source_dir / "tokenizer.json").write_text("{}")
+
+        model_json = {
+            "type": "compositemodel",
+            "config": {
+                "model_path": str(source_dir),
+                "model_component_names": ["decoder", "embedding"],
+                "model_components": [
+                    {
+                        "type": "onnxmodel",
+                        "config": {
+                            "model_path": str(decoder_dir),
+                            "onnx_file_name": "model.onnx",
+                            "model_attributes": {"additional_files": [str(decoder_dir / "decoder_local.txt")]},
+                        },
+                    },
+                    {
+                        "type": "onnxmodel",
+                        "config": {"model_path": str(embedding_dir), "onnx_file_name": "model.onnx"},
+                    },
+                ],
+                "model_attributes": {
+                    "no_flatten": True,
+                    "additional_files": [str(source_dir / "genai_config.json"), str(source_dir / "tokenizer.json")],
+                },
+            },
+        }
+        with cache.get_model_json_path(model_id).open("w") as f:
+            json.dump(model_json, f)
+
+        output_dir = tmp_path / "output"
+        output_json = cache.save_model(model_id, output_dir, True)
+
+        # assert copied layout
+        assert (output_dir / "decoder" / "model.onnx").exists()
+        assert (output_dir / "embedding" / "model.onnx").exists()
+        assert (output_dir / "genai_config.json").exists()
+        assert (output_dir / "tokenizer.json").exists()
+
+        # assert rewritten config paths
+        assert output_json["config"]["model_path"] == str(output_dir)
+        decoder_component = output_json["config"]["model_components"][0]["config"]
+        assert decoder_component["model_path"] == str(output_dir / "decoder")
+        assert decoder_component["onnx_file_name"] == "model.onnx"
+        assert decoder_component["model_attributes"]["additional_files"] == [
+            str(output_dir / "decoder" / "decoder_local.txt")
+        ]
+
+        assert output_json["config"]["model_attributes"]["additional_files"] == [
+            str(output_dir / "genai_config.json"),
+            str(output_dir / "tokenizer.json"),
+        ]
+
 
 class TestSharedCache:
     @pytest.fixture(autouse=True)
