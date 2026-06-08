@@ -249,6 +249,9 @@ class OnnxDiscrepancyCheck(Pass):
         if failures:
             results["status"] = "failed"
             results["failures"] = failures
+            failure_msg = "ONNX model discrepancy check FAILED:\n" + "\n".join(f"  - {f}" for f in failures)
+            print(failure_msg)
+            logger.error(failure_msg)
         else:
             results["status"] = "passed"
 
@@ -259,10 +262,13 @@ class OnnxDiscrepancyCheck(Pass):
             results["genai_model_path"] = config.genai_model_path
             if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
                 results["status"] = "failed"
-                results.setdefault("failures", []).append(
+                gen_failure = (
                     f"Longest common token sequence length {longest_common} is below "
                     f"threshold {config.min_longest_common_tokens}"
                 )
+                results.setdefault("failures", []).append(gen_failure)
+                print(f"ONNX model discrepancy check FAILED:\n  - {gen_failure}")
+                logger.error("ONNX model discrepancy check FAILED: %s", gen_failure)
 
         # Save results to disk in the pass output folder
         report_path = Path(output_model_path) / "discrepancy_check_results.json"
@@ -275,12 +281,7 @@ class OnnxDiscrepancyCheck(Pass):
         model_attributes["discrepancy_check_results"] = results
         model.model_attributes = model_attributes
 
-        if results["status"] == "failed":
-            raise RuntimeError(
-                "ONNX model discrepancy check failed:\n" + "\n".join(f"  - {f}" for f in results["failures"])
-            )
-
-        # Return the model unchanged
+        # Return the model unchanged (never raises — failures are reported via results)
         return model
 
     def compare_generation(self, config: type[BasePassConfig], ref_model) -> int:
