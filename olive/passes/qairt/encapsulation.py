@@ -153,7 +153,11 @@ class QairtEncapsulation(Pass):
 
         export_kwargs = {"export_format": qairt.ExportFormat.LM_EXECUTOR}
         if config.engine_config_overrides:
-            if "engine_config" in inspect.signature(container.export).parameters:
+            try:
+                supports_engine_config = "engine_config" in inspect.signature(container.export).parameters
+            except (TypeError, ValueError):
+                supports_engine_config = False
+            if supports_engine_config:
                 overrides = dict(config.engine_config_overrides)
                 htp_overrides = overrides.pop("htp", None)
                 htp_cfg = qairt_genai.HTPEngineConfig(**htp_overrides) if htp_overrides else None

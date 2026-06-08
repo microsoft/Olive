@@ -12,7 +12,7 @@ def make_minimal_onnx(path: Path) -> None:
     from onnx import TensorProto
 
     input_tensor = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "seq"])
-    output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab"])
+    output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.INT32, ["batch_size", 1, "vocab"])
     node = onnx.helper.make_node("Identity", inputs=["input_ids"], outputs=["logits"])
     graph = onnx.helper.make_graph([node], "g", [input_tensor], [output_tensor])
     model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 14)])

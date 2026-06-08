@@ -380,11 +380,12 @@ def test_encapsulation_log_level_sets_env(tmp_path, mock_qairt_model, mock_qairt
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
     with (
-        patch.dict(os.environ, {}, clear=False),
+        patch.dict(os.environ, {"QAIRT_LOG_LEVEL": ""}, clear=False),
         patch("olive.passes.qairt.encapsulation.helper"),
         patch("olive.passes.qairt.encapsulation.save", side_effect=lambda _m, p: _make_minimal_onnx(p)),
         patch("olive.passes.qairt.encapsulation.checker"),
     ):
+        os.environ.pop("QAIRT_LOG_LEVEL", None)
         encap_pass = create_pass_from_dict(
             QairtEncapsulation,
             {"log_level": "ERROR"},
