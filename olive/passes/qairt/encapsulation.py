@@ -294,7 +294,7 @@ def create_genai_config(
     generation_config_path = Path(output_path) / "generation_config.json"
 
     if not generation_config_path.exists():
-        raise ValueError("Cannot create genai_config.json if generation config doesn't exist")
+        raise ValueError("Cannot create genai_config.json if generation config doesn't exist.")
 
     genai_config = {
         "model": {
