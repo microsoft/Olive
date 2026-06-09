@@ -250,7 +250,6 @@ class OnnxDiscrepancyCheck(Pass):
             f"elements_above_0.1={count_above_0_1}/{total_elements}, "
             f"elements_above_0.01={count_above_0_01}/{total_elements}"
         )
-        print(summary)
         logger.info(summary)
 
         # Check thresholds
@@ -270,7 +269,6 @@ class OnnxDiscrepancyCheck(Pass):
             results["status"] = "failed"
             results["failures"] = failures
             failure_msg = "ONNX model discrepancy check FAILED:\n" + "\n".join(f"  - {f}" for f in failures)
-            print(failure_msg)
             logger.error(failure_msg)
         else:
             results["status"] = "passed"
@@ -287,14 +285,12 @@ class OnnxDiscrepancyCheck(Pass):
                     f"threshold {config.min_longest_common_tokens}"
                 )
                 results.setdefault("failures", []).append(gen_failure)
-                print(f"ONNX model discrepancy check FAILED:\n  - {gen_failure}")
                 logger.error("ONNX model discrepancy check FAILED: %s", gen_failure)
 
         # Save results to disk
         report_path = Path(report_dir) / "discrepancy_check_results.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps(results, indent=2))
-        print(f"OnnxDiscrepancyCheck results saved to {report_path}")
 
         # Store results in model attributes so the CLI can persist them in the output directory
         model_attributes = dict(model.model_attributes) if model.model_attributes else {}
@@ -349,7 +345,6 @@ class OnnxDiscrepancyCheck(Pass):
             f"transformers_len={len(transformers_tokens)}, genai_len={len(genai_tokens)}, "
             f"longest_common_token_sequence={longest_common}"
         )
-        print(gen_summary)
         logger.info(gen_summary)
 
         return longest_common
@@ -363,5 +358,4 @@ class OnnxDiscrepancyCheck(Pass):
 
         ref_pt_path = output_dir / "reference_model.pt"
         torch.save(ref_model.state_dict(), str(ref_pt_path))
-        print(f"OnnxDiscrepancyCheck: reference PyTorch model saved to {ref_pt_path}")
         logger.info("Reference PyTorch model saved to %s", ref_pt_path)
