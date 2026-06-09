@@ -810,8 +810,8 @@ def test_encapsulation_genie_overrides_applied(tmp_path, mock_qairt_model, mock_
         "kv_dim": None,
         "positional_encoding": {"type": "rope", "rope_dim": 64},
     }
-    mock_container._gen_ai_config.model_dump.return_value = initial_gen_ai_state
-    original_gen_ai_config_mock = mock_container._gen_ai_config
+    mock_container._gen_ai_config.model_dump.return_value = initial_gen_ai_state  # pylint: disable=protected-access
+    original_gen_ai_config_mock = mock_container._gen_ai_config  # pylint: disable=protected-access
 
     mock_qairt_modules["gen_ai_api"].LLMContainer.load.return_value = mock_container
 
