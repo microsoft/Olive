@@ -245,7 +245,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
                 onnx_files = [a.source_path for a in role_artifacts]
                 onnx_rel_paths = [a.package_rel_path for a in role_artifacts]
 
-                ep = _resolve_ep_for_role(source_genai, role_name, target_name)
+                ep = _resolve_ep_for_role(source_genai, role_name)
                 # ``ep_compatibility_info`` metadata is conventionally
                 # written on the role's first ONNX (the primary stage for
                 # a pipeline role); probe that file for the EP-scoped
@@ -1449,58 +1449,41 @@ def _collect_artifacts_per_role(source_path: Path, source_genai: Optional[dict])
     return by_role
 
 
-def _resolve_ep_for_role(source_genai: Optional[dict], role_name: str, variant_name: Optional[str]) -> str:
-    """Resolve the ORT EP for a single role with tri-state precedence.
+def _resolve_ep_for_role(source_genai: Optional[dict], role_name: str) -> str:
+    """Pick the role's ORT EP from its genai_config ``provider_options``.
 
-    1. If the role's ``session_options.provider_options`` (or any pipeline
-       stage's) contains a non-CPU alias, return that EP.
-    2. Else, if the role has explicit ``provider_options`` (a list, possibly
-       empty or containing only CPU aliases), the producer explicitly
-       declared CPU — return ``CPUExecutionProvider``. Variant-name guessing
-       is NOT used as a tie-breaker here, since that would override the
-       producer's explicit choice (e.g. a ``CPU`` role inside a source dir
-       conventionally named ``gpu`` because most of its other roles are GPU).
-    3. Else (no provider_options info at all), fall back to the variant
-       name heuristic, finally to ``CPUExecutionProvider``.
+    Returns the first non-CPU EP alias found under the role's
+    ``session_options.provider_options`` (or any pipeline stage's).
+    Returns ``CPUExecutionProvider`` for a CPU role (empty
+    ``provider_options`` list, CPU-only aliases, or no provider_options
+    at all). ``genai_config.json`` is the single source of truth for the
+    role's EP — variant directory names are NOT consulted, since the
+    producer's explicit declaration must win even when a CPU helper role
+    lives inside a source dir colloquially named ``gpu``.
     """
-    has_explicit_provider_options = False
-    if isinstance(source_genai, dict):
-        model_block = source_genai.get("model")
-        if isinstance(model_block, dict):
-            role_body = model_block.get(role_name)
-            if isinstance(role_body, dict):
-                po_lists: list[list] = []
-                so = role_body.get("session_options")
-                if isinstance(so, dict):
-                    po = so.get("provider_options")
-                    if isinstance(po, list):
-                        po_lists.append(po)
-                        has_explicit_provider_options = True
-                pipeline = role_body.get("pipeline")
-                if isinstance(pipeline, list):
-                    for stage in pipeline:
-                        if not isinstance(stage, dict):
-                            continue
-                        for stage_body in stage.values():
-                            if not isinstance(stage_body, dict):
-                                continue
-                            inner_so = stage_body.get("session_options")
-                            if isinstance(inner_so, dict):
-                                inner_po = inner_so.get("provider_options")
-                                if isinstance(inner_po, list):
-                                    po_lists.append(inner_po)
-                                    has_explicit_provider_options = True
-                for po_list in po_lists:
-                    for entry in po_list:
-                        if not isinstance(entry, dict):
-                            continue
-                        for alias in entry:
-                            ep = _GENAI_TO_EP.get(alias.lower())
-                            if ep and ep != "CPUExecutionProvider":
-                                return ep
-    if has_explicit_provider_options:
-        return "CPUExecutionProvider"
-    return _guess_ep_from_variant_name(variant_name) or "CPUExecutionProvider"
+    body = ((source_genai or {}).get("model") or {}).get(role_name) or {}
+
+    so_blocks: list[dict] = []
+    so = body.get("session_options")
+    if isinstance(so, dict):
+        so_blocks.append(so)
+    so_blocks.extend(
+        stage_body["session_options"]
+        for stage in body.get("pipeline") or []
+        if isinstance(stage, dict)
+        for stage_body in stage.values()
+        if isinstance(stage_body, dict) and isinstance(stage_body.get("session_options"), dict)
+    )
+
+    for so_block in so_blocks:
+        for entry in so_block.get("provider_options") or []:
+            if not isinstance(entry, dict):
+                continue
+            for alias in entry:
+                ep = _GENAI_TO_EP.get(alias.lower())
+                if ep and ep != "CPUExecutionProvider":
+                    return ep
+    return "CPUExecutionProvider"
 
 
 def _select_base_config_source(
@@ -1535,44 +1518,6 @@ def _select_base_config_source(
             best_count = count
             best_idx = idx
     return targets[best_idx]
-
-
-# Best-effort mapping from common Olive output / EP-build directory names to
-# canonical ORT EP strings. Used only as a fallback when neither
-# ``genai_config.json``'s ``provider_options`` nor any explicit metadata
-# names the EP. Keep substrings short and lowercased; matched via ``in``.
-_VARIANT_NAME_EP_HINTS: tuple[tuple[str, str], ...] = (
-    ("cuda", "CUDAExecutionProvider"),
-    ("gpu", "CUDAExecutionProvider"),
-    ("trt", "TensorrtExecutionProvider"),
-    ("tensorrt", "TensorrtExecutionProvider"),
-    ("rocm", "ROCMExecutionProvider"),
-    ("dml", "DmlExecutionProvider"),
-    ("directml", "DmlExecutionProvider"),
-    # Vendor-specific NPU hints come before the generic ``npu`` so a
-    # variant directory named e.g. ``vitia_npu`` resolves to VitisAI rather
-    # than the QNN fallback.
-    ("vitisai", "VitisAIExecutionProvider"),
-    ("vitia", "VitisAIExecutionProvider"),
-    ("qnn", "QNNExecutionProvider"),
-    ("npu", "QNNExecutionProvider"),
-    ("openvino", "OpenVINOExecutionProvider"),
-    ("ovep", "OpenVINOExecutionProvider"),
-    ("webgpu", "WebGpuExecutionProvider"),
-    ("xnnpack", "XnnpackExecutionProvider"),
-    ("coreml", "CoreMLExecutionProvider"),
-    ("cpu", "CPUExecutionProvider"),
-)
-
-
-def _guess_ep_from_variant_name(variant_name: Optional[str]) -> Optional[str]:
-    if not variant_name:
-        return None
-    name = variant_name.lower()
-    for hint, ep in _VARIANT_NAME_EP_HINTS:
-        if hint in name:
-            return ep
-    return None
 
 
 def _extract_ep_compatibility_from_onnx(model_path: Path, ep: str = "") -> Optional[str]:
