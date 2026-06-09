@@ -374,11 +374,16 @@ class OnnxArtifact:
 
     ``source_path`` points at the absolute path the writer reads from;
     ``package_rel_path`` is the location inside the variant directory the
-    writer must write to (e.g. ``decoder/model.onnx`` for a Mobius-style
-    multi-component source, or ``model.onnx`` for a flat single-ONNX
-    export). The rel path is the same string the variant's
-    ``genai_config_overlay.json`` will emit under ``model.<role>.filename``,
-    so the on-disk layout and the loader's view stay aligned.
+    writer must write to. In the per-role-component layout
+    ``_collect_artifacts_per_role`` emits this as the source filename's
+    basename (e.g. ``model.onnx``) because each role gets its own
+    ``models/<role>/<variant>/`` directory and there is no sibling role
+    to disambiguate against. Direct callers that construct a VariantSpec
+    by hand may supply a nested subpath when the variant truly needs a
+    multi-file layout under one component. The rel path is the same
+    string the variant's ``genai_config_overlay.json`` emits under
+    ``model.<role>.filename``, so the on-disk layout and the loader's
+    view stay aligned.
     """
 
     source_path: Path
@@ -880,7 +885,14 @@ def _lift_role_overlay_body(role_body: dict, onnx_rel_paths: Optional[list[str]]
     pipeline = role_body.get("pipeline")
     has_pipeline = isinstance(pipeline, list) and pipeline
     filename = role_body.get("filename")
-    if isinstance(filename, str) and filename:
+    # ``pipeline`` takes precedence when both are present (mirrors the
+    # behaviour of ``_collect_artifacts_per_role``, which only emits
+    # pipeline stage artifacts in that case). Lifting both would produce
+    # an overlay with both ``filename`` and ``pipeline`` (malformed for the
+    # loader) and reuse ``onnx_rel_paths[0]`` — which is stage 0's
+    # basename — for the spurious role-level filename, silently aliasing
+    # the two filename fields.
+    if not has_pipeline and isinstance(filename, str) and filename:
         if not _is_safe_relative_location(filename):
             raise ValueError(
                 f"Unsafe genai_config filename {filename!r}: must be a relative path "

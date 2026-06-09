@@ -1196,6 +1196,51 @@ class TestPipelineSources:
         assert overlay["model"]["decoder"]["session_options"]["provider_options"] == [{"VitisAI": {}}]
 
 
+class TestLiftRoleOverlayBodyPipelineWins:
+    """Pipeline takes precedence over a role-level ``filename`` in overlay lift.
+
+    A role body that carries BOTH ``filename`` and a non-empty ``pipeline``
+    is malformed input; the artifact collector already prefers the
+    pipeline shape in that case, so the overlay writer must do the same.
+    Lifting both would emit ``{"filename": ..., "pipeline": [...]}`` to
+    the overlay (invalid for the loader, which expects exactly one
+    shape per role) AND silently alias ``onnx_rel_paths[0]`` between the
+    role-level filename and stage 0's filename.
+    """
+
+    def test_pipeline_present_drops_role_level_filename(self):
+        from olive.cli.model_package import _lift_role_overlay_body
+
+        # Role declares both — pipeline wins. onnx_rel_paths reflects what
+        # the per-role artifact collector would emit (one entry per
+        # pipeline stage, basename-only).
+        role_body = {
+            "filename": "old_flat.onnx",  # stale role-level fallback
+            "pipeline": [
+                {"prompt": {"filename": "qnn/prompt.onnx"}},
+                {"token": {"filename": "qnn/token.onnx"}},
+            ],
+        }
+        rel_paths = ["prompt.onnx", "token.onnx"]
+
+        patch = _lift_role_overlay_body(role_body, rel_paths)
+
+        # Bug guard: no ``filename`` key at all when pipeline is present.
+        assert "filename" not in patch, f"role-level filename leaked into overlay even though pipeline wins: {patch!r}"
+        # Pipeline shape preserved with each stage's filename mapped to
+        # its writer-known basename in order.
+        assert patch["pipeline"][0]["prompt"]["filename"] == "prompt.onnx"
+        assert patch["pipeline"][1]["token"]["filename"] == "token.onnx"
+
+    def test_no_pipeline_keeps_role_level_filename(self):
+        from olive.cli.model_package import _lift_role_overlay_body
+
+        role_body = {"filename": "decoder/model.onnx"}
+        patch = _lift_role_overlay_body(role_body, ["model.onnx"])
+        assert patch["filename"] == "model.onnx"
+        assert "pipeline" not in patch
+
+
 class TestVLMMultiRoleOverlay:
     """Multi-role (vision + embedding + decoder) VLM packaging.
 
@@ -1314,10 +1359,15 @@ def _create_mobius_vlm_source(
     ``embedding/``, and ``vision_encoder/`` each contain ``model.onnx``
     (and a ``model.onnx.data`` external-data blob). The ``genai_config.json``
     references each role by its full subdirectory-prefixed path
-    (``"filename": "decoder/model.onnx"``). The packager must preserve that
-    layout — flattening would either collide three identically-named ONNXs
-    in the variant root or strand the loader looking for files that aren't
-    where the overlay says they are.
+    (``"filename": "decoder/model.onnx"``).
+
+    With per-role components each role gets its own
+    ``models/<role>/<variant>/`` directory, so the packager safely
+    flattens the packaged filename to the basename (``model.onnx``) and
+    rewrites the overlay to match the on-disk layout — no sibling-role
+    disambiguation is needed inside any one variant dir. The source-side
+    subdirectory prefix is used only to locate the file on disk in the
+    source and does not propagate into the package.
     """
     source_dir = tmp_path / name
     source_dir.mkdir(parents=True)
