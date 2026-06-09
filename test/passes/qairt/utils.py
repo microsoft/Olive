@@ -4,9 +4,10 @@
 # --------------------------------------------------------------------------
 
 from pathlib import Path
+from typing import Union
 
 
-def make_minimal_onnx(path: Path) -> None:
+def make_minimal_onnx(path: Union[Path, str]) -> None:
     """Write a minimal ONNX model to *path* for use in tests.
 
     Graph: INT32 input_ids [batch_size, sequence_length]
@@ -20,7 +21,9 @@ def make_minimal_onnx(path: Path) -> None:
     from onnx import TensorProto
 
     input_tensor = onnx.helper.make_tensor_value_info("input_ids", TensorProto.INT32, ["batch_size", "sequence_length"])
-    output_tensor = onnx.helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])
+    output_tensor = onnx.helper.make_tensor_value_info(
+        "logits", TensorProto.FLOAT, ["batch_size", 1, "sequence_length"]
+    )
     cast_node = onnx.helper.make_node("Cast", inputs=["input_ids"], outputs=["cast_out"], to=TensorProto.FLOAT)
     reshape_node = onnx.helper.make_node("Reshape", inputs=["cast_out", "new_shape"], outputs=["logits"])
     new_shape = onnx.helper.make_tensor("new_shape", TensorProto.INT64, [3], [0, 1, -1])

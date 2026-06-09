@@ -177,9 +177,9 @@ class QairtEncapsulation(Pass):
                 export_kwargs["engine_config"] = engine_cfg
             else:
                 logger.warning(
-                    "engine_config_overrides ignored: installed qairt does not support "
-                    "engine_config in LLMContainer.export(). Upgrade qairt-dev to a version "
-                    "that exposes engine_config in LLMContainer.export()."
+                    "engine_config_overrides ignored: installed qairt-dev does not support "
+                    "the engine_config parameter in LLMContainer.export(). "
+                    "Upgrade to a newer version of qairt-dev to enable this parameter."
                 )
 
         # Input/Output metadata
