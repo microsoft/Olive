@@ -938,25 +938,15 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
                     sample_idx += 1
 
-                    # For multiple-choice tasks, extract the answer from responses.
-                    # First try digit extraction (for 1-based numbered options),
-                    # then fall back to letter extraction (for A/B/C/D options).
-                    if 1 <= num_choices <= 9 and pred:
-                        pattern = rf"\b([1-{num_choices}])\b"
-                        num_match = re.search(pattern, pred)
-                        if num_match:
-                            pred = num_match.group(1)
-                        else:
-                            # Fallback: find any single digit in the valid range
-                            valid_digits = {str(d) for d in range(1, num_choices + 1)}
-                            for ch in pred:
-                                if ch in valid_digits:
-                                    pred = ch
-                                    break
-                    elif extract_option_letter and pred:
-                        letter_match = re.search(r"\b([A-Z])\b", pred)
+                    # For multiple-choice tasks, extract the letter answer (A/B/C/D).
+                    # Restrict to valid option letters based on num_choices and accept lowercase.
+                    if extract_option_letter and pred and num_choices > 0:
+                        letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                        valid_letters = letters[:num_choices]
+                        pattern = rf"\b([{valid_letters}{valid_letters.lower()}])\b"
+                        letter_match = re.search(pattern, pred)
                         if letter_match:
-                            pred = letter_match.group(1)
+                            pred = letter_match.group(1).upper()
                     all_preds.append(pred)
 
                 # Collect reference texts (aligned with preds including empty ones for None images)

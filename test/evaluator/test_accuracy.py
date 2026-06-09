@@ -414,3 +414,61 @@ class TestWordSortRatio:
         targets = [""]
         result = metric.measure(model_output, targets)
         assert result == 1.0
+
+
+class TestVisionVQALetterConversion:
+    """Test vision VQA multiple-choice letter conversion and extraction logic."""
+
+    def test_ground_truth_index_to_letter(self):
+        """Ground truth 0-based index should be converted to letter matching A/B/C/D labels."""
+        from datasets import Dataset
+
+        from olive.data.component.pre_process_data import vision_vqa_pre_process
+
+        ds = Dataset.from_dict({
+            "image": [None],
+            "question": ["What is shown?"],
+            "answer": [2],
+            "options": [["opt1", "opt2", "opt3", "opt4"]],
+        })
+        vqa_ds = vision_vqa_pre_process(ds, options_col="options")
+        _, answer = vqa_ds[0]
+        assert answer == "C"
+
+    def test_ground_truth_index_beyond_26_not_converted(self):
+        """Index >= 26 should not be converted to letter (no IndexError)."""
+        from datasets import Dataset
+
+        from olive.data.component.pre_process_data import vision_vqa_pre_process
+
+        options = [f"opt{i}" for i in range(30)]
+        ds = Dataset.from_dict({
+            "image": [None],
+            "question": ["Q?"],
+            "answer": [27],
+            "options": [options],
+        })
+        vqa_ds = vision_vqa_pre_process(ds, options_col="options")
+        _, answer = vqa_ds[0]
+        # Should not crash; answer stays as original string since idx >= len(letters)
+        assert answer == "27"
+
+    def test_exact_match_with_letter_prediction(self):
+        """ExactMatch metric should match letter prediction against letter ground truth."""
+        from olive.evaluator.accuracy import ExactMatch
+
+        metric = ExactMatch({})
+        model_output = OliveModelOutput(preds=["B"], logits=None)
+        targets = ["B"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_exact_match_letter_case_insensitive(self):
+        """ExactMatch should be case-insensitive."""
+        from olive.evaluator.accuracy import ExactMatch
+
+        metric = ExactMatch({})
+        model_output = OliveModelOutput(preds=["b"], logits=None)
+        targets = ["B"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0

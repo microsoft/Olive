@@ -495,11 +495,13 @@ def vision_vqa_pre_process(
             if isinstance(answer, (list, tuple)):
                 answer = "|".join(str(a) for a in answer) if answer else ""
 
-            # Convert 0-based answer index to 1-based to match the option numbering
+            # Convert 0-based answer index to letter to match the A/B/C/D option labeling
             if num_choices > 0:
                 try:
-                    idx = int(answer)
-                    answer = str(idx + 1)
+                    answer_idx = int(answer)
+                    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    if 0 <= answer_idx < min(num_choices, len(letters)):
+                        answer = letters[answer_idx]
                 except (ValueError, TypeError):
                     pass  # answer is already a non-numeric string (e.g., text label)
 
