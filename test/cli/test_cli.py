@@ -224,6 +224,7 @@ def test_workflow_run_command_with_test_rejects_non_test_output_dir(tmp_path):
 
 @patch("olive.workflows.run")
 def test_workflow_run_command_with_test_reuses_test_output_dir(mock_run, tmp_path):
+    mock_run.return_value = None
     config_path = tmp_path / "config.json"
     output_dir = tmp_path / "output"
     output_dir.mkdir()
