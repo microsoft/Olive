@@ -155,6 +155,7 @@ def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_pat
 
 @patch("olive.workflows.run")
 def test_workflow_run_command_with_test_override(mock_run, tmp_path):
+    mock_run.return_value = None
     config_path = tmp_path / "config.json"
     config_path.write_text(
         json.dumps(
