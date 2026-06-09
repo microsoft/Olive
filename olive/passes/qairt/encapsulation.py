@@ -35,10 +35,7 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
     elements are appended. A ``None`` override value deletes the key from
     the result. The returned dict shares no references with *base*.
     """
-    # Shallow-copy base so untouched keys start in result; deep-copy them
-    # below only when they are not recursively merged (avoids a full
-    # deepcopy of the entire subtree on every recursive call).
-    result = dict(base)
+    result = copy.deepcopy(base)
     for k, v in overrides.items():
         if v is None:
             result.pop(k, None)
@@ -51,15 +48,10 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
                     merged.append(_deep_merge(result[k][i], ov))
                 else:
                     merged.append(copy.deepcopy(ov))
-            merged.extend(copy.deepcopy(item) for item in result[k][len(v) :])
+            merged.extend(result[k][len(v) :])
             result[k] = merged
         else:
             result[k] = copy.deepcopy(v)
-    # Deep-copy any base values not touched by overrides so the returned
-    # dict is fully independent of base.
-    for k, existing in result.items():
-        if k not in overrides:
-            result[k] = copy.deepcopy(existing)
     return result
 
 
