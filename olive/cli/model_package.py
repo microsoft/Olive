@@ -47,7 +47,7 @@ import re
 import shutil
 from argparse import ArgumentParser
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Optional
 
 from olive.cli.base import (
@@ -1189,16 +1189,34 @@ def _discover_external_data(onnx_path: Path) -> list[str]:
 
 
 def _is_safe_relative_location(location: str) -> bool:
-    if not location:
+    r"""Reject any path that wouldn't sit safely under a single variant dir.
+
+    The check is intentionally OS-independent: a genai_config can be
+    authored on one platform and packaged on another, so a path that
+    looks "relative" on the packaging host must still be rejected if it
+    would be interpreted as absolute, drive-rooted, or upward-traversing
+    on either POSIX or Windows. We therefore evaluate the candidate with
+    both ``PurePosixPath`` and ``PureWindowsPath`` and reject if either
+    flags it. Backslashes in the input are normalized to forward slashes
+    so a string like ``"..\..\escape"`` is caught on POSIX too.
+    """
+    if not isinstance(location, str) or not location:
         return False
-    p = Path(location)
-    if p.is_absolute():
+    normalized = location.replace("\\", "/")
+    if normalized.startswith("/"):
         return False
-    parts = p.parts
-    if any(part in ("..", "") for part in parts):
+    posix = PurePosixPath(normalized)
+    windows = PureWindowsPath(normalized)
+    if posix.is_absolute() or windows.is_absolute():
         return False
-    # Reject Windows-drive style paths that slip through is_absolute on POSIX.
-    return not (len(location) >= 2 and location[1] == ":")
+    parts = posix.parts
+    if not parts or any(part in ("..", "") for part in parts):
+        return False
+    # PureWindowsPath strips a leading drive letter into its own anchor
+    # (caught above), but a bare ``C:foo`` (drive-relative) still slips
+    # through is_absolute on both pure paths. Reject any segment that
+    # contains a drive-letter colon as the second character.
+    return all(not (len(part) >= 2 and part[1] == ":") for part in PureWindowsPath(normalized).parts)
 
 
 # ---------------------------------------------------------------------------

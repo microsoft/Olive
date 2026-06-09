@@ -1761,6 +1761,55 @@ class TestUnsafeGenaiFilenamesRejected:
             cmd.run()
 
 
+class TestIsSafeRelativeLocationCrossPlatform:
+    """Path-safety helper rejects unsafe inputs on both POSIX and Windows hosts.
+
+    ``Path("/etc/passwd").is_absolute()`` returns ``False`` on Windows
+    because there is no drive letter, and ``Path("C:/foo").is_absolute()``
+    returns ``False`` on POSIX. A naive single-flavor check would let
+    an attacker (or a malformed genai_config produced on a different
+    platform) slip through. The helper must reject paths that look
+    absolute under EITHER flavor, and must treat backslashes as
+    separators on POSIX too so Windows-style traversal is caught.
+    """
+
+    @pytest.mark.parametrize(
+        "candidate",
+        [
+            "/etc/passwd",
+            "\\etc\\passwd",
+            "C:/foo/bar",
+            "C:\\foo\\bar",
+            "C:foo",
+            "D:\\etc\\passwd",
+            "..\\..\\escape",
+            "../escape.onnx",
+            "..",
+            "",
+            "//server/share/file",
+        ],
+    )
+    def test_rejects_unsafe_path(self, candidate):
+        from olive.cli.model_package import _is_safe_relative_location
+
+        assert not _is_safe_relative_location(candidate), f"unsafe path {candidate!r} was incorrectly accepted"
+
+    @pytest.mark.parametrize(
+        "candidate",
+        [
+            "model.onnx",
+            "decoder/model.onnx",
+            "decoder\\model.onnx",
+            "a/b/c.onnx",
+            "nested.dir/file.onnx",
+        ],
+    )
+    def test_accepts_safe_relative_path(self, candidate):
+        from olive.cli.model_package import _is_safe_relative_location
+
+        assert _is_safe_relative_location(candidate), f"safe relative path {candidate!r} was incorrectly rejected"
+
+
 class TestCopyWithCollisionCheck:
     """Writer collision-detection: same content dedupes, different content raises."""
 
