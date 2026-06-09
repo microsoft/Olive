@@ -2151,9 +2151,9 @@ class TieWordEmbeddings(ProtoSurgeon):
     def __call__(self, model: onnx.ModelProto):
         dag = OnnxDAG(model)
 
-        # support both "input_ids" and "input_embeds"/"inputs_embeds" as input names
+        # support both "input_ids" and "input_embeds" as input names
         input_name = None
-        for candidate in ("input_ids", "input_embeds", "inputs_embeds"):
+        for candidate in ("input_ids", "input_embeds"):
             if candidate in dag.ios and dag.is_input(candidate):
                 input_name = candidate
                 break
