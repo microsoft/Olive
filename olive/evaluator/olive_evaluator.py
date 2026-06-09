@@ -881,7 +881,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     pil_image = item.get("image")
                     question = item.get("question", "")
                     sys_prompt = item.get("system_prompt", "")
-                    extract_option_letter = item.get("extract_option_letter", False)
                     num_choices = item.get("num_choices", 0)
                     max_length = item.get("max_length", default_max_length)
 
@@ -938,9 +937,9 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
                     sample_idx += 1
 
-                    # For multiple-choice tasks, extract the answer from responses.
-                    # First try digit extraction (for 1-based numbered options),
-                    # then fall back to letter extraction (for A/B/C/D options).
+                    # For multiple-choice tasks, extract the answer digit from responses
+                    # like "2", "The answer is 3", or "1. D" to match the expected answer format.
+                    # Only enabled when num_choices is between 1 and 9 (single-digit options).
                     if 1 <= num_choices <= 9 and pred:
                         pattern = rf"\b([1-{num_choices}])\b"
                         num_match = re.search(pattern, pred)
@@ -953,10 +952,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                                 if ch in valid_digits:
                                     pred = ch
                                     break
-                    elif extract_option_letter and pred:
-                        letter_match = re.search(r"\b([A-Z])\b", pred)
-                        if letter_match:
-                            pred = letter_match.group(1)
                     all_preds.append(pred)
 
                 # Collect reference texts (aligned with preds including empty ones for None images)

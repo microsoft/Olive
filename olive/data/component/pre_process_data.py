@@ -478,16 +478,11 @@ def vision_vqa_pre_process(
             # Use 1-based numbering (1, 2, 3, 4) which aligns with how VLMs are
             # typically prompted and avoids confusion with diagram region labels.
             num_choices = 0
-            has_options = False
             if self.options_column and self.options_column in item:
                 options = item[self.options_column]
-                if isinstance(options, (list, tuple)):
-                    has_options = True
+                if isinstance(options, (list, tuple)) and len(options) > 0:
                     num_choices = len(options)
-                    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                    options_text = "\n".join(
-                        f"{letters[i] if i < len(letters) else str(i)}. {opt}" for i, opt in enumerate(options)
-                    )
+                    options_text = "\n".join(f"{i + 1}. {opt}" for i, opt in enumerate(options))
                     question = f"{question}\n{options_text}"
 
             # Handle list/tuple answers (some datasets have multiple valid answers)
@@ -507,7 +502,6 @@ def vision_vqa_pre_process(
                 "image": image,
                 "question": question,
                 "system_prompt": self.system_prompt,
-                "extract_option_letter": has_options,
                 "num_choices": num_choices,
                 "max_length": self.max_length,
             }
