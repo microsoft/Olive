@@ -485,7 +485,6 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
     assert "m" not in config["passes"]
     assert config["passes"]["b"]["type"] == "MobiusBuilder"
     assert config["passes"]["b"]["precision"] == precision
-    assert config["passes"]["b"]["runtime"] == ("ort-genai" if use_ort_genai else "none")
     assert mock_run.call_count == 1
 
 

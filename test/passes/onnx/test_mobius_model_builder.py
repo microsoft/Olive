@@ -98,7 +98,7 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
 def _patch_build(pkg: MagicMock):
     # Patch mobius.build directly — lazy import inside _run_for_config means
     # patching the module attribute, not the local binding.
-    # Also patch _write_genai_config since the default runtime is ort-genai.
+    # Also patch _write_genai_config since mobius always emits ORT GenAI artifacts.
     return _CombinePatches(
         patch("mobius.build", return_value=pkg),
         patch.object(MobiusBuilder, "_write_genai_config"),
@@ -127,13 +127,12 @@ class _CombinePatches:
 
 
 def test_default_config_params():
-    """MobiusBuilder must declare precision and runtime, and must not declare execution_provider or trust_remote_code."""
+    """MobiusBuilder must declare precision, and must not declare execution_provider or trust_remote_code."""
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
     config = MobiusBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
     assert "precision" in config
-    assert "runtime" in config
     assert "execution_provider" not in config
     assert "trust_remote_code" not in config
 
