@@ -6,7 +6,7 @@
 
 import builtins
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -556,11 +556,10 @@ def test_gen_ai_builder_context_lengths_skips_multi_graph_setter(
         disable_search=True,
     )
 
-    gen_ai_pass.run(mock_qairt_prepared_model, str(output_path))
-
-    # Verify multi_graph property setter was never invoked
-    calls = [str(c) for c in mock_builder.mock_calls]
-    assert not any("multi_graph" in c for c in calls)
+    multi_graph_mock = PropertyMock()
+    with patch.object(type(mock_builder), "multi_graph", multi_graph_mock):
+        gen_ai_pass.run(mock_qairt_prepared_model, str(output_path))
+    multi_graph_mock.assert_not_called()
 
 
 def test_gen_ai_builder_validate_config_context_lengths_cpu_rejected(mock_accelerator_spec, mock_qairt_modules):
