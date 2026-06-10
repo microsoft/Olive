@@ -43,6 +43,41 @@ class ModelConfig(NestedConfig):
         cls = get_model_handler(self.type)
         return cls(**self.config)
 
+    def select_components(self, names: list[str]) -> "ModelConfig":
+        """Return a new ModelConfig holding only the named components of a CompositeModel.
+
+        Returns the unwrapped child component ``ModelConfig`` when exactly one name is given;
+        returns a new ``CompositeModel`` ``ModelConfig`` containing the subset (in the requested
+        order) otherwise. Raises ``ValueError`` if invoked on a non-composite model or if any
+        name is missing from ``model_component_names``.
+        """
+        if self.type != "compositemodel":
+            raise ValueError(
+                f"select_components is only supported on CompositeModel input configs (got type {self.type!r})."
+            )
+        if not names:
+            raise ValueError("select_components requires a non-empty list of names.")
+        component_names = self.config.get("model_component_names") or []
+        model_components = self.config.get("model_components") or []
+        if len(component_names) != len(model_components):
+            raise ValueError("CompositeModel config has mismatched model_components and model_component_names lengths.")
+        missing = [n for n in names if n not in component_names]
+        if missing:
+            raise ValueError(f"Unknown component name(s) {missing}. Available components: {list(component_names)}.")
+        component_map = dict(zip(component_names, model_components))
+        selected = [deepcopy(component_map[n]) for n in names]
+        if len(selected) == 1:
+            child = selected[0]
+            if isinstance(child, ModelConfig):
+                return child
+            return ModelConfig.model_validate(child)
+        new_config = {
+            **{k: v for k, v in self.config.items() if k not in ("model_components", "model_component_names")},
+            "model_components": selected,
+            "model_component_names": list(names),
+        }
+        return ModelConfig(type=self.type, config=new_config)
+
     def get_model_id(self):
         for v in self.config.values():
             if callable(v):

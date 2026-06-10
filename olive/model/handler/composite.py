@@ -77,6 +77,33 @@ class CompositeModelHandler(OliveModelHandler):
     def get_model_components(self) -> list[tuple[str, OliveModelHandler]]:
         return zip(self.model_component_names, self.model_components)
 
+    def select_components(self, names: list[str]) -> "OliveModelHandler":
+        """Return a handler holding only the named components.
+
+        Returns the unwrapped child handler when exactly one name is given; returns a new
+        ``CompositeModelHandler`` containing the subset (in the requested order) otherwise.
+        Raises ``ValueError`` if any name is missing from ``model_component_names``.
+        """
+        if not names:
+            raise ValueError("select_components requires a non-empty list of names.")
+        missing = [n for n in names if n not in self.model_component_names]
+        if missing:
+            raise ValueError(
+                f"Unknown component name(s) {missing}. Available components: {list(self.model_component_names)}."
+            )
+        component_map = dict(zip(self.model_component_names, self._model_components))
+        selected = [component_map[n] for n in names]
+        if len(selected) == 1:
+            child = selected[0]
+            child.model_attributes = {**(self.model_attributes or {}), **(child.model_attributes or {})}
+            return child
+        return CompositeModelHandler(
+            model_components=selected,
+            model_component_names=list(names),
+            model_path=self.model_path,
+            model_attributes=self.model_attributes,
+        )
+
     def load_model(self, rank: int = None, cache_model: bool = True):
         raise NotImplementedError
 
