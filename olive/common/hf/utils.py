@@ -326,6 +326,20 @@ def get_generation_config(model_name_or_path: str, **kwargs) -> Optional["Genera
         return None
 
 
+def resolve_diffusers_tokenizer_path(model_path: str, load_kwargs: Optional[dict[str, Any]] = None) -> str:
+    """Resolve tokenizer path for diffusers pipelines with subfoldered sub-models."""
+    pipeline_path = Path(model_path)
+    load_kwargs = load_kwargs or {}
+    subfolder = load_kwargs.get("subfolder") or load_kwargs.get("extra_args", {}).get("subfolder")
+    if not subfolder:
+        return str(pipeline_path)
+
+    tokenizer_path = pipeline_path / "tokenizer"
+    if (tokenizer_path / "tokenizer_config.json").exists():
+        return str(tokenizer_path)
+    return str(pipeline_path / subfolder)
+
+
 def get_tokenizer(model_name_or_path: str, **kwargs) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
     """Get HF model's tokenizer."""
     tokenizer = from_pretrained(AutoTokenizer, model_name_or_path, "tokenizer", **kwargs)
