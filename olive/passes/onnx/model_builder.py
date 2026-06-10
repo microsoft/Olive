@@ -161,6 +161,22 @@ class ModelBuilder(Pass):
                 required=False,
                 description="Remove language modeling head from your ONNX model.",
             ),
+            "use_cache": PassConfigParam(
+                type_=bool,
+                required=False,
+                description=(
+                    "Include past/present key-value cache inputs and outputs in the ONNX model. "
+                    "Set to false for Stable Diffusion text encoder exports."
+                ),
+            ),
+            "hidden_states_layers": PassConfigParam(
+                type_=list[int],
+                required=False,
+                description=(
+                    "Hugging Face hidden_states layer indices to concatenate into prompt_embeds "
+                    "(for example [9, 18, 27] for Flux/Qwen3 text encoders)."
+                ),
+            ),
             "enable_cuda_graph": PassConfigParam(
                 type_=bool,
                 required=False,
