@@ -187,6 +187,37 @@ def test_model_builder_uses_saved_test_model_path(tmp_path):
     assert fake_builder.create_model.call_args.kwargs["input_path"] == str(test_model_path)
 
 
+def test_model_builder_prompt_embeds_options_forwarded(tmp_path, monkeypatch):
+    input_model = make_local_tiny_llama(tmp_path / "input_model", "hf")
+    output_folder = tmp_path / "output_model"
+    captured_kwargs = {}
+
+    def fake_create_model(*_, **kwargs):
+        captured_kwargs.update(kwargs)
+        output_dir = Path(kwargs["output_dir"])
+        (output_dir / kwargs["filename"]).write_text("dummy onnx file")
+        (output_dir / "genai_config.json").write_text("{}")
+
+    _mock_genai_builder(monkeypatch, fake_create_model)
+
+    p = create_pass_from_dict(
+        ModelBuilder,
+        {
+            "precision": "int4",
+            "exclude_lm_head": True,
+            "use_cache": False,
+            "hidden_states_layers": [9, 18, 27],
+        },
+        disable_search=True,
+    )
+    output_model = p.run(input_model, output_folder)
+
+    assert isinstance(output_model, ONNXModelHandler)
+    assert captured_kwargs["exclude_lm_head"] is True
+    assert captured_kwargs["use_cache"] is False
+    assert captured_kwargs["hidden_states_layers"] == [9, 18, 27]
+
+
 def test_model_builder_apply_annotations_on_single_file_fallback(tmp_path, monkeypatch):
     def fake_create_model(
         model_name, input_path, output_dir, precision, execution_provider, cache_dir, filename, **kwargs

@@ -14,6 +14,7 @@ from pydantic import Field, field_validator
 from transformers import __version__ as transformers_version
 
 from olive.common.config_utils import NestedConfig, validate_config
+from olive.common.hf.utils import resolve_diffusers_tokenizer_path
 from olive.common.utils import cleanup_memory
 from olive.data.config import DataConfig
 from olive.data.template import huggingface_data_config_template
@@ -279,7 +280,7 @@ def get_calibration_dataset(
     """
     if not data_config and isinstance(model, HfModelHandler):
         data_config = get_calibration_data_config(
-            model.model_name_or_path,
+            resolve_diffusers_tokenizer_path(model.model_name_or_path, model.get_load_kwargs()),
             trust_remote_code=model.get_load_kwargs().get("trust_remote_code", False),
             split=split,
             batch_size=batch_size,
