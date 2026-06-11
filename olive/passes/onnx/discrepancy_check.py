@@ -85,9 +85,9 @@ class OnnxDiscrepancyCheck(Pass):
                     "If not specified, results are written to the pass cache directory."
                 ),
             ),
-            "export_reference_onnx": PassConfigParam(
+            "save_reference_model_state_dict": PassConfigParam(
                 type_=bool,
-                default_value=True,
+                default_value=False,
                 description=(
                     "Save the reference PyTorch model weights (state_dict) alongside the results. "
                     "This allows direct comparison between the reference and optimized models."
