@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import logging
 import re
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
@@ -16,6 +17,8 @@ from olive.constants import DiffusersModelVariant
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+
+logger = logging.getLogger(__name__)
 
 TEST_OUTPUT_MARKER_FILE = "olive_test_output.json"
 
@@ -82,7 +85,7 @@ def add_discrepancy_check_pass(run_config: dict) -> dict:
     report_dir = run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")
     if report_dir and Path(report_dir).suffix and not Path(report_dir).is_dir():
         report_dir = str(Path(report_dir).parent)
-    print(f"Adding OnnxDiscrepancyCheck pass with reference_model_path={reference_model_path}")
+    logger.debug("Adding OnnxDiscrepancyCheck pass with reference_model_path=%s", reference_model_path)
     passes["discrepancy_check"] = {
         "type": "OnnxDiscrepancyCheck",
         "reference_model_path": reference_model_path,
@@ -113,7 +116,7 @@ def save_discrepancy_check_results(workflow_output, output_path: str) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "discrepancy_check_results.json"
     report_path.write_text(json.dumps(results, indent=2))
-    print(f"OnnxDiscrepancyCheck results saved to {report_path}")
+    logger.debug("OnnxDiscrepancyCheck results saved to %s", report_path)
 
 
 class BaseOliveCLICommand(ABC):
