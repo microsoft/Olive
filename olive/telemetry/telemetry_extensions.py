@@ -6,11 +6,11 @@
 import functools
 import inspect
 import time
+import traceback
 from types import TracebackType
 from typing import Any, Callable, Optional, TypeVar
 
-from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, _get_logger
-from olive.telemetry.utils import _format_exception_message
+from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, RECIPE_EVENT_NAME, _get_logger
 
 _TFunc = TypeVar("_TFunc", bound=Callable[..., Any])
 
@@ -43,6 +43,38 @@ def log_error(
         "exception_message": exception_message,
     }
     telemetry.log(ERROR_EVENT_NAME, attributes, metadata)
+
+
+def log_recipe_result(
+    recipe_name: str,
+    success: bool,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    telemetry = _get_logger()
+    attributes = {
+        "recipe_name": recipe_name,
+        "success": success,
+    }
+    telemetry.log(RECIPE_EVENT_NAME, attributes, metadata)
+
+
+def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = None) -> str:
+    """Format an exception and trim local paths for readability."""
+    folder = "Olive"
+    file_line = 'File "'
+    formatted = traceback.format_exception(type(ex), ex, tb, limit=5)
+    lines = []
+    for line in formatted:
+        line_trunc = line.strip()
+        if line_trunc.startswith(file_line) and folder in line_trunc:
+            idx = line_trunc.find(folder)
+            if idx != -1:
+                line_trunc = line_trunc[idx + len(folder) :]
+        elif line_trunc.startswith(file_line):
+            idx = line_trunc[len(file_line) :].find('"')
+            line_trunc = line_trunc[idx + len(file_line) :]
+        lines.append(line_trunc)
+    return "\n".join(lines)
 
 
 def _resolve_invoked_from(skip_frames: int = 0) -> str:

@@ -20,7 +20,7 @@ def runner_entry(config):
         config = json.load(f)
 
     logger.info("Running workflow with config: %s", config)
-    olive_run(config)
+    olive_run(config, emit_recipe_telemetry=False)
 
 
 if __name__ == "__main__":
