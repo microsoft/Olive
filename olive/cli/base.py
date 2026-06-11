@@ -107,7 +107,11 @@ def save_discrepancy_check_results(workflow_output, output_path: str) -> None:
     if not results:
         return
 
-    report_path = Path(output_path) / "discrepancy_check_results.json"
+    output_dir = Path(output_path)
+    if output_dir.suffix and not output_dir.is_dir():
+        output_dir = output_dir.parent
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = output_dir / "discrepancy_check_results.json"
     report_path.write_text(json.dumps(results, indent=2))
     print(f"OnnxDiscrepancyCheck results saved to {report_path}")
 
