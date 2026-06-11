@@ -536,7 +536,8 @@ def test_gen_ai_builder_context_lengths_skips_multi_graph_setter(
     """Test that multi_graph setter is not invoked when context_lengths is set."""
     output_path = tmp_path / "output"
 
-    mock_builder = MagicMock()
+    mock_builder_cls = type("mock_builder_cls", (MagicMock,), {})
+    mock_builder = mock_builder_cls()
     mock_container = MagicMock()
     mock_builder.build.return_value = mock_container
     mock_builder._compilation_config = MagicMock()
@@ -548,6 +549,9 @@ def test_gen_ai_builder_context_lengths_skips_multi_graph_setter(
     mock_builder._transformation_config.model_transformer_config.arn_cl_options = MagicMock()
     mock_builder._transformation_config.model_transformer_config.split_model = MagicMock()
 
+    multi_graph_mock = PropertyMock()
+    type(mock_builder).multi_graph = multi_graph_mock
+
     mock_qairt_modules["gen_ai_api"].GenAIBuilderFactory.create.return_value = mock_builder
 
     gen_ai_pass = create_pass_from_dict(
@@ -556,9 +560,7 @@ def test_gen_ai_builder_context_lengths_skips_multi_graph_setter(
         disable_search=True,
     )
 
-    multi_graph_mock = PropertyMock()
-    with patch.object(type(mock_builder), "multi_graph", multi_graph_mock):
-        gen_ai_pass.run(mock_qairt_prepared_model, str(output_path))
+    gen_ai_pass.run(mock_qairt_prepared_model, str(output_path))
     multi_graph_mock.assert_not_called()
 
 
