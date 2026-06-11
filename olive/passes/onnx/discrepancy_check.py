@@ -300,7 +300,11 @@ class OnnxDiscrepancyCheck(Pass):
         model_attributes["discrepancy_check_results"] = results
         model.model_attributes = model_attributes
 
-        # Return the model unchanged (never raises — failures are reported via results)
+        if results.get("status") == "failed":
+            raise ValueError(
+                "OnnxDiscrepancyCheck thresholds exceeded. See report at: " + str(report_path)
+            )
+
         return model
 
     def compare_generation(self, config: type[BasePassConfig], ref_model) -> int:
