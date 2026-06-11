@@ -197,7 +197,10 @@ class OnnxDiscrepancyCheck(Pass):
 
         # Save reference PyTorch model for direct comparison
         report_dir = config.report_output_dir or output_model_path
-        if config.export_reference_onnx:
+        report_dir_path = Path(report_dir)
+        if report_dir_path.suffix and not report_dir_path.is_dir():
+            report_dir = str(report_dir_path.parent)
+        if config.save_reference_model_state_dict:
             self._export_reference_model(ref_model, report_dir)
 
         # Prepare ONNX session
