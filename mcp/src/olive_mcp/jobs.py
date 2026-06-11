@@ -173,8 +173,8 @@ async def _run_olive_background(
         await proc.wait()
         stdout_str = stdout_bytes.decode("utf-8", errors="replace")
 
-        # If the job was already cancelled, don't overwrite its status.
-        if _jobs[job_id]["status"] == "cancelled":
+        # If the job was already canceled, don't overwrite its status.
+        if _jobs[job_id]["status"] == "canceled":
             return
 
         if proc.returncode != 0:
