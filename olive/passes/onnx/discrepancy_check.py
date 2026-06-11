@@ -66,7 +66,7 @@ class OnnxDiscrepancyCheck(Pass):
     - Longest common token sequence from the beginning between transformers
       generate and ONNX Runtime GenAI generate (when enabled)
 
-    The pass fails if any configured threshold is exceeded.
+    The pass status is marked as failed if any configured threshold is exceeded.
     """
 
     @classmethod
@@ -299,12 +299,6 @@ class OnnxDiscrepancyCheck(Pass):
         model_attributes = dict(model.model_attributes) if model.model_attributes else {}
         model_attributes["discrepancy_check_results"] = results
         model.model_attributes = model_attributes
-
-        if results.get("status") == "failed":
-            raise ValueError(
-                "OnnxDiscrepancyCheck thresholds exceeded. See report at: " + str(report_path)
-            )
-
         return model
 
     def compare_generation(self, config: type[BasePassConfig], ref_model) -> int:
