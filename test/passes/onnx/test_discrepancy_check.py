@@ -67,6 +67,7 @@ class TestCompareGeneration:
 
         # Transformers generates [1, 2, 3, 10, 11, 12, 13]
         mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
         mock_ref_model.generate.return_value = torch.tensor([[1, 2, 3, 10, 11, 12, 13]])
 
         # GenAI generates [1, 2, 3, 10, 11, 99, 99] (diverges at index 5)
@@ -124,6 +125,7 @@ class TestCompareGeneration:
         mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[10, 20]]))
 
         mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
         mock_ref_model.generate.return_value = torch.tensor([[10, 20, 30, 40, 50]])
 
         mock_og = MagicMock()
