@@ -88,5 +88,8 @@ setup(
     data_files=[],
     entry_points={
         "console_scripts": ["olive=olive.cli.launcher:main"],
+        "lmms_eval.models": [
+            "ortgenai_mm = olive.evaluator.lmms_ort:_model_manifest",
+        ],
     },
 )
