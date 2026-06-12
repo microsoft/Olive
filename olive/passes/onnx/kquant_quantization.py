@@ -12,6 +12,7 @@ Implements the k-quant algorithm natively in Olive using numpy, without
 depending on onnxruntime's quantization modules.
 """
 
+import fnmatch
 import logging
 from pathlib import Path
 from typing import Optional
@@ -248,7 +249,11 @@ class OnnxKQuantQuantization(Pass):
             "nodes_to_exclude": PassConfigParam(
                 type_=list,
                 default_value=None,
-                description="List of node names to exclude from quantization.",
+                description=(
+                    "List of node names to exclude from quantization. Entries may be exact node "
+                    "names or Unix shell-style glob patterns (e.g. '*/projector/*' to exclude all "
+                    "projector MatMuls). A node is excluded if its name equals or matches any entry."
+                ),
             ),
             **get_external_data_config(),
         }
@@ -296,7 +301,9 @@ class OnnxKQuantQuantization(Pass):
         for node in ir_model.graph.all_nodes():
             node_name = node.name
 
-            if node_name in nodes_to_exclude:
+            if node_name in nodes_to_exclude or any(
+                fnmatch.fnmatchcase(node_name or "", pattern) for pattern in nodes_to_exclude
+            ):
                 logger.debug("Exclude quantization of %s as specified by nodes_to_exclude.", node_name)
                 continue
 
