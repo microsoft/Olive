@@ -15,25 +15,32 @@ def main():
     with open(versions_file) as f:
         versions = json.load(f)
 
-    # Check if version already exists
-    for v in versions:
-        if v["version"] == new_version:
-            return
+    existing_entry = None
 
-    # Remove "(latest)" from all existing versions
+    # Remove "(latest)" and stale preferred flags from all existing versions.
     for v in versions:
         if "(latest)" in v["name"]:
             v["name"] = v["version"]
+        v.pop("preferred", None)
+        if v["version"] == new_version:
+            existing_entry = v
 
-    # Insert new version after "dev (main)" with (latest) tag
-    new_entry = {
-        "name": f"{new_version} (latest)",
-        "version": new_version,
-        "url": f"https://microsoft.github.io/Olive/{new_version}/",
-    }
+    if existing_entry is None:
+        existing_entry = {
+            "name": f"{new_version} (latest)",
+            "version": new_version,
+            "url": f"https://microsoft.github.io/Olive/{new_version}/",
+            "preferred": True,
+        }
+        # Insert after the first entry (dev/main)
+        versions.insert(1, existing_entry)
+    else:
+        existing_entry["name"] = f"{new_version} (latest)"
+        existing_entry["url"] = f"https://microsoft.github.io/Olive/{new_version}/"
+        existing_entry["preferred"] = True
 
-    # Insert after the first entry (dev/main)
-    versions.insert(1, new_entry)
+    # Keep the latest release directly after the dev/main entry.
+    versions = [versions[0], existing_entry] + [v for v in versions[1:] if v is not existing_entry]
 
     # Write updated versions.json
     with open(versions_file, "w") as f:

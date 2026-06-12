@@ -379,3 +379,146 @@ def speech_transcription_pre_process(
             return (audios, texts)
 
     return SpeechTranscriptionDataset(dataset, audio_col, text_col)
+
+
+@Registry.register_pre_process()
+def vision_vqa_pre_process(
+    dataset,
+    image_col: str = "image",
+    question_col: str = "question",
+    answer_col: str = "answer",
+    options_col: str = "",
+    system_prompt: str = "",
+    max_length: int = 4096,
+    max_samples: Optional[int] = None,
+    limit: Optional[float] = None,
+    seed: int = 42,
+    **kwargs,
+):
+    """Pre-process data for vision VQA evaluation.
+
+    Loads image, question, and ground truth answer from a HuggingFace dataset.
+    Returns a dataset of ({"image": image, "question": question}, answer) pairs.
+
+    Note: This returns raw PIL images and question strings. For the PyTorch evaluator,
+    the model's own processor/tokenizer should be applied within the model's forward
+    method (or via a custom pre-process component). For the ONNX evaluator, provide a
+    custom pre-process component that applies the appropriate processor/tokenizer to
+    produce numeric tensors matching the model's io_config.
+
+    Args:
+        dataset: HuggingFace dataset with image, question, and answer columns.
+        image_col: Name of the image column. Defaults to "image".
+        question_col: Name of the question column. Defaults to "question".
+        answer_col: Name of the answer column. Defaults to "answer".
+        options_col: Name of the options column for multiple-choice questions. If specified,
+            options are formatted as numbered choices and appended to the question. Defaults to "".
+        system_prompt: System prompt to guide model responses (e.g., "Reply with only the
+            option number"). Passed through to the evaluator. Defaults to "".
+        max_length: Maximum generation length (input + output tokens) for the VLM. Vision prompts
+            with large images can exceed 3000 tokens due to vision patches. Defaults to 4096.
+        max_samples: Maximum number of samples (deprecated, use limit). Defaults to None.
+        limit: Sampling limit following Olive convention:
+            If >= 1: use first N samples.
+            If 0 < limit < 1: randomly sample that percentage.
+            If 0 or None: use all samples.
+        seed: Random seed for percentage-based sampling. Defaults to 42.
+        **kwargs: Additional arguments.
+
+    """
+    # Apply sampling: prefer limit over max_samples
+    effective_limit = limit if limit is not None else (max_samples if max_samples else 0)
+    if effective_limit and effective_limit != 0:
+        from random import Random
+
+        total = len(dataset)
+        if 0 < effective_limit < 1:
+            n = max(1, int(total * effective_limit))
+            rng = Random(seed)
+            indices = sorted(rng.sample(range(total), min(n, total)))
+            dataset = dataset.select(indices)
+        elif effective_limit >= 1:
+            n = min(int(effective_limit), total)
+            dataset = dataset.select(range(n))
+
+    class VisionVQADataset:
+        """Dataset that returns (input_dict, answer_text) pairs for VQA evaluation.
+
+        Note: Use batch_size=1 in dataloader config as images have variable sizes.
+        """
+
+        def __init__(
+            self,
+            hf_dataset,
+            image_column,
+            question_column,
+            answer_column,
+            options_column="",
+            sys_prompt="",
+            max_length=4096,
+        ):
+            self.dataset = hf_dataset
+            self.image_column = image_column
+            self.question_column = question_column
+            self.answer_column = answer_column
+            self.options_column = options_column
+            self.system_prompt = sys_prompt
+            self.max_length = max_length
+
+        def __len__(self):
+            return len(self.dataset)
+
+        def __getitem__(self, idx):
+            item = self.dataset[idx]
+            image = item[self.image_column]
+            question = item[self.question_column]
+            answer = item[self.answer_column]
+
+            # Format options into the question if options_col is specified
+            # Use 1-based numbering (1, 2, 3, 4) which aligns with how VLMs are
+            # typically prompted and avoids confusion with diagram region labels.
+            num_choices = 0
+            if self.options_column and self.options_column in item:
+                options = item[self.options_column]
+                if isinstance(options, (list, tuple)) and len(options) > 0:
+                    num_choices = len(options)
+                    options_text = "\n".join(f"{i + 1}. {opt}" for i, opt in enumerate(options))
+                    question = f"{question}\n{options_text}"
+
+            # Handle list/tuple answers (some datasets have multiple valid answers)
+            # Join with | separator so metrics can match against any valid answer
+            if isinstance(answer, (list, tuple)):
+                answer = "|".join(str(a) for a in answer) if answer else ""
+
+            # Convert 0-based answer index to 1-based to match the option numbering
+            if num_choices > 0:
+                try:
+                    idx = int(answer)
+                    answer = str(idx + 1)
+                except (ValueError, TypeError):
+                    pass  # answer is already a non-numeric string (e.g., text label)
+
+            input_dict = {
+                "image": image,
+                "question": question,
+                "system_prompt": self.system_prompt,
+                "num_choices": num_choices,
+                "max_length": self.max_length,
+            }
+            return input_dict, str(answer)
+
+        @staticmethod
+        def collate_fn(batch):
+            """Collate VQA batches. Use with batch_size=1 for variable-size images.
+
+            Note: answers are always strings at this point (list/tuple answers are
+            joined with "|" in __getitem__), so no list-of-lists issue arises.
+            """
+            if len(batch) == 1:
+                input_dict, answer = batch[0]
+                return (input_dict, [answer])
+            inputs = [item[0] for item in batch]
+            answers = [item[1] for item in batch]
+            return (inputs, answers)
+
+    return VisionVQADataset(dataset, image_col, question_col, answer_col, options_col, system_prompt, max_length)

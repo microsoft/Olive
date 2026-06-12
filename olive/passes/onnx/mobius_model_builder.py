@@ -54,12 +54,6 @@ class MobiusBuilder(Pass):
     See https://github.com/onnxruntime/mobius
     """
 
-    class MobiusRuntime(StrEnumBase):
-        """Target runtimes for genai config generation."""
-
-        NONE = "none"
-        ORT_GENAI = "ort-genai"
-
     class MobiusEP(StrEnumBase):
         """Execution providers supported by mobius."""
 
@@ -95,16 +89,6 @@ class MobiusBuilder(Pass):
                     "Model weight / compute precision. One of: fp32, fp16, bf16. "
                     "Defaults to fp32. For INT4 quantization, run an Olive "
                     "quantization pass (e.g. OnnxMatMulNBits) after this pass."
-                ),
-            ),
-            "runtime": PassConfigParam(
-                type_=MobiusBuilder.MobiusRuntime,
-                required=False,
-                default_value=MobiusBuilder.MobiusRuntime.ORT_GENAI,
-                description=(
-                    "Target runtime. 'ort-genai' (default) generates "
-                    "genai_config.json, tokenizer files, and processor "
-                    "configs alongside the ONNX models. 'none' to skip."
                 ),
             ),
         }
@@ -169,10 +153,8 @@ class MobiusBuilder(Pass):
         pkg.save(str(output_dir))
 
         # Generate ORT GenAI config artifacts (genai_config.json, tokenizer
-        # files, processor configs) when runtime is set to ort-genai.
-        genai_artifacts = {}
-        if config.runtime == self.MobiusRuntime.ORT_GENAI:
-            genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
+        # files, processor configs) alongside the ONNX models.
+        genai_artifacts = self._write_genai_config(pkg, str(output_dir), model_id, ep_str)
 
         package_keys = list(pkg.keys())
         logger.info("MobiusBuilder: saved components %s to '%s'", package_keys, output_dir)
@@ -201,7 +183,9 @@ class MobiusBuilder(Pass):
             )
 
         # Multi-component model (VLMs, encoder-decoders, diffusion pipelines):
-        # mobius saves each component to <output_dir>/<key>/model.onnx.
+        # mobius saves each component to <output_dir>/<key>/model.onnx with shared
+        # sidecar files (genai_config.json, tokenizer.json, image_processor.json,
+        # audio_feature_extraction.json) at output_dir root.
         components = []
         for key in package_keys:
             component_dir = output_dir / key
@@ -211,18 +195,20 @@ class MobiusBuilder(Pass):
                     f"MobiusBuilder: expected output file not found: {onnx_path}. "
                     f"mobius.build() may have failed silently for component '{key}'."
                 )
-            additional_files = sorted(
+            # Per-component additional files: only files that live inside the
+            # component's own directory. Shared sidecars (genai_config, tokenizer,
+            # image_processor) are attached to the composite handler below so
+            # they land in the output root, not duplicated in every component.
+            component_additional_files = sorted(
                 {str(fp) for fp in component_dir.iterdir()} - {str(onnx_path), str(onnx_path) + ".data"}
             )
-            # Include ORT GenAI artifacts from root output_dir (shared across components)
-            additional_files = sorted(set(additional_files) | set(genai_artifacts.values()))
             components.append(
                 ONNXModelHandler(
                     model_path=str(component_dir),
                     onnx_file_name="model.onnx",
                     model_attributes={
                         "mobius_component": key,
-                        "additional_files": additional_files,
+                        "additional_files": component_additional_files,
                         **(model.model_attributes or {}),
                     },
                 )
@@ -234,6 +220,15 @@ class MobiusBuilder(Pass):
             model_path=str(output_dir),
             model_attributes={
                 "mobius_package_keys": package_keys,
+                # Preserve the <component>/model.onnx subdirectory layout so
+                # ORT GenAI can resolve each component by its "filename" key.
+                # Without this, Olive's cache flattens components to top-level
+                # <name>.onnx files and breaks GenAI loading.
+                "no_flatten": True,
+                # Shared package-level sidecars carried via the composite handler
+                # so they end up at the package root (alongside genai_config.json),
+                # not duplicated into each <component>/ subdirectory.
+                "additional_files": sorted(set(genai_artifacts.values())),
                 **(model.model_attributes or {}),
             },
         )

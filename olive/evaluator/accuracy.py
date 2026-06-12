@@ -217,3 +217,183 @@ class RealTimeFactor(AccuracyBase):
         if total_inference == 0:
             return float("inf")
         return round(total_audio / total_inference, 2)
+
+
+class ExactMatch(AccuracyBase):
+    """Exact match metric for vision VQA evaluation.
+
+    Compares predicted answer strings to ground truth answers using
+    case-insensitive, whitespace-normalized string equality.
+    Returns the fraction of samples with an exact match.
+
+    Suitable for benchmarks: AI2D, ScienceQA, TextVQA, MathVista, MMMU, InterGPS.
+    """
+
+    name: Optional[str] = "exact_match"
+
+    @classmethod
+    def _default_config(cls) -> dict[str, ConfigParam]:
+        return {}
+
+    @staticmethod
+    def _normalize(text: str) -> str:
+        """Normalize text for comparison: lowercase and collapse whitespace."""
+        return " ".join(text.strip().lower().split())
+
+    def measure(self, model_output, target):
+        preds = model_output.preds
+        refs = target
+        if isinstance(preds, str):
+            preds = [preds]
+        elif not isinstance(preds, list):
+            preds = list(preds)
+        if isinstance(refs, str):
+            refs = [refs]
+        elif not isinstance(refs, list):
+            refs = list(refs)
+
+        if len(preds) != len(refs):
+            raise ValueError(
+                f"Number of predictions ({len(preds)}) does not match "
+                f"number of references ({len(refs)}) for exact_match metric."
+            )
+
+        correct = 0
+        for p, r in zip(preds, refs):
+            pred_norm = self._normalize(str(p))
+            # Support multiple valid answers separated by |
+            ref_answers = str(r).split("|") if "|" in str(r) else [str(r)]
+            if any(pred_norm == self._normalize(ref_a) for ref_a in ref_answers):
+                correct += 1
+        return correct / len(refs) if refs else 0.0
+
+
+class RelaxedAccuracy(AccuracyBase):
+    """Relaxed accuracy metric for chart/math VQA evaluation.
+
+    For numeric answers, allows a ±5% tolerance (standard for ChartQA).
+    For non-numeric answers, falls back to exact string match.
+    Returns the fraction of samples that match within tolerance.
+
+    Suitable for benchmarks: ChartQA.
+    """
+
+    name: Optional[str] = "relaxed_accuracy"
+
+    @classmethod
+    def _default_config(cls) -> dict[str, ConfigParam]:
+        return {
+            "tolerance": ConfigParam(type_=float, required=False, default_value=0.05),
+        }
+
+    @staticmethod
+    def _try_parse_number(text: str):
+        """Try to parse text as a number. Returns (True, value) or (False, None)."""
+        text = text.strip().replace(",", "").replace("%", "")
+        try:
+            return True, float(text)
+        except ValueError:
+            return False, None
+
+    @staticmethod
+    def _normalize(text: str) -> str:
+        return " ".join(text.strip().lower().split())
+
+    def measure(self, model_output, target):
+        preds = model_output.preds
+        refs = target
+        if isinstance(preds, str):
+            preds = [preds]
+        elif not isinstance(preds, list):
+            preds = list(preds)
+        if isinstance(refs, str):
+            refs = [refs]
+        elif not isinstance(refs, list):
+            refs = list(refs)
+
+        if len(preds) != len(refs):
+            raise ValueError(
+                f"Number of predictions ({len(preds)}) does not match "
+                f"number of references ({len(refs)}) for relaxed_accuracy metric."
+            )
+
+        tolerance = self.config_dict.get("tolerance", 0.05)
+        correct = 0
+        for pred, ref in zip(preds, refs):
+            pred_str = str(pred)
+            # Support multiple valid answers separated by |
+            ref_answers = str(ref).split("|") if "|" in str(ref) else [str(ref)]
+            if self._matches_any(pred_str, ref_answers, tolerance):
+                correct += 1
+
+        return correct / len(refs) if refs else 0.0
+
+    def _matches_any(self, pred_str: str, ref_answers: list, tolerance: float) -> bool:
+        """Check if prediction matches any of the reference answers."""
+        pred_is_num, pred_val = self._try_parse_number(pred_str)
+        for ref_str in ref_answers:
+            ref_is_num, ref_val = self._try_parse_number(ref_str)
+            if pred_is_num and ref_is_num:
+                if (ref_val == pred_val) or (ref_val != 0 and abs(pred_val - ref_val) / abs(ref_val) <= tolerance):
+                    return True
+            else:
+                if self._normalize(pred_str) == self._normalize(ref_str):
+                    return True
+        return False
+
+
+class WordSortRatio(AccuracyBase):
+    """Word sort ratio metric for OCR evaluation.
+
+    Computes the ratio of matching words between prediction and reference
+    after sorting words alphabetically. This measures word-level overlap
+    regardless of word order.
+    Returns the average ratio across all samples.
+
+    Suitable for benchmarks: OCR.
+    """
+
+    name: Optional[str] = "word_sort_ratio"
+
+    @classmethod
+    def _default_config(cls) -> dict[str, ConfigParam]:
+        return {}
+
+    @staticmethod
+    def _compute_word_sort_ratio(pred: str, ref: str) -> float:
+        """Compute word sort ratio between two strings."""
+        pred_words = sorted(pred.strip().lower().split())
+        ref_words = sorted(ref.strip().lower().split())
+
+        if not ref_words:
+            return 1.0 if not pred_words else 0.0
+
+        # Count matching words using multiset intersection
+        from collections import Counter
+
+        pred_counter = Counter(pred_words)
+        ref_counter = Counter(ref_words)
+        intersection = sum((pred_counter & ref_counter).values())
+        total = max(len(pred_words), len(ref_words))
+        return intersection / total if total > 0 else 0.0
+
+    def measure(self, model_output, target):
+        preds = model_output.preds
+        refs = target
+        if isinstance(preds, str):
+            preds = [preds]
+        elif not isinstance(preds, list):
+            preds = list(preds)
+        if isinstance(refs, str):
+            refs = [refs]
+        elif not isinstance(refs, list):
+            refs = list(refs)
+
+        if len(preds) != len(refs):
+            raise ValueError(
+                f"Number of predictions ({len(preds)}) does not match "
+                f"number of references ({len(refs)}) for word_sort_ratio metric."
+            )
+
+        total_ratio = sum(self._compute_word_sort_ratio(str(p), str(r)) for p, r in zip(preds, refs))
+        return total_ratio / len(refs) if refs else 0.0

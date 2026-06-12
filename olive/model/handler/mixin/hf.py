@@ -39,7 +39,11 @@ class HfMixin:
         :param exclude_load_keys: list of keys to exclude from load_kwargs
         :return: model config
         """
-        return get_model_config(self.model_path, **self.get_load_kwargs(exclude_load_keys))
+        return get_model_config(
+            self.model_path,
+            test_model_config=getattr(self, "test_model_config", None),
+            **self.get_load_kwargs(exclude_load_keys),
+        )
 
     def get_hf_generation_config(self, exclude_load_keys: Optional[list[str]] = None) -> Optional["GenerationConfig"]:
         """Get generation config for the model if it exists.
@@ -47,7 +51,12 @@ class HfMixin:
         :param exclude_load_keys: list of keys to exclude from load_kwargs
         :return: generation config or None
         """
-        return get_generation_config(self.model_path, **self.get_load_kwargs(exclude_load_keys))
+        # Generation config loading should not receive model-loading-only kwargs such as
+        # dtype, device placement, or quantization settings.
+        generation_config_exclude_keys = {"torch_dtype", "dtype", "device_map", "max_memory", "quantization_config"}
+        if exclude_load_keys:
+            generation_config_exclude_keys.update(exclude_load_keys)
+        return get_generation_config(self.model_path, **self.get_load_kwargs(list(generation_config_exclude_keys)))
 
     def get_hf_tokenizer(self) -> Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]:
         """Get tokenizer for the model."""
@@ -114,7 +123,13 @@ class HfMixin:
 
     def get_hf_io_config(self) -> Optional[dict[str, Any]]:
         """Get Io config for the model."""
-        return get_model_io_config(self.model_path, self.task, self.load_model(), **self.get_load_kwargs())
+        return get_model_io_config(
+            self.model_path,
+            self.task,
+            self.load_model(),
+            test_model_config=getattr(self, "test_model_config", None),
+            **self.get_load_kwargs(),
+        )
 
     def get_hf_dummy_inputs(self) -> Optional[dict[str, Any]]:
         """Get dummy inputs for the model."""
@@ -122,6 +137,7 @@ class HfMixin:
             self.model_path,
             self.task,
             model=self.load_model(),
+            test_model_config=getattr(self, "test_model_config", None),
             **self.get_load_kwargs(),
         )
 
