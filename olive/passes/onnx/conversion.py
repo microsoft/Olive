@@ -189,6 +189,11 @@ def _patch_model_if_necessary(pytorch_model: torch.nn.Module):
     if transformers_version < version.parse("4.45"):
         return
 
+    # from_legacy_cache / to_legacy_cache were removed in transformers 5.0.
+    # This patch is only needed for transformers 4.45 <= version < 5.0.
+    if transformers_version >= version.parse("5.0"):
+        return
+
     orig_forward_name = "forward" if hasattr(pytorch_model, "forward") else "call"
     orig_forward = getattr(pytorch_model, orig_forward_name)
     signature = inspect.signature(orig_forward)
@@ -712,6 +717,26 @@ class OnnxConversion(Pass):
         # load the model
         pytorch_model = model.load_model(cache_model=False)
         pytorch_model.eval()
+
+        # Check transformers >= 5.0 compatibility with legacy ONNX export.
+        # transformers 5.0 removed DynamicCache.from_legacy_cache() and changed the cache API
+        # (e.g., past_key_values must be a Cache object, not a list of tuples), making the
+        # legacy (non-dynamo) ONNX export path incompatible for models with KV cache.
+        if (
+            not config.use_dynamo_exporter
+            and version.parse(transformers.__version__) >= version.parse("5.0")
+            and isinstance(model, HfModelHandler)
+        ):
+            raise RuntimeError(
+                f"Legacy ONNX export (use_dynamo_exporter=False) is not compatible with "
+                f"transformers {transformers.__version__}. transformers >= 5.0 changed the "
+                "DynamicCache API, which breaks the non-dynamo export path for models with "
+                "KV cache. Please use one of the following options:\n"
+                "  1. Add --use_model_builder --use_ort_genai to use the model builder (recommended)\n"
+                "  2. Add --use_dynamo_exporter to use the dynamo-based ONNX export\n"
+                "  3. Downgrade transformers below 5.0\n"
+                "Example: olive auto-opt --model_name_or_path <model> --use_model_builder --use_ort_genai ..."
+            )
 
         # get dummy inputs
         dummy_inputs = _get_dummy_inputs(model, config)
