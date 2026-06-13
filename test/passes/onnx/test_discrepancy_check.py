@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=protected-access
+
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -65,6 +67,7 @@ class TestCompareGeneration:
 
         # Transformers generates [1, 2, 3, 10, 11, 12, 13]
         mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
         mock_ref_model.generate.return_value = torch.tensor([[1, 2, 3, 10, 11, 12, 13]])
 
         # GenAI generates [1, 2, 3, 10, 11, 99, 99] (diverges at index 5)
@@ -122,6 +125,7 @@ class TestCompareGeneration:
         mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[10, 20]]))
 
         mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
         mock_ref_model.generate.return_value = torch.tensor([[10, 20, 30, 40, 50]])
 
         mock_og = MagicMock()
@@ -159,3 +163,32 @@ class TestCompareGeneration:
         mock_generator.append_tokens.assert_called_once_with([[10, 20]])
         # All 5 tokens match
         assert result == 5
+
+
+class TestSpeedupSettings:
+    def test_timing_iterations_default_is_5(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_config = OnnxDiscrepancyCheck._default_config(None)
+        assert pass_config["timing_iterations"].default_value == 5
+
+    def test_measure_speedup_skips_when_timing_iterations_is_zero(self):
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        ref_model = MagicMock()
+        session = MagicMock()
+
+        result = pass_instance._measure_speedup(
+            ref_model=ref_model,
+            session=session,
+            dataloader=MagicMock(),
+            io_config=MagicMock(),
+            torch_device=MagicMock(),
+            warmup_iterations=3,
+            timing_iterations=0,
+        )
+
+        assert result is None
+        ref_model.assert_not_called()
+        session.run.assert_not_called()
