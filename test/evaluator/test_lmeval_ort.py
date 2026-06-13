@@ -7,7 +7,7 @@ import pytest
 # The lmeval_ort module imports lm_eval at module load time.
 pytest.importorskip("lm_eval")
 
-from olive.evaluator.lmeval_ort import LMEvalOnnxBase
+from olive.evaluator.lmeval_ort import LMEvalOnnxBase  # pylint: disable=wrong-import-position
 
 
 def test_device_property_has_setter():
