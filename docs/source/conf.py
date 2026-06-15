@@ -19,7 +19,8 @@ sys.path.append(os.path.abspath("exts"))
 
 project = "Olive"
 copyright = "2023-2026, Olive Dev team"
-version = "0.12.1"
+# The docs version is provided by CI. Default to main for local/dev builds.
+version = os.getenv("OLIVE_DOCS_VERSION", "main")
 release = version
 
 # -- General configuration ---------------------------------------------------

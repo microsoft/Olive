@@ -3,9 +3,30 @@
 # SPDX-License-Identifier: MIT
 # --------------------------------------------------------------------------
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+
+@pytest.fixture(name="mock_container")
+def mock_container_fixture():
+    """Provide a pre-configured LLMContainer mock with input/output metadata and an export stub.
+
+    Tests are responsible for wiring LLMContainer.load.return_value so they can customise
+    container attributes before the pass runs.
+    """
+    container = MagicMock()
+    container.inputs = [("input_ids", 7, ["batch_size", "sequence_length"])]
+    container.outputs = [("logits", 1, ["batch_size", 1, "vocab_size"])]
+
+    def mock_export(output_dir, *args, **kwargs):
+        output_dir_path = Path(output_dir)
+        output_dir_path.mkdir(parents=True, exist_ok=True)
+        (output_dir_path / "model.dlc").write_text("dummy dlc content")
+
+    container.export.side_effect = mock_export
+    return container
 
 
 @pytest.fixture(name="mock_qairt_modules")

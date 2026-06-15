@@ -36,4 +36,4 @@ jobs:
 
       - name: Run fast test
         run: |
-          python -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING test/cli/test_cli_test_model_smoke.py
+          python -m pytest -v -s -p no:warnings --disable-warnings --log-cli-level=WARNING test/cli/test_cli_test_model_smoke.py test/cli/test_cli_whisper_smoke.py

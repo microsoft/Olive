@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import argparse
+import importlib.util
 import json
 import sys
 import tempfile
@@ -12,7 +13,6 @@ from pathlib import Path
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace
-from transformers import LlamaConfig, LlamaForCausalLM, PreTrainedTokenizerFast
 
 from olive.cli.base import TEST_OUTPUT_MARKER_FILE
 from olive.common.hf.utils import TEST_MODEL_MARKER_FILE
@@ -25,11 +25,21 @@ DEFAULT_MODEL_IDS = (
     "local/tiny-random-llama-a",
     "local/tiny-random-llama-b",
     "mistralai/Mistral-7B-Instruct-v0.3",
+    "microsoft/Phi-3-mini-4k-instruct",
 )
 MAX_ARTIFACT_SIZE_BYTES = 1024 * 1024
 
+# Supported exporters for the discrepancy test
+EXPORTER_MODEL_BUILDER = "model_builder"
+EXPORTER_MOBIUS = "mobius"
+EXPORTER_TORCH = "torch_export"
+
+_HAS_MOBIUS = importlib.util.find_spec("mobius") is not None
+
 
 def _save_local_tiny_llama(model_path: Path):
+    from transformers import LlamaConfig, LlamaForCausalLM, PreTrainedTokenizerFast
+
     model = LlamaForCausalLM(
         LlamaConfig.from_dict(
             {
@@ -133,6 +143,7 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
 
 class TestCliTestModelSmoke(unittest.TestCase):
     model_ids = DEFAULT_MODEL_IDS
+    exporters = (EXPORTER_MODEL_BUILDER,)
     workdir = None
 
     def test_documented_test_model_smoke_flow(self):
@@ -173,7 +184,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
                     self._assert_file_size_below_limit(run_output_dir / "model.onnx.data")
 
     def test_model_discrepancy(self):
-        """Verify that OnnxDiscrepancyCheck runs successfully when auto-injected via --test."""
+        """Verify that OnnxDiscrepancyCheck runs successfully with the configured exporter."""
         if self.workdir is None:
             with tempfile.TemporaryDirectory() as temp_dir:
                 self._assert_discrepancy(Path(temp_dir))
@@ -183,48 +194,138 @@ class TestCliTestModelSmoke(unittest.TestCase):
             self._assert_discrepancy(workdir)
 
     def _assert_discrepancy(self, tmp_path: Path):
-        for model_id in self.model_ids:
-            with self.subTest(model_id=model_id):
-                model_name = model_id.replace("/", "--")
-                model_path = tmp_path / "models" / f"{model_name}-disc"
-                config_output_dir = tmp_path / f"{model_name}-disc-cfg"
-                test_model_dir = tmp_path / f"{model_name}-disc-test-model"
-                run_output_dir = tmp_path / f"{model_name}-disc-run"
-
-                _save_local_tiny_llama(model_path)
-                _run_cli_main(
-                    [
-                        "optimize",
-                        "-m",
-                        str(model_path),
-                        "--device",
-                        "cpu",
-                        "--provider",
-                        "CPUExecutionProvider",
-                        "--precision",
-                        "int4",
-                        "--output_path",
-                        str(config_output_dir),
-                        "--dry_run",
-                    ]
+        for exporter in self.exporters:
+            if exporter == EXPORTER_MOBIUS and not _HAS_MOBIUS:
+                self.fail(
+                    "Requested exporter 'mobius' but mobius-ai is not installed. Install mobius-ai or remove '--exporter mobius'."
                 )
+            for model_id in self.model_ids:
+                with self.subTest(model_id=model_id, exporter=exporter):
+                    if exporter == EXPORTER_MODEL_BUILDER:
+                        self._assert_discrepancy_model_builder(tmp_path, model_id)
+                    elif exporter == EXPORTER_MOBIUS:
+                        self._assert_discrepancy_mobius(tmp_path, model_id)
+                    elif exporter == EXPORTER_TORCH:
+                        self._assert_discrepancy_torch_export(tmp_path, model_id)
+                    else:
+                        self.fail(f"Unknown exporter: {exporter!r}")
 
-                config_path = config_output_dir / "config.json"
-                assert config_path.exists()
-                _set_offline_gptq_data_config(config_path)
+    @staticmethod
+    def _run_discrepancy_with_test(config_path: Path, test_model_dir: Path, run_output_dir: Path):
+        _run_cli_main(
+            [
+                "run",
+                "--config",
+                str(config_path),
+                "--test",
+                str(test_model_dir),
+                "--output_path",
+                str(run_output_dir),
+            ]
+        )
 
-                # Run with --test; OnnxDiscrepancyCheck is auto-injected and reports discrepancy metrics (fails only if thresholds are configured)
-                _run_cli_main(
-                    [
-                        "run",
-                        "--config",
-                        str(config_path),
-                        "--test",
-                        str(test_model_dir),
-                        "--output_path",
-                        str(run_output_dir),
-                    ]
-                )
+    def _assert_discrepancy_model_builder(self, tmp_path: Path, model_id: str):
+        model_name = model_id.replace("/", "--")
+        model_path = tmp_path / "models" / f"{model_name}-disc"
+        config_output_dir = tmp_path / f"{model_name}-disc-cfg"
+        test_model_dir = tmp_path / f"{model_name}-disc-test-model"
+        run_output_dir = tmp_path / f"{model_name}-disc-run"
+
+        _save_local_tiny_llama(model_path)
+        _run_cli_main(
+            [
+                "optimize",
+                "-m",
+                str(model_path),
+                "--device",
+                "cpu",
+                "--provider",
+                "CPUExecutionProvider",
+                "--precision",
+                "int4",
+                "--output_path",
+                str(config_output_dir),
+                "--dry_run",
+            ]
+        )
+
+        config_path = config_output_dir / "config.json"
+        assert config_path.exists()
+        _set_offline_gptq_data_config(config_path)
+
+        # Run with --test; OnnxDiscrepancyCheck is auto-injected and reports discrepancy metrics
+        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
+
+    def _assert_discrepancy_mobius(self, tmp_path: Path, model_id: str):
+        model_name = model_id.replace("/", "--")
+        model_path = tmp_path / "models" / f"{model_name}-mobius-disc"
+        test_model_dir = tmp_path / f"{model_name}-mobius-disc-test-model"
+        run_output_dir = tmp_path / f"{model_name}-mobius-disc-run"
+
+        _save_local_tiny_llama(model_path)
+
+        run_config = {
+            "input_model": {
+                "type": "HfModel",
+                "model_path": str(model_path),
+            },
+            "systems": {
+                "local_system": {
+                    "type": "LocalSystem",
+                    "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+                }
+            },
+            "output_dir": str(run_output_dir),
+            "host": "local_system",
+            "target": "local_system",
+            "passes": {
+                "mobius_builder": {
+                    "type": "MobiusBuilder",
+                    "precision": "fp32",
+                },
+                "discrepancy_check": {
+                    "type": "OnnxDiscrepancyCheck",
+                    "reference_model_path": str(test_model_dir),
+                },
+            },
+        }
+        config_path = tmp_path / f"{model_name}-mobius-disc-config.json"
+        config_path.write_text(json.dumps(run_config, indent=2))
+
+        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
+
+    def _assert_discrepancy_torch_export(self, tmp_path: Path, model_id: str):
+        model_name = model_id.replace("/", "--")
+        model_path = tmp_path / "models" / f"{model_name}-torch-disc"
+        test_model_dir = tmp_path / f"{model_name}-torch-disc-test-model"
+        run_output_dir = tmp_path / f"{model_name}-torch-disc-run"
+
+        _save_local_tiny_llama(model_path)
+
+        run_config = {
+            "input_model": {
+                "type": "HfModel",
+                "model_path": str(model_path),
+            },
+            "systems": {
+                "local_system": {
+                    "type": "LocalSystem",
+                    "accelerators": [{"device": "cpu", "execution_providers": ["CPUExecutionProvider"]}],
+                }
+            },
+            "output_dir": str(run_output_dir),
+            "host": "local_system",
+            "target": "local_system",
+            "passes": {
+                "conversion": {
+                    "type": "OnnxConversion",
+                    "use_dynamo_exporter": False,
+                }
+            },
+        }
+        config_path = tmp_path / f"{model_name}-torch-disc-config.json"
+        config_path.write_text(json.dumps(run_config, indent=2))
+        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
 
     def _assert_file_size_below_limit(self, path: Path):
         assert path.exists()
@@ -239,6 +340,13 @@ def _parse_args():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--workdir")
     parser.add_argument("--model-id", dest="model_ids", action="append")
+    parser.add_argument(
+        "--exporter",
+        dest="exporters",
+        action="append",
+        choices=[EXPORTER_MODEL_BUILDER, EXPORTER_MOBIUS, EXPORTER_TORCH],
+        help="Exporter(s) to test for discrepancy check (can be repeated).",
+    )
     return parser.parse_known_args()
 
 
@@ -248,4 +356,6 @@ if __name__ == "__main__":
         TestCliTestModelSmoke.workdir = Path(parsed_args.workdir)
     if parsed_args.model_ids:
         TestCliTestModelSmoke.model_ids = tuple(parsed_args.model_ids)
+    if parsed_args.exporters:
+        TestCliTestModelSmoke.exporters = tuple(parsed_args.exporters)
     unittest.main(argv=[__file__, *remaining])
