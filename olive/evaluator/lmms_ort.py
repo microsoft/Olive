@@ -75,38 +75,55 @@ _PROVIDER_ALIASES = {
 # -----------------------------------------------------------------------------
 
 
+_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}
+_AUDIO_SUFFIXES = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
+
+
 def _normalize_image(visual) -> PIL.Image.Image | None:
     if isinstance(visual, PIL.Image.Image):
         return visual.convert("RGB")
     if isinstance(visual, (str, Path)):
         p = Path(visual)
-        if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}:
+        if p.suffix.lower() in _IMAGE_SUFFIXES:
             return PIL.Image.open(p).convert("RGB")
         return None
     if isinstance(visual, dict):
+        # Audio dicts typically include "sampling_rate" or "array"; skip those.
+        if "sampling_rate" in visual or "array" in visual:
+            return None
         if "bytes" in visual:
             return PIL.Image.open(io.BytesIO(visual["bytes"])).convert("RGB")
         if "path" in visual:
-            return PIL.Image.open(visual["path"]).convert("RGB")
+            p = Path(visual["path"]) if visual["path"] else None
+            if p is not None and p.suffix.lower() in _IMAGE_SUFFIXES:
+                return PIL.Image.open(p).convert("RGB")
+            return None
     if isinstance(visual, np.ndarray):
         return PIL.Image.fromarray(np.uint8(visual)).convert("RGB")
     return None
 
 
 def _normalize_audio(visual) -> tuple[np.ndarray, int] | None:
-    if isinstance(visual, dict) and "array" in visual and "sampling_rate" in visual:
-        return np.asarray(visual["array"], dtype=np.float32), int(visual["sampling_rate"])
+    if isinstance(visual, dict):
+        if "array" in visual and "sampling_rate" in visual:
+            return np.asarray(visual["array"], dtype=np.float32), int(visual["sampling_rate"])
+        if visual.get("path"):
+            return _load_audio_file(Path(visual["path"]))
     if isinstance(visual, (str, Path)):
-        p = Path(visual)
-        if p.suffix.lower() in {".wav", ".mp3", ".flac", ".ogg", ".m4a"}:
-            try:
-                import librosa
-            except ImportError:
-                logger.warning("Audio file %s encountered but librosa not installed.", p)
-                return None
-            arr, sr = librosa.load(str(p), sr=None, mono=True)
-            return arr.astype(np.float32), int(sr)
+        return _load_audio_file(Path(visual))
     return None
+
+
+def _load_audio_file(p: Path) -> tuple[np.ndarray, int] | None:
+    if p.suffix.lower() not in _AUDIO_SUFFIXES or not p.exists():
+        return None
+    try:
+        import librosa
+    except ImportError:
+        logger.warning("Audio file %s encountered but librosa not installed.", p)
+        return None
+    arr, sr = librosa.load(str(p), sr=None, mono=True)
+    return arr.astype(np.float32), int(sr)
 
 
 def _partition_visuals(visuals):
@@ -114,13 +131,15 @@ def _partition_visuals(visuals):
     for v in visuals or []:
         if v is None:
             continue
-        img = _normalize_image(v)
-        if img is not None:
-            images.append(img)
-            continue
+        # Try audio first since its signature ("array"+"sampling_rate") is more
+        # distinctive than the image path/bytes/PIL signatures.
         au = _normalize_audio(v)
         if au is not None:
             audios.append(au)
+            continue
+        img = _normalize_image(v)
+        if img is not None:
+            images.append(img)
     return images, audios
 
 
@@ -138,12 +157,23 @@ def _build_prompt(
     image_token_format: str = "<|image_{index}|>",
     audio_token_format: str = "<|audio_{index}|>",
 ) -> str:
-    """Build a Phi-4-multimodal-style chat prompt.
+    """Build a chat-style prompt for the model.
+
+    Defaults to Phi-4-multimodal's chat template. For Whisper (pure ASR; no
+    text prompt, no chat template), returns an empty string — the ORT-GenAI
+    multimodal processor builds the decoder start tokens from the audio input
+    plus genai_config defaults.
 
     Other multimodal architectures use different placeholder tags. Users can
-    override the media token formats and the full prompt template from the Olive
-    evaluator config without changing this adapter.
+    override the media token formats and the full prompt template from the
+    Olive evaluator config without changing this adapter.
     """
+    if model_type == "whisper":
+        # Whisper has no chat template; the "prompt" is just the decoder-start
+        # token sequence that conditions the model on language + task. This
+        # matches ORT-GenAI's benchmark_multimodal.py reference.
+        # Source: microsoft/onnxruntime-genai benchmark/python/benchmark_multimodal.py
+        return "<|startoftranscript|><|en|><|transcribe|><|notimestamps|>"
     image_tokens = "".join(_format_media_tokens(num_images, image_token_format))
     audio_tokens = "".join(_format_media_tokens(num_audios, audio_token_format))
     parts = [image_tokens, audio_tokens, user_text]
@@ -258,6 +288,18 @@ class LMMSORTGenAIEvaluator(lmms):
         self._tokenizer = og.Tokenizer(self._model)
         self._processor = self._model.create_multimodal_processor()
 
+        # Default prompt-builder path: og.Tokenizer.apply_chat_template (matches
+        # PR #2488's OnnxEvaluator._inference_vision_genai and the olive-recipes
+        # eval scripts for Qwen2.5-VL, Qwen3-VL, and google-gemma-4). Older
+        # onnxruntime-genai versions don't expose this method, in which case we
+        # fall back to the legacy format-string path (_build_prompt below).
+        self._has_chat_template = hasattr(self._tokenizer, "apply_chat_template")
+        if not self._has_chat_template:
+            logger.warning(
+                "ORT-GenAI tokenizer does not expose apply_chat_template; falling back to "
+                "legacy format-string prompt building. Consider upgrading onnxruntime-genai."
+            )
+
         eos_ids = self._tokenizer.eos_token_ids
         self._eos_token_ids = {int(t) for t in (eos_ids if eos_ids is not None else [])}
 
@@ -338,7 +380,10 @@ class LMMSORTGenAIEvaluator(lmms):
             og_audios = self._build_og_audios(audios, tmp_dir)
 
             try:
-                inputs = self._processor(prompt, images=og_images, audios=og_audios)
+                # ORT-GenAI processors accept either a bare string or a list of
+                # strings depending on backend; benchmark_multimodal.py wraps in
+                # a list, which matches both the whisper and phi4mm paths.
+                inputs = self._processor([prompt], images=og_images, audios=og_audios)
             except Exception as e:  # pragma: no cover
                 del generator
                 return self._handle_error("ORT-GenAI multimodal processor failed.", e, "")
@@ -351,14 +396,23 @@ class LMMSORTGenAIEvaluator(lmms):
                     "ORT-GenAI generator input setup failed. The prompt may exceed max_length.", e, ""
                 )
 
+            # Whisper's BOS == EOS (token 50257 = <|startoftranscript|> = <|endoftext|>),
+            # so the very first generated token can collide with EOS. Skip the
+            # EOS check until we've emitted at least one non-EOS token.
             decoded = ""
             stream = self._tokenizer.create_stream()
             steps = 0
+            generated_any = False
             while not generator.is_done() and steps < max_new_tokens:
                 generator.generate_next_token()
                 tok = int(generator.get_next_tokens()[0])
                 if tok in self._eos_token_ids:
-                    break
+                    if generated_any:
+                        break
+                    # First-step EOS collision with BOS; skip and keep generating.
+                    steps += 1
+                    continue
+                generated_any = True
                 decoded += stream.decode(tok)
                 if stop_strings:
                     for s in stop_strings:
@@ -441,6 +495,58 @@ class LMMSORTGenAIEvaluator(lmms):
         del generator
         return total_logprob, all_greedy
 
+    def _build_prompt_for_request(self, user_text: str, num_images: int, num_audios: int) -> str:
+        """Build the final prompt string fed to ``og.MultiModalProcessor``.
+
+        Default path: pre-render image/audio markers into the user content
+        string using ``image_token_format`` / ``audio_token_format``, then call
+        ``og.Tokenizer.apply_chat_template`` to add the model-specific chat
+        scaffolding (system/user/assistant turn markers).
+
+        Pure content-parts (``{"type": "image"}``) is what PR #2488 and the
+        olive-recipes Qwen2.5-VL eval scripts do, and it works for chat
+        templates that understand structured content (Qwen2.5-VL, Qwen3-VL,
+        Gemma-4). However, Phi-4-MM's chat template stringifies content lists
+        as Python repr (verified: produces
+        ``<|user|>[{'type': 'image'}, ...]<|end|>`` instead of injecting
+        ``<|image_1|>``). Pre-rendering the markers ourselves before
+        ``apply_chat_template`` works for both conventions, since templates
+        that just pass through user content render identically either way.
+
+        Fallback path: ``_build_prompt`` legacy format-string. Used when the
+        user has explicitly set ``prompt_template`` in the evaluator config
+        (to override per-benchmark) or when the underlying onnxruntime-genai
+        version predates ``apply_chat_template`` on ``og.Tokenizer``.
+        """
+        if self._model_type == "whisper":
+            # Whisper has no chat template; the "prompt" is just the decoder-start
+            # token sequence that conditions on language + task. user_text from
+            # lmms-eval tasks (e.g. "Please recognize the speech...") is ignored.
+            return _build_prompt(self._model_type, num_images, num_audios, user_text)
+
+        if self.prompt_template or not self._has_chat_template:
+            return _build_prompt(
+                self._model_type,
+                num_images,
+                num_audios,
+                user_text,
+                self.system_prompt,
+                self.prompt_template,
+                self.image_token_format,
+                self.audio_token_format,
+            )
+
+        image_markers = "".join(_format_media_tokens(num_images, self.image_token_format))
+        audio_markers = "".join(_format_media_tokens(num_audios, self.audio_token_format))
+        user_content = f"{image_markers}{audio_markers}{user_text}"
+
+        messages: list[dict[str, Any]] = []
+        if self.system_prompt:
+            messages.append({"role": "system", "content": self.system_prompt})
+        messages.append({"role": "user", "content": user_content})
+
+        return self._tokenizer.apply_chat_template(json.dumps(messages), add_generation_prompt=True)
+
     def _get_doc_and_visuals(self, doc_to_visual, doc_id, task, split):
         try:
             doc = self.task_dict[task][split][doc_id]
@@ -473,16 +579,7 @@ class LMMSORTGenAIEvaluator(lmms):
             if isinstance(stop, str):
                 stop = [stop]
 
-            prompt = _build_prompt(
-                self._model_type,
-                len(images),
-                len(audios),
-                contexts,
-                self.system_prompt,
-                self.prompt_template,
-                self.image_token_format,
-                self.audio_token_format,
-            )
+            prompt = self._build_prompt_for_request(contexts, len(images), len(audios))
             text = self._run_generation(prompt, images, audios, max_new, stop)
             results.append(text)
             self.cache_hook.add_partial("generate_until", (contexts, gen_kwargs), text)
@@ -499,16 +596,7 @@ class LMMSORTGenAIEvaluator(lmms):
             images, audios = _partition_visuals(visuals)
             continuation = str(doc_to_target(doc))
 
-            prompt = _build_prompt(
-                self._model_type,
-                len(images),
-                len(audios),
-                contexts,
-                self.system_prompt,
-                self.prompt_template,
-                self.image_token_format,
-                self.audio_token_format,
-            )
+            prompt = self._build_prompt_for_request(contexts, len(images), len(audios))
             logprob, is_greedy = self._score_continuation(prompt, continuation, images, audios)
             results.append((logprob, is_greedy))
             self.cache_hook.add_partial("loglikelihood", (contexts, continuation), (logprob, is_greedy))
