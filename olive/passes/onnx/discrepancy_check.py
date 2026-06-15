@@ -2,8 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
 import time
+from pathlib import Path
 from typing import Optional
 
 from olive.data.config import DataConfig
@@ -67,7 +69,7 @@ class OnnxDiscrepancyCheck(Pass):
     - Longest common token sequence from the beginning between transformers
       generate and ONNX Runtime GenAI generate (when enabled)
 
-    The pass fails if any configured threshold is exceeded.
+    The pass status is marked as failed if any configured threshold is exceeded.
     """
 
     @classmethod
@@ -77,6 +79,22 @@ class OnnxDiscrepancyCheck(Pass):
                 type_=str,
                 required=True,
                 description="Path to the reference PyTorch/HuggingFace model to compare against.",
+            ),
+            "report_output_dir": PassConfigParam(
+                type_=Optional[str],
+                default_value=None,
+                description=(
+                    "Directory where discrepancy check results and reference model are saved. "
+                    "If not specified, results are written to the pass cache directory."
+                ),
+            ),
+            "save_reference_model_state_dict": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Save the reference PyTorch model weights (state_dict) alongside the results. "
+                    "This allows direct comparison between the reference and optimized models."
+                ),
             ),
             "max_mae": PassConfigParam(
                 type_=Optional[float],
@@ -211,11 +229,18 @@ class OnnxDiscrepancyCheck(Pass):
             torch_device = torch.device("cuda")
         ref_model = ref_model.to(torch_device)
 
+        # Save reference PyTorch model for direct comparison
+        report_dir = config.report_output_dir or output_model_path
+        report_dir_path = Path(report_dir)
+        if report_dir_path.suffix and not report_dir_path.is_dir():
+            report_dir = str(report_dir_path.parent)
+        if config.save_reference_model_state_dict:
+            self._export_reference_model(ref_model, report_dir)
+
         session = model.prepare_session(
             device=device,
             execution_providers=[execution_provider] if execution_provider else None,
         )
-        io_config = model.io_config
 
         # Run inference on both and compare
         all_max_abs_diff = []
@@ -252,14 +277,19 @@ class OnnxDiscrepancyCheck(Pass):
         count_above_0_1 = sum(all_count_above_0_1)
         count_above_0_01 = sum(all_count_above_0_01)
 
-        logger.info(
-            "OnnxDiscrepancyCheck: max_abs_error=%.6f, elements_above_0.1=%d/%d, elements_above_0.01=%d/%d",
-            max_abs_error,
-            count_above_0_1,
-            total_elements,
-            count_above_0_01,
-            total_elements,
+        results = {
+            "max_abs_error": max_abs_error,
+            "elements_above_0_1": count_above_0_1,
+            "elements_above_0_01": count_above_0_01,
+            "total_elements": total_elements,
+        }
+
+        summary = (
+            f"OnnxDiscrepancyCheck: max_abs_error={max_abs_error:.6f}, "
+            f"elements_above_0.1={count_above_0_1}/{total_elements}, "
+            f"elements_above_0.01={count_above_0_01}/{total_elements}"
         )
+        logger.info(summary)
 
         # Measure inference speedup (ONNX vs PyTorch) on the target device
         if config.timing_iterations > 0:
@@ -292,19 +322,36 @@ class OnnxDiscrepancyCheck(Pass):
             )
 
         if failures:
-            raise RuntimeError("ONNX model discrepancy check failed:\n" + "\n".join(f"  - {f}" for f in failures))
+            results["status"] = "failed"
+            results["failures"] = failures
+            failure_msg = "ONNX model discrepancy check FAILED:\n" + "\n".join(f"  - {f}" for f in failures)
+            logger.error(failure_msg)
+        else:
+            results["status"] = "passed"
 
         # Generation token sequence comparison (transformers vs ONNX Runtime GenAI)
         if config.genai_model_path:
             longest_common = self.compare_generation(config, ref_model)
+            results["longest_common_token_sequence"] = longest_common
+            results["genai_model_path"] = config.genai_model_path
             if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
-                raise RuntimeError(
-                    f"ONNX model discrepancy check failed:\n"
-                    f"  - Longest common token sequence length {longest_common} is below "
+                results["status"] = "failed"
+                gen_failure = (
+                    f"Longest common token sequence length {longest_common} is below "
                     f"threshold {config.min_longest_common_tokens}"
                 )
+                results.setdefault("failures", []).append(gen_failure)
+                logger.error("ONNX model discrepancy check FAILED: %s", gen_failure)
 
-        # Return the model unchanged
+        # Save results to disk
+        report_path = Path(report_dir) / "discrepancy_check_results.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(results, indent=2))
+
+        # Store results in model attributes so the CLI can persist them in the output directory
+        model_attributes = dict(model.model_attributes) if model.model_attributes else {}
+        model_attributes["discrepancy_check_results"] = results
+        model.model_attributes = model_attributes
         return model
 
     def _measure_speedup(
@@ -415,12 +462,22 @@ class OnnxDiscrepancyCheck(Pass):
 
         longest_common = _longest_common_token_sequence(transformers_tokens, genai_tokens)
 
-        logger.info(
-            "OnnxDiscrepancyCheck generation comparison: "
-            "transformers_len=%d, genai_len=%d, longest_common_token_sequence=%d",
-            len(transformers_tokens),
-            len(genai_tokens),
-            longest_common,
+        gen_summary = (
+            f"OnnxDiscrepancyCheck generation comparison: "
+            f"transformers_len={len(transformers_tokens)}, genai_len={len(genai_tokens)}, "
+            f"longest_common_token_sequence={longest_common}"
         )
+        logger.info(gen_summary)
 
         return longest_common
+
+    def _export_reference_model(self, ref_model, output_model_path: str):
+        """Save the reference PyTorch model weights for direct comparison."""
+        import torch
+
+        output_dir = Path(output_model_path)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        ref_pt_path = output_dir / "reference_model.pt"
+        torch.save(ref_model.state_dict(), str(ref_pt_path))
+        logger.info("Reference PyTorch model saved to %s", ref_pt_path)

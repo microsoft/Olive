@@ -155,6 +155,7 @@ def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_pat
 
 @patch("olive.workflows.run")
 def test_workflow_run_command_with_test_override(mock_run, tmp_path):
+    mock_run.return_value = None
     config_path = tmp_path / "config.json"
     config_path.write_text(
         json.dumps(
@@ -173,6 +174,7 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
     cli_main(command_args)
 
     test_model_path = str(tmp_path / "output" / "test_model")
+    output_dir = str(tmp_path / "output")
     mock_run.assert_called_once_with(
         {
             "input_model": {
@@ -182,11 +184,13 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
                 "test_model_config": {"hidden_layers": 2},
                 "test_model_path": test_model_path,
             },
-            "output_dir": str(tmp_path / "output"),
+            "output_dir": output_dir,
             "passes": {
                 "discrepancy_check": {
                     "type": "OnnxDiscrepancyCheck",
                     "reference_model_path": test_model_path,
+                    "max_mae": 0.1,
+                    "report_output_dir": output_dir,
                 }
             },
         },
@@ -220,6 +224,7 @@ def test_workflow_run_command_with_test_rejects_non_test_output_dir(tmp_path):
 
 @patch("olive.workflows.run")
 def test_workflow_run_command_with_test_reuses_test_output_dir(mock_run, tmp_path):
+    mock_run.return_value = None
     config_path = tmp_path / "config.json"
     output_dir = tmp_path / "output"
     output_dir.mkdir()
