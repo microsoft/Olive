@@ -250,9 +250,11 @@ class OnnxKQuantQuantization(Pass):
                 type_=list,
                 default_value=None,
                 description=(
-                    "List of node names to exclude from quantization. Entries may be exact node "
-                    "names or Unix shell-style glob patterns (e.g. '*/projector/*' to exclude all "
-                    "projector MatMuls). A node is excluded if its name equals or matches any entry."
+                    "List of node names to exclude from quantization. An entry that contains a "
+                    "wildcard ('*' or '?') is treated as a Unix shell-style glob pattern (e.g. "
+                    "'*/projector/*' to exclude all projector MatMuls); all other entries are "
+                    "matched by exact node name. A node is excluded if its name equals any exact "
+                    "entry or matches any glob entry."
                 ),
             ),
             **get_external_data_config(),
@@ -295,14 +297,21 @@ class OnnxKQuantQuantization(Pass):
         nodes_to_exclude = nodes_to_exclude or []
         customized_weight_config = customized_weight_config or {}
 
+        # Split exclusion entries into exact names and glob patterns. Only entries that contain a
+        # wildcard ('*' or '?') are treated as globs; everything else is matched by exact name. This
+        # keeps exact names that happen to contain other fnmatch metacharacters (e.g. '[' / ']')
+        # from unintentionally matching unrelated nodes.
+        exclude_exact = set(nodes_to_exclude)
+        exclude_globs = [pattern for pattern in nodes_to_exclude if "*" in pattern or "?" in pattern]
+
         globally_registered = {}
 
         ir_model.graph.sort()
         for node in ir_model.graph.all_nodes():
             node_name = node.name
 
-            if node_name in nodes_to_exclude or any(
-                fnmatch.fnmatchcase(node_name or "", pattern) for pattern in nodes_to_exclude
+            if node_name in exclude_exact or any(
+                fnmatch.fnmatchcase(node_name or "", pattern) for pattern in exclude_globs
             ):
                 logger.debug("Exclude quantization of %s as specified by nodes_to_exclude.", node_name)
                 continue
