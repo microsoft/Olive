@@ -62,6 +62,90 @@ def test_normalize_execution_provider(execution_provider, expected):
     assert _normalize_execution_provider(execution_provider) == expected
 
 
+def _make_evaluator_for_prompt_tests():
+    """Construct an LMMSORTGenAIEvaluator with __init__ skipped.
+
+    Lets us unit-test the prompt-building path without needing a real ORT-GenAI
+    model on disk.
+    """
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst._tokenizer = MagicMock(name="og.Tokenizer")
+    inst._model_type = "test_model"
+    inst.system_prompt = "You are helpful."
+    inst.prompt_template = None
+    inst.image_token_format = "<|image_{index}|>"
+    inst.audio_token_format = "<|audio_{index}|>"
+    inst._has_chat_template = True
+    return inst
+
+
+def test_build_prompt_for_request_uses_apply_chat_template_by_default():
+    inst = _make_evaluator_for_prompt_tests()
+    inst._tokenizer.apply_chat_template.return_value = "<rendered chat prompt>"
+
+    out = inst._build_prompt_for_request("What is in the image?", num_images=1, num_audios=0)
+
+    assert out == "<rendered chat prompt>"
+    inst._tokenizer.apply_chat_template.assert_called_once()
+    messages_json_arg = inst._tokenizer.apply_chat_template.call_args.args[0]
+    assert inst._tokenizer.apply_chat_template.call_args.kwargs.get("add_generation_prompt") is True
+
+    import json as _json
+
+    messages = _json.loads(messages_json_arg)
+    assert messages[0] == {"role": "system", "content": "You are helpful."}
+    assert messages[1] == {"role": "user", "content": "<|image_1|>What is in the image?"}
+
+
+def test_build_prompt_for_request_skips_system_when_empty():
+    inst = _make_evaluator_for_prompt_tests()
+    inst.system_prompt = ""
+    inst._tokenizer.apply_chat_template.return_value = "out"
+
+    inst._build_prompt_for_request("Q", num_images=0, num_audios=0)
+
+    import json as _json
+
+    messages = _json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
+    assert all(m["role"] != "system" for m in messages)
+    assert messages[-1] == {"role": "user", "content": "Q"}
+
+
+def test_build_prompt_for_request_includes_audio_markers():
+    inst = _make_evaluator_for_prompt_tests()
+    inst.system_prompt = ""
+    inst._tokenizer.apply_chat_template.return_value = "out"
+
+    inst._build_prompt_for_request("Q", num_images=2, num_audios=1)
+
+    import json as _json
+
+    messages = _json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
+    assert messages[0]["content"] == "<|image_1|><|image_2|><|audio_1|>Q"
+
+
+def test_build_prompt_for_request_falls_back_to_legacy_when_prompt_template_set():
+    inst = _make_evaluator_for_prompt_tests()
+    inst.prompt_template = "{system_prompt}|{user_content}"
+
+    out = inst._build_prompt_for_request("Q", num_images=1, num_audios=0)
+
+    assert out == "You are helpful.|<|image_1|>Q"
+    inst._tokenizer.apply_chat_template.assert_not_called()
+
+
+def test_build_prompt_for_request_falls_back_when_chat_template_unavailable():
+    inst = _make_evaluator_for_prompt_tests()
+    inst._has_chat_template = False  # simulate older onnxruntime-genai
+
+    out = inst._build_prompt_for_request("Q", num_images=1, num_audios=0)
+
+    # Default legacy template wraps with Phi-4-MM-style tokens.
+    assert "<|image_1|>" in out
+    assert "Q" in out
+    inst._tokenizer.apply_chat_template.assert_not_called()
+
+
 def test_lmms_evaluator_converts_lmms_results(tmp_path):
     model_dir = tmp_path / "model"
     model_dir.mkdir()
