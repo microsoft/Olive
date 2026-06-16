@@ -203,6 +203,7 @@ class MobiusBuilder(Pass):
         # Multi-component model (VLMs, encoder-decoders, diffusion pipelines):
         # mobius saves each component to <output_dir>/<key>/model.onnx.
         components = []
+        component_paths: list[tuple[str, str]] = []
         for key in package_keys:
             component_dir = output_dir / key
             onnx_path = component_dir / "model.onnx"
@@ -211,6 +212,7 @@ class MobiusBuilder(Pass):
                     f"MobiusBuilder: expected output file not found: {onnx_path}. "
                     f"mobius.build() may have failed silently for component '{key}'."
                 )
+            component_paths.append((key, str(onnx_path)))
             additional_files = sorted(
                 {str(fp) for fp in component_dir.iterdir()} - {str(onnx_path), str(onnx_path) + ".data"}
             )
@@ -227,6 +229,10 @@ class MobiusBuilder(Pass):
                     },
                 )
             )
+
+        logger.info("MobiusBuilder: exported multi-component model with %d components:", len(component_paths))
+        for component_name, component_path in component_paths:
+            logger.info("MobiusBuilder:   component '%s' -> %s", component_name, component_path)
 
         return CompositeModelHandler(
             model_components=components,
