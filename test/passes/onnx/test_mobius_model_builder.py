@@ -98,7 +98,7 @@ def _fake_pkg(keys: list[str], _output_dir: Path) -> MagicMock:
 def _patch_build(pkg: MagicMock):
     # Patch mobius.build directly — lazy import inside _run_for_config means
     # patching the module attribute, not the local binding.
-    # Also patch _write_genai_config since the default runtime is ort-genai.
+    # Also patch _write_genai_config since mobius always emits ORT GenAI artifacts.
     return _CombinePatches(
         patch("mobius.build", return_value=pkg),
         patch.object(MobiusBuilder, "_write_genai_config"),
@@ -127,13 +127,12 @@ class _CombinePatches:
 
 
 def test_default_config_params():
-    """MobiusBuilder must declare precision and runtime, and must not declare execution_provider or trust_remote_code."""
+    """MobiusBuilder must declare precision, and must not declare execution_provider or trust_remote_code."""
     accelerator_spec = AcceleratorSpec(
         accelerator_type=Device.CPU, execution_provider=ExecutionProvider.CPUExecutionProvider
     )
     config = MobiusBuilder._default_config(accelerator_spec)  # pylint: disable=protected-access
     assert "precision" in config
-    assert "runtime" in config
     assert "execution_provider" not in config
     assert "trust_remote_code" not in config
 
@@ -220,11 +219,21 @@ def test_genai_artifacts_in_single_component(tmp_path):
 
 
 def test_genai_artifacts_in_multi_component(tmp_path):
-    """ORT GenAI artifacts must be included in all components of multi-component models."""
+    """ORT GenAI artifacts must be attached at composite-level, not duplicated per component."""
     out = tmp_path / "out"
     out.mkdir(parents=True, exist_ok=True)
     keys = ["model", "vision", "embedding"]
     pkg = _fake_pkg(keys, out)
+
+    def _save_with_component_sidecar(directory: str, **_kwargs):
+        out_dir = Path(directory)
+        for key in keys:
+            component_dir = out_dir / key
+            component_dir.mkdir(parents=True, exist_ok=True)
+            (component_dir / "model.onnx").write_text("dummy")
+        (out_dir / "vision" / "vision_local.txt").write_text("vision")
+
+    pkg.save.side_effect = _save_with_component_sidecar
 
     # Mock genai artifact files
     genai_config = str(out / "genai_config.json")
@@ -240,11 +249,19 @@ def test_genai_artifacts_in_multi_component(tmp_path):
         result = p.run(_make_hf_model("microsoft/phi-4-vision"), out)
 
     assert isinstance(result, CompositeModelHandler)
-    # Verify all components include genai artifacts
-    for component in result.model_components:
+    composite_additional_files = result.model_attributes.get("additional_files", [])
+    assert genai_config in composite_additional_files
+    assert image_processor in composite_additional_files
+
+    # Shared GenAI sidecars should not be duplicated into each component.
+    components = list(result.model_components)
+    for component in components:
         additional_files = component.model_attributes.get("additional_files", [])
-        assert genai_config in additional_files
-        assert image_processor in additional_files
+        assert genai_config not in additional_files
+        assert image_processor not in additional_files
+
+    vision = components[result.model_component_names.index("vision")]
+    assert str(out / "vision" / "vision_local.txt") in vision.model_attributes.get("additional_files", [])
 
 
 # ---------------------------------------------------------------------------
