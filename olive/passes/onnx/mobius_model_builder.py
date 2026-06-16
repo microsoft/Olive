@@ -91,6 +91,25 @@ class MobiusBuilder(Pass):
                     "quantization pass (e.g. OnnxMatMulNBits) after this pass."
                 ),
             ),
+            "mobius_ep_override": PassConfigParam(
+                type_=str,
+                required=False,
+                default_value=None,
+                description=(
+                    "Override the mobius execution_provider regardless of the "
+                    "Olive accelerator EP. Useful as a workaround when mobius's "
+                    "EP-specific attention fusions produce graphs that the "
+                    "ORT-GenAI fused-attention kernels reject at runtime. For "
+                    "example, the mobius cuda EP fuses PackedMultiHeadAttention "
+                    "in the Qwen2.5-VL vision encoder (whose internally-computed "
+                    "cumulative_sequence_length does not satisfy the kernel's "
+                    "expected shape) and GroupQueryAttention in the Gemma-4 "
+                    "decoder (where the bidirectional vision-block mask makes GQA "
+                    "invalid). Set to 'default' to skip all EP-specific fusions. "
+                    "The resulting INT4 graph is numerically equivalent; only "
+                    "perf-related fusions are dropped."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -119,6 +138,17 @@ class MobiusBuilder(Pass):
                 requested_ep,
                 self.accelerator_spec.accelerator_type,
             )
+
+        # Honor the explicit override. Logged at WARNING so the workaround is
+        # visible in run output.
+        if config.mobius_ep_override is not None:
+            logger.warning(
+                "MobiusBuilder: mobius_ep_override set; overriding mobius EP "
+                "from '%s' to '%s' (auto-derived EP discarded).",
+                ep_str,
+                config.mobius_ep_override,
+            )
+            ep_str = config.mobius_ep_override
 
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
         model_id: str = model.model_name_or_path
