@@ -316,7 +316,7 @@ The **same** `builds` schema produces several target-specific outputs without an
 
 ---
 
-## 5. Low Level Design
+## 5. Low Level Details
 
 This section covers details needs to be handled in low level.
 
