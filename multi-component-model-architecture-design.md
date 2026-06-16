@@ -118,7 +118,7 @@ Export with `MobiusBuilder`, which takes an `HfModel` and returns a `CompositeMo
   - User needs to know the components names first (from a new Olive CLI, where Olive will get it from Mobius)
 
 
-**Option 2 — two steps (CLI export, then load the folder).** Export with the CLI, then point `input_model` at the exported directory.
+**Option 2 — two steps (CLI export, then load the folder).** Export with the CLI, then point `input_model` at the exported directory. (preferred)
 
 Step 1 — export. Each component lands in its own subfolder:
 
