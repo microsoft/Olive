@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 # --------------------------------------------------------------------------
 
+import copy
+import inspect
 import logging
 import os
 from pathlib import Path
@@ -22,6 +24,35 @@ from olive.passes.qairt.utils import QairtLogLevel
 logger = logging.getLogger(__name__)
 
 MAX_GENIE_CONTEXT_LENGTH = 4096
+
+
+def _deep_merge(base: dict, overrides: dict) -> dict:
+    """Recursively merge *overrides* into *base*, returning a new dict.
+
+    Nested dicts are merged rather than replaced. Lists of dicts are merged
+    element-wise by index — the override list need not be the same length as
+    the base list; extra base elements are preserved and extra override
+    elements are appended. A ``None`` override value deletes the key from
+    the result. The returned dict shares no references with *base*.
+    """
+    result = copy.deepcopy(base)
+    for k, v in overrides.items():
+        if v is None:
+            result.pop(k, None)
+        elif k in result and isinstance(result[k], dict) and isinstance(v, dict):
+            result[k] = _deep_merge(result[k], v)
+        elif k in result and isinstance(result[k], list) and isinstance(v, list):
+            merged = []
+            for i, ov in enumerate(v):
+                if i < len(result[k]) and isinstance(result[k][i], dict) and isinstance(ov, dict):
+                    merged.append(_deep_merge(result[k][i], ov))
+                else:
+                    merged.append(copy.deepcopy(ov))
+            merged.extend(result[k][len(v) :])
+            result[k] = merged
+        else:
+            result[k] = copy.deepcopy(v)
+    return result
 
 
 class QairtEncapsulation(Pass):
@@ -48,6 +79,27 @@ class QairtEncapsulation(Pass):
                 ],
                 required=False,
                 description="Opset name and version to be added in the generated context model",
+            ),
+            "genie_overrides": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                required=False,
+                description="Override GenAIConfig fields before DLC export without modifying the builder pass. "
+                "Only the specified keys are changed; all other builder defaults are preserved.",
+            ),
+            "backend_extensions_overrides": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                required=False,
+                description="Override backend extension settings (context, devices, memory, groupContext) "
+                "before DLC export. Use the same key names as backend_extensions.json.",
+            ),
+            "engine_config_overrides": PassConfigParam(
+                type_=dict,
+                default_value=None,
+                required=False,
+                description="Set engine deployment parameters (e.g. n_threads, cpu_mask) passed to the "
+                "Genie runtime at export. HTP-specific settings go under a nested 'htp' key.",
             ),
         }
 
@@ -76,6 +128,52 @@ class QairtEncapsulation(Pass):
 
         container: qairt_genai.LLMContainer = qairt_genai.LLMContainer.load(model.model_path)
 
+        if config.genie_overrides:
+            if hasattr(container, "_gen_ai_config"):
+                gen_ai_cfg = container._gen_ai_config  # pylint: disable=protected-access
+                current = gen_ai_cfg.model_dump(mode="json", by_alias=False, exclude_none=True)
+                merged = _deep_merge(current, config.genie_overrides)
+                container._gen_ai_config = gen_ai_cfg.model_validate(merged)  # pylint: disable=protected-access
+                logger.info("Applied genie_overrides to GenAIConfig: %s", list(config.genie_overrides.keys()))
+            else:
+                logger.warning("genie_overrides ignored: _gen_ai_config not found in installed qairt version")
+
+        if config.backend_extensions_overrides:
+            if hasattr(container, "_backend_extensions_config"):
+                container._backend_extensions_config = _deep_merge(  # pylint: disable=protected-access
+                    container._backend_extensions_config or {},  # pylint: disable=protected-access
+                    config.backend_extensions_overrides,
+                )
+                logger.info(
+                    "Applied backend_extensions_overrides: %s", list(config.backend_extensions_overrides.keys())
+                )
+            else:
+                logger.warning(
+                    "backend_extensions_overrides ignored: _backend_extensions_config not found in installed qairt version"
+                )
+
+        export_kwargs = {"export_format": qairt.ExportFormat.LM_EXECUTOR}
+        if config.engine_config_overrides:
+            try:
+                sig = inspect.signature(container.export).parameters
+                supports_engine_config = "engine_config" in sig or any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values()
+                )
+            except (TypeError, ValueError):
+                supports_engine_config = False
+            if supports_engine_config:
+                overrides = dict(config.engine_config_overrides)
+                htp_overrides = overrides.pop("htp", None)
+                htp_cfg = qairt_genai.HTPEngineConfig(**(htp_overrides or {})) if htp_overrides is not None else None
+                engine_cfg = qairt_genai.EngineConfig(**overrides, htp=htp_cfg)
+                export_kwargs["engine_config"] = engine_cfg
+            else:
+                logger.warning(
+                    "engine_config_overrides ignored: installed qairt-dev does not support "
+                    "the engine_config parameter in LLMContainer.export(). "
+                    "Upgrade to a newer version of qairt-dev to enable this parameter."
+                )
+
         # Input/Output metadata
         container.inputs = [("input_ids", TensorProto.INT32, ["batch_size", "sequence_length"])]
         container.outputs = [("logits", TensorProto.FLOAT, ["batch_size", 1, "vocab_size"])]
@@ -93,7 +191,7 @@ class QairtEncapsulation(Pass):
         for name, datatype, shape in container.outputs:
             outputs.append(helper.make_tensor_value_info(name, datatype, shape))
 
-        container.export(output_model_path, export_format=qairt.ExportFormat.LM_EXECUTOR)
+        container.export(output_model_path, **export_kwargs)
 
         # Find the .dlc file in the output directory
         output_path_obj = Path(output_model_path)
@@ -191,12 +289,12 @@ def create_genai_config(
     source_config_path = Path(output_path) / "config.json"
 
     if not source_config_path.exists():
-        raise ValueError("Cannot create gen_ai_config.json if source model config doesn't exist.")
+        raise ValueError("Cannot create genai_config.json if source model config doesn't exist.")
 
     generation_config_path = Path(output_path) / "generation_config.json"
 
     if not generation_config_path.exists():
-        raise ValueError("Cannot create gen_ai_config.json if generation config doesn't exist")
+        raise ValueError("Cannot create genai_config.json if generation config doesn't exist.")
 
     genai_config = {
         "model": {

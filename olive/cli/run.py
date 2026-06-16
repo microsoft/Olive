@@ -13,6 +13,7 @@ from olive.cli.base import (
     add_telemetry_options,
     get_input_model_config,
     mark_test_output_path,
+    save_discrepancy_check_results,
     validate_test_output_path,
 )
 from olive.telemetry import action
@@ -92,6 +93,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         )
         if self.args.test not in (None, False):
             mark_test_output_path(output_path)
+            save_discrepancy_check_results(workflow_output, output_path)
 
         if self.args.list_required_packages is True:
             print("Required packages listed!")

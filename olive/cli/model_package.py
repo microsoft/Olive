@@ -47,7 +47,7 @@ import re
 import shutil
 from argparse import ArgumentParser
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Optional
 
 from olive.cli.base import (
@@ -231,56 +231,40 @@ class ModelPackageCommand(BaseOliveCLICommand):
     # ------------------------------------------------------------------
 
     def _build_variants(self, targets: list[tuple[str, Path, dict]]) -> list["VariantSpec"]:
-        task = self._extract_task(targets)
-        component_name = _task_to_component_name(task)
         variants: list[VariantSpec] = []
         for target_name, source_path, source_genai in targets:
-            # Pipeline sources (e.g. QNN multi-stage exports) declare each
-            # stage's ONNX inside ``genai_config.model.<role>.pipeline``;
-            # there can be multiple ``.onnx`` files in the source directory
-            # so we list them all here and let the writer's copy loop fan
-            # them out into the variant directory. The overlay writer lifts
-            # the pipeline structure verbatim from the source genai_config.
-            primary_role = _pick_primary_role(source_genai)
-            pipeline_files = _resolve_pipeline_onnx_files(source_path, source_genai)
-            if pipeline_files:
-                onnx_files = pipeline_files
-            else:
-                # Flat single-ONNX source: take the primary role's filename
-                # from genai_config (the same field the GenAI loader uses
-                # at runtime). Normalise to basename — some Olive exports
-                # write paths like ``decoder/model.onnx`` but every variant
-                # directory in the package is flat.
-                if primary_role is None:
-                    raise ValueError(
-                        f"Source {source_path} has no role in genai_config.json with a "
-                        "``filename`` or ``pipeline``; cannot determine which ONNX file(s) "
-                        "to package."
+            # Each role under ``genai_config.model`` is an independent ORT
+            # inference session at runtime, so each role becomes its own
+            # package component. A text-only model has one role (``decoder``)
+            # → one component. A VLM has three roles (``vision``,
+            # ``embedding``, ``decoder``) → three components. A QNN
+            # pipeline-shaped role becomes ONE component whose variant
+            # directory holds every stage's ONNX flat.
+            artifacts_by_role = _collect_artifacts_per_role(source_path, source_genai)
+            for role_name, role_artifacts in artifacts_by_role.items():
+                onnx_files = [a.source_path for a in role_artifacts]
+                onnx_rel_paths = [a.package_rel_path for a in role_artifacts]
+
+                ep = _resolve_ep_for_role(source_genai, role_name)
+                # ``ep_compatibility_info`` metadata is conventionally
+                # written on the role's first ONNX (the primary stage for
+                # a pipeline role); probe that file for the EP-scoped
+                # compatibility string.
+                raw_compat = _extract_ep_compatibility_from_onnx(onnx_files[0], ep) if onnx_files else None
+                compatibility_string = raw_compat.strip() if raw_compat and raw_compat.strip() else None
+
+                variants.append(
+                    VariantSpec(
+                        component_name=role_name,
+                        variant_name=target_name,
+                        role_name=role_name,
+                        onnx_files=onnx_files,
+                        onnx_rel_paths=onnx_rel_paths,
+                        ep=ep,
+                        compatibility_string=compatibility_string,
+                        source_genai=source_genai,
                     )
-                role_body = source_genai["model"][primary_role]
-                filename = role_body.get("filename")
-                if not isinstance(filename, str) or not filename:
-                    raise ValueError(f"Source {source_path} role {primary_role!r} has no ``filename``.")
-                onnx_files = [source_path / Path(filename).name]
-
-            ep = (
-                _derive_ep_from_genai(source_genai, primary_role)
-                or _guess_ep_from_variant_name(target_name)
-                or "CPUExecutionProvider"
-            )
-            raw_compat = _extract_ep_compatibility_from_onnx(onnx_files[0], ep) if onnx_files else None
-            compatibility_string = raw_compat.strip() if raw_compat and raw_compat.strip() else None
-
-            variants.append(
-                VariantSpec(
-                    component_name=component_name,
-                    variant_name=target_name,
-                    onnx_files=onnx_files,
-                    ep=ep,
-                    compatibility_string=compatibility_string,
-                    source_genai=source_genai,
                 )
-            )
         return variants
 
     # ------------------------------------------------------------------
@@ -291,18 +275,34 @@ class ModelPackageCommand(BaseOliveCLICommand):
     def _collect_config_files(targets: list[tuple[str, Path, dict]]) -> dict[str, Path]:
         """Pick consumer-shared config files (genai_config, tokenizer, ...).
 
-        Sweeps the first source's directory for any non-ONNX/binary files
+        Sweeps one source's directory for any non-ONNX/binary files
         (tokenizer assets, genai_config.json, chat_template, processor_config,
-        etc.). Subsequent sources don't add files — the package emits one
-        shared base config set.
+        etc.). The chosen source is the one with the most genai_config roles
+        — when sources don't all expose the same role set (e.g. cpu has
+        vision/embedding/decoder but gpu has only decoder), picking the
+        first source could otherwise emit a base ``genai_config.json``
+        missing role blocks that downstream components rely on. Other
+        sources don't contribute files; the package emits one shared base
+        config set.
+
+        Subdirectories that hold model artifacts (e.g. Mobius VLM's
+        ``decoder/``, ``embedding/``, ``vision_encoder/``, recognized via
+        the ``model.<role>.filename`` references in the source's
+        ``genai_config.json``) are excluded from this sweep — they're
+        copied per-variant into ``models/<component>/<variant>/`` and have
+        no business duplicating large ONNX/data blobs into the shared
+        ``configs/`` tree.
         """
+        if not targets:
+            return {}
+        _target_name, source_path, source_genai = _select_base_config_source(targets)
+        model_dirs = _model_artifact_dirs(source_genai)
         config_entries: dict[str, Path] = {}
-        for _target_name, source_path, _source_genai in targets:
-            for f in sorted(source_path.iterdir()):
-                if (f.is_file() and f.suffix not in _MODEL_SUFFIXES) or f.is_dir():
-                    config_entries[f.name] = f
-            if config_entries:
-                break
+        for f in sorted(source_path.iterdir()):
+            if f.is_dir() and f.name in model_dirs:
+                continue
+            if (f.is_file() and f.suffix not in _MODEL_SUFFIXES) or f.is_dir():
+                config_entries[f.name] = f
         return config_entries
 
     # ------------------------------------------------------------------
@@ -346,10 +346,9 @@ class ModelPackageCommand(BaseOliveCLICommand):
     def _extract_task(targets: list[tuple[str, Path, dict]]) -> str:
         # Inspect each source's genai_config.json roles to infer the task.
         # GenAI roles map cleanly to tasks (``decoder`` → text generation;
-        # both ``encoder`` and ``decoder`` → text2text generation), and the
-        # task in turn names the component directory under ``models/``.
-        # Returns the underscore-normalised form (``text_generation``) so
-        # ``_task_to_component_name`` can resolve a component name.
+        # both ``encoder`` and ``decoder`` → text2text generation). Used
+        # only for the ``producer.task`` manifest hint; component names
+        # are derived per-role from the genai_config, not from the task.
         for _target_name, _source_path, source_genai in targets:
             if not isinstance(source_genai, dict):
                 continue
@@ -369,6 +368,28 @@ class ModelPackageCommand(BaseOliveCLICommand):
 # ---------------------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class OnnxArtifact:
+    """An ONNX file the writer must place inside a variant directory.
+
+    ``source_path`` points at the absolute path the writer reads from;
+    ``package_rel_path`` is the location inside the variant directory the
+    writer must write to. In the per-role-component layout
+    ``_collect_artifacts_per_role`` emits this as the source filename's
+    basename (e.g. ``model.onnx``) because each role gets its own
+    ``models/<role>/<variant>/`` directory and there is no sibling role
+    to disambiguate against. Direct callers that construct a VariantSpec
+    by hand may supply a nested subpath when the variant truly needs a
+    multi-file layout under one component. The rel path is the same
+    string the variant's ``genai_config_overlay.json`` emits under
+    ``model.<role>.filename``, so the on-disk layout and the loader's
+    view stay aligned.
+    """
+
+    source_path: Path
+    package_rel_path: str
+
+
 @dataclass
 class VariantSpec:
     """One variant of one component, ready to be packaged."""
@@ -386,6 +407,51 @@ class VariantSpec:
     # into the variant overlay. Kept as a deep object rather than a path so
     # callers can synthesize it without touching disk.
     source_genai: Optional[dict[str, Any]] = None
+    # Optional per-ONNX target paths inside the variant directory. When
+    # supplied, must be index-aligned with ``onnx_files`` and contain a
+    # safe relative path for every ONNX. When empty, the writer falls back
+    # to the legacy flat layout (each ONNX placed at
+    # ``<variant_dir>/<basename>``) — kept for direct callers and tests that
+    # predate multi-component sources.
+    onnx_rel_paths: list[str] = field(default_factory=list)
+    # The genai_config role this variant represents (e.g. ``decoder``,
+    # ``vision``, ``embedding``). When set, the overlay writer scopes its
+    # lift to just this role rather than the whole ``model`` block, so a
+    # multi-role source (Mobius VLM) produces one VariantSpec per role
+    # under one component per role. When unset, the writer falls back to
+    # the legacy multi-role lift for direct callers / tests that predate
+    # per-role components.
+    role_name: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.onnx_rel_paths and len(self.onnx_rel_paths) != len(self.onnx_files):
+            raise ValueError(
+                f"VariantSpec '{self.variant_name}': onnx_rel_paths length "
+                f"({len(self.onnx_rel_paths)}) must match onnx_files length ({len(self.onnx_files)})."
+            )
+        for rel in self.onnx_rel_paths:
+            if not isinstance(rel, str) or not _is_safe_relative_location(rel):
+                raise ValueError(
+                    f"VariantSpec '{self.variant_name}': unsafe ONNX package_rel_path {rel!r}. "
+                    "Must be a non-empty relative path without absolute prefixes or '..' segments."
+                )
+
+
+def _variant_artifacts(v: VariantSpec) -> list[OnnxArtifact]:
+    """Return the variant's ONNX files paired with their in-package rel paths.
+
+    When ``onnx_rel_paths`` is empty (legacy callers), the rel path defaults
+    to each source file's basename, preserving the original flat-layout
+    behavior. When supplied (the CLI's genai_config-driven path), the rel
+    path is used verbatim so multi-component sources land in matching
+    subdirectories under the variant dir.
+    """
+    if v.onnx_rel_paths:
+        return [
+            OnnxArtifact(source_path=Path(src), package_rel_path=rel)
+            for src, rel in zip(v.onnx_files, v.onnx_rel_paths)
+        ]
+    return [OnnxArtifact(source_path=Path(src), package_rel_path=Path(src).name) for src in v.onnx_files]
 
 
 def write_model_package(
@@ -455,25 +521,46 @@ def write_model_package(
     # without those markers ORT-GenAI's variant auto-selection fails with
     # "the genai config does not reference any package components".
     role_to_component: dict[str, str] = {}
-    # Seed from each variant's source genai_config: every role that appears
-    # under ``model.<role>`` (vision, embedding, decoder, ...) gets mapped
-    # to that variant's component_name. Multi-role sources (e.g. VLMs)
-    # share a single component dir, so all of their roles end up pointing
-    # at the same component — which is what the loader needs to find each
-    # role's ONNX file inside the package.
+
+    def _assign_role(role: str, component: str) -> None:
+        existing = role_to_component.get(role)
+        if existing is None:
+            role_to_component[role] = component
+        elif existing != component:
+            raise ValueError(
+                f"Role '{role}' is mapped to two different components: "
+                f"'{existing}' and '{component}'. Each genai_config role must "
+                "belong to exactly one package component."
+            )
+
+    # Preferred path: per-role variants (each VariantSpec carries the role
+    # it represents). One variant = one role = one component, so the
+    # mapping is direct and conflicts are easy to surface.
     for v in variants:
+        if v.role_name:
+            _assign_role(v.role_name, v.component_name)
+    # Legacy / multi-role path: variants without ``role_name`` aggregate
+    # several roles under one component. Seed from each variant's source
+    # genai_config so every role that appears under ``model.<role>``
+    # (vision, embedding, decoder, ...) still points back at that
+    # variant's component_name. Preserves backward compatibility for
+    # direct ``write_model_package`` callers and tests.
+    for v in variants:
+        if v.role_name:
+            continue
         src_genai = getattr(v, "source_genai", None) or {}
         model_block = src_genai.get("model") if isinstance(src_genai, dict) else None
         if isinstance(model_block, dict):
             for role_name, role_body in model_block.items():
                 if isinstance(role_body, dict):
-                    role_to_component.setdefault(role_name, v.component_name)
+                    _assign_role(role_name, v.component_name)
     # Fallback for components whose variants carried no usable source_genai:
     # map the component name to itself as the role, matching the legacy
-    # writer behaviour for direct ``write_model_package`` callers.
+    # writer behavior for direct ``write_model_package`` callers.
     for comp_name in components:
         explicit_role = component_to_role.get(comp_name, comp_name)
-        role_to_component.setdefault(explicit_role, comp_name)
+        if explicit_role not in role_to_component:
+            role_to_component[explicit_role] = comp_name
 
     if config_files:
         _copy_config_files(output_dir, config_files, role_to_component)
@@ -502,18 +589,38 @@ def _write_component(
         variant_dir = component_dir / v.variant_name
         variant_dir.mkdir(parents=True, exist_ok=True)
 
-        source_dirs: set[Path] = set()
-        for onnx_src in v.onnx_files:
-            onnx_src_path = Path(onnx_src)
+        artifacts = _variant_artifacts(v)
+
+        # Build the set of "our" ONNX stems for each source dir so the
+        # sidecar sweep below can avoid scooping up sibling roles' ONNX
+        # files when multiple roles share a source directory (flat VLM
+        # source: ``vision.onnx`` / ``embedding.onnx`` / ``text.onnx``
+        # all live alongside one another in the source root; under the
+        # per-role-component layout each role gets its own component, so
+        # we must NOT propagate sibling roles' files into a given role's
+        # variant dir). Mobius-style sources have one ONNX per subdir
+        # so this dict typically maps each src_dir to a single stem.
+        source_to_dst_dir: dict[Path, Path] = {}
+        source_to_onnx_stems: dict[Path, set[str]] = {}
+
+        for artifact in artifacts:
+            onnx_src_path = artifact.source_path
             if not onnx_src_path.is_file():
                 raise FileNotFoundError(f"ONNX file not found: {onnx_src_path}")
 
-            onnx_dst = variant_dir / onnx_src_path.name
-            shutil.copy2(str(onnx_src_path), str(onnx_dst))
-            source_dirs.add(onnx_src_path.parent.resolve())
+            onnx_dst = variant_dir / artifact.package_rel_path
+            onnx_dst.parent.mkdir(parents=True, exist_ok=True)
+            _copy_with_collision_check(onnx_src_path, onnx_dst)
+            src_dir_resolved = onnx_src_path.parent.resolve()
+            source_to_dst_dir.setdefault(src_dir_resolved, onnx_dst.parent)
+            # ``Path.stem`` strips one suffix: ``model.onnx`` → ``model``,
+            # ``model.onnx.data`` → ``model.onnx``. We want the bare
+            # base-name so the prefix check below catches both the .onnx
+            # and its companion .data / .bin / .xml files.
+            source_to_onnx_stems.setdefault(src_dir_resolved, set()).add(onnx_src_path.stem)
 
             ext_refs = _discover_external_data(onnx_src_path)
-            external_root = onnx_src_path.parent.resolve()
+            external_root = src_dir_resolved
             for graph_location in ext_refs:
                 blob_src = (onnx_src_path.parent / graph_location).resolve()
                 if not blob_src.is_relative_to(external_root):
@@ -532,33 +639,74 @@ def _write_component(
                     )
                     continue
 
-                blob_dst = variant_dir / graph_location
+                # External-data ``location`` is recorded in the ONNX file
+                # relative to the ONNX's own directory; the loader resolves
+                # it the same way. So the blob's destination is relative to
+                # the ONNX's destination directory, NOT the variant root.
+                blob_dst = onnx_dst.parent / graph_location
                 blob_dst.parent.mkdir(parents=True, exist_ok=True)
-                if not blob_dst.exists():
-                    shutil.copy2(str(blob_src), str(blob_dst))
+                _copy_with_collision_check(blob_src, blob_dst)
 
-        # Sweep each source directory for remaining model-suffix sidecar files
-        # (e.g. an EPContext stub ``.onnx`` typically points at a same-stem
-        # ``.xml``/``.bin`` pair for OpenVINO or a ``.bin`` context blob for
-        # QNN; these sidecars don't appear in the ONNX initializer
+        # Sweep each source ONNX directory for remaining model-suffix sidecar
+        # files (e.g. an EPContext stub ``.onnx`` typically points at a
+        # same-stem ``.xml``/``.bin`` pair for OpenVINO or a ``.bin`` context
+        # blob for QNN; these sidecars don't appear in the ONNX initializer
         # ``external_data`` table so the standard external-data copy above
-        # misses them). Each Olive source directory holds the artifacts for a
-        # single variant, so any file with a model suffix is part of this
-        # variant and belongs next to the ONNX. Duplicates already copied as
-        # external-data are skipped.
-        for src_dir in sorted(source_dirs):
+        # misses them). The sweep filters by ONNX stem prefix so it only
+        # picks up legitimate companion files (``decoder.bin`` for
+        # ``decoder.onnx``, ``decoder.onnx.data`` for ``decoder.onnx``)
+        # and ignores sibling roles' ONNXes that happen to share the same
+        # source directory (a flat VLM source has ``vision.onnx`` and
+        # ``embedding.onnx`` next to ``text.onnx``; without the prefix
+        # filter the decoder variant would pull in every sibling ONNX).
+        # Duplicates already copied as external-data are skipped because
+        # their content matches.
+        for src_dir, dst_dir in sorted(source_to_dst_dir.items()):
+            stems = source_to_onnx_stems.get(src_dir, set())
             for entry in sorted(src_dir.iterdir()):
                 if not entry.is_file() or entry.suffix not in _MODEL_SUFFIXES:
                     continue
-                dst = variant_dir / entry.name
-                if dst.exists():
+                # Only accept files whose name starts with one of our
+                # ONNX stems followed by a separator (``.`` for
+                # ``decoder.onnx.data``, ``_`` for ``decoder_init.bin``)
+                # or whose name is exactly the stem (rare; OpenVINO can
+                # produce ``model``-named blobs).
+                entry_name = entry.name
+                if not any(entry_name == stem or entry_name.startswith((f"{stem}.", f"{stem}_")) for stem in stems):
                     continue
-                shutil.copy2(str(entry), str(dst))
+                dst = dst_dir / entry_name
+                _copy_with_collision_check(entry, dst, skip_if_identical=True)
 
         # Per-variant runtime fields flow through genai_config_overlay.json.
         _write_genai_config_overlay(variant_dir, component_role, v)
 
     _write_metadata(component_dir, component_name, comp_variants)
+
+
+def _copy_with_collision_check(src: Path, dst: Path, *, skip_if_identical: bool = False) -> None:
+    """Copy ``src`` to ``dst`` while refusing to silently overwrite mismatched content.
+
+    If ``dst`` already exists with content identical to ``src`` (by SHA-256),
+    the copy is skipped — a deduplication path the writer relies on when a
+    sidecar file has already been brought in by the external-data sweep.
+    If ``dst`` exists with *different* content, the writer raises rather
+    than choose a winner: silently keeping either copy could leave the
+    package referencing a stale or wrong blob. ``skip_if_identical`` is
+    accepted as an explicit-intent flag at the call site (the dedupe
+    behavior is always on; the flag exists so the sidecar sweep reads
+    self-documenting).
+    """
+    del skip_if_identical  # behavior is always content-aware; flag is documentation
+    if dst.exists():
+        if not dst.is_file():
+            raise FileExistsError(f"Cannot copy {src} to {dst}: destination exists and is not a regular file.")
+        if _sha256_file(src) == _sha256_file(dst):
+            return
+        raise FileExistsError(
+            f"Refusing to overwrite {dst} (existing content differs from {src}). "
+            "Two source artifacts map to the same package destination; rename one or fix the source."
+        )
+    shutil.copy2(str(src), str(dst))
 
 
 def _write_metadata(component_dir: Path, component_name: str, comp_variants: list[VariantSpec]) -> None:
@@ -598,20 +746,25 @@ def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: Varia
     role's ``filename`` / ``session_options`` / ``pipeline`` stripped (see
     ``_strip_variant_specific``); this overlay restores them.
 
-    When the variant carries its source ``genai_config.json`` (the default
-    CLI path) we lift every role's per-variant body verbatim — including
-    non-primary roles (e.g. a VLM source has ``vision``/``embedding``/
-    ``decoder`` roles, each with its own filename and session_options).
-    Without this multi-role lift the loader would lose all but the primary
-    role's filename and the package wouldn't load.
+    When the variant was built per-role (``v.role_name`` is set, the default
+    CLI path) the overlay lifts only that role's body — each role gets its
+    own component / variant directory, so each overlay scopes to exactly the
+    role it represents. The model-level scalars in
+    ``_VARIANT_LEVEL_MODEL_KEYS`` (``context_length``, ``eos_token_id``,
+    ``pad_token_id``, ``bos_token_id``, ``type``) are written into the
+    overlay of only the source's primary role (``_pick_primary_role``).
+    Writing them on every per-role overlay would corrupt the merged config
+    because GenAI's overlay parser appends arrays rather than replacing
+    them — ``eos_token_id`` is commonly a list, and a three-role VLM
+    overlay set would triple every entry.
 
-    Pipeline-shaped roles (multi-stage exports, e.g. QNN) are covered by the
-    same lift: ``pipeline`` is in the strip set so the base loses it, the
-    overlay restores it (with per-stage ``filename`` + per-stage
-    ``session_options.provider_options`` preserved as-is). The strip is
-    required because GenAI's overlay parser appends arrays rather than
-    replacing them — a pipeline in both base and overlay would duplicate
-    every stage.
+    When the variant carries every role at once (no ``role_name``, legacy
+    multi-role-per-component callers) every role's per-variant body is
+    lifted into the overlay together with the variant-level scalars.
+
+    Pipeline-shaped roles (multi-stage exports, e.g. QNN) are covered by
+    the same lift: ``pipeline`` is in the strip set so the base loses it,
+    the overlay restores it.
 
     Direct ``write_model_package`` callers that don't pass ``source_genai``
     fall back to the legacy ``inference_settings``-driven shape so existing
@@ -623,16 +776,25 @@ def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: Varia
     model_patch: dict[str, Any] = {}
 
     if isinstance(src_model, dict):
-        # New path: lift every role's per-variant fields. Each role in the
-        # source genai_config (vision, embedding, decoder, ...) gets its
-        # filename + session_options + pipeline copied into the overlay
-        # under the same role name.
-        for role_name, role_body in src_model.items():
-            if not isinstance(role_body, dict):
-                continue
-            role_patch = _lift_role_overlay_body(role_body)
-            if role_patch:
-                model_patch[role_name] = role_patch
+        if v.role_name:
+            # Preferred path: per-role variant. Only lift this role's body.
+            # Other roles end up in their own components (one component
+            # per role), each with their own overlay.
+            role_body = src_model.get(v.role_name)
+            if isinstance(role_body, dict):
+                role_patch = _lift_role_overlay_body(role_body, v.onnx_rel_paths)
+                if role_patch:
+                    model_patch[v.role_name] = role_patch
+        else:
+            # Legacy multi-role-per-component path: lift every role's
+            # per-variant fields. Used by direct ``write_model_package``
+            # callers / tests that predate per-role components.
+            for role_name, role_body in src_model.items():
+                if not isinstance(role_body, dict):
+                    continue
+                role_patch = _lift_role_overlay_body(role_body)
+                if role_patch:
+                    model_patch[role_name] = role_patch
     else:
         # Legacy path: callers that don't pass source_genai (writer-only
         # tests) construct a single-role overlay from VariantSpec's
@@ -658,8 +820,13 @@ def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: Varia
         legacy_patch: dict[str, Any] = {"session_options": session_options}
         if v.onnx_files:
             # The base strips ``filename``; the loader resolves the variant
-            # ONNX as ``<variant_dir>/<filename>``, so emit the basename.
-            legacy_patch["filename"] = Path(v.onnx_files[0]).name
+            # ONNX as ``<variant_dir>/<filename>``. Prefer the writer-known
+            # package-relative path; fall back to basename for callers that
+            # supply only ``onnx_files``.
+            if v.onnx_rel_paths:
+                legacy_patch["filename"] = v.onnx_rel_paths[0]
+            else:
+                legacy_patch["filename"] = Path(v.onnx_files[0]).name
         model_patch[component_role] = legacy_patch
 
     # Lift per-variant model-level scalars from the variant's own
@@ -669,21 +836,25 @@ def _write_genai_config_overlay(variant_dir: Path, component_role: str, v: Varia
     # pad_token_id can differ when one exporter uses the EOS as PAD and
     # another uses the sentinel). Without this lift the merged config
     # would silently use whichever variant happened to win the base
-    # selection.
+    # selection. For per-role variants only the primary role's overlay
+    # carries these so the same scalar isn't append-merged once per
+    # component (critical for list-valued ``eos_token_id``).
     if isinstance(src_model, dict):
-        for k in _VARIANT_LEVEL_MODEL_KEYS:
-            if k in src_model:
-                # Deep-copy via JSON round-trip so we never share refs with
-                # the caller's dict; arrays in particular must be
-                # independent because GenAI's overlay parser treats arrays
-                # as append-merge.
-                model_patch[k] = json.loads(json.dumps(src_model[k]))
+        is_primary = (not v.role_name) or (v.role_name == _pick_primary_role(src_genai))
+        if is_primary:
+            for k in _VARIANT_LEVEL_MODEL_KEYS:
+                if k in src_model:
+                    # Deep-copy via JSON round-trip so we never share refs with
+                    # the caller's dict; arrays in particular must be
+                    # independent because GenAI's overlay parser treats arrays
+                    # as append-merge.
+                    model_patch[k] = json.loads(json.dumps(src_model[k]))
 
     overlay = {"model": model_patch}
     _write_json(variant_dir / "genai_config_overlay.json", overlay)
 
 
-def _lift_role_overlay_body(role_body: dict) -> dict:
+def _lift_role_overlay_body(role_body: dict, onnx_rel_paths: Optional[list[str]] = None) -> dict:
     """Lift the per-variant fields from a single source genai_config role body.
 
     Each role body may carry ``filename`` (flat-variant primary file),
@@ -691,23 +862,80 @@ def _lift_role_overlay_body(role_body: dict) -> dict:
     EP knobs). All three are stripped from the base genai_config; this
     helper recovers them as the role's overlay patch.
 
-    Filename values are normalised to basename — some Olive exporters write
-    paths like ``decoder/model.onnx`` but every variant directory in the
-    package is flat, so any path prefix the source carried would mis-route
-    the loader. Pipeline and session_options are deep-copied verbatim to
-    preserve the producing toolchain's per-stage EP knobs and avoid
-    aliasing with the caller's dict.
+    Filenames are normalised to their basenames. In the per-role-component
+    layout each role gets its own variant directory under
+    ``models/<role>/<variant>/`` and the writer places the ONNX(s) there
+    flat — the original source-side ``decoder/`` / ``vision_encoder/`` /
+    ``embedding/`` subdirectory prefixes (Mobius VLM convention) are no
+    longer needed to disambiguate sibling roles inside one variant dir.
+    When ``onnx_rel_paths`` is supplied (preferred), the role's
+    ``filename`` is replaced by the writer-known package-relative path so
+    the overlay matches the on-disk layout exactly even if the source
+    diverged. Pipeline-stage filenames are likewise rewritten to their
+    basenames so the per-stage references resolve inside the flat variant
+    directory.
+
+    Every filename — top-level role and pipeline stages alike — is
+    validated as a safe relative path before basename normalisation;
+    absolute paths or upward traversal raise rather than silently
+    propagate into a generated overlay. Pipeline and session_options are
+    deep-copied to avoid aliasing with the caller's dict.
     """
     patch: dict[str, Any] = {}
+    pipeline = role_body.get("pipeline")
+    has_pipeline = isinstance(pipeline, list) and pipeline
     filename = role_body.get("filename")
-    if isinstance(filename, str) and filename:
-        patch["filename"] = Path(filename).name
+    # ``pipeline`` takes precedence when both are present (mirrors the
+    # behavior of ``_collect_artifacts_per_role``, which only emits
+    # pipeline stage artifacts in that case). Lifting both would produce
+    # an overlay with both ``filename`` and ``pipeline`` (malformed for the
+    # loader) and reuse ``onnx_rel_paths[0]`` — which is stage 0's
+    # basename — for the spurious role-level filename, silently aliasing
+    # the two filename fields.
+    if not has_pipeline and isinstance(filename, str) and filename:
+        if not _is_safe_relative_location(filename):
+            raise ValueError(
+                f"Unsafe genai_config filename {filename!r}: must be a relative path "
+                "without absolute prefixes or '..' segments."
+            )
+        # Prefer the writer-known rel path when available so the overlay's
+        # filename matches the on-disk layout under the variant dir; fall
+        # back to the source filename's basename otherwise.
+        if onnx_rel_paths:
+            patch["filename"] = onnx_rel_paths[0]
+        else:
+            patch["filename"] = Path(filename).name
     so = role_body.get("session_options")
     if isinstance(so, dict):
         patch["session_options"] = json.loads(json.dumps(so))
-    pipeline = role_body.get("pipeline")
-    if isinstance(pipeline, list) and pipeline:
-        patch["pipeline"] = json.loads(json.dumps(pipeline))
+    if has_pipeline:
+        new_pipeline: list[Any] = []
+        stage_idx = 0
+        for stage in pipeline:
+            if not isinstance(stage, dict):
+                new_pipeline.append(json.loads(json.dumps(stage)))
+                continue
+            new_stage: dict[str, Any] = {}
+            for stage_name, stage_body in stage.items():
+                if not isinstance(stage_body, dict):
+                    new_stage[stage_name] = json.loads(json.dumps(stage_body))
+                    continue
+                new_stage_body = json.loads(json.dumps(stage_body))
+                stage_fn = stage_body.get("filename")
+                if isinstance(stage_fn, str) and stage_fn:
+                    if not _is_safe_relative_location(stage_fn):
+                        raise ValueError(
+                            f"Unsafe genai_config pipeline stage filename {stage_fn!r}: "
+                            "must be a relative path without absolute prefixes or '..' segments."
+                        )
+                    if onnx_rel_paths and stage_idx < len(onnx_rel_paths):
+                        new_stage_body["filename"] = onnx_rel_paths[stage_idx]
+                    else:
+                        new_stage_body["filename"] = Path(stage_fn).name
+                    stage_idx += 1
+                new_stage[stage_name] = new_stage_body
+            new_pipeline.append(new_stage)
+        patch["pipeline"] = new_pipeline
     return patch
 
 
@@ -961,16 +1189,34 @@ def _discover_external_data(onnx_path: Path) -> list[str]:
 
 
 def _is_safe_relative_location(location: str) -> bool:
-    if not location:
+    r"""Reject any path that wouldn't sit safely under a single variant dir.
+
+    The check is intentionally OS-independent: a genai_config can be
+    authored on one platform and packaged on another, so a path that
+    looks "relative" on the packaging host must still be rejected if it
+    would be interpreted as absolute, drive-rooted, or upward-traversing
+    on either POSIX or Windows. We therefore evaluate the candidate with
+    both ``PurePosixPath`` and ``PureWindowsPath`` and reject if either
+    flags it. Backslashes in the input are normalized to forward slashes
+    so a string like ``"..\..\escape"`` is caught on POSIX too.
+    """
+    if not isinstance(location, str) or not location:
         return False
-    p = Path(location)
-    if p.is_absolute():
+    normalized = location.replace("\\", "/")
+    if normalized.startswith("/"):
         return False
-    parts = p.parts
-    if any(part in ("..", "") for part in parts):
+    posix = PurePosixPath(normalized)
+    windows = PureWindowsPath(normalized)
+    if posix.is_absolute() or windows.is_absolute():
         return False
-    # Reject Windows-drive style paths that slip through is_absolute on POSIX.
-    return not (len(location) >= 2 and location[1] == ":")
+    parts = posix.parts
+    if not parts or any(part in ("..", "") for part in parts):
+        return False
+    # PureWindowsPath strips a leading drive letter into its own anchor
+    # (caught above), but a bare ``C:foo`` (drive-relative) still slips
+    # through is_absolute on both pure paths. Reject any segment that
+    # contains a drive-letter colon as the second character.
+    return all(not (len(part) >= 2 and part[1] == ":") for part in PureWindowsPath(normalized).parts)
 
 
 # ---------------------------------------------------------------------------
@@ -1115,120 +1361,193 @@ def _pick_primary_role(source_genai: Optional[dict]) -> Optional[str]:
     return None
 
 
-def _resolve_pipeline_onnx_files(source_path: Path, source_genai: Optional[dict]) -> Optional[list[Path]]:
-    """Return the ordered list of stage ONNX paths if the source is a pipeline.
+def _model_artifact_dirs(source_genai: Optional[dict]) -> set[str]:
+    """Return source-root subdirectory names that hold ONNX model artifacts.
 
-    A genai pipeline is encoded as ``model.<role>.pipeline`` — a list whose
-    elements are single-key dicts mapping stage name to a body with a
-    ``filename``. Each stage's ONNX file lives directly under ``source_path``
-    (the standard layout for QNN-style multi-stage exports). Returns
-    ``None`` when the source has no pipeline (caller falls back to the
-    single-ONNX flow).
+    Each entry is the first path segment of some genai_config role
+    ``filename`` (or pipeline stage filename) — e.g. ``decoder`` for
+    ``decoder/model.onnx``. Used by config-file collection to avoid copying
+    multi-component model directories (``decoder/``, ``embedding/``,
+    ``vision_encoder/``) into the package's shared ``configs/`` tree, which
+    would duplicate large model artifacts that already live under
+    ``models/<component>/<variant>/``.
     """
-    role = _pick_primary_role(source_genai)
-    if role is None:
-        return None
-    role_body = source_genai["model"][role]
-    pipeline = role_body.get("pipeline")
-    if not isinstance(pipeline, list) or not pipeline:
-        return None
-    files: list[Path] = []
-    for stage in pipeline:
-        if not isinstance(stage, dict):
-            continue
-        for stage_body in stage.values():
-            if not isinstance(stage_body, dict):
-                continue
-            filename = stage_body.get("filename")
-            if not isinstance(filename, str) or not filename:
-                continue
-            files.append(source_path / filename)
-    return files or None
-
-
-def _derive_ep_from_genai(source_genai: Optional[dict], role: Optional[str]) -> Optional[str]:
-    """Derive a canonical ORT EP name from a source's ``genai_config.json``.
-
-    Walks the role's ``session_options.provider_options`` (flat variant) and
-    every stage's ``session_options.provider_options`` (pipeline variant),
-    picking the first non-CPU alias and mapping it back through
-    ``_GENAI_TO_EP``. Returns ``None`` when nothing usable is found (caller
-    falls back to a variant-name heuristic).
-    """
-    if not isinstance(source_genai, dict) or role is None:
-        return None
+    dirs: set[str] = set()
+    if not isinstance(source_genai, dict):
+        return dirs
     model_block = source_genai.get("model")
     if not isinstance(model_block, dict):
-        return None
-    role_body = model_block.get(role)
-    if not isinstance(role_body, dict):
-        return None
+        return dirs
 
-    candidates: list[dict] = []
-    so = role_body.get("session_options")
-    if isinstance(so, dict):
-        candidates.append(so)
-    pipeline = role_body.get("pipeline")
-    if isinstance(pipeline, list):
-        for stage in pipeline:
-            if not isinstance(stage, dict):
-                continue
-            for stage_body in stage.values():
-                if isinstance(stage_body, dict):
-                    inner_so = stage_body.get("session_options")
-                    if isinstance(inner_so, dict):
-                        candidates.append(inner_so)
+    def _first_segment(filename: str) -> Optional[str]:
+        if not isinstance(filename, str) or not filename:
+            return None
+        parts = Path(filename).parts
+        if not parts or parts[0] in (".", "..", ""):
+            return None
+        # A flat filename like ``model.onnx`` has only one part — no
+        # subdirectory to exclude.
+        if len(parts) == 1:
+            return None
+        return parts[0]
 
-    for so_block in candidates:
-        po = so_block.get("provider_options")
-        if not isinstance(po, list):
+    for role_body in model_block.values():
+        if not isinstance(role_body, dict):
             continue
-        for entry in po:
+        seg = _first_segment(role_body.get("filename", ""))
+        if seg:
+            dirs.add(seg)
+        pipeline = role_body.get("pipeline")
+        if isinstance(pipeline, list):
+            for stage in pipeline:
+                if not isinstance(stage, dict):
+                    continue
+                for stage_body in stage.values():
+                    if not isinstance(stage_body, dict):
+                        continue
+                    seg = _first_segment(stage_body.get("filename", ""))
+                    if seg:
+                        dirs.add(seg)
+    return dirs
+
+
+def _collect_artifacts_per_role(source_path: Path, source_genai: Optional[dict]) -> dict[str, list[OnnxArtifact]]:
+    """Group ONNX artifacts by genai_config role.
+
+    Each role under ``model`` that declares a ``filename`` (flat role) or a
+    ``pipeline`` (multi-stage role) becomes one key in the returned dict.
+    The role's value is the ordered list of artifacts that belong to it —
+    one for a flat role, one per stage for a pipeline role.
+
+    Every artifact's ``package_rel_path`` is the source filename's basename:
+    in the per-role-component layout, each role gets its own variant
+    directory under ``models/<role>/<variant>/``, so files don't need
+    subdirectory prefixes to disambiguate from sibling roles' ONNXes
+    (they no longer share a directory). The source filename's subdirectory
+    is used only to locate the file on disk in the source — it does not
+    propagate into the package.
+
+    Filenames are validated as safe relative paths; absolute or
+    upward-traversing entries raise ``ValueError``. A source with no
+    role declaring any usable ONNX also raises.
+    """
+    if not isinstance(source_genai, dict):
+        raise ValueError(f"Source {source_path} has no parseable genai_config.json.")
+    model_block = source_genai.get("model")
+    if not isinstance(model_block, dict):
+        raise ValueError(f"Source {source_path} genai_config.json has no ``model`` block.")
+
+    by_role: dict[str, list[OnnxArtifact]] = {}
+
+    def _validated_artifact(filename: str, kind: str, role: str) -> OnnxArtifact:
+        if not _is_safe_relative_location(filename):
+            raise ValueError(
+                f"Source {source_path} role {role!r} {kind} {filename!r} is not a safe "
+                "relative path (absolute paths and '..' segments are rejected)."
+            )
+        return OnnxArtifact(source_path=source_path / filename, package_rel_path=Path(filename).name)
+
+    for role_name, role_body in model_block.items():
+        if not isinstance(role_body, dict):
+            continue
+        # Pipeline takes precedence: a role with both fields is malformed,
+        # but pipeline is the multi-stage shape so prefer that when present.
+        artifacts: list[OnnxArtifact] = []
+        pipeline = role_body.get("pipeline")
+        if isinstance(pipeline, list) and pipeline:
+            for stage in pipeline:
+                if not isinstance(stage, dict):
+                    continue
+                for stage_body in stage.values():
+                    if not isinstance(stage_body, dict):
+                        continue
+                    stage_fn = stage_body.get("filename")
+                    if isinstance(stage_fn, str) and stage_fn:
+                        artifacts.append(_validated_artifact(stage_fn, "pipeline stage filename", role_name))
+        else:
+            filename = role_body.get("filename")
+            if isinstance(filename, str) and filename:
+                artifacts.append(_validated_artifact(filename, "filename", role_name))
+        if artifacts:
+            by_role[role_name] = artifacts
+
+    if not by_role:
+        raise ValueError(
+            f"Source {source_path} has no role in genai_config.json with a usable "
+            "``filename`` or ``pipeline``; cannot determine which ONNX file(s) to package."
+        )
+    return by_role
+
+
+def _resolve_ep_for_role(source_genai: Optional[dict], role_name: str) -> str:
+    """Pick the role's ORT EP from its genai_config ``provider_options``.
+
+    Returns the first non-CPU EP alias found under the role's
+    ``session_options.provider_options`` (or any pipeline stage's).
+    Returns ``CPUExecutionProvider`` for a CPU role (empty
+    ``provider_options`` list, CPU-only aliases, or no provider_options
+    at all). ``genai_config.json`` is the single source of truth for the
+    role's EP — variant directory names are NOT consulted, since the
+    producer's explicit declaration must win even when a CPU helper role
+    lives inside a source dir colloquially named ``gpu``.
+    """
+    body = ((source_genai or {}).get("model") or {}).get(role_name) or {}
+
+    so_blocks: list[dict] = []
+    so = body.get("session_options")
+    if isinstance(so, dict):
+        so_blocks.append(so)
+    so_blocks.extend(
+        stage_body["session_options"]
+        for stage in body.get("pipeline") or []
+        if isinstance(stage, dict)
+        for stage_body in stage.values()
+        if isinstance(stage_body, dict) and isinstance(stage_body.get("session_options"), dict)
+    )
+
+    for so_block in so_blocks:
+        for entry in so_block.get("provider_options") or []:
             if not isinstance(entry, dict):
                 continue
             for alias in entry:
                 ep = _GENAI_TO_EP.get(alias.lower())
                 if ep and ep != "CPUExecutionProvider":
                     return ep
-    return None
+    return "CPUExecutionProvider"
 
 
-# Best-effort mapping from common Olive output / EP-build directory names to
-# canonical ORT EP strings. Used only as a fallback when neither
-# ``genai_config.json``'s ``provider_options`` nor any explicit metadata
-# names the EP. Keep substrings short and lowercased; matched via ``in``.
-_VARIANT_NAME_EP_HINTS: tuple[tuple[str, str], ...] = (
-    ("cuda", "CUDAExecutionProvider"),
-    ("gpu", "CUDAExecutionProvider"),
-    ("trt", "TensorrtExecutionProvider"),
-    ("tensorrt", "TensorrtExecutionProvider"),
-    ("rocm", "ROCMExecutionProvider"),
-    ("dml", "DmlExecutionProvider"),
-    ("directml", "DmlExecutionProvider"),
-    # Vendor-specific NPU hints come before the generic ``npu`` so a
-    # variant directory named e.g. ``vitia_npu`` resolves to VitisAI rather
-    # than the QNN fallback.
-    ("vitisai", "VitisAIExecutionProvider"),
-    ("vitia", "VitisAIExecutionProvider"),
-    ("qnn", "QNNExecutionProvider"),
-    ("npu", "QNNExecutionProvider"),
-    ("openvino", "OpenVINOExecutionProvider"),
-    ("ovep", "OpenVINOExecutionProvider"),
-    ("webgpu", "WebGpuExecutionProvider"),
-    ("xnnpack", "XnnpackExecutionProvider"),
-    ("coreml", "CoreMLExecutionProvider"),
-    ("cpu", "CPUExecutionProvider"),
-)
+def _select_base_config_source(
+    targets: list[tuple[str, Path, dict]],
+) -> tuple[str, Path, dict]:
+    """Pick the source with the most complete role set for the base genai_config.
 
+    When sources don't all expose the same role set (e.g. cpu has
+    vision/embedding/decoder but gpu has only decoder), the per-source
+    sweep that builds ``configs/genai_config.json`` could otherwise pick
+    the smallest source and leave the base missing role blocks that the
+    package's components rely on. Choose the source declaring the most
+    roles with ``filename`` or ``pipeline``; ties resolve to the first
+    target so the choice is deterministic.
+    """
 
-def _guess_ep_from_variant_name(variant_name: Optional[str]) -> Optional[str]:
-    if not variant_name:
-        return None
-    name = variant_name.lower()
-    for hint, ep in _VARIANT_NAME_EP_HINTS:
-        if hint in name:
-            return ep
-    return None
+    def _role_count(source_genai: dict) -> int:
+        if not isinstance(source_genai, dict):
+            return 0
+        model_block = source_genai.get("model")
+        if not isinstance(model_block, dict):
+            return 0
+        return sum(
+            1 for body in model_block.values() if isinstance(body, dict) and ("filename" in body or "pipeline" in body)
+        )
+
+    best_idx = 0
+    best_count = _role_count(targets[0][2]) if targets else 0
+    for idx in range(1, len(targets)):
+        count = _role_count(targets[idx][2])
+        if count > best_count:
+            best_count = count
+            best_idx = idx
+    return targets[best_idx]
 
 
 def _extract_ep_compatibility_from_onnx(model_path: Path, ep: str = "") -> Optional[str]:
@@ -1254,18 +1573,3 @@ def _extract_ep_compatibility_from_onnx(model_path: Path, ep: str = "") -> Optio
     if len(ep_compat_map) == 1:
         return next(iter(ep_compat_map.values()))
     return None
-
-
-def _task_to_component_name(task: str) -> str:
-    task_component_map = {
-        "text_generation": "decoder",
-        "text2text_generation": "encoder_decoder",
-        "text_classification": "classifier",
-        "token_classification": "token_classifier",
-        "question_answering": "qa_model",
-        "image_generation": "image_generator",
-        "image_classification": "image_classifier",
-        "object_detection": "object_detector",
-        "automatic_speech_recognition": "speech_recognizer",
-    }
-    return task_component_map.get(task, "model")

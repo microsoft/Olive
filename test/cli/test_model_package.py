@@ -548,7 +548,7 @@ class TestWriteModelPackageLayout:
         """The base ``configs/genai_config.json`` must not carry per-variant fields.
 
         If ``context_length`` (or similar) lived in the base, GenAI's overlay
-        merge would still honour the per-variant value (overlay scalar wins),
+        merge would still honor the per-variant value (overlay scalar wins),
         but ``_VARIANT_LEVEL_MODEL_KEYS`` includes arrays (``eos_token_id``)
         whose presence in the base would trigger GenAI's array-append merge
         semantics — the merged result would duplicate the array. So the base
@@ -1196,43 +1196,82 @@ class TestPipelineSources:
         assert overlay["model"]["decoder"]["session_options"]["provider_options"] == [{"VitisAI": {}}]
 
 
-class TestVLMMultiRoleOverlay:
-    """Multi-role (vision + embedding + decoder) overlay restoration for VLM sources.
+class TestLiftRoleOverlayBodyPipelineWins:
+    """Pipeline takes precedence over a role-level ``filename`` in overlay lift.
 
-    A flat VLM source dir packs >1 ONNX file referenced by >1 role in the
-    same ``genai_config.json``. The sidecar sweep copies every ONNX into
-    the variant directory, but the loader still needs the overlay to
-    declare ``filename`` for each role — the base genai_config strips
-    every role's filename and session_options. Without the multi-role
-    overlay lift the package would only restore the primary role
-    (``decoder``) and the loader would fail when it looks for the vision
-    or embedding ONNX.
+    A role body that carries BOTH ``filename`` and a non-empty ``pipeline``
+    is malformed input; the artifact collector already prefers the
+    pipeline shape in that case, so the overlay writer must do the same.
+    Lifting both would emit ``{"filename": ..., "pipeline": [...]}`` to
+    the overlay (invalid for the loader, which expects exactly one
+    shape per role) AND silently alias ``onnx_rel_paths[0]`` between the
+    role-level filename and stage 0's filename.
     """
 
-    def test_overlay_restores_filename_for_every_role(self, tmp_path):
+    def test_pipeline_present_drops_role_level_filename(self):
+        from olive.cli.model_package import _lift_role_overlay_body
+
+        # Role declares both — pipeline wins. onnx_rel_paths reflects what
+        # the per-role artifact collector would emit (one entry per
+        # pipeline stage, basename-only).
+        role_body = {
+            "filename": "old_flat.onnx",  # stale role-level fallback
+            "pipeline": [
+                {"prompt": {"filename": "qnn/prompt.onnx"}},
+                {"token": {"filename": "qnn/token.onnx"}},
+            ],
+        }
+        rel_paths = ["prompt.onnx", "token.onnx"]
+
+        patch = _lift_role_overlay_body(role_body, rel_paths)
+
+        # Bug guard: no ``filename`` key at all when pipeline is present.
+        assert "filename" not in patch, f"role-level filename leaked into overlay even though pipeline wins: {patch!r}"
+        # Pipeline shape preserved with each stage's filename mapped to
+        # its writer-known basename in order.
+        assert patch["pipeline"][0]["prompt"]["filename"] == "prompt.onnx"
+        assert patch["pipeline"][1]["token"]["filename"] == "token.onnx"
+
+    def test_no_pipeline_keeps_role_level_filename(self):
+        from olive.cli.model_package import _lift_role_overlay_body
+
+        role_body = {"filename": "decoder/model.onnx"}
+        patch = _lift_role_overlay_body(role_body, ["model.onnx"])
+        assert patch["filename"] == "model.onnx"
+        assert "pipeline" not in patch
+
+
+class TestVLMMultiRoleOverlay:
+    """Multi-role (vision + embedding + decoder) VLM packaging.
+
+    A flat VLM source dir packs >1 ONNX file referenced by >1 role in the
+    same ``genai_config.json``. Each role becomes its own component
+    (``models/vision/``, ``models/embedding/``, ``models/decoder/``); each
+    component's overlay restores only that role's ``filename`` /
+    ``session_options``. The base genai_config strips every role's
+    filename / session_options and injects a ``component=<role>`` marker
+    so the loader can map each role back to its on-disk directory.
+    """
+
+    def test_each_role_becomes_its_own_component(self, tmp_path):
         src = _create_vlm_source(tmp_path, "cpu_and_mobile")
         out = tmp_path / "out"
         cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
 
         cmd.run()
 
-        overlay_path = (
-            out.with_suffix(".ortpackage") / "models" / "decoder" / "cpu_and_mobile" / "genai_config_overlay.json"
-        )
-        overlay = json.loads(overlay_path.read_text())
-        model = overlay["model"]
-        # The VLM fix: every role with a filename in the source must appear
-        # in the overlay with that filename restored.
-        assert model["vision"]["filename"] == "vision.onnx"
-        assert model["embedding"]["filename"] == "embedding.onnx"
-        assert model["decoder"]["filename"] == "text.onnx"
+        models_dir = out.with_suffix(".ortpackage") / "models"
+        assert (models_dir / "vision" / "metadata.json").is_file()
+        assert (models_dir / "embedding" / "metadata.json").is_file()
+        assert (models_dir / "decoder" / "metadata.json").is_file()
 
-    def test_variant_dir_contains_all_role_onnxs(self, tmp_path):
-        """Sidecar sweep copies every ONNX next to the primary in the variant dir.
+    def test_each_components_overlay_lifts_only_its_role(self, tmp_path):
+        """Each per-role overlay carries exactly that role's filename, no others.
 
-        The single component directory holds the vision, embedding, and
-        decoder ONNXs side-by-side; without this the overlay's filename
-        restoration would resolve to missing files.
+        The base config strips every role's filename, but each per-role
+        overlay should only restore its own — duplicating the lift across
+        all overlays would corrupt the loader's view (and trigger array
+        append-merge problems for list-valued scalars).
         """
         src = _create_vlm_source(tmp_path, "cpu_and_mobile")
         out = tmp_path / "out"
@@ -1240,17 +1279,53 @@ class TestVLMMultiRoleOverlay:
 
         cmd.run()
 
-        variant_dir = out.with_suffix(".ortpackage") / "models" / "decoder" / "cpu_and_mobile"
-        for fname in ("vision.onnx", "embedding.onnx", "text.onnx"):
-            assert (variant_dir / fname).is_file(), f"missing {fname} in variant dir"
+        models = out.with_suffix(".ortpackage") / "models"
+        decoder_overlay = json.loads((models / "decoder" / "cpu_and_mobile" / "genai_config_overlay.json").read_text())
+        vision_overlay = json.loads((models / "vision" / "cpu_and_mobile" / "genai_config_overlay.json").read_text())
+        embedding_overlay = json.loads(
+            (models / "embedding" / "cpu_and_mobile" / "genai_config_overlay.json").read_text()
+        )
+
+        assert "decoder" in decoder_overlay["model"]
+        assert decoder_overlay["model"]["decoder"]["filename"] == "text.onnx"
+        assert "vision" not in decoder_overlay["model"]
+        assert "embedding" not in decoder_overlay["model"]
+
+        assert "vision" in vision_overlay["model"]
+        assert vision_overlay["model"]["vision"]["filename"] == "vision.onnx"
+        assert "decoder" not in vision_overlay["model"]
+        assert "embedding" not in vision_overlay["model"]
+
+        assert "embedding" in embedding_overlay["model"]
+        assert embedding_overlay["model"]["embedding"]["filename"] == "embedding.onnx"
+        assert "decoder" not in embedding_overlay["model"]
+        assert "vision" not in embedding_overlay["model"]
+
+    def test_variant_dirs_are_flat_one_onnx_per_role(self, tmp_path):
+        """Each per-role variant dir holds exactly its own ONNX, flat.
+
+        With one role per component there's no sibling-role disambiguation
+        to do, so the writer drops any subdir prefixes from the source
+        layout and writes each ONNX at the variant root.
+        """
+        src = _create_vlm_source(tmp_path, "cpu_and_mobile")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        models = out.with_suffix(".ortpackage") / "models"
+        assert (models / "decoder" / "cpu_and_mobile" / "text.onnx").is_file()
+        assert not (models / "decoder" / "cpu_and_mobile" / "vision.onnx").exists()
+        assert (models / "vision" / "cpu_and_mobile" / "vision.onnx").is_file()
+        assert (models / "embedding" / "cpu_and_mobile" / "embedding.onnx").is_file()
 
     def test_base_genai_injects_component_marker_for_every_role(self, tmp_path):
-        """Every multi-role source role gets a ``component=<comp>`` marker in base.
+        """Every role gets a ``component=<role>`` marker in the base config.
 
         The merged config the loader sees must know which component
-        directory each role lives in. The base genai_config injects a
-        ``component`` field for every role so per-variant lookups resolve
-        to the correct on-disk variant directory.
+        directory each role lives in. With per-role components the
+        component name equals the role name.
         """
         src = _create_vlm_source(tmp_path, "cpu_and_mobile")
         out = tmp_path / "out"
@@ -1261,4 +1336,561 @@ class TestVLMMultiRoleOverlay:
         base = json.loads((out.with_suffix(".ortpackage") / "configs" / "genai_config.json").read_text())
         model = base["model"]
         for role in ("vision", "embedding", "decoder"):
-            assert model[role]["component"] == "decoder", f"role {role} missing component marker"
+            assert model[role]["component"] == role, f"role {role} missing self-named component marker"
+
+
+# ---------------------------------------------------------------------------
+# Hierarchical multi-component sources (Mobius-style VLMs)
+# ---------------------------------------------------------------------------
+
+
+def _create_mobius_vlm_source(
+    tmp_path: Path,
+    name: str,
+    *,
+    ep: str = "CPUExecutionProvider",
+    provider_options: dict | None = None,
+    with_external_data: bool = True,
+) -> Path:
+    """Build a Mobius-style multi-component VLM source directory.
+
+    Real ``olive capture-onnx-graph --use_mobius_builder`` output for a VLM
+    nests each role's ONNX inside its own subdirectory: ``decoder/``,
+    ``embedding/``, and ``vision_encoder/`` each contain ``model.onnx``
+    (and a ``model.onnx.data`` external-data blob). The ``genai_config.json``
+    references each role by its full subdirectory-prefixed path
+    (``"filename": "decoder/model.onnx"``).
+
+    With per-role components each role gets its own
+    ``models/<role>/<variant>/`` directory, so the packager safely
+    flattens the packaged filename to the basename (``model.onnx``) and
+    rewrites the overlay to match the on-disk layout — no sibling-role
+    disambiguation is needed inside any one variant dir. The source-side
+    subdirectory prefix is used only to locate the file on disk in the
+    source and does not propagate into the package.
+    """
+    source_dir = tmp_path / name
+    source_dir.mkdir(parents=True)
+
+    roles = {
+        "decoder": "decoder/model.onnx",
+        "embedding": "embedding/model.onnx",
+        "vision": "vision_encoder/model.onnx",
+    }
+    for rel in roles.values():
+        onnx_path = source_dir / rel
+        if with_external_data:
+            # Each subdir gets its own external-data blob whose ``location``
+            # is recorded relative to the ONNX's own directory (basename).
+            # If the writer routed external-data to the variant root, all
+            # three would collide at ``<variant>/model.onnx.data``.
+            _make_onnx_with_external(onnx_path, "model.onnx.data", f"role-{rel.split('/')[0]}".encode() * 16)
+        else:
+            _make_onnx_inline(onnx_path)
+
+    ep_to_alias = {
+        "CPUExecutionProvider": "CPU",
+        "CUDAExecutionProvider": "cuda",
+        "QNNExecutionProvider": "qnn",
+        "DmlExecutionProvider": "DML",
+    }
+    alias = ep_to_alias.get(ep, "CPU")
+    if alias == "CPU":
+        session_options = {"provider_options": []}
+    else:
+        session_options = {"provider_options": [{alias: provider_options or {}}]}
+
+    genai = {
+        "model": {
+            "type": "qwen2_5_vl",
+            "vocab_size": 248320,
+            "context_length": 262144,
+            "decoder": {
+                "filename": roles["decoder"],
+                "session_options": dict(session_options),
+                "head_size": 256,
+                "hidden_size": 1024,
+                "num_hidden_layers": 24,
+            },
+            "embedding": {
+                "filename": roles["embedding"],
+                "session_options": dict(session_options),
+            },
+            "vision": {
+                "filename": roles["vision"],
+                "session_options": dict(session_options),
+                "spatial_merge_size": 2,
+            },
+        }
+    }
+    (source_dir / "genai_config.json").write_text(json.dumps(genai))
+    # Seed a couple of consumer-shared config files alongside the model
+    # subdirs to verify the config-file sweep doesn't slurp up the model
+    # directories themselves.
+    (source_dir / "tokenizer_config.json").write_text(json.dumps({"vocab_size": 248320}))
+    (source_dir / "model_config.json").write_text(json.dumps({"architectures": ["Qwen25VL"]}))
+    return source_dir
+
+
+class TestMobiusHierarchicalLayout:
+    """End-to-end packaging of Mobius-style multi-component VLM sources.
+
+    Each Mobius role (``decoder``/``embedding``/``vision``) becomes its
+    own component in the package (``models/decoder/``,
+    ``models/embedding/``, ``models/vision/``). Per the ORT model-package
+    proposal, ``models/<component>/`` is the top-level grouping where one
+    component == one inference session. Each component's variant
+    directory is flat: the source-side subdir prefix is dropped because
+    there's no longer a sibling role to disambiguate against.
+    """
+
+    def test_each_role_becomes_top_level_component(self, tmp_path):
+        src = _create_mobius_vlm_source(tmp_path, "cpu")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        models = out.with_suffix(".ortpackage") / "models"
+        for role in ("decoder", "embedding", "vision"):
+            assert (models / role / "metadata.json").is_file(), f"missing component dir for role {role}"
+
+    def test_variant_dir_is_flat_under_each_component(self, tmp_path):
+        src = _create_mobius_vlm_source(tmp_path, "cpu")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        models = out.with_suffix(".ortpackage") / "models"
+        # Each per-role variant dir holds the ONNX flat (basename only).
+        for role in ("decoder", "embedding", "vision"):
+            assert (models / role / "cpu" / "model.onnx").is_file(), (
+                f"missing flat model.onnx under models/{role}/cpu (writer kept subdir?)"
+            )
+            # The source-side subdir should NOT propagate into the
+            # variant dir — there's only one role here, no sibling to
+            # disambiguate against.
+            assert not (models / role / "cpu" / role / "model.onnx").exists()
+
+    def test_external_data_lands_next_to_its_onnx_in_flat_layout(self, tmp_path):
+        """Each role's external-data blob lives flat next to its ONNX in that role's variant dir.
+
+        The ONNX file references ``model.onnx.data`` relative to its own
+        directory; the loader resolves the same way. With one role per
+        component each role's blob has its own dedicated directory, so
+        no collision is possible even when sibling source-side roles
+        shared the same basename.
+        """
+        src = _create_mobius_vlm_source(tmp_path, "cpu", with_external_data=True)
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        models = out.with_suffix(".ortpackage") / "models"
+        for role in ("decoder", "embedding", "vision"):
+            blob = models / role / "cpu" / "model.onnx.data"
+            assert blob.is_file(), f"external-data blob missing under models/{role}/cpu/"
+
+    def test_overlay_filename_is_basename(self, tmp_path):
+        """The overlay's ``filename`` is the basename, not the source subdir-prefixed path.
+
+        Per-role variant dirs are flat; the overlay must match the on-disk
+        layout. The source-side ``decoder/model.onnx`` prefix is purely a
+        sibling-disambiguation device that no longer applies once the
+        roles are separated into top-level components.
+        """
+        src = _create_mobius_vlm_source(tmp_path, "cpu")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        models = out.with_suffix(".ortpackage") / "models"
+        decoder = json.loads((models / "decoder" / "cpu" / "genai_config_overlay.json").read_text())
+        embedding = json.loads((models / "embedding" / "cpu" / "genai_config_overlay.json").read_text())
+        vision = json.loads((models / "vision" / "cpu" / "genai_config_overlay.json").read_text())
+        assert decoder["model"]["decoder"]["filename"] == "model.onnx"
+        assert embedding["model"]["embedding"]["filename"] == "model.onnx"
+        assert vision["model"]["vision"]["filename"] == "model.onnx"
+
+    def test_configs_dir_excludes_model_artifact_subdirs(self, tmp_path):
+        """``decoder/``/``embedding/``/``vision_encoder/`` must not leak into ``configs/``.
+
+        Without explicit exclusion the config-file sweep would copy every
+        source-root directory (including the model-artifact subdirs), so the
+        package would carry duplicate ONNXs under ``configs/`` and bloat
+        the deliverable. The sweep recognizes model-artifact subdirs via
+        the genai_config's role filenames and skips them.
+        """
+        src = _create_mobius_vlm_source(tmp_path, "cpu")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        configs_dir = out.with_suffix(".ortpackage") / "configs"
+        for excluded in ("decoder", "embedding", "vision_encoder"):
+            assert not (configs_dir / excluded).exists(), f"{excluded}/ leaked into configs/"
+        assert (configs_dir / "tokenizer_config.json").is_file()
+        assert (configs_dir / "model_config.json").is_file()
+        assert (configs_dir / "genai_config.json").is_file()
+
+    def test_base_genai_strips_filename_and_marks_self_named_components(self, tmp_path):
+        """Base genai_config strips per-role ``filename`` and injects a self-named ``component`` marker.
+
+        With per-role components the role name equals the component name,
+        so every role's ``component`` field is its own name.
+        """
+        src = _create_mobius_vlm_source(tmp_path, "cpu")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        base = json.loads((out.with_suffix(".ortpackage") / "configs" / "genai_config.json").read_text())
+        model = base["model"]
+        for role in ("decoder", "embedding", "vision"):
+            assert "filename" not in model[role], f"{role}.filename should be stripped from base"
+            assert model[role]["component"] == role, f"{role} component marker should equal role name"
+
+    def test_two_sources_each_produce_per_role_variants(self, tmp_path):
+        """CPU + GPU Mobius sources both contribute one variant per role to each component.
+
+        This is the user-reported scenario:
+        ``olive generate-model-package -s cpu -s gpu -o cpu_gpu``. Each
+        role component (``decoder``/``embedding``/``vision``) ends up
+        with two variants — ``cpu`` (CPUExecutionProvider) and ``gpu``
+        (CUDAExecutionProvider).
+        """
+        cpu = _create_mobius_vlm_source(tmp_path, "cpu", ep="CPUExecutionProvider")
+        gpu = _create_mobius_vlm_source(tmp_path, "gpu", ep="CUDAExecutionProvider")
+        out = tmp_path / "cpu_gpu"
+        cmd = _make_command(["generate-model-package", "-s", str(cpu), "-s", str(gpu), "-o", str(out)])
+
+        cmd.run()
+
+        models = out.with_suffix(".ortpackage") / "models"
+        for role in ("decoder", "embedding", "vision"):
+            for variant in ("cpu", "gpu"):
+                assert (models / role / variant / "model.onnx").is_file(), f"missing models/{role}/{variant}/model.onnx"
+            metadata = json.loads((models / role / "metadata.json").read_text())
+            assert metadata["variants"]["cpu"]["ep"] == "CPUExecutionProvider"
+            assert metadata["variants"]["gpu"]["ep"] == "CUDAExecutionProvider"
+
+    def test_variant_level_scalars_lift_only_into_primary_role_overlay(self, tmp_path):
+        """Variant-level scalars (eos_token_id, context_length, ...) appear in exactly one overlay.
+
+        GenAI's overlay parser append-merges arrays. If
+        ``eos_token_id`` (often a list) ended up in three different
+        per-role overlays the merged config would triple every entry.
+        Only the primary role per source (``_pick_primary_role`` —
+        ``decoder`` here) carries these scalars.
+        """
+        src = _create_mobius_vlm_source(tmp_path, "cpu")
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+
+        cmd.run()
+
+        models = out.with_suffix(".ortpackage") / "models"
+        decoder_model = json.loads((models / "decoder" / "cpu" / "genai_config_overlay.json").read_text())["model"]
+        embedding_model = json.loads((models / "embedding" / "cpu" / "genai_config_overlay.json").read_text())["model"]
+        vision_model = json.loads((models / "vision" / "cpu" / "genai_config_overlay.json").read_text())["model"]
+        # context_length and type are seeded on the Mobius fixture under
+        # ``model``; they belong only to the primary role's overlay.
+        assert "context_length" in decoder_model
+        assert "type" in decoder_model
+        for non_primary in (embedding_model, vision_model):
+            assert "context_length" not in non_primary
+            assert "type" not in non_primary
+
+    def test_explicit_cpu_role_in_gpu_source_kept_as_cpu(self, tmp_path):
+        """A role with explicit CPU ``provider_options`` keeps CPU even when the source dir is named like a GPU build.
+
+        Variant-name heuristics must not override a producer's explicit
+        per-role provider choice — Mobius outputs sometimes mark a
+        helper role (e.g. ``embedding``) as CPU even inside a
+        predominantly-GPU build.
+        """
+        src = tmp_path / "gpu"
+        src.mkdir()
+        # Build the GPU source manually so we can mix EPs per role.
+        for _role, fname in (
+            ("decoder", "decoder/model.onnx"),
+            ("embedding", "embedding/model.onnx"),
+            ("vision", "vision_encoder/model.onnx"),
+        ):
+            _make_onnx_inline(src / fname)
+        genai = {
+            "model": {
+                "type": "qwen2_5_vl",
+                "decoder": {
+                    "filename": "decoder/model.onnx",
+                    "session_options": {"provider_options": [{"cuda": {}}]},
+                },
+                "embedding": {
+                    # Explicit CPU even though the source dir is named "gpu".
+                    "filename": "embedding/model.onnx",
+                    "session_options": {"provider_options": []},
+                },
+                "vision": {
+                    "filename": "vision_encoder/model.onnx",
+                    "session_options": {"provider_options": [{"cuda": {}}]},
+                },
+            }
+        }
+        (src / "genai_config.json").write_text(json.dumps(genai))
+
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(out)])
+        cmd.run()
+
+        models = out.with_suffix(".ortpackage") / "models"
+        assert (
+            json.loads((models / "decoder" / "metadata.json").read_text())["variants"]["gpu"]["ep"]
+            == "CUDAExecutionProvider"
+        )
+        assert (
+            json.loads((models / "vision" / "metadata.json").read_text())["variants"]["gpu"]["ep"]
+            == "CUDAExecutionProvider"
+        )
+        # Critical: explicit CPU role must NOT be promoted to CUDA via
+        # the variant-name "gpu" heuristic.
+        assert (
+            json.loads((models / "embedding" / "metadata.json").read_text())["variants"]["gpu"]["ep"]
+            == "CPUExecutionProvider"
+        )
+
+    def test_base_config_source_picks_richest_role_set(self, tmp_path):
+        """When sources expose different role sets, the base config is taken from the source with the most roles.
+
+        Otherwise the package's base ``configs/genai_config.json`` could
+        miss role blocks that downstream components rely on. Example:
+        gpu source only has decoder; cpu source has all three. The base
+        must come from cpu so embedding/vision components have role
+        markers in the base config.
+        """
+        # cpu source: full three-role VLM.
+        cpu = _create_mobius_vlm_source(tmp_path, "cpu")
+        # gpu source: decoder-only.
+        gpu_dir = tmp_path / "gpu"
+        gpu_dir.mkdir()
+        _make_onnx_inline(gpu_dir / "decoder" / "model.onnx")
+        gpu_genai = {
+            "model": {
+                "type": "qwen2_5_vl",
+                "decoder": {
+                    "filename": "decoder/model.onnx",
+                    "session_options": {"provider_options": [{"cuda": {}}]},
+                },
+            }
+        }
+        (gpu_dir / "genai_config.json").write_text(json.dumps(gpu_genai))
+        # Drop the cpu-only role markers into gpu so the source is otherwise
+        # comparable; the difference is only in number of roles declared.
+
+        out = tmp_path / "out"
+        cmd = _make_command(["generate-model-package", "-s", str(gpu_dir), "-s", str(cpu), "-o", str(out)])
+        cmd.run()
+
+        # Base must carry all three role blocks (so the embedding/vision
+        # components are findable). If first-source-wins ran, only
+        # decoder would appear.
+        base = json.loads((out.with_suffix(".ortpackage") / "configs" / "genai_config.json").read_text())
+        for role in ("decoder", "embedding", "vision"):
+            assert role in base["model"], f"base config missing {role} block; wrong source selected"
+
+
+class TestUnsafeGenaiFilenamesRejected:
+    """Path-safety: reject absolute filenames and parent-traversal in genai_config."""
+
+    def test_rejects_absolute_filename(self, tmp_path):
+        src = tmp_path / "bad_abs"
+        src.mkdir()
+        _make_onnx_inline(src / "model.onnx")
+        genai = {
+            "model": {
+                "decoder": {"filename": "/etc/passwd", "session_options": {"provider_options": []}},
+            }
+        }
+        (src / "genai_config.json").write_text(json.dumps(genai))
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(tmp_path / "out")])
+
+        with pytest.raises(ValueError, match=r"safe relative path"):
+            cmd.run()
+
+    def test_rejects_parent_traversal_in_filename(self, tmp_path):
+        src = tmp_path / "bad_traverse"
+        src.mkdir()
+        _make_onnx_inline(src / "model.onnx")
+        genai = {
+            "model": {
+                "decoder": {
+                    "filename": "../../../escape/model.onnx",
+                    "session_options": {"provider_options": []},
+                },
+            }
+        }
+        (src / "genai_config.json").write_text(json.dumps(genai))
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(tmp_path / "out")])
+
+        with pytest.raises(ValueError, match=r"safe relative path"):
+            cmd.run()
+
+    def test_rejects_unsafe_pipeline_stage_filename(self, tmp_path):
+        src = tmp_path / "bad_pipeline"
+        src.mkdir()
+        _make_onnx_inline(src / "stage1.onnx")
+        genai = {
+            "model": {
+                "decoder": {
+                    "pipeline": [
+                        {"first": {"filename": "stage1.onnx"}},
+                        {"second": {"filename": "../escape.onnx"}},
+                    ],
+                    "session_options": {"provider_options": []},
+                },
+            }
+        }
+        (src / "genai_config.json").write_text(json.dumps(genai))
+        cmd = _make_command(["generate-model-package", "-s", str(src), "-o", str(tmp_path / "out")])
+
+        with pytest.raises(ValueError, match=r"safe relative path"):
+            cmd.run()
+
+
+class TestIsSafeRelativeLocationCrossPlatform:
+    """Path-safety helper rejects unsafe inputs on both POSIX and Windows hosts.
+
+    ``Path("/etc/passwd").is_absolute()`` returns ``False`` on Windows
+    because there is no drive letter, and ``Path("C:/foo").is_absolute()``
+    returns ``False`` on POSIX. A naive single-flavor check would let
+    an attacker (or a malformed genai_config produced on a different
+    platform) slip through. The helper must reject paths that look
+    absolute under EITHER flavor, and must treat backslashes as
+    separators on POSIX too so Windows-style traversal is caught.
+    """
+
+    @pytest.mark.parametrize(
+        "candidate",
+        [
+            "/etc/passwd",
+            "\\etc\\passwd",
+            "C:/foo/bar",
+            "C:\\foo\\bar",
+            "C:foo",
+            "D:\\etc\\passwd",
+            "..\\..\\escape",
+            "../escape.onnx",
+            "..",
+            "",
+            "//server/share/file",
+        ],
+    )
+    def test_rejects_unsafe_path(self, candidate):
+        from olive.cli.model_package import _is_safe_relative_location
+
+        assert not _is_safe_relative_location(candidate), f"unsafe path {candidate!r} was incorrectly accepted"
+
+    @pytest.mark.parametrize(
+        "candidate",
+        [
+            "model.onnx",
+            "decoder/model.onnx",
+            "decoder\\model.onnx",
+            "a/b/c.onnx",
+            "nested.dir/file.onnx",
+        ],
+    )
+    def test_accepts_safe_relative_path(self, candidate):
+        from olive.cli.model_package import _is_safe_relative_location
+
+        assert _is_safe_relative_location(candidate), f"safe relative path {candidate!r} was incorrectly rejected"
+
+
+class TestCopyWithCollisionCheck:
+    """Writer collision-detection: same content dedupes, different content raises."""
+
+    def test_skips_when_destination_is_identical_copy(self, tmp_path):
+        from olive.cli.model_package import _copy_with_collision_check
+
+        src = tmp_path / "src.bin"
+        dst = tmp_path / "dst.bin"
+        src.write_bytes(b"identical-content" * 32)
+        dst.write_bytes(b"identical-content" * 32)
+        # Should be a no-op (does not raise, does not modify dst).
+        _copy_with_collision_check(src, dst)
+        assert dst.read_bytes() == b"identical-content" * 32
+
+    def test_raises_when_destination_differs(self, tmp_path):
+        from olive.cli.model_package import _copy_with_collision_check
+
+        src = tmp_path / "src.bin"
+        dst = tmp_path / "dst.bin"
+        src.write_bytes(b"one")
+        dst.write_bytes(b"two")
+        with pytest.raises(FileExistsError, match="content differs"):
+            _copy_with_collision_check(src, dst)
+
+    def test_copies_when_destination_missing(self, tmp_path):
+        from olive.cli.model_package import _copy_with_collision_check
+
+        src = tmp_path / "src.bin"
+        dst = tmp_path / "dst.bin"
+        src.write_bytes(b"hello")
+        _copy_with_collision_check(src, dst)
+        assert dst.read_bytes() == b"hello"
+
+
+class TestRoleToComponentConflictDetection:
+    """Two variants mapping the same role to different components must raise.
+
+    Per the per-role-component layout, each genai_config role belongs to
+    exactly one package component. A direct caller that constructs
+    variants by hand could violate this invariant (e.g. by reusing the
+    same source_genai under two component names); ``write_model_package``
+    detects the conflict at the role_to_component build step and raises
+    rather than silently keep one mapping and drop the other.
+    """
+
+    def test_same_role_mapped_to_two_components_raises(self, tmp_path):
+        onnx_path = _make_onnx_inline(tmp_path / "src" / "model.onnx")
+        out = tmp_path / "pkg"
+
+        shared_genai = {
+            "model": {
+                "decoder": {
+                    "filename": "model.onnx",
+                    "session_options": {"provider_options": []},
+                }
+            }
+        }
+        variants = [
+            VariantSpec(
+                component_name="comp_a",
+                variant_name="cpu",
+                role_name="decoder",
+                onnx_files=[onnx_path],
+                onnx_rel_paths=["model.onnx"],
+                ep="CPUExecutionProvider",
+                source_genai=shared_genai,
+            ),
+            VariantSpec(
+                component_name="comp_b",
+                variant_name="cpu",
+                role_name="decoder",
+                onnx_files=[onnx_path],
+                onnx_rel_paths=["model.onnx"],
+                ep="CPUExecutionProvider",
+                source_genai=shared_genai,
+            ),
+        ]
+
+        with pytest.raises(ValueError, match="mapped to two different components"):
+            write_model_package(
+                output_dir=out,
+                variants=variants,
+                producer_info={"tool": "olive-ai", "model_name": "demo"},
+            )
