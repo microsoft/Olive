@@ -111,6 +111,22 @@ def _normalize_audio(visual) -> tuple[np.ndarray, int] | None:
             return _load_audio_file(Path(visual["path"]))
     if isinstance(visual, (str, Path)):
         return _load_audio_file(Path(visual))
+    # torchcodec.decoders.AudioDecoder — HF datasets 5.x returns this for the
+    # "audio" feature instead of the legacy {"array", "sampling_rate"} dict.
+    # Detect by duck-typing the get_all_samples() method to avoid a hard
+    # torchcodec import (it's an optional install).
+    if hasattr(visual, "get_all_samples"):
+        try:
+            samples = visual.get_all_samples()
+            # samples.data is a torch.Tensor of shape [channels, num_samples].
+            # ORT-GenAI's processor wants mono float32; downmix if multichannel.
+            arr = samples.data.detach().cpu().numpy().astype(np.float32)
+            if arr.ndim == 2:
+                arr = arr.mean(axis=0)
+            return arr, int(samples.sample_rate)
+        except Exception as e:  # pragma: no cover
+            logger.warning("Failed to decode AudioDecoder visual: %s", e)
+            return None
     return None
 
 
@@ -380,10 +396,17 @@ class LMMSORTGenAIEvaluator(lmms):
             og_audios = self._build_og_audios(audios, tmp_dir)
 
             try:
-                # ORT-GenAI processors accept either a bare string or a list of
-                # strings depending on backend; benchmark_multimodal.py wraps in
-                # a list, which matches both the whisper and phi4mm paths.
-                inputs = self._processor([prompt], images=og_images, audios=og_audios)
+                # ORT-GenAI multimodal processors disagree on argument shape:
+                #   - Phi-4-MM expects a bare string. Passing [prompt] raises
+                #     "Number of image tokens does not match the number of images"
+                #     because the processor interprets the list as one prompt per
+                #     image (verified against pre-built phi4mm INT4 package).
+                #   - Whisper's processor (per ORT-GenAI's reference
+                #     benchmark_multimodal.py) is exercised with a list of
+                #     prompts.
+                # Branch on model type rather than guess.
+                processor_input = [prompt] if self._model_type == "whisper" else prompt
+                inputs = self._processor(processor_input, images=og_images, audios=og_audios)
             except Exception as e:  # pragma: no cover
                 del generator
                 return self._handle_error("ORT-GenAI multimodal processor failed.", e, "")
