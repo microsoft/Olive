@@ -94,7 +94,14 @@ class BaseOliveCLICommand(ABC):
             workflow_output = olive_run(run_config)
             if getattr(self.args, "test", None) not in (None, False):
                 mark_test_output_path(self.args.output_path)
-            if not workflow_output.has_output_model():
+            if isinstance(workflow_output, dict):
+                # `builds` workflows return one WorkflowOutput per build keyed by build name.
+                for build_name, build_output in workflow_output.items():
+                    if build_output is None or not build_output.has_output_model():
+                        print(f"Build {build_name!r}: no output model produced. Please check the log for details.")
+                    else:
+                        print(f"Build {build_name!r}: model is saved under {self.args.output_path}")
+            elif not workflow_output.has_output_model():
                 print("No output model produced. Please check the log for details.")
             else:
                 print(f"Model is saved at {self.args.output_path}")

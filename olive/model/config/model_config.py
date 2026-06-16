@@ -45,18 +45,16 @@ class ModelConfig(NestedConfig):
         return cls(**self.config)
 
     def get_components(self) -> Optional[list[str]]:
-        """Return the list of component names exposed by this input model, or None if single-component.
+        """Return the component names that builds can target, or None for a single-component model.
 
-        * ``CompositeModel`` -> the configured ``model_component_names`` list.
-        * ``DiffusersModel`` -> the variant-specific exportable components (via the handler).
-        * Anything else -> ``None`` (single-component model).
+        Only ``CompositeModel`` exposes selectable components (its configured ``model_component_names``).
+        Every other model type -- including ``DiffusersModel``, which cannot yet be sliced via
+        ``select_components`` -- returns ``None`` and is treated as a single-component model. Keeping this
+        in sync with ``select_components`` ensures build component validation never accepts a name that
+        ``select_components`` would later reject.
         """
-        model_type = self.type
-        if model_type == "compositemodel":
+        if self.type == "compositemodel":
             return list(self.config.get("model_component_names") or [])
-        if model_type == "diffusersmodel":
-            handler = self.create_model()
-            return [str(c) for c in handler.get_exportable_components()]
         return None
 
     def select_components(self, names: list[str]) -> "ModelConfig":
@@ -83,10 +81,20 @@ class ModelConfig(NestedConfig):
         component_map = dict(zip(component_names, model_components))
         selected = [deepcopy(component_map[n]) for n in names]
         if len(selected) == 1:
+            # Unwrap to the child handler config, inheriting the composite's shared model_attributes so a
+            # single-component build keeps parent context (matches CompositeModelHandler.select_components).
             child = selected[0]
+            parent_attributes = self.config.get("model_attributes") or {}
             if isinstance(child, ModelConfig):
+                merged = {**parent_attributes, **(child.config.get("model_attributes") or {})}
+                if merged:
+                    child.config["model_attributes"] = merged
                 return child
-            return ModelConfig.model_validate(child)
+            child_config = dict(child.get("config") or {})
+            merged = {**parent_attributes, **(child_config.get("model_attributes") or {})}
+            if merged:
+                child_config["model_attributes"] = merged
+            return ModelConfig.model_validate({**child, "config": child_config})
         new_config = {
             **{k: v for k, v in self.config.items() if k not in ("model_components", "model_component_names")},
             "model_components": selected,

@@ -161,22 +161,23 @@ def _run_builds(package_config: OlivePackageConfig, run_config: RunConfig, olive
 
         pipeline_subset: dict[str, list[RunPassConfig]] = OrderedDict()
         for pass_name in build.pipeline:
-            pipeline_subset[pass_name] = run_config.passes[pass_name]
+            # deepcopy so each build engine owns its pass configs; Engine.initialize mutates them in place.
+            pipeline_subset[pass_name] = deepcopy(run_config.passes[pass_name])
+
+        input_model = run_config.input_model
+        if build.components:
+            input_model = input_model.select_components(build.components)
 
         used_passes_configs = [p for passes in pipeline_subset.values() for p in passes]
         target_not_used = _compute_target_not_used(package_config, engine.evaluator_config, used_passes_configs)
         is_ep_required = _is_execution_provider_required_for_passes(package_config, used_passes_configs) or (
             engine.evaluator_config is not None
             and engine_config.evaluate_input_model
-            and run_config.input_model.type.lower() == "onnxmodel"
+            and input_model.type.lower() == "onnxmodel"
         )
         accelerator_spec = create_accelerator(
             engine.target_config, skip_supported_eps_check=target_not_used, is_ep_required=is_ep_required
         )
-
-        input_model = run_config.input_model
-        if build.components:
-            input_model = input_model.select_components(build.components)
 
         engine.set_input_passes_configs(pipeline_subset)
         outputs[build_name] = engine.run(
@@ -192,17 +193,17 @@ def _run_builds(package_config: OlivePackageConfig, run_config: RunConfig, olive
 
 
 def _validate_build_components(run_config: RunConfig) -> None:
-    """Verify ``build.components`` names exist in the composite input model's components."""
+    """Verify ``build.components`` names exist in the input model's selectable components."""
     needs_component_check = any(build.components for build in run_config.builds.values())
     if not needs_component_check:
         return
-    if run_config.input_model.type != "compositemodel":
+    available = run_config.input_model.get_components()
+    if available is None:
         bad = [name for name, build in run_config.builds.items() if build.components]
         raise ValueError(
             f"Builds {bad} declare `components` but the input model is not a CompositeModel"
             f" (got type {run_config.input_model.type!r})."
         )
-    available = list(run_config.input_model.config.get("model_component_names") or [])
     for build_name, build in run_config.builds.items():
         if not build.components:
             continue

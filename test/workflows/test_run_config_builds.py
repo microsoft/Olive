@@ -154,3 +154,13 @@ class TestRunConfigBuilds:
         assert set(run_config.builds) == {"only"}
         assert run_config.builds["only"].pipeline == ["convert"]
         assert run_config.builds["only"].host is None
+
+    def test_builds_search_without_evaluator_errors(self):
+        # Enabling search on a build with no build- or engine-level evaluator must fail validation.
+        config_dict = self._build_config(
+            {
+                "only": {"pipeline": ["convert"], "output_dir": "out/only", "search_strategy": True},
+            }
+        )
+        with pytest.raises(ValidationError, match="no evaluator"):
+            RunConfig.model_validate(config_dict)

@@ -255,6 +255,16 @@ class RunConfig(NestedConfig):
                         f"Build {build_name!r} {field_name} references unknown entry {value!r}."
                         f" Known {registry_label}: {sorted(registry)}."
                     )
+        engine_search_strategy = self.engine.search_strategy if self.engine else None
+        engine_evaluator = self.engine.evaluator if self.engine else None
+        for build_name, build in self.builds.items():
+            effective_search = build.search_strategy if build.search_strategy is not None else engine_search_strategy
+            effective_evaluator = build.evaluator if build.evaluator is not None else engine_evaluator
+            if effective_search and effective_evaluator is None:
+                raise ValueError(
+                    f"Build {build_name!r} enables search but resolves to no evaluator. Provide an evaluator at the"
+                    " build or engine level, or disable search."
+                )
         return self
 
     @field_validator("data_configs", mode="before")

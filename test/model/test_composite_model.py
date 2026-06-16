@@ -124,3 +124,45 @@ def test_model_config_select_components_on_non_composite_raises():
     onnx_config = ModelConfig.model_validate({"type": "ONNXModel", "config": {"model_path": "a.onnx"}})
     with pytest.raises(ValueError, match="only supported on CompositeModel"):
         onnx_config.select_components(["any"])
+
+
+def test_model_config_select_components_single_inherits_parent_attributes():
+    composite_config = ModelConfig.model_validate(
+        {
+            "type": "CompositeModel",
+            "config": {
+                "model_components": [
+                    {"type": "ONNXModel", "config": {"model_path": "a.onnx", "model_attributes": {"child": "c"}}},
+                    {"type": "ONNXModel", "config": {"model_path": "b.onnx"}},
+                ],
+                "model_component_names": ["text_encoder", "unet"],
+                "model_attributes": {"shared": "s", "child": "parent"},
+            },
+        }
+    )
+    selected = composite_config.select_components(["text_encoder"])
+    assert isinstance(selected, ModelConfig)
+    assert selected.type == "onnxmodel"
+    # parent-only keys are inherited; child keys win on conflict
+    assert selected.config["model_attributes"] == {"shared": "s", "child": "c"}
+
+
+def test_model_config_get_components_returns_none_for_non_composite():
+    onnx_config = ModelConfig.model_validate({"type": "ONNXModel", "config": {"model_path": "a.onnx"}})
+    assert onnx_config.get_components() is None
+
+
+def test_model_config_get_components_returns_names_for_composite():
+    composite_config = ModelConfig.model_validate(
+        {
+            "type": "CompositeModel",
+            "config": {
+                "model_components": [
+                    {"type": "ONNXModel", "config": {"model_path": "a.onnx"}},
+                    {"type": "ONNXModel", "config": {"model_path": "b.onnx"}},
+                ],
+                "model_component_names": ["text_encoder", "unet"],
+            },
+        }
+    )
+    assert composite_config.get_components() == ["text_encoder", "unet"]
