@@ -150,7 +150,7 @@ class TestRunBuilds:
                 "components": ["text_encoder"],
             },
         }
-        with pytest.raises(ValueError, match="not a CompositeModel"):
+        with pytest.raises(ValueError, match="no selectable components"):
             olive_run(config)
 
     def test_builds_components_unknown_name_raises(self):
@@ -175,3 +175,48 @@ class TestRunBuilds:
         }
         with pytest.raises(ValueError, match="unknown component"):
             olive_run(config)
+
+    def test_builds_directory_composite_input_runs_per_component(self, tmp_path):
+        # Flow A Option 2: a mobius export directory loads as a CompositeModel,
+        # subfolder names become component names, sibling builds optimize each.
+        for name in ["decoder", "vision_encoder"]:
+            comp_dir = tmp_path / "exported_pkg" / name
+            comp_dir.mkdir(parents=True)
+            (comp_dir / "model.onnx").write_bytes(b"onnx")
+
+        run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
+        config = deepcopy(self.template)
+        config["input_model"] = {"type": "CompositeModel", "config": {"model_path": str(tmp_path / "exported_pkg")}}
+        config["builds"] = {
+            "decoder": {"components": ["decoder"], "pipeline": ["convert"], "output_dir": "out/decoder"},
+            "vision_encoder": {"components": ["vision_encoder"], "pipeline": ["convert"], "output_dir": "out/vision"},
+        }
+        with engine_run_patch, acc_patch:
+            result = olive_run(config)
+        assert set(result) == {"decoder", "vision_encoder"}
+        assert run_mock.call_count == 2
+
+    def test_builds_hfmodel_components_resolved_via_mobius(self):
+        # Flow B: HfModel input; component names + source paths come from mobius.
+        from olive.common import mobius_utils
+
+        def fake_inspect(*_args, **_kwargs):
+            return [
+                mobius_utils.ComponentInfo(name="decoder", kind="decoder", source_path="model.language_model"),
+                mobius_utils.ComponentInfo(name="vision_encoder", kind="vision_encoder", source_path="model.vision"),
+            ]
+
+        run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
+        config = deepcopy(self.template)
+        config["input_model"] = {"type": "HfModel", "config": {"model_path": "some/vlm"}}
+        config["builds"] = {
+            "decoder": {"components": ["decoder"], "pipeline": ["convert"], "output_dir": "out/decoder"},
+        }
+        with (
+            engine_run_patch,
+            acc_patch,
+            patch.object(mobius_utils, "inspect_components", side_effect=fake_inspect),
+        ):
+            result = olive_run(config)
+        assert set(result) == {"decoder"}
+        assert run_mock.call_count == 1

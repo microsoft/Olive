@@ -47,32 +47,81 @@ class ModelConfig(NestedConfig):
     def get_components(self) -> Optional[list[str]]:
         """Return the component names that builds can target, or None for a single-component model.
 
-        Only ``CompositeModel`` exposes selectable components (its configured ``model_component_names``).
-        Every other model type -- including ``DiffusersModel``, which cannot yet be sliced via
-        ``select_components`` -- returns ``None`` and is treated as a single-component model. Keeping this
-        in sync with ``select_components`` ensures build component validation never accepts a name that
-        ``select_components`` would later reject.
+        * ``CompositeModel`` -> its configured ``model_component_names``, or, when the config only
+          points at a directory of per-component ONNX subfolders, the discovered subfolder names.
+        * ``HfModel`` -> the components reported by mobius (``mobius.inspect_components``), or None
+          when the model is single-component / mobius reports nothing.
+        * Anything else -> ``None`` (single-component model).
         """
         if self.type == "compositemodel":
-            return list(self.config.get("model_component_names") or [])
+            names = list(self.config.get("model_component_names") or [])
+            if names:
+                return names
+            return [name for name, _ in self._discover_composite_components()]
+        if self.type == "hfmodel":
+            return self._get_hf_components() or None
         return None
 
-    def select_components(self, names: list[str]) -> "ModelConfig":
-        """Return a new ModelConfig holding only the named components of a CompositeModel.
+    def _discover_composite_components(self) -> list[tuple[str, str]]:
+        """Discover ``(name, onnx_relpath)`` from a directory-based composite, or empty list."""
+        from olive.model.utils.onnx_utils import discover_onnx_components
 
-        Returns the unwrapped child component ``ModelConfig`` when exactly one name is given;
-        returns a new ``CompositeModel`` ``ModelConfig`` containing the subset (in the requested
-        order) otherwise. Raises ``ValueError`` if invoked on a non-composite model or if any
-        name is missing from ``model_component_names``.
+        model_path = self.config.get("model_path")
+        if not model_path or not Path(str(model_path)).is_dir():
+            return []
+        return discover_onnx_components(str(model_path))
+
+    def _get_hf_components(self) -> list[str]:
+        """Return component names for an HfModel by querying mobius, or empty list."""
+        from olive.common.mobius_utils import inspect_components
+
+        model_path = self.config.get("model_path")
+        if not model_path:
+            return []
+        load_kwargs = self.config.get("load_kwargs") or {}
+        components = inspect_components(
+            model_path,
+            task=self.config.get("task"),
+            trust_remote_code=bool(load_kwargs.get("trust_remote_code")),
+        )
+        return [c.name for c in components]
+
+    def select_components(self, names: list[str]) -> "ModelConfig":
+        """Return a new ModelConfig holding only the named components.
+
+        * ``CompositeModel`` -> the unwrapped child component ``ModelConfig`` when exactly one name
+          is given, otherwise a new ``CompositeModel`` ``ModelConfig`` containing the subset (in the
+          requested order). Directory-based composites are discovered first.
+        * ``HfModel`` -> a copy of this config tagged with the selected component's submodule path
+          (from the mobius plan) in ``model_attributes['component_source_path']``, so a PyTorch-stage
+          pass can slice that submodule while the saved output stays a complete HF directory.
+
+        Raises ``ValueError`` if any name is missing from the available components.
         """
+        if self.type == "hfmodel":
+            return self._select_hf_component(names)
         if self.type != "compositemodel":
             raise ValueError(
-                f"select_components is only supported on CompositeModel input configs (got type {self.type!r})."
+                f"select_components is only supported on CompositeModel or HfModel input configs "
+                f"(got type {self.type!r})."
             )
         if not names:
             raise ValueError("select_components requires a non-empty list of names.")
-        component_names = self.config.get("model_component_names") or []
-        model_components = self.config.get("model_components") or []
+        component_names = list(self.config.get("model_component_names") or [])
+        model_components = list(self.config.get("model_components") or [])
+        if not component_names:
+            discovered = self._discover_composite_components()
+            if not discovered:
+                raise ValueError(
+                    "CompositeModel config has no model_components and model_path is not a directory of "
+                    "per-component ONNX subfolders."
+                )
+            component_names = [name for name, _ in discovered]
+            model_path = self.config.get("model_path")
+            model_components = [
+                {"type": "ONNXModel", "config": {"model_path": str(model_path), "onnx_file_name": onnx_rel}}
+                for _, onnx_rel in discovered
+            ]
         if len(component_names) != len(model_components):
             raise ValueError("CompositeModel config has mismatched model_components and model_component_names lengths.")
         missing = [n for n in names if n not in component_names]
@@ -100,6 +149,39 @@ class ModelConfig(NestedConfig):
             "model_components": selected,
             "model_component_names": list(names),
         }
+        return ModelConfig(type=self.type, config=new_config)
+
+    def _select_hf_component(self, names: list[str]) -> "ModelConfig":
+        """Select a single Hf component (by mobius source path) for PyTorch-stage optimization."""
+        if not names:
+            raise ValueError("select_components requires a non-empty list of names.")
+        if len(names) != 1:
+            raise ValueError(
+                f"HfModel components must be optimized one at a time; got {names}. Use a separate build per component."
+            )
+        from olive.common.mobius_utils import inspect_components
+
+        model_path = self.config.get("model_path")
+        load_kwargs = self.config.get("load_kwargs") or {}
+        components = inspect_components(
+            model_path,
+            task=self.config.get("task"),
+            trust_remote_code=bool(load_kwargs.get("trust_remote_code")),
+        )
+        by_name = {c.name: c for c in components}
+        missing = [n for n in names if n not in by_name]
+        if missing:
+            raise ValueError(f"Unknown component name(s) {missing}. Available components: {list(by_name)}.")
+        component = by_name[names[0]]
+
+        new_config = deepcopy(self.config)
+        attributes = dict(new_config.get("model_attributes") or {})
+        attributes["component_name"] = component.name
+        if component.kind is not None:
+            attributes["component_kind"] = component.kind
+        if component.source_path is not None:
+            attributes["component_source_path"] = component.source_path
+        new_config["model_attributes"] = attributes
         return ModelConfig(type=self.type, config=new_config)
 
     def get_model_id(self):

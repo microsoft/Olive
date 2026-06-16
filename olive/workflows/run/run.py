@@ -198,10 +198,10 @@ def _validate_build_components(run_config: RunConfig) -> None:
     if not needs_component_check:
         return
     available = run_config.input_model.get_components()
-    if available is None:
+    if not available:
         bad = [name for name, build in run_config.builds.items() if build.components]
         raise ValueError(
-            f"Builds {bad} declare `components` but the input model is not a CompositeModel"
+            f"Builds {bad} declare `components` but the input model exposes no selectable components"
             f" (got type {run_config.input_model.type!r})."
         )
     for build_name, build in run_config.builds.items():

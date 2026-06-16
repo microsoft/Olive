@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from pathlib import Path
 from typing import Any, Optional, Union
 
 from olive.common.config_utils import serialize_to_json, validate_config
@@ -32,8 +33,8 @@ class CompositeModelHandler(OliveModelHandler):
 
     def __init__(
         self,
-        model_components: list[Union[OliveModelHandler, dict[str, Any]]],
-        model_component_names: list[str],
+        model_components: Optional[list[Union[OliveModelHandler, dict[str, Any]]]] = None,
+        model_component_names: Optional[list[str]] = None,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_attributes: Optional[dict[str, Any]] = None,
     ):
@@ -43,6 +44,19 @@ class CompositeModelHandler(OliveModelHandler):
             model_file_format=ModelFileFormat.COMPOSITE_MODEL,
             model_attributes=model_attributes,
         )
+
+        # When components are not provided but model_path is a directory of per-component ONNX
+        # subfolders (e.g. a mobius export package), discover them using the subfolder names as
+        # component names. This supports loading an exported package directly as a CompositeModel.
+        if not model_components:
+            discovered = self._discover_components(model_path)
+            if not discovered:
+                raise ValueError(
+                    "CompositeModelHandler requires model_components, or a model_path directory containing "
+                    "per-component ONNX subfolders."
+                )
+            model_components, model_component_names = discovered
+
         self._model_components = [
             validate_config(m, ModelConfig).create_model() if isinstance(m, dict) else m for m in model_components
         ]
@@ -52,6 +66,29 @@ class CompositeModelHandler(OliveModelHandler):
 
         assert len(self._model_components) == len(model_component_names), "Number of components and names must match"
         self.model_component_names = model_component_names
+
+    @staticmethod
+    def _discover_components(
+        model_path: OLIVE_RESOURCE_ANNOTATIONS,
+    ) -> Optional[tuple[list[dict[str, Any]], list[str]]]:
+        """Build component configs from a directory of per-component ONNX subfolders.
+
+        Returns ``(model_components, model_component_names)`` or ``None`` if discovery is not
+        applicable (model_path is not a local directory of component subfolders).
+        """
+        from olive.model.utils.onnx_utils import discover_onnx_components
+
+        if not model_path or not Path(str(model_path)).is_dir():
+            return None
+        discovered = discover_onnx_components(str(model_path))
+        if not discovered:
+            return None
+        names = [name for name, _ in discovered]
+        components = [
+            {"type": "ONNXModel", "config": {"model_path": str(model_path), "onnx_file_name": onnx_rel}}
+            for _, onnx_rel in discovered
+        ]
+        return components, names
 
     @property
     def model_components(self):

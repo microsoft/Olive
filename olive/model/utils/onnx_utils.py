@@ -63,6 +63,40 @@ def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) ->
         raise ValueError(f"No .onnx file found in the model folder {model_path}.")
 
 
+def discover_onnx_components(model_dir: str) -> list[tuple[str, str]]:
+    """Discover per-component ONNX subfolders in a directory.
+
+    A multi-component ONNX package (e.g. produced by ``capture-onnx-graph --use_mobius_builder``)
+    lays out each component in its own subfolder, with a ``model.onnx`` inside:
+
+        model_dir/decoder/model.onnx
+        model_dir/vision_encoder/model.onnx
+        model_dir/embedding/model.onnx
+
+    Args:
+        model_dir: Directory that contains one subfolder per component.
+
+    Returns:
+        A list of ``(component_name, onnx_file_relpath)`` tuples sorted by component name, where
+        ``component_name`` is the subfolder name and ``onnx_file_relpath`` is the path to the
+        component's ``.onnx`` file relative to ``model_dir``. Empty if no component subfolders are
+        found.
+
+    """
+    model_dir_path = Path(model_dir)
+    if not model_dir_path.is_dir():
+        return []
+
+    components: list[tuple[str, str]] = []
+    for sub_dir in sorted(p for p in model_dir_path.iterdir() if p.is_dir()):
+        onnx_files = list(sub_dir.glob("*.onnx"))
+        if len(onnx_files) == 1:
+            components.append((sub_dir.name, f"{sub_dir.name}/{onnx_files[0].name}"))
+        elif (sub_dir / "model.onnx").exists():
+            components.append((sub_dir.name, f"{sub_dir.name}/model.onnx"))
+    return components
+
+
 def get_additional_file_path(model_dir: str, file_name: str) -> Optional[str]:
     """Get the full path to the additional file.
 
