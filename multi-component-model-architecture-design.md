@@ -14,104 +14,7 @@ Olive needs to optimize **multi-component models** (different components → dif
 
 ## 2. Approach
 
-### 2.1 How components are obtained 
-
-#### Option A — Query Mobius (preferred)
-
-Olive calls Mobius at runtime to inspect the model:
-
-```python
-components = mobius.inspect_components(model_path_or_id, task=None, trust_remote_code=False)
-```
-
-- **Pros:** 
-  - always in sync with Mobius's own architecture support; 
-  - no per-model maintenance in Olive; 
-  - covers any model Mobius can export, including new ones; single source of truth shared with the exporter.
-- **Cons:** 
-  - hard runtime dependency on `mobius-ai` even for the optimization step; 
-  - coupled to Mobius versions (names/fields may shift)
-
-
-#### Option B — Olive-maintained YAML registry
-
-Olive ships a YAML file enumerating the components of common models, keyed by `model_type` / architecture. Two component description styles appear, matching the two families:
-
-- **HF/VLM components** only need a **submodule path** to slice the component out of one model. `name` (for `builds.components`) plus `source.path` (where the submodule lives) is enough; `kind` is optional (only used for pass↔kind validation):
-
-```yaml
-# olive/model/component_registry.yaml
-llava:
-  components:
-    - { name: decoder,        kind: decoder,        source: { path: "model.language_model" } }
-    - { name: vision_encoder, kind: vision_encoder, source: { path: "model.vision_tower" } }
-    - { name: embedding,      kind: embedding,      source: { path: "model.language_model.embed_tokens" } }
-```
-
-- **Diffusion components** reuse existing Diffusion model components yaml file:
-
-```yaml
-stable-diffusion:                      # SD 1.5 family (identified by model_index.json)
-  type: DiffusersModel
-  components:
-    - name: text_encoder
-      kind: text_encoder
-      loader: { component: text_encoder }              # DiffusersModel.get_component("text_encoder")
-      io_config:
-        input_names: [input_ids]
-        output_names: [last_hidden_state, pooler_output]
-        dynamic_axes: { input_ids: { 0: batch, 1: sequence } }
-      dummy_inputs: text_encoder                       # generate_diffusers_dummy_inputs(...)
-    - name: vae_encoder
-      kind: vae_encoder
-      loader: { component: vae, patch: get_vae_encoder }   # olive.model.utils.diffusers_utils.get_vae_encoder
-      io_config:
-        input_names: [sample, return_dict]
-        output_names: [latent_sample]
-        dynamic_axes: { sample: { 0: batch, 1: channels, 2: height, 3: width } }
-      dummy_inputs: vae_encoder
-    - name: vae_decoder
-      kind: vae_decoder
-      loader: { component: vae, patch: get_vae_decoder }   # olive.model.utils.diffusers_utils.get_vae_decoder
-      io_config:
-        input_names: [latent_sample, return_dict]
-        output_names: [sample]
-        dynamic_axes: { latent_sample: { 0: batch, 1: channels, 2: height, 3: width } }
-      dummy_inputs: vae_decoder
-    - name: unet
-      kind: diffusion_backbone
-      loader: { component: unet }
-      io_config:
-        input_names: [sample, timestep, encoder_hidden_states, return_dict]
-        output_names: [out_sample]
-        dynamic_axes:
-          sample: { 0: batch, 1: channels, 2: height, 3: width }
-          timestep: { 0: batch }
-          encoder_hidden_states: { 0: batch, 1: sequence }
-      dummy_inputs: unet
-    # SDXL adds text_encoder_2 (kind: text_encoder) and extra UNet inputs (text_embeds, time_ids);
-    # SD3 / FLUX replace `unet` with `transformer` (kind: diffusion_backbone).
-```
-
-
-- **Pros:** 
-  - no runtime Mobius dependency for the optimization step; 
-  - works offline; 
-  - human-readable, reviewable, and overridable by users (drop-in extra entries); 
-  - stable across Mobius versions; 
-  - users can add an unsupported model without code changes.
-- **Cons:** 
-  - must be **maintained by Olive** as new architectures appear (the same per-architecture maintenance Mobius already does); 
-  - risk of drifting out of sync with Mobius's actual export expectations (e.g. `export_key`s, weight prefixes); 
-  - duplicates knowledge that also lives in Mobius.
-
-### 2.2 CompositeModel as the internal IR
-
-Whichever option supplies the plan, Olive normalizes it into a `CompositeModel` whose components carry `component_source_path` and `component_kind` in `model_attributes`. This reuses existing `CompositeModel` serialization and per-pass fan-out (`olive/passes/olive_pass.py`).
-
----
-
-## 3. The `builds` Schema
+### The `builds` Schema
 
 A build is a named optimization unit:
 
@@ -142,9 +45,9 @@ A build may also take its model from another build's output via `input` — e.g.
 
 ---
 
-## 4. Config Examples
+## 3. Config Examples
 
-### 4.1 Basic shape — independent sibling builds
+### 3.1 Basic shape — independent sibling builds
 
 Shared `passes`; each build picks a component and composes its own `pipeline`. Each build writes one optimized folder. The same shape is used whether the user optimizes ONNX components after export (Flow A) or PyTorch components before export (Flow B).
 
@@ -178,7 +81,7 @@ Shared `passes`; each build picks a component and composes its own `pipeline`. E
 Each build writes one optimized component under its `output_dir`.
 
 
-### 4.2 Component optimization — two flows
+### 3.2 Component optimization — two flows
 
 
 #### Flow A — export to ONNX model first, then per-component optimization
@@ -254,7 +157,98 @@ Each subfolder is a standard local ONNX model Olive already loads. The only new 
 
 #### Flow B — optimize first, then export (recommended)
 
-For PyTorch-stage optimization (e.g. GPTQ on the decoder) **before** export. Three explicit user steps;
+For PyTorch-stage optimization (e.g. GPTQ on the decoder) **before** export.
+
+##### How components are obtained 
+
+###### Option A — Query Mobius (preferred)
+
+Olive calls Mobius at runtime to inspect the model:
+
+```python
+components = mobius.inspect_components(model_path_or_id, task=None, trust_remote_code=False)
+```
+
+- **Pros:** 
+  - always in sync with Mobius's own architecture support; 
+  - no per-model maintenance in Olive; 
+  - covers any model Mobius can export, including new ones; single source of truth shared with the exporter.
+- **Cons:** 
+  - hard runtime dependency on `mobius-ai` even for the optimization step; 
+  - coupled to Mobius versions (names/fields may shift)
+
+
+###### Option B — Olive-maintained YAML registry
+
+Olive ships a YAML file enumerating the components of common models, keyed by `model_type` / architecture. Two component description styles appear, matching the two families:
+
+- **HF/VLM components** only need a **submodule path** to slice the component out of one model. `name` (for `builds.components`) plus `source.path` (where the submodule lives) is enough; `kind` is optional (only used for pass↔kind validation):
+
+```yaml
+# olive/model/component_registry.yaml
+llava:
+  components:
+    - { name: decoder,        kind: decoder,        source: { path: "model.language_model" } }
+    - { name: vision_encoder, kind: vision_encoder, source: { path: "model.vision_tower" } }
+    - { name: embedding,      kind: embedding,      source: { path: "model.language_model.embed_tokens" } }
+```
+
+- **Diffusion components** reuse existing Diffusion model components yaml file:
+
+```yaml
+stable-diffusion:                      # SD 1.5 family (identified by model_index.json)
+  type: DiffusersModel
+  components:
+    - name: text_encoder
+      kind: text_encoder
+      loader: { component: text_encoder }              # DiffusersModel.get_component("text_encoder")
+      io_config:
+        input_names: [input_ids]
+        output_names: [last_hidden_state, pooler_output]
+        dynamic_axes: { input_ids: { 0: batch, 1: sequence } }
+      dummy_inputs: text_encoder                       # generate_diffusers_dummy_inputs(...)
+    - name: vae_encoder
+      kind: vae_encoder
+      loader: { component: vae, patch: get_vae_encoder }   # olive.model.utils.diffusers_utils.get_vae_encoder
+      io_config:
+        input_names: [sample, return_dict]
+        output_names: [latent_sample]
+        dynamic_axes: { sample: { 0: batch, 1: channels, 2: height, 3: width } }
+      dummy_inputs: vae_encoder
+    - name: vae_decoder
+      kind: vae_decoder
+      loader: { component: vae, patch: get_vae_decoder }   # olive.model.utils.diffusers_utils.get_vae_decoder
+      io_config:
+        input_names: [latent_sample, return_dict]
+        output_names: [sample]
+        dynamic_axes: { latent_sample: { 0: batch, 1: channels, 2: height, 3: width } }
+      dummy_inputs: vae_decoder
+    - name: unet
+      kind: diffusion_backbone
+      loader: { component: unet }
+      io_config:
+        input_names: [sample, timestep, encoder_hidden_states, return_dict]
+        output_names: [out_sample]
+        dynamic_axes:
+          sample: { 0: batch, 1: channels, 2: height, 3: width }
+          timestep: { 0: batch }
+          encoder_hidden_states: { 0: batch, 1: sequence }
+      dummy_inputs: unet
+    # SDXL adds text_encoder_2 (kind: text_encoder) and extra UNet inputs (text_embeds, time_ids);
+    # SD3 / FLUX replace `unet` with `transformer` (kind: diffusion_backbone).
+```
+
+
+- **Pros:** 
+  - no runtime Mobius dependency for the optimization step; 
+  - works offline; 
+  - human-readable, reviewable, and overridable by users (drop-in extra entries); 
+  - stable across Mobius versions; 
+  - users can add an unsupported model without code changes.
+- **Cons:** 
+  - must be **maintained by Olive** as new architectures appear (the same per-architecture maintenance Mobius already does); 
+  - risk of drifting out of sync with Mobius's actual export expectations (e.g. `export_key`s, weight prefixes); 
+  - duplicates knowledge that also lives in Mobius.
 
 **(a) Optimize each component**. Only the components the user wants to optimize need a build.
 
@@ -289,7 +283,7 @@ olive capture-onnx-graph `
 **(c) requires a quant format bridge.** Olive saves `quant_method="olive"` with **uint8** packing; Mobius's `preprocess_gptq_weights` expects `quant_method="gptq"`/`"awq"` with **int32** packing. A conversion (or a Mobius `"olive"` branch) is required for Mobius to load the quantized weights.
 
 
-### 4.3 Per-target builds — multi-device / multi-EP from one config
+### 3.3 Per-target builds — multi-device / multi-EP from one config
 
 The **same** `builds` schema produces several target-specific outputs without any `components`. Each build differs only by `host`/`target` and its `pipeline`; shared `passes` are composed per target. This is the OpenVINO GPU + NPU case (Qwen2.5-Coder).
 
@@ -316,7 +310,7 @@ The **same** `builds` schema produces several target-specific outputs without an
 
 ---
 
-## 5. Low Level Details
+## 4. Low Level Details
 
 This section covers details needs to be handled in low level.
 
@@ -330,7 +324,7 @@ This section covers details needs to be handled in low level.
   - A failure in one build does **not** abort siblings; record per-build success/failure and surface a summary.
   - For the DAG variant, a failed upstream build causes its dependents to be skipped and marked (no partial/corrupt merges).
 
-## 6. Open Questions
+## 5. Open Questions
 
 
 - Should the YAML registry (Option B) be hand-authored, generated from Mobius, or both (generated then user-overridable)?
