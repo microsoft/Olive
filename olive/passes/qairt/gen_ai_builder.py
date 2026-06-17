@@ -232,6 +232,14 @@ class QairtGenAIBuilder(Pass):
                 dev_cfg = gen_ai_builder._compilation_config.device_custom_configs[0]
                 arch_version = int(str(dev_cfg.dsp_arch).lstrip("v"))
                 if arch_version >= 81:
+                    # qairt-dev 0.8.0 no longer pre-populates context_custom_configs in set_targets();
+                    # initialize it here if absent. weight_sharing_enabled=True matches the 0.5.0 default.
+                    if not gen_ai_builder._compilation_config.context_custom_configs:
+                        from qairt.api.common.backends.htp.config import HtpContextConfig
+
+                        gen_ai_builder._compilation_config.context_custom_configs = [
+                            HtpContextConfig(weight_sharing_enabled=True)
+                        ]
                     gen_ai_builder._compilation_config.context_custom_configs[0].extended_udma = True
                 else:
                     raise ValueError("extended_udma is unsupported on DSP architectures less than v81")
