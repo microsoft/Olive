@@ -286,7 +286,7 @@ class ModelPackageCommand(BaseOliveCLICommand):
         config set.
 
         Subdirectories that hold model artifacts (e.g. Mobius VLM's
-        ``decoder/``, ``embedding/``, ``vision_encoder/``, recognised via
+        ``decoder/``, ``embedding/``, ``vision_encoder/``, recognized via
         the ``model.<role>.filename`` references in the source's
         ``genai_config.json``) are excluded from this sweep — they're
         copied per-variant into ``models/<component>/<variant>/`` and have
@@ -442,7 +442,7 @@ def _variant_artifacts(v: VariantSpec) -> list[OnnxArtifact]:
 
     When ``onnx_rel_paths`` is empty (legacy callers), the rel path defaults
     to each source file's basename, preserving the original flat-layout
-    behaviour. When supplied (the CLI's genai_config-driven path), the rel
+    behavior. When supplied (the CLI's genai_config-driven path), the rel
     path is used verbatim so multi-component sources land in matching
     subdirectories under the variant dir.
     """
@@ -556,7 +556,7 @@ def write_model_package(
                     _assign_role(role_name, v.component_name)
     # Fallback for components whose variants carried no usable source_genai:
     # map the component name to itself as the role, matching the legacy
-    # writer behaviour for direct ``write_model_package`` callers.
+    # writer behavior for direct ``write_model_package`` callers.
     for comp_name in components:
         explicit_role = component_to_role.get(comp_name, comp_name)
         if explicit_role not in role_to_component:
@@ -693,10 +693,10 @@ def _copy_with_collision_check(src: Path, dst: Path, *, skip_if_identical: bool 
     than choose a winner: silently keeping either copy could leave the
     package referencing a stale or wrong blob. ``skip_if_identical`` is
     accepted as an explicit-intent flag at the call site (the dedupe
-    behaviour is always on; the flag exists so the sidecar sweep reads
+    behavior is always on; the flag exists so the sidecar sweep reads
     self-documenting).
     """
-    del skip_if_identical  # behaviour is always content-aware; flag is documentation
+    del skip_if_identical  # behavior is always content-aware; flag is documentation
     if dst.exists():
         if not dst.is_file():
             raise FileExistsError(f"Cannot copy {src} to {dst}: destination exists and is not a regular file.")
@@ -886,7 +886,7 @@ def _lift_role_overlay_body(role_body: dict, onnx_rel_paths: Optional[list[str]]
     has_pipeline = isinstance(pipeline, list) and pipeline
     filename = role_body.get("filename")
     # ``pipeline`` takes precedence when both are present (mirrors the
-    # behaviour of ``_collect_artifacts_per_role``, which only emits
+    # behavior of ``_collect_artifacts_per_role``, which only emits
     # pipeline stage artifacts in that case). Lifting both would produce
     # an overlay with both ``filename`` and ``pipeline`` (malformed for the
     # loader) and reuse ``onnx_rel_paths[0]`` — which is stage 0's

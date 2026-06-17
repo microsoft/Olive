@@ -548,7 +548,7 @@ class TestWriteModelPackageLayout:
         """The base ``configs/genai_config.json`` must not carry per-variant fields.
 
         If ``context_length`` (or similar) lived in the base, GenAI's overlay
-        merge would still honour the per-variant value (overlay scalar wins),
+        merge would still honor the per-variant value (overlay scalar wins),
         but ``_VARIANT_LEVEL_MODEL_KEYS`` includes arrays (``eos_token_id``)
         whose presence in the base would trigger GenAI's array-append merge
         semantics — the merged result would duplicate the array. So the base
@@ -1521,7 +1521,7 @@ class TestMobiusHierarchicalLayout:
         Without explicit exclusion the config-file sweep would copy every
         source-root directory (including the model-artifact subdirs), so the
         package would carry duplicate ONNXs under ``configs/`` and bloat
-        the deliverable. The sweep recognises model-artifact subdirs via
+        the deliverable. The sweep recognizes model-artifact subdirs via
         the genai_config's role filenames and skips them.
         """
         src = _create_mobius_vlm_source(tmp_path, "cpu")
