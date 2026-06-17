@@ -12,7 +12,6 @@ trigger:
     - mcp/*
     - notebooks/*
     - scripts/*
-
 pr:
   branches:
     include:
