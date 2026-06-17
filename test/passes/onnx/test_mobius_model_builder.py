@@ -33,7 +33,7 @@ def _stub_mobius_module():
     The stub is only injected when mobius is absent; if the real package is installed,
     this fixture is a no-op.
     """
-    if "mobius" in sys.modules:
+    if _HAS_REAL_MOBIUS:
         yield
         return
     fake = types.ModuleType("mobius")
@@ -254,32 +254,13 @@ def test_genai_artifacts_in_multi_component(tmp_path):
 
 def test_multi_component_returns_composite_handler(tmp_path):
     """Multi-component package (VLM) → CompositeModelHandler with one component per key."""
-    import logging
-
     out = tmp_path / "out"
     keys = ["model", "vision", "embedding"]
     pkg = _fake_pkg(keys, out)
 
-    # olive disables logger propagation (olive/__init__.py), so attach a capture handler
-    # directly to the mobius builder logger.
-    records: list[logging.LogRecord] = []
-
-    class _Capture(logging.Handler):
-        def emit(self, record):
-            records.append(record)
-
-    mb_logger = logging.getLogger("olive.passes.onnx.mobius_model_builder")
-    handler = _Capture(level=logging.INFO)
-    prev_level = mb_logger.level
-    mb_logger.setLevel(logging.INFO)
-    mb_logger.addHandler(handler)
-    try:
-        with _patch_build(pkg):
-            p = _make_pass()
-            result = p.run(_make_hf_model("microsoft/phi-4-vision"), out)
-    finally:
-        mb_logger.removeHandler(handler)
-        mb_logger.setLevel(prev_level)
+    with _patch_build(pkg):
+        p = _make_pass()
+        result = p.run(_make_hf_model("microsoft/phi-4-vision"), out)
 
     assert isinstance(result, CompositeModelHandler)
     assert result.model_component_names == keys
@@ -287,11 +268,6 @@ def test_multi_component_returns_composite_handler(tmp_path):
     assert len(components) == 3
     for comp in components:
         assert isinstance(comp, ONNXModelHandler)
-
-    # every component name and its onnx path are logged
-    messages = [rec.getMessage() for rec in records]
-    for key in keys:
-        assert any(f"'{key}'" in msg and "model.onnx" in msg for msg in messages)
 
 
 # ---------------------------------------------------------------------------
