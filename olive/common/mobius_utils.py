@@ -39,15 +39,27 @@ class ComponentInfo:
     metadata: dict = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, data: "ComponentInfo | dict") -> "ComponentInfo":
-        if isinstance(data, ComponentInfo):
+    def coerce(cls, data: "ComponentInfo | dict | object") -> "ComponentInfo":
+        """Normalize a component from any source into an Olive :class:`ComponentInfo`.
+
+        Accepts an existing Olive ``ComponentInfo`` (returned as-is), a mapping following the
+        component contract, or a duck-typed object exposing ``name``/``kind``/``source_path``
+        attributes (e.g. a ``mobius`` ``ComponentInfo`` dataclass).
+        """
+        if isinstance(data, cls):
             return data
-        source = data.get("source") or {}
+        if isinstance(data, dict):
+            source = data.get("source") or {}
+            return cls(
+                name=data["name"],
+                kind=data.get("kind"),
+                source_path=data.get("source_path") or source.get("path"),
+                metadata={k: v for k, v in data.items() if k not in ("name", "kind", "source", "source_path")},
+            )
         return cls(
-            name=data["name"],
-            kind=data.get("kind"),
-            source_path=data.get("source_path") or source.get("path"),
-            metadata={k: v for k, v in data.items() if k not in ("name", "kind", "source", "source_path")},
+            name=data.name,
+            kind=getattr(data, "kind", None),
+            source_path=getattr(data, "source_path", None),
         )
 
 
@@ -84,6 +96,6 @@ def inspect_components(
         task=task,
         trust_remote_code=trust_remote_code,
     )
-    components = [ComponentInfo.from_dict(c) for c in raw_components]
+    components = [ComponentInfo.coerce(c) for c in raw_components]
     logger.debug("mobius.inspect_components(%s) -> %s", model_name_or_path, [c.name for c in components])
     return components
