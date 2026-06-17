@@ -154,4 +154,8 @@ class QairtPipelinePass(Pass):
             if src.exists() and not dst.exists():
                 shutil.copy2(src, dst)
 
-        return QairtModelHandler(model_path=output_model_path)
+        # Forward AR decode lengths to QairtEncapsulation so it can compute max_length correctly.
+        # arn in the pipeline recipe is the equivalent of sequence_lengths in QairtGenAIBuilder.
+        arn = recipe_data.get("stages", {}).get("genai_builder", {}).get("transform_options", {}).get("arn")
+        model_attrs = {"sequence_lengths": arn} if arn else {}
+        return QairtModelHandler(model_path=output_model_path, model_attributes=model_attrs)
