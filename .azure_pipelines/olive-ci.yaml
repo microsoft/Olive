@@ -9,6 +9,10 @@ trigger:
     - CONTRIBUTING.md
     - LICENSE
     - .github/*
+    - mcp/*
+    - notebooks/*
+    - scripts/*
+
 pr:
   branches:
     include:
