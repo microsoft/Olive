@@ -2573,7 +2573,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-113">
 <span class="sig-name descname"><span class="pre">nodes_to_exclude</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-113" title="Link to this definition">#</a></dt>
-<dd><p>List of node names to exclude from quantization.</p>
+<dd><p>List of node names to exclude from quantization. An entry that contains a wildcard (‘*’ or ‘?’) is treated as a Unix shell-style glob pattern (e.g. ‘<em>/projector/</em>’ to exclude all projector MatMuls); all other entries are matched by exact node name. A node is excluded if its name equals any exact entry or matches any glob entry.</p>
 <p><strong>type:</strong> list</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>search_defaults:</strong> None</p>
