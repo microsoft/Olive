@@ -482,6 +482,35 @@ class OnnxEvaluatorMixin:
         return inference_settings
 
 
+def _find_genai_config(model: ONNXModelHandler) -> Optional[Path]:
+    """Find genai_config.json by searching upward from the ONNX file's parent directory.
+
+    Returns the Path to genai_config.json if found, or None. Searches at most
+    3 levels up to avoid traversing unrelated directories.
+    """
+    candidate = Path(model.model_path).parent
+    for _ in range(3):
+        genai_path = candidate / "genai_config.json"
+        if genai_path.exists():
+            return genai_path
+        parent = candidate.parent
+        if parent == candidate:
+            break
+        candidate = parent
+    return None
+
+
+def _get_genai_model_dir(model: ONNXModelHandler) -> str:
+    """Get the ORT GenAI model root directory (where genai_config.json lives).
+
+    Falls back to the ONNX file's parent directory if genai_config.json is not found.
+    """
+    genai_config_path = _find_genai_config(model)
+    if genai_config_path is not None:
+        return str(genai_config_path.parent)
+    return str(Path(model.model_path).parent)
+
+
 @Registry.register(str(Framework.ONNX))
 @Registry.register("OnnxEvaluator")
 class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
@@ -590,7 +619,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         multi-component model layouts (e.g. ``models/decoder/model.onnx`` where
         ``genai_config.json`` lives at ``models/``).
         """
-        genai_config_path = OliveEvaluator._find_genai_config(model)
+        genai_config_path = _find_genai_config(model)
         if genai_config_path is None:
             return None
         import json
@@ -608,16 +637,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         Returns the Path to genai_config.json if found, or None. Searches at most
         3 levels up to avoid traversing unrelated directories.
         """
-        candidate = Path(model.model_path).parent
-        for _ in range(3):
-            genai_path = candidate / "genai_config.json"
-            if genai_path.exists():
-                return genai_path
-            parent = candidate.parent
-            if parent == candidate:
-                break
-            candidate = parent
-        return None
+        return _find_genai_config(model)
 
     @staticmethod
     def _get_genai_model_dir(model: ONNXModelHandler) -> str:
@@ -625,10 +645,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         Falls back to the ONNX file's parent directory if genai_config.json is not found.
         """
-        genai_config_path = OliveEvaluator._find_genai_config(model)
-        if genai_config_path is not None:
-            return str(genai_config_path.parent)
-        return str(Path(model.model_path).parent)
+        return _get_genai_model_dir(model)
 
     def _evaluate_onnx_accuracy(
         self,
@@ -1981,7 +1998,7 @@ class LMEvaluator(OliveEvaluator):
             }
         elif self.model_class == "ortgenai":
             init_args = {
-                "pretrained": OliveEvaluator._get_genai_model_dir(model),
+                "pretrained": _get_genai_model_dir(model),
                 "ep": self.ep or execution_providers,
                 "ep_options": self.ep_options,
                 "device": device,
@@ -2096,7 +2113,7 @@ class MTEBEvaluator(OliveEvaluator):
                 model_class = "hf"
             elif isinstance(model, ONNXModelHandler):
                 # ModelBuilder outputs ONNXModelHandler but with genai_config.json
-                genai_config_path = OliveEvaluator._find_genai_config(model)
+                genai_config_path = _find_genai_config(model)
                 model_class = "ortgenai" if genai_config_path is not None else "ort"
             else:
                 raise ValueError(
@@ -2132,7 +2149,7 @@ class MTEBEvaluator(OliveEvaluator):
             )
         elif model_class == "ortgenai":
             mteb_model = MTEBORTGenAIEvaluator(
-                pretrained=OliveEvaluator._get_genai_model_dir(model),
+                pretrained=_get_genai_model_dir(model),
                 batch_size=self.batch_size,
                 max_length=self.max_length,
                 ep=self.ep
