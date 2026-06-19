@@ -969,6 +969,11 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                         prompt = tokenizer.apply_chat_template(messages_json, add_generation_prompt=True)
                         inputs = processor(prompt, images=images)
 
+                        # Remove audio_features if present but not needed (vision-only inference)
+                        # to avoid "Model output was not found: audio_features" errors
+                        if "audio_features" in inputs:
+                            del inputs["audio_features"]
+
                         params = og.GeneratorParams(og_model)
                         params.set_search_options(max_length=max_length, do_sample=False)
 
