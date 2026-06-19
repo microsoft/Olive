@@ -849,8 +849,6 @@ class TestFindGenaiConfig:
 
     def test_find_genai_config_ignores_directory(self, tmp_path):
         """Ignore a directory named genai_config.json."""
-        import json
-
         from olive.evaluator.olive_evaluator import _find_genai_config
         from olive.model.handler.onnx import ONNXModelHandler
 
