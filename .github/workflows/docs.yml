@@ -35,6 +35,8 @@ jobs:
         python-version: ${{ env.PYTHON_VERSION }}
 
     - name: Build docs
+      env:
+        OLIVE_DOCS_VERSION: main
       run: |
         python -m pip install .
         cd docs
@@ -43,3 +45,62 @@ jobs:
         make html
         make linkcheck
         make schema
+
+    - name: Upload built docs
+      uses: actions/upload-artifact@v4
+      with:
+        name: docs-html
+        path: docs/build/html
+        if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Download built docs
+      uses: actions/download-artifact@v4
+      with:
+        name: docs-html
+        path: docs-publish
+
+    - name: Publish docs to gh-pages root
+      env:
+        GH_PAGES_DIR: ../gh-pages-worktree
+      run: |
+        set -euxo pipefail
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git fetch origin gh-pages
+        rm -rf "$GH_PAGES_DIR"
+        git worktree add "$GH_PAGES_DIR" origin/gh-pages
+
+        cd "$GH_PAGES_DIR"
+        find . -mindepth 1 -maxdepth 1 \
+          ! -name '.git' \
+          ! -name 'CNAME' \
+          ! -name '.nojekyll' \
+          ! -name '.gitignore' \
+          ! -regex './[0-9]+\.[0-9]+\.[0-9]+' \
+          -exec rm -rf {} +
+
+        cp -a "$GITHUB_WORKSPACE/docs-publish/." .
+        touch .nojekyll
+
+        git add -A
+        if git diff --cached --quiet; then
+          echo "No docs changes to publish"
+          exit 0
+        fi
+
+        git commit -m "Publish docs for ${GITHUB_SHA}"
+        git push origin HEAD:gh-pages

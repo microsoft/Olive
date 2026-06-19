@@ -135,3 +135,62 @@ class TestKQuantQuantization:
 
         assert len(matmul_nbits_nodes) == 1, "Expected 1 MatMulNBits node (MatMul_2 quantized)"
         assert len(matmul_nodes) == 1, "Expected 1 original MatMul node (MatMul_1 excluded)"
+
+    def test_kquant_with_nodes_to_exclude_glob(self, matmul_model_path, tmp_path):
+        """Test k-quant where nodes_to_exclude uses a glob pattern."""
+        olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
+        accelerator_spec = AcceleratorSpec(
+            accelerator_type="CPU",
+            execution_provider="CPUExecutionProvider",
+        )
+        # "*_1" matches MatMul_1 only; MatMul_2 should still be quantized.
+        pass_config = {
+            "bits": 4,
+            "block_size": 32,
+            "nodes_to_exclude": ["*_1"],
+        }
+        p = create_pass_from_dict(
+            OnnxKQuantQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
+        )
+
+        output_path = tmp_path / "quantized_glob_model.onnx"
+        quantized_model = p.run(olive_model, output_path)
+
+        assert os.path.exists(quantized_model.model_path)
+
+        quantized_onnx = onnx.load(quantized_model.model_path)
+        matmul_nbits_nodes = [n for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits)]
+        matmul_nodes = [n for n in quantized_onnx.graph.node if n.op_type == "MatMul"]
+
+        assert len(matmul_nbits_nodes) == 1, "Expected 1 MatMulNBits node (MatMul_2 quantized)"
+        assert len(matmul_nodes) == 1, "Expected 1 original MatMul node (MatMul_1 excluded via glob)"
+
+    def test_kquant_exclude_entry_with_metachars_is_exact(self, matmul_model_path, tmp_path):
+        """An exclusion entry with fnmatch metacharacters but no wildcard is matched exactly.
+
+        'MatMul_[12]' must NOT glob-match node 'MatMul_1'; without a '*'/'?' wildcard the entry is
+        treated as an exact name, so both MatMuls are still quantized.
+        """
+        olive_model = ONNXModelHandler(model_path=str(matmul_model_path))
+        accelerator_spec = AcceleratorSpec(
+            accelerator_type="CPU",
+            execution_provider="CPUExecutionProvider",
+        )
+        pass_config = {
+            "bits": 4,
+            "block_size": 32,
+            "nodes_to_exclude": ["MatMul_[12]"],
+        }
+        p = create_pass_from_dict(
+            OnnxKQuantQuantization, pass_config, disable_search=True, accelerator_spec=accelerator_spec
+        )
+
+        output_path = tmp_path / "quantized_meta_model.onnx"
+        quantized_model = p.run(olive_model, output_path)
+
+        assert os.path.exists(quantized_model.model_path)
+
+        quantized_onnx = onnx.load(quantized_model.model_path)
+        matmul_nbits_nodes = [n for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits)]
+
+        assert len(matmul_nbits_nodes) == 2, "Expected both MatMuls quantized (bracket entry not glob-matched)"

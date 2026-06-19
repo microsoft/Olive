@@ -8,6 +8,7 @@ import copy
 import importlib
 import json
 import logging
+import os
 from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, Union
@@ -213,14 +214,8 @@ class ModelBuilder(Pass):
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler:
-        try:
-            from onnxruntime_genai.models.builder import create_model
-        except ImportError as e:
-            raise ImportError(
-                "onnxruntime-genai package is required to run ModelBuilder pass. Please install the package"
-                " corresponding to your onnxruntime installation using pip. cpu: onnxruntime-genai, cuda:"
-                " onnxruntime-genai-cuda, directml: onnxruntime-genai-directml"
-            ) from e
+        from onnxruntime_genai.models.builder import create_model
+
         self.maybe_patch_quant()
 
         precision = config.precision
@@ -280,6 +275,18 @@ class ModelBuilder(Pass):
 
         model_attributes = copy.deepcopy(model.model_attributes or {})
 
+        # onnxruntime-genai's save_model cleanup deletes cache_dir when it is empty
+        # (base.py: `if not os.listdir(self.cache_dir): os.rmdir(self.cache_dir)`).
+        # For multi-component models like Whisper the encoder and decoder share the
+        # same cache_dir; the encoder's save_model removes the empty directory before
+        # the decoder's save_model can run, raising FileNotFoundError.
+        # Fix: keep a marker file in the cache_dir for the duration of create_model so
+        # that the directory is never considered empty and never deleted prematurely.
+        cache_dir_path = Path(HF_HUB_CACHE)
+        cache_dir_path.mkdir(parents=True, exist_ok=True)
+        marker_path = cache_dir_path / f".olive_build_{os.getpid()}"
+        marker_path.touch()
+
         try:
             logger.debug("Building model with the following args: %s", extra_args)
             create_model(
@@ -296,12 +303,13 @@ class ModelBuilder(Pass):
 
         except Exception:
             # if model building fails, clean up the intermediate files in the cache_dir
-            cache_dir = Path(HF_HUB_CACHE)
-            if cache_dir.is_dir():
-                for file in cache_dir.iterdir():
+            if cache_dir_path.is_dir():
+                for file in cache_dir_path.iterdir():
                     if file.suffix == ".bin":
                         file.unlink()
             raise
+        finally:
+            marker_path.unlink(missing_ok=True)
 
         # Override default search options with ones from user config
         genai_config_filepath = str(output_model_filepath.parent / "genai_config.json")
