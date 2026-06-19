@@ -606,7 +606,7 @@
             "supported_algorithms": [ "awq" ],
             "supported_quantization_encodings": [  ],
             "run_on_target": true,
-            "extra_dependencies": [ "amd-quark" ]
+            "extra_dependencies": [ "amd-quark>=0.12.0" ]
         },
         "QuarkQuantizationVitisAI": {
             "module_path": "olive.passes.quark_vitisai.quark_quantization_vitisai.QuarkQuantizationVitisAI",
@@ -616,7 +616,7 @@
             "supported_algorithms": [ "awq" ],
             "supported_quantization_encodings": [  ],
             "run_on_target": true,
-            "extra_dependencies": [ "amd-quark" ]
+            "extra_dependencies": [ "amd-quark>=0.12.0" ]
         },
         "KQuant": {
             "module_path": "olive.passes.pytorch.kquant.KQuant",
