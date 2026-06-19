@@ -491,7 +491,7 @@ def _find_genai_config(model: ONNXModelHandler) -> Optional[Path]:
     candidate = Path(model.model_path).parent
     for _ in range(3):
         genai_path = candidate / "genai_config.json"
-        if genai_path.exists():
+        if genai_path.is_file():
             return genai_path
         parent = candidate.parent
         if parent == candidate:
