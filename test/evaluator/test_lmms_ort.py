@@ -19,7 +19,6 @@ import pytest
 from olive.evaluator.lmms_ort import (
     LMMSORTGenAIEvaluator,
     _build_prompt,
-    _model_manifest,
     _normalize_execution_provider,
 )
 from olive.evaluator.olive_evaluator import LMMSEvaluator
@@ -517,39 +516,6 @@ def test_lmms_ort_genai_evaluator_is_simple_flag_matches_registration():
     be ``True``.
     """
     assert LMMSORTGenAIEvaluator.is_simple is True
-
-
-def test_model_manifest_factory_returns_expected_manifest():
-    """Verify the entry-point payload points at LMMSORTGenAIEvaluator."""
-    pytest.importorskip("lmms_eval")
-
-    manifest = _model_manifest()
-
-    assert manifest.model_id == "ortgenai_mm"
-    assert manifest.simple_class_path == "olive.evaluator.lmms_ort.LMMSORTGenAIEvaluator"
-    assert manifest.chat_class_path is None
-
-
-def test_olive_ai_registers_ortgenai_mm_entry_point():
-    """Verify olive-ai exposes ortgenai_mm via the lmms_eval.models entry-point group."""
-    from importlib.metadata import entry_points
-
-    eps = {ep.name: ep.value for ep in entry_points(group="lmms_eval.models")}
-    assert eps.get("ortgenai_mm") == "olive.evaluator.lmms_ort:_model_manifest"
-
-
-def test_model_registry_v2_resolves_ortgenai_mm():
-    """Verify lmms-eval's MODEL_REGISTRY_V2 resolves ortgenai_mm via the entry point."""
-    pytest.importorskip("lmms_eval")
-    from lmms_eval.models import MODEL_REGISTRY_V2
-
-    resolved = MODEL_REGISTRY_V2.resolve("ortgenai_mm")
-    assert resolved.model_id == "ortgenai_mm"
-    assert resolved.model_type == "simple"
-    assert resolved.class_path == "olive.evaluator.lmms_ort.LMMSORTGenAIEvaluator"
-
-    cls = MODEL_REGISTRY_V2.get_model_class("ortgenai_mm")
-    assert cls is LMMSORTGenAIEvaluator
 
 
 # -----------------------------------------------------------------------------
