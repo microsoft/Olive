@@ -629,29 +629,3 @@ class LMMSORTGenAIEvaluator(lmms):
 
     def generate_until_multi_round(self, requests) -> list[str]:
         raise NotImplementedError("ortgenai_mm does not support lmms-eval multi-round generation yet.")
-
-
-# -----------------------------------------------------------------------------
-# lmms-eval MODEL_REGISTRY_V2 entry-point factory.
-#
-# Exposed via setup.py entry_points["lmms_eval.models"], so a fresh install of
-# olive-ai makes ``--model ortgenai_mm`` discoverable from the lmms-eval CLI
-# (e.g. ``python -m lmms_eval --model ortgenai_mm ...``) without requiring the
-# caller to import this module first.
-#
-# lmms-eval's ``ModelRegistryV2.load_entrypoint_manifests`` accepts a
-# ``Callable`` payload, so we keep the import of ``ModelManifest`` lazy. That
-# way ``olive`` (and the rest of this module) stays importable when lmms-eval
-# is not installed.
-# -----------------------------------------------------------------------------
-def _model_manifest():
-    """Return the lmms-eval ModelManifest for ``ortgenai_mm``.
-
-    Used as an entry-point payload for lmms-eval's MODEL_REGISTRY_V2.
-    """
-    from lmms_eval.models.registry_v2 import ModelManifest
-
-    return ModelManifest(
-        model_id="ortgenai_mm",
-        simple_class_path="olive.evaluator.lmms_ort.LMMSORTGenAIEvaluator",
-    )
