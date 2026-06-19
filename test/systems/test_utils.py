@@ -3,15 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-import sys
-from unittest.mock import MagicMock, patch
-
-# Ensure onnxruntime is importable even when native libs (e.g. CUDA) are missing.
-# This must happen before importing the runner module which does `import onnxruntime` at top level.
-try:
-    import onnxruntime  # noqa: F401  # pylint: disable=unused-import
-except ImportError:
-    sys.modules["onnxruntime"] = MagicMock()
+from unittest.mock import patch
 
 from olive.systems.utils.available_providers_runner import main as available_providers_main
 

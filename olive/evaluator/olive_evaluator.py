@@ -630,23 +630,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in genai config file: {genai_config_path}") from e
 
-    @staticmethod
-    def _find_genai_config(model: ONNXModelHandler) -> Optional[Path]:
-        """Find genai_config.json by searching upward from the ONNX file's parent directory.
-
-        Returns the Path to genai_config.json if found, or None. Searches at most
-        3 levels up to avoid traversing unrelated directories.
-        """
-        return _find_genai_config(model)
-
-    @staticmethod
-    def _get_genai_model_dir(model: ONNXModelHandler) -> str:
-        """Get the ORT GenAI model root directory (where genai_config.json lives).
-
-        Falls back to the ONNX file's parent directory if genai_config.json is not found.
-        """
-        return _get_genai_model_dir(model)
-
     def _evaluate_onnx_accuracy(
         self,
         model: ONNXModelHandler,
@@ -896,7 +879,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         except ImportError as e:
             raise ImportError("Pillow is required for vision evaluation. Install it with: pip install Pillow") from e
 
-        model_dir = self._get_genai_model_dir(model)
+        model_dir = _get_genai_model_dir(model)
 
         # Default max_length; can be overridden per-sample from the data config.
         default_max_length = 4096
@@ -1047,7 +1030,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         import soundfile as sf
 
-        model_dir = self._get_genai_model_dir(model)
+        model_dir = _get_genai_model_dir(model)
 
         # Read genai_config to determine model properties
         with (Path(model_dir) / "genai_config.json").open() as f:
@@ -1181,7 +1164,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         import json
 
-        model_dir = self._get_genai_model_dir(model)
+        model_dir = _get_genai_model_dir(model)
 
         with (Path(model_dir) / "genai_config.json").open() as f:
             genai_config = json.load(f)
