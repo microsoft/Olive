@@ -124,6 +124,17 @@ class Metric(NestedConfig):
     sub_types: list[SubMetric] = Field(default=[], validate_default=True)
     user_config: Optional[ConfigBase] = Field(default=None, validate_default=True)
     data_config: Optional[DataConfig] = Field(default=None, validate_default=True)
+    sample_log_num: int = Field(
+        default=0,
+        description=(
+            "Number of sample predictions to log alongside ground truth. "
+            "When > 0, saves a JSONL file with the first N sample results for debugging."
+        ),
+    )
+    sample_log_dir: Optional[str] = Field(
+        default=None,
+        description="Directory to save the sample log file. Defaults to the current working directory.",
+    )
 
     def get_inference_settings(self, framework):
         if self.user_config is None:

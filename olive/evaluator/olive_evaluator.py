@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import collections
+import json
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -256,6 +257,59 @@ class OliveEvaluator(ABC):
         """Compute accuracy metrics."""
         evaluate_backend_cls = MetricBackend.registry[metric.backend]
         return evaluate_backend_cls().measure(model_outputs, targets, metric)
+
+    @staticmethod
+    def save_sample_log(
+        metric: Metric, inference_output: "OliveModelOutput", targets: Any, num_samples: int
+    ) -> None:
+        """Save top N sample predictions and ground truth to a JSONL file.
+
+        Each line in the output file is a JSON object with 'index', 'prediction', and 'target' fields.
+        For tensor data, values are converted to Python scalars or lists.
+        This is best-effort: filesystem or serialization errors are logged as warnings.
+        """
+        if num_samples <= 0:
+            return
+
+        try:
+            preds = inference_output.preds
+            output_dir = Path(metric.sample_log_dir) if metric.sample_log_dir else Path.cwd()
+            # Sanitize metric name to prevent path traversal
+            safe_name = Path(metric.name).name.replace("/", "_").replace("\\", "_") or "metric"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            log_path = output_dir / f"{safe_name}_samples.jsonl"
+
+            def _to_serializable(val):
+                """Convert tensor/ndarray/numpy scalar values to JSON-serializable Python objects."""
+                if isinstance(val, (torch.Tensor, np.ndarray)):
+                    return val.tolist()
+                if isinstance(val, np.generic):
+                    return val.item()
+                return val
+
+            total_samples = len(preds) if hasattr(preds, "__len__") else num_samples
+            n = min(num_samples, total_samples)
+            if num_samples > total_samples:
+                logger.warning(
+                    "sample_log_num (%d) exceeds available samples (%d), capping to %d.",
+                    num_samples,
+                    total_samples,
+                    n,
+                )
+            with log_path.open("w", encoding="utf-8") as f:
+                for i in range(n):
+                    pred_val = preds[i] if hasattr(preds, "__getitem__") else preds
+                    target_val = targets[i] if hasattr(targets, "__getitem__") else targets
+                    record = {
+                        "index": i,
+                        "prediction": _to_serializable(pred_val),
+                        "target": _to_serializable(target_val),
+                    }
+                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+            logger.info("Saved %d sample predictions to %s", n, log_path)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Failed to save sample log for metric '%s': %s", metric.name, e)
 
     @staticmethod
     def latency_helper(latencies) -> dict:
@@ -679,6 +733,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             inference_output, targets = self._inference(
                 model, metric, dataloader, post_func, device, execution_providers
             )
+        OliveEvaluator.save_sample_log(metric, inference_output, targets, metric.sample_log_num)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _inference_text(
@@ -1383,6 +1438,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         targets = [x for _, t, _ in results for x in t]
         logits = [x for _, _, logit in results for x in logit]
         model_output = OliveModelOutput(preds, logits)
+        OliveEvaluator.save_sample_log(metric, model_output, targets, metric.sample_log_num)
         return OliveEvaluator.compute_accuracy(metric, model_output, targets)
 
     @staticmethod
@@ -1586,6 +1642,7 @@ class PyTorchEvaluator(_OliveEvaluator):
             inference_output, targets = self._inference(
                 model, metric, dataloader, post_func, device, execution_providers
             )
+        OliveEvaluator.save_sample_log(metric, inference_output, targets, metric.sample_log_num)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     @torch.no_grad()
@@ -1820,6 +1877,7 @@ class OpenVINOEvaluator(_OliveEvaluator):
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        OliveEvaluator.save_sample_log(metric, inference_output, targets, metric.sample_log_num)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _evaluate_raw_latency(
@@ -1894,6 +1952,7 @@ class QNNEvaluator(_OliveEvaluator):
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        OliveEvaluator.save_sample_log(metric, inference_output, targets, metric.sample_log_num)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _evaluate_raw_latency(
