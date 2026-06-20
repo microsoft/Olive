@@ -664,6 +664,8 @@ class TestOnnxEvaluatorGenaiVisionDetection:
         metric.user_config.input_names = None
         metric.user_config.input_shapes = None
         metric.backend = "huggingface_metrics"
+        metric.sample_log_num = 0
+        metric.sample_log_dir = None
         return metric
 
     def test_genai_vision_detected_when_vision_field_present(self, tmp_path):
