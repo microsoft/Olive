@@ -259,9 +259,7 @@ class OliveEvaluator(ABC):
         return evaluate_backend_cls().measure(model_outputs, targets, metric)
 
     @staticmethod
-    def save_sample_log(
-        metric: Metric, inference_output: "OliveModelOutput", targets: Any, num_samples: int
-    ) -> None:
+    def save_sample_log(metric: Metric, inference_output: "OliveModelOutput", targets: Any, num_samples: int) -> None:
         """Save top N sample predictions and ground truth to a JSONL file.
 
         Each line in the output file is a JSON object with 'index', 'prediction', and 'target' fields.
@@ -308,7 +306,7 @@ class OliveEvaluator(ABC):
                     f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
             logger.info("Saved %d sample predictions to %s", n, log_path)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.warning("Failed to save sample log for metric '%s': %s", metric.name, e)
 
     @staticmethod
