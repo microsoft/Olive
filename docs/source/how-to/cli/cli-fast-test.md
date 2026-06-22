@@ -50,6 +50,23 @@ This is a quick way to confirm that:
 
 If you omit the folder and just pass `--test`, `olive run` will save the reduced model under `<output_path>/test_model`.
 
+### Optional: choose which `--test` metrics to run
+
+By default, `--test` evaluates both:
+
+- `mae`: maximum absolute error between the ONNX and reference model outputs
+- `speedup`: ONNX-vs-PyTorch latency measurement
+
+You can select a subset with `--test_metrics`. For example, to run only speedup checks:
+
+```bash
+olive run \
+    --config out/qwen/config.json \
+    --test out/qwen-test-model \
+    --test_metrics speedup \
+    --output_path out/qwen-test-run
+```
+
 ## Step 3: run the full conversion
 
 Once the smoke test succeeds, rerun the conversion on the full Qwen checkpoint by removing `--test`.
