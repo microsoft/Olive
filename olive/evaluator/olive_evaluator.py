@@ -737,7 +737,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         genai_config_path = _find_genai_config(model)
         if genai_config_path is None:
             return None
-        import json
 
         try:
             with genai_config_path.open(encoding="utf-8") as f:
@@ -988,7 +987,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                 "Install it with: pip install onnxruntime-genai"
             ) from e
 
-        import json
         import re
         import tempfile
 
@@ -1148,7 +1146,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             ) from None
 
         import io
-        import json
 
         import soundfile as sf
 
@@ -1277,8 +1274,6 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                 "onnxruntime-genai is required for genai-based speech evaluation. "
                 "Install it with: pip install onnxruntime-genai"
             ) from None
-
-        import json
 
         model_dir = _get_genai_model_dir(model)
 

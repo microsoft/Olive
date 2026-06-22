@@ -552,4 +552,6 @@ def vision_vqa_pre_process(
             answers = [item[1] for item in batch]
             return (inputs, answers)
 
-    return VisionVQADataset(dataset, image_col, question_col, answer_col, options_col, system_prompt, id_col, max_length)
+    return VisionVQADataset(
+        dataset, image_col, question_col, answer_col, options_col, system_prompt, id_col, max_length
+    )
