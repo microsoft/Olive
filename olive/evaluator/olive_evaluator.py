@@ -58,6 +58,7 @@ logger = logging.getLogger(__name__)
 class OliveModelOutput(NamedTuple):
     preds: Any
     logits: Any
+    extras: Any = None
 
 
 # Text-based accuracy sub-types that work with string predictions/targets
@@ -262,7 +263,9 @@ class OliveEvaluator(ABC):
     def save_sample_log(metric: Metric, inference_output: "OliveModelOutput", targets: Any, num_samples: int) -> None:
         """Save top N sample predictions and ground truth to a JSONL file.
 
-        Each line in the output file is a JSON object with 'index', 'prediction', and 'target' fields.
+        Each line in the output file is a JSON object with 'index', 'prediction', and 'target'
+        fields. When the inference output carries per-sample ``extras`` (e.g. the input prompt and
+        the vision/audio file name), those key/value pairs are merged into each record as well.
         For tensor data, values are converted to Python scalars or lists.
         This is best-effort: filesystem or serialization errors are logged as warnings.
         """
@@ -271,6 +274,7 @@ class OliveEvaluator(ABC):
 
         try:
             preds = inference_output.preds
+            extras = getattr(inference_output, "extras", None)
             output_dir = Path(metric.sample_log_dir) if metric.sample_log_dir else Path.cwd()
             # Sanitize metric name to prevent path traversal
             safe_name = Path(metric.name).name.replace("/", "_").replace("\\", "_") or "metric"
@@ -298,11 +302,15 @@ class OliveEvaluator(ABC):
                 for i in range(n):
                     pred_val = preds[i] if hasattr(preds, "__getitem__") else preds
                     target_val = targets[i] if hasattr(targets, "__getitem__") else targets
-                    record = {
-                        "index": i,
-                        "prediction": _to_serializable(pred_val),
-                        "target": _to_serializable(target_val),
-                    }
+                    record = {"index": i}
+                    # Merge per-sample metadata (e.g. prompt, image/audio file name) when available.
+                    if extras is not None and hasattr(extras, "__getitem__") and i < len(extras):
+                        extra = extras[i]
+                        if isinstance(extra, dict):
+                            for key, value in extra.items():
+                                record[key] = _to_serializable(value)
+                    record["prediction"] = _to_serializable(pred_val)
+                    record["target"] = _to_serializable(target_val)
                     f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
             logger.info("Saved %d sample predictions to %s", n, log_path)
@@ -563,6 +571,61 @@ def _get_genai_model_dir(model: ONNXModelHandler) -> str:
     return str(Path(model.model_path).parent)
 
 
+def _normalize_audio_batch(input_data) -> tuple[list, list]:
+    """Return (audio_arrays, file_names) from the various speech input shapes.
+
+    Supports the ``{"audio": array, "file_name": name}`` dict produced by
+    ``speech_transcription_pre_process`` (single or batched), as well as legacy raw
+    arrays / lists of arrays (in which case file names are ``None``).
+    """
+    arrays: list = []
+    names: list = []
+
+    def _add_array(arr, name):
+        arr = np.array(arr) if not isinstance(arr, np.ndarray) else arr
+        if arr.ndim <= 1:
+            arrays.append(arr)
+            names.append(name)
+        else:
+            for i in range(arr.shape[0]):
+                arrays.append(arr[i])
+                names.append(name)
+
+    dict_items = None
+    if isinstance(input_data, dict):
+        dict_items = [input_data]
+    elif isinstance(input_data, list) and input_data and all(isinstance(d, dict) for d in input_data):
+        dict_items = input_data
+
+    if dict_items is not None:
+        for item in dict_items:
+            _add_array(item.get("audio"), item.get("file_name"))
+        return arrays, names
+
+    # Legacy shapes: raw array/tensor or list of arrays.
+    if isinstance(input_data, (np.ndarray, torch.Tensor)):
+        arr = np.array(input_data) if isinstance(input_data, torch.Tensor) else input_data
+        _add_array(arr, None)
+    elif isinstance(input_data, list):
+        for a in input_data:
+            _add_array(a, None)
+    return arrays, names
+
+
+def _unwrap_audio_input(input_data):
+    """Strip the speech metadata dict down to the raw audio array(s).
+
+    Keeps the non-genai inference/latency paths (which feed ``format_data``) working with the
+    ``{"audio": array, "file_name": name}`` shape produced by ``speech_transcription_pre_process``.
+    Other input shapes are returned unchanged.
+    """
+    if isinstance(input_data, dict) and "audio" in input_data:
+        return input_data["audio"]
+    if isinstance(input_data, list) and input_data and all(isinstance(d, dict) and "audio" in d for d in input_data):
+        return [d["audio"] for d in input_data]
+    return input_data
+
+
 @Registry.register(str(Framework.ONNX))
 @Registry.register("OnnxEvaluator")
 class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
@@ -769,6 +832,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         for batch in dataloader:
             input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+            # Drop any speech metadata (e.g. file_name) so format_data receives raw audio arrays.
+            input_data = _unwrap_audio_input(input_data)
             # Track audio duration from input data
             if isinstance(input_data, (np.ndarray, torch.Tensor)):
                 audio_samples = input_data.shape[-1] if len(input_data.shape) > 1 else input_data.shape[0]
@@ -951,6 +1016,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         all_preds = []
         all_targets = []
+        all_extras = []
 
         # Use a temporary directory for image files to avoid per-file create/delete overhead
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -970,10 +1036,12 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                     sys_prompt = item.get("system_prompt", "")
                     num_choices = item.get("num_choices", 0)
                     max_length = item.get("max_length", default_max_length)
+                    file_name = item.get("file_name", str(sample_idx))
 
                     if pil_image is None:
                         # Append empty pred to maintain alignment with targets
                         all_preds.append("")
+                        all_extras.append({"prompt": question, "image": file_name})
                         sample_idx += 1
                         continue
 
@@ -1045,6 +1113,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
                                     pred = ch
                                     break
                     all_preds.append(pred)
+                    all_extras.append({"prompt": question, "image": file_name})
 
                 # Collect reference texts (aligned with preds including empty ones for None images)
                 if isinstance(labels, (list, tuple)):
@@ -1054,7 +1123,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         del og_model
 
-        return OliveModelOutput(preds=all_preds, logits=None), all_targets
+        return OliveModelOutput(preds=all_preds, logits=None, extras=all_extras), all_targets
 
     def _inference_text_genai(
         self,
@@ -1152,31 +1221,25 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         all_preds = []
         all_targets = []
+        all_extras = []
         total_audio_duration = 0.0
         total_inference_time = 0.0
 
         for batch in dataloader:
             input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
 
-            # Convert input to list of audio arrays
-            audio_arrays = []
-            if isinstance(input_data, (np.ndarray, torch.Tensor)):
-                arr = np.array(input_data) if isinstance(input_data, torch.Tensor) else input_data
-                if arr.ndim == 1:
-                    audio_arrays = [arr]
-                else:
-                    audio_arrays = [arr[i] for i in range(arr.shape[0])]
-            elif isinstance(input_data, list):
-                audio_arrays = [np.array(a) if not isinstance(a, np.ndarray) else a for a in input_data]
+            # Convert input to list of audio arrays (with optional file names)
+            audio_arrays, audio_names = _normalize_audio_batch(input_data)
 
             if not audio_arrays:
                 continue
 
             start_time = time.perf_counter()
-            for arr in audio_arrays:
+            for arr, name in zip(audio_arrays, audio_names):
                 total_audio_duration += len(arr) / sample_rate
                 transcription = _transcribe_chunks(arr, og_model)
                 all_preds.append(transcription)
+                all_extras.append({"audio": name if name is not None else str(len(all_extras))})
             total_inference_time += time.perf_counter() - start_time
 
             # Collect reference texts
@@ -1191,7 +1254,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             "total_audio_duration": total_audio_duration,
             "total_inference_time": total_inference_time,
         }
-        return OliveModelOutput(preds=all_preds, logits=timing_metadata), all_targets
+        return OliveModelOutput(preds=all_preds, logits=timing_metadata, extras=all_extras), all_targets
 
     def _inference_text_genai_streaming(
         self,
@@ -1282,31 +1345,25 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         all_preds = []
         all_targets = []
+        all_extras = []
         total_audio_duration = 0.0
         total_inference_time = 0.0
 
         for batch in dataloader:
             input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
 
-            # Convert input to list of audio arrays
-            audio_arrays = []
-            if isinstance(input_data, (np.ndarray, torch.Tensor)):
-                arr = np.array(input_data) if isinstance(input_data, torch.Tensor) else input_data
-                if arr.ndim == 1:
-                    audio_arrays = [arr]
-                else:
-                    audio_arrays = [arr[i] for i in range(arr.shape[0])]
-            elif isinstance(input_data, list):
-                audio_arrays = [np.array(a) if not isinstance(a, np.ndarray) else a for a in input_data]
+            # Convert input to list of audio arrays (with optional file names)
+            audio_arrays, audio_names = _normalize_audio_batch(input_data)
 
             if not audio_arrays:
                 continue
 
             start_time = time.perf_counter()
-            for arr in audio_arrays:
+            for arr, name in zip(audio_arrays, audio_names):
                 total_audio_duration += len(arr) / sample_rate
                 transcription = _transcribe_streaming(arr, og_model)
                 all_preds.append(transcription)
+                all_extras.append({"audio": name if name is not None else str(len(all_extras))})
             total_inference_time += time.perf_counter() - start_time
 
             # Collect reference texts
@@ -1321,7 +1378,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             "total_audio_duration": total_audio_duration,
             "total_inference_time": total_inference_time,
         }
-        return OliveModelOutput(preds=all_preds, logits=timing_metadata), all_targets
+        return OliveModelOutput(preds=all_preds, logits=timing_metadata, extras=all_extras), all_targets
 
     def _evaluate_onnx_latency(
         self,
@@ -1340,6 +1397,8 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         batch = next(iter(dataloader))
         input_data = OliveEvaluator.extract_input_data(batch)
+        # Strip speech metadata (e.g. file_name) so format_data receives raw audio arrays.
+        input_data = _unwrap_audio_input(input_data)
         input_feed = format_data(input_data, io_config)
 
         latencies = session.time_run(
