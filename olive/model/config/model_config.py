@@ -60,6 +60,8 @@ class ModelConfig(NestedConfig):
             return [name for name, _ in self._discover_composite_components()]
         if self.type == "hfmodel":
             return self._get_hf_components() or None
+        if self.type == "diffusersmodel":
+            return self._get_diffusers_components() or None
         return None
 
     def _discover_composite_components(self) -> list[tuple[str, str]]:
@@ -86,6 +88,19 @@ class ModelConfig(NestedConfig):
         )
         return [c.name for c in components]
 
+    def _get_diffusers_components(self) -> list[str]:
+        """Return the exportable component names for a DiffusersModel, or empty list.
+
+        Reads the variant's component layout from the handler (which only inspects config files,
+        not weights). When the config is already scoped to a subset via ``components``, returns that
+        subset; the top-level input model carries no such scope, so ``builds`` sees the full set.
+        """
+        model_path = self.config.get("model_path")
+        if not model_path:
+            return []
+        handler = self.create_model()
+        return [str(c) for c in handler.get_exportable_components()]
+
     def select_components(self, names: list[str]) -> "ModelConfig":
         """Return a new ModelConfig holding only the named components.
 
@@ -100,6 +115,8 @@ class ModelConfig(NestedConfig):
         """
         if self.type == "hfmodel":
             return self._select_hf_component(names)
+        if self.type == "diffusersmodel":
+            return self._select_diffusers_components(names)
         if self.type != "compositemodel":
             raise ValueError(
                 f"select_components is only supported on CompositeModel or HfModel input configs "
@@ -182,6 +199,23 @@ class ModelConfig(NestedConfig):
         if component.source_path is not None:
             attributes["component_source_path"] = component.source_path
         new_config["model_attributes"] = attributes
+        return ModelConfig(type=self.type, config=new_config)
+
+    def _select_diffusers_components(self, names: list[str]) -> "ModelConfig":
+        """Scope a DiffusersModel to the named exportable components.
+
+        Returns a copy of the config with ``components`` set to the requested subset (in the
+        variant's canonical order). The scoped handler exports only those components, so a build's
+        conversion pass produces just that component's ONNX while subsequent passes map over it.
+        """
+        if not names:
+            raise ValueError("select_components requires a non-empty list of names.")
+        available = self._get_diffusers_components()
+        missing = [n for n in names if n not in available]
+        if missing:
+            raise ValueError(f"Unknown component name(s) {missing}. Available components: {available}.")
+        new_config = deepcopy(self.config)
+        new_config["components"] = [name for name in available if name in set(names)]
         return ModelConfig(type=self.type, config=new_config)
 
     def get_model_id(self):

@@ -220,3 +220,42 @@ class TestRunBuilds:
             result = olive_run(config)
         assert set(result) == {"decoder"}
         assert run_mock.call_count == 1
+
+    def test_builds_diffusersmodel_per_component(self, tmp_path):
+        # §3.1: DiffusersModel input; each build scopes the pipeline to one exportable component.
+        model_dir = tmp_path / "sdxl"
+        model_dir.mkdir(parents=True)
+        (model_dir / "model_index.json").write_text("{}")
+
+        run_mock, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
+        config = deepcopy(self.template)
+        config["input_model"] = {
+            "type": "DiffusersModel",
+            "config": {"model_path": str(model_dir), "model_variant": "sdxl"},
+        }
+        config["builds"] = {
+            "text_encoder": {"components": ["text_encoder"], "pipeline": ["convert"], "output_dir": "out/te"},
+            "unet": {"components": ["unet"], "pipeline": ["convert"], "output_dir": "out/unet"},
+        }
+        with engine_run_patch, acc_patch:
+            result = olive_run(config)
+        assert set(result) == {"text_encoder", "unet"}
+        assert run_mock.call_count == 2
+
+    def test_builds_diffusersmodel_unknown_component_raises(self, tmp_path):
+        model_dir = tmp_path / "sd"
+        model_dir.mkdir(parents=True)
+        (model_dir / "model_index.json").write_text("{}")
+
+        _, _, engine_run_patch, acc_patch = self._patch_engine_and_acc()
+        config = deepcopy(self.template)
+        config["input_model"] = {
+            "type": "DiffusersModel",
+            "config": {"model_path": str(model_dir), "model_variant": "sd"},
+        }
+        config["builds"] = {
+            # text_encoder_2 is SDXL-only; not a component of the SD variant
+            "te2": {"components": ["text_encoder_2"], "pipeline": ["convert"], "output_dir": "out/te2"},
+        }
+        with engine_run_patch, acc_patch, pytest.raises(ValueError, match="unknown component"):
+            olive_run(config)
