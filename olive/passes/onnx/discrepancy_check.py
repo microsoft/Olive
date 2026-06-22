@@ -448,7 +448,7 @@ class OnnxDiscrepancyCheck(Pass):
             import onnxruntime_genai as og
         except ImportError as exc:
             raise ImportError("Please install `onnxruntime-genai` to enable generation comparison.") from exc
-        from transformers import AutoTokenizer
+        from transformers import AutoTokenizer, StoppingCriteria, StoppingCriteriaList
 
         tokenizer = AutoTokenizer.from_pretrained(config.reference_model_path)
 
@@ -462,29 +462,38 @@ class OnnxDiscrepancyCheck(Pass):
         input_ids = input_ids.to(ref_model.device)
         use_cuda_sync = ref_model.device.type == "cuda"
 
-        def _time_transformers_generate(num_new_tokens):
-            with torch.no_grad():
-                if use_cuda_sync:
-                    torch.cuda.synchronize()
-                start = time.perf_counter()
-                output = ref_model.generate(
-                    input_ids,
-                    max_new_tokens=num_new_tokens,
-                    do_sample=False,
-                )
-                if use_cuda_sync:
-                    torch.cuda.synchronize()
-                elapsed = time.perf_counter() - start
-            return output, elapsed
+        prompt_token_count = input_ids.shape[-1]
+        transformers_latency = {"start": None, "ttft": None, "ttfn": None}
 
-        # Time to first token and time to first N tokens (separate timed runs).
+        class _TransformersLatencyStopCriteria(StoppingCriteria):
+            def __call__(self, generated_ids, scores, **kwargs) -> bool:
+                generated_token_count = generated_ids.shape[-1] - prompt_token_count
+                if generated_token_count >= 1 and transformers_latency["ttft"] is None:
+                    transformers_latency["ttft"] = time.perf_counter() - transformers_latency["start"]
+                if generated_token_count >= first_n and transformers_latency["ttfn"] is None:
+                    transformers_latency["ttfn"] = time.perf_counter() - transformers_latency["start"]
+                return False
+
+        with torch.no_grad():
+            if use_cuda_sync:
+                torch.cuda.synchronize()
+            start = time.perf_counter()
+            transformers_latency["start"] = start
+            transformers_output = ref_model.generate(
+                input_ids,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                stopping_criteria=StoppingCriteriaList([_TransformersLatencyStopCriteria()]),
+            )
+            if use_cuda_sync:
+                torch.cuda.synchronize()
+            transformers_elapsed = time.perf_counter() - start
         if max_new_tokens > 0:
-            _, transformers_ttft = _time_transformers_generate(1)
-            _, transformers_ttfn = _time_transformers_generate(first_n)
+            transformers_ttft = transformers_latency["ttft"] or transformers_elapsed
+            transformers_ttfn = transformers_latency["ttfn"] or transformers_elapsed
         else:
             transformers_ttft = None
             transformers_ttfn = None
-        transformers_output, _ = _time_transformers_generate(max_new_tokens)
         transformers_tokens = transformers_output[0].cpu().tolist()
 
         # ONNX Runtime GenAI generation
