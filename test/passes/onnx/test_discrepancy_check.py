@@ -175,6 +175,19 @@ class TestCompareGeneration:
         mock_generator.append_tokens.assert_called_once_with([[10, 20]])
         # All 5 tokens match
         assert result["longest_common_token_sequence"] == 5
+        assert result["time_to_first_n_tokens"] == 5
+        for key in (
+            "transformers_time_to_first_token_s",
+            "transformers_time_to_first_n_tokens_s",
+        ):
+            assert key in result
+            assert isinstance(result[key], float)
+        assert "genai_time_to_first_token_s" in result
+        assert isinstance(result["genai_time_to_first_token_s"], float)
+        assert "genai_time_to_first_n_tokens_s" in result
+        assert result["genai_time_to_first_n_tokens_s"] is None or isinstance(
+            result["genai_time_to_first_n_tokens_s"], float
+        )
 
 
 class TestSpeedupSettings:
