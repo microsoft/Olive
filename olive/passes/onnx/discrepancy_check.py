@@ -361,7 +361,7 @@ class OnnxDiscrepancyCheck(Pass):
 
     def _measure_speedup(
         self, ref_model, session, dataloader, io_config, torch_device, warmup_iterations, timing_iterations
-    ):
+    ) -> tuple[float, float, float] | None:
         """Measure inference latencies and speedup of ONNX over PyTorch on the target device.
 
         Returns a tuple ``(pytorch_time, onnx_time, speedup)`` of the average PyTorch and ONNX
