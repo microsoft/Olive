@@ -7,12 +7,17 @@ import os
 import numpy as np
 import onnx
 import pytest
+from onnxruntime import __version__ as ort_version
+from packaging import version
 
 from olive.constants import OpType
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.kquant_quantization import OnnxKQuantQuantization
+
+# 8-bit MatMul quantization requires onnxruntime>=1.22.0.
+SKIP_8BIT_MATMUL = version.parse(ort_version) < version.parse("1.22.0")
 
 
 class TestKQuantQuantization:
@@ -195,6 +200,7 @@ class TestKQuantQuantization:
 
         assert len(matmul_nbits_nodes) == 2, "Expected both MatMuls quantized (bracket entry not glob-matched)"
 
+    @pytest.mark.skipif(SKIP_8BIT_MATMUL, reason="8-bit MatMul quantization requires onnxruntime>=1.22.0")
     def test_kquant_preserves_graph_output_names(self, tmp_path):
         """Quantizing a MatMul that produces a graph output must not rename that output.
 
@@ -241,8 +247,6 @@ class TestKQuantQuantization:
         assert output_names == ["audio_features"], f"Graph output was renamed: {output_names}"
 
         # Both MatMuls should be quantized, and the internal tensor should still be renamed.
-        nbits_outputs = [
-            o for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits) for o in n.output
-        ]
+        nbits_outputs = [o for n in quantized_onnx.graph.node if n.op_type == str(OpType.MatMulNBits) for o in n.output]
         assert "audio_features" in nbits_outputs, "Terminal MatMul should keep the graph output name"
         assert "hidden_Q8" in nbits_outputs, "Internal MatMul output should be renamed with the quant suffix"

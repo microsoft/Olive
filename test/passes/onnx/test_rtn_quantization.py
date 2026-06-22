@@ -8,12 +8,17 @@ import numpy as np
 import onnx
 import onnx_ir as ir
 import pytest
+from onnxruntime import __version__ as ort_version
+from packaging import version
 
 from olive.constants import MSFT_DOMAIN, OpType
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.rtn_quantization import OnnxBlockWiseRtnQuantization
+
+# RTN MatMul 8-bit quantization requires onnxruntime>=1.22.0.
+SKIP_8BIT_MATMUL = version.parse(ort_version) < version.parse("1.22.0")
 
 
 class TestRTNQuantization:
@@ -171,6 +176,7 @@ class TestRTNQuantization:
 
         assert found_matmul_nbits, "No MatMulNBits node found in quantized model"
 
+    @pytest.mark.skipif(SKIP_8BIT_MATMUL, reason="RTN MatMul 8-bit quantization requires onnxruntime>=1.22.0")
     def test_rtn_quantization_preserves_graph_output_names(self, tmp_path):
         """Quantizing a MatMul that produces a graph output must not rename that output.
 
