@@ -347,7 +347,7 @@ def _discrepancy_run_config():
     }
 
 
-def test_add_discrepancy_check_pass_default_enables_all_metrics():
+def test_add_discrepancy_check_pass_default_enables_mae_only():
     from olive.cli.base import add_discrepancy_check_pass
 
     run_config = add_discrepancy_check_pass(_discrepancy_run_config())
@@ -355,9 +355,9 @@ def test_add_discrepancy_check_pass_default_enables_all_metrics():
     pass_config = run_config["passes"]["discrepancy_check"]
     assert pass_config["type"] == "OnnxDiscrepancyCheck"
     assert pass_config["reference_model_path"] == "ref_model"
-    # mae metric -> threshold enforced; speedup metric -> timing not disabled
+    # default: mae only -> threshold enforced, timing disabled
     assert pass_config["max_mae"] == 0.1
-    assert "timing_iterations" not in pass_config
+    assert pass_config["timing_iterations"] == 0
 
 
 def test_add_discrepancy_check_pass_speedup_only_disables_mae():
