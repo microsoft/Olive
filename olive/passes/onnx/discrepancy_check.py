@@ -56,6 +56,11 @@ def _longest_common_token_sequence(seq_a: list[int], seq_b: list[int]) -> int:
     return length
 
 
+def _format_seconds(value: Optional[float]) -> str:
+    """Format an optional latency value (in seconds) for logging."""
+    return "n/a" if value is None else f"{value:.4f}s"
+
+
 class OnnxDiscrepancyCheck(Pass):
     """Validates ONNX model outputs against a reference PyTorch model.
 
@@ -68,6 +73,8 @@ class OnnxDiscrepancyCheck(Pass):
     - Inference speedup of ONNX over PyTorch on the target device (or CPU fallback)
     - Longest common token sequence from the beginning between transformers
       generate and ONNX Runtime GenAI generate (when enabled)
+    - Time-to-first-token and time-to-first-N-tokens latencies for both transformers
+      and ONNX Runtime GenAI generation (when enabled)
 
     The pass status is marked as failed if any configured threshold is exceeded.
     """
@@ -150,6 +157,14 @@ class OnnxDiscrepancyCheck(Pass):
                 type_=int,
                 default_value=32,
                 description="Maximum number of new tokens to generate for the token sequence comparison.",
+            ),
+            "time_to_first_n_tokens": PassConfigParam(
+                type_=int,
+                default_value=5,
+                description=(
+                    "Number of leading generated tokens used for the time-to-first-N-tokens latency "
+                    "measurement reported for both transformers and ONNX Runtime GenAI."
+                ),
             ),
             "min_longest_common_tokens": PassConfigParam(
                 type_=Optional[int],
@@ -331,8 +346,9 @@ class OnnxDiscrepancyCheck(Pass):
 
         # Generation token sequence comparison (transformers vs ONNX Runtime GenAI)
         if config.genai_model_path:
-            longest_common = self.compare_generation(config, ref_model)
-            results["longest_common_token_sequence"] = longest_common
+            gen_results = self.compare_generation(config, ref_model)
+            longest_common = gen_results["longest_common_token_sequence"]
+            results.update(gen_results)
             results["genai_model_path"] = config.genai_model_path
             if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
                 results["status"] = "failed"
@@ -421,8 +437,13 @@ class OnnxDiscrepancyCheck(Pass):
 
         return speedup
 
-    def compare_generation(self, config: type[BasePassConfig], ref_model) -> int:
-        """Run generation on both transformers and GenAI, return longest common token sequence length."""
+    def compare_generation(self, config: type[BasePassConfig], ref_model) -> dict:
+        """Run generation on both transformers and GenAI and compare them.
+
+        Returns a dict with the longest common token sequence length and the time-to-first-token
+        and time-to-first-N-tokens latencies (in seconds) for both transformers and ONNX Runtime
+        GenAI, where N is ``config.time_to_first_n_tokens``.
+        """
         try:
             import onnxruntime_genai as og
         except ImportError as exc:
@@ -431,17 +452,35 @@ class OnnxDiscrepancyCheck(Pass):
 
         tokenizer = AutoTokenizer.from_pretrained(config.reference_model_path)
 
+        max_new_tokens = config.generate_max_new_tokens
+        first_n = max(1, min(config.time_to_first_n_tokens, max_new_tokens))
+
         # Transformers generation
         input_ids = tokenizer(config.generate_prompt, return_tensors="pt").input_ids
-        input_ids = input_ids.to(ref_model.device)
         import torch
 
-        with torch.no_grad():
-            transformers_output = ref_model.generate(
-                input_ids,
-                max_new_tokens=config.generate_max_new_tokens,
-                do_sample=False,
-            )
+        input_ids = input_ids.to(ref_model.device)
+        use_cuda_sync = ref_model.device.type == "cuda"
+
+        def _time_transformers_generate(num_new_tokens):
+            with torch.no_grad():
+                if use_cuda_sync:
+                    torch.cuda.synchronize()
+                start = time.perf_counter()
+                output = ref_model.generate(
+                    input_ids,
+                    max_new_tokens=num_new_tokens,
+                    do_sample=False,
+                )
+                if use_cuda_sync:
+                    torch.cuda.synchronize()
+                elapsed = time.perf_counter() - start
+            return output, elapsed
+
+        # Time to first token and time to first N tokens (separate timed runs).
+        _, transformers_ttft = _time_transformers_generate(1)
+        _, transformers_ttfn = _time_transformers_generate(first_n)
+        transformers_output, _ = _time_transformers_generate(max_new_tokens)
         transformers_tokens = transformers_output[0].cpu().tolist()
 
         # ONNX Runtime GenAI generation
@@ -450,26 +489,48 @@ class OnnxDiscrepancyCheck(Pass):
         genai_input_ids = genai_tokenizer.encode(config.generate_prompt)
 
         params = og.GeneratorParams(genai_model)
-        params.set_search_options(max_length=len(genai_input_ids) + config.generate_max_new_tokens, do_sample=False)
+        params.set_search_options(max_length=len(genai_input_ids) + max_new_tokens, do_sample=False)
 
         generator = og.Generator(genai_model, params)
         generator.append_tokens([genai_input_ids])
         genai_tokens = list(genai_input_ids)
+        genai_ttft = None
+        genai_ttfn = None
+        num_generated = 0
+        start = time.perf_counter()
         while not generator.is_done():
             generator.generate_next_token()
             genai_tokens.append(generator.get_next_tokens()[0])
+            num_generated += 1
+            if num_generated == 1:
+                genai_ttft = time.perf_counter() - start
+            if num_generated == first_n:
+                genai_ttfn = time.perf_counter() - start
         del generator
 
         longest_common = _longest_common_token_sequence(transformers_tokens, genai_tokens)
 
+        gen_results = {
+            "longest_common_token_sequence": longest_common,
+            "time_to_first_n_tokens": first_n,
+            "transformers_time_to_first_token_s": transformers_ttft,
+            "transformers_time_to_first_n_tokens_s": transformers_ttfn,
+            "genai_time_to_first_token_s": genai_ttft,
+            "genai_time_to_first_n_tokens_s": genai_ttfn,
+        }
+
         gen_summary = (
             f"OnnxDiscrepancyCheck generation comparison: "
             f"transformers_len={len(transformers_tokens)}, genai_len={len(genai_tokens)}, "
-            f"longest_common_token_sequence={longest_common}"
+            f"longest_common_token_sequence={longest_common}, "
+            f"transformers_ttft={transformers_ttft:.4f}s, "
+            f"transformers_time_to_first_{first_n}_tokens={transformers_ttfn:.4f}s, "
+            f"genai_ttft={_format_seconds(genai_ttft)}, "
+            f"genai_time_to_first_{first_n}_tokens={_format_seconds(genai_ttfn)}"
         )
         logger.info(gen_summary)
 
-        return longest_common
+        return gen_results
 
     def _export_reference_model(self, ref_model, output_model_path: str):
         """Save the reference PyTorch model weights for direct comparison."""

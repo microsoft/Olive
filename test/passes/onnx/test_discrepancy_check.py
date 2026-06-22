@@ -60,6 +60,7 @@ class TestCompareGeneration:
         config.genai_model_path = "mock_genai_model"
         config.generate_prompt = "Hello world"
         config.generate_max_new_tokens = 10
+        config.time_to_first_n_tokens = 5
 
         # Mock transformers tokenizer and model
         mock_tokenizer = MagicMock()
@@ -107,7 +108,17 @@ class TestCompareGeneration:
 
         mock_generator.append_tokens.assert_called_once_with([[1, 2, 3]])
         # Common prefix: [1, 2, 3, 10, 11] = 5 tokens before divergence
-        assert result == 5
+        assert result["longest_common_token_sequence"] == 5
+        # Latency metrics are exposed for both transformers and ONNX Runtime GenAI.
+        assert result["time_to_first_n_tokens"] == 5
+        for key in (
+            "transformers_time_to_first_token_s",
+            "transformers_time_to_first_n_tokens_s",
+        ):
+            assert key in result
+            assert isinstance(result[key], float)
+        for key in ("genai_time_to_first_token_s", "genai_time_to_first_n_tokens_s"):
+            assert key in result
 
     def test_compare_generation_fully_matching(self):
         """Test when both outputs are identical."""
@@ -120,6 +131,7 @@ class TestCompareGeneration:
         config.genai_model_path = "mock_genai_model"
         config.generate_prompt = "Test"
         config.generate_max_new_tokens = 5
+        config.time_to_first_n_tokens = 5
 
         mock_tokenizer = MagicMock()
         mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[10, 20]]))
@@ -162,7 +174,7 @@ class TestCompareGeneration:
 
         mock_generator.append_tokens.assert_called_once_with([[10, 20]])
         # All 5 tokens match
-        assert result == 5
+        assert result["longest_common_token_sequence"] == 5
 
 
 class TestSpeedupSettings:
