@@ -81,7 +81,8 @@ def add_discrepancy_check_pass(run_config: dict, metrics: Optional[list] = None)
 
     ``metrics`` selects which test metrics to evaluate. Supported values are defined in
     ``TEST_METRICS`` (``"mae"`` for the max-absolute-error accuracy check and ``"speedup"`` for the
-    ONNX-vs-PyTorch latency measurement). When ``None``, all metrics are evaluated.
+    ONNX-vs-PyTorch latency measurement). When ``None``, only ``"mae"`` is evaluated; pass
+    ``["speedup"]`` or ``["mae", "speedup"]`` explicitly to enable timing.
     """
     passes = run_config.get("passes", {})
     # Skip if already configured
@@ -101,7 +102,7 @@ def add_discrepancy_check_pass(run_config: dict, metrics: Optional[list] = None)
         report_dir = str(Path(report_dir).parent)
     logger.debug("Adding OnnxDiscrepancyCheck pass with reference_model_path=%s", reference_model_path)
 
-    selected_metrics = set(metrics) if metrics else set(TEST_METRICS)
+    selected_metrics = set(metrics) if metrics else {"mae"}
     pass_config = {
         "type": "OnnxDiscrepancyCheck",
         "reference_model_path": reference_model_path,
