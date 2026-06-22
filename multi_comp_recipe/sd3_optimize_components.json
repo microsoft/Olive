@@ -1,0 +1,43 @@
+{
+  "input_model": {
+    "type": "CompositeModel",
+    "config": {
+      "model_path": "exported_pkg"
+    }
+  },
+  "systems": {
+    "local_system": {
+      "type": "LocalSystem",
+      "accelerators": [
+        { "device": "cpu", "execution_providers": ["CPUExecutionProvider"] }
+      ]
+    }
+  },
+  "passes": {
+    "to_fp16": { "type": "OnnxFloatToFloat16" },
+    "dynamic_quant": { "type": "OnnxDynamicQuantization" }
+  },
+  "engine": {
+    "host": "local_system",
+    "target": "local_system",
+    "evaluate_input_model": false,
+    "cache_dir": "cache"
+  },
+  "builds": {
+    "transformer": {
+      "components": ["transformer"],
+      "pipeline": ["dynamic_quant"],
+      "output_dir": "out/transformer"
+    },
+    "vae_encoder": {
+      "components": ["vae_encoder"],
+      "pipeline": ["to_fp16"],
+      "output_dir": "out/vae_encoder"
+    },
+    "vae_decoder": {
+      "components": ["vae_decoder"],
+      "pipeline": ["to_fp16"],
+      "output_dir": "out/vae_decoder"
+    }
+  }
+}
