@@ -453,7 +453,7 @@ class OnnxDiscrepancyCheck(Pass):
         tokenizer = AutoTokenizer.from_pretrained(config.reference_model_path)
 
         max_new_tokens = config.generate_max_new_tokens
-        first_n = max(1, min(config.time_to_first_n_tokens, max_new_tokens))
+        first_n = max(1, min(config.time_to_first_n_tokens, max_new_tokens)) if max_new_tokens > 0 else 0
 
         # Transformers generation
         input_ids = tokenizer(config.generate_prompt, return_tensors="pt").input_ids
@@ -478,8 +478,12 @@ class OnnxDiscrepancyCheck(Pass):
             return output, elapsed
 
         # Time to first token and time to first N tokens (separate timed runs).
-        _, transformers_ttft = _time_transformers_generate(1)
-        _, transformers_ttfn = _time_transformers_generate(first_n)
+        if max_new_tokens > 0:
+            _, transformers_ttft = _time_transformers_generate(1)
+            _, transformers_ttfn = _time_transformers_generate(first_n)
+        else:
+            transformers_ttft = None
+            transformers_ttfn = None
         transformers_output, _ = _time_transformers_generate(max_new_tokens)
         transformers_tokens = transformers_output[0].cpu().tolist()
 
@@ -523,8 +527,8 @@ class OnnxDiscrepancyCheck(Pass):
             f"OnnxDiscrepancyCheck generation comparison: "
             f"transformers_len={len(transformers_tokens)}, genai_len={len(genai_tokens)}, "
             f"longest_common_token_sequence={longest_common}, "
-            f"transformers_ttft={transformers_ttft:.4f}s, "
-            f"transformers_time_to_first_{first_n}_tokens={transformers_ttfn:.4f}s, "
+            f"transformers_ttft={_format_seconds(transformers_ttft)}, "
+            f"transformers_time_to_first_{first_n}_tokens={_format_seconds(transformers_ttfn)}, "
             f"genai_ttft={_format_seconds(genai_ttft)}, "
             f"genai_time_to_first_{first_n}_tokens={_format_seconds(genai_ttfn)}"
         )
