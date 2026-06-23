@@ -228,6 +228,52 @@ def test_pipeline_pass_missing_recipe_file(tmp_path, mock_hf_model, mock_pipelin
         pipeline_pass.run(mock_hf_model, str(output_path))
 
 
+def test_pipeline_pass_forwards_arn_as_sequence_lengths(tmp_path, mock_hf_model, recipe_file, mock_pipeline_modules):
+    """ARN from genai_builder.transform_options is forwarded as sequence_lengths in model_attributes."""
+    output_path = tmp_path / "output"
+
+    mock_pipeline_modules["Recipe"].from_file.return_value = {
+        "stages": {
+            "genai_builder": {
+                "transform_options": {
+                    "arn": [128, 1024, 4096],
+                }
+            }
+        }
+    }
+
+    pipeline_pass = create_pass_from_dict(
+        QairtPipelinePass,
+        {"recipe": str(recipe_file)},
+        disable_search=True,
+    )
+
+    result = pipeline_pass.run(mock_hf_model, str(output_path))
+
+    assert isinstance(result, QairtModelHandler)
+    assert result.model_attributes == {"sequence_lengths": [128, 1024, 4096]}
+
+
+def test_pipeline_pass_no_arn_yields_empty_model_attributes(
+    tmp_path, mock_hf_model, recipe_file, mock_pipeline_modules
+):
+    """When genai_builder.transform_options has no arn, sequence_lengths is not set in model_attributes."""
+    output_path = tmp_path / "output"
+
+    mock_pipeline_modules["Recipe"].from_file.return_value = {"stages": {"genai_builder": {"transform_options": {}}}}
+
+    pipeline_pass = create_pass_from_dict(
+        QairtPipelinePass,
+        {"recipe": str(recipe_file)},
+        disable_search=True,
+    )
+
+    result = pipeline_pass.run(mock_hf_model, str(output_path))
+
+    assert isinstance(result, QairtModelHandler)
+    assert "sequence_lengths" not in (result.model_attributes or {})
+
+
 def test_pipeline_pass_import_error(tmp_path, mock_hf_model, recipe_file):
     """Test that ImportError is raised if qairt cannot be imported."""
 
