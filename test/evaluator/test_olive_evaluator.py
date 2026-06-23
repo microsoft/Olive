@@ -784,3 +784,88 @@ class TestOnnxEvaluatorGenaiVisionDetection:
 
             mock_vision.assert_called_once()
             mock_genai.assert_not_called()
+
+
+class TestFindGenaiConfig:
+    """Tests for _find_genai_config upward search behavior."""
+
+    def test_find_genai_config_same_directory(self, tmp_path):
+        """Find genai_config.json in the same directory as the ONNX file."""
+        import json
+
+        from olive.evaluator.olive_evaluator import _find_genai_config
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        model_dir = tmp_path / "models"
+        model_dir.mkdir()
+        onnx_file = model_dir / "model.onnx"
+        onnx_file.write_text("")
+        config_path = model_dir / "genai_config.json"
+        config_path.write_text(json.dumps({"model": {"type": "test"}}))
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = str(onnx_file)
+
+        result = _find_genai_config(model)
+        assert result == config_path
+
+    def test_find_genai_config_parent_directory(self, tmp_path):
+        """Find genai_config.json one level up (nested model layout)."""
+        import json
+
+        from olive.evaluator.olive_evaluator import _find_genai_config
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        model_dir = tmp_path / "models"
+        model_dir.mkdir()
+        decoder_dir = model_dir / "decoder"
+        decoder_dir.mkdir()
+        onnx_file = decoder_dir / "model.onnx"
+        onnx_file.write_text("")
+        config_path = model_dir / "genai_config.json"
+        config_path.write_text(json.dumps({"model": {"type": "gemma4"}}))
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = str(onnx_file)
+
+        result = _find_genai_config(model)
+        assert result == config_path
+
+    def test_find_genai_config_not_found(self, tmp_path):
+        """Return None when genai_config.json does not exist."""
+        from olive.evaluator.olive_evaluator import _find_genai_config
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        decoder_dir = tmp_path / "models" / "decoder"
+        decoder_dir.mkdir(parents=True)
+        onnx_file = decoder_dir / "model.onnx"
+        onnx_file.write_text("")
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = str(onnx_file)
+
+        result = _find_genai_config(model)
+        assert result is None
+
+    def test_find_genai_config_ignores_directory(self, tmp_path):
+        """Ignore a directory named genai_config.json."""
+        from olive.evaluator.olive_evaluator import _find_genai_config
+        from olive.model.handler.onnx import ONNXModelHandler
+
+        model_dir = tmp_path / "models"
+        model_dir.mkdir()
+        # Create a directory (not file) named genai_config.json
+        fake_dir = model_dir / "genai_config.json"
+        fake_dir.mkdir()
+
+        decoder_dir = model_dir / "decoder"
+        decoder_dir.mkdir()
+        onnx_file = decoder_dir / "model.onnx"
+        onnx_file.write_text("")
+
+        model = MagicMock(spec=ONNXModelHandler)
+        model.model_path = str(onnx_file)
+
+        # Should not find the directory, should return None
+        result = _find_genai_config(model)
+        assert result is None

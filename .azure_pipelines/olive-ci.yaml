@@ -4,23 +4,29 @@ trigger:
     - main
   paths:
     exclude:
-    - docs/*
+    - docs/**
     - README.md
     - CONTRIBUTING.md
     - LICENSE
-    - .github/*
+    - .github/**
+    - mcp/**
+    - notebooks/**
+    - scripts/**
 pr:
   branches:
     include:
     - main
   paths:
     exclude:
-    - docs/*
+    - docs/**
     - README.md
     - CONTRIBUTING.md
     - LICENSE
     # unrelated pipelines
-    - .github/*
+    - .github/**
+    - mcp/**
+    - notebooks/**
+    - scripts/**
 
 variables:
   runCodesignValidationInjection: false

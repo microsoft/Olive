@@ -227,11 +227,11 @@ async def cancel_job(job_id: str) -> dict:
             _sp.call(["taskkill", "/F", "/T", "/PID", str(proc.pid)], stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
         else:
             proc.terminate()
-        _job_log(job_id, "Job cancelled by user")
+        _job_log(job_id, "Job canceled by user")
 
-    job["status"] = "cancelled"
-    job["result"] = {"status": "cancelled", "message": "Job was cancelled by user."}
-    return {"status": "cancelled", "job_id": job_id, "message": "Job cancelled."}
+    job["status"] = "canceled"
+    job["result"] = {"status": "canceled", "message": "Job was canceled by user."}
+    return {"status": "canceled", "job_id": job_id, "message": "Job canceled."}
 
 
 @mcp.tool()

@@ -39,6 +39,18 @@ LogLikelihoodInputs = tuple[tuple[str, str], list[int], list[int]]
 class LMEvalOnnxBase(TemplateLM):
     """Base class for ONNX model evaluation."""
 
+    @property
+    def device(self):
+        # lm-eval's LM base class exposes ``device`` as a read-only property
+        # (backed by ``_device``). The ONNX evaluators assign ``self.device``
+        # in ``__init__`` (e.g. for IOBinding placement), so provide a setter
+        # to keep that assignment working across lm-eval versions.
+        return getattr(self, "_device", None)
+
+    @device.setter
+    def device(self, value):
+        self._device = value
+
     @abstractmethod
     def prepare(self, requests: list[LogLikelihoodInputs]):
         pass

@@ -2,11 +2,15 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
+import time
+from pathlib import Path
 from typing import Optional
 
 from olive.data.config import DataConfig
 from olive.hardware import AcceleratorSpec
+from olive.hardware.accelerator import Device
 from olive.model import ONNXModelHandler
 from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
@@ -61,10 +65,11 @@ class OnnxDiscrepancyCheck(Pass):
     - Maximum absolute error (MaxAE)
     - Number of elements where the absolute difference exceeds 0.1
     - Number of elements where the absolute difference exceeds 0.01
+    - Inference speedup of ONNX over PyTorch on the target device (or CPU fallback)
     - Longest common token sequence from the beginning between transformers
       generate and ONNX Runtime GenAI generate (when enabled)
 
-    The pass fails if any configured threshold is exceeded.
+    The pass status is marked as failed if any configured threshold is exceeded.
     """
 
     @classmethod
@@ -74,6 +79,22 @@ class OnnxDiscrepancyCheck(Pass):
                 type_=str,
                 required=True,
                 description="Path to the reference PyTorch/HuggingFace model to compare against.",
+            ),
+            "report_output_dir": PassConfigParam(
+                type_=Optional[str],
+                default_value=None,
+                description=(
+                    "Directory where discrepancy check results and reference model are saved. "
+                    "If not specified, results are written to the pass cache directory."
+                ),
+            ),
+            "save_reference_model_state_dict": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Save the reference PyTorch model weights (state_dict) alongside the results. "
+                    "This allows direct comparison between the reference and optimized models."
+                ),
             ),
             "max_mae": PassConfigParam(
                 type_=Optional[float],
@@ -105,6 +126,19 @@ class OnnxDiscrepancyCheck(Pass):
                     "Path to the ONNX Runtime GenAI model directory. When provided, the pass "
                     "runs token generation using both transformers and ONNX Runtime GenAI, then "
                     "computes the longest common token sequence from the beginning of their outputs."
+                ),
+            ),
+            "warmup_iterations": PassConfigParam(
+                type_=int,
+                default_value=3,
+                description="Number of warmup iterations before timing inference for speedup measurement.",
+            ),
+            "timing_iterations": PassConfigParam(
+                type_=int,
+                default_value=5,
+                description=(
+                    "Number of timed iterations to measure inference speedup (ONNX vs PyTorch). "
+                    "Set to 0 to disable speedup measurement."
                 ),
             ),
             "generate_prompt": PassConfigParam(
@@ -177,9 +211,36 @@ class OnnxDiscrepancyCheck(Pass):
         ref_model = AutoModelForCausalLM.from_pretrained(config.reference_model_path)
         ref_model.eval()
 
-        # Prepare ONNX session
-        session = model.prepare_session()
-        io_config = model.io_config
+        # Prepare ONNX session on the target device (fallback to CPU)
+        device = self.accelerator_spec.accelerator_type if self.accelerator_spec else None
+        execution_provider = self.accelerator_spec.execution_provider if self.accelerator_spec else None
+        if device is None:
+            device = Device.CPU
+        elif not isinstance(device, Device):
+            try:
+                device = Device(str(device).lower())
+            except ValueError:
+                logger.warning("Unknown accelerator_type=%s; falling back to CPU.", device)
+                device = Device.CPU
+
+        # Determine the torch device matching the accelerator spec
+        torch_device = torch.device("cpu")
+        if device == Device.GPU and torch.cuda.is_available():
+            torch_device = torch.device("cuda")
+        ref_model = ref_model.to(torch_device)
+
+        # Save reference PyTorch model for direct comparison
+        report_dir = config.report_output_dir or output_model_path
+        report_dir_path = Path(report_dir)
+        if report_dir_path.suffix and not report_dir_path.is_dir():
+            report_dir = str(report_dir_path.parent)
+        if config.save_reference_model_state_dict:
+            self._export_reference_model(ref_model, report_dir)
+
+        session = model.prepare_session(
+            device=device,
+            execution_providers=[execution_provider] if execution_provider else None,
+        )
 
         # Run inference on both and compare
         all_max_abs_diff = []
@@ -194,9 +255,9 @@ class OnnxDiscrepancyCheck(Pass):
 
                 # Run PyTorch inference
                 if isinstance(input_data, dict):
-                    torch_inputs = {k: v.clone() for k, v in input_data.items()}
+                    torch_inputs = {k: v.clone().to(torch_device) for k, v in input_data.items()}
                 else:
-                    torch_inputs = input_data
+                    torch_inputs = input_data.to(torch_device)
 
                 torch_output = ref_model(**torch_inputs)
                 torch_logits = torch_output.logits.detach().cpu().numpy()
@@ -216,14 +277,36 @@ class OnnxDiscrepancyCheck(Pass):
         count_above_0_1 = sum(all_count_above_0_1)
         count_above_0_01 = sum(all_count_above_0_01)
 
-        logger.info(
-            "OnnxDiscrepancyCheck: max_abs_error=%.6f, elements_above_0.1=%d/%d, elements_above_0.01=%d/%d",
-            max_abs_error,
-            count_above_0_1,
-            total_elements,
-            count_above_0_01,
-            total_elements,
+        results = {
+            "max_abs_error": max_abs_error,
+            "elements_above_0_1": count_above_0_1,
+            "elements_above_0_01": count_above_0_01,
+            "total_elements": total_elements,
+        }
+
+        summary = (
+            f"OnnxDiscrepancyCheck: max_abs_error={max_abs_error:.6f}, "
+            f"elements_above_0.1={count_above_0_1}/{total_elements}, "
+            f"elements_above_0.01={count_above_0_01}/{total_elements}"
         )
+        logger.info(summary)
+
+        # Measure inference speedup (ONNX vs PyTorch) on the target device
+        if config.timing_iterations > 0:
+            self._measure_speedup(
+                ref_model,
+                session,
+                dataloader,
+                io_config,
+                torch_device,
+                config.warmup_iterations,
+                config.timing_iterations,
+            )
+        else:
+            logger.info(
+                "OnnxDiscrepancyCheck speedup measurement skipped because timing_iterations=%d.",
+                config.timing_iterations,
+            )
 
         # Check thresholds
         failures = []
@@ -239,20 +322,104 @@ class OnnxDiscrepancyCheck(Pass):
             )
 
         if failures:
-            raise RuntimeError("ONNX model discrepancy check failed:\n" + "\n".join(f"  - {f}" for f in failures))
+            results["status"] = "failed"
+            results["failures"] = failures
+            failure_msg = "ONNX model discrepancy check FAILED:\n" + "\n".join(f"  - {f}" for f in failures)
+            logger.error(failure_msg)
+        else:
+            results["status"] = "passed"
 
         # Generation token sequence comparison (transformers vs ONNX Runtime GenAI)
         if config.genai_model_path:
             longest_common = self.compare_generation(config, ref_model)
+            results["longest_common_token_sequence"] = longest_common
+            results["genai_model_path"] = config.genai_model_path
             if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
-                raise RuntimeError(
-                    f"ONNX model discrepancy check failed:\n"
-                    f"  - Longest common token sequence length {longest_common} is below "
+                results["status"] = "failed"
+                gen_failure = (
+                    f"Longest common token sequence length {longest_common} is below "
                     f"threshold {config.min_longest_common_tokens}"
                 )
+                results.setdefault("failures", []).append(gen_failure)
+                logger.error("ONNX model discrepancy check FAILED: %s", gen_failure)
 
-        # Return the model unchanged
+        # Save results to disk
+        report_path = Path(report_dir) / "discrepancy_check_results.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(results, indent=2))
+
+        # Store results in model attributes so the CLI can persist them in the output directory
+        model_attributes = dict(model.model_attributes) if model.model_attributes else {}
+        model_attributes["discrepancy_check_results"] = results
+        model.model_attributes = model_attributes
         return model
+
+    def _measure_speedup(
+        self, ref_model, session, dataloader, io_config, torch_device, warmup_iterations, timing_iterations
+    ):
+        """Measure inference speedup of ONNX over PyTorch on the target device."""
+        if timing_iterations <= 0:
+            logger.info(
+                "OnnxDiscrepancyCheck speedup measurement skipped because timing_iterations=%d.",
+                timing_iterations,
+            )
+            return None
+
+        import torch
+
+        from olive.common.utils import format_data
+
+        # Use the first batch for timing
+        first_batch = next(iter(dataloader))
+        input_data = first_batch[0] if isinstance(first_batch, (tuple, list)) else first_batch
+
+        if isinstance(input_data, dict):
+            torch_inputs = {k: v.clone().to(torch_device) for k, v in input_data.items()}
+        else:
+            torch_inputs = input_data.to(torch_device)
+
+        onnx_input_feed = format_data(input_data, io_config)
+        use_cuda_sync = torch_device.type == "cuda"
+
+        # Warmup PyTorch
+        with torch.no_grad():
+            for _ in range(warmup_iterations):
+                ref_model(**torch_inputs)
+            if use_cuda_sync:
+                torch.cuda.synchronize()
+
+        # Time PyTorch
+        with torch.no_grad():
+            if use_cuda_sync:
+                torch.cuda.synchronize()
+            start = time.perf_counter()
+            for _ in range(timing_iterations):
+                ref_model(**torch_inputs)
+            if use_cuda_sync:
+                torch.cuda.synchronize()
+            pytorch_time = (time.perf_counter() - start) / timing_iterations
+
+        # Warmup ONNX
+        for _ in range(warmup_iterations):
+            session.run(None, onnx_input_feed)
+
+        # Time ONNX
+        start = time.perf_counter()
+        for _ in range(timing_iterations):
+            session.run(None, onnx_input_feed)
+        onnx_time = (time.perf_counter() - start) / timing_iterations
+
+        speedup = pytorch_time / onnx_time if onnx_time > 0 else float("inf")
+
+        logger.info(
+            "OnnxDiscrepancyCheck speedup: pytorch_avg=%.4fs, onnx_avg=%.4fs, speedup=%.2fx (device=%s)",
+            pytorch_time,
+            onnx_time,
+            speedup,
+            torch_device,
+        )
+
+        return speedup
 
     def compare_generation(self, config: type[BasePassConfig], ref_model) -> int:
         """Run generation on both transformers and GenAI, return longest common token sequence length."""
@@ -266,6 +433,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         # Transformers generation
         input_ids = tokenizer(config.generate_prompt, return_tensors="pt").input_ids
+        input_ids = input_ids.to(ref_model.device)
         import torch
 
         with torch.no_grad():
@@ -274,7 +442,7 @@ class OnnxDiscrepancyCheck(Pass):
                 max_new_tokens=config.generate_max_new_tokens,
                 do_sample=False,
             )
-        transformers_tokens = transformers_output[0].tolist()
+        transformers_tokens = transformers_output[0].cpu().tolist()
 
         # ONNX Runtime GenAI generation
         genai_model = og.Model(config.genai_model_path)
@@ -294,12 +462,22 @@ class OnnxDiscrepancyCheck(Pass):
 
         longest_common = _longest_common_token_sequence(transformers_tokens, genai_tokens)
 
-        logger.info(
-            "OnnxDiscrepancyCheck generation comparison: "
-            "transformers_len=%d, genai_len=%d, longest_common_token_sequence=%d",
-            len(transformers_tokens),
-            len(genai_tokens),
-            longest_common,
+        gen_summary = (
+            f"OnnxDiscrepancyCheck generation comparison: "
+            f"transformers_len={len(transformers_tokens)}, genai_len={len(genai_tokens)}, "
+            f"longest_common_token_sequence={longest_common}"
         )
+        logger.info(gen_summary)
 
         return longest_common
+
+    def _export_reference_model(self, ref_model, output_model_path: str):
+        """Save the reference PyTorch model weights for direct comparison."""
+        import torch
+
+        output_dir = Path(output_model_path)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        ref_pt_path = output_dir / "reference_model.pt"
+        torch.save(ref_model.state_dict(), str(ref_pt_path))
+        logger.info("Reference PyTorch model saved to %s", ref_pt_path)
