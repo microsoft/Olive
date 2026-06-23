@@ -188,7 +188,7 @@ class TestWeightDtypeInference:
         # Non-float buffer that must be ignored when inferring the weight dtype.
         position_ids = helper.make_tensor("position_ids", TensorProto.INT64, [hidden], [0, 1, 2, 3])
 
-        input_ids = helper.make_tensor_value_info("input_ids", TensorProto.INT64, [1, hidden])
+        input_ids = helper.make_tensor_value_info("input_ids", TensorProto.INT64, [1])
         logits = helper.make_tensor_value_info("logits", onnx_float_dtype, [1, vocab])
 
         gather = helper.make_node("Gather", ["embed.weight", "input_ids"], ["hidden_states"])
