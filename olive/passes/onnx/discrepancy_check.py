@@ -89,7 +89,9 @@ def _onnx_output_to_torch(onnx_output, reference_dtype):
     import torch
 
     onnx_tensor = torch.as_tensor(onnx_output)
-    if onnx_tensor.dtype == torch.uint16 and reference_dtype == torch.bfloat16:
+    # ORT may return BFLOAT16 as uint16 because numpy has no bf16; reinterpret whenever we're
+    # comparing against a non-integer reference.
+    if onnx_tensor.dtype == torch.uint16 and reference_dtype != torch.uint16:
         onnx_tensor = onnx_tensor.view(torch.bfloat16)
     return onnx_tensor
 
