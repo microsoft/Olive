@@ -269,13 +269,6 @@ class OnnxDiscrepancyCheck(Pass):
         onnx_weight_dtype = _infer_onnx_weight_dtype(model.load_model())
         if onnx_weight_dtype is not None:
             weight_dtype = _onnx_dtype_to_torch(onnx_weight_dtype)
-        if weight_dtype is not None:
-            ref_model = ref_model.to(weight_dtype)
-            logger.info(
-                "OnnxDiscrepancyCheck casting reference model weights to %s to match the ONNX model.",
-                weight_dtype,
-            )
-
         # Prepare ONNX session on the target device (fallback to CPU)
         device = self.accelerator_spec.accelerator_type if self.accelerator_spec else None
         execution_provider = self.accelerator_spec.execution_provider if self.accelerator_spec else None
@@ -292,7 +285,20 @@ class OnnxDiscrepancyCheck(Pass):
         torch_device = torch.device("cpu")
         if device == Device.GPU and torch.cuda.is_available():
             torch_device = torch.device("cuda")
-        ref_model = ref_model.to(torch_device)
+        if weight_dtype is not None and torch_device.type == "cpu" and weight_dtype in (torch.float16, torch.bfloat16):
+            logger.info(
+                "OnnxDiscrepancyCheck skipping reference model cast to %s on CPU because the dtype is not supported.",
+                weight_dtype,
+            )
+            ref_model = ref_model.to(torch_device)
+        elif weight_dtype is not None:
+            ref_model = ref_model.to(device=torch_device, dtype=weight_dtype)
+            logger.info(
+                "OnnxDiscrepancyCheck casting reference model weights to %s to match the ONNX model.",
+                weight_dtype,
+            )
+        else:
+            ref_model = ref_model.to(torch_device)
 
         # Save reference PyTorch model for direct comparison
         report_dir = config.report_output_dir or output_model_path
