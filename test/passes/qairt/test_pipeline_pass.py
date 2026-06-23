@@ -254,6 +254,33 @@ def test_pipeline_pass_forwards_arn_as_sequence_lengths(tmp_path, mock_hf_model,
     assert result.model_attributes == {"sequence_lengths": [128, 1024, 4096]}
 
 
+@pytest.mark.parametrize(
+    "bad_arn",
+    [
+        "128,1024",  # string instead of list
+        1024,  # bare int
+        [],  # empty list
+        [128, "1024"],  # list with non-int element
+    ],
+)
+def test_pipeline_pass_invalid_arn_raises(tmp_path, mock_hf_model, recipe_file, mock_pipeline_modules, bad_arn):
+    """A malformed arn value raises ValueError with a clear message before propagating downstream."""
+    output_path = tmp_path / "output"
+
+    mock_pipeline_modules["Recipe"].from_file.return_value = {
+        "stages": {"genai_builder": {"transform_options": {"arn": bad_arn}}}
+    }
+
+    pipeline_pass = create_pass_from_dict(
+        QairtPipelinePass,
+        {"recipe": str(recipe_file)},
+        disable_search=True,
+    )
+
+    with pytest.raises(ValueError, match="must be a non-empty list of integers"):
+        pipeline_pass.run(mock_hf_model, str(output_path))
+
+
 def test_pipeline_pass_no_arn_yields_empty_model_attributes(
     tmp_path, mock_hf_model, recipe_file, mock_pipeline_modules
 ):
