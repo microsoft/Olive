@@ -181,9 +181,7 @@ class TestWeightDtypeInference:
         hidden = 4
         vocab = 8
 
-        embed_weight = helper.make_tensor(
-            "embed.weight", onnx_float_dtype, [vocab, hidden], [0.1] * (vocab * hidden)
-        )
+        embed_weight = helper.make_tensor("embed.weight", onnx_float_dtype, [vocab, hidden], [0.1] * (vocab * hidden))
         lm_head_weight = helper.make_tensor(
             "lm_head.weight", onnx_float_dtype, [hidden, vocab], [0.2] * (hidden * vocab)
         )
