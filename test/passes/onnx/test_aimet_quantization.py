@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import importlib.util
 import json
 import platform
 from collections.abc import Iterable
@@ -27,7 +26,7 @@ from olive.passes.onnx.conversion import OnnxConversion
 from test.utils import make_local_tiny_llama
 
 IS_LINUX = platform.system() == OS.LINUX
-AIMET_AVAILABLE = importlib.util.find_spec("aimet_onnx") is not None
+CUDA_AVAILABLE = torch.cuda.is_available()
 
 
 class DummyCalibrationDataReader(CalibrationDataReader):
@@ -142,7 +141,7 @@ def dummy_quantized_onnx_model(model_path):
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
-@pytest.mark.skipif(not AIMET_AVAILABLE, reason="aimet_onnx is not installed")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 @pytest.mark.parametrize(
     "precisions",
     [
@@ -195,7 +194,7 @@ def test_aimet_quantization_uses_provided_precisions(tmp_path, precisions):
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
-@pytest.mark.skipif(not AIMET_AVAILABLE, reason="aimet_onnx is not installed")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_applies_precision_overrides(tmp_path):
     input_model = dummy_onnx_model(tmp_path / "dummy_model.onnx")
     config = {
@@ -221,7 +220,7 @@ def test_aimet_quantization_applies_precision_overrides(tmp_path):
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
-@pytest.mark.skipif(not AIMET_AVAILABLE, reason="aimet_onnx is not installed")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_adheres_to_custom_config(tmp_path):
     input_model = dummy_onnx_model(tmp_path / "dummy_model.onnx")
     quantsim_config = {
@@ -267,7 +266,7 @@ def test_aimet_quantization_adheres_to_custom_config(tmp_path):
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
-@pytest.mark.skipif(not AIMET_AVAILABLE, reason="aimet_onnx is not installed")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_applies_lpbq(tmp_path):
     block_size = 4
     input_model = dummy_onnx_matmul_model(tmp_path / "dummy_model_mm.onnx")
@@ -303,7 +302,7 @@ def test_aimet_quantization_applies_lpbq(tmp_path):
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
-@pytest.mark.skipif(not AIMET_AVAILABLE, reason="aimet_onnx is not installed")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_applies_adaround(tmp_path):
     input_model = dummy_onnx_matmul_model(tmp_path / "dummy_model_mm.onnx")
     config = {
@@ -329,7 +328,7 @@ def test_aimet_quantization_applies_adaround(tmp_path):
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
-@pytest.mark.skipif(not AIMET_AVAILABLE, reason="aimet_onnx is not installed")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_excludes_adaround_nodes(tmp_path):
     input_model = dummy_onnx_matmul_model(tmp_path / "dummy_model_mm.onnx")
     config = {
@@ -360,7 +359,7 @@ def test_aimet_quantization_excludes_adaround_nodes(tmp_path):
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
-@pytest.mark.skipif(not AIMET_AVAILABLE, reason="aimet_onnx is not installed")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_applies_seq_mse(tmp_path):
     input_model = dummy_onnx_matmul_model(tmp_path / "dummy_model_mm.onnx")
     config = {
@@ -391,7 +390,7 @@ def test_aimet_quantization_applies_seq_mse(tmp_path):
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
-@pytest.mark.skipif(not AIMET_AVAILABLE, reason="aimet_onnx is not installed")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 @pytest.mark.parametrize(
     ("op_types", "disabled_quantizers"),
     [
@@ -433,7 +432,7 @@ def test_aimet_quantization_excludes_op_types(tmp_path, op_types, disabled_quant
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
-@pytest.mark.skipif(not AIMET_AVAILABLE, reason="aimet_onnx is not installed")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_preserves_quantization_in_prequantized_model(tmp_path):
     input_model = dummy_quantized_onnx_model(tmp_path / "dummy_model.onnx")
     config = {
@@ -465,7 +464,7 @@ def test_aimet_quantization_preserves_quantization_in_prequantized_model(tmp_pat
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
-@pytest.mark.skipif(not AIMET_AVAILABLE, reason="aimet_onnx is not installed")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 @pytest.mark.parametrize(
     "pass_config",
     [
@@ -499,7 +498,7 @@ def test_validate_config_returns_false_for_unsupported_configurations(pass_confi
 
 @pytest.mark.skip(reason="Dynamo export fails for Llama, need fix")
 @pytest.mark.skipif(not IS_LINUX, reason="Only run on linux")
-@pytest.mark.skipif(not AIMET_AVAILABLE, reason="aimet_onnx is not installed")
+@pytest.mark.skipif(CUDA_AVAILABLE, reason="Only run on cpu tests")
 def test_aimet_quantization_ties_kv_io_quantizers(tmp_path):
     model = make_local_tiny_llama(tmp_path / "input_model")
     onnx_model = create_pass_from_dict(OnnxConversion, {}, disable_search=True).run(model, tmp_path / "onnx_model")

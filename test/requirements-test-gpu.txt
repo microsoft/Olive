@@ -2,5 +2,6 @@
 bitsandbytes
 onnxruntime-genai-cuda
 torch<2.11.0 # torch 2.11.0 is not compatible with CI v100 GPU
+torchvision<0.26.0 # torchvision 0.26.0 requires torch 2.11.0, which is not compatible with CI v100 GPU
 triton
 # auto-gptq: installed from source in run_test.sh (no Python 3.12 wheels on PyPI)
