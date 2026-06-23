@@ -62,7 +62,10 @@ def _infer_onnx_weight_dtype(onnx_model):
     counts = Counter()
     for initializer in onnx_model.graph.initializer:
         if initializer.data_type in float_types:
-            counts[initializer.data_type] += 1
+            numel = 1
+            for d in initializer.dims:
+                numel *= d
+            counts[initializer.data_type] += numel
     if not counts:
         return None
     return counts.most_common(1)[0][0]
