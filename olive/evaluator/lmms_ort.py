@@ -247,8 +247,8 @@ class LMMSORTGenAIEvaluator(lmms):
         provider_options: dict | None = None,
         fail_on_error: bool = True,
         prompt_template: str | None = None,
-        image_token_format: str = "<|image_{index}|>",
-        audio_token_format: str = "<|audio_{index}|>",
+        image_token_format: str | None = None,
+        audio_token_format: str | None = None,
         **kwargs,
     ) -> None:
         if _LMMS_EVAL_IMPORT_ERROR is not None:
@@ -324,6 +324,14 @@ class LMMSORTGenAIEvaluator(lmms):
             self._model_type = cfg.get("model", {}).get("type", "phi4mm")
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid genai_config.json in {self.model_dir}") from e
+
+        # Probe (once) whether this model's chat template injects media tokens
+        # from structured content parts (``{"type": "image"}``). Well-behaved
+        # templates (Gemma-4, Qwen2.5-VL, Qwen3-VL) do; Phi-4-MM's template
+        # stringifies the content list as Python repr instead. When supported,
+        # the adapter lets the template emit the correct per-model media tokens
+        # automatically, so the user does not need to set ``image_token_format``.
+        self._supports_structured_content = self._probe_structured_content_support()
 
         self._rank = 0
         self._world_size = 1
@@ -518,28 +526,72 @@ class LMMSORTGenAIEvaluator(lmms):
         del generator
         return total_logprob, all_greedy
 
+    _DEFAULT_IMAGE_TOKEN_FORMAT = "<|image_{index}|>"
+    _DEFAULT_AUDIO_TOKEN_FORMAT = "<|audio_{index}|>"
+
+    def _probe_structured_content_support(self) -> bool:
+        """Detect whether the model's chat template injects media tokens from structured content.
+
+        Renders a probe message whose content is a list of typed parts
+        (``[{"type": "image"}, {"type": "text", ...}]``) and checks the result:
+
+        - Well-behaved templates (Gemma-4, Qwen2.5-VL, Qwen3-VL) replace the
+          image part with the model's own media token (e.g. ``<|image|>`` or
+          ``<|vision_start|>...``), so the rendered string contains no Python
+          dict repr.
+        - Broken templates (Phi-4-MM) stringify the list as Python repr, so the
+          rendered string contains ``{'type'`` / ``"type"``.
+
+        Probed once at load. Returns False if the tokenizer has no
+        ``apply_chat_template`` or the probe raises.
+        """
+        if not self._has_chat_template:
+            return False
+        try:
+            probe = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": "x"}]}]
+            rendered = self._tokenizer.apply_chat_template(json.dumps(probe), add_generation_prompt=True)
+        except Exception as e:  # pragma: no cover - defensive
+            logger.debug("Structured-content probe failed; falling back to pre-render: %s", e)
+            return False
+        # A broken template leaks the Python dict repr of the content parts.
+        return "{'type'" not in rendered and '"type"' not in rendered
+
+    def _build_structured_chat_prompt(self, user_text: str, num_images: int, num_audios: int) -> str:
+        """Build the prompt via structured content parts so the template injects media tokens.
+
+        Only used when :meth:`_probe_structured_content_support` returned True
+        and the user did not override the media token formats.
+        """
+        content: list[dict[str, Any]] = []
+        content.extend({"type": "image"} for _ in range(num_images))
+        content.extend({"type": "audio"} for _ in range(num_audios))
+        content.append({"type": "text", "text": user_text})
+
+        messages: list[dict[str, Any]] = []
+        if self.system_prompt:
+            messages.append({"role": "system", "content": self.system_prompt})
+        messages.append({"role": "user", "content": content})
+        return self._tokenizer.apply_chat_template(json.dumps(messages), add_generation_prompt=True)
+
     def _build_prompt_for_request(self, user_text: str, num_images: int, num_audios: int) -> str:
         """Build the final prompt string fed to ``og.MultiModalProcessor``.
 
-        Default path: pre-render image/audio markers into the user content
-        string using ``image_token_format`` / ``audio_token_format``, then call
-        ``og.Tokenizer.apply_chat_template`` to add the model-specific chat
-        scaffolding (system/user/assistant turn markers).
+        Path selection:
 
-        Pure content-parts (``{"type": "image"}``) is what PR #2488 and the
-        olive-recipes Qwen2.5-VL eval scripts do, and it works for chat
-        templates that understand structured content (Qwen2.5-VL, Qwen3-VL,
-        Gemma-4). However, Phi-4-MM's chat template stringifies content lists
-        as Python repr (verified: produces
-        ``<|user|>[{'type': 'image'}, ...]<|end|>`` instead of injecting
-        ``<|image_1|>``). Pre-rendering the markers ourselves before
-        ``apply_chat_template`` works for both conventions, since templates
-        that just pass through user content render identically either way.
-
-        Fallback path: ``_build_prompt`` legacy format-string. Used when the
-        user has explicitly set ``prompt_template`` in the evaluator config
-        (to override per-benchmark) or when the underlying onnxruntime-genai
-        version predates ``apply_chat_template`` on ``og.Tokenizer``.
+        1. **Whisper**: no chat template; return the decoder-start token sequence.
+        2. **Explicit override / no chat template**: legacy ``_build_prompt``
+           format-string path (when the user set ``prompt_template`` or the
+           onnxruntime-genai version predates ``apply_chat_template``).
+        3. **Structured content** (preferred): when the model's chat template
+           injects media tokens from structured content parts (auto-detected by
+           :meth:`_probe_structured_content_support`) and the user did not set
+           ``image_token_format`` / ``audio_token_format``. The template emits
+           the correct per-model media tokens (e.g. ``<|image|>`` for Gemma-4,
+           ``<|vision_start|>...`` for Qwen2.5-VL) — no per-model config needed.
+        4. **Pre-render** (fallback): pre-render media markers into a flat user
+           string, then ``apply_chat_template``. Used for templates that
+           stringify structured content (Phi-4-MM) or when the user explicitly
+           supplies a media token format.
         """
         if self._model_type == "whisper":
             # Whisper has no chat template; the "prompt" is just the decoder-start
@@ -555,12 +607,23 @@ class LMMSORTGenAIEvaluator(lmms):
                 user_text,
                 self.system_prompt,
                 self.prompt_template,
-                self.image_token_format,
-                self.audio_token_format,
+                self.image_token_format or self._DEFAULT_IMAGE_TOKEN_FORMAT,
+                self.audio_token_format or self._DEFAULT_AUDIO_TOKEN_FORMAT,
             )
 
-        image_markers = "".join(_format_media_tokens(num_images, self.image_token_format))
-        audio_markers = "".join(_format_media_tokens(num_audios, self.audio_token_format))
+        # Prefer structured content when the template supports it AND the user
+        # did not pin a specific media token format. This lets well-behaved
+        # templates inject their own correct tokens without per-model config.
+        user_pinned_tokens = self.image_token_format is not None or self.audio_token_format is not None
+        if self._supports_structured_content and not user_pinned_tokens:
+            return self._build_structured_chat_prompt(user_text, num_images, num_audios)
+
+        image_markers = "".join(
+            _format_media_tokens(num_images, self.image_token_format or self._DEFAULT_IMAGE_TOKEN_FORMAT)
+        )
+        audio_markers = "".join(
+            _format_media_tokens(num_audios, self.audio_token_format or self._DEFAULT_AUDIO_TOKEN_FORMAT)
+        )
         user_content = f"{image_markers}{audio_markers}{user_text}"
 
         messages: list[dict[str, Any]] = []

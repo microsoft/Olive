@@ -75,6 +75,7 @@ def _make_evaluator_for_prompt_tests():
     inst.image_token_format = "<|image_{index}|>"
     inst.audio_token_format = "<|audio_{index}|>"
     inst._has_chat_template = True
+    inst._supports_structured_content = False
     return inst
 
 
@@ -145,6 +146,90 @@ def test_build_prompt_for_request_falls_back_when_chat_template_unavailable():
     inst._tokenizer.apply_chat_template.assert_not_called()
 
 
+def test_build_prompt_for_request_uses_structured_content_when_supported_and_not_pinned():
+    """Use structured content parts when supported and the user did not pin a token format."""
+    inst = _make_evaluator_for_prompt_tests()
+    inst._supports_structured_content = True
+    inst.image_token_format = None  # auto
+    inst.audio_token_format = None  # auto
+    inst._tokenizer.apply_chat_template.return_value = "<rendered>"
+
+    inst._build_prompt_for_request("What is this?", num_images=1, num_audios=1)
+
+    import json as _json
+
+    messages = _json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
+    user_msg = messages[-1]
+    assert user_msg["role"] == "user"
+    # Content is a list of typed parts, NOT a pre-rendered string.
+    assert user_msg["content"] == [
+        {"type": "image"},
+        {"type": "audio"},
+        {"type": "text", "text": "What is this?"},
+    ]
+
+
+def test_build_prompt_for_request_pre_renders_when_token_format_pinned():
+    """An explicit image_token_format forces the pre-render path despite structured support."""
+    inst = _make_evaluator_for_prompt_tests()
+    inst._supports_structured_content = True
+    inst.image_token_format = "<|vision_start|>"  # user pinned
+    inst.audio_token_format = None
+    inst._tokenizer.apply_chat_template.return_value = "<rendered>"
+
+    inst._build_prompt_for_request("Q", num_images=1, num_audios=0)
+
+    import json as _json
+
+    messages = _json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
+    # Pre-rendered flat string, not structured parts.
+    assert messages[-1]["content"] == "<|vision_start|>Q"
+
+
+def test_build_prompt_for_request_pre_renders_when_structured_unsupported():
+    """Fall back to pre-rendering when the template stringifies structured content (Phi-4-MM)."""
+    inst = _make_evaluator_for_prompt_tests()
+    inst._supports_structured_content = False
+    inst.image_token_format = None  # auto
+    inst.audio_token_format = None
+    inst._tokenizer.apply_chat_template.return_value = "<rendered>"
+
+    inst._build_prompt_for_request("Q", num_images=1, num_audios=0)
+
+    import json as _json
+
+    messages = _json.loads(inst._tokenizer.apply_chat_template.call_args.args[0])
+    # Falls back to default Phi-4-MM-style pre-rendered markers.
+    assert messages[-1]["content"] == "<|image_1|>Q"
+
+
+def test_probe_structured_content_support_detects_injection():
+    """A template that injects the media token (no dict repr) -> supported."""
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst._has_chat_template = True
+    inst._tokenizer = MagicMock()
+    inst._tokenizer.apply_chat_template.return_value = "<|im_start|>user\n<|image|>x<|im_end|>"
+
+    assert inst._probe_structured_content_support() is True
+
+
+def test_probe_structured_content_support_detects_stringified_repr():
+    """A template that leaks the Python dict repr -> not supported."""
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst._has_chat_template = True
+    inst._tokenizer = MagicMock()
+    inst._tokenizer.apply_chat_template.return_value = "<|user|>[{'type': 'image'}, ...]<|end|>"
+
+    assert inst._probe_structured_content_support() is False
+
+
+def test_probe_structured_content_support_false_when_no_chat_template():
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst._has_chat_template = False
+
+    assert inst._probe_structured_content_support() is False
+
+
 def test_lmms_evaluator_converts_lmms_results(tmp_path):
     model_dir = tmp_path / "model"
     model_dir.mkdir()
@@ -201,7 +286,7 @@ def test_lmms_evaluator_converts_lmms_results(tmp_path):
         fail_on_error=False,
         prompt_template="{user_content}",
         image_token_format="<image>",
-        audio_token_format="<|audio_{index}|>",
+        audio_token_format=None,
     )
     simple_evaluate_mock.assert_called_once()
     assert result.get_value("ai2d_lite", "exact_match") == 0.5
