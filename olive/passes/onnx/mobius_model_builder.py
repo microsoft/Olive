@@ -15,6 +15,7 @@ from olive.constants import Precision
 from olive.hardware.constants import EXECUTION_PROVIDER_TO_MOBIUS_EP, ExecutionProvider
 from olive.model import HfModelHandler, ONNXModelHandler
 from olive.model.handler.composite import CompositeModelHandler
+from olive.model.handler.diffusers import DiffusersModelHandler
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
@@ -111,7 +112,7 @@ class MobiusBuilder(Pass):
 
     def _run_for_config(
         self,
-        model: HfModelHandler,
+        model: HfModelHandler | DiffusersModelHandler,
         config: type[BasePassConfig],
         output_model_path: str,
     ) -> ONNXModelHandler | CompositeModelHandler:
@@ -122,8 +123,10 @@ class MobiusBuilder(Pass):
                 "mobius-ai is required to run MobiusBuilder. Install with: pip install mobius-ai"
             ) from exc
 
-        if not isinstance(model, HfModelHandler):
-            raise ValueError(f"MobiusBuilder requires an HfModelHandler input, got {type(model).__name__}.")
+        if not isinstance(model, (HfModelHandler, DiffusersModelHandler)):
+            raise ValueError(
+                f"MobiusBuilder requires an HfModelHandler or DiffusersModelHandler input, got {type(model).__name__}."
+            )
 
         # Map Olive EP to mobius EP. If unsupported/unknown, fall back to mobius default EP.
         requested_ep = self.accelerator_spec.execution_provider
@@ -137,10 +140,12 @@ class MobiusBuilder(Pass):
             )
 
         dtype_str: str = _PRECISION_TO_DTYPE.get(config.precision, "f32")
-        model_id: str = model.model_name_or_path
+        model_id: str = model.model_name_or_path if isinstance(model, HfModelHandler) else str(model.model_path)
 
         # Read trust_remote_code from the model's HuggingFace load kwargs.
-        trust_remote_code: bool = model.get_load_kwargs().get("trust_remote_code", False)
+        trust_remote_code: bool = (
+            model.get_load_kwargs().get("trust_remote_code", False) if isinstance(model, HfModelHandler) else False
+        )
 
         logger.info(
             "MobiusBuilder: building '%s' (ep=%s, dtype=%s)",
@@ -240,6 +245,7 @@ class MobiusBuilder(Pass):
             model_path=str(output_dir),
             model_attributes={
                 "mobius_package_keys": package_keys,
+                "no_flatten": True,
                 **(model.model_attributes or {}),
             },
         )
