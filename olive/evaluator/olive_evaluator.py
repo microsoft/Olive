@@ -2082,15 +2082,14 @@ class LMMSEvaluator(OliveEvaluator):
         self.output_path = kwargs.get("output_path")
         self.fail_on_error = bool(kwargs.get("fail_on_error", True))
         self.prompt_template = kwargs.get("prompt_template")
-        self.image_token_format = kwargs.get("image_token_format", "<|image_{index}|>")
-        self.audio_token_format = kwargs.get("audio_token_format", "<|audio_{index}|>")
-        # NOTE: ``prompt_template`` / ``image_token_format`` / ``audio_token_format``
-        # are legacy format-string knobs and should rarely be needed. By default
-        # the ortgenai_mm adapter calls ``og.Tokenizer.apply_chat_template`` (same
-        # path used by PR #2488 and olive-recipes eval scripts), which reads the
-        # package's ``chat_template.jinja`` and produces the correct chat format
-        # for every supported model automatically. Setting ``prompt_template``
-        # forces the adapter into the legacy hand-templated path.
+        # Default to None (auto): the ortgenai_mm adapter probes the model's chat
+        # template once at load and, when it injects media tokens from structured
+        # content parts (Gemma-4, Qwen2.5-VL, Qwen3-VL), emits the correct
+        # per-model token automatically — no override needed. Set these only to
+        # force a specific media token format (e.g. for a template that
+        # stringifies structured content, like Phi-4-MM).
+        self.image_token_format = kwargs.get("image_token_format")
+        self.audio_token_format = kwargs.get("audio_token_format")
         # HF-only knobs (forwarded to lmms-eval's native wrapper if present).
         # ``trust_remote_code`` defaults to False to match the rest of Olive
         # (e.g. olive/common/hf/utils.py, olive/data/component/load_dataset.py)
