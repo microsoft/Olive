@@ -245,6 +245,27 @@ class TestWeightDtypeInference:
 
         assert _onnx_dtype_to_torch(onnx.TensorProto.BFLOAT16) == torch.bfloat16
 
+    def test_onnx_output_to_torch_bfloat16_from_uint16(self):
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import _onnx_output_to_torch
+
+        expected = torch.tensor([[1.5, -2.0]], dtype=torch.bfloat16)
+        onnx_output = expected.view(torch.uint16).cpu().numpy()
+        actual = _onnx_output_to_torch(onnx_output, torch.bfloat16)
+        assert actual.dtype == torch.bfloat16
+        assert torch.equal(actual, expected)
+
+    def test_onnx_output_to_torch_keeps_uint16_for_non_bfloat16_reference(self):
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import _onnx_output_to_torch
+
+        expected = torch.tensor([[123, 456]], dtype=torch.uint16)
+        actual = _onnx_output_to_torch(expected.cpu().numpy(), torch.float32)
+        assert actual.dtype == torch.uint16
+        assert torch.equal(actual, expected)
+
     def test_tiny_llm_reference_model_cast_to_weight_dtype(self):
         """End-to-end check that the reference model is cast to the ONNX weight dtype.
 

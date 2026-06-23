@@ -85,6 +85,15 @@ def _onnx_dtype_to_torch(onnx_dtype):
     return mapping.get(onnx_dtype)
 
 
+def _onnx_output_to_torch(onnx_output, reference_dtype):
+    import torch
+
+    onnx_tensor = torch.as_tensor(onnx_output)
+    if onnx_tensor.dtype == torch.uint16 and reference_dtype == torch.bfloat16:
+        onnx_tensor = onnx_tensor.view(torch.bfloat16)
+    return onnx_tensor
+
+
 def _longest_common_token_sequence(seq_a: list[int], seq_b: list[int]) -> int:
     """Compute the length of the longest common token sequence starting from the beginning.
 
@@ -320,7 +329,7 @@ class OnnxDiscrepancyCheck(Pass):
                 # Run ONNX inference
                 onnx_input_feed = format_data(input_data, io_config)
                 onnx_outputs = session.run(None, onnx_input_feed)
-                onnx_logits = torch.as_tensor(onnx_outputs[0])
+                onnx_logits = _onnx_output_to_torch(onnx_outputs[0], torch_logits.dtype)
 
                 # Compute element-wise differences using torch in double precision
                 torch_logits = torch_logits.to(torch.float64).cpu()
