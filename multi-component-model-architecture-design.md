@@ -159,7 +159,7 @@ Each subfolder is a standard local ONNX model Olive already loads. The only new 
 
 For PyTorch-stage optimization (e.g. GPTQ on the decoder) **before** export.
 
-##### How components are obtained 
+##### How components are obtained
 
 ###### Option A — Query Mobius (preferred)
 
@@ -169,12 +169,12 @@ Olive calls Mobius at runtime to inspect the model:
 components = mobius.inspect_components(model_path_or_id, task=None, trust_remote_code=False)
 ```
 
-- **Pros:** 
-  - always in sync with Mobius's own architecture support; 
-  - no per-model maintenance in Olive; 
+- **Pros:**
+  - always in sync with Mobius's own architecture support;
+  - no per-model maintenance in Olive;
   - covers any model Mobius can export, including new ones; single source of truth shared with the exporter.
-- **Cons:** 
-  - hard runtime dependency on `mobius-ai` even for the optimization step; 
+- **Cons:**
+  - hard runtime dependency on `mobius-ai` even for the optimization step;
   - coupled to Mobius versions (names/fields may shift)
 
 
@@ -239,15 +239,15 @@ stable-diffusion:                      # SD 1.5 family (identified by model_inde
 ```
 
 
-- **Pros:** 
-  - no runtime Mobius dependency for the optimization step; 
-  - works offline; 
-  - human-readable, reviewable, and overridable by users (drop-in extra entries); 
-  - stable across Mobius versions; 
+- **Pros:**
+  - no runtime Mobius dependency for the optimization step;
+  - works offline;
+  - human-readable, reviewable, and overridable by users (drop-in extra entries);
+  - stable across Mobius versions;
   - users can add an unsupported model without code changes.
-- **Cons:** 
-  - must be **maintained by Olive** as new architectures appear (the same per-architecture maintenance Mobius already does); 
-  - risk of drifting out of sync with Mobius's actual export expectations (e.g. `export_key`s, weight prefixes); 
+- **Cons:**
+  - must be **maintained by Olive** as new architectures appear (the same per-architecture maintenance Mobius already does);
+  - risk of drifting out of sync with Mobius's actual export expectations (e.g. `export_key`s, weight prefixes);
   - duplicates knowledge that also lives in Mobius.
 
 **(a) Optimize each component**. Only the components the user wants to optimize need a build.

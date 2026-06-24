@@ -190,7 +190,7 @@ def test_discover_onnx_components_empty_for_flat_dir(tmp_path):
     from olive.model.utils.onnx_utils import discover_onnx_components
 
     (tmp_path / "model.onnx").write_bytes(b"onnx")
-    assert discover_onnx_components(str(tmp_path)) == []
+    assert not discover_onnx_components(str(tmp_path))
 
 
 def test_composite_handler_discovers_components_from_directory(tmp_path):

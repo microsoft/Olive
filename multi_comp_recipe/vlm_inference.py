@@ -87,8 +87,10 @@ def main():
     if not os.path.exists(genai_config):
         print(f"Error: genai_config.json not found in {args.model_dir}")
         print("Run export first:")
-        print("  olive capture-onnx-graph --model_name_or_path microsoft/Phi-4-multimodal-instruct "
-              "--use_mobius_builder --trust_remote_code --output_path exported_vlm_pkg")
+        print(
+            "  olive capture-onnx-graph --model_name_or_path microsoft/Phi-4-multimodal-instruct "
+            "--use_mobius_builder --trust_remote_code --output_path exported_vlm_pkg"
+        )
         print("Then create genai_config.json and save tokenizer (see README.md).")
         return
 
