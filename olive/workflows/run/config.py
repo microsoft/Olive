@@ -11,6 +11,7 @@ from pydantic import Field, field_validator, model_validator
 from olive.cache import CacheConfig
 from olive.common.config_utils import NestedConfig, validate_config
 from olive.common.constants import DEFAULT_CACHE_DIR, DEFAULT_HF_TASK, DEFAULT_WORKFLOW_ID
+from olive.common.hf.utils import resolve_diffusers_tokenizer_path
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.container.dummy_data_container import TRANSFORMER_DUMMY_DATA_CONTAINER
 from olive.data.container.huggingface_container import HuggingfaceContainer
@@ -224,7 +225,9 @@ class RunConfig(NestedConfig):
                 model_name = input_model_config["config"]["model_attributes"].get("_name_or_path")
             else:
                 task = input_model_config["config"].get("task", DEFAULT_HF_TASK)
-                model_name = input_model_config["config"]["model_path"]
+                model_path = input_model_config["config"]["model_path"]
+                load_kwargs = input_model_config["config"].get("load_kwargs") or {}
+                model_name = resolve_diffusers_tokenizer_path(model_path, load_kwargs)
 
             model_info = {
                 "model_name": model_name,
