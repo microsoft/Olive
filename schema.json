@@ -370,6 +370,25 @@
             }
           ],
           "default": null
+        },
+        "sample_log_num": {
+          "default": 0,
+          "description": "Number of sample predictions to log alongside ground truth. When > 0, saves a JSONL file with the first N sample results for debugging.",
+          "title": "Sample Log Num",
+          "type": "integer"
+        },
+        "sample_log_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Directory to save the sample log file. Defaults to the current working directory.",
+          "title": "Sample Log Dir"
         }
       },
       "required": [
