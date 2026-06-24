@@ -133,6 +133,57 @@ class TestHQQQuantization:
 
         assert found_matmul_nbits, "No MatMulNBits node found in quantized model"
 
+    def test_hqq_quantization_preserves_graph_output_names(self, tmp_path):
+        """Quantizing a MatMul that produces a graph output must not rename that output.
+
+        External consumers (e.g. ORT GenAI's genai_config.json) reference model output
+        names, so appending a `_Q4` suffix to a graph output would break them. Internal
+        tensors, however, are still renamed.
+        """
+        # X[2,64] -> MatMul(W1) -> hidden (internal) -> MatMul(W2) -> audio_features (graph output)
+        w1 = onnx.numpy_helper.from_array(np.random.randn(64, 128).astype(np.float32), name="W1")
+        w2 = onnx.numpy_helper.from_array(np.random.randn(128, 64).astype(np.float32), name="W2")
+        internal_matmul = onnx.helper.make_node("MatMul", ["X", "W1"], ["hidden"], name="enc/MatMul")
+        terminal_matmul = onnx.helper.make_node("MatMul", ["hidden", "W2"], ["audio_features"], name="projector/MatMul")
+
+        graph_def = onnx.helper.make_graph(
+            nodes=[internal_matmul, terminal_matmul],
+            name="graph-output-test",
+            inputs=[onnx.helper.make_tensor_value_info("X", onnx.TensorProto.FLOAT, [2, 64])],
+            outputs=[onnx.helper.make_tensor_value_info("audio_features", onnx.TensorProto.FLOAT, [2, 64])],
+            initializer=[w1, w2],
+        )
+        model_def = onnx.helper.make_model(graph_def, producer_name="olive-test")
+        model_def.opset_import[0].version = 13
+        model_def.ir_version = 10
+        model_path = tmp_path / "graph_output_model.onnx"
+        onnx.save(model_def, str(model_path))
+
+        olive_model = ONNXModelHandler(model_path=str(model_path))
+        accelerator_spec = AcceleratorSpec(
+            accelerator_type="CPU",
+            execution_provider="CPUExecutionProvider",
+        )
+        p = create_pass_from_dict(
+            OnnxHqqQuantization, {"block_size": 128}, disable_search=True, accelerator_spec=accelerator_spec
+        )
+
+        output_path = tmp_path / "graph_output_quantized.onnx"
+        quantized_model = p.run(olive_model, output_path)
+
+        ir_model = ir.load(quantized_model.model_path)
+
+        # The graph output name must be preserved exactly.
+        output_names = [o.name for o in ir_model.graph.outputs]
+        assert output_names == ["audio_features"], f"Graph output was renamed: {output_names}"
+
+        # Both MatMuls should be quantized, and the internal tensor should still be renamed.
+        nbits_outputs = [
+            o.name for n in ir_model.graph.all_nodes() if n.op_type == OpType.MatMulNBits for o in n.outputs
+        ]
+        assert "audio_features" in nbits_outputs, "Terminal MatMul should keep the graph output name"
+        assert "hidden_Q4" in nbits_outputs, "Internal MatMul output should be renamed with the quant suffix"
+
     def test_hqq_quantization_pass_produces_valid_output_when_model_has_external_data(
         self, matmul_model_with_external_data_path, tmp_path
     ):

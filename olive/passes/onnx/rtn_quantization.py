@@ -204,6 +204,21 @@ class OnnxBlockWiseRtnQuantization(Pass):
             logger.error("Unsupported op %s for weight-only quantization.", node.op_type)
             return node, node.graph
 
+    @staticmethod
+    def _rename_output_unless_graph_output(node: ir.Node, bits: int) -> None:
+        """Append a `_Q{bits}` suffix to the node's output name for renaming after quantization.
+
+        Skips values that are graph outputs: external consumers (e.g. ORT GenAI's
+        genai_config.json, which references model output names such as the speech
+        encoder's `audio_features`) rely on these names, so renaming them here would
+        silently break the exported package. Internal tensors are safe to rename because
+        their consumers are rewired by replace_nodes_and_values.
+        """
+        graph = node.graph
+        is_graph_output = graph is not None and node.outputs[0] in graph.outputs
+        if not is_graph_output:
+            node.outputs[0].name = node.outputs[0].name + f"_Q{bits}"
+
     def _quantize_matmul(
         self, node: ir.Node, bits: int, block_size: int, accuracy_level: AccuracyLevel, is_symmetric: bool
     ) -> tuple[ir.Node, ir.Graph]:
@@ -237,7 +252,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
         if accuracy_level > 0:
             kwargs["accuracy_level"] = accuracy_level
 
-        node.outputs[0].name = node.outputs[0].name + f"_Q{bits}"
+        self._rename_output_unless_graph_output(node, bits)
 
         return ir.node(
             domain=MSFT_DOMAIN,
@@ -289,7 +304,7 @@ class OnnxBlockWiseRtnQuantization(Pass):
             "bits": bits,
         }
 
-        node.outputs[0].name = node.outputs[0].name + f"_Q{bits}"
+        self._rename_output_unless_graph_output(node, bits)
 
         return ir.node(
             domain=MSFT_DOMAIN,
