@@ -42,14 +42,15 @@ Mobius exports each neural-network component to its own subfolder:
 
 ```
 exported_pkg/
+  text_encoder/model.onnx    # CLIP-L text encoder
+  text_encoder_2/model.onnx  # CLIP-G text encoder
+  text_encoder_3/model.onnx  # T5-XXL text encoder
   transformer/model.onnx     # MMDiT denoising backbone
   vae_encoder/model.onnx
   vae_decoder/model.onnx
 ```
 
-> **Note.** Mobius's diffusers builder exports the **transformer** backbone and the **VAE**
-> (encoder + decoder). The CLIP/T5 **text encoders are not exported by Mobius** and are left to the
-> original pipeline. The exact subfolders depend on the pipeline; the optimize config below only
+> **Note.** The exact subfolders depend on the pipeline; the optimize config below only
 > needs `builds` for the components you actually want to optimize.
 
 ### Step 2 — Optimize each component
@@ -62,16 +63,18 @@ olive run --config sd3_optimize_components.json
 
 This applies a different pipeline per component:
 
-| component     | pipeline           | intent                                   |
-|---------------|--------------------|------------------------------------------|
-| `transformer` | `dynamic_quant`    | INT8-quantize the heavy denoising backbone |
-| `vae_encoder` | `to_fp16`          | keep the VAE in FP16 to preserve quality |
-| `vae_decoder` | `to_fp16`          | keep the VAE in FP16 to preserve quality |
+| component        | pipeline           | intent                                   |
+|------------------|--------------------|------------------------------------------|
+| `transformer`    | `dynamic_quant`    | INT8-quantize the heavy denoising backbone |
+| `text_encoder_3` | `to_fp16`          | keep T5-XXL in FP16                     |
+| `vae_encoder`    | `to_fp16`          | keep the VAE in FP16 to preserve quality |
+| `vae_decoder`    | `to_fp16`          | keep the VAE in FP16 to preserve quality |
 
 Output:
 
 ```
 out/transformer/    # INT8 transformer
+out/text_encoder_3/ # FP16 T5-XXL
 out/vae_encoder/    # FP16 VAE encoder
 out/vae_decoder/    # FP16 VAE decoder
 ```
@@ -80,16 +83,16 @@ Each build writes one optimized component; components without a build stay as ex
 
 ### Step 3 — Inference
 
-Run end-to-end image generation with the exported ONNX transformer:
+Run end-to-end image generation with the exported ONNX models:
 
 ```
 python sd3_inference.py --prompt "A photo of a cat sitting on a windowsill" --steps 28 --output result.png
 ```
 
 The inference script (`sd3_inference.py`) uses:
-- **Text encoding**: PyTorch CLIP-L, CLIP-G, and T5-XXL (run once, not in the denoising loop)
-- **Denoising**: ONNX Runtime `InferenceSession` with the exported transformer (28 steps)
-- **VAE decoding**: PyTorch `AutoencoderKL` to decode latents into a 512×512 image
+- **Text encoding**: ONNX Runtime with exported CLIP-L, CLIP-G, and T5-XXL encoders (run once)
+- **Denoising**: ONNX Runtime with the exported SD3 transformer (28 steps)
+- **VAE decoding**: ONNX Runtime with the exported VAE decoder
 
 Options:
 ```
@@ -97,12 +100,11 @@ Options:
 --steps N           Number of denoising steps (default: 28)
 --seed N            Random seed (default: 42)
 --output PATH       Output image path (default: sd3_output.png)
---onnx_dir DIR      Path to exported transformer directory (default: out/transformer)
+--onnx_dir DIR      Path to exported model directory (default: exported_sd3_full2)
 ```
 
-> **Note.** The CLIP/T5 text encoders and the VAE are run via PyTorch since Mobius does not export
-> them. Only the transformer (the compute-heavy denoising backbone that runs N steps) is in ONNX.
-> SD3 is a gated model — you need `huggingface-cli login` or set `HF_TOKEN` for the text encoders.
+> **Note.** SD3 is a gated model — you need `huggingface-cli login` or set `HF_TOKEN` to export.
+> The tokenizers (CLIP and T5) still run via the `transformers` library.
 
 ---
 
