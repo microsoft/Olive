@@ -301,6 +301,14 @@
             "supported_quantization_encodings": [  ],
             "dataset": "dataset_optional"
         },
+        "OnnxDiscrepancyCheck": {
+            "module_path": "olive.passes.onnx.discrepancy_check.OnnxDiscrepancyCheck",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "OnnxDynamicQuantization": {
             "module_path": "olive.passes.onnx.quantization.OnnxDynamicQuantization",
             "supported_providers": [ "CPUExecutionProvider" ],
@@ -600,6 +608,24 @@
             "run_on_target": true,
             "extra_dependencies": [ "amd-quark" ]
         },
+        "QuarkQuantizationVitisAI": {
+            "module_path": "olive.passes.quark_vitisai.quark_quantization_vitisai.QuarkQuantizationVitisAI",
+            "supported_providers": [ "CPUExecutionProvider", "ROCMExecutionProvider", "CUDAExecutionProvider" ],
+            "supported_accelerators": [ "cpu", "gpu" ],
+            "supported_precisions": [ "fp16", "fp32", "bf16" ],
+            "supported_algorithms": [ "awq" ],
+            "supported_quantization_encodings": [  ],
+            "run_on_target": true,
+            "extra_dependencies": [ "amd-quark" ]
+        },
+        "KQuant": {
+            "module_path": "olive.passes.pytorch.kquant.KQuant",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "int4", "int8", "uint4", "uint8" ],
+            "supported_algorithms": [ "kquant" ],
+            "supported_quantization_encodings": [  ]
+        },
         "QuaRot": {
             "module_path": "olive.passes.pytorch.rotate.QuaRot",
             "supported_providers": [ "*" ],
@@ -683,6 +709,15 @@
             "supported_quantization_encodings": [  ],
             "run_on_target": true
         },
+        "RyzenGenerateModelLLM": {
+            "module_path": "olive.passes.onnx.ryzen_ai.ryzen_generate_model_llm.RyzenGenerateModelLLM",
+            "supported_providers": [ "CPUExecutionProvider" ],
+            "supported_accelerators": [ "cpu" ],
+            "supported_precisions": [ "int8" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ],
+            "run_on_target": true
+        },
         "VitisGenerateModelSD": {
             "module_path": "olive.passes.onnx.vitis_ai.vitis_generate_model_sd.VitisGenerateModelSD",
             "supported_providers": [ "CPUExecutionProvider" ],
@@ -724,6 +759,7 @@
         "speech": [ "jiwer", "librosa", "soundfile" ],
         "tf": [ "tensorflow==1.15.0" ],
         "torch-tensorrt": [ "torch-tensorrt" ],
-        "tune-session-params": [ "psutil" ]
+        "tune-session-params": [ "psutil" ],
+        "vision": [ "pillow" ]
     }
 }

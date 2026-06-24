@@ -61,6 +61,22 @@ class OliveModelOutput(NamedTuple):
 
 # Text-based accuracy sub-types that work with string predictions/targets
 _TEXT_BASED_ACCURACY_SUBTYPES = {AccuracySubType.WER, AccuracySubType.RTFX}
+_VISION_ACCURACY_SUBTYPES = {
+    AccuracySubType.EXACT_MATCH,
+    AccuracySubType.RELAXED_ACCURACY,
+    AccuracySubType.WORD_SORT_RATIO,
+}
+
+# Task-to-metric validation: maps data task types to their allowed vision metrics.
+# Metrics are aligned with standard public vision benchmarks:
+#   - vision-vqa (exact_match): AI2D, ScienceQA, TextVQA, MathVista, MMMU, InterGPS
+#   - vision-chart-qa (relaxed_accuracy): ChartQA (±5% numeric tolerance)
+#   - vision-ocr (word_sort_ratio): OCR (word-level overlap)
+_VISION_TASK_METRIC_MAP = {
+    "vision-vqa": {AccuracySubType.EXACT_MATCH},
+    "vision-chart-qa": {AccuracySubType.RELAXED_ACCURACY},
+    "vision-ocr": {AccuracySubType.WORD_SORT_RATIO},
+}
 
 
 def _is_text_based_metric(metric: "Metric") -> bool:
@@ -78,6 +94,63 @@ def _is_text_based_metric(metric: "Metric") -> bool:
             "(accuracy_score, f1_score, etc.) in the same metric. Please define them as separate metrics."
         )
     return all(text_based)
+
+
+def _is_vision_metric(metric: "Metric") -> bool:
+    """Check if metric uses vision accuracy sub-types (exact_match, relaxed_accuracy, word_sort_ratio).
+
+    Raises ValueError if vision sub-types are mixed with non-vision sub-types,
+    as they require different inference paths.
+    """
+    if metric.type != MetricType.ACCURACY:
+        return False
+    vision_based = [sub.name in _VISION_ACCURACY_SUBTYPES for sub in metric.sub_types]
+    if any(vision_based) and not all(vision_based):
+        raise ValueError(
+            "Cannot mix vision accuracy sub-types (exact_match, relaxed_accuracy, word_sort_ratio) "
+            "with other sub-types in the same metric. Please define them as separate metrics."
+        )
+    return all(vision_based)
+
+
+def _validate_vision_task_metric(metric: "Metric") -> None:
+    """Validate that the vision metric sub-types are compatible with the data task type.
+
+    Raises ValueError if the metric is not compatible with the task.
+    """
+    if not _is_vision_metric(metric):
+        return
+
+    task_type = None
+    if metric.data_config:
+        # Extract task from pre_process_data_config params, which is how HuggingfaceContainer
+        # maps task types (e.g., "vision-vqa", "vision-chart-qa", "vision-ocr") to components.
+        pre_process_config = metric.data_config.pre_process_data_config
+        if pre_process_config:
+            if pre_process_config.params:
+                task_type = pre_process_config.params.get("task")
+            # Also try to infer task from the component type name if params don't specify it
+            if task_type is None and pre_process_config.type == "vision_vqa_pre_process":
+                # Default component is used but task param is missing; skip validation
+                # since we can't determine which specific vision task is intended
+                return
+
+    if task_type is None:
+        # No task type specified, allow any vision metric
+        return
+
+    allowed_metrics = _VISION_TASK_METRIC_MAP.get(task_type)
+    if allowed_metrics is None:
+        raise ValueError(
+            f"Unknown vision task type '{task_type}'. Supported task types: {list(_VISION_TASK_METRIC_MAP.keys())}."
+        )
+
+    for sub in metric.sub_types:
+        if sub.name not in allowed_metrics:
+            raise ValueError(
+                f"Metric sub-type '{sub.name}' is not compatible with task type '{task_type}'. "
+                f"Allowed metrics for '{task_type}': {[m.value for m in allowed_metrics]}."
+            )
 
 
 class OliveEvaluator(ABC):
@@ -409,6 +482,35 @@ class OnnxEvaluatorMixin:
         return inference_settings
 
 
+def _find_genai_config(model: ONNXModelHandler) -> Optional[Path]:
+    """Find genai_config.json by searching upward from the ONNX file's parent directory.
+
+    Returns the Path to genai_config.json if found, or None. Searches at most
+    3 levels up to avoid traversing unrelated directories.
+    """
+    candidate = Path(model.model_path).parent
+    for _ in range(3):
+        genai_path = candidate / "genai_config.json"
+        if genai_path.is_file():
+            return genai_path
+        parent = candidate.parent
+        if parent == candidate:
+            break
+        candidate = parent
+    return None
+
+
+def _get_genai_model_dir(model: ONNXModelHandler) -> str:
+    """Get the ORT GenAI model root directory (where genai_config.json lives).
+
+    Falls back to the ONNX file's parent directory if genai_config.json is not found.
+    """
+    genai_config_path = _find_genai_config(model)
+    if genai_config_path is not None:
+        return str(genai_config_path.parent)
+    return str(Path(model.model_path).parent)
+
+
 @Registry.register(str(Framework.ONNX))
 @Registry.register("OnnxEvaluator")
 class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
@@ -509,6 +611,25 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
             dump_tuning_result(session.session, tuning_result_file)
         return OliveModelOutput(preds=preds, logits=logits), targets
 
+    @staticmethod
+    def _load_genai_config(model: ONNXModelHandler) -> Optional[dict]:
+        """Load genai_config.json from the model directory, or return None if not found.
+
+        Searches upward from the ONNX file's parent directory to support nested
+        multi-component model layouts (e.g. ``models/decoder/model.onnx`` where
+        ``genai_config.json`` lives at ``models/``).
+        """
+        genai_config_path = _find_genai_config(model)
+        if genai_config_path is None:
+            return None
+        import json
+
+        try:
+            with genai_config_path.open(encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in genai config file: {genai_config_path}") from e
+
     def _evaluate_onnx_accuracy(
         self,
         model: ONNXModelHandler,
@@ -518,15 +639,23 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         device: Device = Device.CPU,
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
-        if _is_text_based_metric(metric):
-            # Auto-detect genai model by checking for genai_config.json
-            genai_config_path = Path(model.model_path).parent / "genai_config.json"
-            if genai_config_path.exists():
-                import json
+        if _is_vision_metric(metric):
+            _validate_vision_task_metric(metric)
+            # Auto-detect genai vision model by checking for genai_config.json with vision field
+            genai_cfg = self._load_genai_config(model)
+            use_genai_vision = genai_cfg is not None and "vision" in genai_cfg.get("model", {})
 
-                with genai_config_path.open() as f:
-                    genai_config = json.load(f)
-                model_type = genai_config.get("model", {}).get("type", "")
+            if use_genai_vision:
+                inference_output, targets = self._inference_vision_genai(model, dataloader, device)
+            else:
+                inference_output, targets = self._inference_vision(
+                    model, metric, dataloader, post_func, device, execution_providers
+                )
+        elif _is_text_based_metric(metric):
+            # Auto-detect genai model by checking for genai_config.json
+            genai_cfg = self._load_genai_config(model)
+            if genai_cfg:
+                model_type = genai_cfg.get("model", {}).get("type", "")
 
                 if model_type == "whisper":
                     inference_output, targets = self._inference_text_genai(
@@ -646,6 +775,234 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
         }
         return OliveModelOutput(preds=all_preds, logits=timing_metadata), all_targets
 
+    def _inference_vision(
+        self,
+        model: ONNXModelHandler,
+        metric: Metric,
+        dataloader: "DataLoader",
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Vision-based inference for VQA/OCR metrics (exact_match, relaxed_accuracy, word_sort_ratio).
+
+        The post_func must return predicted answer strings per batch.
+        Labels from the dataloader must be reference answer strings.
+        """
+        session, inference_settings = OnnxEvaluator.get_session_wrapper(
+            model, metric, dataloader, device, execution_providers
+        )
+        io_config = model.io_config
+        run_kwargs = metric.get_run_kwargs()
+
+        all_preds = []
+        all_targets = []
+        output_names = io_config["output_names"]
+        is_single_tensor_output = len(output_names) == 1
+
+        # Note: This assumes the model produces the full answer in a single forward pass
+        # (e.g., classification-style VQA models). For autoregressive generation models,
+        # use the PyTorch evaluator with a generation loop in post_func instead.
+        for batch in dataloader:
+            input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+            input_feed = format_data(input_data, io_config)
+            result = model.run_session(session, input_feed, **run_kwargs)
+            if is_single_tensor_output:
+                result = torch.from_numpy(result[0]) if hasattr(result[0], "__array__") else torch.tensor(result[0])
+            else:
+                result = {
+                    name: torch.from_numpy(result[i]) if hasattr(result[i], "__array__") else torch.tensor(result[i])
+                    for i, name in enumerate(output_names)
+                }
+            # post_func must decode model output to answer strings
+            outputs = post_func(result) if post_func else result
+            if isinstance(outputs, str):
+                all_preds.append(outputs)
+            elif isinstance(outputs, (list, tuple)):
+                if not outputs:
+                    continue
+                if not isinstance(outputs[0], str):
+                    raise ValueError(
+                        f"post_func must return str or list[str] for vision metrics, "
+                        f"but got list of {type(outputs[0]).__name__}. "
+                        f"Ensure your post_func decodes model output to answer text."
+                    )
+                all_preds.extend(outputs)
+            else:
+                raise ValueError(
+                    f"post_func must return str or list[str] for vision metrics, "
+                    f"but got {type(outputs).__name__}. "
+                    f"Ensure your post_func decodes model output to answer text."
+                )
+            # labels should be reference answer strings
+            if isinstance(labels, (list, tuple)):
+                all_targets.extend(labels)
+            else:
+                all_targets.append(labels)
+
+        tuning_result_file = inference_settings.get("tuning_result_file")
+        if tuning_result_file:
+            dump_tuning_result(session.session, tuning_result_file)
+
+        return OliveModelOutput(preds=all_preds, logits=None), all_targets
+
+    def _inference_vision_genai(
+        self,
+        model: ONNXModelHandler,
+        dataloader: "DataLoader",
+        device: Device = Device.CPU,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Vision-based inference for VQA/OCR metrics using onnxruntime-genai.
+
+        Auto-detected when the model directory contains genai_config.json with a vision field.
+        Uses og.Model with multimodal processor for vision-language models (e.g., Qwen3-VL).
+        The dataloader must yield (input_dict, labels) where input_dict contains
+        'image' (PIL Image) and 'question' (str), and labels are reference answer strings.
+
+        Note: GPU/CPU selection is driven by the `device` parameter. onnxruntime-genai uses
+        short provider names internally (e.g., "cuda") which differ from ORT-style EP names.
+        """
+        try:
+            import onnxruntime_genai as og
+        except ImportError as e:
+            raise ImportError(
+                "onnxruntime-genai is required for genai-based vision evaluation. "
+                "Install it with: pip install onnxruntime-genai"
+            ) from e
+
+        import json
+        import re
+        import tempfile
+
+        try:
+            from PIL import Image
+        except ImportError as e:
+            raise ImportError("Pillow is required for vision evaluation. Install it with: pip install Pillow") from e
+
+        model_dir = _get_genai_model_dir(model)
+
+        # Default max_length; can be overridden per-sample from the data config.
+        default_max_length = 4096
+
+        # Build og.Model with appropriate execution provider
+        # Note: onnxruntime-genai uses CPU by default when no provider is appended.
+        # Only non-CPU providers need to be explicitly added using short names (e.g., "cuda").
+        # This follows the same pattern as _inference_text_genai and _inference_text_genai_streaming.
+        config = og.Config(model_dir)
+        config.clear_providers()
+        if device == Device.GPU:
+            config.append_provider("cuda")
+        og_model = og.Model(config)
+        processor = og_model.create_multimodal_processor()
+        tokenizer = og.Tokenizer(og_model)
+
+        all_preds = []
+        all_targets = []
+
+        # Use a temporary directory for image files to avoid per-file create/delete overhead
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_img_path = Path(tmp_dir) / "input.png"
+
+            sample_idx = 0
+            for batch in dataloader:
+                input_data, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+
+                # input_data is a dict with 'image' (PIL) and 'question' (str)
+                # or a list of such dicts for batch_size > 1
+                items = [input_data] if isinstance(input_data, dict) else input_data
+
+                for item in items:
+                    pil_image = item.get("image")
+                    question = item.get("question", "")
+                    sys_prompt = item.get("system_prompt", "")
+                    num_choices = item.get("num_choices", 0)
+                    max_length = item.get("max_length", default_max_length)
+
+                    if pil_image is None:
+                        # Append empty pred to maintain alignment with targets
+                        all_preds.append("")
+                        sample_idx += 1
+                        continue
+
+                    try:
+                        # Ensure PIL Image
+                        if not isinstance(pil_image, Image.Image):
+                            with Image.open(pil_image) as img:
+                                pil_image = img.convert("RGB")
+
+                        # Build chat messages for the vision-language model
+                        messages = []
+                        if sys_prompt:
+                            messages.append({"role": "system", "content": sys_prompt})
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "image"},
+                                    {"type": "text", "text": question},
+                                ],
+                            }
+                        )
+                        messages_json = json.dumps(messages)
+
+                        # Save image to temp file for og.Images (reuse same path to minimize I/O)
+                        pil_image.save(str(tmp_img_path), format="PNG")
+                        images = og.Images.open(str(tmp_img_path))
+
+                        prompt = tokenizer.apply_chat_template(messages_json, add_generation_prompt=True)
+                        inputs = processor(prompt, images=images)
+
+                        # Remove audio_features if present but not needed (vision-only inference)
+                        # to avoid "Model output was not found: audio_features" errors
+                        if "audio_features" in inputs:
+                            del inputs["audio_features"]
+
+                        params = og.GeneratorParams(og_model)
+                        params.set_search_options(max_length=max_length, do_sample=False)
+
+                        generator = og.Generator(og_model, params)
+                        generator.set_inputs(inputs)
+
+                        tokens = []
+                        while not generator.is_done():
+                            generator.generate_next_token()
+                            tokens.append(generator.get_next_tokens()[0])
+                        del generator
+
+                        pred = tokenizer.decode(tokens).strip()
+                    except Exception as e:
+                        logger.warning("Skipping sample %d due to error: %s", sample_idx, e)
+                        pred = ""
+
+                    sample_idx += 1
+
+                    # For multiple-choice tasks, extract the answer digit from responses
+                    # like "2", "The answer is 3", or "1. D" to match the expected answer format.
+                    # Only enabled when num_choices is between 1 and 9 (single-digit options).
+                    if 1 <= num_choices <= 9 and pred:
+                        pattern = rf"\b([1-{num_choices}])\b"
+                        num_match = re.search(pattern, pred)
+                        if num_match:
+                            pred = num_match.group(1)
+                        else:
+                            # Fallback: find any single digit in the valid range
+                            valid_digits = {str(d) for d in range(1, num_choices + 1)}
+                            for ch in pred:
+                                if ch in valid_digits:
+                                    pred = ch
+                                    break
+                    all_preds.append(pred)
+
+                # Collect reference texts (aligned with preds including empty ones for None images)
+                if isinstance(labels, (list, tuple)):
+                    all_targets.extend(labels)
+                else:
+                    all_targets.append(labels)
+
+        del og_model
+
+        return OliveModelOutput(preds=all_preds, logits=None), all_targets
+
     def _inference_text_genai(
         self,
         model: ONNXModelHandler,
@@ -673,7 +1030,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         import soundfile as sf
 
-        model_dir = str(Path(model.model_path).parent)
+        model_dir = _get_genai_model_dir(model)
 
         # Read genai_config to determine model properties
         with (Path(model_dir) / "genai_config.json").open() as f:
@@ -807,7 +1164,7 @@ class OnnxEvaluator(_OliveEvaluator, OnnxEvaluatorMixin):
 
         import json
 
-        model_dir = str(Path(model.model_path).parent)
+        model_dir = _get_genai_model_dir(model)
 
         with (Path(model_dir) / "genai_config.json").open() as f:
             genai_config = json.load(f)
@@ -1216,7 +1573,12 @@ class PyTorchEvaluator(_OliveEvaluator):
         device: Device = Device.CPU,
         execution_providers: Optional[Union[str, list[str]]] = None,
     ) -> MetricResult:
-        if _is_text_based_metric(metric):
+        if _is_vision_metric(metric):
+            _validate_vision_task_metric(metric)
+            inference_output, targets = self._inference_vision(
+                model, metric, dataloader, post_func, device, execution_providers
+            )
+        elif _is_text_based_metric(metric):
             inference_output, targets = self._inference_text(
                 model, metric, dataloader, post_func, device, execution_providers
             )
@@ -1301,6 +1663,60 @@ class PyTorchEvaluator(_OliveEvaluator):
             "total_inference_time": total_inference_time,
         }
         return OliveModelOutput(preds=all_preds, logits=timing_metadata), all_targets
+
+    @torch.no_grad()
+    def _inference_vision(
+        self,
+        model: "PyTorchModelHandler",
+        metric: Metric,
+        dataloader: "DataLoader",
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> tuple[OliveModelOutput, Any]:
+        """Vision-based inference for VQA/OCR metrics (exact_match, relaxed_accuracy, word_sort_ratio)."""
+        session = model.prepare_session()
+        all_preds = []
+        all_targets = []
+        torch_device = _OliveEvaluator.device_string_to_torch_device(device)
+        run_kwargs = metric.get_run_kwargs()
+        session.to(torch_device)
+
+        for batch in dataloader:
+            input_data_i, labels = OliveEvaluator.unpack_batch_for_accuracy(batch)
+            input_data = tensor_data_to_device(input_data_i, torch_device)
+            result = model.run_session(session, input_data, **run_kwargs)
+            outputs = post_func(result) if post_func else result
+
+            if isinstance(outputs, str):
+                all_preds.append(outputs)
+            elif isinstance(outputs, (list, tuple)):
+                if not outputs:
+                    continue
+                if not isinstance(outputs[0], str):
+                    raise ValueError(
+                        f"post_func must return str or list[str] for vision metrics, "
+                        f"but got list of {type(outputs[0]).__name__}. "
+                        f"Ensure your post_func decodes model output to answer text."
+                    )
+                all_preds.extend(outputs)
+            else:
+                raise ValueError(
+                    f"post_func must return str or list[str] for vision metrics, "
+                    f"but got {type(outputs).__name__}. "
+                    f"Ensure your post_func decodes model output to answer text."
+                )
+            if isinstance(labels, (list, tuple)):
+                all_targets.extend(labels)
+            else:
+                all_targets.append(labels)
+
+        if torch_device:
+            session.to("cpu")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        return OliveModelOutput(preds=all_preds, logits=None), all_targets
 
     @torch.no_grad()
     def _evaluate_raw_latency(
@@ -1523,6 +1939,9 @@ class LMEvaluator(OliveEvaluator):
         self.model_class = kwargs.get("model_class")
         self.batch_size = kwargs.get("batch_size", 1)
         self.max_length = kwargs.get("max_length")
+        # Preserve lm-eval bootstrap control from recipe configs. Some generation metrics disable
+        # bootstrap stderr resampling to avoid extra post-processing work on large test sets.
+        self.bootstrap_iters = kwargs.get("bootstrap_iters", 100000)
         self.ep = kwargs.get("execution_provider")
         self.ep_options = kwargs.get("provider_options")
         self.device = kwargs.get("device")
@@ -1567,7 +1986,7 @@ class LMEvaluator(OliveEvaluator):
             }
         elif self.model_class == "ortgenai":
             init_args = {
-                "pretrained": str(Path(model.model_path).parent),
+                "pretrained": _get_genai_model_dir(model),
                 "ep": self.ep or execution_providers,
                 "ep_options": self.ep_options,
                 "device": device,
@@ -1605,6 +2024,8 @@ class LMEvaluator(OliveEvaluator):
                 batch_size=self.batch_size,
                 device=device,
                 limit=self.limit,
+                # Forward the configured value instead of letting lm-eval silently use its default.
+                bootstrap_iters=self.bootstrap_iters,
             )
 
             for task_name in sorted(results["results"].keys()):
@@ -1680,8 +2101,8 @@ class MTEBEvaluator(OliveEvaluator):
                 model_class = "hf"
             elif isinstance(model, ONNXModelHandler):
                 # ModelBuilder outputs ONNXModelHandler but with genai_config.json
-                genai_config = Path(model.model_path).parent / "genai_config.json"
-                model_class = "ortgenai" if genai_config.exists() else "ort"
+                genai_config_path = _find_genai_config(model)
+                model_class = "ortgenai" if genai_config_path is not None else "ort"
             else:
                 raise ValueError(
                     "Unable to auto-detect model_class for MTEBEvaluator from model handler "
@@ -1716,7 +2137,7 @@ class MTEBEvaluator(OliveEvaluator):
             )
         elif model_class == "ortgenai":
             mteb_model = MTEBORTGenAIEvaluator(
-                pretrained=str(Path(model.model_path).parent),
+                pretrained=_get_genai_model_dir(model),
                 batch_size=self.batch_size,
                 max_length=self.max_length,
                 ep=self.ep

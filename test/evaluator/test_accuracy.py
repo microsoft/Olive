@@ -213,3 +213,204 @@ class TestRealTimeFactor:
         model_output = OliveModelOutput(preds=["text"], logits=None)
         with pytest.raises(ValueError, match="RTFx metric requires timing metadata"):
             rtfx.measure(model_output, ["text"])
+
+
+class TestExactMatch:
+    def test_perfect_match(self):
+        from olive.evaluator.accuracy import ExactMatch
+
+        metric = ExactMatch({})
+        model_output = OliveModelOutput(preds=["A", "B", "C"], logits=None)
+        targets = ["A", "B", "C"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_case_insensitive(self):
+        from olive.evaluator.accuracy import ExactMatch
+
+        metric = ExactMatch({})
+        model_output = OliveModelOutput(preds=["Hello World", "TEST"], logits=None)
+        targets = ["hello world", "test"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_whitespace_normalization(self):
+        from olive.evaluator.accuracy import ExactMatch
+
+        metric = ExactMatch({})
+        model_output = OliveModelOutput(preds=["  hello   world  "], logits=None)
+        targets = ["hello world"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_partial_match(self):
+        from olive.evaluator.accuracy import ExactMatch
+
+        metric = ExactMatch({})
+        model_output = OliveModelOutput(preds=["A", "wrong", "C"], logits=None)
+        targets = ["A", "B", "C"]
+        result = metric.measure(model_output, targets)
+        assert abs(result - 2.0 / 3.0) < 1e-6
+
+    def test_no_match(self):
+        from olive.evaluator.accuracy import ExactMatch
+
+        metric = ExactMatch({})
+        model_output = OliveModelOutput(preds=["X", "Y"], logits=None)
+        targets = ["A", "B"]
+        result = metric.measure(model_output, targets)
+        assert result == 0.0
+
+    def test_single_string_input(self):
+        from olive.evaluator.accuracy import ExactMatch
+
+        metric = ExactMatch({})
+        model_output = OliveModelOutput(preds="answer", logits=None)
+        targets = "answer"
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_length_mismatch_raises(self):
+        from olive.evaluator.accuracy import ExactMatch
+
+        metric = ExactMatch({})
+        model_output = OliveModelOutput(preds=["A", "B"], logits=None)
+        targets = ["A"]
+        with pytest.raises(ValueError, match="does not match"):
+            metric.measure(model_output, targets)
+
+
+class TestRelaxedAccuracy:
+    def test_exact_numeric_match(self):
+        from olive.evaluator.accuracy import RelaxedAccuracy
+
+        metric = RelaxedAccuracy({})
+        model_output = OliveModelOutput(preds=["42.0"], logits=None)
+        targets = ["42.0"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_within_tolerance(self):
+        from olive.evaluator.accuracy import RelaxedAccuracy
+
+        metric = RelaxedAccuracy({})
+        # 41 is within 5% of 42 (42 * 0.05 = 2.1, |42-41| = 1 < 2.1)
+        model_output = OliveModelOutput(preds=["41"], logits=None)
+        targets = ["42"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_outside_tolerance(self):
+        from olive.evaluator.accuracy import RelaxedAccuracy
+
+        metric = RelaxedAccuracy({})
+        # 35 is outside 5% of 42 (42 * 0.05 = 2.1, |42-35| = 7 > 2.1)
+        model_output = OliveModelOutput(preds=["35"], logits=None)
+        targets = ["42"]
+        result = metric.measure(model_output, targets)
+        assert result == 0.0
+
+    def test_string_exact_match(self):
+        from olive.evaluator.accuracy import RelaxedAccuracy
+
+        metric = RelaxedAccuracy({})
+        model_output = OliveModelOutput(preds=["yes"], logits=None)
+        targets = ["yes"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_string_no_match(self):
+        from olive.evaluator.accuracy import RelaxedAccuracy
+
+        metric = RelaxedAccuracy({})
+        model_output = OliveModelOutput(preds=["yes"], logits=None)
+        targets = ["no"]
+        result = metric.measure(model_output, targets)
+        assert result == 0.0
+
+    def test_percentage_values(self):
+        from olive.evaluator.accuracy import RelaxedAccuracy
+
+        metric = RelaxedAccuracy({})
+        # 50% parsed as 50, within 5% of 50
+        model_output = OliveModelOutput(preds=["51%"], logits=None)
+        targets = ["50%"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_zero_target(self):
+        from olive.evaluator.accuracy import RelaxedAccuracy
+
+        metric = RelaxedAccuracy({})
+        model_output = OliveModelOutput(preds=["0"], logits=None)
+        targets = ["0"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_custom_tolerance(self):
+        from olive.evaluator.accuracy import RelaxedAccuracy
+
+        metric = RelaxedAccuracy({"tolerance": 0.1})
+        # 38 is within 10% of 42 (42 * 0.1 = 4.2, |42-38| = 4 < 4.2)
+        model_output = OliveModelOutput(preds=["38"], logits=None)
+        targets = ["42"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+
+class TestWordSortRatio:
+    def test_perfect_match(self):
+        from olive.evaluator.accuracy import WordSortRatio
+
+        metric = WordSortRatio({})
+        model_output = OliveModelOutput(preds=["hello world"], logits=None)
+        targets = ["hello world"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_reordered_words(self):
+        from olive.evaluator.accuracy import WordSortRatio
+
+        metric = WordSortRatio({})
+        # Same words, different order → ratio = 1.0 (sorted comparison)
+        model_output = OliveModelOutput(preds=["world hello"], logits=None)
+        targets = ["hello world"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_partial_overlap(self):
+        from olive.evaluator.accuracy import WordSortRatio
+
+        metric = WordSortRatio({})
+        # "hello" matches, "earth" doesn't match "world"
+        model_output = OliveModelOutput(preds=["hello earth"], logits=None)
+        targets = ["hello world"]
+        result = metric.measure(model_output, targets)
+        assert 0.0 < result < 1.0
+
+    def test_no_overlap(self):
+        from olive.evaluator.accuracy import WordSortRatio
+
+        metric = WordSortRatio({})
+        model_output = OliveModelOutput(preds=["foo bar"], logits=None)
+        targets = ["hello world"]
+        result = metric.measure(model_output, targets)
+        assert result == 0.0
+
+    def test_case_insensitive(self):
+        from olive.evaluator.accuracy import WordSortRatio
+
+        metric = WordSortRatio({})
+        model_output = OliveModelOutput(preds=["HELLO WORLD"], logits=None)
+        targets = ["hello world"]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0
+
+    def test_empty_reference(self):
+        from olive.evaluator.accuracy import WordSortRatio
+
+        metric = WordSortRatio({})
+        model_output = OliveModelOutput(preds=[""], logits=None)
+        targets = [""]
+        result = metric.measure(model_output, targets)
+        assert result == 1.0

@@ -6,12 +6,14 @@ from argparse import ArgumentParser
 
 from olive.cli.base import (
     BaseOliveCLICommand,
+    add_discrepancy_check_pass,
     add_hf_test_model_config,
     add_input_model_options,
     add_logging_options,
     add_telemetry_options,
     get_input_model_config,
     mark_test_output_path,
+    save_discrepancy_check_results,
     validate_test_output_path,
 )
 from olive.telemetry import action
@@ -81,6 +83,8 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
         output_path = run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")
         validate_test_output_path(output_path, self.args.test)
+        if self.args.test not in (None, False):
+            run_config = add_discrepancy_check_pass(run_config)
         workflow_output = olive_run(
             run_config,
             list_required_packages=self.args.list_required_packages,
@@ -89,6 +93,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         )
         if self.args.test not in (None, False):
             mark_test_output_path(output_path)
+            save_discrepancy_check_results(workflow_output, output_path)
 
         if self.args.list_required_packages is True:
             print("Required packages listed!")

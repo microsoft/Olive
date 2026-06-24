@@ -155,6 +155,7 @@ def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_pat
 
 @patch("olive.workflows.run")
 def test_workflow_run_command_with_test_override(mock_run, tmp_path):
+    mock_run.return_value = None
     config_path = tmp_path / "config.json"
     config_path.write_text(
         json.dumps(
@@ -172,6 +173,8 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
 
     cli_main(command_args)
 
+    test_model_path = str(tmp_path / "output" / "test_model")
+    output_dir = str(tmp_path / "output")
     mock_run.assert_called_once_with(
         {
             "input_model": {
@@ -179,9 +182,17 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
                 "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
                 "test_model_config": {"hidden_layers": 2},
-                "test_model_path": str(tmp_path / "output" / "test_model"),
+                "test_model_path": test_model_path,
             },
-            "output_dir": str(tmp_path / "output"),
+            "output_dir": output_dir,
+            "passes": {
+                "discrepancy_check": {
+                    "type": "OnnxDiscrepancyCheck",
+                    "reference_model_path": test_model_path,
+                    "max_mae": 0.1,
+                    "report_output_dir": output_dir,
+                }
+            },
         },
         list_required_packages=False,
         package_config=None,
@@ -213,6 +224,7 @@ def test_workflow_run_command_with_test_rejects_non_test_output_dir(tmp_path):
 
 @patch("olive.workflows.run")
 def test_workflow_run_command_with_test_reuses_test_output_dir(mock_run, tmp_path):
+    mock_run.return_value = None
     config_path = tmp_path / "config.json"
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -478,7 +490,6 @@ def test_capture_onnx_command_use_mobius_builder(_, mock_run, precision, use_ort
     assert "m" not in config["passes"]
     assert config["passes"]["b"]["type"] == "MobiusBuilder"
     assert config["passes"]["b"]["precision"] == precision
-    assert config["passes"]["b"]["runtime"] == ("ort-genai" if use_ort_genai else "none")
     assert mock_run.call_count == 1
 
 

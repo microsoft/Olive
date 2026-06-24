@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
+import logging
 import re
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
@@ -16,6 +17,8 @@ from olive.constants import DiffusersModelVariant
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.hardware.constants import DEVICE_TO_EXECUTION_PROVIDERS
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+
+logger = logging.getLogger(__name__)
 
 TEST_OUTPUT_MARKER_FILE = "olive_test_output.json"
 
@@ -64,6 +67,58 @@ def mark_test_output_path(output_path: Optional[str]) -> None:
     _get_test_output_marker_path(output_path).write_text(json.dumps({"type": "olive_hf_test_output"}, indent=2))
 
 
+def add_discrepancy_check_pass(run_config: dict) -> dict:
+    """Inject OnnxDiscrepancyCheck pass when --test is active and not already configured."""
+    passes = run_config.get("passes", {})
+    # Skip if already configured
+    for pass_config in passes.values():
+        if isinstance(pass_config, dict) and pass_config.get("type", "").lower() == "onnxdiscrepancycheck":
+            return run_config
+
+    # Get the reference model path from the input_model test_model_path
+    input_model = run_config.get("input_model", {})
+    reference_model_path = input_model.get("test_model_path")
+    if not reference_model_path:
+        return run_config
+
+    # Determine output directory for discrepancy results
+    report_dir = run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")
+    if report_dir and Path(report_dir).suffix and not Path(report_dir).is_dir():
+        report_dir = str(Path(report_dir).parent)
+    logger.debug("Adding OnnxDiscrepancyCheck pass with reference_model_path=%s", reference_model_path)
+    passes["discrepancy_check"] = {
+        "type": "OnnxDiscrepancyCheck",
+        "reference_model_path": reference_model_path,
+        "max_mae": 0.1,
+        "report_output_dir": report_dir,
+    }
+    run_config["passes"] = passes
+    return run_config
+
+
+def save_discrepancy_check_results(workflow_output, output_path: str) -> None:
+    """Save discrepancy check results from model attributes to the output directory."""
+    if not workflow_output or not workflow_output.has_output_model():
+        return
+
+    best = workflow_output.get_best_candidate()
+    if not best:
+        return
+
+    model_attrs = best.model_config.get("model_attributes") or {}
+    results = model_attrs.get("discrepancy_check_results")
+    if not results:
+        return
+
+    output_dir = Path(output_path)
+    if output_dir.suffix and not output_dir.is_dir():
+        output_dir = output_dir.parent
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = output_dir / "discrepancy_check_results.json"
+    report_path.write_text(json.dumps(results, indent=2))
+    logger.debug("OnnxDiscrepancyCheck results saved to %s", report_path)
+
+
 class BaseOliveCLICommand(ABC):
     allow_unknown_args: ClassVar[bool] = False
 
@@ -84,6 +139,8 @@ class BaseOliveCLICommand(ABC):
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
+            if getattr(self.args, "test", None) not in (None, False):
+                run_config = add_discrepancy_check_pass(run_config)
             if self.args.save_config_file or self.args.dry_run:
                 self._save_config_file(run_config)
             if self.args.dry_run:
@@ -94,6 +151,8 @@ class BaseOliveCLICommand(ABC):
             workflow_output = olive_run(run_config)
             if getattr(self.args, "test", None) not in (None, False):
                 mark_test_output_path(self.args.output_path)
+                if not isinstance(workflow_output, dict):
+                    save_discrepancy_check_results(workflow_output, self.args.output_path)
             if isinstance(workflow_output, dict):
                 # `builds` workflows return one WorkflowOutput per build keyed by build name.
                 for build_name, build_output in workflow_output.items():

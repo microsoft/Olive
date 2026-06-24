@@ -6,7 +6,7 @@
 
 import builtins
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -36,6 +36,8 @@ def test_gen_ai_builder_default_config(mock_accelerator_spec):
     assert config["num_splits"].default_value == -1
     assert "multi_graph" in config
     assert config["multi_graph"].default_value is False
+    assert "context_lengths" in config
+    assert config["context_lengths"].default_value is None
 
 
 def test_gen_ai_builder_cpu_backend_success(tmp_path, mock_hf_model, mock_qairt_modules):
@@ -494,4 +496,149 @@ def test_gen_ai_builder_native_kv_validation_valid_sequence_lengths(mock_acceler
         disable_search=True,
     ).config
 
+    assert QairtGenAIBuilder.validate_config(config, mock_accelerator_spec) is True
+
+
+def test_gen_ai_builder_extended_udma_initializes_none_context_configs(
+    tmp_path, mock_qairt_prepared_model, mock_qairt_modules
+):
+    """Test that extended_udma initializes context_custom_configs when it is None.
+
+    Regression test for qairt-dev 0.8.0, where set_targets() no longer pre-populates
+    context_custom_configs. Without the fix, accessing context_custom_configs[0] raises
+    TypeError: 'NoneType' object is not subscriptable.
+    """
+    output_path = tmp_path / "output"
+
+    mock_htp_context_config_instance = MagicMock()
+    mock_htp_context_config_cls = MagicMock(return_value=mock_htp_context_config_instance)
+    mock_htp_config_module = MagicMock()
+    mock_htp_config_module.HtpContextConfig = mock_htp_context_config_cls
+
+    mock_builder = MagicMock()
+    mock_container = MagicMock()
+    mock_builder.build.return_value = mock_container
+    mock_builder._compilation_config = MagicMock()
+    mock_builder._compilation_config.device_custom_configs = [MagicMock()]
+    mock_builder._compilation_config.device_custom_configs[0].dsp_arch = "v81"
+    mock_builder._compilation_config.context_custom_configs = None  # qairt-dev 0.8.0: not pre-populated
+    mock_builder._compilation_config.graph_custom_configs = [MagicMock()]
+    mock_builder._transformation_config = MagicMock()
+    mock_builder._transformation_config.model_transformer_config = MagicMock()
+    mock_builder._transformation_config.model_transformer_config.arn_cl_options = MagicMock()
+    mock_builder._transformation_config.model_transformer_config.split_model = MagicMock()
+
+    mock_qairt_modules["gen_ai_api"].GenAIBuilderFactory.create.return_value = mock_builder
+
+    gen_ai_pass = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {"backend": "HTP", "extended_udma": True},
+        disable_search=True,
+    )
+
+    with patch.dict("sys.modules", {"qairt.api.common.backends.htp.config": mock_htp_config_module}):
+        result = gen_ai_pass.run(mock_qairt_prepared_model, str(output_path))
+
+    # Verify HtpContextConfig was initialized with weight_sharing_enabled=True (matching 0.5.0 defaults)
+    mock_htp_context_config_cls.assert_called_once_with(weight_sharing_enabled=True)
+    # Verify context_custom_configs was populated and extended_udma set on the new instance
+    assert mock_builder._compilation_config.context_custom_configs == [mock_htp_context_config_instance]
+    assert mock_htp_context_config_instance.extended_udma is True
+    assert isinstance(result, QairtModelHandler)
+
+
+def test_gen_ai_builder_context_lengths_configuration(tmp_path, mock_qairt_prepared_model, mock_qairt_modules):
+    """Test that context_lengths directly sets arn_cl_options.context_length."""
+    output_path = tmp_path / "output"
+
+    mock_builder = MagicMock()
+    mock_container = MagicMock()
+    mock_builder.build.return_value = mock_container
+    mock_builder._compilation_config = MagicMock()
+    mock_builder._compilation_config.graph_custom_configs = [MagicMock()]
+    mock_builder._compilation_config.device_custom_configs = [MagicMock()]
+    mock_builder._compilation_config.context_custom_configs = [MagicMock()]
+    mock_builder._transformation_config = MagicMock()
+    mock_builder._transformation_config.model_transformer_config = MagicMock()
+    mock_builder._transformation_config.model_transformer_config.arn_cl_options = MagicMock()
+    mock_builder._transformation_config.model_transformer_config.split_model = MagicMock()
+
+    mock_qairt_modules["gen_ai_api"].GenAIBuilderFactory.create.return_value = mock_builder
+
+    custom_cls = [1024, 2048, 4096]
+    gen_ai_pass = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {"backend": "HTP", "context_lengths": custom_cls},
+        disable_search=True,
+    )
+
+    result = gen_ai_pass.run(mock_qairt_prepared_model, str(output_path))
+
+    assert mock_builder._transformation_config.model_transformer_config.arn_cl_options.context_length == custom_cls
+    assert isinstance(result, QairtModelHandler)
+
+
+def test_gen_ai_builder_context_lengths_skips_multi_graph_setter(
+    tmp_path, mock_qairt_prepared_model, mock_qairt_modules
+):
+    """Test that multi_graph setter is not invoked when context_lengths is set."""
+    output_path = tmp_path / "output"
+
+    mock_builder_cls = type("mock_builder_cls", (MagicMock,), {})
+    mock_builder = mock_builder_cls()
+    mock_container = MagicMock()
+    mock_builder.build.return_value = mock_container
+    mock_builder._compilation_config = MagicMock()
+    mock_builder._compilation_config.graph_custom_configs = [MagicMock()]
+    mock_builder._compilation_config.device_custom_configs = [MagicMock()]
+    mock_builder._compilation_config.context_custom_configs = [MagicMock()]
+    mock_builder._transformation_config = MagicMock()
+    mock_builder._transformation_config.model_transformer_config = MagicMock()
+    mock_builder._transformation_config.model_transformer_config.arn_cl_options = MagicMock()
+    mock_builder._transformation_config.model_transformer_config.split_model = MagicMock()
+
+    multi_graph_mock = PropertyMock()
+    type(mock_builder).multi_graph = multi_graph_mock
+
+    mock_qairt_modules["gen_ai_api"].GenAIBuilderFactory.create.return_value = mock_builder
+
+    gen_ai_pass = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {"backend": "HTP", "context_lengths": [512, 2048]},
+        disable_search=True,
+    )
+
+    gen_ai_pass.run(mock_qairt_prepared_model, str(output_path))
+    multi_graph_mock.assert_not_called()
+
+
+def test_gen_ai_builder_validate_config_context_lengths_cpu_rejected(mock_accelerator_spec, mock_qairt_modules):
+    """Test that context_lengths is rejected on non-HTP backends."""
+    config = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {"backend": "CPU", "context_lengths": [1024, 2048]},
+        disable_search=True,
+    ).config
+    assert QairtGenAIBuilder.validate_config(config, mock_accelerator_spec) is False
+
+
+def test_gen_ai_builder_validate_config_context_lengths_and_multi_graph_rejected(
+    mock_accelerator_spec, mock_qairt_modules
+):
+    """Test that context_lengths and multi_graph are mutually exclusive."""
+    config = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {"backend": "HTP", "context_lengths": [1024, 2048], "multi_graph": True},
+        disable_search=True,
+    ).config
+    assert QairtGenAIBuilder.validate_config(config, mock_accelerator_spec) is False
+
+
+def test_gen_ai_builder_validate_config_context_lengths_htp_valid(mock_accelerator_spec, mock_qairt_modules):
+    """Test that context_lengths passes validation on HTP."""
+    config = create_pass_from_dict(
+        QairtGenAIBuilder,
+        {"backend": "HTP", "context_lengths": [1024, 2048, 4096]},
+        disable_search=True,
+    ).config
     assert QairtGenAIBuilder.validate_config(config, mock_accelerator_spec) is True

@@ -130,7 +130,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
             type=str,
             default="fp16",
             choices=["fp16", "fp32", "int4", "bf16"],
-            help="The precision of the ONNX model. This is used by Model Builder",
+            help="The precision of the ONNX model. Used by Model Builder and Mobius Builder.",
         )
         mb_group.add_argument(
             "--int4_block_size",
@@ -178,7 +178,12 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
         )
 
         sub_parser.add_argument(
-            "--use_ort_genai", action="store_true", help="Use OnnxRuntime generate() API to run the model"
+            "--use_ort_genai",
+            action="store_true",
+            help=(
+                "Use OnnxRuntime generate() API to run the model. "
+                "Ignored when --use_mobius_builder is set (mobius always emits ORT GenAI artifacts)."
+            ),
         )
 
         add_logging_options(sub_parser)
@@ -243,15 +248,7 @@ class CaptureOnnxGraphCommand(BaseOliveCLICommand):
                 )
             del config["passes"]["c"]
             del config["passes"]["m"]
-            to_replace.extend(
-                [
-                    (("passes", "b", "precision"), self.args.precision),
-                    (
-                        ("passes", "b", "runtime"),
-                        "ort-genai" if self.args.use_ort_genai else "none",
-                    ),
-                ]
-            )
+            to_replace.append((("passes", "b", "precision"), self.args.precision))
         elif is_diffusers_model:
             del config["passes"]["m"]
             del config["passes"]["b"]

@@ -40,6 +40,10 @@ class AccuracySubType(StrEnumBase):
     PERPLEXITY = "perplexity"
     WER = "wer"
     RTFX = "rtfx"
+    # Vision metrics (aligned with standard public vision benchmarks)
+    EXACT_MATCH = "exact_match"  # AI2D, ScienceQA, TextVQA, MathVista, MMMU, InterGPS
+    RELAXED_ACCURACY = "relaxed_accuracy"  # ChartQA (±5% numeric tolerance)
+    WORD_SORT_RATIO = "word_sort_ratio"  # OCR (word-level overlap)
 
 
 class LatencySubType(StrEnumBase):
