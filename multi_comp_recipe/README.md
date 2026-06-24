@@ -78,6 +78,32 @@ out/vae_decoder/    # FP16 VAE decoder
 
 Each build writes one optimized component; components without a build stay as exported.
 
+### Step 3 — Inference
+
+Run end-to-end image generation with the exported ONNX transformer:
+
+```
+python sd3_inference.py --prompt "A photo of a cat sitting on a windowsill" --steps 28 --output result.png
+```
+
+The inference script (`sd3_inference.py`) uses:
+- **Text encoding**: PyTorch CLIP-L, CLIP-G, and T5-XXL (run once, not in the denoising loop)
+- **Denoising**: ONNX Runtime `InferenceSession` with the exported transformer (28 steps)
+- **VAE decoding**: PyTorch `AutoencoderKL` to decode latents into a 512×512 image
+
+Options:
+```
+--prompt TEXT       Text prompt for image generation
+--steps N           Number of denoising steps (default: 28)
+--seed N            Random seed (default: 42)
+--output PATH       Output image path (default: sd3_output.png)
+--onnx_dir DIR      Path to exported transformer directory (default: out/transformer)
+```
+
+> **Note.** The CLIP/T5 text encoders and the VAE are run via PyTorch since Mobius does not export
+> them. Only the transformer (the compute-heavy denoising backbone that runs N steps) is in ONNX.
+> SD3 is a gated model — you need `huggingface-cli login` or set `HF_TOKEN` for the text encoders.
+
 ---
 
 ## Recipe 2 — Vision-Language Model (`vlm_optimize_components.json`)
@@ -114,6 +140,66 @@ olive run --config vlm_optimize_components.json
 > The three component names (`decoder`, `vision_encoder`, `embedding`) are exactly what Mobius
 > produces for `Qwen/Qwen3-VL-2B-Instruct`. For a different VLM, adjust the component names in the
 > config to match the subfolder names your export actually produced.
+
+### Step 3 — Inference with ORT GenAI
+
+Run text generation with the exported ONNX models using **onnxruntime-genai**:
+
+```bash
+# Text-only
+python vlm_inference.py --prompt "The capital of France is"
+
+# With image input
+python vlm_inference.py --prompt "Describe this image." --image photo.jpg
+
+# Custom settings
+python vlm_inference.py --model_dir exported_vlm_pkg --max_new_tokens 256
+```
+
+The inference script (`vlm_inference.py`) uses ORT GenAI which handles:
+- **Tokenization**: Built-in tokenizer from saved HF tokenizer files
+- **Embedding**: ONNX `embedding/model.onnx` (token embed + image/audio feature mixing)
+- **Vision encoding**: ONNX `vision_encoder/model.onnx` (when `--image` is provided)
+- **Decoding**: ONNX `decoder/model.onnx` with KV cache (autoregressive generation)
+
+Options:
+```
+--prompt TEXT           Text prompt
+--image PATH            Optional image file for multimodal input
+--max_new_tokens N      Maximum tokens to generate (default: 128)
+--model_dir DIR         Path to exported model directory (default: exported_vlm_pkg)
+```
+
+#### Setup requirements
+
+The export directory needs these files alongside the ONNX models:
+
+```
+exported_vlm_pkg/
+  genai_config.json          # Model type, I/O mappings, search config
+  tokenizer.json             # HF tokenizer
+  tokenizer_config.json
+  vision_processor.json      # Vision preprocessing config
+  audio_processor.json       # Audio preprocessing config (for Phi-4-multimodal)
+  decoder/model.onnx
+  vision_encoder/model.onnx
+  embedding/model.onnx
+  audio_encoder/model.onnx   # Optional (Phi-4-multimodal)
+```
+
+To create `genai_config.json` and tokenizer files after export:
+
+```python
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-4-multimodal-instruct", trust_remote_code=True)
+tokenizer.save_pretrained("exported_vlm_pkg")
+```
+
+For the `genai_config.json` structure, see the
+[Mobius phi4mm example](https://github.com/microsoft/mobius/blob/main/examples/phi4mm_ort_genai.py)
+which writes the config automatically.
+
+> **Note.** Install `onnxruntime-genai` (`pip install onnxruntime-genai`) to use this script.
 
 ---
 
