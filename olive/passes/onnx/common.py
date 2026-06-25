@@ -5,6 +5,7 @@
 import json
 import logging
 import re
+from collections.abc import Iterable
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
@@ -792,40 +793,46 @@ def update_llm_pipeline_genai_config(
 
 
 def update_llm_pipeline_genai_config_gpu(
-    model: ONNXModelHandler,
+    model: Union[ONNXModelHandler, CompositeModelHandler],
     output_model_dir: Union[str, Path],
-    input_model_path: Union[str, Path],
     decoder_config_extra: Optional[dict[str, Any]] = None,
-) -> ONNXModelHandler:
+    composite_components: Optional[Iterable[tuple[str, ONNXModelHandler]]] = None,
+) -> Union[ONNXModelHandler, CompositeModelHandler]:
     """Update the LLM pipeline in the model's genai_config.json file.
 
-    :param model: The  model to update.
+    :param model: The model (single or composite) to update.
+    :param output_model_dir: Directory where the updated genai_config.json should be written.
     :param decoder_config_extra: Extra configuration for the decoder.
+    :param composite_components: Optional iterable of (component_name, ONNXModelHandler)
+                                 used to build a multi-component pipeline.
+    :return: The same `model` object (with its directory now having updated genai_config.json).
     """
     output_model_dir = Path(output_model_dir)
 
-    # update genai_config if it exists
+    additional_files = model.model_attributes["additional_files"]
     genai_config_path = None
-    genai_config_path = Path(input_model_path).parent / "genai_config.json"
+    for file_path in additional_files:
+        if Path(file_path).name == "genai_config.json":
+            genai_config_path = file_path
+            break
 
-    if genai_config_path.exists():
-        genai_config_path = str(genai_config_path.resolve())
-    else:
+    if not genai_config_path:
         return model
 
     with open(genai_config_path) as f:
         genai_config = json.load(f)
-
     # update model_type
     genai_config["model"]["type"] = "decoder-pipeline"
 
-    # Update the provider_options list
     provider_option = {"qnn": {"backend_type": "gpu"}}
-    genai_config["model"]["decoder"]["session_options"]["provider_options"] = [provider_option]
+    decoder = genai_config["model"].setdefault("decoder", {})
+    session_opts = decoder.setdefault("session_options", {})
+    session_opts["provider_options"] = [provider_option]
 
     # update decoder config
     decoder_config = genai_config["model"]["decoder"]
     decoder_config.get("sliding_window", {}).pop("slide_inputs", None)
+
     for key, value in (decoder_config_extra or {}).items():
         exisiting_value = decoder_config.get(key)
         if isinstance(exisiting_value, dict):
@@ -835,13 +842,39 @@ def update_llm_pipeline_genai_config_gpu(
         else:
             decoder_config[key] = value
 
-    pipeline_config = {}
-    component_io_config = model.io_config
-    pipeline_config["model_onnx"] = {
-        "filename": Path(model.model_path).name,
-        "inputs": component_io_config["input_names"],
-        "outputs": component_io_config["output_names"],
-    }
+    # --- Build pipeline_config ---
+    pipeline_config: dict[str, Any] = {}
+
+    if composite_components is None:
+        if not isinstance(model, ONNXModelHandler):
+            handlers = list(model.get_model_components())
+            if not handlers:
+                return model
+            _, single_handler = handlers[0]
+        else:
+            single_handler = model
+
+        component_io_config = single_handler.io_config
+        component_key = Path(single_handler.model_path).stem
+        pipeline_config[component_key] = {
+            "filename": Path(single_handler.model_path).name,
+            "inputs": component_io_config["input_names"],
+            "outputs": component_io_config["output_names"],
+        }
+
+    else:
+        # Composite case: one entry per component
+        for comp_name, comp_handler in composite_components:
+            component_io_config = comp_handler.io_config
+            pipeline_config[comp_name] = {
+                "filename": Path(comp_handler.model_path).name,
+                "inputs": component_io_config["input_names"],
+                "outputs": component_io_config["output_names"],
+            }
+            if comp_name.endswith("iterator"):
+                pipeline_config[comp_name]["run_on_prompt"] = False
+            else:
+                pipeline_config[comp_name]["run_on_token_gen"] = False
 
     decoder_config["pipeline"] = [pipeline_config]
 
@@ -849,40 +882,65 @@ def update_llm_pipeline_genai_config_gpu(
     new_genai_config_path = output_model_dir / "genai_config.json"
     with new_genai_config_path.open("w") as f:
         json.dump(genai_config, f, indent=4)
+    additional_files.remove(genai_config_path)
+    additional_files.append(str(new_genai_config_path))
 
     return model
 
 
 def update_llm_pipeline_genai_config_gpu_ctxbin(
-    model_path: Union[str, Path],
+    model: Union[ONNXModelHandler, CompositeModelHandler],
+    output_model_path: Union[str, Path],
 ) -> None:
-    """Update the filename fields in the model's genai_config.json file from 'model' to 'model_ctx'.
+    """Update the genai_config.json entry for one context binary component.
 
-    The genai_config.json file is updated in place in the model's directory.
-    :param model_path: Path to the model file.
+    :param model: Source model is used to locate and update genai_config.json.
+    :param output_model_path: Path to the context binary output file.
     """
-    # Find genai_config in the model's directory
-    model_dir = Path(model_path).parent
-    genai_config_path = model_dir / "genai_config.json"
+    output_model_path = Path(output_model_path)
 
-    if not genai_config_path.exists():
+    # Extract additional_files from model -- same as update_llm_pipeline_genai_config_gpu
+    additional_files = model.model_attributes["additional_files"]
+    genai_config_path = None
+    for file_path in additional_files:
+        if Path(file_path).name == "genai_config.json":
+            genai_config_path = file_path
+            break
+
+    if not genai_config_path:
         return
+
+    ctx_stem = output_model_path.stem
+    if not ctx_stem.endswith("_ctx"):
+        return
+    src_stem = ctx_stem[: -len("_ctx")]
+    src_filename = f"{src_stem}.onnx"
+    ctx_filename = f"{ctx_stem}.onnx"
 
     with open(genai_config_path) as f:
         genai_config = json.load(f)
 
-    # Update decoder filename to 'model_ctx'
-    if "decoder" in genai_config.get("model", {}):
-        if "filename" in genai_config["model"]["decoder"]:
-            genai_config["model"]["decoder"]["filename"] = "model/model_ctx.onnx"
+    decoder = genai_config.get("model", {}).get("decoder", {})
 
-        # Update filename in pipeline configuration
-        decoder_config = genai_config["model"]["decoder"]
-        if "pipeline" in decoder_config and isinstance(decoder_config["pipeline"], list):
-            for pipeline_item in decoder_config["pipeline"]:
-                if "model_onnx" in pipeline_item and "filename" in pipeline_item["model_onnx"]:
-                    pipeline_item["model_onnx"]["filename"] = "model/model_ctx.onnx"
+    # Update top-level decoder.filename if it points to this model
+    if decoder.get("filename") == src_filename:
+        decoder["filename"] = ctx_filename
 
-    # Save the updated genai_config back to the same location
-    with genai_config_path.open("w") as f:
+    # Update the single matching pipeline entry
+    for pipeline_item in decoder.get("pipeline", []):
+        if not isinstance(pipeline_item, dict):
+            continue
+        for comp_name in list(pipeline_item.keys()):
+            comp = pipeline_item[comp_name]
+            if isinstance(comp, dict) and comp.get("filename") == src_filename:
+                comp["filename"] = ctx_filename
+                if comp_name == src_stem:
+                    pipeline_item[ctx_stem] = pipeline_item.pop(comp_name)
+                break  # only one entry matches per call
+
+    # Save to output dir and update additional_files pointer.
+    new_genai_config_path = output_model_path.parent / "genai_config.json"
+    with new_genai_config_path.open("w") as f:
         json.dump(genai_config, f, indent=4)
+    additional_files.remove(genai_config_path)
+    additional_files.append(str(new_genai_config_path))
