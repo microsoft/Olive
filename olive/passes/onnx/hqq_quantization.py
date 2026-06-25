@@ -181,7 +181,10 @@ class OnnxHqqQuantization(Pass):
         if accuracy_level > 0:
             kwargs["accuracy_level"] = accuracy_level
 
-        node.outputs[0].name = node.outputs[0].name + "_Q4"
+        # Only rename intermediate outputs; preserve graph output names so
+        # downstream consumers (e.g. genai_config.json) keep working.
+        if node.outputs[0] not in node.graph.outputs:
+            node.outputs[0].name = node.outputs[0].name + "_Q4"
 
         return ir.node(
             domain=MSFT_DOMAIN,
