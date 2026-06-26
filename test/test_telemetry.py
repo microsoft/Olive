@@ -422,3 +422,30 @@ def test_connection_string_parser():
         ConnectionStringParser("")
     with pytest.raises(ValueError):
         ConnectionStringParser("SomeOtherKey=value")
+
+
+# --------------------------------------------------------------------------
+# Exception-message path redaction (privacy)
+# --------------------------------------------------------------------------
+
+
+def test_redact_paths_keeps_filenames_drops_usernames():
+    from olive.telemetry.telemetry_extensions import _redact_paths
+
+    assert _redact_paths(r"C:\Users\alice\model.onnx") == "model.onnx"
+    assert _redact_paths("/var/data/run/output.log") == "output.log"
+    # Last segment is a directory/username (no extension) -> fully redacted.
+    assert _redact_paths("/home/bob") == "<path>"
+    # UNC paths are redacted too.
+    assert _redact_paths(r"\\server\share\secret") == "<path>"
+
+
+def test_format_exception_message_redacts_paths_in_message():
+    from olive.telemetry.telemetry_extensions import _format_exception_message
+
+    try:
+        raise RuntimeError(r"failed to read C:\Users\alice\secret\weights.bin")
+    except RuntimeError as exc:
+        message = _format_exception_message(exc, exc.__traceback__)
+    assert "alice" not in message
+    assert "weights.bin" in message

@@ -6,11 +6,15 @@ The software may collect information about you and your use of the software and 
 ***
 
 ## Technical Details
-Olive uses the [OpenTelemetry](https://opentelemetry.io/) API for its implementation. Telemetry is turned ON by default. Based on user consent, this data may be periodically sent to Microsoft servers following GDPR and privacy regulations for anonymity and data access controls. Application, device, and version information is collected automatically.
+Telemetry is turned ON by default. Based on user consent, this data may be periodically sent to Microsoft servers following GDPR and privacy regulations for anonymity and data access controls. Application, device, and version information is collected automatically.
 
 In addition, Olive may collect additional telemetry data such as:
 - Invoked commands
 - Performance data
 - Exception information
 
-Collection of this additional telemetry can be disabled by adding the `--disable_telemetry` flag to any Olive CLI command, or by setting the `OLIVE_DISABLE_TELEMETRY` environment variable to `1` before running. In CI/CD environments (e.g., GitHub Actions, Azure Pipelines, Jenkins), Olive suppresses the general heartbeat/action/error events and only emits the `OliveRecipe` event. The `OliveRecipe` event may include recipe metadata such as pass types, explicitly configured target settings, the host system type (including the default `LocalSystem` host) and any explicitly configured host accelerator settings, whether a custom package config was provided, a redacted snapshot of custom package-config overrides, and a redacted snapshot of explicitly supplied config overrides. Outside CI/CD environments, if telemetry is enabled but cannot be sent to Microsoft, it will be stored locally and sent when a connection is available. You can override the default cache location by setting the `OLIVE_TELEMETRY_CACHE_DIR` environment variable to a valid directory path.
+You can disable telemetry by adding the `--disable_telemetry` flag to any Olive CLI command, or by setting the `OLIVE_DISABLE_TELEMETRY` environment variable to `1` before running. When telemetry is disabled this way, the additional telemetry above (commands, performance, exceptions) is not sent. A minimal device-id heartbeat — a non-reversible hashed device identifier plus basic operating-system name, version, release, and architecture — is still sent outside CI/CD environments so Microsoft can count active devices; it contains no command, performance, or exception data.
+
+In CI/CD environments (e.g., GitHub Actions, Azure Pipelines, Jenkins), Olive suppresses the device-id heartbeat and the action/error events and only emits the `OliveRecipe` event. The `OliveRecipe` event may include recipe metadata such as pass types, explicitly configured target settings, the host system type (including the default `LocalSystem` host) and any explicitly configured host accelerator settings, whether a custom package config was provided, a redacted snapshot of custom package-config overrides, and a redacted snapshot of explicitly supplied config overrides. Setting `OLIVE_DISABLE_TELEMETRY=1` in a CI/CD environment sends nothing at all.
+
+Telemetry is implemented using only the Python standard library. Events are written to a local per-user SQLite queue and uploaded in the background to Microsoft over HTTPS. If telemetry is enabled but cannot be sent (for example, while offline), events remain in the local queue and are uploaded on a later run when a connection is available.
