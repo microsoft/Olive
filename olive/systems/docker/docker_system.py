@@ -232,6 +232,8 @@ class DockerSystem(OliveSystem):
 
     def _prepare_environment(self, base_env) -> dict:
         """Prepare environment variables for container."""
+        from olive.telemetry.telemetry import is_ci_environment
+
         # Convert list to dict if needed
         if isinstance(base_env, list):
             environment = {env.split("=")[0]: env.split("=")[1] for env in base_env}
@@ -241,6 +243,8 @@ class DockerSystem(OliveSystem):
         # Add default environment variables
         environment.setdefault("PYTHONPYCACHEPREFIX", "/tmp")
         environment["OLIVE_LOG_LEVEL"] = logging.getLevelName(logger.getEffectiveLevel())
+        if is_ci_environment():
+            environment["CI"] = "1"
 
         # Add HuggingFace token if needed
         if self.hf_token:

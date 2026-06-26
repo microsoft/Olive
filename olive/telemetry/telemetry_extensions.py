@@ -6,11 +6,11 @@
 import functools
 import inspect
 import time
+import traceback
 from types import TracebackType
 from typing import Any, Callable, Optional, TypeVar
 
-from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, _get_logger
-from olive.telemetry.utils import _format_exception_message
+from olive.telemetry.telemetry import ACTION_EVENT_NAME, ERROR_EVENT_NAME, RECIPE_EVENT_NAME, _get_logger
 
 _TFunc = TypeVar("_TFunc", bound=Callable[..., Any])
 
@@ -43,6 +43,76 @@ def log_error(
         "exception_message": exception_message,
     }
     telemetry.log(ERROR_EVENT_NAME, attributes, metadata)
+
+
+def log_recipe_result(
+    recipe_name: str,
+    success: bool,
+    metadata: Optional[dict[str, Any]] = None,
+) -> None:
+    telemetry = _get_logger()
+    attributes = {
+        "recipe_name": recipe_name,
+        "success": success,
+    }
+    telemetry.log(RECIPE_EVENT_NAME, attributes, metadata)
+
+
+def _redact_paths(text: str) -> str:
+    """Replace absolute filesystem paths with a non-identifying token.
+
+    Keeps a trailing filename (one containing an extension) because it is useful
+    for debugging and is not personal data; drops everything else, including
+    paths whose last segment is itself a directory or username (e.g. /home/alice
+    or a UNC share root), which a bare-basename redaction would expose.
+    """
+    import re
+
+    # Windows drive paths (C:\Users\me\x), UNC paths (\\server\share\me\x), and
+    # POSIX absolute paths (/home/me/x).
+    pattern = re.compile(
+        r"(?:[A-Za-z]:\\[^\s\"']+)"
+        r"|(?:\\\\[^\s\"']+)"
+        r"|(?:/[^\s\"':]+(?:/[^\s\"':]+)+)"
+    )
+
+    def _redact(match: "re.Match") -> str:
+        base = match.group(0).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+        if base in (".", "..") or "." not in base:
+            return "<path>"
+        return base
+
+    return pattern.sub(_redact, text)
+
+
+def _format_exception_message(ex: BaseException, tb: Optional[TracebackType] = None) -> str:
+    """Format an exception and strip local paths for privacy.
+
+    Each entry from ``traceback.format_exception`` is a multi-line string (the
+    ``File "..."`` line plus the offending source line), so we process every
+    physical line: filenames are trimmed to a package-relative form, and any
+    absolute path that remains on a source or message line is redacted so a
+    username embedded in it cannot leak into OliveError.
+    """
+    folder = "Olive"
+    file_line = 'File "'
+    formatted = traceback.format_exception(type(ex), ex, tb, limit=5)
+    lines = []
+    for chunk in formatted:
+        for raw_line in chunk.splitlines():
+            line_trunc = raw_line.strip()
+            if line_trunc.startswith(file_line) and folder in line_trunc:
+                idx = line_trunc.find(folder)
+                if idx != -1:
+                    line_trunc = line_trunc[idx + len(folder) :]
+            elif line_trunc.startswith(file_line):
+                idx = line_trunc[len(file_line) :].find('"')
+                line_trunc = line_trunc[idx + len(file_line) :]
+            # Redact any absolute path that remains (source lines, message, and
+            # the tail of File lines).
+            line_trunc = _redact_paths(line_trunc)
+            lines.append(line_trunc)
+    return "\n".join(lines)
 
 
 def _resolve_invoked_from(skip_frames: int = 0) -> str:
@@ -123,13 +193,19 @@ def action(func: _TFunc) -> _TFunc:
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any):
-        invoked_from = _resolve_invoked_from()
-        action_name = func.__name__
-        if args and hasattr(args[0], "__class__"):
-            cls_name = args[0].__class__.__name__
-            cls_name = cls_name[: -len("Command")] if cls_name.endswith("Command") else cls_name
-            if cls_name:
-                action_name = cls_name if action_name == "run" else f"{cls_name}.{action_name}"
+        # Resolve telemetry context defensively: instrumentation (including
+        # inspect.stack()) must never propagate into the wrapped call.
+        try:
+            invoked_from = _resolve_invoked_from()
+            action_name = func.__name__
+            if args and hasattr(args[0], "__class__"):
+                cls_name = args[0].__class__.__name__
+                cls_name = cls_name[: -len("Command")] if cls_name.endswith("Command") else cls_name
+                if cls_name:
+                    action_name = cls_name if action_name == "run" else f"{cls_name}.{action_name}"
+        except Exception:
+            invoked_from = "unknown"
+            action_name = getattr(func, "__name__", "unknown")
 
         start_time = time.perf_counter()
         success = True

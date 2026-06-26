@@ -54,16 +54,22 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
     @action
     def run(self):
+        from copy import deepcopy
+        from pathlib import Path
+
         from olive.common.config_utils import load_config_file
         from olive.workflows import run as olive_run
 
         # allow the run_config to be a dict already (for api use)
-        run_config = self.args.run_config
-        if not isinstance(run_config, dict):
-            run_config = load_config_file(run_config)
+        run_config_input = self.args.run_config
+        run_config = (
+            deepcopy(run_config_input) if isinstance(run_config_input, dict) else load_config_file(run_config_input)
+        )
+        config_overrides = {}
         if input_model_config := get_input_model_config(self.args, required=False):
             print("Replacing input model config in run config")
             run_config["input_model"] = input_model_config
+            config_overrides["input_model"] = input_model_config
         elif self.args.test not in (None, False):
             input_model = run_config.get("input_model")
             if not isinstance(input_model, dict) or input_model.get("type", "").lower() != "hfmodel":
@@ -80,6 +86,19 @@ class WorkflowRunCommand(BaseOliveCLICommand):
                 run_config.get("engine", {}).pop(rc_key, None)
                 # add value to run config directly
                 run_config[rc_key] = arg_value
+                config_overrides[rc_key] = arg_value
+
+        recipe_telemetry_metadata = {
+            "recipe_command": "WorkflowRun",
+            "recipe_source": "config_dict" if isinstance(run_config_input, dict) else "config_file",
+            "recipe_format": "dict"
+            if isinstance(run_config_input, dict)
+            else Path(run_config_input).suffix.lstrip(".").lower() or "unknown",
+            "execution_mode": "list_required_packages" if self.args.list_required_packages else "run",
+            "package_config_provided": bool(self.args.package_config),
+        }
+        if config_overrides:
+            recipe_telemetry_metadata["config_overrides"] = config_overrides
 
         output_path = run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")
         validate_test_output_path(output_path, self.args.test)
@@ -90,6 +109,7 @@ class WorkflowRunCommand(BaseOliveCLICommand):
             list_required_packages=self.args.list_required_packages,
             tempdir=self.args.tempdir,
             package_config=self.args.package_config,
+            recipe_telemetry_metadata=recipe_telemetry_metadata,
         )
         if self.args.test not in (None, False):
             mark_test_output_path(output_path)

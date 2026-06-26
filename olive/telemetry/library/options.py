@@ -7,11 +7,9 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Optional
+from typing import Optional
 
-import requests
-
-from olive.telemetry.library.connection_string_parser import ConnectionStringParser
+from .connection_string_parser import ConnectionStringParser
 
 
 class CompressionType(Enum):
@@ -35,7 +33,6 @@ class OneCollectorTransportOptions:
     max_items_per_payload: int = DEFAULT_MAX_ITEMS_PER_PAYLOAD
     compression: CompressionType = CompressionType.DEFLATE
     timeout_seconds: float = 10.0
-    http_client_factory: Optional[Callable[[], requests.Session]] = None
 
     def validate(self) -> None:
         """Validate the transport options.
@@ -62,6 +59,7 @@ class OneCollectorExporterOptions:
     """Configuration options for OneCollector exporter."""
 
     connection_string: Optional[str] = None
+    service_name: Optional[str] = None
     transport_options: OneCollectorTransportOptions = field(default_factory=OneCollectorTransportOptions)
 
     # Internal fields populated during validation

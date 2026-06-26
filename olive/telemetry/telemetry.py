@@ -2,34 +2,43 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""Thin wrapper around the OneCollector telemetry logger with event helpers."""
+"""Telemetry singleton backed by a durable SQLite event queue.
+
+Events are serialized to Common Schema JSON and written to a per-app SQLite
+store; a background uploader drains the store to Microsoft OneCollector. Because
+every event is persisted before any network call, the process can exit at any
+time without losing data and without an exit-time flush. The pipeline uses only
+the Python standard library (no OpenTelemetry, no requests).
+"""
 
 import base64
-import errno
-import json
 import os
 import platform
 import threading
-import time
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Optional
 
 from olive.telemetry.constants import CONNECTION_STRING
 from olive.telemetry.deviceid import get_encrypted_device_id_and_status
 from olive.telemetry.library.event_source import event_source
-from olive.telemetry.library.telemetry_logger import TelemetryLogger, get_telemetry_logger
-from olive.telemetry.utils import (
-    _decode_cache_line,
-    _encode_cache_line,
-    _exclusive_file_lock,
-    get_telemetry_base_dir,
-)
+from olive.telemetry.library.options import OneCollectorExporterOptions
+from olive.telemetry.library.serialization import CommonSchemaJsonSerializationHelper
+from olive.telemetry.offline_store import OfflineEventStore
+from olive.telemetry.uploader import EventUploader
+from olive.telemetry.utils import get_telemetry_base_dir
 
-if TYPE_CHECKING:
-    from olive.telemetry.library.callback_manager import PayloadTransmittedCallbackArgs
+try:
+    from olive.version import __version__ as VERSION
+except Exception:
+    VERSION = "unknown"
 
 # Default event names used by the high-level telemetry helpers.
 HEARTBEAT_EVENT_NAME = "OliveHeartbeat"
+RECIPE_EVENT_NAME = "OliveRecipe"
+ACTION_EVENT_NAME = "OliveAction"
+ERROR_EVENT_NAME = "OliveError"
+APP_NAME = "Olive"
 
 # CI/CD environment variables whose presence indicates an automated pipeline.
 _CI_ENV_VARS = (
@@ -41,17 +50,15 @@ _CI_ENV_VARS = (
     "BUILDKITE",  # Buildkite
     "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI",  # Azure DevOps
 )
-ACTION_EVENT_NAME = "OliveAction"
-ERROR_EVENT_NAME = "OliveError"
 
 ALLOWED_KEYS = {
     HEARTBEAT_EVENT_NAME: {
         "device_id",
-        "id_status",
-        "os.name",
-        "os.version",
-        "os.release",
-        "os.arch",
+        "device_id_status",
+        "os",
+        "os_version",
+        "os_release",
+        "os_arch",
         "app_version",
         "app_instance_id",
         "initTs",
@@ -72,386 +79,67 @@ ALLOWED_KEYS = {
         "app_instance_id",
         "initTs",
     },
+    RECIPE_EVENT_NAME: {
+        "recipe_name",
+        "recipe_hash",
+        "recipe_source",
+        "recipe_format",
+        "recipe_command",
+        "execution_mode",
+        "workflow_id",
+        "config_overrides",
+        "success",
+        "input_model_type",
+        "input_model_source",
+        "model_task",
+        "target_system_type",
+        "target_device",
+        "target_execution_provider",
+        "target_execution_providers",
+        "host_system_type",
+        "host_device",
+        "host_execution_provider",
+        "host_execution_providers",
+        "pass_types",
+        "pass_count",
+        "data_config_count",
+        "search_enabled",
+        "package_config_provided",
+        "package_config_overrides",
+        "is_ci",
+        "app_version",
+        "app_instance_id",
+        "initTs",
+    },
 }
 
 CRITICAL_EVENTS = {HEARTBEAT_EVENT_NAME}
-MAX_CACHE_SIZE_BYTES = 5 * 1024 * 1024
-HARD_MAX_CACHE_SIZE_BYTES = 10 * 1024 * 1024
-CACHE_FILE_NAME = "olive.json"
+
+# Per-app database file. Olive and other apps use separate files so a process
+# never drains another app's events (which carry a different tenant key).
+DB_FILE_NAME = "olive_telemetry.db"
 
 
-class TelemetryCacheHandler:
-    """Handles caching of failed telemetry events for offline resilience.
-
-    Design decisions:
-    - Single shared cache file (olive.json) for simplicity
-    - Cache writes are synchronous (fast JSON operations don't need async)
-    - Cache flush runs in a separate thread (slow network I/O)
-    - Flush triggered on success when cached events exist
-    - All critical sections protected by lock to prevent race conditions
-    - Newline-delimited JSON format for human readability and partial corruption recovery
-
-    Assumptions:
-    - File I/O (JSON lines) is fast enough for synchronous execution (~microseconds)
-    - Network I/O is slow and should not block the callback thread
-        - Successful send indicates network is available to retry cached events
-    - Cache persists across sessions for offline resilience
-    """
-
-    def __init__(self, telemetry: "Telemetry") -> None:
-        self._telemetry = telemetry
-        # Single shared cache file for all processes
-        self._cache_file_name = CACHE_FILE_NAME
-        self._shutdown = False
-        # Protects all shared state to prevent race conditions
-        self._lock = threading.Lock()
-        self._callback_condition = threading.Condition()
-        self._callbacks_item_count = 0
-        self._events_logged = 0
-        # Prevents concurrent flush operations
-        self._is_flushing = False
-
-    def shutdown(self) -> None:
-        """Signal shutdown to prevent new operations.
-
-        Note: Does NOT flush the cache. Cache persists across sessions for
-        offline resilience. If network is working, success callbacks already
-        flushed. If network is down, flushing would fail anyway.
-        """
-        with self._lock:
-            self._shutdown = True
-
-    def __del__(self):
-        """Cleanup cache handler resources on garbage collection.
-
-        Safety net to ensure shutdown is called even if not done explicitly.
-        """
-        try:
-            self.shutdown()
-        except Exception:
-            # Silently ignore errors during cleanup
-            pass
-
-    def on_payload_transmitted(self, args: "PayloadTransmittedCallbackArgs") -> None:
-        """Telemetry payload transmission callback.
-
-        Design decisions:
-        - Ignore callbacks during flush (unlikely to fail during successful flush)
-        - On success: flush cache if any cached events exist
-        - On failure: write to cache immediately (synchronous for simplicity)
-
-        Assumptions:
-        - Successful transmission indicates network is available to retry cached events
-        - If flush is in progress, we already successfully sent an event, so unlikely an event would suddenly fail
-        - Multiple concurrent successes don't need multiple flush operations
-        - Failed payloads should be cached immediately to avoid loss
-        """
-        try:
-            payload = None
-            should_flush = False
-
-            with self._lock:
-                if self._shutdown:
-                    return
-
-                # Skip callbacks from replayed events during flush
-                # If a flush is in progress it means we successfully sent an event,
-                # so it's unlikely that an event would suddenly fail and need to be cached
-                # and we don't need to flush again.
-                if self._is_flushing:
-                    with self._callback_condition:
-                        self._callbacks_item_count += args.item_count
-                        self._callback_condition.notify_all()
-                    return
-
-                if args.succeeded:
-                    # Only flush if cache exists and no flush is in progress
-                    cache_path = self.cache_path
-                    if cache_path and cache_path.exists():
-                        should_flush = True
-                else:
-                    payload = args.payload_bytes
-
-            if should_flush:
-                # Release lock before scheduling (flush runs in separate thread)
-                self._schedule_flush()
-            elif payload:
-                # Write synchronously - JSON operations are fast enough
-                self._write_payload_to_cache(payload)
-        except Exception:
-            # Fail silently - telemetry should never crash the application
-            pass
-        finally:
-            with self._callback_condition:
-                self._callbacks_item_count += args.item_count
-                self._callback_condition.notify_all()
-
-    def wait_for_callbacks(self, timeout_sec: float, during_flush: bool = False) -> bool:
-        deadline = time.time() + timeout_sec
-        while True:
-            with self._callback_condition:
-                callbacks_item_count = self._callbacks_item_count
-                expected_items = self._events_logged
-                if (during_flush or not self.is_flushing) and callbacks_item_count >= expected_items:
-                    return True
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                return False
-            with self._callback_condition:
-                self._callback_condition.wait(timeout=remaining)
-
-    def record_event_logged(self, count: int = 1) -> None:
-        with self._callback_condition:
-            self._events_logged += count
-
-    def _schedule_flush(self) -> None:
-        """Schedule cache flush in a separate thread to avoid blocking the callback.
-
-        Design decisions:
-        - Check _is_flushing before spawning thread to avoid unnecessary threads
-        - Run flush in daemon thread (don't block process exit)
-        - Acquire lock at start to set _is_flushing flag atomically
-        - Always clear _is_flushing flag even if flush fails
-
-        Assumptions:
-        - Flush operations are slow (network I/O) and should not block callbacks
-        - Daemon thread is acceptable (flush is best-effort)
-        """
-        # Check before spawning thread to avoid unnecessary thread creation
-        with self._lock:
-            if self._shutdown or self._is_flushing:
-                return
-            self._is_flushing = True
-
-        def flush_task():
-            try:
-                self._flush_cache()
-            except Exception:
-                # Fail silently
-                pass
-            finally:
-                # Always clear flag, even on exception
-                with self._lock:
-                    self._is_flushing = False
-
-        thread = threading.Thread(target=flush_task, daemon=True)
-        thread.start()
-
-    @property
-    def cache_path(self) -> Optional[Path]:
-        """Get the path to the telemetry cache file.
-
-        Returns:
-            Optional[Path]: Path to cache file, or None if base directory unavailable.
-
-        """
-        telemetry_cache_dir = None
-        if "OLIVE_TELEMETRY_CACHE_DIR" in os.environ:
-            telemetry_cache_dir = os.environ["OLIVE_TELEMETRY_CACHE_DIR"]
-        if not telemetry_cache_dir:
-            telemetry_cache_dir = get_telemetry_base_dir() / "cache"
-        return telemetry_cache_dir / self._cache_file_name
-
-    def _write_payload_to_cache(self, payload: bytes) -> None:
-        """Write failed telemetry payload to cache for later retry.
-
-        Design decisions:
-        - Parse payload to extract individual events (allows filtering)
-        - Filter to only critical events near size limit (preserves important data)
-        - Use file locking for multi-process safety (prevents corruption)
-        - Use exponential backoff for file contention (avoids spinning)
-        - Fail silently on errors (telemetry should never crash app)
-
-        Assumptions:
-        - JSON operations are fast enough for synchronous execution
-        - File contention is rare and transient (retry a few times)
-        - Cache size limits prevent unbounded growth
-        - Critical events (heartbeat) are more important than others
-        """
-        try:
-            cache_path = self.cache_path
-            if cache_path is None:
-                return
-
-            # Parse payload into individual events for filtering
-            entries = _parse_payload(payload)
-            if not entries:
-                return
-
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-
-            max_retries = 3
-            for attempt in range(max_retries + 1):
-                try:
-                    cache_size = cache_path.stat().st_size if cache_path.exists() else 0
-
-                    # Hard limit: stop caching entirely to prevent unbounded growth
-                    if cache_size >= HARD_MAX_CACHE_SIZE_BYTES:
-                        return
-
-                    # Soft limit: keep only critical events to preserve space
-                    if cache_size >= MAX_CACHE_SIZE_BYTES:
-                        entries = [entry for entry in entries if entry["event_name"] in CRITICAL_EVENTS]
-                        if not entries:
-                            return
-
-                    # Append base64-encoded newline-delimited entries
-                    # Use exclusive file lock for multi-process safety
-                    with _exclusive_file_lock(cache_path, mode="a") as cache_file:
-                        for entry in entries:
-                            plain = json.dumps(entry, ensure_ascii=False, separators=(",", ":"))
-                            cache_file.write(_encode_cache_line(plain) + "\n")
-                    return
-                except OSError as exc:
-                    # Retry only on transient access errors (file locked by another process)
-                    if exc.errno not in {errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK, errno.EBUSY}:
-                        return
-                    if attempt >= max_retries:
-                        return
-                    # Exponential backoff: 50ms, 100ms, 200ms (aligned with C# implementation)
-                    time.sleep(0.05 * (2**attempt))
-        except Exception:
-            # Fail silently - telemetry errors should not crash the application
-            return
-
-    def _flush_cache(self) -> None:
-        """Flush this process's cached events back to telemetry service."""
-        cache_path = self.cache_path
-        if cache_path is None or not cache_path.exists():
-            return
-
-        self._flush_cache_file(cache_path)
-
-    def _flush_cache_file(self, cache_path: Path) -> None:
-        """Flush cached events back to telemetry service.
-
-        Approach:
-        1. Atomically rename cache → .flush (claims ownership, prevents concurrent flushes)
-        2. Read all events from .flush file
-        3. Queue all events for sending via telemetry logger
-        4. Force flush with 2-second timeout
-        5. On success: delete .flush file
-        6. On failure: restore .flush → cache for retry
-
-        Multi-process coordination:
-        - `replace()` is atomic; only one process can successfully rename the cache file
-        - If another process already renamed it, we get FileNotFoundError and abort
-        - Stale .flush files from crashes are overwritten by the atomic rename
-
-        Shutdown handling:
-        - If shutdown flag set during flush, restore cache before returning
-        - This preserves events even if callbacks don't fire during shutdown
-
-        Callback behavior:
-        - Queued events trigger callbacks with success/failure
-        - Failed events are automatically re-cached via callbacks (unless shutting down)
-        - The _is_flushing flag prevents re-caching of replayed events during flush
-        """
-        flush_path = None
-        try:
-            # Check shutdown before starting (under lock to prevent race)
-            with self._lock:
-                if self._shutdown:
-                    return
-
-            if not cache_path.exists():
-                return
-
-            # Atomically rename to .flush file to claim ownership
-            # Overwrite any stale .flush file from crashed process (C# pattern)
-            flush_path = cache_path.with_name(f"{cache_path.name}.flush")
-            try:
-                # On Windows/POSIX, replace() overwrites existing files atomically
-                cache_path.replace(flush_path)
-            except FileNotFoundError:
-                # Cache already claimed by another flush or doesn't exist
-                return
-
-            # Read all cached entries (base64-decoded)
-            entries = _read_cache_entries(flush_path)
-
-            if not entries:
-                # Empty cache, just delete the flush file
-                flush_path.unlink(missing_ok=True)
-                return
-
-            # Replay all events through telemetry logger
-            # Note: _is_flushing flag (set by caller) prevents these callbacks from re-caching or triggering nested flushes
-            # (unlikely since we just successfully sent an event, indicating network is available)
-            for entry in entries:
-                try:
-                    event_name = entry["event_name"]
-                    event_data = entry["event_data"]
-                    if not event_name or not event_data:
-                        continue
-                    attributes = json.loads(event_data)
-                    if not isinstance(attributes, dict):
-                        continue
-                    # Preserve original timestamp
-                    attributes["initTs"] = entry.get("initTs", entry["ts"])
-                    self._telemetry.log(event_name, attributes, None)
-                except Exception:
-                    # Skip malformed entries
-                    continue
-
-            # Check if shutdown happened during flush
-            with self._lock:
-                if self._shutdown:
-                    # Restore cache to avoid data loss during shutdown
-                    if flush_path and flush_path.exists():
-                        try:
-                            cache_path.parent.mkdir(parents=True, exist_ok=True)
-                            flush_path.replace(cache_path)
-                        except Exception:
-                            # Silently ignore errors during cleanup
-                            pass
-                    return
-
-            # Wait for in-flight callbacks to complete before deciding success/failure
-            flush_success = self.wait_for_callbacks(timeout_sec=5.0, during_flush=True)
-            if flush_success:
-                # Success: delete the flush file (events were sent)
-                if flush_path:
-                    flush_path.unlink(missing_ok=True)
-            elif flush_path and flush_path.exists():
-                # Failure: restore cache for retry later
-                cache_path.parent.mkdir(parents=True, exist_ok=True)
-                flush_path.replace(cache_path)
-        except Exception:
-            # Best-effort restore on any exception to prevent data loss
-            if flush_path and flush_path.exists():
-                try:
-                    cache_path.parent.mkdir(parents=True, exist_ok=True)
-                    flush_path.replace(cache_path)
-                except Exception:
-                    # If restore fails, we lose the data (acceptable for telemetry)
-                    pass
-            return
-
-    @property
-    def is_flushing(self) -> bool:
-        with self._lock:
-            return self._is_flushing
+def is_ci_environment() -> bool:
+    """Detect CI/CD environments by checking well-known environment variables."""
+    return any(os.environ.get(var) for var in _CI_ENV_VARS)
 
 
 class Telemetry:
-    """Wrapper that wires environment configuration into the library logger.
+    """Per-process singleton that persists events to SQLite and uploads them.
 
-    This is a singleton class - all instances share the same state.
+    Separate processes get separate in-memory singletons and coordinate only
+    through the shared SQLite store and its single-drainer file lock.
     Use Telemetry() to get the singleton instance.
     """
 
     _instance: Optional["Telemetry"] = None
-    _lock = threading.Lock()
+    _lock = threading.RLock()
 
     def __new__(cls):
-        """Create or return the singleton instance.
-
-        Thread-safe singleton implementation using double-checked locking.
-        """
+        """Create or return the singleton instance."""
         if cls._instance is None:
             with cls._lock:
-                # Double-check pattern to prevent race conditions
                 if cls._instance is None:
                     instance = super().__new__(cls)
                     instance._initialized = False
@@ -459,71 +147,85 @@ class Telemetry:
         return cls._instance
 
     def __init__(self):
-        """Initialize the telemetry logger (only runs once for singleton)."""
-        # Prevent re-initialization
-        if self._initialized:
-            return
-
-        self._logger = None
-        self._cache_handler = None
-
-        try:
-            self._logger = self._create_logger()
-            event_source.disable()
-
-            self._cache_handler = TelemetryCacheHandler(self)
-            self._setup_payload_callbacks()
-            if self._is_ci_environment():
-                self.disable_telemetry()
-                self._initialized = True
+        """Initialize the telemetry store and uploader (runs once)."""
+        with self._lock:
+            if self._initialized:
                 return
-            self._log_heartbeat()
-            if os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1":
-                self.disable_telemetry()
-            self._initialized = True
-        except Exception:
-            # Fail silently — telemetry must never crash the host application
+            # Mark initialized under the lock before doing any work, so two
+            # threads whose first Telemetry() calls interleave cannot both run
+            # the body (which would create two uploaders and two heartbeats).
             self._initialized = True
 
-    @staticmethod
-    def _is_ci_environment() -> bool:
-        """Detect CI/CD environments by checking well-known environment variables."""
-        return any(os.environ.get(var) for var in _CI_ENV_VARS)
+            self._store: Optional[OfflineEventStore] = None
+            self._uploader: Optional[EventUploader] = None
+            self._enabled = True
+            self._recipe_only_ci_telemetry = False
+            self._global_metadata: dict[str, Any] = {}
+            self._instrumentation_key = ""
+            self._envelope_ikey = ""
+            self._app_instance_id = uuid.uuid4().hex
+            self._heartbeat_thread: Optional[threading.Thread] = None
 
-    def _create_logger(self) -> Optional[TelemetryLogger]:
-        try:
-            return get_telemetry_logger(base64.b64decode(CONNECTION_STRING).decode())
-        except Exception:
-            return None
+            try:
+                # User opt-out (OLIVE_DISABLE_TELEMETRY=1): detailed events are
+                # not recorded, but the device-id heartbeat is still written
+                # (durably) so device counting keeps working. CI is handled via
+                # recipe-only mode below and never sends a heartbeat.
+                user_opt_out = os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1"
 
-    def _setup_payload_callbacks(self) -> None:
-        # Register callback for payload transmission events
-        # No need to store unregister function - logger shutdown will clean up callbacks
-        if self._logger is None:
-            return
-        self._logger.register_payload_transmitted_callback(
-            self._cache_handler.on_payload_transmitted,
-            include_failures=True,
+                options = OneCollectorExporterOptions(connection_string=base64.b64decode(CONNECTION_STRING).decode())
+                options.validate()
+                self._instrumentation_key = options.instrumentation_key
+                self._envelope_ikey = (
+                    f"{CommonSchemaJsonSerializationHelper.ONE_COLLECTOR_TENANCY_SYMBOL}:{options.tenant_token}"
+                )
+
+                event_source.disable()
+
+                # In CI, only recipe events are sent (no heartbeat, no
+                # action/error); this is independent of user opt-out.
+                self._recipe_only_ci_telemetry = is_ci_environment()
+
+                # Opt-out + CI: record and send nothing at all.
+                if user_opt_out and self._recipe_only_ci_telemetry:
+                    self._enabled = False
+                    return
+
+                # Detailed events are recorded only when enabled; the heartbeat
+                # ignores this gate.
+                self._enabled = not user_opt_out
+
+                # Durable on-disk queue + background uploader. The uploader
+                # retries until delivery, which makes the device-id heartbeat
+                # reliable even on opt-out.
+                db_path = os.path.join(get_telemetry_base_dir(), DB_FILE_NAME)
+                self._store = OfflineEventStore(db_path)
+                self._uploader = EventUploader(self._store, instrumentation_key=self._instrumentation_key)
+                self._uploader.start()
+
+                # The device-id heartbeat is written to the durable store, not
+                # sent directly. It is suppressed in CI (recipe-only mode).
+                if not self._recipe_only_ci_telemetry:
+                    self._start_heartbeat()
+            except Exception:
+                # Fail silently — telemetry must never crash the host application
+                self._store = None
+                self._uploader = None
+                self._enabled = False
+
+    def _start_heartbeat(self) -> None:
+        """Send the device-id heartbeat on a background daemon thread."""
+        self._heartbeat_thread = threading.Thread(
+            target=self._send_heartbeat, name="olive-telemetry-heartbeat", daemon=True
         )
+        self._heartbeat_thread.start()
 
     def add_global_metadata(self, metadata: dict[str, Any]) -> None:
-        """Add metadata to all telemetry events.
-
-        Args:
-            metadata: Dictionary of metadata key-value pairs to add to all events.
-                     These will be included in every telemetry event sent.
-
-        Example:
-            >>> telemetry = Telemetry()
-            >>> telemetry.add_global_metadata({"user_id": "12345", "environment": "production"})
-
-        """
+        """Merge metadata into every subsequent telemetry event."""
         try:
-            if self._logger is None:
-                return
-            self._logger.add_global_metadata(metadata)
+            if metadata:
+                self._global_metadata.update(metadata)
         except Exception:
-            # Fail silently — telemetry must never crash the host application
             pass
 
     def log(
@@ -532,110 +234,117 @@ class Telemetry:
         attributes: Optional[dict[str, Any]] = None,
         metadata: Optional[dict[str, Any]] = None,
     ) -> None:
-        """Log a telemetry event.
-
-        Args:
-            event_name: Name of the event to log (e.g., "UserLogin", "ModelTrained").
-            attributes: Optional dictionary of event-specific attributes.
-            metadata: Optional dictionary of additional metadata to merge with attributes.
-
-        Example:
-            >>> telemetry = Telemetry()
-            >>> telemetry.log("ModelOptimized", {"model_type": "bert", "duration_ms": 1500})
-
-        """
+        """Log a telemetry event (persisted durably, uploaded in the background)."""
         try:
-            attrs = _merge_metadata(attributes, metadata)
-            if self._logger is None:
+            if not self._enabled or self._store is None:
                 return
-            self._logger.log(event_name, attrs)
-            if self._cache_handler:
-                self._cache_handler.record_event_logged()
+            if self._recipe_only_ci_telemetry and event_name != RECIPE_EVENT_NAME:
+                return
+            payload = self._build_payload(event_name, attributes, metadata)
+            if payload is None:
+                return
+            self._store.store(payload)
+            if self._uploader is not None:
+                self._uploader.request_drain()
         except Exception:
             # Fail silently — telemetry must never crash the host application
             pass
 
-    def _log_heartbeat(
+    def _build_payload(
         self,
+        event_name: str,
+        attributes: Optional[dict[str, Any]],
         metadata: Optional[dict[str, Any]] = None,
-    ) -> None:
-        """Log a heartbeat event with system information.
+    ) -> Optional[bytes]:
+        """Merge metadata, filter to whitelisted keys, and serialize one event.
 
-        Args:
-            metadata: Optional additional metadata to include.
-
+        Returns the Common Schema JSON bytes, or None if the event is not
+        whitelisted or filters to nothing.
         """
+        attrs = _merge_metadata(attributes, metadata)
+        if self._global_metadata:
+            attrs = {**self._global_metadata, **attrs}
+        filtered = _filter_event_data(event_name, attrs)
+        if not filtered:
+            # Unknown/empty event: not whitelisted.
+            return None
+        filtered.setdefault("app_version", VERSION)
+        filtered.setdefault("app_instance_id", self._app_instance_id)
+        envelope = CommonSchemaJsonSerializationHelper.create_event_envelope(
+            event_name=event_name,
+            timestamp=datetime.now(timezone.utc),
+            ikey=self._envelope_ikey,
+            data=filtered,
+        )
+        return CommonSchemaJsonSerializationHelper.serialize_to_json_bytes(envelope)
+
+    def _send_heartbeat(self, metadata: Optional[dict[str, Any]] = None) -> None:
+        """Enqueue the device-id heartbeat in the durable store.
+
+        Runs on a background thread on every non-CI run (including user opt-out)
+        so device counting works and is retried until delivered. The heartbeat
+        deliberately ignores the ``_enabled`` gate that suppresses detailed
+        events on opt-out; only detailed events are withheld from opted-out
+        users.
+        """
+        if self._store is None:
+            return
         try:
             encrypted_device_id, device_id_status = get_encrypted_device_id_and_status()
             attributes = {
                 "device_id": encrypted_device_id,
-                "id_status": device_id_status.value,
-                "os": {
-                    "name": platform.system().lower(),
-                    "version": platform.version(),
-                    "release": platform.release(),
-                    "arch": platform.machine(),
-                },
+                "device_id_status": device_id_status.value,
+                "os": platform.system(),
+                "os_version": platform.version(),
+                "os_release": platform.release(),
+                "os_arch": platform.machine(),
             }
-            self.log(HEARTBEAT_EVENT_NAME, attributes, metadata)
+            payload = self._build_payload(HEARTBEAT_EVENT_NAME, attributes, metadata)
+            if payload is None:
+                return
+            self._store.store(payload)
+            if self._uploader is not None:
+                self._uploader.request_drain()
         except Exception:
-            # Fail silently — telemetry must never crash the host application
             pass
 
     def disable_telemetry(self) -> None:
-        """Disable all telemetry logging.
-
-        After calling this method, no telemetry events will be sent until
-        telemetry is explicitly re-enabled.
-        """
+        """Disable telemetry and stop the background uploader (non-blocking)."""
         try:
-            if self._logger is None:
-                return
-            self._logger.disable_telemetry()
+            self._enabled = False
+            if self._uploader is not None:
+                # Non-blocking: signal the daemon thread to wind down without
+                # joining, so opting out never blocks the caller.
+                self._uploader.signal_stop()
+                self._uploader = None
         except Exception:
-            # Fail silently — telemetry must never crash the host application
             pass
 
     def shutdown(self, timeout_millis: float = 10_000, callback_timeout_millis: float = 2_000) -> None:
-        """Shutdown telemetry and flush pending events.
+        """Stop the background uploader without blocking process exit.
 
-        Shutdown sequence:
-        1. Wait for in-flight flush to complete (up to 1 second)
-        2. Wait for callbacks + signal shutdown to cache handler
-        3. Shutdown logger (cleans up callbacks automatically)
+        Delivery does not depend on a flush here: durability guarantees that any
+        undelivered events remain in the on-disk store and are uploaded on the
+        next run (or by a concurrently-running process). We deliberately do NOT
+        perform synchronous network I/O at shutdown, because Olive's CLI calls
+        this on every exit and a blocked/unreachable collector would otherwise
+        stall exit for the full send timeout.
         """
         try:
-            # Step 1: Wait for pending flush to complete (matches C# 1-second timeout)
-            start_time = time.time()
-            while time.time() - start_time < 1.0:
-                if not self._cache_handler or not self._cache_handler.is_flushing:
-                    break
-                time.sleep(0.05)
-
-            # Step 2: Wait for callbacks/flush to complete before shutting down cache handler
-            if self._cache_handler:
-                # Nothing can be done if callbacks don't complete in time, so we ignore the result
-                _ = self._cache_handler.wait_for_callbacks(callback_timeout_millis / 1000)
-                self._cache_handler.shutdown()
-
-            # Step 3: Shutdown logger (callbacks cleaned up automatically)
-            if self._logger is not None:
-                self._logger.shutdown()
+            if self._uploader is not None:
+                self._uploader.signal_stop()
+                self._uploader = None
+            if self._store is not None:
+                self._store.close()
         except Exception:
             # Fail silently — telemetry must never crash the host application
             pass
 
     def __del__(self):
-        """Cleanup telemetry resources on garbage collection.
-
-        This is a safety net to ensure resources are cleaned up even if
-        shutdown() is not explicitly called. However, relying on __del__
-        is not recommended - always call shutdown() explicitly when done.
-        """
+        """Safety-net cleanup on garbage collection."""
         try:
             self.shutdown()
         except Exception:
-            # Silently ignore errors during cleanup
             pass
 
 
@@ -651,66 +360,12 @@ def _merge_metadata(attributes: Optional[dict[str, Any]], metadata: Optional[dic
     return merged
 
 
-def _parse_payload(payload: bytes) -> list[dict[str, Any]]:
-    """Parse telemetry payload into individual event entries.
-
-    Design decisions:
-    - Filter events to only allowed keys (privacy/security)
-    - Store as minimal JSON (reduces cache size)
-    - Fail silently on malformed data (telemetry should be robust)
-
-    Assumptions:
-    - Payload is newline-delimited JSON (OneCollector format)
-    - Events have "name", "time", and "data" fields
-    - Only whitelisted events and fields should be cached
-    """
-    entries = []
-    try:
-        payload_text = payload.decode("utf-8")
-        lines = payload_text.splitlines()
-
-        for raw_line in lines:
-            line = raw_line.strip()
-            if not line:
-                continue
-            try:
-                event = json.loads(line)
-                event_name = event["name"]
-                if not event_name:
-                    continue
-                # Filter to only allowed keys for privacy/security
-                filtered_data = _filter_event_data(event_name, event["data"])
-                if not filtered_data:
-                    continue
-                entries.append(
-                    {
-                        "ts": event["time"] or time.time(),
-                        "event_name": event_name,
-                        # Compact JSON to reduce cache size
-                        "event_data": json.dumps(filtered_data, ensure_ascii=False, separators=(",", ":")),
-                    }
-                )
-            except Exception:
-                # Skip malformed lines
-                continue
-    except Exception:
-        # If entire payload is malformed, return empty list
-        return []
-
-    return entries
-
-
 def _filter_event_data(event_name: str, data: dict[str, Any]) -> Optional[dict[str, Any]]:
     """Filter event data to only allowed keys for privacy/security.
 
-    Design decisions:
-    - Whitelist approach (only explicitly allowed keys are included)
-    - Support nested keys with dot notation (e.g., "os.name")
-    - Return None if no allowed keys found (filters out unknown events)
-
-    Assumptions:
-    - ALLOWED_KEYS dict defines all cacheable events and their fields
-    - Unknown events should not be cached (privacy/security)
+    Whitelist approach: only explicitly allowed keys (with dot-notation support
+    for nested values, e.g. "os.name") are kept. Returns None for unknown events
+    so they are neither persisted nor sent.
     """
     if event_name not in ALLOWED_KEYS:
         return None
@@ -740,37 +395,3 @@ def _set_nested_value(data: dict[str, Any], key: str, value: Any) -> None:
     for part in parts[:-1]:
         current = current.setdefault(part, {})
     current[parts[-1]] = value
-
-
-def _read_cache_entries(cache_path: Path) -> list[dict[str, Any]]:
-    """Read all entries from a cache file, decoding each line.
-
-    Design decisions:
-    - Use file locking for multi-process safety
-    - Continue reading past malformed entries (partial data recovery)
-    - Return empty list on complete read failure (fail gracefully)
-    - Each line is base64-decoded before JSON parsing.
-
-    Assumptions:
-    - Cache file contains newline-delimited base64-encoded entries (one per line)
-    - Each line is independent (one malformed line doesn't affect others)
-    - Empty or whitespace-only lines are skipped
-    """
-    entries = []
-    try:
-        with _exclusive_file_lock(cache_path, mode="r") as cache_file:
-            for raw_line in cache_file:
-                line = raw_line.strip()
-                if not line:
-                    continue
-                try:
-                    line = json.loads(_decode_cache_line(line))
-                    if isinstance(line, dict):
-                        entries.append(line)
-                except Exception:
-                    # Malformed line, skip and continue
-                    continue
-    except Exception:
-        # If file cannot be opened or read, return empty list
-        return []
-    return entries

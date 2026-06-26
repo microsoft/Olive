@@ -108,7 +108,17 @@ def test_workflow_run_command(mock_run, tempdir, list_required_packages, tmp_pat
 
     # assert
     mock_run.assert_called_once_with(
-        {"key": "value"}, package_config=None, tempdir=tempdir, list_required_packages=list_required_packages
+        {"key": "value"},
+        package_config=None,
+        tempdir=tempdir,
+        list_required_packages=list_required_packages,
+        recipe_telemetry_metadata={
+            "recipe_command": "WorkflowRun",
+            "recipe_source": "config_file",
+            "recipe_format": "json",
+            "execution_mode": "list_required_packages" if list_required_packages else "run",
+            "package_config_provided": False,
+        },
     )
 
 
@@ -150,6 +160,22 @@ def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_pat
         list_required_packages=False,
         package_config=None,
         tempdir=None,
+        recipe_telemetry_metadata={
+            "recipe_command": "WorkflowRun",
+            "recipe_source": "config_file",
+            "recipe_format": "json",
+            "execution_mode": "run",
+            "package_config_provided": False,
+            "config_overrides": {
+                "input_model": {
+                    "type": "HfModel",
+                    "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                    "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                },
+                "output_dir": str(Path("new_output_path").resolve()),
+                "log_severity_level": 2,
+            },
+        },
     )
 
 
@@ -197,6 +223,13 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
         list_required_packages=False,
         package_config=None,
         tempdir=None,
+        recipe_telemetry_metadata={
+            "recipe_command": "WorkflowRun",
+            "recipe_source": "config_file",
+            "recipe_format": "json",
+            "execution_mode": "run",
+            "package_config_provided": False,
+        },
     )
 
 
