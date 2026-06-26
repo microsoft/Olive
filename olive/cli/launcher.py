@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import os
 import sys
 from argparse import ArgumentParser
 from warnings import warn
@@ -66,9 +67,11 @@ def main(raw_args=None, called_as_console_script: bool = True):
 
     args, unknown_args = parser.parse_known_args(raw_args)
 
-    telemetry = Telemetry()
+    # Honor --disable-telemetry BEFORE constructing Telemetry, so a disabled run
+    # never starts the uploader or drains/uploads the durable store.
     if args.disable_telemetry:
-        telemetry.disable_telemetry()
+        os.environ["OLIVE_DISABLE_TELEMETRY"] = "1"
+    telemetry = Telemetry()
 
     if not hasattr(args, "func"):
         parser.print_help()

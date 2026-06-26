@@ -3,224 +3,422 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 # pylint: disable=protected-access
+"""Tests for the SQLite-backed telemetry pipeline.
+
+Covers the three-state opt-out semantics (CI / user opt-out / enabled), the
+ALLOWED_KEYS whitelist filtering, the durable SQLite store, the single-drainer
+process lock, the background uploader's success/poison/transient handling, and
+the Common Schema serialization helpers. No test touches the network or the real
+user profile: the HTTP transport is stubbed and the store directory is
+redirected to a temp dir.
+"""
+
 import json
-import os
-import subprocess
-import sys
-import threading
-import time
-from pathlib import Path
+import tempfile
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
 
 import pytest
 
+import olive.telemetry.library.transport as transport_mod
+import olive.telemetry.telemetry as tmod
+from olive.telemetry.library.connection_string_parser import ConnectionStringParser
+from olive.telemetry.library.serialization import CommonSchemaJsonSerializationHelper as Serializer
+from olive.telemetry.offline_store import SCHEMA_VERSION, OfflineEventStore
+from olive.telemetry.process_lock import ProcessDrainLock
 from olive.telemetry.telemetry import (
     ACTION_EVENT_NAME,
-    CACHE_FILE_NAME,
+    ERROR_EVENT_NAME,
+    HEARTBEAT_EVENT_NAME,
     RECIPE_EVENT_NAME,
     Telemetry,
-    TelemetryCacheHandler,
+    is_ci_environment,
 )
-from olive.telemetry.utils import _exclusive_file_lock
+from olive.telemetry.uploader import EventUploader
+
+_OPT_OUT_VAR = "OLIVE_DISABLE_TELEMETRY"
+_CI_VARS = (
+    "CI",
+    "TF_BUILD",
+    "GITHUB_ACTIONS",
+    "JENKINS_URL",
+    "CODEBUILD_BUILD_ID",
+    "BUILDKITE",
+    "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI",
+)
 
 
-def test_cache_path_uses_env_override(tmp_path, monkeypatch):
-    cache_dir = tmp_path / "telemetry-cache"
-    monkeypatch.setenv("OLIVE_TELEMETRY_CACHE_DIR", str(cache_dir))
+@pytest.fixture
+def tenv(tmp_path, monkeypatch):
+    """Hermetic telemetry environment.
 
-    handler = TelemetryCacheHandler(Mock())
+    Clears CI/opt-out signals so each test sets its own mode, stubs the HTTP
+    transport (recording every send in ``.sends``), and redirects the durable
+    store off the real profile. On teardown the heartbeat thread is joined
+    BEFORE monkeypatch restores the real transport, so a lagging heartbeat can
+    never POST real device data from a test.
+    """
+    Telemetry._instance = None
+    for var in (_OPT_OUT_VAR, *_CI_VARS):
+        monkeypatch.delenv(var, raising=False)
 
-    assert handler.cache_path == cache_dir / CACHE_FILE_NAME
-    assert isinstance(handler.cache_path, Path)
+    sends = []
 
+    def _record_send(self, payload, timeout_sec, item_count=1):
+        sends.append({"item_count": item_count, "size": len(payload), "payload": payload})
+        return True, 204
 
-def test_cache_path_ignores_empty_env_override(tmp_path, monkeypatch):
-    monkeypatch.setenv("OLIVE_TELEMETRY_CACHE_DIR", "   ")
+    monkeypatch.setattr(transport_mod.HttpJsonPostTransport, "send", _record_send)
+    monkeypatch.setattr(tmod, "get_telemetry_base_dir", lambda: str(tmp_path))
 
-    with patch("olive.telemetry.telemetry.get_telemetry_base_dir", return_value=tmp_path):
-        handler = TelemetryCacheHandler(Mock())
-        assert handler.cache_path == tmp_path / "cache" / CACHE_FILE_NAME
+    yield SimpleNamespace(sends=sends, tmp_path=tmp_path)
 
-
-def test_telemetry_only_logs_recipe_events_in_ci(monkeypatch):
-    monkeypatch.setenv("CI", "1")
+    inst = Telemetry._instance
+    if inst is not None:
+        uploader = getattr(inst, "_uploader", None)
+        if uploader is not None:
+            uploader.stop_loop(5)
+        heartbeat = getattr(inst, "_heartbeat_thread", None)
+        if heartbeat is not None:
+            heartbeat.join()
     Telemetry._instance = None
 
-    mock_logger = Mock()
-    mock_logger.register_payload_transmitted_callback.return_value = lambda: None
 
-    try:
-        with patch("olive.telemetry.telemetry.get_telemetry_logger", return_value=mock_logger):
-            telemetry = Telemetry()
-            telemetry.log(ACTION_EVENT_NAME, {"action_name": "WorkflowRun", "duration_ms": 1, "success": False})
-            telemetry.log(RECIPE_EVENT_NAME, {"recipe_name": "WorkflowRun", "success": False})
-
-        assert mock_logger.log.call_count == 1
-        assert mock_logger.log.call_args.args[0] == RECIPE_EVENT_NAME
-        assert telemetry._cache_handler is None
-        mock_logger.register_payload_transmitted_callback.assert_not_called()
-    finally:
-        Telemetry._instance = None
+def _quiesce(t):
+    """Join the heartbeat (so its send is recorded) and stop the uploader (so
+    store counts are deterministic)."""
+    heartbeat = getattr(t, "_heartbeat_thread", None)
+    if heartbeat is not None:
+        heartbeat.join()
+    if t._uploader is not None:
+        t._uploader.stop_loop(5)
 
 
-def test_flush_cache_preserves_nonempty_unreadable_file(tmp_path):
-    handler = TelemetryCacheHandler(Mock())
-    cache_path = tmp_path / CACHE_FILE_NAME
-    flush_path = cache_path.with_name(f"{cache_path.name}.flush")
-    cache_path.write_text("not-json\n", encoding="utf-8")
-
-    handler._flush_cache_file(cache_path)
-
-    assert cache_path.exists()
-    assert cache_path.read_text(encoding="utf-8") == "not-json\n"
-    assert not flush_path.exists()
+def _heartbeat_count(sends):
+    return sum(1 for s in sends if s["item_count"] == 1)
 
 
-def _write_cache_entry(cache_path, event_name="TestEvent", payload=None):
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    entry = {
-        "event_name": event_name,
-        "event_data": json.dumps(payload if payload is not None else {"key": "value"}),
-        "ts": 12345,
-        "initTs": 12345,
-    }
-    cache_path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
-    return entry
+# --------------------------------------------------------------------------
+# Three-state opt-out semantics
+# --------------------------------------------------------------------------
 
 
-def _make_replay_handler(success):
-    telemetry = Mock()
-    handler = TelemetryCacheHandler(telemetry)
-    # Pretend we're already in a flush so callbacks are treated as replays.
-    handler._is_flushing = True
+def test_ci_is_recipe_only_with_no_heartbeat(tenv, monkeypatch):
+    monkeypatch.setenv("CI", "1")
+    t = Telemetry()
+    _quiesce(t)
 
-    def fake_log(_event_name, _attrs, _metadata):
-        handler.record_event_logged()
-        handler.on_payload_transmitted(SimpleNamespace(succeeded=success, item_count=1, payload_bytes=b""))
+    # CI suppresses the device-id heartbeat but still persists recipe events.
+    assert t._heartbeat_thread is None
+    assert _heartbeat_count(tenv.sends) == 0
+    assert t._store is not None
 
-    telemetry.log.side_effect = fake_log
-    return handler, telemetry
+    before = t._store.count()
+    t.log(RECIPE_EVENT_NAME, {"recipe_name": "r", "success": True})
+    assert t._store.count() == before + 1
 
-
-def test_flush_deletes_cache_when_replay_succeeds(tmp_path):
-    handler, _ = _make_replay_handler(success=True)
-    cache_path = tmp_path / CACHE_FILE_NAME
-    flush_path = cache_path.with_name(f"{cache_path.name}.flush")
-    _write_cache_entry(cache_path)
-
-    handler._flush_cache_file(cache_path)
-
-    assert not cache_path.exists()
-    assert not flush_path.exists()
+    middle = t._store.count()
+    t.log(ACTION_EVENT_NAME, {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True})
+    assert t._store.count() == middle  # non-recipe events suppressed in CI
 
 
-def test_flush_restores_cache_when_replay_fails(tmp_path):
-    handler, _ = _make_replay_handler(success=False)
-    cache_path = tmp_path / CACHE_FILE_NAME
-    flush_path = cache_path.with_name(f"{cache_path.name}.flush")
-    _write_cache_entry(cache_path, event_name="ReplayedEvent")
+def test_user_opt_out_sends_heartbeat_only(tenv, monkeypatch):
+    monkeypatch.setenv(_OPT_OUT_VAR, "1")
+    t = Telemetry()
+    _quiesce(t)
 
-    handler._flush_cache_file(cache_path)
+    # Detailed telemetry is off (no store), but the heartbeat still goes out.
+    assert t._enabled is False
+    assert t._store is None
+    assert t._heartbeat_thread is not None
+    assert len(tenv.sends) == 1
+    assert tenv.sends[0]["item_count"] == 1
 
-    # Failed replay must preserve the cached event so a later flush can retry,
-    # rather than silently dropping it.
-    assert cache_path.exists()
-    assert "ReplayedEvent" in cache_path.read_text(encoding="utf-8")
-    assert not flush_path.exists()
-
-
-def test_flush_restores_cache_when_callbacks_timeout(tmp_path, monkeypatch):
-    telemetry = Mock()
-    handler = TelemetryCacheHandler(telemetry)
-    handler._is_flushing = True
-    cache_path = tmp_path / CACHE_FILE_NAME
-    flush_path = cache_path.with_name(f"{cache_path.name}.flush")
-    _write_cache_entry(cache_path, event_name="OrphanedEvent")
-
-    # Simulate replay that logs the event but never fires the callback
-    # (e.g. exporter dropped or stalled). wait_for_callbacks should time out.
-    def fake_log(_event_name, _attrs, _metadata):
-        handler.record_event_logged()
-
-    telemetry.log.side_effect = fake_log
-    monkeypatch.setattr(handler, "wait_for_callbacks", lambda **_: False)
-
-    handler._flush_cache_file(cache_path)
-
-    assert cache_path.exists()
-    assert "OrphanedEvent" in cache_path.read_text(encoding="utf-8")
-    assert not flush_path.exists()
+    # Detailed-event methods are no-ops and must not raise or send.
+    t.log(ACTION_EVENT_NAME, {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True})
+    assert len(tenv.sends) == 1
 
 
-def test_wait_until_flush_complete_wakes_when_flush_clears():
-    handler = TelemetryCacheHandler(Mock())
-    handler._is_flushing = True
+def test_opt_out_and_ci_send_nothing(tenv, monkeypatch):
+    monkeypatch.setenv(_OPT_OUT_VAR, "1")
+    monkeypatch.setenv("CI", "1")
+    t = Telemetry()
+    _quiesce(t)
 
-    def clear_flag():
-        time.sleep(0.05)
-        with handler._condition:
-            handler._is_flushing = False
-            handler._condition.notify_all()
-
-    threading.Thread(target=clear_flag, daemon=True).start()
-
-    start = time.perf_counter()
-    completed = handler.wait_until_flush_complete(1.0)
-    elapsed = time.perf_counter() - start
-
-    assert completed is True
-    # Should wake on notify, not poll the full timeout
-    assert elapsed < 0.5
+    # Explicit opt-out wins over recipe-only-CI, and CI suppresses the heartbeat.
+    assert t._enabled is False
+    assert t._store is None
+    assert t._heartbeat_thread is None
+    assert tenv.sends == []
 
 
-def test_wait_until_flush_complete_returns_false_on_timeout():
-    handler = TelemetryCacheHandler(Mock())
-    handler._is_flushing = True
+def test_enabled_sends_heartbeat_and_persists_events(tenv):
+    t = Telemetry()
+    _quiesce(t)
 
-    assert handler.wait_until_flush_complete(0.05) is False
+    assert t._enabled is True
+    assert t._store is not None
+    assert _heartbeat_count(tenv.sends) >= 1  # heartbeat delivered
+
+    before = t._store.count()
+    t.log(ACTION_EVENT_NAME, {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True})
+    assert t._store.count() == before + 1
 
 
-@pytest.mark.skipif(os.name != "nt", reason="Windows locking behavior is specific to Windows.")
-def test_exclusive_file_lock_blocks_second_append_on_windows(tmp_path):
-    file_path = tmp_path / "olive.json"
-    child_code = """
-import sys
-import time
-from pathlib import Path
-from olive.telemetry.utils import _exclusive_file_lock
+def test_disable_telemetry_stops_detailed_events(tenv):
+    t = Telemetry()
+    _quiesce(t)
+    t.disable_telemetry()
 
-path = Path(sys.argv[1])
-path.write_text("payload", encoding="utf-8")
-with _exclusive_file_lock(path, "a") as locked_file:
-    locked_file.write("child")
-    locked_file.flush()
-    print("locked", flush=True)
-    time.sleep(2)
-"""
+    assert t._enabled is False
+    before = t._store.count() if t._store is not None else 0
+    t.log(ACTION_EVENT_NAME, {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True})
+    after = t._store.count() if t._store is not None else 0
+    assert after == before
 
-    with subprocess.Popen(
-        [sys.executable, "-c", child_code, str(file_path)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    ) as process:
-        assert process.stdout is not None
-        assert process.stdout.readline().strip() == "locked"
 
-        start = time.perf_counter()
-        with _exclusive_file_lock(file_path, mode="a") as locked_file:
-            wait_time = time.perf_counter() - start
-            locked_file.write("parent")
+# --------------------------------------------------------------------------
+# Whitelist filtering / payload building
+# --------------------------------------------------------------------------
 
-        assert wait_time >= 1.0
 
-        try:
-            stdout, stderr = process.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            stdout, stderr = process.communicate()
-            pytest.fail(f"child lock process timed out: stdout={stdout!r} stderr={stderr!r}")
+def test_build_payload_drops_non_whitelisted_keys(tenv):
+    t = Telemetry()
+    _quiesce(t)
 
-    assert process.returncode == 0, stderr
-    assert file_path.read_text(encoding="utf-8") == "payloadchildparent"
+    payload = t._build_payload(
+        ACTION_EVENT_NAME,
+        {
+            "invoked_from": "cli",
+            "action_name": "WorkflowRun",
+            "duration_ms": 1.0,
+            "success": True,
+            "secret": "SHOULD_NOT_BE_SENT",
+        },
+    )
+    data = json.loads(payload)["data"]
+    assert "secret" not in data
+    assert data["action_name"] == "WorkflowRun"
+    # Defaults are stamped on every event.
+    assert data["app_version"]
+    assert data["app_instance_id"]
+
+
+def test_build_payload_returns_none_for_unknown_event(tenv):
+    t = Telemetry()
+    _quiesce(t)
+    assert t._build_payload("TotallyUnknownEvent", {"k": "v"}) is None
+
+
+def test_build_payload_heartbeat_keeps_only_nested_os_subkeys(tenv):
+    t = Telemetry()
+    _quiesce(t)
+
+    payload = t._build_payload(
+        HEARTBEAT_EVENT_NAME,
+        {
+            "device_id": "DEVICE",
+            "id_status": "ok",
+            "os": {"name": "n", "version": "v", "release": "r", "arch": "a", "leak": "DROP"},
+        },
+    )
+    data = json.loads(payload)["data"]
+    assert data["device_id"] == "DEVICE"
+    assert data["os"] == {"name": "n", "version": "v", "release": "r", "arch": "a"}
+
+
+def test_global_metadata_is_merged_then_filtered(tenv):
+    t = Telemetry()
+    _quiesce(t)
+
+    # app_version is whitelisted for actions; not_allowed is not.
+    t.add_global_metadata({"app_version": "9.9.9", "not_allowed": "DROP"})
+    payload = t._build_payload(
+        ACTION_EVENT_NAME,
+        {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True},
+    )
+    data = json.loads(payload)["data"]
+    assert data["app_version"] == "9.9.9"
+    assert "not_allowed" not in data
+
+
+def test_error_event_whitelist(tenv):
+    t = Telemetry()
+    _quiesce(t)
+    payload = t._build_payload(
+        ERROR_EVENT_NAME,
+        {"exception_type": "RuntimeError", "exception_message": "boom", "stack": "SENSITIVE"},
+    )
+    data = json.loads(payload)["data"]
+    assert data["exception_type"] == "RuntimeError"
+    assert data["exception_message"] == "boom"
+    assert "stack" not in data
+
+
+# --------------------------------------------------------------------------
+# CI detection
+# --------------------------------------------------------------------------
+
+
+def test_is_ci_environment(monkeypatch):
+    for var in (_OPT_OUT_VAR, *_CI_VARS):
+        monkeypatch.delenv(var, raising=False)
+    assert is_ci_environment() is False
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert is_ci_environment() is True
+
+
+# --------------------------------------------------------------------------
+# Durable SQLite store
+# --------------------------------------------------------------------------
+
+
+def _new_store(**kwargs):
+    import os
+
+    db = os.path.join(tempfile.mkdtemp(), "olive_telemetry.db")
+    return OfflineEventStore(db, **kwargs)
+
+
+def test_store_is_fifo():
+    store = _new_store()
+    for i in range(5):
+        store.store(f'{{"e":{i}}}'.encode())
+    assert store.count() == 5
+    batch = store.get_batch(3)
+    assert [payload for _, payload in batch] == [b'{"e":0}', b'{"e":1}', b'{"e":2}']
+
+
+def test_store_delete():
+    store = _new_store()
+    store.store(b'{"a":1}')
+    store.store(b'{"b":2}')
+    ids = [row_id for row_id, _ in store.get_batch(10)]
+    store.delete(ids[:1])
+    assert store.count() == 1
+
+
+def test_store_trims_over_capacity():
+    store = _new_store(max_records=8)
+    for i in range(40):
+        store.store(f'{{"i":{i}}}'.encode())
+    assert store.count() <= 8
+
+
+def test_store_rejects_empty_payload():
+    store = _new_store()
+    assert store.store(b"") is False
+
+
+def test_store_stamps_schema_version():
+    import sqlite3
+
+    store = _new_store()
+    version = sqlite3.connect(store.db_path).execute("PRAGMA user_version").fetchone()[0]
+    assert version == SCHEMA_VERSION
+
+
+# --------------------------------------------------------------------------
+# Single-drainer process lock
+# --------------------------------------------------------------------------
+
+
+def _lock_path():
+    import os
+
+    return os.path.join(tempfile.mkdtemp(), "olive_telemetry.db.lock")
+
+
+def test_lock_is_mutually_exclusive():
+    path = _lock_path()
+    a = ProcessDrainLock(path)
+    b = ProcessDrainLock(path)
+    assert a.acquire() is True
+    assert b.acquire() is False  # held by a
+    a.release()
+    assert b.acquire() is True  # released
+    b.release()
+
+
+def test_lock_reacquire_is_idempotent():
+    a = ProcessDrainLock(_lock_path())
+    assert a.acquire() is True
+    assert a.acquire() is True  # already held
+    assert a.held is True
+    a.release()
+    assert a.held is False
+
+
+# --------------------------------------------------------------------------
+# Uploader drain classification (no real network)
+# --------------------------------------------------------------------------
+
+
+def _store_and_uploader():
+    import os
+
+    db = os.path.join(tempfile.mkdtemp(), "olive_telemetry.db")
+    store = OfflineEventStore(db)
+    uploader = EventUploader(store, instrumentation_key="abc-def")
+    return store, uploader
+
+
+def test_uploader_deletes_on_success():
+    store, uploader = _store_and_uploader()
+    store.store(b'{"ok":1}')
+    uploader._transport.send = lambda *a, **k: (True, 204)
+    delivered, left = uploader.drain_once()
+    assert (delivered, left) == (1, 0)
+    assert store.count() == 0
+
+
+def test_uploader_drops_poison_4xx():
+    store, uploader = _store_and_uploader()
+    store.store(b'{"bad":1}')
+    uploader._transport.send = lambda *a, **k: (False, 400)
+    uploader.drain_once()
+    assert store.count() == 0  # dropped, not retried forever
+
+
+def test_uploader_retains_transient_5xx():
+    store, uploader = _store_and_uploader()
+    store.store(b'{"later":1}')
+    uploader._transport.send = lambda *a, **k: (False, 503)
+    delivered, left = uploader.drain_once()
+    assert (delivered, left) == (0, 1)
+    assert store.count() == 1  # kept for retry
+
+
+# --------------------------------------------------------------------------
+# Serialization + connection string parsing
+# --------------------------------------------------------------------------
+
+
+def test_serialize_basic_types():
+    assert Serializer.serialize_value(None) is None
+    assert Serializer.serialize_value(True) is True
+    assert Serializer.serialize_value(42) == 42
+    assert Serializer.serialize_value("hello") == "hello"
+    assert Serializer.serialize_value([1, "two", 3.0]) == [1, "two", 3.0]
+    assert Serializer.serialize_value({"k": "v"}) == {"k": "v"}
+
+
+def test_create_event_envelope():
+    from datetime import datetime, timezone
+
+    envelope = Serializer.create_event_envelope(
+        event_name="TestEvent",
+        timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        ikey="o:test-key",
+        data={"key": "value"},
+    )
+    assert envelope["name"] == "TestEvent"
+    assert envelope["iKey"] == "o:test-key"
+    assert envelope["data"] == {"key": "value"}
+
+
+def test_connection_string_parser():
+    assert ConnectionStringParser("InstrumentationKey=abc-def-ghi").instrumentation_key == "abc-def-ghi"
+    with pytest.raises(ValueError):
+        ConnectionStringParser("")
+    with pytest.raises(ValueError):
+        ConnectionStringParser("SomeOtherKey=value")
