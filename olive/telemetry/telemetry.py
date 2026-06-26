@@ -139,7 +139,7 @@ class Telemetry:
     """
 
     _instance: Optional["Telemetry"] = None
-    _lock = threading.Lock()
+    _lock = threading.RLock()
 
     def __new__(cls):
         """Create or return the singleton instance."""
@@ -153,67 +153,69 @@ class Telemetry:
 
     def __init__(self):
         """Initialize the telemetry store and uploader (runs once)."""
-        if self._initialized:
-            return
+        with self._lock:
+            if self._initialized:
+                return
+            # Mark initialized under the lock before doing any work, so two
+            # threads whose first Telemetry() calls interleave cannot both run
+            # the body (which would create two uploaders and two heartbeats).
+            self._initialized = True
 
-        self._store: Optional[OfflineEventStore] = None
-        self._uploader: Optional[EventUploader] = None
-        self._enabled = True
-        self._recipe_only_ci_telemetry = False
-        self._global_metadata: dict[str, Any] = {}
-        self._instrumentation_key = ""
-        self._envelope_ikey = ""
-        self._app_instance_id = uuid.uuid4().hex
-        self._heartbeat_thread: Optional[threading.Thread] = None
+            self._store: Optional[OfflineEventStore] = None
+            self._uploader: Optional[EventUploader] = None
+            self._enabled = True
+            self._recipe_only_ci_telemetry = False
+            self._global_metadata: dict[str, Any] = {}
+            self._instrumentation_key = ""
+            self._envelope_ikey = ""
+            self._app_instance_id = uuid.uuid4().hex
+            self._heartbeat_thread: Optional[threading.Thread] = None
 
-        try:
-            # User opt-out (OLIVE_DISABLE_TELEMETRY=1): the device-id heartbeat is
-            # still sent (for device counting), but all detailed events are
-            # suppressed — no durable store, no uploader. CI is handled
-            # separately below and never sends a heartbeat.
-            user_opt_out = os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1"
+            try:
+                # User opt-out (OLIVE_DISABLE_TELEMETRY=1): the device-id heartbeat
+                # is still sent (for device counting), but all detailed events are
+                # suppressed — no durable store, no uploader. CI is handled
+                # separately below and never sends a heartbeat.
+                user_opt_out = os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1"
 
-            options = OneCollectorExporterOptions(connection_string=base64.b64decode(CONNECTION_STRING).decode())
-            options.validate()
-            self._instrumentation_key = options.instrumentation_key
-            self._envelope_ikey = (
-                f"{CommonSchemaJsonSerializationHelper.ONE_COLLECTOR_TENANCY_SYMBOL}:{options.tenant_token}"
-            )
+                options = OneCollectorExporterOptions(connection_string=base64.b64decode(CONNECTION_STRING).decode())
+                options.validate()
+                self._instrumentation_key = options.instrumentation_key
+                self._envelope_ikey = (
+                    f"{CommonSchemaJsonSerializationHelper.ONE_COLLECTOR_TENANCY_SYMBOL}:{options.tenant_token}"
+                )
 
-            event_source.disable()
+                event_source.disable()
 
-            # In CI, only recipe events are sent (no heartbeat, no action/error);
-            # this is independent of user opt-out.
-            self._recipe_only_ci_telemetry = is_ci_environment()
+                # In CI, only recipe events are sent (no heartbeat, no
+                # action/error); this is independent of user opt-out.
+                self._recipe_only_ci_telemetry = is_ci_environment()
 
-            if user_opt_out:
-                # Detailed telemetry off: no store/uploader. Outside CI, still
-                # send the device-id heartbeat directly so device counting works;
-                # in CI, send nothing.
-                self._enabled = False
+                if user_opt_out:
+                    # Detailed telemetry off: no store/uploader. Outside CI, still
+                    # send the device-id heartbeat directly so device counting
+                    # works; in CI, send nothing.
+                    self._enabled = False
+                    if not self._recipe_only_ci_telemetry:
+                        self._start_heartbeat()
+                    return
+
+                # Durable on-disk queue + background uploader for detailed events.
+                db_path = os.path.join(get_telemetry_base_dir(), DB_FILE_NAME)
+                self._store = OfflineEventStore(db_path)
+                self._uploader = EventUploader(self._store, instrumentation_key=self._instrumentation_key)
+                self._uploader.start()
+
+                # The device-id heartbeat is sent directly (best-effort), not
+                # through the durable store, so opt-out and enabled runs share one
+                # code path. It is suppressed in CI (recipe-only mode).
                 if not self._recipe_only_ci_telemetry:
                     self._start_heartbeat()
-                self._initialized = True
-                return
-
-            # Durable on-disk queue + background uploader for detailed events.
-            db_path = os.path.join(get_telemetry_base_dir(), DB_FILE_NAME)
-            self._store = OfflineEventStore(db_path)
-            self._uploader = EventUploader(self._store, instrumentation_key=self._instrumentation_key)
-            self._uploader.start()
-
-            # The device-id heartbeat is sent directly (best-effort), not through
-            # the durable store, so opt-out and enabled runs share one code path.
-            # It is suppressed in CI (recipe-only mode).
-            if not self._recipe_only_ci_telemetry:
-                self._start_heartbeat()
-            self._initialized = True
-        except Exception:
-            # Fail silently — telemetry must never crash the host application
-            self._store = None
-            self._uploader = None
-            self._enabled = False
-            self._initialized = True
+            except Exception:
+                # Fail silently — telemetry must never crash the host application
+                self._store = None
+                self._uploader = None
+                self._enabled = False
 
     def _start_heartbeat(self) -> None:
         """Send the device-id heartbeat on a background daemon thread."""
