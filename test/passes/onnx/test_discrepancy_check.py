@@ -60,6 +60,7 @@ class TestCompareGeneration:
         config.genai_model_path = "mock_genai_model"
         config.generate_prompt = "Hello world"
         config.generate_max_new_tokens = 10
+        config.time_to_first_n_tokens = 5
 
         # Mock transformers tokenizer and model
         mock_tokenizer = MagicMock()
@@ -107,7 +108,17 @@ class TestCompareGeneration:
 
         mock_generator.append_tokens.assert_called_once_with([[1, 2, 3]])
         # Common prefix: [1, 2, 3, 10, 11] = 5 tokens before divergence
-        assert result == 5
+        assert result["longest_common_token_sequence"] == 5
+        # Latency metrics are exposed for both transformers and ONNX Runtime GenAI.
+        assert result["time_to_first_n_tokens"] == 5
+        for key in (
+            "transformers_time_to_first_token_s",
+            "transformers_time_to_first_n_tokens_s",
+        ):
+            assert key in result
+            assert isinstance(result[key], float)
+        for key in ("genai_time_to_first_token_s", "genai_time_to_first_n_tokens_s"):
+            assert key in result
 
     def test_compare_generation_fully_matching(self):
         """Test when both outputs are identical."""
@@ -120,6 +131,7 @@ class TestCompareGeneration:
         config.genai_model_path = "mock_genai_model"
         config.generate_prompt = "Test"
         config.generate_max_new_tokens = 5
+        config.time_to_first_n_tokens = 5
 
         mock_tokenizer = MagicMock()
         mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[10, 20]]))
@@ -162,7 +174,64 @@ class TestCompareGeneration:
 
         mock_generator.append_tokens.assert_called_once_with([[10, 20]])
         # All 5 tokens match
-        assert result == 5
+        assert result["longest_common_token_sequence"] == 5
+        assert result["time_to_first_n_tokens"] == 5
+        for key in (
+            "transformers_time_to_first_token_s",
+            "transformers_time_to_first_n_tokens_s",
+        ):
+            assert key in result
+            assert isinstance(result[key], float)
+        assert "genai_time_to_first_token_s" in result
+        assert isinstance(result["genai_time_to_first_token_s"], float)
+        assert "genai_time_to_first_n_tokens_s" in result
+        assert result["genai_time_to_first_n_tokens_s"] is None or isinstance(
+            result["genai_time_to_first_n_tokens_s"], float
+        )
+
+    def test_compare_generation_with_zero_max_new_tokens(self):
+        """Test that latency metrics are skipped when max_new_tokens is zero."""
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.reference_model_path = "mock_model"
+        config.genai_model_path = "mock_genai_model"
+        config.generate_prompt = "Test"
+        config.generate_max_new_tokens = 0
+        config.time_to_first_n_tokens = 5
+
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[10, 20]]))
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        mock_ref_model.generate.return_value = torch.tensor([[10, 20]])
+
+        mock_og = MagicMock()
+        mock_og.Model.return_value = MagicMock()
+        mock_genai_tokenizer = MagicMock()
+        mock_og.Tokenizer.return_value = mock_genai_tokenizer
+        mock_genai_tokenizer.encode.return_value = [10, 20]
+        mock_og.GeneratorParams.return_value = MagicMock()
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.return_value = True
+        mock_og.Generator.return_value = mock_generator
+
+        with (
+            patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_generation(config, mock_ref_model)
+
+        assert mock_ref_model.generate.call_count == 1
+        assert mock_ref_model.generate.call_args.kwargs["max_new_tokens"] == 0
+        assert result["time_to_first_n_tokens"] == 0
+        assert result["transformers_time_to_first_token_s"] is None
+        assert result["transformers_time_to_first_n_tokens_s"] is None
 
 
 class TestWeightDtypeInference:
