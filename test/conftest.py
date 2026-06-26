@@ -43,5 +43,18 @@ def maybe_patch_inc():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def disable_telemetry():
-    Telemetry().disable_telemetry()
+def disable_telemetry(tmp_path_factory):
+    # Keep telemetry fully inert during tests. The device-id heartbeat is now
+    # durable, so simply constructing Telemetry() would enqueue one to the real
+    # store and the uploader would try to send it. Redirect the store to a
+    # throwaway directory and stub the HTTP transport so no test run writes to
+    # the real telemetry store or reaches the network.
+    import olive.telemetry.library.transport as transport_module
+    import olive.telemetry.telemetry as telemetry_module
+
+    telemetry_dir = tmp_path_factory.mktemp("telemetry")
+    with patch.object(telemetry_module, "get_telemetry_base_dir", lambda: str(telemetry_dir)), patch.object(
+        transport_module.HttpJsonPostTransport, "send", lambda *args, **kwargs: (True, 204)
+    ):
+        Telemetry().disable_telemetry()
+        yield
