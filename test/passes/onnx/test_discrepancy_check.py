@@ -313,3 +313,32 @@ class TestSpeedupSettings:
         assert result is None
         ref_model.assert_not_called()
         session.run.assert_not_called()
+
+    def test_measure_speedup_returns_latencies_and_speedup(self):
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        ref_model = MagicMock()
+        session = MagicMock()
+        input_data = {"input_ids": torch.tensor([[1, 2, 3]], dtype=torch.int64)}
+        dataloader = [(input_data, None)]
+
+        with (
+            patch("olive.common.utils.format_data", return_value={"input_ids": [1, 2, 3]}),
+            patch("olive.passes.onnx.discrepancy_check.time.perf_counter", side_effect=[10.0, 14.0, 20.0, 22.0]),
+        ):
+            result = pass_instance._measure_speedup(
+                ref_model=ref_model,
+                session=session,
+                dataloader=dataloader,
+                io_config=MagicMock(),
+                torch_device=torch.device("cpu"),
+                warmup_iterations=1,
+                timing_iterations=2,
+            )
+
+        assert result == (2.0, 1.0, 2.0)
+        assert ref_model.call_count == 3
+        assert session.run.call_count == 3
