@@ -22,13 +22,8 @@ from typing import Any, Optional
 from olive.telemetry.constants import CONNECTION_STRING
 from olive.telemetry.deviceid import get_encrypted_device_id_and_status
 from olive.telemetry.library.event_source import event_source
-from olive.telemetry.library.options import (
-    CompressionType,
-    OneCollectorExporterOptions,
-    OneCollectorTransportOptions,
-)
+from olive.telemetry.library.options import OneCollectorExporterOptions
 from olive.telemetry.library.serialization import CommonSchemaJsonSerializationHelper
-from olive.telemetry.library.transport import HttpJsonPostTransport
 from olive.telemetry.offline_store import OfflineEventStore
 from olive.telemetry.uploader import EventUploader
 from olive.telemetry.utils import get_telemetry_base_dir
@@ -172,10 +167,10 @@ class Telemetry:
             self._heartbeat_thread: Optional[threading.Thread] = None
 
             try:
-                # User opt-out (OLIVE_DISABLE_TELEMETRY=1): the device-id heartbeat
-                # is still sent (for device counting), but all detailed events are
-                # suppressed — no durable store, no uploader. CI is handled
-                # separately below and never sends a heartbeat.
+                # User opt-out (OLIVE_DISABLE_TELEMETRY=1): detailed events are
+                # not recorded, but the device-id heartbeat is still written
+                # (durably) so device counting keeps working. CI is handled via
+                # recipe-only mode below and never sends a heartbeat.
                 user_opt_out = os.environ.get("OLIVE_DISABLE_TELEMETRY") == "1"
 
                 options = OneCollectorExporterOptions(connection_string=base64.b64decode(CONNECTION_STRING).decode())
@@ -191,24 +186,25 @@ class Telemetry:
                 # action/error); this is independent of user opt-out.
                 self._recipe_only_ci_telemetry = is_ci_environment()
 
-                if user_opt_out:
-                    # Detailed telemetry off: no store/uploader. Outside CI, still
-                    # send the device-id heartbeat directly so device counting
-                    # works; in CI, send nothing.
+                # Opt-out + CI: record and send nothing at all.
+                if user_opt_out and self._recipe_only_ci_telemetry:
                     self._enabled = False
-                    if not self._recipe_only_ci_telemetry:
-                        self._start_heartbeat()
                     return
 
-                # Durable on-disk queue + background uploader for detailed events.
+                # Detailed events are recorded only when enabled; the heartbeat
+                # ignores this gate.
+                self._enabled = not user_opt_out
+
+                # Durable on-disk queue + background uploader. The uploader
+                # retries until delivery, which makes the device-id heartbeat
+                # reliable even on opt-out.
                 db_path = os.path.join(get_telemetry_base_dir(), DB_FILE_NAME)
                 self._store = OfflineEventStore(db_path)
                 self._uploader = EventUploader(self._store, instrumentation_key=self._instrumentation_key)
                 self._uploader.start()
 
-                # The device-id heartbeat is sent directly (best-effort), not
-                # through the durable store, so opt-out and enabled runs share one
-                # code path. It is suppressed in CI (recipe-only mode).
+                # The device-id heartbeat is written to the durable store, not
+                # sent directly. It is suppressed in CI (recipe-only mode).
                 if not self._recipe_only_ci_telemetry:
                     self._start_heartbeat()
             except Exception:
@@ -283,13 +279,16 @@ class Telemetry:
         return CommonSchemaJsonSerializationHelper.serialize_to_json_bytes(envelope)
 
     def _send_heartbeat(self, metadata: Optional[dict[str, Any]] = None) -> None:
-        """Send the device-id heartbeat directly (best-effort, no durable store).
+        """Enqueue the device-id heartbeat in the durable store.
 
-        Runs on a background thread on every non-CI run, including when the user
-        has opted out of detailed telemetry, so device counting still works. It
-        deliberately does not touch the detailed-event store/uploader, so an
-        opt-out run never uploads anything other than this heartbeat.
+        Runs on a background thread on every non-CI run (including user opt-out)
+        so device counting works and is retried until delivered. The heartbeat
+        deliberately ignores the ``_enabled`` gate that suppresses detailed
+        events on opt-out; only detailed events are withheld from opted-out
+        users.
         """
+        if self._store is None:
+            return
         try:
             encrypted_device_id, device_id_status = get_encrypted_device_id_and_status()
             attributes = {
@@ -305,12 +304,9 @@ class Telemetry:
             payload = self._build_payload(HEARTBEAT_EVENT_NAME, attributes, metadata)
             if payload is None:
                 return
-            transport = HttpJsonPostTransport(
-                endpoint=OneCollectorTransportOptions.DEFAULT_ENDPOINT,
-                ikey=self._instrumentation_key,
-                compression=CompressionType.DEFLATE,
-            )
-            transport.send(payload, OneCollectorTransportOptions().timeout_seconds, item_count=1)
+            self._store.store(payload)
+            if self._uploader is not None:
+                self._uploader.request_drain()
         except Exception:
             pass
 
