@@ -224,7 +224,7 @@ def test_build_payload_returns_none_for_unknown_event(tenv):
     assert t._build_payload("TotallyUnknownEvent", {"k": "v"}) is None
 
 
-def test_build_payload_heartbeat_keeps_only_nested_os_subkeys(tenv):
+def test_build_payload_heartbeat_uses_flat_os_fields(tenv):
     t = Telemetry()
     _quiesce(t)
 
@@ -232,13 +232,20 @@ def test_build_payload_heartbeat_keeps_only_nested_os_subkeys(tenv):
         HEARTBEAT_EVENT_NAME,
         {
             "device_id": "DEVICE",
-            "id_status": "ok",
-            "os": {"name": "n", "version": "v", "release": "r", "arch": "a", "leak": "DROP"},
+            "device_id_status": "ok",
+            "os": "Windows",
+            "os_version": "10.0.22631",
+            "os_release": "11",
+            "os_arch": "AMD64",
+            "leak": "DROP",
         },
     )
     data = json.loads(payload)["data"]
     assert data["device_id"] == "DEVICE"
-    assert data["os"] == {"name": "n", "version": "v", "release": "r", "arch": "a"}
+    assert data["device_id_status"] == "ok"
+    assert data["os"] == "Windows"
+    assert data["os_version"] == "10.0.22631"
+    assert "leak" not in data
 
 
 def test_global_metadata_is_merged_then_filtered(tenv):

@@ -54,11 +54,11 @@ _CI_ENV_VARS = (
 ALLOWED_KEYS = {
     HEARTBEAT_EVENT_NAME: {
         "device_id",
-        "id_status",
-        "os.name",
-        "os.version",
-        "os.release",
-        "os.arch",
+        "device_id_status",
+        "os",
+        "os_version",
+        "os_release",
+        "os_arch",
         "app_version",
         "app_instance_id",
         "initTs",
@@ -293,13 +293,11 @@ class Telemetry:
             encrypted_device_id, device_id_status = get_encrypted_device_id_and_status()
             attributes = {
                 "device_id": encrypted_device_id,
-                "id_status": device_id_status.value,
-                "os": {
-                    "name": platform.system().lower(),
-                    "version": platform.version(),
-                    "release": platform.release(),
-                    "arch": platform.machine(),
-                },
+                "device_id_status": device_id_status.value,
+                "os": platform.system(),
+                "os_version": platform.version(),
+                "os_release": platform.release(),
+                "os_arch": platform.machine(),
             }
             payload = self._build_payload(HEARTBEAT_EVENT_NAME, attributes, metadata)
             if payload is None:
