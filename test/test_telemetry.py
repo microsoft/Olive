@@ -84,17 +84,27 @@ def tenv(tmp_path, monkeypatch):
 
 
 def _quiesce(t):
-    """Join the heartbeat (so its send is recorded) and stop the uploader (so
-    store counts are deterministic)."""
+    """Join the heartbeat (so it is enqueued) and drain the uploader so the
+    recorded sends and store counts are deterministic."""
     heartbeat = getattr(t, "_heartbeat_thread", None)
     if heartbeat is not None:
         heartbeat.join()
     if t._uploader is not None:
         t._uploader.stop_loop(5)
+        for _ in range(20):
+            if t._store is None or t._store.count() == 0:
+                break
+            t._uploader.drain_once()
 
 
-def _heartbeat_count(sends):
-    return sum(1 for s in sends if s["item_count"] == 1)
+def _sent_event_names(sends):
+    names = []
+    for s in sends:
+        payload = bytes(s["payload"])
+        for token in (b"OliveHeartbeat", b"OliveRecipe", b"OliveAction", b"OliveError"):
+            if token in payload:
+                names.append(token.decode())
+    return names
 
 
 # --------------------------------------------------------------------------
@@ -105,11 +115,9 @@ def _heartbeat_count(sends):
 def test_ci_is_recipe_only_with_no_heartbeat(tenv, monkeypatch):
     monkeypatch.setenv("CI", "1")
     t = Telemetry()
-    _quiesce(t)
 
     # CI suppresses the device-id heartbeat but still persists recipe events.
     assert t._heartbeat_thread is None
-    assert _heartbeat_count(tenv.sends) == 0
     assert t._store is not None
 
     before = t._store.count()
@@ -120,22 +128,28 @@ def test_ci_is_recipe_only_with_no_heartbeat(tenv, monkeypatch):
     t.log(ACTION_EVENT_NAME, {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True})
     assert t._store.count() == middle  # non-recipe events suppressed in CI
 
+    _quiesce(t)
+    names = _sent_event_names(tenv.sends)
+    assert "OliveHeartbeat" not in names
+    assert "OliveRecipe" in names
 
-def test_user_opt_out_sends_heartbeat_only(tenv, monkeypatch):
+
+def test_user_opt_out_records_heartbeat_only(tenv, monkeypatch):
     monkeypatch.setenv(_OPT_OUT_VAR, "1")
     t = Telemetry()
-    _quiesce(t)
 
-    # Detailed telemetry is off (no store), but the heartbeat still goes out.
+    # Detailed events are not recorded, but the heartbeat is durably queued.
     assert t._enabled is False
-    assert t._store is None
+    assert t._store is not None
     assert t._heartbeat_thread is not None
-    assert len(tenv.sends) == 1
-    assert tenv.sends[0]["item_count"] == 1
 
-    # Detailed-event methods are no-ops and must not raise or send.
+    # Detailed-event methods are no-ops and must not raise.
     t.log(ACTION_EVENT_NAME, {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True})
-    assert len(tenv.sends) == 1
+
+    _quiesce(t)
+    names = _sent_event_names(tenv.sends)
+    assert "OliveHeartbeat" in names
+    assert "OliveAction" not in names
 
 
 def test_opt_out_and_ci_send_nothing(tenv, monkeypatch):
@@ -144,24 +158,25 @@ def test_opt_out_and_ci_send_nothing(tenv, monkeypatch):
     t = Telemetry()
     _quiesce(t)
 
-    # Explicit opt-out wins over recipe-only-CI, and CI suppresses the heartbeat.
+    # Explicit opt-out + CI: record and send nothing at all.
     assert t._enabled is False
     assert t._store is None
     assert t._heartbeat_thread is None
     assert tenv.sends == []
 
 
-def test_enabled_sends_heartbeat_and_persists_events(tenv):
+def test_enabled_records_heartbeat_and_events(tenv):
     t = Telemetry()
-    _quiesce(t)
 
     assert t._enabled is True
     assert t._store is not None
-    assert _heartbeat_count(tenv.sends) >= 1  # heartbeat delivered
 
-    before = t._store.count()
     t.log(ACTION_EVENT_NAME, {"invoked_from": "cli", "action_name": "x", "duration_ms": 1.0, "success": True})
-    assert t._store.count() == before + 1
+
+    _quiesce(t)
+    names = _sent_event_names(tenv.sends)
+    assert "OliveHeartbeat" in names
+    assert "OliveAction" in names
 
 
 def test_disable_telemetry_stops_detailed_events(tenv):
