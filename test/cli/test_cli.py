@@ -189,8 +189,9 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
                 "discrepancy_check": {
                     "type": "OnnxDiscrepancyCheck",
                     "reference_model_path": test_model_path,
-                    "max_mae": 0.1,
                     "report_output_dir": output_dir,
+                    "max_mae": 0.1,
+                    "timing_iterations": 0,
                 }
             },
         },

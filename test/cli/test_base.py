@@ -338,3 +338,62 @@ def test_get_input_model_config_no_crash_without_onnx_file_name(tmp_path):
 
     # model_path should remain unchanged since no onnx_file_name to guide rewriting
     assert config["config"]["model_path"] == stale_model_path
+
+
+def _discrepancy_run_config():
+    return {
+        "input_model": {"type": "HfModel", "test_model_path": "ref_model"},
+        "output_dir": "out_dir",
+    }
+
+
+def test_add_discrepancy_check_pass_default_enables_mae_only():
+    from olive.cli.base import add_discrepancy_check_pass
+
+    run_config = add_discrepancy_check_pass(_discrepancy_run_config())
+
+    pass_config = run_config["passes"]["discrepancy_check"]
+    assert pass_config["type"] == "OnnxDiscrepancyCheck"
+    assert pass_config["reference_model_path"] == "ref_model"
+    # default: mae only -> threshold enforced, timing disabled
+    assert pass_config["max_mae"] == 0.1
+    assert pass_config["timing_iterations"] == 0
+
+
+def test_add_discrepancy_check_pass_speedup_only_disables_mae():
+    from olive.cli.base import add_discrepancy_check_pass
+
+    run_config = add_discrepancy_check_pass(_discrepancy_run_config(), metrics=["speedup"])
+
+    pass_config = run_config["passes"]["discrepancy_check"]
+    assert "max_mae" not in pass_config
+    assert "timing_iterations" not in pass_config
+
+
+def test_add_discrepancy_check_pass_mae_only_disables_speedup():
+    from olive.cli.base import add_discrepancy_check_pass
+
+    run_config = add_discrepancy_check_pass(_discrepancy_run_config(), metrics=["mae"])
+
+    pass_config = run_config["passes"]["discrepancy_check"]
+    assert pass_config["max_mae"] == 0.1
+    assert pass_config["timing_iterations"] == 0
+
+
+def test_warn_unused_test_metrics_logs_when_test_disabled():
+    from olive.cli.base import warn_unused_test_metrics
+
+    with patch("olive.cli.base.logger") as mock_logger:
+        warn_unused_test_metrics(test=None, metrics=["speedup"])
+
+    mock_logger.warning.assert_called_once()
+    assert "--test_metrics is ignored" in mock_logger.warning.call_args[0][0]
+
+
+def test_warn_unused_test_metrics_silent_when_test_enabled():
+    from olive.cli.base import warn_unused_test_metrics
+
+    with patch("olive.cli.base.logger") as mock_logger:
+        warn_unused_test_metrics(test=True, metrics=["speedup"])
+
+    mock_logger.warning.assert_not_called()

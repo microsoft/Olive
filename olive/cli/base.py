@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 TEST_OUTPUT_MARKER_FILE = "olive_test_output.json"
 
+# Metrics that --test can evaluate via the injected OnnxDiscrepancyCheck pass.
+TEST_METRICS = ("mae", "speedup")
+
 
 def _get_test_output_marker_path(output_path: str) -> Path:
     return Path(output_path) / TEST_OUTPUT_MARKER_FILE
@@ -67,8 +70,20 @@ def mark_test_output_path(output_path: Optional[str]) -> None:
     _get_test_output_marker_path(output_path).write_text(json.dumps({"type": "olive_hf_test_output"}, indent=2))
 
 
-def add_discrepancy_check_pass(run_config: dict) -> dict:
-    """Inject OnnxDiscrepancyCheck pass when --test is active and not already configured."""
+def warn_unused_test_metrics(test, metrics: Optional[list]) -> None:
+    """Warn when --test_metrics is provided without --test, since it has no effect."""
+    if metrics and test in (None, False):
+        logger.warning("--test_metrics is ignored because --test is not enabled.")
+
+
+def add_discrepancy_check_pass(run_config: dict, metrics: Optional[list] = None) -> dict:
+    """Inject OnnxDiscrepancyCheck pass when --test is active and not already configured.
+
+    ``metrics`` selects which test metrics to evaluate. Supported values are defined in
+    ``TEST_METRICS`` (``"mae"`` for the max-absolute-error accuracy check and ``"speedup"`` for the
+    ONNX-vs-PyTorch latency measurement). When ``None``, only ``"mae"`` is evaluated; pass
+    ``["speedup"]`` or ``["mae", "speedup"]`` explicitly to enable timing.
+    """
     passes = run_config.get("passes", {})
     # Skip if already configured
     for pass_config in passes.values():
@@ -86,12 +101,21 @@ def add_discrepancy_check_pass(run_config: dict) -> dict:
     if report_dir and Path(report_dir).suffix and not Path(report_dir).is_dir():
         report_dir = str(Path(report_dir).parent)
     logger.debug("Adding OnnxDiscrepancyCheck pass with reference_model_path=%s", reference_model_path)
-    passes["discrepancy_check"] = {
+
+    selected_metrics = set(metrics) if metrics else {"mae"}
+    pass_config = {
         "type": "OnnxDiscrepancyCheck",
         "reference_model_path": reference_model_path,
-        "max_mae": 0.1,
         "report_output_dir": report_dir,
     }
+    # Enforce the max-absolute-error threshold only when the accuracy metric is requested.
+    if "mae" in selected_metrics:
+        pass_config["max_mae"] = 0.1
+    # Disable the latency/speedup measurement when the speedup metric is not requested.
+    if "speedup" not in selected_metrics:
+        pass_config["timing_iterations"] = 0
+
+    passes["discrepancy_check"] = pass_config
     run_config["passes"] = passes
     return run_config
 
@@ -135,12 +159,13 @@ class BaseOliveCLICommand(ABC):
         from olive.workflows import run as olive_run
 
         validate_test_output_path(self.args.output_path, getattr(self.args, "test", None))
+        warn_unused_test_metrics(getattr(self.args, "test", None), getattr(self.args, "test_metrics", None))
         Path(self.args.output_path).mkdir(parents=True, exist_ok=True)
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
             if getattr(self.args, "test", None) not in (None, False):
-                run_config = add_discrepancy_check_pass(run_config)
+                run_config = add_discrepancy_check_pass(run_config, getattr(self.args, "test_metrics", None))
             if self.args.save_config_file or self.args.dry_run:
                 self._save_config_file(run_config)
             if self.args.dry_run:
@@ -503,6 +528,17 @@ def add_input_model_options(
             help=(
                 "Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. "
                 "Optionally provide a folder where the generated test model should be saved and reused."
+            ),
+        )
+        model_group.add_argument(
+            "--test_metrics",
+            type=str,
+            nargs="+",
+            choices=list(TEST_METRICS),
+            help=(
+                "Metrics to evaluate during a --test run: 'mae' enforces the max absolute error between the "
+                "ONNX and reference model outputs, and 'speedup' measures ONNX-vs-PyTorch inference latency. "
+                "Defaults to all metrics. Only used together with --test."
             ),
         )
 

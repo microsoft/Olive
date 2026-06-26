@@ -15,6 +15,7 @@ from olive.cli.base import (
     mark_test_output_path,
     save_discrepancy_check_results,
     validate_test_output_path,
+    warn_unused_test_metrics,
 )
 from olive.telemetry import action
 
@@ -83,8 +84,9 @@ class WorkflowRunCommand(BaseOliveCLICommand):
 
         output_path = run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")
         validate_test_output_path(output_path, self.args.test)
+        warn_unused_test_metrics(self.args.test, getattr(self.args, "test_metrics", None))
         if self.args.test not in (None, False):
-            run_config = add_discrepancy_check_pass(run_config)
+            run_config = add_discrepancy_check_pass(run_config, getattr(self.args, "test_metrics", None))
         workflow_output = olive_run(
             run_config,
             list_required_packages=self.args.list_required_packages,
