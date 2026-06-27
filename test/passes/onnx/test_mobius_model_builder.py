@@ -33,7 +33,7 @@ def _stub_mobius_module():
     The stub is only injected when mobius is absent; if the real package is installed,
     this fixture is a no-op.
     """
-    if "mobius" in sys.modules:
+    if _HAS_REAL_MOBIUS:
         yield
         return
     fake = types.ModuleType("mobius")

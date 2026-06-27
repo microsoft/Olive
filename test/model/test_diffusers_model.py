@@ -207,3 +207,43 @@ class TestDiffusersModelHandler:
     def test_adapter_path_property_none(self):
         model = DiffusersModelHandler(model_path=self.model_path, model_variant=DiffusersModelVariant.SD)
         assert model.adapter_path is None
+
+    @patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
+    def test_get_exportable_components_returns_full_variant_set_when_unscoped(self, mock_is_valid):
+        model = DiffusersModelHandler(model_path=self.model_path, model_variant=DiffusersModelVariant.SDXL)
+        assert [str(c) for c in model.get_exportable_components()] == [
+            "text_encoder",
+            "text_encoder_2",
+            "unet",
+            "vae_encoder",
+            "vae_decoder",
+        ]
+
+    @patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
+    def test_get_exportable_components_filters_to_scoped_subset_in_variant_order(self, mock_is_valid):
+        # requested out of order; result must follow the variant's canonical order
+        model = DiffusersModelHandler(
+            model_path=self.model_path,
+            model_variant=DiffusersModelVariant.SDXL,
+            components=["unet", "text_encoder"],
+        )
+        assert [str(c) for c in model.get_exportable_components()] == ["text_encoder", "unet"]
+
+    @patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
+    def test_get_exportable_components_raises_for_unknown_component(self, mock_is_valid):
+        model = DiffusersModelHandler(
+            model_path=self.model_path,
+            model_variant=DiffusersModelVariant.SD,
+            components=["text_encoder_2"],  # SDXL-only; not in SD
+        )
+        with pytest.raises(ValueError, match="Unknown component"):
+            model.get_exportable_components()
+
+    @patch("olive.model.handler.diffusers.is_valid_diffusers_model", return_value=True)
+    def test_to_json_round_trips_components(self, mock_is_valid):
+        model = DiffusersModelHandler(
+            model_path=self.model_path,
+            model_variant=DiffusersModelVariant.SDXL,
+            components=["text_encoder"],
+        )
+        assert model.to_json()["config"]["components"] == ["text_encoder"]

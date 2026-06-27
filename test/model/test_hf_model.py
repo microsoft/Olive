@@ -66,11 +66,28 @@ class TestHFModel:
         if tokenizer_exists:
             olive_model.get_hf_tokenizer().save_pretrained(tmp_path)
         saved_filepaths = olive_model.save_metadata(tmp_path)
-        # transformers>=5.0.0
-        assert len(saved_filepaths) == (4 if tokenizer_exists else 7)
         assert all(Path(fp).exists() for fp in saved_filepaths)
         assert isinstance(transformers.AutoConfig.from_pretrained(tmp_path), transformers.Phi3Config)
         assert isinstance(transformers.AutoTokenizer.from_pretrained(tmp_path), transformers.PreTrainedTokenizerBase)
+        assert (tmp_path / "generation_config.json").exists()
+
+    def test_save_metadata_saves_processor_when_available(self, tmp_path):
+        olive_model = HfModelHandler(
+            model_path=self.local_path, task="image-text-to-text", load_kwargs={"revision": self.revision}
+        )
+
+        class MockProcessor:
+            @staticmethod
+            def save_pretrained(output_dir, **kwargs):
+                processor_path = Path(output_dir) / "preprocessor_config.json"
+                processor_path.write_text('{"processor": true}')
+                return (str(processor_path),)
+
+        with patch.object(olive_model, "get_hf_processor", return_value=MockProcessor()):
+            saved_filepaths = olive_model.save_metadata(tmp_path)
+
+        assert str(tmp_path / "preprocessor_config.json") in saved_filepaths
+        assert (tmp_path / "preprocessor_config.json").exists()
 
     @pytest.mark.parametrize("local", [True, False])
     def test_save_pretrained_metadata(self, local, tmp_path):

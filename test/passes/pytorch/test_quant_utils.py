@@ -12,11 +12,13 @@ from transformers import LlamaConfig, LlamaForCausalLM
 
 from olive.common.hf.wrapper import ModelWrapper
 from olive.common.quant.hf_utils import OliveHfQuantizationConfig
+from olive.common.quant.nn import QuantLinear
 from olive.constants import PrecisionBits
 from olive.model import HfModelHandler
 from olive.passes.pytorch import quant_utils as quant_utils_module
 from olive.passes.pytorch.quant_utils import (
     _quant_config_rank,
+    finalize,
     normalize_qkv_quant_config,
     prepare_model,
 )
@@ -64,6 +66,23 @@ def _with_existing_quantization_config(monkeypatch, existing):
         return cfg
 
     monkeypatch.setattr(HfModelHandler, "get_hf_model_config", fake)
+
+
+class _NestedDecoderRoot(torch.nn.Module):
+    def __init__(self, decoder):
+        super().__init__()
+        self.decoder = decoder
+        self.vision = torch.nn.Linear(2, 2)
+        self.config = decoder.config
+        self.saved_state_keys = set()
+
+    def save_pretrained(self, output_dir):
+        self.saved_state_keys = set(self.state_dict())
+        self.config.save_pretrained(output_dir)
+
+
+def _make_nested_decoder_root(input_model):
+    return _NestedDecoderRoot(LlamaForCausalLM.from_pretrained(input_model.model_path))
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +221,79 @@ def test_prepare_model_no_existing_quant_config_no_overrides_quantizes_all_linea
     assert qcfg.overrides == {}
     assert qcfg.bits == PrecisionBits.BITS4
     assert eligible is False
+
+
+def test_prepare_model_component_source_path_quantizes_only_selected_component(input_model, monkeypatch):
+    """A selected HfModel component should not attach quant_info outside that submodule."""
+    root_model = _make_nested_decoder_root(input_model)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"component_source_path": "decoder"},
+    )
+
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    assert wrapper.model is root_model.decoder
+    assert hasattr(root_model.decoder.model.layers[0].self_attn.q_proj, "quant_info")
+    assert not hasattr(root_model.vision, "quant_info")
+    assert "vision" in qcfg.modules_to_not_convert
+    assert not any(name.startswith("decoder.") for name in qcfg.modules_to_not_convert)
+
+
+def test_prepare_model_component_source_path_allows_component_without_lm_head(input_model, monkeypatch):
+    pytest.importorskip("transformers.models.qwen3_vl")
+    from transformers.models.qwen3_vl.configuration_qwen3_vl import Qwen3VLTextConfig
+    from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLTextModel
+
+    class _Root(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            config = Qwen3VLTextConfig(
+                vocab_size=128,
+                hidden_size=16,
+                intermediate_size=32,
+                num_hidden_layers=1,
+                num_attention_heads=4,
+                num_key_value_heads=4,
+                head_dim=4,
+            )
+            self.decoder = Qwen3VLTextModel(config)
+            self.vision = torch.nn.Linear(2, 2)
+
+    root_model = _Root()
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"component_source_path": "decoder"},
+    )
+
+    wrapper, qcfg, eligible = prepare_model(model, _baseline_pass_config())
+
+    assert wrapper.model is root_model.decoder
+    assert eligible is False
+    assert hasattr(root_model.decoder.layers[0].self_attn.q_proj, "quant_info")
+    assert "vision" in qcfg.modules_to_not_convert
+
+
+def test_finalize_component_source_path_saves_root_model(input_model, monkeypatch, tmp_path):
+    root_model = _make_nested_decoder_root(input_model)
+    monkeypatch.setattr(quant_utils_module, "load_hf_base_model", lambda _: root_model)
+    model = HfModelHandler(
+        input_model.model_path,
+        model_attributes={"component_source_path": "decoder"},
+    )
+    model.save_metadata = lambda *_, **__: []
+    wrapper, qcfg, _ = prepare_model(model, _baseline_pass_config())
+
+    finalize(model, str(tmp_path), wrapper, qcfg, device="cpu")
+
+    assert root_model.saved_state_keys
+    assert isinstance(root_model.decoder.model.layers[0].self_attn.q_proj, QuantLinear)
+    assert isinstance(root_model.vision, torch.nn.Linear)
+    assert any(key.startswith("decoder.model.layers.0.self_attn.q_proj.qweight") for key in root_model.saved_state_keys)
+    assert "vision.weight" in root_model.saved_state_keys
+    assert root_model.config.quantization_config.modules_to_not_convert == qcfg.modules_to_not_convert
 
 
 def test_prepare_model_promotes_user_override_conflicts_for_qkv(input_model):
