@@ -21,7 +21,7 @@ from olive.common.quant.hf_utils import (
 )
 from olive.common.quant.nn import QuantEmbedding, QuantLinear
 from olive.common.quant.utils import WeightQuantizer
-from olive.common.utils import tensor_data_to_device
+from olive.common.utils import get_attr, tensor_data_to_device
 from olive.constants import PrecisionBits
 from olive.passes.pass_config import PassConfigParam
 from olive.passes.pytorch.common import inherit_hf_from_hf
@@ -80,7 +80,26 @@ def get_quantizer_config(allow_embeds: bool = False) -> dict[str, PassConfigPara
     }
 
 
-def get_qkv_quantization_groups(wrapper: ModelWrapper, module_names: set[str] | None = None) -> list[tuple[str, ...]]:
+def _root_module_name(name: str, name_prefix: str = "") -> str:
+    """Return the module name relative to the saved model root."""
+    return f"{name_prefix}{name}" if name else name_prefix.rstrip(".")
+
+
+def _is_in_component(name: str, component_source_path: str | None) -> bool:
+    if not component_source_path:
+        return True
+    return name == component_source_path or name.startswith(f"{component_source_path}.")
+
+
+def _get_component_source_path(model: HfModelHandler) -> str | None:
+    return (model.model_attributes or {}).get("component_source_path")
+
+
+def get_qkv_quantization_groups(
+    wrapper: ModelWrapper,
+    module_names: set[str] | None = None,
+    name_prefix: str = "",
+) -> list[tuple[str, ...]]:
     """Get attention input projection groups that must share quantization settings.
 
     Names are resolved from ``wrapper.model.named_modules()`` to stay correct for any layer
@@ -92,10 +111,11 @@ def get_qkv_quantization_groups(wrapper: ModelWrapper, module_names: set[str] | 
     qkv_groups = []
     for layer_wrapper in wrapper.get_layer_wrappers():
         attn_inputs, _ = layer_wrapper.get_attention_inputs()
+        attn_input_names = (module_to_name.get(id(module)) for module in attn_inputs)
         group = tuple(
-            name
-            for name in (module_to_name.get(id(module)) for module in attn_inputs)
-            if name is not None and (module_names is None or name in module_names)
+            root_name
+            for root_name in (_root_module_name(name, name_prefix) for name in attn_input_names)
+            if root_name and (module_names is None or root_name in module_names)
         )
         if len(group) > 1:
             qkv_groups.append(group)
@@ -125,6 +145,8 @@ def normalize_qkv_quant_config(
     wrapper: ModelWrapper,
     qcfg: OliveHfQuantizationConfig,
     locked_modules: set[str] | None = None,
+    module_names: set[str] | None = None,
+    name_prefix: str = "",
 ) -> OliveHfQuantizationConfig:
     """Promote split QKV projection overrides to one shared quantization config.
 
@@ -138,7 +160,7 @@ def normalize_qkv_quant_config(
     locked members of one group disagree, the group is left untouched.
     """
     locked_modules = locked_modules or set()
-    for group in get_qkv_quantization_groups(wrapper):
+    for group in get_qkv_quantization_groups(wrapper, module_names=module_names, name_prefix=name_prefix):
         group_qargs = {name: qcfg.get_qlinear_init_args(name) for name in group}
         if len({tuple(qargs.items()) for qargs in group_qargs.values()}) == 1:
             continue
@@ -207,27 +229,44 @@ def prepare_model(
         if existing_qcfg.get("quant_method", None) != OliveHfQuantizationMethod.OLIVE:
             raise ValueError("Model has an existing quantization configuration that is not compatible with this pass.")
 
-    wrapper = ModelWrapper.from_model(load_hf_base_model(model))
+    component_source_path = _get_component_source_path(model)
+    root_model = load_hf_base_model(model)
+    quant_model = get_attr(root_model, component_source_path) if component_source_path else root_model
+    wrapper = ModelWrapper.from_model(quant_model)
+    wrapper.olive_root_model = root_model
     wrapper.model.eval()
+    name_prefix = f"{component_source_path}." if component_source_path else ""
 
     excluded_attn_inputs = _collect_excluded_attn_inputs(wrapper) if exclude_attn_inputs else set()
 
-    fresh_qcfg = normalize_qkv_quant_config(wrapper, get_quant_config(model, config))
+    selected_module_names = {_root_module_name(name, name_prefix) for name, _ in wrapper.model.named_modules()}
+    fresh_qcfg = normalize_qkv_quant_config(
+        wrapper,
+        get_quant_config(model, config),
+        module_names=selected_module_names,
+        name_prefix=name_prefix,
+    )
 
-    originally_tied_embeddings = wrapper.config.tie_word_embeddings
+    originally_tied_embeddings = getattr(wrapper.config, "tie_word_embeddings", False)
     if fresh_qcfg.lm_head or fresh_qcfg.embeds:
         wrapper.maybe_untie_word_embeddings()
 
-    lm_head_name = wrapper.get_lm_head()[1]
-    embeds_name = wrapper.get_embeds()[1][0]
+    try:
+        lm_head_name = _root_module_name(wrapper.get_lm_head()[1], name_prefix)
+    except AttributeError:
+        if fresh_qcfg.lm_head:
+            raise
+        lm_head_name = None
+    embeds_name = _root_module_name(wrapper.get_embeds()[1][0], name_prefix)
 
     def should_quantize(module: torch.nn.Module, name: str) -> bool:
+        root_name = _root_module_name(name, name_prefix)
         if module in excluded_attn_inputs:
             return False
         if isinstance(module, torch.nn.Linear):
-            return name != lm_head_name or fresh_qcfg.lm_head
+            return lm_head_name is None or root_name != lm_head_name or fresh_qcfg.lm_head
         if fresh_qcfg.embeds and isinstance(module, torch.nn.Embedding):
-            return name == embeds_name
+            return root_name == embeds_name
         return False
 
     # Pre-existing quantized weights are immutable. If we're merging with an existing
@@ -241,9 +280,15 @@ def prepare_model(
     if existing_qcfg:
         on_disk_overrides = set((existing_qcfg.get("overrides") or {}).keys())
         already_quantized = {
-            name for name, module in wrapper.model.named_modules() if isinstance(module, (QuantLinear, QuantEmbedding))
+            _root_module_name(name, name_prefix)
+            for name, module in wrapper.model.named_modules()
+            if isinstance(module, (QuantLinear, QuantEmbedding))
         }
-        fresh_names = {name for name, module in wrapper.model.named_modules() if should_quantize(module, name)}
+        fresh_names = {
+            _root_module_name(name, name_prefix)
+            for name, module in wrapper.model.named_modules()
+            if should_quantize(module, name)
+        }
         merged = existing_qcfg
         merged["overrides"] = existing_qcfg.get("overrides") or {}
         for name in fresh_names:
@@ -254,17 +299,34 @@ def prepare_model(
         merged["lm_head"] |= fresh_qcfg.lm_head
         merged["embeds"] |= fresh_qcfg.embeds
         qcfg = OliveHfQuantizationConfig(**merged)
-        qcfg = normalize_qkv_quant_config(wrapper, qcfg, locked_modules=already_quantized)
+        qcfg = normalize_qkv_quant_config(
+            wrapper,
+            qcfg,
+            locked_modules=already_quantized,
+            module_names=selected_module_names,
+            name_prefix=name_prefix,
+        )
     else:
         qcfg = fresh_qcfg
+
+    if component_source_path:
+        existing_modules_to_not_convert = set(qcfg.modules_to_not_convert or [])
+        outside_component_modules = {
+            name
+            for name, module in root_model.named_modules()
+            if isinstance(module, (torch.nn.Linear, torch.nn.Embedding))
+            and not _is_in_component(name, component_source_path)
+        }
+        qcfg.modules_to_not_convert = sorted(existing_modules_to_not_convert | outside_component_modules) or None
 
     new_qargs: dict[str, dict[str, int | bool]] = {}
 
     def add_quant_info(module: torch.nn.Module, name: str) -> torch.nn.Module:
         # TODO(jambayk): validate that the module and config are compatible
-        qargs = qcfg.get_qlinear_init_args(name)
+        root_name = _root_module_name(name, name_prefix)
+        qargs = qcfg.get_qlinear_init_args(root_name)
         module.quant_info = QuantInfo(quantizer=WeightQuantizer(**qargs))
-        new_qargs[name] = qargs
+        new_qargs[root_name] = qargs
         return module
 
     replace_matching_submodules(wrapper.model, should_quantize, add_quant_info, description="Preparing model")
@@ -280,6 +342,7 @@ def prepare_model(
 
     word_embeddings_eligible_for_tieing = (
         originally_tied_embeddings
+        and lm_head_name is not None
         and embeds_name in new_qargs
         and lm_head_name in new_qargs
         and new_qargs[embeds_name] == new_qargs[lm_head_name]
@@ -578,11 +641,12 @@ def finalize(
         tie_quant_word_embeddings(wrapper.model)
         quant_config.tie_word_embeddings = True
 
-    wrapper.model.quantization_method = quant_config.quant_method
-    wrapper.model.config.quantization_config = quant_config
+    root_model = getattr(wrapper, "olive_root_model", wrapper.model)
+    root_model.quantization_method = quant_config.quant_method
+    root_model.config.quantization_config = quant_config
 
     # save the quantized model
-    wrapper.model.save_pretrained(output_model_path)
+    root_model.save_pretrained(output_model_path)
     model.save_metadata(output_model_path)
 
     return inherit_hf_from_hf(model, output_model_path, adapter_path=model.adapter_path)

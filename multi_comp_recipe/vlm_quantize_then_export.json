@@ -1,0 +1,25 @@
+{
+    "input_model": {
+        "type": "HfModel",
+        "config": {
+            "model_path": "Qwen/Qwen3-VL-2B-Instruct",
+            "task": "image-text-to-text",
+            "load_kwargs": { "torch_dtype": "float16", "trust_remote_code": true }
+        }
+    },
+    "systems": {
+        "local_gpu": {
+            "type": "LocalSystem",
+            "accelerators": [ { "device": "gpu", "execution_providers": [ "CUDAExecutionProvider" ] } ]
+        }
+    },
+    "passes": { "decoder_gptq": { "type": "Gptq", "bits": 4, "group_size": 128, "sym": true, "lm_head": false } },
+    "engine": { "host": "local_gpu", "target": "local_gpu", "evaluate_input_model": false, "cache_dir": "cache" },
+    "builds": {
+        "decoder_gptq": {
+            "components": [ "decoder" ],
+            "pipeline": [ "decoder_gptq" ],
+            "output_dir": "vlm_decoder_gptq_hf"
+        }
+    }
+}

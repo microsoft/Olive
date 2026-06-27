@@ -10,9 +10,11 @@ from olive.common.hf.model_io import get_model_dummy_input, get_model_io_config
 from olive.common.hf.utils import (
     get_generation_config,
     get_model_config,
+    get_processor,
     get_tokenizer,
     save_model_config,
     save_module_files,
+    save_processor,
     save_tokenizer,
 )
 
@@ -63,6 +65,11 @@ class HfMixin:
         # don't provide loading args for tokenizer directly since it tries to serialize all kwargs
         # TODO(anyone): only provide relevant kwargs, no use case for now to provide kwargs
         return get_tokenizer(self.model_path)
+
+    def get_hf_processor(self):
+        """Get processor for the model if one exists."""
+        processor_exclude_keys = {"torch_dtype", "dtype", "device_map", "max_memory", "quantization_config"}
+        return get_processor(self.model_path, **self.get_load_kwargs(list(processor_exclude_keys)))
 
     def save_metadata(self, output_dir: str, exclude_load_keys: Optional[list[str]] = None, **kwargs) -> list[str]:
         """Save model metadata files to the output directory.
@@ -116,6 +123,15 @@ class HfMixin:
             # there is no tokenizer in the output_dir, save the tokenizer
             tokenizer_filepaths = save_tokenizer(self.get_hf_tokenizer(), output_dir, **kwargs)
             saved_filepaths.extend([fp for fp in tokenizer_filepaths if Path(fp).exists()])
+
+        should_save_processor = self.task.replace("-with-past", "") in {"image-text-to-text"}
+        if should_save_processor and not any(
+            (output_dir / name).exists() for name in ("preprocessor_config.json", "processor_config.json")
+        ):
+            processor = self.get_hf_processor()
+            if processor is not None:
+                processor_filepaths = save_processor(processor, output_dir, **kwargs)
+                saved_filepaths.extend([fp for fp in processor_filepaths if Path(fp).exists()])
 
         logger.debug("Save metadata files to %s: %s", output_dir, saved_filepaths)
 

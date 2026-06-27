@@ -219,16 +219,49 @@ def test_model_config_select_components_discovers_directory_composite(tmp_path):
 def test_model_config_get_components_hfmodel_queries_mobius(monkeypatch):
     from olive.common import mobius_utils
 
+    seen_kwargs = {}
+
+    def mock_inspect_components(*args, **kwargs):
+        seen_kwargs.update(kwargs)
+        return [
+            mobius_utils.ComponentInfo(name="decoder", kind="decoder", source_path="model.language_model"),
+            mobius_utils.ComponentInfo(name="vision_encoder", kind="vision_encoder", source_path="model.vision_tower"),
+        ]
+
     monkeypatch.setattr(
         mobius_utils,
         "inspect_components",
-        lambda *a, **k: [
-            mobius_utils.ComponentInfo(name="decoder", kind="decoder", source_path="model.language_model"),
-            mobius_utils.ComponentInfo(name="vision_encoder", kind="vision_encoder", source_path="model.vision_tower"),
-        ],
+        mock_inspect_components,
     )
-    config = ModelConfig.model_validate({"type": "HfModel", "config": {"model_path": "some/vlm"}})
+    config = ModelConfig.model_validate(
+        {"type": "HfModel", "config": {"model_path": "some/vlm", "task": "image-text-to-text"}}
+    )
     assert config.get_components() == ["decoder", "vision_encoder"]
+    assert seen_kwargs["task"] is None
+
+
+def test_model_config_get_components_hfmodel_passes_mobius_task(monkeypatch):
+    from olive.common import mobius_utils
+
+    seen_kwargs = {}
+
+    def mock_inspect_components(*args, **kwargs):
+        seen_kwargs.update(kwargs)
+        return [mobius_utils.ComponentInfo(name="decoder", kind="decoder", source_path="model.language_model")]
+
+    monkeypatch.setattr(mobius_utils, "inspect_components", mock_inspect_components)
+    config = ModelConfig.model_validate(
+        {
+            "type": "HfModel",
+            "config": {
+                "model_path": "some/vlm",
+                "task": "image-text-to-text",
+                "model_attributes": {"mobius_task": "qwen-vl"},
+            },
+        }
+    )
+    assert config.get_components() == ["decoder"]
+    assert seen_kwargs["task"] == "qwen-vl"
 
 
 def test_model_config_select_components_hfmodel_tags_source_path(monkeypatch):

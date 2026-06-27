@@ -81,9 +81,10 @@ class ModelConfig(NestedConfig):
         if not model_path:
             return []
         load_kwargs = self.config.get("load_kwargs") or {}
+        model_attributes = self.config.get("model_attributes") or {}
         components = inspect_components(
             model_path,
-            task=self.config.get("task"),
+            task=model_attributes.get("mobius_task"),
             trust_remote_code=bool(load_kwargs.get("trust_remote_code")),
         )
         return [c.name for c in components]
@@ -180,9 +181,10 @@ class ModelConfig(NestedConfig):
 
         model_path = self.config.get("model_path")
         load_kwargs = self.config.get("load_kwargs") or {}
+        model_attributes = self.config.get("model_attributes") or {}
         components = inspect_components(
             model_path,
-            task=self.config.get("task"),
+            task=model_attributes.get("mobius_task"),
             trust_remote_code=bool(load_kwargs.get("trust_remote_code")),
         )
         by_name = {c.name: c for c in components}
