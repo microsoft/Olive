@@ -426,7 +426,7 @@ def all_files(path, ignore=None):
             yield member
 
 
-def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
+def copy_dir(src_dir, dst_dir, ignore=None, ignore_errors=False, **kwargs):
     """Copy a directory recursively using `shutil.copytree`.
 
     Handles shutil.Error exceptions that happen even though all files were copied successfully.
@@ -434,6 +434,7 @@ def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
     :param src_dir: The source directory. Can be a string or a `Path` object.
     :param dst_dir: The destination directory. Can be a string or a `Path` object.
     :param ignore: A callable that is used as `ignore` parameter to `shutil.copytree`.
+    :param ignore_errors: If True, suppress RuntimeError even when not all files were copied.
     :param kwargs: Additional kwargs to pass to `shutil.copytree`.
     """
     try:
@@ -449,7 +450,20 @@ def copy_dir(src_dir, dst_dir, ignore=None, **kwargs):
             if not (dst_dir / member.relative_to(src_dir)).exists()
         ]
         if not_copied:
-            raise RuntimeError(f"Failed to copy {not_copied}") from e
+            if ignore_errors:
+                preview = not_copied[:5]
+                extra = len(not_copied) - len(preview)
+                logger.warning(
+                    "Received shutil.Error '%s' and %d files are missing from destination directory "
+                    "(first %d: %s%s). Ignoring errors and continuing.",
+                    e,
+                    len(not_copied),
+                    len(preview),
+                    preview,
+                    f" … and {extra} more" if extra else "",
+                )
+            else:
+                raise RuntimeError(f"Failed to copy {not_copied}") from e
         else:
             logger.warning(
                 "Received shutil.Error '%s' but all required file names exist in destination directory. "
