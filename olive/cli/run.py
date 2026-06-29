@@ -5,8 +5,8 @@
 from argparse import ArgumentParser
 
 from olive.cli.base import (
-    _flatten_test_metrics,
     BaseOliveCLICommand,
+    _flatten_test_metrics,
     add_discrepancy_check_pass,
     add_hf_test_model_config,
     add_input_model_options,

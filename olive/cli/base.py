@@ -38,9 +38,7 @@ def _parse_test_metrics(value: str) -> list:
     names = [m.strip() for m in value.replace(",", " ").split() if m.strip()]
     invalid = [n for n in names if n not in TEST_METRICS]
     if invalid:
-        raise argparse.ArgumentTypeError(
-            f"invalid choice(s): {invalid!r} (choose from {list(TEST_METRICS)})"
-        )
+        raise argparse.ArgumentTypeError(f"invalid choice(s): {invalid!r} (choose from {list(TEST_METRICS)})")
     return names
 
 
