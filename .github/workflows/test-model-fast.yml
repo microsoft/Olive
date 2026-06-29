@@ -35,7 +35,7 @@ jobs:
           python -m venv llama_env
           llama_env/bin/pip install --upgrade pip
           llama_env/bin/pip install gguf safetensors llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-          llama_env/bin/pip install transformers sentencepiece protobuf tabulate
+          llama_env/bin/pip install transformers sentencepiece protobuf tabulate gguf
           curl -fsSL "https://raw.githubusercontent.com/ggerganov/llama.cpp/master/convert_hf_to_gguf.py" -o llama_env/convert_hf_to_gguf.py
 
       - name: pip freeze
