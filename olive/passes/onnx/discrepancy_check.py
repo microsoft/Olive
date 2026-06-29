@@ -383,7 +383,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         # Measure inference speedup (ONNX vs PyTorch) on the target device
         if config.timing_iterations > 0:
-            self._measure_speedup(
+            timing = self._measure_speedup(
                 ref_model,
                 session,
                 dataloader,
@@ -392,6 +392,11 @@ class OnnxDiscrepancyCheck(Pass):
                 config.warmup_iterations,
                 config.timing_iterations,
             )
+            if timing is not None:
+                pytorch_time, onnx_time, speedup = timing
+                results["pytorch_latency_s"] = pytorch_time
+                results["onnx_latency_s"] = onnx_time
+                results["speedup"] = speedup
         else:
             logger.info(
                 "OnnxDiscrepancyCheck speedup measurement skipped because timing_iterations=%d.",
@@ -447,8 +452,13 @@ class OnnxDiscrepancyCheck(Pass):
 
     def _measure_speedup(
         self, ref_model, session, dataloader, io_config, torch_device, warmup_iterations, timing_iterations
-    ):
-        """Measure inference speedup of ONNX over PyTorch on the target device."""
+    ) -> tuple[float, float, float] | None:
+        """Measure inference latencies and speedup of ONNX over PyTorch on the target device.
+
+        Returns a tuple ``(pytorch_time, onnx_time, speedup)`` of the average PyTorch and ONNX
+        per-iteration latencies (in seconds) and the ONNX-over-PyTorch speedup, or ``None`` when
+        measurement is skipped.
+        """
         if timing_iterations <= 0:
             logger.info(
                 "OnnxDiscrepancyCheck speedup measurement skipped because timing_iterations=%d.",
@@ -510,7 +520,7 @@ class OnnxDiscrepancyCheck(Pass):
             torch_device,
         )
 
-        return speedup
+        return pytorch_time, onnx_time, speedup
 
     def compare_generation(self, config: type[BasePassConfig], ref_model) -> dict:
         """Run generation on both transformers and GenAI and compare them.
