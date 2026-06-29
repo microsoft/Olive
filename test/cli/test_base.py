@@ -427,3 +427,44 @@ def test_add_discrepancy_check_pass_no_llama_env_path_omits_llama_config():
     pass_config = run_config["passes"]["discrepancy_check"]
     assert "llama_cpp" not in pass_config
     assert "llama_cpp_env_path" not in pass_config
+
+
+def test_parse_test_metrics_comma_separated():
+    from olive.cli.base import _parse_test_metrics
+
+    assert _parse_test_metrics("mae,speedup") == ["mae", "speedup"]
+
+
+def test_parse_test_metrics_single():
+    from olive.cli.base import _parse_test_metrics
+
+    assert _parse_test_metrics("mae") == ["mae"]
+
+
+def test_parse_test_metrics_invalid_raises():
+    import argparse
+
+    from olive.cli.base import _parse_test_metrics
+
+    with pytest.raises(argparse.ArgumentTypeError, match="invalid choice"):
+        _parse_test_metrics("unknown")
+
+
+def test_flatten_test_metrics_nested_lists():
+    from olive.cli.base import _flatten_test_metrics
+
+    # Simulates: --test_metrics mae,speedup  → [["mae", "speedup"]]
+    assert _flatten_test_metrics([["mae", "speedup"]]) == ["mae", "speedup"]
+
+
+def test_flatten_test_metrics_space_separated_tokens():
+    from olive.cli.base import _flatten_test_metrics
+
+    # Simulates: --test_metrics mae speedup  → [["mae"], ["speedup"]]
+    assert _flatten_test_metrics([["mae"], ["speedup"]]) == ["mae", "speedup"]
+
+
+def test_flatten_test_metrics_none_returns_none():
+    from olive.cli.base import _flatten_test_metrics
+
+    assert _flatten_test_metrics(None) is None

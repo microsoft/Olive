@@ -26,6 +26,39 @@ TEST_OUTPUT_MARKER_FILE = "olive_test_output.json"
 TEST_METRICS = ("mae", "speedup")
 
 
+def _parse_test_metrics(value: str) -> list:
+    """Parse a comma- or space-separated list of test metric names.
+
+    Accepts values like ``'mae'``, ``'mae,speedup'``, or ``'mae speedup'`` and
+    returns a flat list of validated metric names.  Raises ``argparse.ArgumentTypeError``
+    for any unrecognised name.
+    """
+    import argparse
+
+    names = [m.strip() for m in value.replace(",", " ").split() if m.strip()]
+    invalid = [n for n in names if n not in TEST_METRICS]
+    if invalid:
+        raise argparse.ArgumentTypeError(
+            f"invalid choice(s): {invalid!r} (choose from {list(TEST_METRICS)})"
+        )
+    return names
+
+
+def _flatten_test_metrics(raw) -> Optional[list]:
+    """Flatten the nested list produced by argparse when nargs="+" and type returns a list.
+
+    ``argparse`` calls the ``type`` function once per token, so
+    ``--test_metrics mae,speedup`` yields ``[["mae", "speedup"]]`` and
+    ``--test_metrics mae speedup`` yields ``[["mae"], ["speedup"]]``.
+    This function flattens both forms to ``["mae", "speedup"]``.
+    Returns ``None`` when ``raw`` is ``None`` or empty.
+    """
+    if not raw:
+        return None
+    flat = [item for sublist in raw for item in (sublist if isinstance(sublist, list) else [sublist])]
+    return flat or None
+
+
 def _get_test_output_marker_path(output_path: str) -> Path:
     return Path(output_path) / TEST_OUTPUT_MARKER_FILE
 
@@ -171,9 +204,10 @@ class BaseOliveCLICommand(ABC):
         from olive.workflows import run as olive_run
 
         validate_test_output_path(self.args.output_path, getattr(self.args, "test", None))
+        test_metrics = _flatten_test_metrics(getattr(self.args, "test_metrics", None))
         warn_unused_test_metrics(
             getattr(self.args, "test", None),
-            getattr(self.args, "test_metrics", None),
+            test_metrics,
             getattr(self.args, "test_llama_path", None),
         )
         Path(self.args.output_path).mkdir(parents=True, exist_ok=True)
@@ -183,7 +217,7 @@ class BaseOliveCLICommand(ABC):
             if getattr(self.args, "test", None) not in (None, False):
                 run_config = add_discrepancy_check_pass(
                     run_config,
-                    getattr(self.args, "test_metrics", None),
+                    test_metrics,
                     getattr(self.args, "test_llama_path", None),
                 )
             if self.args.save_config_file or self.args.dry_run:
@@ -552,12 +586,12 @@ def add_input_model_options(
         )
         model_group.add_argument(
             "--test_metrics",
-            type=str,
+            type=_parse_test_metrics,
             nargs="+",
-            choices=list(TEST_METRICS),
             help=(
                 "Metrics to evaluate during a --test run: 'mae' enforces the max absolute error between the "
                 "ONNX and reference model outputs, and 'speedup' measures ONNX-vs-PyTorch inference latency. "
+                "Accepts space- or comma-separated values (e.g. 'mae,speedup' or 'mae speedup'). "
                 "Defaults to 'mae'. Only used together with --test."
             ),
         )
