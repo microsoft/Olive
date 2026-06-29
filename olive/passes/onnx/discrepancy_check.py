@@ -117,12 +117,31 @@ def _format_seconds(value: Optional[float]) -> str:
     return "n/a" if value is None else f"{value:.4f}s"
 
 
-def _build_llama_gguf_tensor_map(num_layers: int) -> dict:
-    """Build a tensor name mapping from HuggingFace LLaMA names to GGUF names.
+# ---------------------------------------------------------------------------
+# Helper script executed inside the ``llama_env`` virtual environment.
+# All llama-cpp-python / gguf imports are intentionally isolated to this
+# subprocess so the main Olive process does not require those packages.
+# ---------------------------------------------------------------------------
+_LLAMA_CPP_HELPER_SCRIPT = '''\
+"""GGUF conversion and llama.cpp inference helper for OnnxDiscrepancyCheck.
 
-    Returns a dict where each key is a HuggingFace state-dict tensor name and the
-    corresponding value is the GGUF tensor name expected by llama.cpp.
-    """
+This script runs inside the llama_env virtual environment via subprocess.
+It converts a HuggingFace model directory to GGUF format using gguf.GGUFWriter,
+then measures first-token latency using llama-cpp-python.  Results are written
+as a JSON object to stdout.
+"""
+import argparse
+import glob
+import json
+import os
+import sys
+import time
+
+import numpy as np
+
+
+def _build_llama_tensor_map(num_layers):
+    """Map HuggingFace LLaMA tensor names to GGUF tensor names."""
     mapping = {
         "model.embed_tokens.weight": "token_embd.weight",
         "model.norm.weight": "output_norm.weight",
@@ -146,62 +165,76 @@ def _build_llama_gguf_tensor_map(num_layers: int) -> dict:
     return mapping
 
 
-# ---------------------------------------------------------------------------
-# Helper script executed inside the ``llama_env`` virtual environment.
-# All llama-cpp-python imports are intentionally isolated to this subprocess
-# so the main Olive process does not require llama-cpp-python.
-# ---------------------------------------------------------------------------
-_LLAMA_CPP_HELPER_SCRIPT = '''\
-"""GGUF conversion and llama.cpp inference helper for OnnxDiscrepancyCheck.
+def _load_hf_weights(model_dir):
+    """Load model weights from a HuggingFace model directory.
 
-This script runs inside the llama_env virtual environment via subprocess.
-It converts exported model weights to GGUF format, then measures first-token
-latency using llama-cpp-python.  Results are written as a JSON object to stdout.
-"""
-import argparse
-import json
-import sys
-import time
+    Prefers safetensors format; falls back to PyTorch bin files if safetensors
+    is unavailable.
+    """
+    safetensors_files = sorted(glob.glob(os.path.join(model_dir, "*.safetensors")))
+    if safetensors_files:
+        from safetensors import safe_open
 
-import numpy as np
+        weights = {}
+        for sf_path in safetensors_files:
+            with safe_open(sf_path, framework="numpy", device="cpu") as f:
+                for key in f.keys():
+                    weights[key] = f.get_tensor(key).astype(np.float32)
+        return weights
+
+    raise FileNotFoundError(
+        f"No safetensors weight files found in {model_dir}. "
+        "Ensure the model was saved with safe_serialization=True."
+    )
 
 
-def convert_to_gguf(weights_npz: str, config_json: str, gguf_path: str) -> None:
-    """Create a GGUF F32 file from exported NumPy weights and a config dict."""
+def convert_to_gguf(model_dir, gguf_path):
+    """Create a GGUF F32 file from a HuggingFace model directory."""
     import gguf
 
-    with open(config_json) as fh:
+    with open(os.path.join(model_dir, "config.json")) as fh:
         cfg = json.load(fh)
 
-    weights = np.load(weights_npz, allow_pickle=False)
+    num_layers = cfg["num_hidden_layers"]
+    weights = _load_hf_weights(model_dir)
+    tensor_map = _build_llama_tensor_map(num_layers)
 
     writer = gguf.GGUFWriter(gguf_path, arch="llama")
-
-    # Required architecture metadata
     writer.add_name("olive-discrepancy-check")
     writer.add_context_length(cfg["max_position_embeddings"])
     writer.add_embedding_length(cfg["hidden_size"])
-    writer.add_block_count(cfg["num_hidden_layers"])
+    writer.add_block_count(num_layers)
     writer.add_feed_forward_length(cfg["intermediate_size"])
     writer.add_rope_dimension_count(cfg["hidden_size"] // cfg["num_attention_heads"])
     writer.add_head_count(cfg["num_attention_heads"])
     writer.add_head_count_kv(cfg.get("num_key_value_heads", cfg["num_attention_heads"]))
     writer.add_layer_norm_rms_eps(cfg.get("rms_norm_eps", 1e-5))
     writer.add_vocab_size(cfg["vocab_size"])
-    writer.add_file_type(0)  # 0 = ALL_F32
+    writer.add_file_type(0)  # ALL_F32
 
-    # Optional tokenizer metadata embedded in the config
-    if "tokenizer_tokens" in cfg:
+    # Add tokenizer metadata from the saved tokenizer.json if present
+    tokenizer_json_path = os.path.join(model_dir, "tokenizer.json")
+    if os.path.exists(tokenizer_json_path):
         try:
-            writer.add_tokenizer_model("llama")
-            writer.add_token_list(cfg["tokenizer_tokens"])
-            writer.add_token_scores(np.array(cfg["tokenizer_scores"], dtype=np.float32))
-            writer.add_token_types(np.array(cfg["tokenizer_types"], dtype=np.int32))
+            with open(tokenizer_json_path) as f:
+                tokenizer_data = json.load(f)
+            vocab = tokenizer_data.get("model", {}).get("vocab", {})
+            if vocab:
+                vocab_size = cfg["vocab_size"]
+                tokens_list = [""] * vocab_size
+                for tok, idx in vocab.items():
+                    if 0 <= idx < vocab_size:
+                        tokens_list[idx] = tok
+                writer.add_tokenizer_model("llama")
+                writer.add_token_list(tokens_list)
+                writer.add_token_scores(np.zeros(vocab_size, dtype=np.float32))
+                writer.add_token_types(np.ones(vocab_size, dtype=np.int32))
         except Exception as exc:  # noqa: BLE001
             print(f"Warning: could not write tokenizer metadata: {exc}", file=sys.stderr)
 
-    for name in weights.files:
-        writer.add_tensor(name, weights[name])
+    for hf_name, gguf_name in tensor_map.items():
+        if hf_name in weights:
+            writer.add_tensor(gguf_name, weights[hf_name])
 
     writer.write_header_to_file()
     writer.write_kv_data_to_file()
@@ -209,7 +242,7 @@ def convert_to_gguf(weights_npz: str, config_json: str, gguf_path: str) -> None:
     writer.close()
 
 
-def run_inference(gguf_path: str, prompt_tokens: list, max_new_tokens: int, first_n: int) -> dict:
+def run_inference(gguf_path, prompt_tokens, max_new_tokens, first_n):
     """Run greedy generation with llama.cpp and return first-token latency metrics."""
     from llama_cpp import Llama
 
@@ -246,8 +279,7 @@ def run_inference(gguf_path: str, prompt_tokens: list, max_new_tokens: int, firs
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="GGUF conversion and llama.cpp inference")
-    parser.add_argument("--weights_npz", required=True)
-    parser.add_argument("--config_json", required=True)
+    parser.add_argument("--model_dir", required=True, help="HuggingFace model directory")
     parser.add_argument("--gguf_path", required=True)
     parser.add_argument("--prompt_tokens", required=True, help="JSON-encoded list of token IDs")
     parser.add_argument("--max_new_tokens", type=int, default=32)
@@ -255,7 +287,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     prompt_tokens = json.loads(args.prompt_tokens)
-    convert_to_gguf(args.weights_npz, args.config_json, args.gguf_path)
+    convert_to_gguf(args.model_dir, args.gguf_path)
     result = run_inference(args.gguf_path, prompt_tokens, args.max_new_tokens, args.first_n)
     print(json.dumps(result))
 '''
@@ -392,7 +424,9 @@ class OnnxDiscrepancyCheck(Pass):
                     "Path to the virtual environment where llama-cpp-python is installed. "
                     "Defaults to 'llama_env' relative to the current working directory when "
                     "``llama_cpp`` is True. Create this environment with: "
-                    "``python -m venv llama_env && llama_env/bin/pip install llama-cpp-python``."
+                    "``python -m venv llama_env && llama_env/bin/pip install gguf safetensors "
+                    "llama-cpp-python --extra-index-url "
+                    "https://abetlen.github.io/llama-cpp-python/whl/cpu``."
                 ),
             ),
         }
@@ -750,8 +784,12 @@ class OnnxDiscrepancyCheck(Pass):
                 torch.cuda.synchronize()
             transformers_elapsed = time.perf_counter() - start
         if max_new_tokens > 0:
-            transformers_ttft = transformers_latency["ttft"] if transformers_latency["ttft"] is not None else transformers_elapsed
-            transformers_ttfn = transformers_latency["ttfn"] if transformers_latency["ttfn"] is not None else transformers_elapsed
+            transformers_ttft = (
+                transformers_latency["ttft"] if transformers_latency["ttft"] is not None else transformers_elapsed
+            )
+            transformers_ttfn = (
+                transformers_latency["ttfn"] if transformers_latency["ttfn"] is not None else transformers_elapsed
+            )
         else:
             transformers_ttft = None
             transformers_ttfn = None
@@ -820,7 +858,8 @@ class OnnxDiscrepancyCheck(Pass):
         raise RuntimeError(
             f"Could not find a Python interpreter in the llama_env at '{env_path}'. "
             "Create the environment with: "
-            "python -m venv llama_env && llama_env/bin/pip install llama-cpp-python"
+            "python -m venv llama_env && llama_env/bin/pip install gguf safetensors "
+            "llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu"
         )
 
     def compare_llama_cpp(
@@ -838,16 +877,15 @@ class OnnxDiscrepancyCheck(Pass):
 
         The method:
 
-        1. Exports the reference model weights (using GGUF tensor names) and the
-           model config to a temporary directory.
-        2. Runs ``_LLAMA_CPP_HELPER_SCRIPT`` inside ``llama_env`` which creates the
-           GGUF file and measures first-token latency.
+        1. Saves the reference model and tokenizer to a temporary directory using
+           ``save_pretrained`` (standard HuggingFace format).
+        2. Runs ``_LLAMA_CPP_HELPER_SCRIPT`` inside ``llama_env`` which converts the
+           saved model directory to a GGUF file and measures first-token latency.
         3. Returns a metrics dict with the llama.cpp results and speedup ratios
            relative to PyTorch and ONNX when those latencies are provided.
         """
-        import numpy as np
         import torch
-        from transformers import AutoConfig, AutoTokenizer
+        from transformers import AutoTokenizer
 
         # Resolve the llama_env Python interpreter
         env_path = config.llama_cpp_env_path or "llama_env"
@@ -864,73 +902,29 @@ class OnnxDiscrepancyCheck(Pass):
             gen_out = ref_model.generate(input_ids, max_new_tokens=1, do_sample=False)
         pytorch_first_token_id = int(gen_out[0, -1].item())
 
-        # Export model weights with GGUF-compatible tensor names
-        hf_config = AutoConfig.from_pretrained(config.reference_model_path)
-        num_layers = hf_config.num_hidden_layers
-        tensor_map = _build_llama_gguf_tensor_map(num_layers)
-
-        state_dict = ref_model.state_dict()
-        mapped_weights: dict[str, np.ndarray] = {}
-        for hf_name, gguf_name in tensor_map.items():
-            if hf_name in state_dict:
-                mapped_weights[gguf_name] = state_dict[hf_name].float().cpu().numpy()
-
-        # Export tokenizer vocabulary so llama.cpp can load the model without errors
-        vocab_size = hf_config.vocab_size
-        tokenizer_tokens: Optional[list[str]] = None
-        tokenizer_scores: Optional[list[float]] = None
-        tokenizer_types: Optional[list[int]] = None
-        try:
-            vocab = tokenizer.get_vocab()
-            tokens_list: list[str] = [""] * vocab_size
-            for tok, idx in vocab.items():
-                if idx < vocab_size:
-                    tokens_list[idx] = tok
-            tokenizer_tokens = tokens_list
-            tokenizer_scores = [0.0] * vocab_size
-            tokenizer_types = [1] * vocab_size  # 1 = NORMAL token type
-        except Exception:
-            logger.debug("OnnxDiscrepancyCheck: could not export tokenizer vocabulary for GGUF.")
-
-        # Build the config dict for the helper script
-        gguf_cfg: dict = {
-            "max_position_embeddings": hf_config.max_position_embeddings,
-            "hidden_size": hf_config.hidden_size,
-            "num_hidden_layers": num_layers,
-            "intermediate_size": hf_config.intermediate_size,
-            "num_attention_heads": hf_config.num_attention_heads,
-            "num_key_value_heads": getattr(hf_config, "num_key_value_heads", hf_config.num_attention_heads),
-            "rms_norm_eps": getattr(hf_config, "rms_norm_eps", 1e-5),
-            "vocab_size": vocab_size,
-        }
-        if tokenizer_tokens is not None:
-            gguf_cfg["tokenizer_tokens"] = tokenizer_tokens
-            gguf_cfg["tokenizer_scores"] = tokenizer_scores
-            gguf_cfg["tokenizer_types"] = tokenizer_types
-
         max_new_tokens = config.generate_max_new_tokens
         first_n = max(1, min(config.time_to_first_n_tokens, max_new_tokens)) if max_new_tokens > 0 else 1
 
         # Write temp files and invoke the helper script inside llama_env
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
-            weights_npz = str(tmpdir_path / "weights.npz")
-            config_json = str(tmpdir_path / "config.json")
+            model_dir = str(tmpdir_path / "hf_model")
             gguf_path = str(tmpdir_path / "model.gguf")
             script_path = str(tmpdir_path / "llama_cpp_helper.py")
 
-            np.savez(weights_npz, **mapped_weights)
-            (tmpdir_path / "config.json").write_text(json.dumps(gguf_cfg))
+            # Save model and tokenizer in standard HuggingFace format so that the
+            # helper script can convert them to GGUF without custom weight mapping.
+            ref_model.save_pretrained(model_dir, safe_serialization=True)
+            tokenizer.save_pretrained(model_dir)
+
             (tmpdir_path / "llama_cpp_helper.py").write_text(_LLAMA_CPP_HELPER_SCRIPT)
 
             proc = subprocess.run(
                 [
                     python_path,
                     script_path,
-                    "--weights_npz",
-                    weights_npz,
-                    "--config_json",
-                    config_json,
+                    "--model_dir",
+                    model_dir,
                     "--gguf_path",
                     gguf_path,
                     "--prompt_tokens",

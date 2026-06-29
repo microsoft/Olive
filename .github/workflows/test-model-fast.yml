@@ -34,7 +34,7 @@ jobs:
         run: |
           python -m venv llama_env
           llama_env/bin/pip install --upgrade pip
-          CMAKE_ARGS="-DGGML_BLAS=OFF -DGGML_CUDA=OFF" llama_env/bin/pip install llama-cpp-python
+          llama_env/bin/pip install gguf safetensors llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
 
       - name: pip freeze
         run: |
