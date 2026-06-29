@@ -140,7 +140,7 @@ def test_hf_wrapper_qwen3_vl_text():
     from transformers.models.qwen3_vl.configuration_qwen3_vl import Qwen3VLTextConfig
     from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLTextModel
 
-    config = Qwen3VLTextConfig(
+    config = Qwen3VLTextConfig(  # pylint: disable=unexpected-keyword-arg
         vocab_size=128,
         hidden_size=16,
         intermediate_size=32,

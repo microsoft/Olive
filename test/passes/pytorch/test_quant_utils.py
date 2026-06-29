@@ -249,7 +249,7 @@ def test_prepare_model_component_source_path_allows_component_without_lm_head(in
     class _Root(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            config = Qwen3VLTextConfig(
+            config = Qwen3VLTextConfig(  # pylint: disable=unexpected-keyword-arg
                 vocab_size=128,
                 hidden_size=16,
                 intermediate_size=32,
@@ -586,8 +586,6 @@ def test_prepare_model_locks_default_quantized_qkv_member_without_override(input
     for V -- that would disagree with V's on-disk weights. Instead, Q/K should be demoted
     to V's existing default config.
     """
-    from olive.common.quant.nn import QuantLinear
-
     qu = quant_utils_module
 
     existing = {
