@@ -30,6 +30,12 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install -r test/requirements-test-cpu.txt
 
+      - name: Create llama_env and install llama-cpp-python
+        run: |
+          python -m venv llama_env
+          llama_env/bin/pip install --upgrade pip
+          CMAKE_ARGS="-DGGML_BLAS=OFF -DGGML_CUDA=OFF" llama_env/bin/pip install llama-cpp-python
+
       - name: pip freeze
         run: |
           python -m pip freeze

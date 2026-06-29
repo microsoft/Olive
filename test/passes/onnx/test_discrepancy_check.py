@@ -7,6 +7,8 @@
 import sys
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from olive.passes.onnx.discrepancy_check import _longest_common_token_sequence
 
 
@@ -411,3 +413,172 @@ class TestSpeedupSettings:
         assert result == (2.0, 1.0, 2.0)
         assert ref_model.call_count == 3
         assert session.run.call_count == 3
+
+
+class TestCompareLlamaCpp:
+    """Unit tests for OnnxDiscrepancyCheck.compare_llama_cpp."""
+
+    def _make_config(self):
+        config = MagicMock()
+        config.reference_model_path = "mock_model"
+        config.generate_prompt = "Hello world"
+        config.generate_max_new_tokens = 10
+        config.time_to_first_n_tokens = 5
+        config.llama_cpp_env_path = "/mock/llama_env"
+        return config
+
+    def _make_hf_config(self):
+        hf_cfg = MagicMock()
+        hf_cfg.max_position_embeddings = 64
+        hf_cfg.hidden_size = 128
+        hf_cfg.num_hidden_layers = 2
+        hf_cfg.intermediate_size = 256
+        hf_cfg.num_attention_heads = 8
+        hf_cfg.num_key_value_heads = 8
+        hf_cfg.rms_norm_eps = 1e-5
+        hf_cfg.vocab_size = 32
+        return hf_cfg
+
+    def test_get_llama_env_python_posix(self, tmp_path):
+        """Test that the POSIX Python path is returned when it exists."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        (tmp_path / "bin").mkdir()
+        python = tmp_path / "bin" / "python"
+        python.touch()
+
+        result = OnnxDiscrepancyCheck._get_llama_env_python(str(tmp_path))
+        assert result == str(python)
+
+    def test_get_llama_env_python_missing_raises(self, tmp_path):
+        """Test that a RuntimeError is raised when no interpreter is found."""
+        import pytest
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        with pytest.raises(RuntimeError, match="llama_env"):
+            OnnxDiscrepancyCheck._get_llama_env_python(str(tmp_path))
+
+    def test_compare_llama_cpp_returns_expected_metrics(self):
+        """Test that compare_llama_cpp returns all expected keys and correct values."""
+        import json
+
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        # First token from transformers: 42
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 3, 42]])
+        mock_ref_model.state_dict.return_value = {}
+
+        llama_output = {
+            "first_token_id": 42,
+            "generated_tokens": [42, 43, 44, 45, 46],
+            "ttft": 0.05,
+            "ttfn": 0.25,
+            "total_time": 0.50,
+        }
+
+        mock_proc = MagicMock()
+        mock_proc.stdout = json.dumps(llama_output)
+
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = MagicMock(
+            input_ids=torch.tensor([[1, 2, 3]]),
+            __getitem__=lambda self, key: torch.tensor([[1, 2, 3]]) if key == "input_ids" else None,
+        )
+        mock_tokenizer.return_value.__getitem__ = lambda self, k: (
+            torch.tensor([[1, 2, 3]]) if k == "input_ids" else None
+        )
+        # tokenizer(prompt) returns a dict with "input_ids" as a list
+        encoded = MagicMock()
+        encoded.__getitem__ = MagicMock(side_effect=lambda k: torch.tensor([[1, 2, 3]]) if k == "input_ids" else None)
+        mock_tokenizer.return_value = encoded
+        mock_tokenizer.get_vocab = MagicMock(return_value={})
+
+        with (
+            patch.object(OnnxDiscrepancyCheck, "_get_llama_env_python", return_value="/mock/llama_env/bin/python"),
+            patch("subprocess.run", return_value=mock_proc),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+            patch("transformers.AutoConfig.from_pretrained", return_value=self._make_hf_config()),
+            patch("numpy.savez"),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_llama_cpp(
+                config,
+                mock_ref_model,
+                pytorch_latency_s=0.10,
+                onnx_latency_s=0.05,
+            )
+
+        expected_keys = {
+            "llama_cpp_first_token_id",
+            "llama_cpp_pytorch_first_token_id",
+            "llama_cpp_first_token_matches_pytorch",
+            "llama_cpp_ttft_s",
+            "llama_cpp_ttfn_s",
+            "llama_cpp_total_time_s",
+            "llama_cpp_speedup_vs_pytorch",
+            "llama_cpp_speedup_vs_onnx",
+        }
+        assert expected_keys <= set(result.keys())
+
+        assert result["llama_cpp_first_token_id"] == 42
+        assert result["llama_cpp_ttft_s"] == pytest.approx(0.05)
+        assert result["llama_cpp_ttfn_s"] == pytest.approx(0.25)
+        assert result["llama_cpp_total_time_s"] == pytest.approx(0.50)
+        # speedup = pytorch_latency / llama_ttft = 0.10 / 0.05 = 2.0
+        assert result["llama_cpp_speedup_vs_pytorch"] == pytest.approx(2.0)
+        # speedup = onnx_latency / llama_ttft = 0.05 / 0.05 = 1.0
+        assert result["llama_cpp_speedup_vs_onnx"] == pytest.approx(1.0)
+
+    def test_compare_llama_cpp_no_latency_baselines(self):
+        """Speedup fields are None when pytorch/onnx latencies are not provided."""
+        import json
+
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 3, 7]])
+        mock_ref_model.state_dict.return_value = {}
+
+        llama_output = {
+            "first_token_id": 7,
+            "generated_tokens": [7, 8],
+            "ttft": 0.10,
+            "ttfn": None,
+            "total_time": 0.20,
+        }
+
+        mock_proc = MagicMock()
+        mock_proc.stdout = json.dumps(llama_output)
+
+        encoded = MagicMock()
+        encoded.__getitem__ = MagicMock(side_effect=lambda k: torch.tensor([[1, 2, 3]]) if k == "input_ids" else None)
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = encoded
+        mock_tokenizer.get_vocab = MagicMock(return_value={})
+
+        with (
+            patch.object(OnnxDiscrepancyCheck, "_get_llama_env_python", return_value="/mock/llama_env/bin/python"),
+            patch("subprocess.run", return_value=mock_proc),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+            patch("transformers.AutoConfig.from_pretrained", return_value=self._make_hf_config()),
+            patch("numpy.savez"),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_llama_cpp(config, mock_ref_model)
+
+        assert result["llama_cpp_speedup_vs_pytorch"] is None
+        assert result["llama_cpp_speedup_vs_onnx"] is None
+        assert result["llama_cpp_first_token_id"] == 7
+        assert result["llama_cpp_first_token_matches_pytorch"] is True

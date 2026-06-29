@@ -4,6 +4,8 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import subprocess
+import tempfile
 import time
 from pathlib import Path
 from typing import Optional
@@ -113,6 +115,150 @@ def _longest_common_token_sequence(seq_a: list[int], seq_b: list[int]) -> int:
 def _format_seconds(value: Optional[float]) -> str:
     """Format an optional latency value (in seconds) for logging."""
     return "n/a" if value is None else f"{value:.4f}s"
+
+
+def _build_llama_gguf_tensor_map(num_layers: int) -> dict:
+    """Build a tensor name mapping from HuggingFace LLaMA names to GGUF names.
+
+    Returns a dict where each key is a HuggingFace state-dict tensor name and the
+    corresponding value is the GGUF tensor name expected by llama.cpp.
+    """
+    mapping = {
+        "model.embed_tokens.weight": "token_embd.weight",
+        "model.norm.weight": "output_norm.weight",
+        "lm_head.weight": "output.weight",
+    }
+    for i in range(num_layers):
+        p = f"model.layers.{i}"
+        mapping.update(
+            {
+                f"{p}.input_layernorm.weight": f"blk.{i}.attn_norm.weight",
+                f"{p}.post_attention_layernorm.weight": f"blk.{i}.ffn_norm.weight",
+                f"{p}.self_attn.q_proj.weight": f"blk.{i}.attn_q.weight",
+                f"{p}.self_attn.k_proj.weight": f"blk.{i}.attn_k.weight",
+                f"{p}.self_attn.v_proj.weight": f"blk.{i}.attn_v.weight",
+                f"{p}.self_attn.o_proj.weight": f"blk.{i}.attn_output.weight",
+                f"{p}.mlp.gate_proj.weight": f"blk.{i}.ffn_gate.weight",
+                f"{p}.mlp.up_proj.weight": f"blk.{i}.ffn_up.weight",
+                f"{p}.mlp.down_proj.weight": f"blk.{i}.ffn_down.weight",
+            }
+        )
+    return mapping
+
+
+# ---------------------------------------------------------------------------
+# Helper script executed inside the ``llama_env`` virtual environment.
+# All llama-cpp-python imports are intentionally isolated to this subprocess
+# so the main Olive process does not require llama-cpp-python.
+# ---------------------------------------------------------------------------
+_LLAMA_CPP_HELPER_SCRIPT = '''\
+"""GGUF conversion and llama.cpp inference helper for OnnxDiscrepancyCheck.
+
+This script runs inside the llama_env virtual environment via subprocess.
+It converts exported model weights to GGUF format, then measures first-token
+latency using llama-cpp-python.  Results are written as a JSON object to stdout.
+"""
+import argparse
+import json
+import sys
+import time
+
+import numpy as np
+
+
+def convert_to_gguf(weights_npz: str, config_json: str, gguf_path: str) -> None:
+    """Create a GGUF F32 file from exported NumPy weights and a config dict."""
+    import gguf
+
+    with open(config_json) as fh:
+        cfg = json.load(fh)
+
+    weights = np.load(weights_npz, allow_pickle=False)
+
+    writer = gguf.GGUFWriter(gguf_path, arch="llama")
+
+    # Required architecture metadata
+    writer.add_name("olive-discrepancy-check")
+    writer.add_context_length(cfg["max_position_embeddings"])
+    writer.add_embedding_length(cfg["hidden_size"])
+    writer.add_block_count(cfg["num_hidden_layers"])
+    writer.add_feed_forward_length(cfg["intermediate_size"])
+    writer.add_rope_dimension_count(cfg["hidden_size"] // cfg["num_attention_heads"])
+    writer.add_head_count(cfg["num_attention_heads"])
+    writer.add_head_count_kv(cfg.get("num_key_value_heads", cfg["num_attention_heads"]))
+    writer.add_layer_norm_rms_eps(cfg.get("rms_norm_eps", 1e-5))
+    writer.add_vocab_size(cfg["vocab_size"])
+    writer.add_file_type(0)  # 0 = ALL_F32
+
+    # Optional tokenizer metadata embedded in the config
+    if "tokenizer_tokens" in cfg:
+        try:
+            writer.add_tokenizer_model("llama")
+            writer.add_token_list(cfg["tokenizer_tokens"])
+            writer.add_token_scores(np.array(cfg["tokenizer_scores"], dtype=np.float32))
+            writer.add_token_types(np.array(cfg["tokenizer_types"], dtype=np.int32))
+        except Exception as exc:  # noqa: BLE001
+            print(f"Warning: could not write tokenizer metadata: {exc}", file=sys.stderr)
+
+    for name in weights.files:
+        writer.add_tensor(name, weights[name])
+
+    writer.write_header_to_file()
+    writer.write_kv_data_to_file()
+    writer.write_tensors_to_file()
+    writer.close()
+
+
+def run_inference(gguf_path: str, prompt_tokens: list, max_new_tokens: int, first_n: int) -> dict:
+    """Run greedy generation with llama.cpp and return first-token latency metrics."""
+    from llama_cpp import Llama
+
+    n_ctx = max(512, len(prompt_tokens) + max_new_tokens + 64)
+    llm = Llama(model_path=gguf_path, n_ctx=n_ctx, verbose=False)
+
+    generated = []
+    ttft = None
+    ttfn = None
+    first_token_id = None
+
+    start = time.perf_counter()
+    for token in llm.generate(prompt_tokens, top_k=1, temp=0.0, reset=True):
+        count = len(generated) + 1
+        if count == 1:
+            ttft = time.perf_counter() - start
+            first_token_id = int(token)
+        if count == first_n and ttfn is None:
+            ttfn = time.perf_counter() - start
+        generated.append(int(token))
+        if count >= max_new_tokens:
+            break
+
+    total_time = time.perf_counter() - start
+
+    return {
+        "first_token_id": first_token_id,
+        "generated_tokens": generated,
+        "ttft": ttft,
+        "ttfn": ttfn,
+        "total_time": total_time,
+    }
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="GGUF conversion and llama.cpp inference")
+    parser.add_argument("--weights_npz", required=True)
+    parser.add_argument("--config_json", required=True)
+    parser.add_argument("--gguf_path", required=True)
+    parser.add_argument("--prompt_tokens", required=True, help="JSON-encoded list of token IDs")
+    parser.add_argument("--max_new_tokens", type=int, default=32)
+    parser.add_argument("--first_n", type=int, default=5)
+    args = parser.parse_args()
+
+    prompt_tokens = json.loads(args.prompt_tokens)
+    convert_to_gguf(args.weights_npz, args.config_json, args.gguf_path)
+    result = run_inference(args.gguf_path, prompt_tokens, args.max_new_tokens, args.first_n)
+    print(json.dumps(result))
+'''
 
 
 class OnnxDiscrepancyCheck(Pass):
@@ -227,6 +373,26 @@ class OnnxDiscrepancyCheck(Pass):
                     "Minimum acceptable length of the longest common token sequence from the "
                     "beginning between transformers and GenAI outputs. If the actual value is "
                     "below this threshold, the pass fails."
+                ),
+            ),
+            "llama_cpp": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "When True, convert the reference HuggingFace model to GGUF format and compare "
+                    "inference with llama.cpp. Measures first-token difference between llama.cpp and "
+                    "the reference PyTorch model as well as latency and speedup. All llama-cpp-python "
+                    "operations are executed in the ``llama_env`` virtual environment via subprocess."
+                ),
+            ),
+            "llama_cpp_env_path": PassConfigParam(
+                type_=Optional[str],
+                default_value=None,
+                description=(
+                    "Path to the virtual environment where llama-cpp-python is installed. "
+                    "Defaults to 'llama_env' relative to the current working directory when "
+                    "``llama_cpp`` is True. Create this environment with: "
+                    "``python -m venv llama_env && llama_env/bin/pip install llama-cpp-python``."
                 ),
             ),
         }
@@ -439,6 +605,16 @@ class OnnxDiscrepancyCheck(Pass):
                 results.setdefault("failures", []).append(gen_failure)
                 logger.error("ONNX model discrepancy check FAILED: %s", gen_failure)
 
+        # llama.cpp comparison: convert reference model to GGUF and compare latencies
+        if config.llama_cpp:
+            llama_results = self.compare_llama_cpp(
+                config,
+                ref_model,
+                pytorch_latency_s=results.get("pytorch_latency_s"),
+                onnx_latency_s=results.get("onnx_latency_s"),
+            )
+            results.update(llama_results)
+
         # Save results to disk
         report_path = Path(report_dir) / "discrepancy_check_results.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -629,6 +805,184 @@ class OnnxDiscrepancyCheck(Pass):
         logger.info(gen_summary)
 
         return gen_results
+
+    @staticmethod
+    def _get_llama_env_python(env_path: str) -> str:
+        """Return the Python interpreter path inside the given virtual environment.
+
+        Checks both the POSIX (``bin/python``) and Windows (``Scripts/python.exe``)
+        layouts so the method works cross-platform.
+        """
+        env = Path(env_path)
+        for candidate in (env / "bin" / "python", env / "Scripts" / "python.exe"):
+            if candidate.exists():
+                return str(candidate)
+        raise RuntimeError(
+            f"Could not find a Python interpreter in the llama_env at '{env_path}'. "
+            "Create the environment with: "
+            "python -m venv llama_env && llama_env/bin/pip install llama-cpp-python"
+        )
+
+    def compare_llama_cpp(
+        self,
+        config: type[BasePassConfig],
+        ref_model,
+        pytorch_latency_s: Optional[float] = None,
+        onnx_latency_s: Optional[float] = None,
+    ) -> dict:
+        """Convert the reference model to GGUF and compare inference with llama.cpp.
+
+        All llama-cpp-python operations are executed inside the ``llama_env`` virtual
+        environment via subprocess, so the main Olive process does not need
+        llama-cpp-python installed.
+
+        The method:
+
+        1. Exports the reference model weights (using GGUF tensor names) and the
+           model config to a temporary directory.
+        2. Runs ``_LLAMA_CPP_HELPER_SCRIPT`` inside ``llama_env`` which creates the
+           GGUF file and measures first-token latency.
+        3. Returns a metrics dict with the llama.cpp results and speedup ratios
+           relative to PyTorch and ONNX when those latencies are provided.
+        """
+        import numpy as np
+        import torch
+        from transformers import AutoConfig, AutoTokenizer
+
+        # Resolve the llama_env Python interpreter
+        env_path = config.llama_cpp_env_path or "llama_env"
+        python_path = self._get_llama_env_python(env_path)
+
+        # Tokenize the generation prompt using the main-env tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(config.reference_model_path)
+        encoded = tokenizer(config.generate_prompt, return_tensors="pt")
+        prompt_token_ids: list[int] = encoded["input_ids"][0].tolist()
+
+        # Run one-token generation with transformers to get the reference first token
+        input_ids = torch.tensor([prompt_token_ids]).to(ref_model.device)
+        with torch.no_grad():
+            gen_out = ref_model.generate(input_ids, max_new_tokens=1, do_sample=False)
+        pytorch_first_token_id = int(gen_out[0, -1].item())
+
+        # Export model weights with GGUF-compatible tensor names
+        hf_config = AutoConfig.from_pretrained(config.reference_model_path)
+        num_layers = hf_config.num_hidden_layers
+        tensor_map = _build_llama_gguf_tensor_map(num_layers)
+
+        state_dict = ref_model.state_dict()
+        mapped_weights: dict[str, np.ndarray] = {}
+        for hf_name, gguf_name in tensor_map.items():
+            if hf_name in state_dict:
+                mapped_weights[gguf_name] = state_dict[hf_name].float().cpu().numpy()
+
+        # Export tokenizer vocabulary so llama.cpp can load the model without errors
+        vocab_size = hf_config.vocab_size
+        tokenizer_tokens: Optional[list[str]] = None
+        tokenizer_scores: Optional[list[float]] = None
+        tokenizer_types: Optional[list[int]] = None
+        try:
+            vocab = tokenizer.get_vocab()
+            tokens_list: list[str] = [""] * vocab_size
+            for tok, idx in vocab.items():
+                if idx < vocab_size:
+                    tokens_list[idx] = tok
+            tokenizer_tokens = tokens_list
+            tokenizer_scores = [0.0] * vocab_size
+            tokenizer_types = [1] * vocab_size  # 1 = NORMAL token type
+        except Exception:
+            logger.debug("OnnxDiscrepancyCheck: could not export tokenizer vocabulary for GGUF.")
+
+        # Build the config dict for the helper script
+        gguf_cfg: dict = {
+            "max_position_embeddings": hf_config.max_position_embeddings,
+            "hidden_size": hf_config.hidden_size,
+            "num_hidden_layers": num_layers,
+            "intermediate_size": hf_config.intermediate_size,
+            "num_attention_heads": hf_config.num_attention_heads,
+            "num_key_value_heads": getattr(hf_config, "num_key_value_heads", hf_config.num_attention_heads),
+            "rms_norm_eps": getattr(hf_config, "rms_norm_eps", 1e-5),
+            "vocab_size": vocab_size,
+        }
+        if tokenizer_tokens is not None:
+            gguf_cfg["tokenizer_tokens"] = tokenizer_tokens
+            gguf_cfg["tokenizer_scores"] = tokenizer_scores
+            gguf_cfg["tokenizer_types"] = tokenizer_types
+
+        max_new_tokens = config.generate_max_new_tokens
+        first_n = max(1, min(config.time_to_first_n_tokens, max_new_tokens)) if max_new_tokens > 0 else 1
+
+        # Write temp files and invoke the helper script inside llama_env
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            weights_npz = str(tmpdir_path / "weights.npz")
+            config_json = str(tmpdir_path / "config.json")
+            gguf_path = str(tmpdir_path / "model.gguf")
+            script_path = str(tmpdir_path / "llama_cpp_helper.py")
+
+            np.savez(weights_npz, **mapped_weights)
+            (tmpdir_path / "config.json").write_text(json.dumps(gguf_cfg))
+            (tmpdir_path / "llama_cpp_helper.py").write_text(_LLAMA_CPP_HELPER_SCRIPT)
+
+            proc = subprocess.run(
+                [
+                    python_path,
+                    script_path,
+                    "--weights_npz",
+                    weights_npz,
+                    "--config_json",
+                    config_json,
+                    "--gguf_path",
+                    gguf_path,
+                    "--prompt_tokens",
+                    json.dumps(prompt_token_ids),
+                    "--max_new_tokens",
+                    str(max_new_tokens),
+                    "--first_n",
+                    str(first_n),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+        llama_out: dict = json.loads(proc.stdout)
+
+        llama_first_token_id: Optional[int] = llama_out.get("first_token_id")
+        llama_ttft: Optional[float] = llama_out.get("ttft")
+        llama_ttfn: Optional[float] = llama_out.get("ttfn")
+        llama_total: Optional[float] = llama_out.get("total_time")
+
+        # Speedup: compare llama.cpp TTFT with single-pass PyTorch / ONNX latency
+        llama_speedup_vs_pytorch: Optional[float] = (
+            pytorch_latency_s / llama_ttft if (pytorch_latency_s is not None and llama_ttft) else None
+        )
+        llama_speedup_vs_onnx: Optional[float] = (
+            onnx_latency_s / llama_ttft if (onnx_latency_s is not None and llama_ttft) else None
+        )
+
+        results = {
+            "llama_cpp_pytorch_first_token_id": pytorch_first_token_id,
+            "llama_cpp_first_token_id": llama_first_token_id,
+            "llama_cpp_first_token_matches_pytorch": llama_first_token_id == pytorch_first_token_id,
+            "llama_cpp_ttft_s": llama_ttft,
+            "llama_cpp_ttfn_s": llama_ttfn,
+            "llama_cpp_total_time_s": llama_total,
+            "llama_cpp_speedup_vs_pytorch": llama_speedup_vs_pytorch,
+            "llama_cpp_speedup_vs_onnx": llama_speedup_vs_onnx,
+        }
+
+        logger.info(
+            "OnnxDiscrepancyCheck llama.cpp comparison: first_token_matches_pytorch=%s, "
+            "ttft=%s, ttfn=%s, total=%s, speedup_vs_pytorch=%s, speedup_vs_onnx=%s",
+            results["llama_cpp_first_token_matches_pytorch"],
+            _format_seconds(llama_ttft),
+            _format_seconds(llama_ttfn),
+            _format_seconds(llama_total),
+            f"{llama_speedup_vs_pytorch:.2f}x" if llama_speedup_vs_pytorch is not None else "n/a",
+            f"{llama_speedup_vs_onnx:.2f}x" if llama_speedup_vs_onnx is not None else "n/a",
+        )
+
+        return results
 
     def _export_reference_model(self, ref_model, output_model_path: str):
         """Save the reference PyTorch model weights for direct comparison."""
