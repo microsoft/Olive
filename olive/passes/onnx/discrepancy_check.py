@@ -317,14 +317,17 @@ class OnnxDiscrepancyCheck(Pass):
                     "Path to the virtual environment where llama-cpp-python and "
                     "``convert_hf_to_gguf.py`` are installed. "
                     "Defaults to 'llama_env' relative to the current working directory when "
-                    "``llama_cpp`` is True. Create this environment and download the conversion "
-                    "script with: "
+                    "``llama_cpp`` is True. Create this environment and obtain the conversion "
+                    "script and its dependencies with: "
                     "``python -m venv llama_env && llama_env/bin/pip install gguf safetensors "
                     "transformers sentencepiece protobuf "
                     "llama-cpp-python --extra-index-url "
                     "https://abetlen.github.io/llama-cpp-python/whl/cpu && "
-                    "curl -fsSL https://raw.githubusercontent.com/ggerganov/llama.cpp/master/convert_hf_to_gguf.py "
-                    "-o llama_env/convert_hf_to_gguf.py``."
+                    "git clone --depth=1 --filter=blob:none --sparse "
+                    "https://github.com/ggerganov/llama.cpp.git /tmp/llama_cpp_repo && "
+                    "cd /tmp/llama_cpp_repo && git sparse-checkout set convert_hf_to_gguf.py conversion && "
+                    "cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py llama_env/ && "
+                    "cp -r /tmp/llama_cpp_repo/conversion llama_env/``."
                 ),
             ),
         }
@@ -765,21 +768,38 @@ class OnnxDiscrepancyCheck(Pass):
     def _get_convert_script(env_path: str) -> str:
         r"""Return the path to the ``convert_hf_to_gguf.py`` conversion script.
 
-        The script is expected to be placed at the root of the virtual environment
-        directory (i.e. ``{env_path}/convert_hf_to_gguf.py``).  Download it with::
+        The script and the accompanying ``conversion/`` package must be placed at the root
+        of the virtual environment directory (i.e. ``{env_path}/convert_hf_to_gguf.py`` and
+        ``{env_path}/conversion/``).  Obtain them via a sparse clone::
 
-            curl -fsSL https://raw.githubusercontent.com/ggerganov/llama.cpp/master/convert_hf_to_gguf.py \
-                -o {env_path}/convert_hf_to_gguf.py
+            git clone --depth=1 --filter=blob:none --sparse \
+                https://github.com/ggerganov/llama.cpp.git /tmp/llama_cpp_repo
+            cd /tmp/llama_cpp_repo && git sparse-checkout set convert_hf_to_gguf.py conversion
+            cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py {env_path}/
+            cp -r /tmp/llama_cpp_repo/conversion {env_path}/
         """
-        script = Path(env_path) / "convert_hf_to_gguf.py"
-        if script.exists():
-            return str(script)
-        raise RuntimeError(
-            f"Could not find convert_hf_to_gguf.py in '{env_path}'. "
-            "Download it from the llama.cpp repository: "
-            "curl -fsSL https://raw.githubusercontent.com/ggerganov/llama.cpp/master/convert_hf_to_gguf.py "
-            f"-o {env_path}/convert_hf_to_gguf.py"
+        env = Path(env_path)
+        script = env / "convert_hf_to_gguf.py"
+        conversion_pkg = env / "conversion"
+        setup_cmd = (
+            f"git clone --depth=1 --filter=blob:none --sparse "
+            f"https://github.com/ggerganov/llama.cpp.git /tmp/llama_cpp_repo && "
+            f"cd /tmp/llama_cpp_repo && git sparse-checkout set convert_hf_to_gguf.py conversion && "
+            f"cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py {env_path}/ && "
+            f"cp -r /tmp/llama_cpp_repo/conversion {env_path}/"
         )
+        if not script.exists():
+            raise RuntimeError(
+                f"Could not find convert_hf_to_gguf.py in '{env_path}'. "
+                f"Clone it from the llama.cpp repository: {setup_cmd}"
+            )
+        if not conversion_pkg.exists():
+            raise RuntimeError(
+                f"Could not find the 'conversion' package in '{env_path}'. "
+                "convert_hf_to_gguf.py requires the 'conversion/' directory alongside it. "
+                f"Clone it from the llama.cpp repository: {setup_cmd}"
+            )
+        return str(script)
 
     def compare_llama_cpp(
         self,
