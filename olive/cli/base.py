@@ -70,19 +70,27 @@ def mark_test_output_path(output_path: Optional[str]) -> None:
     _get_test_output_marker_path(output_path).write_text(json.dumps({"type": "olive_hf_test_output"}, indent=2))
 
 
-def warn_unused_test_metrics(test, metrics: Optional[list]) -> None:
-    """Warn when --test_metrics is provided without --test, since it has no effect."""
+def warn_unused_test_metrics(test, metrics: Optional[list], llama_path: Optional[str] = None) -> None:
+    """Warn when --test_metrics or --test_llama_path is provided without --test, since it has no effect."""
     if metrics and test in (None, False):
         logger.warning("--test_metrics is ignored because --test is not enabled.")
+    if llama_path and test in (None, False):
+        logger.warning("--test_llama_path is ignored because --test is not enabled.")
 
 
-def add_discrepancy_check_pass(run_config: dict, metrics: Optional[list] = None) -> dict:
+def add_discrepancy_check_pass(
+    run_config: dict, metrics: Optional[list] = None, llama_env_path: Optional[str] = None
+) -> dict:
     """Inject OnnxDiscrepancyCheck pass when --test is active and not already configured.
 
     ``metrics`` selects which test metrics to evaluate. Supported values are defined in
     ``TEST_METRICS`` (``"mae"`` for the max-absolute-error accuracy check and ``"speedup"`` for the
     ONNX-vs-PyTorch latency measurement). When ``None``, only ``"mae"`` is evaluated; pass
     ``["speedup"]`` or ``["mae", "speedup"]`` explicitly to enable timing.
+
+    ``llama_env_path`` is the path to the llama_env virtual environment used for llama.cpp inference.
+    When provided, the ``llama_cpp`` flag is enabled on the pass and the path is forwarded as
+    ``llama_cpp_env_path``.
     """
     passes = run_config.get("passes", {})
     # Skip if already configured
@@ -114,6 +122,10 @@ def add_discrepancy_check_pass(run_config: dict, metrics: Optional[list] = None)
     # Disable the latency/speedup measurement when the speedup metric is not requested.
     if "speedup" not in selected_metrics:
         pass_config["timing_iterations"] = 0
+    # Enable llama.cpp comparison when a venv path is provided.
+    if llama_env_path:
+        pass_config["llama_cpp"] = True
+        pass_config["llama_cpp_env_path"] = llama_env_path
 
     passes["discrepancy_check"] = pass_config
     run_config["passes"] = passes
@@ -159,13 +171,21 @@ class BaseOliveCLICommand(ABC):
         from olive.workflows import run as olive_run
 
         validate_test_output_path(self.args.output_path, getattr(self.args, "test", None))
-        warn_unused_test_metrics(getattr(self.args, "test", None), getattr(self.args, "test_metrics", None))
+        warn_unused_test_metrics(
+            getattr(self.args, "test", None),
+            getattr(self.args, "test_metrics", None),
+            getattr(self.args, "test_llama_path", None),
+        )
         Path(self.args.output_path).mkdir(parents=True, exist_ok=True)
 
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
             if getattr(self.args, "test", None) not in (None, False):
-                run_config = add_discrepancy_check_pass(run_config, getattr(self.args, "test_metrics", None))
+                run_config = add_discrepancy_check_pass(
+                    run_config,
+                    getattr(self.args, "test_metrics", None),
+                    getattr(self.args, "test_llama_path", None),
+                )
             if self.args.save_config_file or self.args.dry_run:
                 self._save_config_file(run_config)
             if self.args.dry_run:
@@ -539,6 +559,16 @@ def add_input_model_options(
                 "Metrics to evaluate during a --test run: 'mae' enforces the max absolute error between the "
                 "ONNX and reference model outputs, and 'speedup' measures ONNX-vs-PyTorch inference latency. "
                 "Defaults to 'mae'. Only used together with --test."
+            ),
+        )
+        model_group.add_argument(
+            "--test_llama_path",
+            type=str,
+            default=None,
+            help=(
+                "Path to the llama_env virtual environment used to run llama.cpp inference during a --test run. "
+                "When provided, the ONNX model is also compared against llama.cpp (GGUF format) and results "
+                "include first-token latency and speedup metrics. Only used together with --test."
             ),
         )
 

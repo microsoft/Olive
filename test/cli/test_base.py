@@ -397,3 +397,33 @@ def test_warn_unused_test_metrics_silent_when_test_enabled():
         warn_unused_test_metrics(test=True, metrics=["speedup"])
 
     mock_logger.warning.assert_not_called()
+
+
+def test_warn_unused_test_metrics_logs_llama_path_when_test_disabled():
+    from olive.cli.base import warn_unused_test_metrics
+
+    with patch("olive.cli.base.logger") as mock_logger:
+        warn_unused_test_metrics(test=None, metrics=None, llama_path="/path/to/llama_env")
+
+    mock_logger.warning.assert_called_once()
+    assert "--test_llama_path is ignored" in mock_logger.warning.call_args[0][0]
+
+
+def test_add_discrepancy_check_pass_llama_env_path_sets_config():
+    from olive.cli.base import add_discrepancy_check_pass
+
+    run_config = add_discrepancy_check_pass(_discrepancy_run_config(), llama_env_path="/path/to/llama_env")
+
+    pass_config = run_config["passes"]["discrepancy_check"]
+    assert pass_config["llama_cpp"] is True
+    assert pass_config["llama_cpp_env_path"] == "/path/to/llama_env"
+
+
+def test_add_discrepancy_check_pass_no_llama_env_path_omits_llama_config():
+    from olive.cli.base import add_discrepancy_check_pass
+
+    run_config = add_discrepancy_check_pass(_discrepancy_run_config())
+
+    pass_config = run_config["passes"]["discrepancy_check"]
+    assert "llama_cpp" not in pass_config
+    assert "llama_cpp_env_path" not in pass_config
