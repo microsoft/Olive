@@ -574,8 +574,8 @@ class OnnxDiscrepancyCheck(Pass):
                 torch.cuda.synchronize()
             transformers_elapsed = time.perf_counter() - start
         if max_new_tokens > 0:
-            transformers_ttft = transformers_latency["ttft"] or transformers_elapsed
-            transformers_ttfn = transformers_latency["ttfn"] or transformers_elapsed
+            transformers_ttft = transformers_latency["ttft"] if transformers_latency["ttft"] is not None else transformers_elapsed
+            transformers_ttfn = transformers_latency["ttfn"] if transformers_latency["ttfn"] is not None else transformers_elapsed
         else:
             transformers_ttft = None
             transformers_ttfn = None
