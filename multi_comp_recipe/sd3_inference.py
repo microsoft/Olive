@@ -26,6 +26,7 @@ def encode_text(prompt: str, onnx_dir: str, model_id: str) -> tuple[np.ndarray, 
     Returns:
         encoder_hidden_states: [1, 410, 4096]
         pooled_projections: [1, 2048]
+
     """
     # Load tokenizers (lightweight, no model weights)
     tokenizer_l = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
@@ -39,19 +40,25 @@ def encode_text(prompt: str, onnx_dir: str, model_id: str) -> tuple[np.ndarray, 
 
     # CLIP-L
     tokens_l = tokenizer_l(prompt, padding="max_length", max_length=77, return_tensors="np", truncation=True)
-    out_l = sess_l.run(None, {
-        "input_ids": tokens_l["input_ids"].astype(np.int64),
-        "attention_mask": tokens_l["attention_mask"].astype(np.int64),
-    })
+    out_l = sess_l.run(
+        None,
+        {
+            "input_ids": tokens_l["input_ids"].astype(np.int64),
+            "attention_mask": tokens_l["attention_mask"].astype(np.int64),
+        },
+    )
     clip_l_hidden = out_l[0]  # last_hidden_state [1, 77, 768]
     clip_l_pooled = out_l[1]  # text_embeds [1, 768]
 
     # CLIP-G
     tokens_g = tokenizer_g(prompt, padding="max_length", max_length=77, return_tensors="np", truncation=True)
-    out_g = sess_g.run(None, {
-        "input_ids": tokens_g["input_ids"].astype(np.int64),
-        "attention_mask": tokens_g["attention_mask"].astype(np.int64),
-    })
+    out_g = sess_g.run(
+        None,
+        {
+            "input_ids": tokens_g["input_ids"].astype(np.int64),
+            "attention_mask": tokens_g["attention_mask"].astype(np.int64),
+        },
+    )
     clip_g_hidden = out_g[0]  # last_hidden_state [1, 77, 1280]
     clip_g_pooled = out_g[1]  # text_embeds [1, 1280]
 
@@ -131,9 +138,11 @@ def main():
     transformer_path = os.path.join(args.onnx_dir, "transformer", "model.onnx")
     if not os.path.exists(transformer_path):
         print(f"Error: ONNX model not found at {args.onnx_dir}/")
-        print("Run: olive capture-onnx-graph --model_name_or_path "
-              "stabilityai/stable-diffusion-3-medium-diffusers "
-              "--use_mobius_builder --output_path exported_sd3_full2")
+        print(
+            "Run: olive capture-onnx-graph --model_name_or_path "
+            "stabilityai/stable-diffusion-3-medium-diffusers "
+            "--use_mobius_builder --output_path exported_sd3_full2"
+        )
         return
 
     print(f"Prompt: {args.prompt}")
