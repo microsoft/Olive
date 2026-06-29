@@ -5,7 +5,6 @@
 import json
 import logging
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 from typing import Optional
@@ -543,6 +542,7 @@ class OnnxDiscrepancyCheck(Pass):
             llama_results = self.compare_llama_cpp(
                 config,
                 ref_model,
+                output_dir=report_dir,
                 pytorch_latency_s=results.get("pytorch_latency_s"),
                 onnx_latency_s=results.get("onnx_latency_s"),
             )
@@ -785,6 +785,7 @@ class OnnxDiscrepancyCheck(Pass):
         self,
         config: type[BasePassConfig],
         ref_model,
+        output_dir: str,
         pytorch_latency_s: Optional[float] = None,
         onnx_latency_s: Optional[float] = None,
     ) -> dict:
@@ -796,10 +797,10 @@ class OnnxDiscrepancyCheck(Pass):
 
         The method:
 
-        1. Saves the reference model and tokenizer to a temporary directory using
+        1. Saves the reference model and tokenizer to ``output_dir/hf_model`` using
            ``save_pretrained`` (standard HuggingFace format).
         2. Calls ``convert_hf_to_gguf.py`` from llama.cpp via the command line to
-           convert the saved directory to a GGUF F32 file.
+           convert the saved directory to a GGUF F32 file at ``output_dir/model.gguf``.
         3. Runs ``_LLAMA_CPP_HELPER_SCRIPT`` inside ``llama_env`` to measure
            first-token latency with llama-cpp-python on the converted GGUF file.
         4. Returns a metrics dict with the llama.cpp results and speedup ratios
@@ -827,44 +828,44 @@ class OnnxDiscrepancyCheck(Pass):
         max_new_tokens = config.generate_max_new_tokens
         first_n = max(1, min(config.time_to_first_n_tokens, max_new_tokens)) if max_new_tokens > 0 else 1
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir_path = Path(tmpdir)
-            model_dir = str(tmpdir_path / "hf_model")
-            gguf_path = str(tmpdir_path / "model.gguf")
-            script_path = str(tmpdir_path / "llama_cpp_helper.py")
+        output_dir_path = Path(output_dir)
+        output_dir_path.mkdir(parents=True, exist_ok=True)
+        model_dir = str(output_dir_path / "hf_model")
+        gguf_path = str(output_dir_path / "model.gguf")
+        script_path = str(output_dir_path / "llama_cpp_helper.py")
 
-            # Save model and tokenizer in standard HuggingFace format.
-            ref_model.save_pretrained(model_dir, safe_serialization=True)
-            tokenizer.save_pretrained(model_dir)
+        # Save model and tokenizer in standard HuggingFace format.
+        ref_model.save_pretrained(model_dir, safe_serialization=True)
+        tokenizer.save_pretrained(model_dir)
 
-            # Step 1: Convert to GGUF using the official convert_hf_to_gguf.py CLI.
-            subprocess.run(
-                [python_path, convert_script, model_dir, "--outfile", gguf_path, "--outtype", "f32"],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
+        # Step 1: Convert to GGUF using the official convert_hf_to_gguf.py CLI.
+        subprocess.run(
+            [python_path, convert_script, model_dir, "--outfile", gguf_path, "--outtype", "f32"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
 
-            # Step 2: Run inference inside llama_env using the pre-converted GGUF file.
-            (tmpdir_path / "llama_cpp_helper.py").write_text(_LLAMA_CPP_HELPER_SCRIPT)
+        # Step 2: Run inference inside llama_env using the pre-converted GGUF file.
+        (output_dir_path / "llama_cpp_helper.py").write_text(_LLAMA_CPP_HELPER_SCRIPT)
 
-            proc = subprocess.run(
-                [
-                    python_path,
-                    script_path,
-                    "--gguf_path",
-                    gguf_path,
-                    "--prompt_tokens",
-                    json.dumps(prompt_token_ids),
-                    "--max_new_tokens",
-                    str(max_new_tokens),
-                    "--first_n",
-                    str(first_n),
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
+        proc = subprocess.run(
+            [
+                python_path,
+                script_path,
+                "--gguf_path",
+                gguf_path,
+                "--prompt_tokens",
+                json.dumps(prompt_token_ids),
+                "--max_new_tokens",
+                str(max_new_tokens),
+                "--first_n",
+                str(first_n),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
 
         llama_out: dict = json.loads(proc.stdout)
 

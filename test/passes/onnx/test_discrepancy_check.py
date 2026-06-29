@@ -457,7 +457,7 @@ class TestCompareLlamaCpp:
         with pytest.raises(RuntimeError, match="llama_env"):
             OnnxDiscrepancyCheck._get_llama_env_python(str(tmp_path))
 
-    def test_compare_llama_cpp_returns_expected_metrics(self):
+    def test_compare_llama_cpp_returns_expected_metrics(self, tmp_path):
         """Test that compare_llama_cpp returns all expected keys and correct values."""
         import json
 
@@ -500,6 +500,9 @@ class TestCompareLlamaCpp:
 
         with (
             patch.object(OnnxDiscrepancyCheck, "_get_llama_env_python", return_value="/mock/llama_env/bin/python"),
+            patch.object(
+                OnnxDiscrepancyCheck, "_get_convert_script", return_value="/mock/llama_env/convert_hf_to_gguf.py"
+            ),
             patch("subprocess.run", return_value=mock_proc),
             patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
             patch("transformers.AutoConfig.from_pretrained", return_value=self._make_hf_config()),
@@ -509,6 +512,7 @@ class TestCompareLlamaCpp:
             result = pass_instance.compare_llama_cpp(
                 config,
                 mock_ref_model,
+                output_dir=str(tmp_path),
                 pytorch_latency_s=0.10,
                 onnx_latency_s=0.05,
             )
@@ -534,7 +538,7 @@ class TestCompareLlamaCpp:
         # speedup = onnx_latency / llama_ttft = 0.05 / 0.05 = 1.0
         assert result["llama_cpp_speedup_vs_onnx"] == pytest.approx(1.0)
 
-    def test_compare_llama_cpp_no_latency_baselines(self):
+    def test_compare_llama_cpp_no_latency_baselines(self, tmp_path):
         """Speedup fields are None when pytorch/onnx latencies are not provided."""
         import json
 
@@ -568,13 +572,16 @@ class TestCompareLlamaCpp:
 
         with (
             patch.object(OnnxDiscrepancyCheck, "_get_llama_env_python", return_value="/mock/llama_env/bin/python"),
+            patch.object(
+                OnnxDiscrepancyCheck, "_get_convert_script", return_value="/mock/llama_env/convert_hf_to_gguf.py"
+            ),
             patch("subprocess.run", return_value=mock_proc),
             patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
             patch("transformers.AutoConfig.from_pretrained", return_value=self._make_hf_config()),
             patch("numpy.savez"),
         ):
             pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
-            result = pass_instance.compare_llama_cpp(config, mock_ref_model)
+            result = pass_instance.compare_llama_cpp(config, mock_ref_model, output_dir=str(tmp_path))
 
         assert result["llama_cpp_speedup_vs_pytorch"] is None
         assert result["llama_cpp_speedup_vs_onnx"] is None
