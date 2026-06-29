@@ -32,14 +32,15 @@ jobs:
 
       - name: Create llama_env and install llama-cpp-python
         run: |
-          python -m venv llama_env
-          llama_env/bin/pip install --upgrade pip
-          llama_env/bin/pip install gguf safetensors llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-          llama_env/bin/pip install transformers sentencepiece protobuf tabulate gguf
+          LLAMA_ENV="$(pwd)/llama_env"
+          python -m venv "$LLAMA_ENV"
+          "$LLAMA_ENV/bin/pip" install --upgrade pip
+          "$LLAMA_ENV/bin/pip" install gguf safetensors llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+          "$LLAMA_ENV/bin/pip" install transformers sentencepiece protobuf tabulate gguf
           git clone --depth=1 --filter=blob:none --sparse https://github.com/ggerganov/llama.cpp.git /tmp/llama_cpp_repo
-          cd /tmp/llama_cpp_repo && git sparse-checkout set convert_hf_to_gguf.py conversion --skip-checks
-          cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py llama_env/
-          cp -r /tmp/llama_cpp_repo/conversion llama_env/
+          git -C /tmp/llama_cpp_repo sparse-checkout set convert_hf_to_gguf.py conversion
+          cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py "$LLAMA_ENV/"
+          cp -r /tmp/llama_cpp_repo/conversion "$LLAMA_ENV/"
 
       - name: pip freeze
         run: |

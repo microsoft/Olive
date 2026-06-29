@@ -325,7 +325,7 @@ class OnnxDiscrepancyCheck(Pass):
                     "https://abetlen.github.io/llama-cpp-python/whl/cpu && "
                     "git clone --depth=1 --filter=blob:none --sparse "
                     "https://github.com/ggerganov/llama.cpp.git /tmp/llama_cpp_repo && "
-                    "cd /tmp/llama_cpp_repo && git sparse-checkout set convert_hf_to_gguf.py conversion && "
+                    "git -C /tmp/llama_cpp_repo sparse-checkout set convert_hf_to_gguf.py conversion && "
                     "cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py llama_env/ && "
                     "cp -r /tmp/llama_cpp_repo/conversion llama_env/``."
                 ),
@@ -774,7 +774,7 @@ class OnnxDiscrepancyCheck(Pass):
 
             git clone --depth=1 --filter=blob:none --sparse \
                 https://github.com/ggerganov/llama.cpp.git /tmp/llama_cpp_repo
-            cd /tmp/llama_cpp_repo && git sparse-checkout set convert_hf_to_gguf.py conversion
+            git -C /tmp/llama_cpp_repo sparse-checkout set convert_hf_to_gguf.py conversion
             cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py {env_path}/
             cp -r /tmp/llama_cpp_repo/conversion {env_path}/
         """
@@ -784,7 +784,7 @@ class OnnxDiscrepancyCheck(Pass):
         setup_cmd = (
             f"git clone --depth=1 --filter=blob:none --sparse "
             f"https://github.com/ggerganov/llama.cpp.git /tmp/llama_cpp_repo && "
-            f"cd /tmp/llama_cpp_repo && git sparse-checkout set convert_hf_to_gguf.py conversion && "
+            f"git -C /tmp/llama_cpp_repo sparse-checkout set convert_hf_to_gguf.py conversion && "
             f"cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py {env_path}/ && "
             f"cp -r /tmp/llama_cpp_repo/conversion {env_path}/"
         )
