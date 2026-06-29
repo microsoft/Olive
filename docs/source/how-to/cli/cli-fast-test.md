@@ -52,11 +52,11 @@ If you omit the folder and just pass `--test`, `olive run` will save the reduced
 
 ### Optional: choose which `--test` metrics to run
 
-By default, `--test` evaluates both:
+By default, `--test` evaluates:
 
 - `mae`: maximum absolute error between the ONNX and reference model outputs
-- `speedup`: ONNX-vs-PyTorch latency measurement
 
+Add `speedup` via `--test_metrics speedup` (or `--test_metrics mae speedup`) to also run latency measurement.
 You can select a subset with `--test_metrics`. For example, to run only speedup checks:
 
 ```bash
