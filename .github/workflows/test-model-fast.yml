@@ -38,7 +38,7 @@ jobs:
           "$LLAMA_ENV/bin/pip" install gguf safetensors llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
           "$LLAMA_ENV/bin/pip" install transformers sentencepiece protobuf tabulate gguf
           git clone --depth=1 --filter=blob:none --sparse https://github.com/ggerganov/llama.cpp.git /tmp/llama_cpp_repo
-          git -C /tmp/llama_cpp_repo sparse-checkout set convert_hf_to_gguf.py conversion
+          git -C /tmp/llama_cpp_repo sparse-checkout set convert_hf_to_gguf.py conversion --skip-checks
           cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py "$LLAMA_ENV/"
           cp -r /tmp/llama_cpp_repo/conversion "$LLAMA_ENV/"
 
