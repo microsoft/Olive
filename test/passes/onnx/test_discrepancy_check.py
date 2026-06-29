@@ -452,8 +452,6 @@ class TestCompareLlamaCpp:
 
     def test_get_llama_env_python_missing_raises(self, tmp_path):
         """Test that a RuntimeError is raised when no interpreter is found."""
-        import pytest
-
         from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
 
         with pytest.raises(RuntimeError, match="llama_env"):
