@@ -824,7 +824,7 @@ def update_llm_pipeline_genai_config_gpu(
     # update model_type
     genai_config["model"]["type"] = "decoder-pipeline"
 
-    provider_option = {"qnn": {"backend_type": "gpu"}}
+    provider_option = {"qnn": {"backend_type": "gpu", "enable_dx12_shared_memory_allocator": "1"}}
     decoder = genai_config["model"].setdefault("decoder", {})
     session_opts = decoder.setdefault("session_options", {})
     session_opts["provider_options"] = [provider_option]
