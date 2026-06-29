@@ -379,7 +379,7 @@ def test_run_workflow_prints_per_build_output_dir(tmp_path, capsys):
 
     command = _make_builds_command(run_config, str(tmp_path / "root_out"))
     with patch("olive.workflows.run", return_value=workflow_output):
-        command._run_workflow()
+        command.run()
 
     out = capsys.readouterr().out
     assert "Build 'first': model is saved under out/first" in out
@@ -401,7 +401,7 @@ def test_run_workflow_builds_fall_back_to_default_output_dir(tmp_path, capsys):
 
     command = _make_builds_command(run_config, str(tmp_path / "root_out"))
     with patch("olive.workflows.run", return_value={"only": build_output}):
-        command._run_workflow()
+        command.run()
 
     out = capsys.readouterr().out
     assert "Build 'only': model is saved under out/shared" in out
@@ -414,7 +414,7 @@ def test_run_workflow_builds_report_missing_output_model(tmp_path, capsys):
 
     command = _make_builds_command(run_config, str(tmp_path / "root_out"))
     with patch("olive.workflows.run", return_value={"only": build_output}):
-        command._run_workflow()
+        command.run()
 
     out = capsys.readouterr().out
     assert "Build 'only': no output model produced" in out
