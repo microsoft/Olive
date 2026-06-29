@@ -5,6 +5,7 @@
 from argparse import ArgumentParser
 
 from olive.cli.base import (
+    _flatten_test_metrics,
     BaseOliveCLICommand,
     add_discrepancy_check_pass,
     add_hf_test_model_config,
@@ -86,7 +87,12 @@ class WorkflowRunCommand(BaseOliveCLICommand):
         validate_test_output_path(output_path, self.args.test)
         warn_unused_test_metrics(self.args.test, getattr(self.args, "test_metrics", None))
         if self.args.test not in (None, False):
-            run_config = add_discrepancy_check_pass(run_config, getattr(self.args, "test_metrics", None))
+            test_metrics = _flatten_test_metrics(getattr(self.args, "test_metrics", None))
+            run_config = add_discrepancy_check_pass(
+                run_config,
+                metrics=test_metrics,
+                llama_env_path=getattr(self.args, "test_llama_path", None),
+            )
         workflow_output = olive_run(
             run_config,
             list_required_packages=self.args.list_required_packages,
