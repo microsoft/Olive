@@ -134,6 +134,10 @@ def add_discrepancy_check_pass(
     reference_model_path = input_model.get("test_model_path")
     if not reference_model_path:
         return run_config
+    # Resolve to absolute path so ORT GenAI and transformers always find a local
+    # directory rather than treating a relative path like "out/my-test" as a
+    # HuggingFace "org/repo" model identifier.
+    reference_model_path = str(Path(reference_model_path).resolve())
 
     # Determine output directory for discrepancy results
     report_dir = run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")

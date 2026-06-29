@@ -251,7 +251,7 @@ class ModelBuilder(Pass):
                     )
                 if not is_test_model_dir(model.test_model_path):
                     model.load_model(cache_model=False)
-                model_path = model.test_model_path
+                model_path = str(Path(model.test_model_path).resolve())
             # provide the model path as input path, model builder uses input_path for quantized models
             input_path = model_path
             if model.adapter_path:
