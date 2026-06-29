@@ -538,7 +538,7 @@ def add_input_model_options(
             help=(
                 "Metrics to evaluate during a --test run: 'mae' enforces the max absolute error between the "
                 "ONNX and reference model outputs, and 'speedup' measures ONNX-vs-PyTorch inference latency. "
-                "Defaults to all metrics. Only used together with --test."
+                "Defaults to 'mae'. Only used together with --test."
             ),
         )
 
