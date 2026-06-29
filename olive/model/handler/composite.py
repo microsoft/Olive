@@ -48,7 +48,7 @@ class CompositeModelHandler(OliveModelHandler):
         # When components are not provided but model_path is a directory of per-component ONNX
         # subfolders (e.g. a mobius export package), discover them using the subfolder names as
         # component names. This supports loading an exported package directly as a CompositeModel.
-        if not model_components:
+        if model_components is None:
             discovered = self._discover_components(model_path)
             if not discovered:
                 raise ValueError(
@@ -57,14 +57,20 @@ class CompositeModelHandler(OliveModelHandler):
                 )
             model_components, model_component_names = discovered
 
+        if model_component_names is None:
+            raise ValueError("CompositeModelHandler requires model_component_names when model_components is provided.")
+
         self._model_components = [
             validate_config(m, ModelConfig).create_model() if isinstance(m, dict) else m for m in model_components
         ]
-        assert all(isinstance(m, OliveModelHandler) for m in self._model_components), (
-            "All components must be OliveModelHandler or dict"
-        )
+        if not all(isinstance(m, OliveModelHandler) for m in self._model_components):
+            raise ValueError("All components must be OliveModelHandler or dict.")
 
-        assert len(self._model_components) == len(model_component_names), "Number of components and names must match"
+        if len(self._model_components) != len(model_component_names):
+            raise ValueError(
+                f"Number of components ({len(self._model_components)}) and names "
+                f"({len(model_component_names)}) must match."
+            )
         self.model_component_names = model_component_names
 
     @staticmethod

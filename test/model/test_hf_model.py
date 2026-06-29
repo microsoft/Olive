@@ -89,6 +89,19 @@ class TestHFModel:
         assert str(tmp_path / "preprocessor_config.json") in saved_filepaths
         assert (tmp_path / "preprocessor_config.json").exists()
 
+    def test_save_metadata_does_not_save_processor_when_task_is_none(self, tmp_path):
+        # task can be None when not provided in the config; save_metadata must not crash on
+        # `self.task.replace(...)` and must skip processor saving in that case.
+        olive_model = HfModelHandler(model_path=self.local_path, task=None, load_kwargs={"revision": self.revision})
+
+        with patch.object(olive_model, "get_hf_processor") as mock_get_processor:
+            saved_filepaths = olive_model.save_metadata(tmp_path)
+
+        mock_get_processor.assert_not_called()
+        assert all(Path(fp).exists() for fp in saved_filepaths)
+        assert not (tmp_path / "preprocessor_config.json").exists()
+        assert not (tmp_path / "processor_config.json").exists()
+
     @pytest.mark.parametrize("local", [True, False])
     def test_save_pretrained_metadata(self, local, tmp_path):
         olive_model = HfModelHandler(

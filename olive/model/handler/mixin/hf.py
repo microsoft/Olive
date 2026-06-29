@@ -124,7 +124,7 @@ class HfMixin:
             tokenizer_filepaths = save_tokenizer(self.get_hf_tokenizer(), output_dir, **kwargs)
             saved_filepaths.extend([fp for fp in tokenizer_filepaths if Path(fp).exists()])
 
-        should_save_processor = self.task.replace("-with-past", "") in {"image-text-to-text"}
+        should_save_processor = (self.task or "").replace("-with-past", "") in {"image-text-to-text"}
         if should_save_processor and not any(
             (output_dir / name).exists() for name in ("preprocessor_config.json", "processor_config.json")
         ):

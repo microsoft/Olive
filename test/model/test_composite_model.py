@@ -44,6 +44,18 @@ def test_composite_model(as_handler):
     assert model_config.type == CompositeModelHandler.model_type
 
 
+def test_composite_model_missing_names_raises_value_error():
+    # model_components provided but model_component_names omitted: must raise a clear ValueError
+    # (not a TypeError from len(None), which would also be silenced under `python -O` if asserted).
+    with pytest.raises(ValueError, match="requires model_component_names"):
+        CompositeModelHandler([get_onnx_model(), get_onnx_model()])
+
+
+def test_composite_model_component_name_count_mismatch_raises_value_error():
+    with pytest.raises(ValueError, match="must match"):
+        CompositeModelHandler([get_onnx_model(), get_onnx_model()], ["only_one_name"])
+
+
 def _build_composite_handler():
     return CompositeModelHandler(
         [get_onnx_model(), get_onnx_model(), get_onnx_model()],

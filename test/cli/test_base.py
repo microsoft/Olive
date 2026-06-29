@@ -3,13 +3,15 @@
 # Licensed under the MIT License.
 # -------------------------------------------------------------------------
 import json
+from argparse import ArgumentParser
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from typing import ClassVar
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from olive.cli.base import get_input_model_config
+from olive.cli.base import BaseOliveCLICommand, get_input_model_config
 
 
 @pytest.mark.parametrize(
@@ -338,3 +340,81 @@ def test_get_input_model_config_no_crash_without_onnx_file_name(tmp_path):
 
     # model_path should remain unchanged since no onnx_file_name to guide rewriting
     assert config["config"]["model_path"] == stale_model_path
+
+
+class _BuildsCommand(BaseOliveCLICommand):
+    """Minimal concrete command whose run config is injected for testing ``_run_workflow``."""
+
+    run_config: ClassVar[dict] = {}
+
+    @staticmethod
+    def register_subcommand(parser: ArgumentParser):
+        raise NotImplementedError
+
+    def run(self):
+        return self._run_workflow()
+
+    def _get_run_config(self, tempdir):
+        return self.run_config
+
+
+def _make_builds_command(run_config, output_path):
+    args = SimpleNamespace(output_path=output_path, test=None, save_config_file=False, dry_run=False)
+    command = _BuildsCommand(ArgumentParser(), args)
+    command.run_config = run_config
+    return command
+
+
+def test_run_workflow_prints_per_build_output_dir(tmp_path, capsys):
+    # builds workflows save each build under its own output_dir, not the CLI root output_path.
+    run_config = {
+        "builds": {
+            "first": {"pipeline": ["convert"], "output_dir": "out/first"},
+            "second": {"pipeline": ["convert"], "output_dir": "out/second"},
+        }
+    }
+    build_output = MagicMock()
+    build_output.has_output_model.return_value = True
+    workflow_output = {"first": build_output, "second": build_output}
+
+    command = _make_builds_command(run_config, str(tmp_path / "root_out"))
+    with patch("olive.workflows.run", return_value=workflow_output):
+        command._run_workflow()
+
+    out = capsys.readouterr().out
+    assert "Build 'first': model is saved under out/first" in out
+    assert "Build 'second': model is saved under out/second" in out
+    # the CLI root output path is not used when a build declares its own output_dir
+    assert str(tmp_path / "root_out") not in out
+
+
+def test_run_workflow_builds_fall_back_to_default_output_dir(tmp_path, capsys):
+    # output_dir provided via the builds `_default` sentinel applies to siblings that omit it.
+    run_config = {
+        "builds": {
+            "_default": {"output_dir": "out/shared"},
+            "only": {"pipeline": ["convert"]},
+        }
+    }
+    build_output = MagicMock()
+    build_output.has_output_model.return_value = True
+
+    command = _make_builds_command(run_config, str(tmp_path / "root_out"))
+    with patch("olive.workflows.run", return_value={"only": build_output}):
+        command._run_workflow()
+
+    out = capsys.readouterr().out
+    assert "Build 'only': model is saved under out/shared" in out
+
+
+def test_run_workflow_builds_report_missing_output_model(tmp_path, capsys):
+    run_config = {"builds": {"only": {"pipeline": ["convert"], "output_dir": "out/only"}}}
+    build_output = MagicMock()
+    build_output.has_output_model.return_value = False
+
+    command = _make_builds_command(run_config, str(tmp_path / "root_out"))
+    with patch("olive.workflows.run", return_value={"only": build_output}):
+        command._run_workflow()
+
+    out = capsys.readouterr().out
+    assert "Build 'only': no output model produced" in out
