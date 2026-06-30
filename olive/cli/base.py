@@ -155,6 +155,7 @@ def add_discrepancy_check_pass(
     for pass_cfg in passes.values():
         if isinstance(pass_cfg, dict) and pass_cfg.get("type", "").lower() == "onnxdiscrepancycheck":
             pass_cfg["reference_model_path"] = reference_model_path
+            pass_cfg["num_hidden_layers"] = 2
             if report_dir is not None:
                 pass_cfg["report_output_dir"] = report_dir
             # Respect --test_metrics: enable/disable mae threshold and speedup measurement.
@@ -181,6 +182,7 @@ def add_discrepancy_check_pass(
         "type": "OnnxDiscrepancyCheck",
         "reference_model_path": reference_model_path,
         "report_output_dir": report_dir,
+        "num_hidden_layers": 2,
     }
     # Enforce the max-absolute-error threshold only when the accuracy metric is requested.
     if "mae" in selected_metrics:

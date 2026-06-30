@@ -4,7 +4,17 @@ If you are converting a large language model, it is often useful to validate the
 
 The `--test` option does that for Hugging Face models. Olive keeps the same model architecture, reduces it to a random **2-layer** test model, saves it to the folder you provide, and reuses that folder on later runs.
 
-> **Why 2 layers?**  Olive automatically overrides the `num_hidden_layers` field of the model configuration to `2` (regardless of the original depth) before creating the test model.  This keeps the random test checkpoint small and fast to convert while preserving the model's architecture family (tokeniser, attention pattern, etc.).  The same 2-layer limit is applied when the `OnnxDiscrepancyCheck` pass loads the reference model for numerical comparison.
+> **Why 2 layers?**  When `olive run` executes the model-builder pass for the first time it calls
+> `_apply_test_model_config` (in `olive/common/hf/utils.py`) to override every hidden-layer count
+> field (`num_hidden_layers`, `num_layers`, `n_layer`, `n_layers`) to `2` before the random test
+> checkpoint is created.  This keeps the checkpoint small and fast to convert while preserving the
+> model's architecture family (tokeniser, attention pattern, etc.).
+>
+> **Note:** `olive optimize --dry_run` only generates the workflow config — it does **not** run any
+> passes or create the test model directory.  The test model is created the first time you run
+> `olive run --test`.  On subsequent `olive run` calls that hit the model-builder cache, Olive
+> automatically falls back to a copy of the test model saved alongside the cached ONNX artifacts,
+> so the test model directory is not required to exist on disk.
 
 This example uses [`Qwen/Qwen3-0.6B`](https://huggingface.co/Qwen/Qwen3-0.6B), but the same pattern works for other supported Hugging Face LLMs.
 
@@ -39,7 +49,7 @@ olive run \
 
 What this does:
 
-- `--test out/qwen-test-model` creates a reduced random Qwen model (2 hidden layers) and saves it in `out/qwen-test-model` on the first run; later runs reuse the same saved test model instead of recreating it
+- `--test out/qwen-test-model` creates a reduced random Qwen model (2 hidden layers) and saves it in `out/qwen-test-model` on the first run; on later runs Olive reuses the saved test model — or, if the model-builder output is cached and `out/qwen-test-model` no longer exists, it automatically falls back to the copy saved inside the ONNX cache directory
 - `--output_path out/qwen-test-run` gives the smoke test its own output folder, so the generated ONNX artifacts are easy to find
 - Olive marks that output folder as a test-only run and refuses to reuse a non-test conversion folder for `--test`
 - The saved model configuration (`reference_model_config.json`) is written alongside the discrepancy results so you can inspect exactly which config was used
@@ -130,6 +140,8 @@ The saved test model is useful beyond the first smoke test:
 - you can rerun the reduced conversion quickly while iterating on options
 - you can reuse the same HF test model later when comparing the Hugging Face model against the exported ONNX model
 - you avoid recreating a new random test checkpoint every time
+
+Even if you delete the test model folder, `OnnxDiscrepancyCheck` will automatically use the copy saved inside the model-builder cache directory (`reference_hf_model/` alongside the ONNX artifacts), so the comparison step continues to work.
 
 ## Related docs
 

@@ -330,6 +330,19 @@ class OnnxDiscrepancyCheck(Pass):
                     "cp -r /tmp/llama_cpp_repo/conversion llama_env/``."
                 ),
             ),
+            "num_hidden_layers": PassConfigParam(
+                type_=Optional[int],
+                default_value=None,
+                description=(
+                    "When set, overrides the number of hidden layers in the reference HuggingFace "
+                    "model config before loading it.  Useful when ``reference_model_path`` points "
+                    "to a pre-saved small test model that already has a reduced layer count — the "
+                    "override is then a no-op but makes the intended layer count explicit in the "
+                    "saved ``reference_model_config.json`` report.  Supports ``num_hidden_layers``, "
+                    "``num_layers``, ``n_layer``, and ``n_layers`` to cover both BERT-style and "
+                    "GPT-style model families."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -369,7 +382,34 @@ class OnnxDiscrepancyCheck(Pass):
         # Load reference PyTorch model
         from transformers import AutoConfig, AutoModelForCausalLM
 
-        ref_cfg = AutoConfig.from_pretrained(config.reference_model_path)
+        # Resolve the reference model path.  Use the configured path if it exists as a local
+        # directory; otherwise fall back to the ``reference_hf_model`` copy that ModelBuilder
+        # saves alongside the ONNX output.  That copy is written on the first successful build
+        # and is preserved across engine cache hits, so OnnxDiscrepancyCheck keeps working even
+        # when the original ``test_model_path`` (e.g. ``out/tiny-test``) has been deleted.
+        ref_path = config.reference_model_path
+        if not Path(ref_path).is_dir():
+            hf_ref_dir = (model.model_attributes or {}).get("hf_reference_model_dir", "reference_hf_model")
+            fallback = Path(model.model_path).parent / hf_ref_dir
+            if fallback.is_dir():
+                logger.info(
+                    "Reference model not found at %r; using cached copy at %r.",
+                    ref_path,
+                    str(fallback),
+                )
+                ref_path = str(fallback)
+            else:
+                raise RuntimeError(
+                    f"Reference model directory {ref_path!r} does not exist and no cached copy was "
+                    f"found at {str(fallback)!r}. Re-run the optimization workflow (olive run) to "
+                    "recreate the test model."
+                )
+
+        ref_cfg = AutoConfig.from_pretrained(ref_path)
+        if config.num_hidden_layers is not None:
+            from olive.common.hf.utils import _apply_test_model_config
+
+            ref_cfg = _apply_test_model_config(ref_cfg, {"num_hidden_layers": config.num_hidden_layers})
         architectures = getattr(ref_cfg, "architectures", None) or []
         if not any("ForCausalLM" in arch for arch in architectures):
             raise ValueError(
@@ -377,7 +417,7 @@ class OnnxDiscrepancyCheck(Pass):
                 f"Got architectures={architectures}"
             )
 
-        ref_model = AutoModelForCausalLM.from_pretrained(config.reference_model_path, config=ref_cfg)
+        ref_model = AutoModelForCausalLM.from_pretrained(ref_path, config=ref_cfg)
         ref_model.eval()
 
         # Determine the floating-point dtype used by the ONNX model weights and
@@ -533,7 +573,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         # Generation token sequence comparison (transformers vs ONNX Runtime GenAI)
         if config.genai_model_path:
-            gen_results = self.compare_generation(config, ref_model)
+            gen_results = self.compare_generation(config, ref_model, ref_model_path=ref_path)
             longest_common = gen_results["longest_common_token_sequence"]
             results.update(gen_results)
             results["genai_model_path"] = config.genai_model_path
@@ -554,6 +594,7 @@ class OnnxDiscrepancyCheck(Pass):
                 output_dir=report_dir,
                 pytorch_latency_s=results.get("pytorch_latency_s"),
                 onnx_latency_s=results.get("onnx_latency_s"),
+                ref_model_path=ref_path,
             )
             results.update(llama_results)
 
@@ -640,7 +681,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         return pytorch_time, onnx_time, speedup
 
-    def compare_generation(self, config: type[BasePassConfig], ref_model) -> dict:
+    def compare_generation(self, config: type[BasePassConfig], ref_model, *, ref_model_path: str) -> dict:
         """Run generation on both transformers and GenAI and compare them.
 
         Returns a dict with the longest common token sequence length and the time-to-first-token
@@ -653,7 +694,7 @@ class OnnxDiscrepancyCheck(Pass):
             raise ImportError("Please install `onnxruntime-genai` to enable generation comparison.") from exc
         from transformers import AutoTokenizer, StoppingCriteria, StoppingCriteriaList
 
-        tokenizer = AutoTokenizer.from_pretrained(config.reference_model_path)
+        tokenizer = AutoTokenizer.from_pretrained(ref_model_path)
 
         max_new_tokens = config.generate_max_new_tokens
         first_n = max(1, min(config.time_to_first_n_tokens, max_new_tokens)) if max_new_tokens > 0 else 0
@@ -814,6 +855,8 @@ class OnnxDiscrepancyCheck(Pass):
         output_dir: str,
         pytorch_latency_s: Optional[float] = None,
         onnx_latency_s: Optional[float] = None,
+        *,
+        ref_model_path: str,
     ) -> dict:
         """Convert the reference model to GGUF and compare inference with llama.cpp.
 
@@ -841,7 +884,7 @@ class OnnxDiscrepancyCheck(Pass):
         convert_script = self._get_convert_script(env_path)
 
         # Tokenize the generation prompt using the main-env tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(config.reference_model_path)
+        tokenizer = AutoTokenizer.from_pretrained(ref_model_path)
         encoded = tokenizer(config.generate_prompt, return_tensors="pt")
         prompt_token_ids: list[int] = encoded["input_ids"][0].tolist()
 
