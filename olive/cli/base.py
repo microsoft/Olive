@@ -198,6 +198,25 @@ def add_discrepancy_check_pass(
     return run_config
 
 
+def _save_test_model_config_for_dry_run(run_config: dict) -> None:
+    """Pre-create the test model directory with a modified config during --dry_run --test.
+
+    Saves the HuggingFace config (with the reduced hidden-layer count) and the
+    test-model marker file to the ``test_model_path`` directory so that subsequent
+    ``olive run`` calls can find the directory.  Model weights are created the first
+    time ``load_model_from_task`` is invoked during an actual run.
+    """
+    from olive.common.hf.utils import save_test_model_config
+
+    input_model = run_config.get("input_model", {})
+    test_model_path = input_model.get("test_model_path")
+    model_path = input_model.get("model_path")
+    test_model_config = input_model.get("test_model_config")
+    if not (test_model_path and model_path and test_model_config):
+        return
+    save_test_model_config(model_path, test_model_config, test_model_path)
+
+
 def save_discrepancy_check_results(workflow_output, output_path: str) -> None:
     """Save discrepancy check results from model attributes to the output directory."""
     if not workflow_output or not workflow_output.has_output_model():
@@ -258,6 +277,7 @@ class BaseOliveCLICommand(ABC):
             if self.args.dry_run:
                 if getattr(self.args, "test", None) not in (None, False):
                     mark_test_output_path(self.args.output_path)
+                    _save_test_model_config_for_dry_run(run_config)
                 print("Dry run mode enabled. Configuration file is generated but no optimization is performed.")
                 return None
             workflow_output = olive_run(run_config)
