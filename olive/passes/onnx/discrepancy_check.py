@@ -330,15 +330,6 @@ class OnnxDiscrepancyCheck(Pass):
                     "cp -r /tmp/llama_cpp_repo/conversion llama_env/``."
                 ),
             ),
-            "num_hidden_layers": PassConfigParam(
-                type_=int,
-                default_value=2,
-                description=(
-                    "Override the number of hidden layers in the reference model before loading it. "
-                    "Reduces the model size for faster testing. The modified configuration is saved "
-                    "alongside the discrepancy check results."
-                ),
-            ),
         }
 
     def _run_for_config(
@@ -384,16 +375,6 @@ class OnnxDiscrepancyCheck(Pass):
             raise ValueError(
                 "OnnxDiscrepancyCheck currently supports only HuggingFace causal language models (ForCausalLM). "
                 f"Got architectures={architectures}"
-            )
-
-        # Override the number of hidden layers when requested (speeds up testing with smaller models).
-        if config.num_hidden_layers is not None:
-            for attr_name in ("num_hidden_layers", "num_layers", "n_layer", "n_layers"):
-                if hasattr(ref_cfg, attr_name):
-                    setattr(ref_cfg, attr_name, config.num_hidden_layers)
-            logger.info(
-                "OnnxDiscrepancyCheck: overriding num_hidden_layers to %d on reference model config.",
-                config.num_hidden_layers,
             )
 
         ref_model = AutoModelForCausalLM.from_pretrained(config.reference_model_path, config=ref_cfg)

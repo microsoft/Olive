@@ -18,9 +18,11 @@ olive optimize \
     --precision int4 \
     --output_path out/qwen \
     --dry_run
+    --test out/qwen-test-model
 ```
 
 This creates `out/qwen/config.json` without launching the full conversion yet.
+It also adds a pass OnnxDiscrepancyCheck if not present.
 
 ## Step 2: run a fast smoke test with `olive run --test`
 
