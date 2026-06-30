@@ -642,6 +642,14 @@
             "supported_algorithms": [ "rtn" ],
             "supported_quantization_encodings": [  ]
         },
+        "SaveTestModelConfig": {
+            "module_path": "olive.passes.pytorch.save_test_model_config.SaveTestModelConfig",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "SelectiveMixedPrecision": {
             "module_path": "olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision",
             "supported_providers": [ "*" ],

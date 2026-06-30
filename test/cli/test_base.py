@@ -352,7 +352,12 @@ def test_add_discrepancy_check_pass_default_enables_mae_only():
 
     run_config = add_discrepancy_check_pass(_discrepancy_run_config())
 
-    pass_config = run_config["passes"]["discrepancy_check"]
+    passes = run_config["passes"]
+    # SaveTestModelConfig must be the first pass
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["discrepancy_check"]
     assert pass_config["type"] == "OnnxDiscrepancyCheck"
     assert pass_config["reference_model_path"] == str(Path("ref_model").resolve())
     # default: mae only -> threshold enforced, timing disabled
@@ -365,7 +370,11 @@ def test_add_discrepancy_check_pass_speedup_only_disables_mae():
 
     run_config = add_discrepancy_check_pass(_discrepancy_run_config(), metrics=["speedup"])
 
-    pass_config = run_config["passes"]["discrepancy_check"]
+    passes = run_config["passes"]
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["discrepancy_check"]
     assert "max_mae" not in pass_config
     assert "timing_iterations" not in pass_config
 
@@ -375,7 +384,11 @@ def test_add_discrepancy_check_pass_mae_only_disables_speedup():
 
     run_config = add_discrepancy_check_pass(_discrepancy_run_config(), metrics=["mae"])
 
-    pass_config = run_config["passes"]["discrepancy_check"]
+    passes = run_config["passes"]
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["discrepancy_check"]
     assert pass_config["max_mae"] == 0.1
     assert pass_config["timing_iterations"] == 0
 
@@ -414,7 +427,11 @@ def test_add_discrepancy_check_pass_llama_env_path_sets_config():
 
     run_config = add_discrepancy_check_pass(_discrepancy_run_config(), llama_env_path="/path/to/llama_env")
 
-    pass_config = run_config["passes"]["discrepancy_check"]
+    passes = run_config["passes"]
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["discrepancy_check"]
     assert pass_config["llama_cpp"] is True
     assert pass_config["llama_cpp_env_path"] == "/path/to/llama_env"
 
@@ -424,7 +441,11 @@ def test_add_discrepancy_check_pass_no_llama_env_path_omits_llama_config():
 
     run_config = add_discrepancy_check_pass(_discrepancy_run_config())
 
-    pass_config = run_config["passes"]["discrepancy_check"]
+    passes = run_config["passes"]
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["discrepancy_check"]
     assert "llama_cpp" not in pass_config
     assert "llama_cpp_env_path" not in pass_config
 
@@ -449,7 +470,12 @@ def test_add_discrepancy_check_pass_updates_existing_pass():
 
     result = add_discrepancy_check_pass(config, metrics=["mae", "speedup"])
 
-    pass_config = result["passes"]["discrepancy_check"]
+    passes = result["passes"]
+    # SaveTestModelConfig must be injected at the beginning
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["discrepancy_check"]
     # Reference model path and output dir must be updated to the current values.
     assert pass_config["reference_model_path"] == str(Path("new_ref_model").resolve())
     assert pass_config["report_output_dir"] == "new_out_dir"
@@ -475,7 +501,12 @@ def test_add_discrepancy_check_pass_updates_existing_pass_speedup_only():
 
     result = add_discrepancy_check_pass(config, metrics=["speedup"])
 
-    pass_config = result["passes"]["dc"]
+    passes = result["passes"]
+    # SaveTestModelConfig must be injected at the beginning
+    first_key = next(iter(passes))
+    assert passes[first_key]["type"] == "SaveTestModelConfig"
+
+    pass_config = passes["dc"]
     assert "max_mae" not in pass_config
     assert "timing_iterations" not in pass_config
 
