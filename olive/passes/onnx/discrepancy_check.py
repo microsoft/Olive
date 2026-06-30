@@ -330,19 +330,6 @@ class OnnxDiscrepancyCheck(Pass):
                     "cp -r /tmp/llama_cpp_repo/conversion llama_env/``."
                 ),
             ),
-            "num_hidden_layers": PassConfigParam(
-                type_=Optional[int],
-                default_value=None,
-                description=(
-                    "When set, overrides the number of hidden layers in the reference HuggingFace "
-                    "model config before loading it.  Useful when ``reference_model_path`` points "
-                    "to a pre-saved small test model that already has a reduced layer count — the "
-                    "override is then a no-op but makes the intended layer count explicit in the "
-                    "saved ``reference_model_config.json`` report.  Supports ``num_hidden_layers``, "
-                    "``num_layers``, ``n_layer``, and ``n_layers`` to cover both BERT-style and "
-                    "GPT-style model families."
-                ),
-            ),
         }
 
     def _run_for_config(
@@ -406,10 +393,6 @@ class OnnxDiscrepancyCheck(Pass):
                 )
 
         ref_cfg = AutoConfig.from_pretrained(ref_path)
-        if config.num_hidden_layers is not None:
-            from olive.common.hf.utils import _apply_test_model_config
-
-            ref_cfg = _apply_test_model_config(ref_cfg, {"num_hidden_layers": config.num_hidden_layers})
         architectures = getattr(ref_cfg, "architectures", None) or []
         if not any("ForCausalLM" in arch for arch in architectures):
             raise ValueError(
