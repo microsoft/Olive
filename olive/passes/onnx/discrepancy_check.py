@@ -330,6 +330,15 @@ class OnnxDiscrepancyCheck(Pass):
                     "cp -r /tmp/llama_cpp_repo/conversion llama_env/``."
                 ),
             ),
+            "num_hidden_layers": PassConfigParam(
+                type_=int,
+                default_value=2,
+                description=(
+                    "Override the number of hidden layers in the reference model before loading it. "
+                    "Reduces the model size for faster testing. The modified configuration is saved "
+                    "alongside the discrepancy check results."
+                ),
+            ),
         }
 
     def _run_for_config(
@@ -377,7 +386,17 @@ class OnnxDiscrepancyCheck(Pass):
                 f"Got architectures={architectures}"
             )
 
-        ref_model = AutoModelForCausalLM.from_pretrained(config.reference_model_path)
+        # Override the number of hidden layers when requested (speeds up testing with smaller models).
+        if config.num_hidden_layers is not None:
+            for attr_name in ("num_hidden_layers", "num_layers", "n_layer", "n_layers"):
+                if hasattr(ref_cfg, attr_name):
+                    setattr(ref_cfg, attr_name, config.num_hidden_layers)
+            logger.info(
+                "OnnxDiscrepancyCheck: overriding num_hidden_layers to %d on reference model config.",
+                config.num_hidden_layers,
+            )
+
+        ref_model = AutoModelForCausalLM.from_pretrained(config.reference_model_path, config=ref_cfg)
         ref_model.eval()
 
         # Determine the floating-point dtype used by the ONNX model weights and
@@ -425,6 +444,12 @@ class OnnxDiscrepancyCheck(Pass):
             report_dir = str(report_dir_path.parent)
         if config.save_reference_model_state_dict:
             self._export_reference_model(ref_model, report_dir)
+
+        # Save the (potentially modified) model config alongside the results so the
+        # exact configuration used for this test run is always reproducible.
+        config_save_path = Path(report_dir) / "reference_model_config.json"
+        config_save_path.parent.mkdir(parents=True, exist_ok=True)
+        config_save_path.write_text(ref_cfg.to_json_string())
 
         session = model.prepare_session(
             device=device,
