@@ -305,26 +305,44 @@ class BaseOliveCLICommand(ABC):
         )
         Path(self.args.output_path).mkdir(parents=True, exist_ok=True)
 
+        is_test = getattr(self.args, "test", None) not in (None, False)
+
         with tempfile.TemporaryDirectory(prefix="olive-cli-tmp-", dir=self.args.output_path) as tempdir:
             run_config = self._get_run_config(tempdir)
-            if getattr(self.args, "test", None) not in (None, False):
+            if is_test:
                 run_config = add_discrepancy_check_pass(
                     run_config,
                     test_metrics,
                     getattr(self.args, "test_llama_path", None),
                 )
-            if self.args.save_config_file or self.args.dry_run:
+            # In --test mode, always persist the Olive config to <output_path>/config.json.
+            # This must happen before the workflow runs so the model builder's transformers
+            # config.json does not overwrite it (the optimized model and any reference copies
+            # are redirected to a temp working dir below). The only persisted model is then the
+            # small test model saved at the --test path.
+            if self.args.save_config_file or self.args.dry_run or is_test:
                 self._save_config_file(run_config)
             if self.args.dry_run:
-                if getattr(self.args, "test", None) not in (None, False):
+                if is_test:
                     mark_test_output_path(self.args.output_path)
                 print("Dry run mode enabled. Configuration file is generated but no optimization is performed.")
                 return None
+            if is_test:
+                # Treat <output_path> as a report directory: it keeps only the Olive config.json
+                # and discrepancy_check_results.json. Route the optimized ONNX model, its
+                # transformers config.json, and any reference model copies into the temp working
+                # dir so they are discarded and do not clutter <output_path>.
+                work_dir = str(Path(tempdir) / "optimized")
+                run_config["output_dir"] = work_dir
+                for pass_cfg in run_config.get("passes", {}).values():
+                    if isinstance(pass_cfg, dict) and pass_cfg.get("type", "").lower() == "onnxdiscrepancycheck":
+                        pass_cfg["report_output_dir"] = work_dir
             workflow_output = olive_run(run_config)
-            if getattr(self.args, "test", None) not in (None, False):
+            if is_test:
                 mark_test_output_path(self.args.output_path)
                 save_discrepancy_check_results(workflow_output, self.args.output_path)
-            if not workflow_output.has_output_model():
+                print(f"Test report saved at {self.args.output_path}")
+            elif not workflow_output.has_output_model():
                 print("No output model produced. Please check the log for details.")
             else:
                 print(f"Model is saved at {self.args.output_path}")

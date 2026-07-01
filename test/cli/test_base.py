@@ -58,7 +58,7 @@ from olive.cli.base import get_input_model_config
                 },
                 "load_kwargs": {
                     "trust_remote_code": False,
-                    "attn_implementation": "eager",
+                    "attn_implementation": "sdpa",
                 },
             },
         ),
@@ -76,7 +76,7 @@ from olive.cli.base import get_input_model_config
                 "model_path": "my_model/my_model",
                 "load_kwargs": {
                     "trust_remote_code": True,
-                    "attn_implementation": "eager",
+                    "attn_implementation": "sdpa",
                 },
             },
         ),
@@ -94,7 +94,7 @@ from olive.cli.base import get_input_model_config
                 "model_path": "hf_model",
                 "load_kwargs": {
                     "trust_remote_code": False,
-                    "attn_implementation": "eager",
+                    "attn_implementation": "sdpa",
                 },
             },
         ),
@@ -141,7 +141,7 @@ from olive.cli.base import get_input_model_config
                 "model_path": "hf",
                 "load_kwargs": {
                     "trust_remote_code": False,
-                    "attn_implementation": "eager",
+                    "attn_implementation": "sdpa",
                 },
             },
         ),
