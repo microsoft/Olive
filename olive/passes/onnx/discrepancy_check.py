@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import subprocess
 import time
 from pathlib import Path
 from typing import Optional
@@ -16,6 +17,21 @@ from olive.passes import Pass
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
+
+
+def _json_sanitize(obj):
+    """Recursively convert numpy scalars/arrays to native Python types for JSON serialization."""
+    import numpy as np
+
+    if isinstance(obj, dict):
+        return {key: _json_sanitize(value) for key, value in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_sanitize(item) for item in obj]
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
 
 
 def _infer_shape(dynamic_shape, known_values=None):
@@ -110,6 +126,80 @@ def _longest_common_token_sequence(seq_a: list[int], seq_b: list[int]) -> int:
     return length
 
 
+def _format_seconds(value: Optional[float]) -> str:
+    """Format an optional latency value (in seconds) for logging."""
+    return "n/a" if value is None else f"{value:.4f}s"
+
+
+# ---------------------------------------------------------------------------
+# Helper script executed inside the ``llama_env`` virtual environment.
+# All llama-cpp-python / gguf imports are intentionally isolated to this
+# subprocess so the main Olive process does not require those packages.
+# ---------------------------------------------------------------------------
+_LLAMA_CPP_HELPER_SCRIPT = '''\
+"""llama.cpp inference helper for OnnxDiscrepancyCheck.
+
+This script runs inside the llama_env virtual environment via subprocess.
+It measures first-token latency using llama-cpp-python on a pre-converted GGUF file.
+Results are written as a JSON object to stdout.
+
+GGUF conversion is done separately via the convert_hf_to_gguf.py CLI from llama.cpp
+before this script is invoked.
+"""
+import argparse
+import json
+import time
+
+
+def run_inference(gguf_path, prompt_tokens, max_new_tokens, first_n):
+    """Run greedy generation with llama.cpp and return first-token latency metrics."""
+    from llama_cpp import Llama
+
+    n_ctx = max(512, len(prompt_tokens) + max_new_tokens + 64)
+    llm = Llama(model_path=gguf_path, n_ctx=n_ctx, verbose=False)
+
+    generated = []
+    ttft = None
+    ttfn = None
+    first_token_id = None
+
+    start = time.perf_counter()
+    for token in llm.generate(prompt_tokens, top_k=1, temp=0.0, reset=True):
+        count = len(generated) + 1
+        if count == 1:
+            ttft = time.perf_counter() - start
+            first_token_id = int(token)
+        if count == first_n and ttfn is None:
+            ttfn = time.perf_counter() - start
+        generated.append(int(token))
+        if count >= max_new_tokens:
+            break
+
+    total_time = time.perf_counter() - start
+
+    return {
+        "first_token_id": first_token_id,
+        "generated_tokens": generated,
+        "ttft": ttft,
+        "ttfn": ttfn,
+        "total_time": total_time,
+    }
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="llama.cpp inference helper")
+    parser.add_argument("--gguf_path", required=True)
+    parser.add_argument("--prompt_tokens", required=True, help="JSON-encoded list of token IDs")
+    parser.add_argument("--max_new_tokens", type=int, default=32)
+    parser.add_argument("--first_n", type=int, default=5)
+    args = parser.parse_args()
+
+    prompt_tokens = json.loads(args.prompt_tokens)
+    result = run_inference(args.gguf_path, prompt_tokens, args.max_new_tokens, args.first_n)
+    print(json.dumps(result))
+'''
+
+
 class OnnxDiscrepancyCheck(Pass):
     """Validates ONNX model outputs against a reference PyTorch model.
 
@@ -122,6 +212,8 @@ class OnnxDiscrepancyCheck(Pass):
     - Inference speedup of ONNX over PyTorch on the target device (or CPU fallback)
     - Longest common token sequence from the beginning between transformers
       generate and ONNX Runtime GenAI generate (when enabled)
+    - Time-to-first-token and time-to-first-N-tokens latencies for both transformers
+      and ONNX Runtime GenAI generation (when enabled)
 
     The pass status is marked as failed if any configured threshold is exceeded.
     """
@@ -148,6 +240,21 @@ class OnnxDiscrepancyCheck(Pass):
                 description=(
                     "Save the reference PyTorch model weights (state_dict) alongside the results. "
                     "This allows direct comparison between the reference and optimized models."
+                ),
+            ),
+            "test_metrics": PassConfigParam(
+                type_=Optional[list[str]],
+                default_value=None,
+                description=(
+                    "List of test metrics to evaluate. Accepted values are ``'mae'`` (max absolute error "
+                    "between ONNX and reference PyTorch outputs), ``'speedup'`` (ONNX-vs-PyTorch "
+                    "inference latency), ``'first_token_20'`` (first generated token comparison over a "
+                    "20-token generation between ONNX Runtime GenAI and transformers), ``'tft'`` (time to "
+                    "the first generated token) and ``'tf5t'`` (time to the first 5 generated tokens). "
+                    "When set, this field takes precedence over ``timing_iterations`` "
+                    "and ``max_mae``: ``'speedup'`` enables timing, ``'mae'`` enforces the MAE threshold, and "
+                    "the generation metrics run the transformers-vs-GenAI comparison. "
+                    "Example: ``['mae', 'speedup']``. Set by the CLI ``--test_metrics`` option."
                 ),
             ),
             "max_mae": PassConfigParam(
@@ -205,6 +312,14 @@ class OnnxDiscrepancyCheck(Pass):
                 default_value=32,
                 description="Maximum number of new tokens to generate for the token sequence comparison.",
             ),
+            "time_to_first_n_tokens": PassConfigParam(
+                type_=int,
+                default_value=5,
+                description=(
+                    "Number of leading generated tokens used for the time-to-first-N-tokens latency "
+                    "measurement reported for both transformers and ONNX Runtime GenAI."
+                ),
+            ),
             "min_longest_common_tokens": PassConfigParam(
                 type_=Optional[int],
                 default_value=None,
@@ -212,6 +327,37 @@ class OnnxDiscrepancyCheck(Pass):
                     "Minimum acceptable length of the longest common token sequence from the "
                     "beginning between transformers and GenAI outputs. If the actual value is "
                     "below this threshold, the pass fails."
+                ),
+            ),
+            "llama_cpp": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "When True, convert the reference HuggingFace model to GGUF format using "
+                    "``convert_hf_to_gguf.py`` from llama.cpp and compare inference with llama.cpp. "
+                    "Measures first-token difference between llama.cpp and the reference PyTorch model "
+                    "as well as latency and speedup. All llama-cpp-python operations are executed in "
+                    "the ``llama_env`` virtual environment via subprocess."
+                ),
+            ),
+            "llama_cpp_env_path": PassConfigParam(
+                type_=Optional[str],
+                default_value=None,
+                description=(
+                    "Path to the virtual environment where llama-cpp-python and "
+                    "``convert_hf_to_gguf.py`` are installed. "
+                    "Defaults to 'llama_env' relative to the current working directory when "
+                    "``llama_cpp`` is True. Create this environment and obtain the conversion "
+                    "script and its dependencies with: "
+                    "``python -m venv llama_env && llama_env/bin/pip install gguf safetensors "
+                    "transformers sentencepiece protobuf "
+                    "llama-cpp-python --extra-index-url "
+                    "https://abetlen.github.io/llama-cpp-python/whl/cpu && "
+                    "git clone --depth=1 --filter=blob:none --sparse "
+                    "https://github.com/ggerganov/llama.cpp.git /tmp/llama_cpp_repo && "
+                    "git -C /tmp/llama_cpp_repo sparse-checkout set convert_hf_to_gguf.py conversion && "
+                    "cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py llama_env/ && "
+                    "cp -r /tmp/llama_cpp_repo/conversion llama_env/``."
                 ),
             ),
         }
@@ -253,7 +399,30 @@ class OnnxDiscrepancyCheck(Pass):
         # Load reference PyTorch model
         from transformers import AutoConfig, AutoModelForCausalLM
 
-        ref_cfg = AutoConfig.from_pretrained(config.reference_model_path)
+        # Resolve the reference model path.  Use the configured path if it exists as a local
+        # directory; otherwise fall back to the ``reference_hf_model`` copy that ModelBuilder
+        # saves alongside the ONNX output.  That copy is written on the first successful build
+        # and is preserved across engine cache hits, so OnnxDiscrepancyCheck keeps working even
+        # when the original ``test_model_path`` (e.g. ``out/tiny-test``) has been deleted.
+        ref_path = config.reference_model_path
+        if not Path(ref_path).is_dir():
+            hf_ref_dir = (model.model_attributes or {}).get("hf_reference_model_dir", "reference_hf_model")
+            fallback = Path(model.model_path).parent / hf_ref_dir
+            if fallback.is_dir():
+                logger.info(
+                    "Reference model not found at %r; using cached copy at %r.",
+                    ref_path,
+                    str(fallback),
+                )
+                ref_path = str(fallback)
+            else:
+                raise RuntimeError(
+                    f"Reference model directory {ref_path!r} does not exist and no cached copy was "
+                    f"found at {str(fallback)!r}. Re-run the optimization workflow (olive run) to "
+                    "recreate the test model."
+                )
+
+        ref_cfg = AutoConfig.from_pretrained(ref_path)
         architectures = getattr(ref_cfg, "architectures", None) or []
         if not any("ForCausalLM" in arch for arch in architectures):
             raise ValueError(
@@ -261,8 +430,16 @@ class OnnxDiscrepancyCheck(Pass):
                 f"Got architectures={architectures}"
             )
 
-        ref_model = AutoModelForCausalLM.from_pretrained(config.reference_model_path)
+        # The attention implementation is baked into the reference model's config.json
+        # (as ``_attn_implementation``) by the SaveTestModelConfig pass, so it is picked up
+        # automatically here without needing to pass ``attn_implementation`` explicitly.
+        ref_model = AutoModelForCausalLM.from_pretrained(ref_path, config=ref_cfg)
         ref_model.eval()
+        logger.info(
+            "Loaded reference model from %s with attn_implementation=%s",
+            ref_path,
+            getattr(ref_cfg, "_attn_implementation", None),
+        )
 
         # Determine the floating-point dtype used by the ONNX model weights and
         # cast the reference PyTorch model to match, so the comparison uses the
@@ -309,6 +486,13 @@ class OnnxDiscrepancyCheck(Pass):
             report_dir = str(report_dir_path.parent)
         if config.save_reference_model_state_dict:
             self._export_reference_model(ref_model, report_dir)
+
+        # Save the (potentially modified) model config alongside the results so the
+        # exact configuration used for this test run is always reproducible.
+        config_save_path = Path(report_dir) / "reference_model_config.json"
+        config_save_path.parent.mkdir(parents=True, exist_ok=True)
+        config_save_path.write_text(ref_cfg.to_json_string())
+        logger.info("Saved reference model config to %s", config_save_path)
 
         session = model.prepare_session(
             device=device,
@@ -366,27 +550,53 @@ class OnnxDiscrepancyCheck(Pass):
         )
         logger.info(summary)
 
+        # Resolve effective metric settings: test_metrics takes precedence when set.
+        # This lets the CLI store a human-readable ["mae", "speedup"] list in the config
+        # while still supporting the lower-level timing_iterations / max_mae controls for
+        # advanced users and backward compatibility with older configs.
+        requested_metrics = set(config.test_metrics) if config.test_metrics is not None else set()
+        if config.test_metrics is not None:
+            effective_timing_iterations = 5 if "speedup" in requested_metrics else 0
+            effective_max_mae = 0.1 if "mae" in requested_metrics else None
+        else:
+            effective_timing_iterations = config.timing_iterations
+            effective_max_mae = config.max_mae
+
+        # Metrics that require running token generation (transformers vs ONNX Runtime GenAI).
+        generation_metrics = requested_metrics & {"first_token_20", "tft", "tf5t"}
+
         # Measure inference speedup (ONNX vs PyTorch) on the target device
-        if config.timing_iterations > 0:
-            self._measure_speedup(
+        if effective_timing_iterations > 0:
+            timing = self._measure_speedup(
                 ref_model,
                 session,
                 dataloader,
                 io_config,
                 torch_device,
                 config.warmup_iterations,
-                config.timing_iterations,
+                effective_timing_iterations,
             )
+            if timing is not None:
+                pytorch_time, onnx_time, speedup = timing
+                results["pytorch_latency_s"] = pytorch_time
+                results["onnx_latency_s"] = onnx_time
+                results["speedup"] = speedup
+                logger.info(
+                    "OnnxDiscrepancyCheck speedup: pytorch_latency_s=%.4f, onnx_latency_s=%.4f, speedup=%.2f",
+                    pytorch_time,
+                    onnx_time,
+                    speedup,
+                )
         else:
             logger.info(
                 "OnnxDiscrepancyCheck speedup measurement skipped because timing_iterations=%d.",
-                config.timing_iterations,
+                effective_timing_iterations,
             )
 
         # Check thresholds
         failures = []
-        if config.max_mae is not None and max_abs_error > config.max_mae:
-            failures.append(f"Max absolute error {max_abs_error:.6f} exceeds threshold {config.max_mae:.6f}")
+        if effective_max_mae is not None and max_abs_error > effective_max_mae:
+            failures.append(f"Max absolute error {max_abs_error:.6f} exceeds threshold {effective_max_mae:.6f}")
         if config.max_elements_above_0_1 is not None and count_above_0_1 > config.max_elements_above_0_1:
             failures.append(
                 f"Elements with diff > 0.1: {count_above_0_1} exceeds threshold {config.max_elements_above_0_1}"
@@ -404,11 +614,81 @@ class OnnxDiscrepancyCheck(Pass):
         else:
             results["status"] = "passed"
 
-        # Generation token sequence comparison (transformers vs ONNX Runtime GenAI)
-        if config.genai_model_path:
-            longest_common = self.compare_generation(config, ref_model)
-            results["longest_common_token_sequence"] = longest_common
-            results["genai_model_path"] = config.genai_model_path
+        # Generation token sequence comparison (transformers vs ONNX Runtime GenAI).
+        # Runs when an explicit genai_model_path is configured or when any generation-based
+        # test metric (first_token_20 / tft / tf5t) is requested.  In the latter case the
+        # optimized ONNX model directory is used as the GenAI model when it exposes a
+        # genai_config.json (as produced by the ModelBuilder pass).
+        genai_model_path = config.genai_model_path
+        if genai_model_path is None and generation_metrics:
+            model_dir = Path(model.model_path)
+            model_dir = model_dir if model_dir.is_dir() else model_dir.parent
+            if (model_dir / "genai_config.json").is_file():
+                genai_model_path = str(model_dir)
+                logger.info(
+                    "Using optimized ONNX model directory %s as the GenAI model for generation metrics.",
+                    genai_model_path,
+                )
+            else:
+                logger.warning(
+                    "Generation metrics %s requested but no genai_config.json was found in %s; skipping them.",
+                    sorted(generation_metrics),
+                    model_dir,
+                )
+
+        if genai_model_path:
+            # first_token_20 generates 20 tokens; tf5t measures the time to the first 5 tokens.
+            gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
+            gen_first_n = 5 if "tf5t" in generation_metrics else config.time_to_first_n_tokens
+            gen_results = self.compare_generation(
+                config,
+                ref_model,
+                ref_model_path=ref_path,
+                genai_model_path=genai_model_path,
+                max_new_tokens=gen_max_new_tokens,
+                first_n=gen_first_n,
+            )
+            longest_common = gen_results["longest_common_token_sequence"]
+            results.update(gen_results)
+            results["genai_model_path"] = genai_model_path
+
+            # Surface the explicitly requested named metrics for easy inspection.
+            if "first_token_20" in generation_metrics:
+                results["first_token_20"] = {
+                    "transformers_first_token": gen_results.get("transformers_first_token"),
+                    "genai_first_token": gen_results.get("genai_first_token"),
+                    "first_token_matches": gen_results.get("first_token_matches"),
+                    "matching_leading_tokens": longest_common,
+                }
+                logger.info(
+                    "OnnxDiscrepancyCheck first_token_20: matches=%s (transformers=%s, genai=%s), "
+                    "matching_leading_tokens=%s",
+                    gen_results.get("first_token_matches"),
+                    gen_results.get("transformers_first_token"),
+                    gen_results.get("genai_first_token"),
+                    longest_common,
+                )
+            if "tft" in generation_metrics:
+                results["tft"] = {
+                    "transformers_s": gen_results.get("transformers_time_to_first_token_s"),
+                    "genai_s": gen_results.get("genai_time_to_first_token_s"),
+                }
+                logger.info(
+                    "OnnxDiscrepancyCheck tft (time to first token): transformers=%s, genai=%s",
+                    _format_seconds(gen_results.get("transformers_time_to_first_token_s")),
+                    _format_seconds(gen_results.get("genai_time_to_first_token_s")),
+                )
+            if "tf5t" in generation_metrics:
+                results["tf5t"] = {
+                    "transformers_s": gen_results.get("transformers_time_to_first_n_tokens_s"),
+                    "genai_s": gen_results.get("genai_time_to_first_n_tokens_s"),
+                }
+                logger.info(
+                    "OnnxDiscrepancyCheck tf5t (time to first 5 tokens): transformers=%s, genai=%s",
+                    _format_seconds(gen_results.get("transformers_time_to_first_n_tokens_s")),
+                    _format_seconds(gen_results.get("genai_time_to_first_n_tokens_s")),
+                )
+
             if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
                 results["status"] = "failed"
                 gen_failure = (
@@ -418,10 +698,33 @@ class OnnxDiscrepancyCheck(Pass):
                 results.setdefault("failures", []).append(gen_failure)
                 logger.error("ONNX model discrepancy check FAILED: %s", gen_failure)
 
+        # llama.cpp comparison: convert reference model to GGUF and compare latencies
+        if config.llama_cpp:
+            preconverted_gguf_path = None
+            if model.model_attributes:
+                preconverted_gguf_path = model.model_attributes.get("reference_gguf_model_path")
+            try:
+                llama_results = self.compare_llama_cpp(
+                    config,
+                    ref_model,
+                    output_dir=report_dir,
+                    pytorch_latency_s=results.get("pytorch_latency_s"),
+                    onnx_latency_s=results.get("onnx_latency_s"),
+                    ref_model_path=ref_path,
+                    preconverted_gguf_path=preconverted_gguf_path,
+                )
+                results.update(llama_results)
+            except Exception as exc:
+                logger.exception("OnnxDiscrepancyCheck llama.cpp comparison failed.")
+                results["status"] = "failed"
+                results.setdefault("failures", []).append(f"llama.cpp comparison failed: {exc}")
+
         # Save results to disk
+        results = _json_sanitize(results)
         report_path = Path(report_dir) / "discrepancy_check_results.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps(results, indent=2))
+        logger.info("Saved discrepancy check results to %s", report_path)
 
         # Store results in model attributes so the CLI can persist them in the output directory
         model_attributes = dict(model.model_attributes) if model.model_attributes else {}
@@ -431,8 +734,13 @@ class OnnxDiscrepancyCheck(Pass):
 
     def _measure_speedup(
         self, ref_model, session, dataloader, io_config, torch_device, warmup_iterations, timing_iterations
-    ):
-        """Measure inference speedup of ONNX over PyTorch on the target device."""
+    ) -> tuple[float, float, float] | None:
+        """Measure inference latencies and speedup of ONNX over PyTorch on the target device.
+
+        Returns a tuple ``(pytorch_time, onnx_time, speedup)`` of the average PyTorch and ONNX
+        per-iteration latencies (in seconds) and the ONNX-over-PyTorch speedup, or ``None`` when
+        measurement is skipped.
+        """
         if timing_iterations <= 0:
             logger.info(
                 "OnnxDiscrepancyCheck speedup measurement skipped because timing_iterations=%d.",
@@ -494,57 +802,338 @@ class OnnxDiscrepancyCheck(Pass):
             torch_device,
         )
 
-        return speedup
+        return pytorch_time, onnx_time, speedup
 
-    def compare_generation(self, config: type[BasePassConfig], ref_model) -> int:
-        """Run generation on both transformers and GenAI, return longest common token sequence length."""
+    def compare_generation(
+        self,
+        config: type[BasePassConfig],
+        ref_model,
+        *,
+        ref_model_path: str,
+        genai_model_path: Optional[str] = None,
+        max_new_tokens: Optional[int] = None,
+        first_n: Optional[int] = None,
+    ) -> dict:
+        """Run generation on both transformers and GenAI and compare them.
+
+        Returns a dict with the longest common token sequence length, the first-generated-token
+        match between transformers and ONNX Runtime GenAI, and the time-to-first-token and
+        time-to-first-N-tokens latencies (in seconds) for both, where N is ``first_n``
+        (defaults to ``config.time_to_first_n_tokens``).
+
+        ``genai_model_path``, ``max_new_tokens`` and ``first_n`` override the corresponding
+        config values when provided, which lets the caller request specific metrics such as
+        ``first_token_20`` (20-token generation) or ``tf5t`` (first 5 tokens).
+        """
         try:
             import onnxruntime_genai as og
         except ImportError as exc:
             raise ImportError("Please install `onnxruntime-genai` to enable generation comparison.") from exc
-        from transformers import AutoTokenizer
+        from transformers import AutoTokenizer, StoppingCriteria, StoppingCriteriaList
 
-        tokenizer = AutoTokenizer.from_pretrained(config.reference_model_path)
+        genai_model_path = genai_model_path if genai_model_path is not None else config.genai_model_path
+        tokenizer = AutoTokenizer.from_pretrained(ref_model_path)
+
+        max_new_tokens = config.generate_max_new_tokens if max_new_tokens is None else max_new_tokens
+        first_n_config = config.time_to_first_n_tokens if first_n is None else first_n
+        first_n = max(1, min(first_n_config, max_new_tokens)) if max_new_tokens > 0 else 0
 
         # Transformers generation
         input_ids = tokenizer(config.generate_prompt, return_tensors="pt").input_ids
-        input_ids = input_ids.to(ref_model.device)
         import torch
 
+        input_ids = input_ids.to(ref_model.device)
+        use_cuda_sync = ref_model.device.type == "cuda"
+
+        prompt_token_count = input_ids.shape[-1]
+        transformers_latency = {"start": None, "ttft": None, "ttfn": None}
+
+        class _TransformersLatencyStopCriteria(StoppingCriteria):
+            def __call__(self, generated_ids, scores, **kwargs) -> bool:
+                generated_token_count = generated_ids.shape[-1] - prompt_token_count
+                if generated_token_count >= 1 and transformers_latency["ttft"] is None:
+                    transformers_latency["ttft"] = time.perf_counter() - transformers_latency["start"]
+                if generated_token_count >= first_n and transformers_latency["ttfn"] is None:
+                    transformers_latency["ttfn"] = time.perf_counter() - transformers_latency["start"]
+                return False
+
         with torch.no_grad():
+            if use_cuda_sync:
+                torch.cuda.synchronize()
+            start = time.perf_counter()
+            transformers_latency["start"] = start
             transformers_output = ref_model.generate(
                 input_ids,
-                max_new_tokens=config.generate_max_new_tokens,
+                max_new_tokens=max_new_tokens,
                 do_sample=False,
+                stopping_criteria=StoppingCriteriaList([_TransformersLatencyStopCriteria()]),
             )
+            if use_cuda_sync:
+                torch.cuda.synchronize()
+            transformers_elapsed = time.perf_counter() - start
+        if max_new_tokens > 0:
+            transformers_ttft = (
+                transformers_latency["ttft"] if transformers_latency["ttft"] is not None else transformers_elapsed
+            )
+            transformers_ttfn = (
+                transformers_latency["ttfn"] if transformers_latency["ttfn"] is not None else transformers_elapsed
+            )
+        else:
+            transformers_ttft = None
+            transformers_ttfn = None
         transformers_tokens = transformers_output[0].cpu().tolist()
 
         # ONNX Runtime GenAI generation
-        genai_model = og.Model(config.genai_model_path)
+        genai_model = og.Model(genai_model_path)
         genai_tokenizer = og.Tokenizer(genai_model)
         genai_input_ids = genai_tokenizer.encode(config.generate_prompt)
 
         params = og.GeneratorParams(genai_model)
-        params.set_search_options(max_length=len(genai_input_ids) + config.generate_max_new_tokens, do_sample=False)
+        params.set_search_options(max_length=len(genai_input_ids) + max_new_tokens, do_sample=False)
 
         generator = og.Generator(genai_model, params)
         generator.append_tokens([genai_input_ids])
         genai_tokens = list(genai_input_ids)
+        genai_prompt_token_count = len(genai_input_ids)
+        genai_ttft = None
+        genai_ttfn = None
+        num_generated = 0
+        start = time.perf_counter()
         while not generator.is_done():
             generator.generate_next_token()
             genai_tokens.append(generator.get_next_tokens()[0])
+            num_generated += 1
+            if num_generated == 1:
+                genai_ttft = time.perf_counter() - start
+            if num_generated == first_n:
+                genai_ttfn = time.perf_counter() - start
         del generator
 
         longest_common = _longest_common_token_sequence(transformers_tokens, genai_tokens)
 
+        # First generated token comparison (transformers vs ONNX Runtime GenAI).
+        transformers_first_token = (
+            transformers_tokens[prompt_token_count] if len(transformers_tokens) > prompt_token_count else None
+        )
+        genai_first_token = (
+            genai_tokens[genai_prompt_token_count] if len(genai_tokens) > genai_prompt_token_count else None
+        )
+        first_token_matches = transformers_first_token is not None and transformers_first_token == genai_first_token
+
+        gen_results = {
+            "longest_common_token_sequence": longest_common,
+            "time_to_first_n_tokens": first_n,
+            "transformers_first_token": transformers_first_token,
+            "genai_first_token": genai_first_token,
+            "first_token_matches": first_token_matches,
+            "transformers_time_to_first_token_s": transformers_ttft,
+            "transformers_time_to_first_n_tokens_s": transformers_ttfn,
+            "genai_time_to_first_token_s": genai_ttft,
+            "genai_time_to_first_n_tokens_s": genai_ttfn,
+        }
+
         gen_summary = (
             f"OnnxDiscrepancyCheck generation comparison: "
             f"transformers_len={len(transformers_tokens)}, genai_len={len(genai_tokens)}, "
-            f"longest_common_token_sequence={longest_common}"
+            f"longest_common_token_sequence={longest_common}, "
+            f"first_token_matches={first_token_matches}, "
+            f"transformers_ttft={_format_seconds(transformers_ttft)}, "
+            f"transformers_time_to_first_{first_n}_tokens={_format_seconds(transformers_ttfn)}, "
+            f"genai_ttft={_format_seconds(genai_ttft)}, "
+            f"genai_time_to_first_{first_n}_tokens={_format_seconds(genai_ttfn)}"
         )
         logger.info(gen_summary)
 
-        return longest_common
+        return gen_results
+
+    @staticmethod
+    def _get_llama_env_python(env_path: str) -> str:
+        """Return the Python interpreter path inside the given virtual environment.
+
+        Checks both the POSIX (``bin/python``) and Windows (``Scripts/python.exe``)
+        layouts so the method works cross-platform.
+        """
+        env = Path(env_path)
+        for candidate in (env / "bin" / "python", env / "Scripts" / "python.exe"):
+            if candidate.exists():
+                return str(candidate)
+        raise RuntimeError(
+            f"Could not find a Python interpreter in the llama_env at '{env_path}'. "
+            "Create the environment with: "
+            "python -m venv llama_env && llama_env/bin/pip install gguf safetensors "
+            "llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu"
+        )
+
+    @staticmethod
+    def _get_convert_script(env_path: str) -> str:
+        r"""Return the path to the ``convert_hf_to_gguf.py`` conversion script.
+
+        The script and the accompanying ``conversion/`` package must be placed at the root
+        of the virtual environment directory (i.e. ``{env_path}/convert_hf_to_gguf.py`` and
+        ``{env_path}/conversion/``).  Obtain them via a sparse clone::
+
+            git clone --depth=1 --filter=blob:none --sparse \
+                https://github.com/ggerganov/llama.cpp.git /tmp/llama_cpp_repo
+            git -C /tmp/llama_cpp_repo sparse-checkout set convert_hf_to_gguf.py conversion
+            cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py {env_path}/
+            cp -r /tmp/llama_cpp_repo/conversion {env_path}/
+        """
+        env = Path(env_path)
+        script = env / "convert_hf_to_gguf.py"
+        conversion_pkg = env / "conversion"
+        setup_cmd = (
+            f"git clone --depth=1 --filter=blob:none --sparse "
+            f"https://github.com/ggerganov/llama.cpp.git /tmp/llama_cpp_repo && "
+            f"git -C /tmp/llama_cpp_repo sparse-checkout set convert_hf_to_gguf.py conversion && "
+            f"cp /tmp/llama_cpp_repo/convert_hf_to_gguf.py {env_path}/ && "
+            f"cp -r /tmp/llama_cpp_repo/conversion {env_path}/"
+        )
+        if not script.exists():
+            raise RuntimeError(
+                f"Could not find convert_hf_to_gguf.py in '{env_path}'. "
+                f"Clone it from the llama.cpp repository: {setup_cmd}"
+            )
+        if not conversion_pkg.exists():
+            raise RuntimeError(
+                f"Could not find the 'conversion' package in '{env_path}'. "
+                "convert_hf_to_gguf.py requires the 'conversion/' directory alongside it. "
+                f"Clone it from the llama.cpp repository: {setup_cmd}"
+            )
+        return str(script)
+
+    def compare_llama_cpp(
+        self,
+        config: type[BasePassConfig],
+        ref_model,
+        output_dir: str,
+        pytorch_latency_s: Optional[float] = None,
+        onnx_latency_s: Optional[float] = None,
+        *,
+        ref_model_path: str,
+        preconverted_gguf_path: Optional[str] = None,
+    ) -> dict:
+        """Convert the reference model to GGUF and compare inference with llama.cpp.
+
+        All llama-cpp-python operations are executed inside the ``llama_env`` virtual
+        environment via subprocess, so the main Olive process does not need
+        llama-cpp-python installed.
+
+        The method:
+
+        1. Saves the reference model and tokenizer to ``output_dir/hf_model`` using
+           ``save_pretrained`` (standard HuggingFace format).
+        2. Calls ``convert_hf_to_gguf.py`` from llama.cpp via the command line to
+           convert the saved directory to a GGUF F32 file at ``output_dir/model.gguf``.
+        3. Runs ``_LLAMA_CPP_HELPER_SCRIPT`` inside ``llama_env`` to measure
+           first-token latency with llama-cpp-python on the converted GGUF file.
+        4. Returns a metrics dict with the llama.cpp results and speedup ratios
+           relative to PyTorch and ONNX when those latencies are provided.
+        """
+        import torch
+        from transformers import AutoTokenizer
+
+        # Resolve the llama_env Python interpreter and conversion script
+        env_path = config.llama_cpp_env_path or "llama_env"
+        python_path = self._get_llama_env_python(env_path)
+
+        # Tokenize the generation prompt using the main-env tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(ref_model_path)
+        encoded = tokenizer(config.generate_prompt, return_tensors="pt")
+        prompt_token_ids: list[int] = encoded["input_ids"][0].tolist()
+
+        # Run one-token generation with transformers to get the reference first token
+        input_ids = torch.tensor([prompt_token_ids]).to(ref_model.device)
+        with torch.no_grad():
+            gen_out = ref_model.generate(input_ids, max_new_tokens=1, do_sample=False)
+        pytorch_first_token_id = int(gen_out[0, -1].item())
+
+        max_new_tokens = config.generate_max_new_tokens
+        first_n = max(1, min(config.time_to_first_n_tokens, max_new_tokens)) if max_new_tokens > 0 else 1
+
+        output_dir_path = Path(output_dir)
+        output_dir_path.mkdir(parents=True, exist_ok=True)
+        model_dir = str(output_dir_path / "hf_model")
+        gguf_path = str(output_dir_path / "model.gguf")
+        script_path = str(output_dir_path / "llama_cpp_helper.py")
+
+        if preconverted_gguf_path and Path(preconverted_gguf_path).exists():
+            gguf_path = preconverted_gguf_path
+            logger.info("Using pre-converted GGUF from %s", gguf_path)
+        else:
+            convert_script = self._get_convert_script(env_path)
+            # Save model and tokenizer in standard HuggingFace format.
+            ref_model.save_pretrained(model_dir, safe_serialization=True)
+            tokenizer.save_pretrained(model_dir)
+            logger.info("Saved reference HuggingFace model and tokenizer to %s", model_dir)
+
+            # Step 1: Convert to GGUF using the official convert_hf_to_gguf.py CLI.
+            subprocess.run(
+                [python_path, convert_script, model_dir, "--outfile", gguf_path, "--outtype", "f32"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            logger.info("Converted HuggingFace model to GGUF at %s", gguf_path)
+
+        # Step 2: Run inference inside llama_env using the pre-converted GGUF file.
+        (output_dir_path / "llama_cpp_helper.py").write_text(_LLAMA_CPP_HELPER_SCRIPT)
+
+        proc = subprocess.run(
+            [
+                python_path,
+                script_path,
+                "--gguf_path",
+                gguf_path,
+                "--prompt_tokens",
+                json.dumps(prompt_token_ids),
+                "--max_new_tokens",
+                str(max_new_tokens),
+                "--first_n",
+                str(first_n),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        llama_out: dict = json.loads(proc.stdout)
+
+        llama_first_token_id: Optional[int] = llama_out.get("first_token_id")
+        llama_ttft: Optional[float] = llama_out.get("ttft")
+        llama_ttfn: Optional[float] = llama_out.get("ttfn")
+        llama_total: Optional[float] = llama_out.get("total_time")
+
+        # Speedup: compare llama.cpp TTFT with single-pass PyTorch / ONNX latency
+        llama_speedup_vs_pytorch: Optional[float] = (
+            pytorch_latency_s / llama_ttft if (pytorch_latency_s is not None and llama_ttft) else None
+        )
+        llama_speedup_vs_onnx: Optional[float] = (
+            onnx_latency_s / llama_ttft if (onnx_latency_s is not None and llama_ttft) else None
+        )
+
+        results = {
+            "llama_cpp_pytorch_first_token_id": pytorch_first_token_id,
+            "llama_cpp_first_token_id": llama_first_token_id,
+            "llama_cpp_first_token_matches_pytorch": llama_first_token_id == pytorch_first_token_id,
+            "llama_cpp_ttft_s": llama_ttft,
+            "llama_cpp_ttfn_s": llama_ttfn,
+            "llama_cpp_total_time_s": llama_total,
+            "llama_cpp_speedup_vs_pytorch": llama_speedup_vs_pytorch,
+            "llama_cpp_speedup_vs_onnx": llama_speedup_vs_onnx,
+        }
+
+        logger.info(
+            "OnnxDiscrepancyCheck llama.cpp comparison: first_token_matches_pytorch=%s, "
+            "ttft=%s, ttfn=%s, total=%s, speedup_vs_pytorch=%s, speedup_vs_onnx=%s",
+            results["llama_cpp_first_token_matches_pytorch"],
+            _format_seconds(llama_ttft),
+            _format_seconds(llama_ttfn),
+            _format_seconds(llama_total),
+            f"{llama_speedup_vs_pytorch:.2f}x" if llama_speedup_vs_pytorch is not None else "n/a",
+            f"{llama_speedup_vs_onnx:.2f}x" if llama_speedup_vs_onnx is not None else "n/a",
+        )
+
+        return results
 
     def _export_reference_model(self, ref_model, output_model_path: str):
         """Save the reference PyTorch model weights for direct comparison."""

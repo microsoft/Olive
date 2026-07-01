@@ -7,6 +7,8 @@
 import sys
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from olive.passes.onnx.discrepancy_check import _longest_common_token_sequence
 
 
@@ -60,6 +62,7 @@ class TestCompareGeneration:
         config.genai_model_path = "mock_genai_model"
         config.generate_prompt = "Hello world"
         config.generate_max_new_tokens = 10
+        config.time_to_first_n_tokens = 5
 
         # Mock transformers tokenizer and model
         mock_tokenizer = MagicMock()
@@ -103,11 +106,23 @@ class TestCompareGeneration:
             patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
         ):
             pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
-            result = pass_instance.compare_generation(config, mock_ref_model)
+            result = pass_instance.compare_generation(
+                config, mock_ref_model, ref_model_path=config.reference_model_path
+            )
 
         mock_generator.append_tokens.assert_called_once_with([[1, 2, 3]])
         # Common prefix: [1, 2, 3, 10, 11] = 5 tokens before divergence
-        assert result == 5
+        assert result["longest_common_token_sequence"] == 5
+        # Latency metrics are exposed for both transformers and ONNX Runtime GenAI.
+        assert result["time_to_first_n_tokens"] == 5
+        for key in (
+            "transformers_time_to_first_token_s",
+            "transformers_time_to_first_n_tokens_s",
+        ):
+            assert key in result
+            assert isinstance(result[key], float)
+        for key in ("genai_time_to_first_token_s", "genai_time_to_first_n_tokens_s"):
+            assert key in result
 
     def test_compare_generation_fully_matching(self):
         """Test when both outputs are identical."""
@@ -120,6 +135,7 @@ class TestCompareGeneration:
         config.genai_model_path = "mock_genai_model"
         config.generate_prompt = "Test"
         config.generate_max_new_tokens = 5
+        config.time_to_first_n_tokens = 5
 
         mock_tokenizer = MagicMock()
         mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[10, 20]]))
@@ -158,11 +174,195 @@ class TestCompareGeneration:
             patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
         ):
             pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
-            result = pass_instance.compare_generation(config, mock_ref_model)
+            result = pass_instance.compare_generation(
+                config, mock_ref_model, ref_model_path=config.reference_model_path
+            )
 
         mock_generator.append_tokens.assert_called_once_with([[10, 20]])
         # All 5 tokens match
-        assert result == 5
+        assert result["longest_common_token_sequence"] == 5
+        assert result["time_to_first_n_tokens"] == 5
+        for key in (
+            "transformers_time_to_first_token_s",
+            "transformers_time_to_first_n_tokens_s",
+        ):
+            assert key in result
+            assert isinstance(result[key], float)
+        assert "genai_time_to_first_token_s" in result
+        assert isinstance(result["genai_time_to_first_token_s"], float)
+        assert "genai_time_to_first_n_tokens_s" in result
+        assert result["genai_time_to_first_n_tokens_s"] is None or isinstance(
+            result["genai_time_to_first_n_tokens_s"], float
+        )
+
+    def test_compare_generation_with_zero_max_new_tokens(self):
+        """Test that latency metrics are skipped when max_new_tokens is zero."""
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.reference_model_path = "mock_model"
+        config.genai_model_path = "mock_genai_model"
+        config.generate_prompt = "Test"
+        config.generate_max_new_tokens = 0
+        config.time_to_first_n_tokens = 5
+
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[10, 20]]))
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        mock_ref_model.generate.return_value = torch.tensor([[10, 20]])
+
+        mock_og = MagicMock()
+        mock_og.Model.return_value = MagicMock()
+        mock_genai_tokenizer = MagicMock()
+        mock_og.Tokenizer.return_value = mock_genai_tokenizer
+        mock_genai_tokenizer.encode.return_value = [10, 20]
+        mock_og.GeneratorParams.return_value = MagicMock()
+
+        mock_generator = MagicMock()
+        mock_generator.is_done.return_value = True
+        mock_og.Generator.return_value = mock_generator
+
+        with (
+            patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_generation(
+                config, mock_ref_model, ref_model_path=config.reference_model_path
+            )
+
+        assert mock_ref_model.generate.call_count == 1
+        assert mock_ref_model.generate.call_args.kwargs["max_new_tokens"] == 0
+        assert result["time_to_first_n_tokens"] == 0
+        assert result["transformers_time_to_first_token_s"] is None
+        assert result["transformers_time_to_first_n_tokens_s"] is None
+
+    def test_compare_generation_reports_first_token_match(self):
+        """first_token_matches is True when both first generated tokens are identical."""
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.reference_model_path = "mock_model"
+        config.genai_model_path = None
+        config.generate_prompt = "Hello world"
+        config.generate_max_new_tokens = 10
+        config.time_to_first_n_tokens = 5
+
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[1, 2, 3]]))
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        # First generated token (after the 3-token prompt) is 10.
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 3, 10, 11, 12]])
+
+        mock_og = MagicMock()
+        mock_og.Model.return_value = MagicMock()
+        mock_genai_tokenizer = MagicMock()
+        mock_og.Tokenizer.return_value = mock_genai_tokenizer
+        mock_genai_tokenizer.encode.return_value = [1, 2, 3]
+        mock_og.GeneratorParams.return_value = MagicMock()
+
+        mock_generator = MagicMock()
+        # GenAI first generated token is also 10 -> match.
+        genai_new_tokens = [10, 99, 99]
+        call_count = [0]
+
+        def is_done_side_effect():
+            return call_count[0] >= len(genai_new_tokens)
+
+        def get_next_tokens_side_effect():
+            token = genai_new_tokens[call_count[0]]
+            call_count[0] += 1
+            return [token]
+
+        mock_generator.is_done = is_done_side_effect
+        mock_generator.get_next_tokens = get_next_tokens_side_effect
+        mock_og.Generator.return_value = mock_generator
+
+        with (
+            patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_generation(
+                config,
+                mock_ref_model,
+                ref_model_path=config.reference_model_path,
+                genai_model_path="explicit_genai_dir",
+                max_new_tokens=20,
+                first_n=5,
+            )
+
+        # The explicit genai_model_path override is used for og.Model.
+        mock_og.Model.assert_called_once_with("explicit_genai_dir")
+        # The max_new_tokens override is forwarded to transformers.generate.
+        assert mock_ref_model.generate.call_args.kwargs["max_new_tokens"] == 20
+        assert result["transformers_first_token"] == 10
+        assert result["genai_first_token"] == 10
+        assert result["first_token_matches"] is True
+
+    def test_compare_generation_reports_first_token_mismatch(self):
+        """first_token_matches is False when the first generated tokens differ."""
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.reference_model_path = "mock_model"
+        config.genai_model_path = "mock_genai_model"
+        config.generate_prompt = "Hello"
+        config.generate_max_new_tokens = 10
+        config.time_to_first_n_tokens = 5
+
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[1, 2]]))
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 30, 31]])
+
+        mock_og = MagicMock()
+        mock_og.Model.return_value = MagicMock()
+        mock_genai_tokenizer = MagicMock()
+        mock_og.Tokenizer.return_value = mock_genai_tokenizer
+        mock_genai_tokenizer.encode.return_value = [1, 2]
+        mock_og.GeneratorParams.return_value = MagicMock()
+
+        mock_generator = MagicMock()
+        genai_new_tokens = [40, 41]
+        call_count = [0]
+
+        def is_done_side_effect():
+            return call_count[0] >= len(genai_new_tokens)
+
+        def get_next_tokens_side_effect():
+            token = genai_new_tokens[call_count[0]]
+            call_count[0] += 1
+            return [token]
+
+        mock_generator.is_done = is_done_side_effect
+        mock_generator.get_next_tokens = get_next_tokens_side_effect
+        mock_og.Generator.return_value = mock_generator
+
+        with (
+            patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_generation(
+                config, mock_ref_model, ref_model_path=config.reference_model_path
+            )
+
+        assert result["transformers_first_token"] == 30
+        assert result["genai_first_token"] == 40
+        assert result["first_token_matches"] is False
 
 
 class TestWeightDtypeInference:
@@ -313,3 +513,260 @@ class TestSpeedupSettings:
         assert result is None
         ref_model.assert_not_called()
         session.run.assert_not_called()
+
+    def test_measure_speedup_returns_latencies_and_speedup(self):
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+        ref_model = MagicMock()
+        session = MagicMock()
+        input_data = {"input_ids": torch.tensor([[1, 2, 3]], dtype=torch.int64)}
+        dataloader = [(input_data, None)]
+
+        with (
+            patch("olive.common.utils.format_data", return_value={"input_ids": [1, 2, 3]}),
+            patch("olive.passes.onnx.discrepancy_check.time.perf_counter", side_effect=[10.0, 14.0, 20.0, 22.0]),
+        ):
+            result = pass_instance._measure_speedup(
+                ref_model=ref_model,
+                session=session,
+                dataloader=dataloader,
+                io_config=MagicMock(),
+                torch_device=torch.device("cpu"),
+                warmup_iterations=1,
+                timing_iterations=2,
+            )
+
+        assert result == (2.0, 1.0, 2.0)
+        assert ref_model.call_count == 3
+        assert session.run.call_count == 3
+
+
+class TestCompareLlamaCpp:
+    """Unit tests for OnnxDiscrepancyCheck.compare_llama_cpp."""
+
+    def _make_config(self):
+        config = MagicMock()
+        config.reference_model_path = "mock_model"
+        config.generate_prompt = "Hello world"
+        config.generate_max_new_tokens = 10
+        config.time_to_first_n_tokens = 5
+        config.llama_cpp_env_path = "/mock/llama_env"
+        return config
+
+    def _make_hf_config(self):
+        hf_cfg = MagicMock()
+        hf_cfg.max_position_embeddings = 64
+        hf_cfg.hidden_size = 128
+        hf_cfg.num_hidden_layers = 2
+        hf_cfg.intermediate_size = 256
+        hf_cfg.num_attention_heads = 8
+        hf_cfg.num_key_value_heads = 8
+        hf_cfg.rms_norm_eps = 1e-5
+        hf_cfg.vocab_size = 32
+        return hf_cfg
+
+    def test_get_llama_env_python_posix(self, tmp_path):
+        """Test that the POSIX Python path is returned when it exists."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        (tmp_path / "bin").mkdir()
+        python = tmp_path / "bin" / "python"
+        python.touch()
+
+        result = OnnxDiscrepancyCheck._get_llama_env_python(str(tmp_path))
+        assert result == str(python)
+
+    def test_get_llama_env_python_missing_raises(self, tmp_path):
+        """Test that a RuntimeError is raised when no interpreter is found."""
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        with pytest.raises(RuntimeError, match="llama_env"):
+            OnnxDiscrepancyCheck._get_llama_env_python(str(tmp_path))
+
+    def test_compare_llama_cpp_returns_expected_metrics(self, tmp_path):
+        """Test that compare_llama_cpp returns all expected keys and correct values."""
+        import json
+
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        # First token from transformers: 42
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 3, 42]])
+        mock_ref_model.state_dict.return_value = {}
+
+        llama_output = {
+            "first_token_id": 42,
+            "generated_tokens": [42, 43, 44, 45, 46],
+            "ttft": 0.05,
+            "ttfn": 0.25,
+            "total_time": 0.50,
+        }
+
+        mock_proc = MagicMock()
+        mock_proc.stdout = json.dumps(llama_output)
+
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = MagicMock(
+            input_ids=torch.tensor([[1, 2, 3]]),
+            __getitem__=lambda self, key: torch.tensor([[1, 2, 3]]) if key == "input_ids" else None,
+        )
+        mock_tokenizer.return_value.__getitem__ = lambda self, k: (
+            torch.tensor([[1, 2, 3]]) if k == "input_ids" else None
+        )
+        # tokenizer(prompt) returns a dict with "input_ids" as a list
+        encoded = MagicMock()
+        encoded.__getitem__ = MagicMock(side_effect=lambda k: torch.tensor([[1, 2, 3]]) if k == "input_ids" else None)
+        mock_tokenizer.return_value = encoded
+        mock_tokenizer.get_vocab = MagicMock(return_value={})
+
+        with (
+            patch.object(OnnxDiscrepancyCheck, "_get_llama_env_python", return_value="/mock/llama_env/bin/python"),
+            patch.object(
+                OnnxDiscrepancyCheck, "_get_convert_script", return_value="/mock/llama_env/convert_hf_to_gguf.py"
+            ),
+            patch("subprocess.run", return_value=mock_proc),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+            patch("transformers.AutoConfig.from_pretrained", return_value=self._make_hf_config()),
+            patch("numpy.savez"),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_llama_cpp(
+                config,
+                mock_ref_model,
+                output_dir=str(tmp_path),
+                pytorch_latency_s=0.10,
+                onnx_latency_s=0.05,
+                ref_model_path=config.reference_model_path,
+            )
+
+        expected_keys = {
+            "llama_cpp_first_token_id",
+            "llama_cpp_pytorch_first_token_id",
+            "llama_cpp_first_token_matches_pytorch",
+            "llama_cpp_ttft_s",
+            "llama_cpp_ttfn_s",
+            "llama_cpp_total_time_s",
+            "llama_cpp_speedup_vs_pytorch",
+            "llama_cpp_speedup_vs_onnx",
+        }
+        assert expected_keys <= set(result.keys())
+
+        assert result["llama_cpp_first_token_id"] == 42
+        assert result["llama_cpp_ttft_s"] == pytest.approx(0.05)
+        assert result["llama_cpp_ttfn_s"] == pytest.approx(0.25)
+        assert result["llama_cpp_total_time_s"] == pytest.approx(0.50)
+        # speedup = pytorch_latency / llama_ttft = 0.10 / 0.05 = 2.0
+        assert result["llama_cpp_speedup_vs_pytorch"] == pytest.approx(2.0)
+        # speedup = onnx_latency / llama_ttft = 0.05 / 0.05 = 1.0
+        assert result["llama_cpp_speedup_vs_onnx"] == pytest.approx(1.0)
+
+    def test_compare_llama_cpp_no_latency_baselines(self, tmp_path):
+        """Speedup fields are None when pytorch/onnx latencies are not provided."""
+        import json
+
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 3, 7]])
+        mock_ref_model.state_dict.return_value = {}
+
+        llama_output = {
+            "first_token_id": 7,
+            "generated_tokens": [7, 8],
+            "ttft": 0.10,
+            "ttfn": None,
+            "total_time": 0.20,
+        }
+
+        mock_proc = MagicMock()
+        mock_proc.stdout = json.dumps(llama_output)
+
+        encoded = MagicMock()
+        encoded.__getitem__ = MagicMock(side_effect=lambda k: torch.tensor([[1, 2, 3]]) if k == "input_ids" else None)
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = encoded
+        mock_tokenizer.get_vocab = MagicMock(return_value={})
+
+        with (
+            patch.object(OnnxDiscrepancyCheck, "_get_llama_env_python", return_value="/mock/llama_env/bin/python"),
+            patch.object(
+                OnnxDiscrepancyCheck, "_get_convert_script", return_value="/mock/llama_env/convert_hf_to_gguf.py"
+            ),
+            patch("subprocess.run", return_value=mock_proc),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+            patch("transformers.AutoConfig.from_pretrained", return_value=self._make_hf_config()),
+            patch("numpy.savez"),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_llama_cpp(
+                config, mock_ref_model, output_dir=str(tmp_path), ref_model_path=config.reference_model_path
+            )
+
+        assert result["llama_cpp_speedup_vs_pytorch"] is None
+        assert result["llama_cpp_speedup_vs_onnx"] is None
+        assert result["llama_cpp_first_token_id"] == 7
+        assert result["llama_cpp_first_token_matches_pytorch"] is True
+
+    def test_compare_llama_cpp_uses_preconverted_gguf(self, tmp_path):
+        import json
+
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+        gguf_path = tmp_path / "prebuilt.gguf"
+        gguf_path.write_text("ok")
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 3, 7]])
+
+        llama_output = {
+            "first_token_id": 7,
+            "generated_tokens": [7, 8],
+            "ttft": 0.10,
+            "ttfn": None,
+            "total_time": 0.20,
+        }
+
+        mock_proc = MagicMock()
+        mock_proc.stdout = json.dumps(llama_output)
+
+        encoded = MagicMock()
+        encoded.__getitem__ = MagicMock(side_effect=lambda k: torch.tensor([[1, 2, 3]]) if k == "input_ids" else None)
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = encoded
+        mock_tokenizer.get_vocab = MagicMock(return_value={})
+
+        with (
+            patch.object(OnnxDiscrepancyCheck, "_get_llama_env_python", return_value="/mock/llama_env/bin/python"),
+            patch.object(OnnxDiscrepancyCheck, "_get_convert_script") as mock_convert_script,
+            patch("subprocess.run", return_value=mock_proc) as mock_subprocess_run,
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_llama_cpp(
+                config,
+                mock_ref_model,
+                output_dir=str(tmp_path),
+                ref_model_path=config.reference_model_path,
+                preconverted_gguf_path=str(gguf_path),
+            )
+
+        assert result["llama_cpp_first_token_id"] == 7
+        mock_convert_script.assert_not_called()
+        assert mock_subprocess_run.call_count == 1

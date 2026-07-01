@@ -110,6 +110,26 @@ def _save_test_model(model: "PreTrainedModel", output_dir: str, test_model_confi
     _write_test_model_marker(output_path, test_model_config)
 
 
+def save_test_model_config(
+    model_name_or_path: str, test_model_config: Optional[dict[str, Any]], test_model_path: str
+) -> None:
+    """Save a modified config.json (without model weights) to *test_model_path*.
+
+    Used during ``--dry_run --test`` to pre-create the test model directory with the
+    reduced-layer config so that subsequent ``olive run`` calls can find the directory
+    and complete it with random weights the first time ModelBuilder runs.
+    """
+    output_path = Path(test_model_path)
+    if is_test_model_dir(output_path):
+        logger.debug("Test model config directory already exists at %s.", output_path)
+        return
+    output_path.mkdir(parents=True, exist_ok=True)
+    model_config = get_model_config(model_name_or_path, test_model_config=test_model_config)
+    model_config.save_pretrained(str(output_path))
+    _write_test_model_marker(output_path, test_model_config)
+    logger.info("Saved test model config to %s.", output_path)
+
+
 def _validate_path(test_model_dir: Path, test_model_path: str):
     if not test_model_dir or not test_model_dir.exists():
         return
@@ -174,7 +194,19 @@ def load_model_from_task(
             if test_model_config:
                 test_model_dir = Path(test_model_path) if test_model_path else None
                 if test_model_dir and is_test_model_dir(test_model_dir):
-                    model = from_pretrained(model_class, test_model_path, "model", **kwargs)
+                    # Check if model weights are present.  A config-only directory (created by
+                    # ``save_test_model_config`` during ``--dry_run --test``) has a config.json
+                    # and a marker file but no weight shards yet.  In that case, create a random
+                    # model from the saved config and persist the weights so subsequent loads
+                    # can use the saved directory directly.
+                    _has_weights = any(test_model_dir.glob("*.safetensors")) or any(
+                        test_model_dir.glob("pytorch_model*.bin")
+                    )
+                    if _has_weights:
+                        model = from_pretrained(model_class, test_model_path, "model", **kwargs)
+                    else:
+                        model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
+                        _save_test_model(model, test_model_path, test_model_config)
                 else:
                     _validate_path(test_model_dir, test_model_path)
                     model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
