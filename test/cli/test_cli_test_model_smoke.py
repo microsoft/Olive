@@ -72,6 +72,9 @@ def _save_local_tiny_llama(model_path: Path):
 
 def _set_offline_gptq_data_config(config_path: Path):
     config = json.loads(config_path.read_text())
+    # The tiny test model has hidden_size 64, so the default GPTQ group_size of 128
+    # is too large (in_features must be divisible by group_size). Use a small group_size.
+    config["passes"]["gptq"]["group_size"] = 32
     config["passes"]["gptq"]["data_config"] = {
         "name": "test_gptq_dummy_data",
         "type": "DummyDataContainer",
