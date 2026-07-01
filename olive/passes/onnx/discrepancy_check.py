@@ -314,16 +314,6 @@ class OnnxDiscrepancyCheck(Pass):
                     "below this threshold, the pass fails."
                 ),
             ),
-            "attn_impl": PassConfigParam(
-                type_=Optional[str],
-                default_value="sdpa",
-                description=(
-                    "Attention implementation to use when loading the reference HuggingFace model via "
-                    "``AutoModelForCausalLM.from_pretrained``. Passed as ``attn_implementation`` to "
-                    "the model loader. Common values are ``'eager'``, ``'sdpa'``, and ``'flash_attention_2'``. "
-                    "Defaults to ``'sdpa'``."
-                ),
-            ),
             "llama_cpp": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -425,8 +415,16 @@ class OnnxDiscrepancyCheck(Pass):
                 f"Got architectures={architectures}"
             )
 
-        ref_model = AutoModelForCausalLM.from_pretrained(ref_path, config=ref_cfg, attn_implementation=config.attn_impl)
+        # The attention implementation is baked into the reference model's config.json
+        # (as ``_attn_implementation``) by the SaveTestModelConfig pass, so it is picked up
+        # automatically here without needing to pass ``attn_implementation`` explicitly.
+        ref_model = AutoModelForCausalLM.from_pretrained(ref_path, config=ref_cfg)
         ref_model.eval()
+        logger.info(
+            "Loaded reference model from %s with attn_implementation=%s",
+            ref_path,
+            getattr(ref_cfg, "_attn_implementation", None),
+        )
 
         # Determine the floating-point dtype used by the ONNX model weights and
         # cast the reference PyTorch model to match, so the comparison uses the
