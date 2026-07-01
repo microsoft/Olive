@@ -128,14 +128,14 @@ def add_discrepancy_check_pass(
     * ``SaveTestModelConfig`` — inserted at the *beginning* of the passes dict so that the
       test-model directory (containing only ``config.json`` and the marker file) is created
       before any other pass runs.  This ensures subsequent passes can find the directory even
-      on the first ``olive run`` after ``olive optimize --dry_run --test``.
+      on the first ``olive run`` after ``olive optimize --test``.
 
     * ``ConvertHfToGGUF`` — inserted after ``SaveTestModelConfig`` when ``llama_env_path`` is
       provided, and converts the test HuggingFace directory to GGUF in advance.
 
     * ``OnnxDiscrepancyCheck`` — appended at the end to compare the ONNX model against the
       reference HuggingFace model.  If an instance is already present in the config (e.g.
-      from a previous ``--dry_run --test`` invocation), its dynamic runtime fields
+      from a previous ``--test`` invocation), its dynamic runtime fields
       (``reference_model_path``, ``report_output_dir``, metric and llama.cpp settings) are
       updated in-place so that the current ``--test_metrics`` and ``--output_path`` values
       always take effect.
