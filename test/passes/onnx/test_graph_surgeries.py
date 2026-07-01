@@ -2164,6 +2164,73 @@ def test_tie_word_embeddings(tmp_path, quantized):
         )
 
 
+def test_pow_reducesum_pow_div_to_lpnorm(tmp_path):
+    # setup: Pow(x, 2) -> ReduceSum -> Pow(_, 0.5) -> Div(x, _) (an L2-norm)
+    model_path = tmp_path / "model.onnx"
+    x = helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 4])
+    out = helper.make_tensor_value_info("out", TensorProto.FLOAT, [1, 4])
+    exp2 = numpy_helper.from_array(np.array(2.0, dtype=np.float32), name="exp2")
+    exp_half = numpy_helper.from_array(np.array(0.5, dtype=np.float32), name="exp_half")
+    nodes = [
+        helper.make_node("Pow", ["x", "exp2"], ["p2"], name="Pow2"),
+        helper.make_node("ReduceSum", ["p2"], ["s"], name="ReduceSumNode"),
+        helper.make_node("Pow", ["s", "exp_half"], ["ph"], name="PowHalf"),
+        helper.make_node("Div", ["x", "ph"], ["out"], name="DivNode"),
+    ]
+    graph = helper.make_graph(nodes, "lpnorm-graph", [x], [out], initializer=[exp2, exp_half])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 18)])
+    onnx.save(model, model_path)
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "PowReduceSumPowDiv2LpNorm"}]}, disable_search=True
+    )
+
+    # execute
+    output_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+    # assert: the Pow/ReduceSum/Pow/Div chain becomes a single LpNormalization
+    op_types = [node.op_type for node in output_model.load_model().graph.node]
+    assert "LpNormalization" in op_types
+    assert "Div" not in op_types
+    assert "ReduceSum" not in op_types
+    assert "Pow" not in op_types
+
+
+def test_quantize_embedding_int8(tmp_path):
+    # setup: an embed_tokens Gather over an FP16 weight (hidden divisible by 32)
+    model_path = tmp_path / "model.onnx"
+    vocab, hidden = 6, 32
+    embed = numpy_helper.from_array(np.random.randn(vocab, hidden).astype(np.float16), name="model.embed_tokens.weight")
+    input_ids = helper.make_tensor_value_info("input_ids", TensorProto.INT64, [1, 3])
+    output = helper.make_tensor_value_info("embeds", TensorProto.FLOAT16, [1, 3, hidden])
+    gather = helper.make_node(
+        "Gather", ["model.embed_tokens.weight", "input_ids"], ["gather_out"], name="model.embed_tokens/Gather"
+    )
+    # A downstream consumer so the Gather output is intermediate (as in a real decoder).
+    identity = helper.make_node("Identity", ["gather_out"], ["embeds"], name="Identity")
+    graph = helper.make_graph([gather, identity], "embed-graph", [input_ids], [output], initializer=[embed])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 18)])
+    model.ir_version = 10
+    onnx.save(model, model_path)
+    p = create_pass_from_dict(
+        GraphSurgeries, {"surgeries": [{"surgeon": "QuantizeEmbeddingInt8"}]}, disable_search=True
+    )
+
+    # execute
+    output_model = p.run(ONNXModelHandler(model_path=str(model_path)), str(tmp_path / "onnx"))
+
+    # assert: the Gather is replaced by an INT8 GatherBlockQuantized
+    model_def = output_model.load_model()
+    op_types = [node.op_type for node in model_def.graph.node]
+    assert "GatherBlockQuantized" in op_types
+    assert "Gather" not in op_types
+    gbq = next(node for node in model_def.graph.node if node.op_type == "GatherBlockQuantized")
+    bits = next(a.i for a in gbq.attribute if a.name == "bits")
+    assert bits == 8
+    # the FP16 weight is replaced by a uint8 quantized table
+    qweight = next(init for init in model_def.graph.initializer if init.name == gbq.input[0])
+    assert qweight.data_type == TensorProto.UINT8
+
+
 def test_remove_gidx_from_matmulnbits(tmp_path):
     # setup
     a_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 3])
