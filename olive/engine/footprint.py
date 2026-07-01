@@ -58,8 +58,19 @@ class FootprintNode(ConfigBase):
     end_time: float = 0
 
     def update(self, **kwargs):
+        # Callers pass kwargs by field alias (e.g. Footprint.record forwards `model_config=...`),
+        # matching how FootprintNode(**kwargs) constructs a node. Pydantic accepts aliases at
+        # construction time, but setattr only accepts real field names. Since `model_config` is
+        # reserved by Pydantic v2, the field is declared as `model_config_data` with
+        # alias="model_config", so a raw setattr(self, "model_config", v) raises
+        # "FootprintNode object has no field model_config". Map aliases back to field names first.
+        alias_to_field = {
+            field_info.alias: field_name
+            for field_name, field_info in type(self).model_fields.items()
+            if field_info.alias is not None
+        }
         for k, v in kwargs.items():
-            setattr(self, k, v)
+            setattr(self, alias_to_field.get(k, k), v)
 
 
 class Footprint:
