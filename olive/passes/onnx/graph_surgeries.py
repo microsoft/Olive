@@ -681,7 +681,7 @@ class DecomposeRotaryEmbedding(Surgeon):
         return mod
 
 
-class RMSNormToL2Norm(ProtoSurgeon):
+class RMSNormToL2Norm(Surgeon):
     """Replace RMSNorm subgraph with L2Norm subgraph.
 
     RMSNorm pattern:
@@ -702,117 +702,126 @@ class RMSNormToL2Norm(ProtoSurgeon):
     If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
     """
 
-    def __call__(self, model: ModelProto):
-        dag = OnnxDAG(model)
-
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
         modified = 0
         removed_nodes = set()
         replaced_initializers = set()
-        for node_name in dag.get_node_names():
-            if node_name in removed_nodes or dag.get_node_op_type(node_name) != "Pow":
+        for node in list(graph):
+            if node in removed_nodes or node.op_type != "Pow":
                 continue
 
-            rmsnorm_nodes = self.get_rmsnorm_nodes(node_name, dag)
+            rmsnorm_nodes = self.get_rmsnorm_nodes(node, graph)
             if not rmsnorm_nodes:
                 continue
 
-            graph_idx = dag.get_graph_idx(node_name)
-
             # name for the new L2Norm node
-            l2norm_node_name = self.create_new_name(node_name, "Pow", "L2Norm")
+            l2norm_node_name = ProtoSurgeon.create_new_name(node.name, "Pow", "L2Norm")
             l2norm_node_output_name = f"{l2norm_node_name}_output_0"
 
             # create L2Norm node
-            l2norm_node = onnx.helper.make_node(
+            l2norm_node = ir.Node(
+                "",
                 "LpNormalization",
-                inputs=[dag.get_node_inputs(node_name)[0]],
-                outputs=[l2norm_node_output_name],
+                inputs=[node.inputs[0]],
+                attributes=[ir.AttrInt64("axis", -1), ir.AttrInt64("p", 2)],
+                num_outputs=1,
                 name=l2norm_node_name,
-                axis=-1,
-                p=2,
             )
+            l2norm_node.outputs[0].name = l2norm_node_output_name
 
             # Muliply weight by sqrt(N)
             final_node_name = rmsnorm_nodes[-1]
-            final_node_children = dag.get_consumers(final_node_name)
-            # can be Cast or Mul
-            if len(final_node_children) != 1 or dag.get_node_op_type(final_node_children[0]) not in ["Cast", "Mul"]:
+            final_node_children = self.get_consumers(final_node_name.outputs[0], graph)
+            if len(final_node_children) != 1 or final_node_children[0].op_type not in ["Cast", "Mul"]:
                 logger.debug("RMSNorm Pattern does not end with Cast or Mul. Found %s", final_node_children)
                 continue
-            final_node_output_name = dag.get_node_outputs(final_node_name)[0]
-            # add value info for the new L2Norm node output
-            if final_node_output_vi := dag.get_value_info_proto(final_node_output_name):
-                l2norm_node_output_vi = onnx.ValueInfoProto()
-                l2norm_node_output_vi.CopyFrom(final_node_output_vi)
-                l2norm_node_output_vi.name = l2norm_node_output_name
-                dag.add_value_info(l2norm_node_output_vi, graph_idx)
+            final_node_output = final_node_name.outputs[0]
+            l2norm_node.outputs[0].shape = final_node_output.shape
+            l2norm_node.outputs[0].type = final_node_output.type
 
             # Get the weight Mul node
-            if dag.get_node_op_type(final_node_children[0]) == "Mul":
+            if final_node_children[0].op_type == "Mul":
                 rmsnorm_mul_node_name = final_node_children[0]
             else:
-                cast_node_children = dag.get_consumers(final_node_children[0])
-                if len(cast_node_children) != 1 or dag.get_node_op_type(cast_node_children[0]) != "Mul":
+                cast_node_children = self.get_consumers(final_node_children[0].outputs[0], graph)
+                if len(cast_node_children) != 1 or cast_node_children[0].op_type != "Mul":
                     logger.debug("RMSNorm Pattern does not end with Cast -> Mul. Found %s", cast_node_children)
                     continue
                 rmsnorm_mul_node_name = cast_node_children[0]
 
             # Get the weight Mul node inputs
-            rmsnorm_weight_name = None
-            for input_name in dag.get_node_inputs(rmsnorm_mul_node_name):
-                if dag.is_initializer(input_name):
-                    rmsnorm_weight_name = input_name
+            rmsnorm_weight = None
+            for input_value in rmsnorm_mul_node_name.inputs:
+                if input_value is not None and input_value.name in graph.initializers:
+                    rmsnorm_weight = input_value
                     break
-            if rmsnorm_weight_name is None:
+            if rmsnorm_weight is None:
                 logger.debug("RMSNorm Mul node does not have initializer input")
                 continue
 
             # update weight and replace initializer
-            if rmsnorm_weight_name not in replaced_initializers:
+            if rmsnorm_weight.name not in replaced_initializers:
                 # rotated models have all 1s and might share initializer
                 # don't want to multiply by sqrt(N) multiple times even though it is fine in all 1s case
-                rmsnorm_weight = dag.get_initializer_np_array(rmsnorm_weight_name)
-                sqrt_n = np.sqrt(rmsnorm_weight.shape[-1]).astype(rmsnorm_weight.dtype)
-                if np.all(rmsnorm_weight == 1):
+                rmsnorm_weight_array = rmsnorm_weight.const_value.numpy()
+                sqrt_n = np.sqrt(rmsnorm_weight_array.shape[-1]).astype(rmsnorm_weight_array.dtype)
+                if np.all(rmsnorm_weight_array == 1):
                     # this is possible in a quarot/spinquant rotated model
                     # Multiplying by 1D is probably faster
-                    rmsnorm_weight = np.array([1], dtype=rmsnorm_weight.dtype)
-                rmsnorm_weight = sqrt_n * rmsnorm_weight
+                    rmsnorm_weight_array = np.array([1], dtype=rmsnorm_weight_array.dtype)
+                rmsnorm_weight_array = sqrt_n * rmsnorm_weight_array
 
-                dag.replace_initializer(onnx.numpy_helper.from_array(rmsnorm_weight, name=rmsnorm_weight_name))
-                replaced_initializers.add(rmsnorm_weight_name)
+                rmsnorm_weight.const_value = ir.tensor(rmsnorm_weight_array, name=rmsnorm_weight.name)
+                replaced_initializers.add(rmsnorm_weight.name)
 
             # add and replace nodes
-            dag.add_node(l2norm_node, graph_idx)
-            dag.replace_node_input(final_node_children[0], final_node_output_name, l2norm_node_output_name)
+            graph.append(l2norm_node)
+            final_node_children[0].replace_input_with(
+                final_node_children[0].inputs.index(final_node_output), l2norm_node.outputs[0]
+            )
             for rms_node_name in rmsnorm_nodes[::-1]:
-                dag.remove_node(rms_node_name)
+                graph.remove(rms_node_name)
                 removed_nodes.add(rms_node_name)
 
             modified += 1
 
         if modified > 0:
+            self.remove_unused_constants(graph)
+            TopologicalSortPass()(model)
             logger.debug("Replaced %d RMSNorm nodes with L2Norm nodes", modified)
 
-        dag.update()
-        return dag.model
+        return model
 
     @staticmethod
-    def get_rmsnorm_nodes(pow_node: str, dag: OnnxDAG) -> list[str] | None:
+    def get_consumers(value: ir.Value, graph: ir.Graph) -> list[ir.Node]:
+        return [node for node in graph if value in node.inputs]
+
+    @classmethod
+    def remove_unused_constants(cls, graph: ir.Graph):
+        graph_outputs = set(graph.outputs)
+        for node in list(graph):
+            if node.op_type == "Constant" and all(
+                not cls.get_consumers(output, graph) and output not in graph_outputs for output in node.outputs
+            ):
+                graph.remove(node)
+
+    @classmethod
+    def get_rmsnorm_nodes(cls, pow_node: ir.Node, graph: ir.Graph) -> list[ir.Node] | None:
         # Two possible patterns:
         # x / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div
         # x * 1 / sqrt(mean(x^2) + epsilon): Pow -> ReduceMean -> Add -> Sqrt -> Div -> Mul
         pattern = ["Pow", "ReduceMean", "Add", "Sqrt", "Div", "Mul"]
-        pow_node_input = dag.get_node_inputs(pow_node)[0]
+        pow_node_input = pow_node.inputs[0]
         current_node = pow_node
         rmsnorm_nodes = [current_node]
         for op_type in pattern[1:]:
-            child_nodes = dag.get_consumers(current_node)
-            if len(child_nodes) != 1 or dag.get_node_op_type(child_nodes[0]) != op_type:
+            child_nodes = cls.get_consumers(current_node.outputs[0], graph)
+            if len(child_nodes) != 1 or child_nodes[0].op_type != op_type:
                 return []
             current_node = child_nodes[0]
             rmsnorm_nodes.append(current_node)
-            if pow_node_input in dag.get_node_inputs(current_node):
+            if pow_node_input in current_node.inputs:
                 # this can happen either at Div or Mul
                 # early stopping if it is Div
                 break
@@ -820,7 +829,7 @@ class RMSNormToL2Norm(ProtoSurgeon):
         return rmsnorm_nodes if len(rmsnorm_nodes) >= (len(pattern) - 1) else []
 
 
-class SimplifiedLayerNormToRMSNorm(ProtoSurgeon):
+class SimplifiedLayerNormToRMSNorm(Surgeon):
     """Replace SimplifiedLayerNormalization or SkipSimplifiedLayerNormalization with an RMSNorm subgraph built from elementwise ops.
 
         RMS(x) = sqrt(mean(x^2, axis=-1, keepdims=1) + eps)
@@ -836,39 +845,19 @@ class SimplifiedLayerNormToRMSNorm(ProtoSurgeon):
       - opset >=18: axes is an INPUT tensor (int64), keepdims remains an attribute.
     """
 
-    def __call__(self, model: onnx.ModelProto):
-        from onnx import numpy_helper
-        from onnx.helper import tensor_dtype_to_np_dtype
-
-        dag = OnnxDAG(model)
-
-        # Determine the default ONNX opset for the main domain ("", "ai.onnx").
-        # We'll use this to decide how to build ReduceMean.
-        default_opset = None
-        for imp in model.opset_import:
-            if imp.domain in ("", "ai.onnx"):
-                default_opset = imp.version
-                break
-        if default_opset is None:
-            # Fall back defensively; most models have a default import.
-            default_opset = 13
-
-        use_axes_input_for_reduce_mean = default_opset >= 18
-
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
+        use_axes_input_for_reduce_mean = graph.opset_imports.get("", 13) >= 18
         modified = 0
 
-        for node_name in dag.get_node_names():
-            op_type = dag.get_node_op_type(node_name)
+        for node in list(graph):
+            op_type = node.op_type
             if op_type not in {"SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization"}:
                 continue
 
-            graph_idx = dag.get_graph_idx(node_name)
-            inputs = dag.get_node_inputs(node_name, True)
-            outputs = dag.get_node_outputs(node_name, True)
+            inputs = list(node.inputs)
+            outputs = [output for output in node.outputs if output.name]
 
-            # ---------------------------
-            # Build the input to be normalized: ln_input
-            # ---------------------------
             if op_type == "SkipSimplifiedLayerNormalization":
                 # Expect inputs: [input, skip, gamma]
                 if len(inputs) != 3:
@@ -876,17 +865,19 @@ class SimplifiedLayerNormToRMSNorm(ProtoSurgeon):
                 root1, root2, gamma = inputs
 
                 # Add(input, skip) => skip_add_out
-                skip_add_name = self.create_new_name(node_name, op_type, "Add")
+                skip_add_name = ProtoSurgeon.create_new_name(node.name, op_type, "Add")
                 skip_add_out = f"{skip_add_name}_out"
-                skip_add_node = onnx.helper.make_node(
+                skip_add_node = ir.Node(
+                    "",
                     "Add",
                     inputs=[root1, root2],
-                    outputs=[skip_add_out],
+                    num_outputs=1,
                     name=skip_add_name,
                 )
-                dag.add_node(skip_add_node, graph_idx)
+                skip_add_node.outputs[0].name = skip_add_out
+                graph.append(skip_add_node)
 
-                ln_input = skip_add_out
+                ln_input = skip_add_node.outputs[0]
             else:
                 # SimplifiedLayerNormalization: inputs = [x, gamma]
                 if len(inputs) != 2:
@@ -896,150 +887,121 @@ class SimplifiedLayerNormToRMSNorm(ProtoSurgeon):
             # The original primary output (normalized tensor)
             ln_output = outputs[0]
 
-            ln_elem_type = dag.get_io_elem_type(inputs[0]) or onnx.TensorProto.FLOAT
-            ln_np_dtype = tensor_dtype_to_np_dtype(ln_elem_type)
+            ln_np_dtype = inputs[0].dtype.numpy() if inputs[0].dtype is not None else np.float32
 
-            # ---------------------------
-            # Step 1: Pow(x, 2)
-            # ---------------------------
-            pow_name = self.create_new_name(node_name, op_type, "Pow")
+            pow_name = ProtoSurgeon.create_new_name(node.name, op_type, "Pow")
             pow_out = f"{pow_name}_out"
-            pow_const = numpy_helper.from_array(np.array([2.0], dtype=ln_np_dtype), name=f"{pow_name}_const")
-            dag.add_initializer(pow_const, graph_idx)
-            pow_node = onnx.helper.make_node(
+            pow_const = self.add_initializer(graph, f"{pow_name}_const", np.array([2.0], dtype=ln_np_dtype))
+            pow_node = ir.Node(
+                "",
                 "Pow",
-                inputs=[ln_input, pow_const.name],
-                outputs=[pow_out],
+                inputs=[ln_input, pow_const],
+                num_outputs=1,
                 name=pow_name,
             )
-            dag.add_node(pow_node, graph_idx)
+            pow_node.outputs[0].name = pow_out
+            graph.append(pow_node)
 
-            # ---------------------------
-            # Step 2: ReduceMean over last dim, keepdims=1
-            #   - opset < 18 : axes is an attribute
-            #   - opset >= 18: axes is an input tensor (INT64)
-            # ---------------------------
-            mean_name = self.create_new_name(node_name, op_type, "ReduceMean")
+            mean_name = ProtoSurgeon.create_new_name(node.name, op_type, "ReduceMean")
             mean_out = f"{mean_name}_out"
 
             if use_axes_input_for_reduce_mean:
-                axes_init = numpy_helper.from_array(np.array([-1], dtype=np.int64), name=f"{mean_name}_axes")
-                dag.add_initializer(axes_init, graph_idx)
-
-                mean_node = onnx.helper.make_node(
+                axes_init = self.add_initializer(graph, f"{mean_name}_axes", np.array([-1], dtype=np.int64))
+                mean_node = ir.Node(
+                    "",
                     "ReduceMean",
-                    inputs=[pow_out, axes_init.name],
-                    outputs=[mean_out],
+                    inputs=[pow_node.outputs[0], axes_init],
+                    attributes=[ir.AttrInt64("keepdims", 1)],
+                    num_outputs=1,
                     name=mean_name,
-                    keepdims=1,
                 )
             else:
                 # Older schema: axes is an attribute
-                mean_node = onnx.helper.make_node(
+                mean_node = ir.Node(
+                    "",
                     "ReduceMean",
-                    inputs=[pow_out],
-                    outputs=[mean_out],
+                    inputs=[pow_node.outputs[0]],
+                    attributes=[ir.AttrInt64s("axes", [-1]), ir.AttrInt64("keepdims", 1)],
+                    num_outputs=1,
                     name=mean_name,
-                    axes=[-1],
-                    keepdims=1,
                 )
-            dag.add_node(mean_node, graph_idx)
+            mean_node.outputs[0].name = mean_out
+            graph.append(mean_node)
 
-            # ---------------------------
-            # Step 3: Add epsilon
-            # ---------------------------
             eps_value = 1e-06
-            add_eps_name = self.create_new_name(node_name, op_type, "AddEps")
+            add_eps_name = ProtoSurgeon.create_new_name(node.name, op_type, "AddEps")
             add_eps_out = f"{add_eps_name}_out"
-
-            eps_const = numpy_helper.from_array(np.array([eps_value], dtype=ln_np_dtype), name=f"{add_eps_name}_const")
-            dag.add_initializer(eps_const, graph_idx)
-
-            add_eps_node = onnx.helper.make_node(
+            eps_const = self.add_initializer(graph, f"{add_eps_name}_const", np.array([eps_value], dtype=ln_np_dtype))
+            add_eps_node = ir.Node(
+                "",
                 "Add",
-                inputs=[mean_out, eps_const.name],
-                outputs=[add_eps_out],
+                inputs=[mean_node.outputs[0], eps_const],
+                num_outputs=1,
                 name=add_eps_name,
             )
-            dag.add_node(add_eps_node, graph_idx)
+            add_eps_node.outputs[0].name = add_eps_out
+            graph.append(add_eps_node)
 
-            # ---------------------------
-            # Step 4: Sqrt
-            # ---------------------------
-            sqrt_name = self.create_new_name(node_name, op_type, "Sqrt")
+            sqrt_name = ProtoSurgeon.create_new_name(node.name, op_type, "Sqrt")
             sqrt_out = f"{sqrt_name}_out"
-            sqrt_node = onnx.helper.make_node(
+            sqrt_node = ir.Node(
+                "",
                 "Sqrt",
-                inputs=[add_eps_out],
-                outputs=[sqrt_out],
+                inputs=[add_eps_node.outputs[0]],
+                num_outputs=1,
                 name=sqrt_name,
             )
-            dag.add_node(sqrt_node, graph_idx)
+            sqrt_node.outputs[0].name = sqrt_out
+            graph.append(sqrt_node)
 
-            # ---------------------------
-            # Step 5: Div (x / sqrt(...))
-            # ---------------------------
-            div_name = self.create_new_name(node_name, op_type, "Div")
+            div_name = ProtoSurgeon.create_new_name(node.name, op_type, "Div")
             div_out = f"{div_name}_out"
-            div_node = onnx.helper.make_node(
+            div_node = ir.Node(
+                "",
                 "Div",
-                inputs=[ln_input, sqrt_out],
-                outputs=[div_out],
+                inputs=[ln_input, sqrt_node.outputs[0]],
+                num_outputs=1,
                 name=div_name,
             )
-            dag.add_node(div_node, graph_idx)
+            div_node.outputs[0].name = div_out
+            graph.append(div_node)
 
-            # ---------------------------
-            # Step 6: Mul with gamma
-            # ---------------------------
-            mul_name = self.create_new_name(node_name, op_type, "Mul")
+            mul_name = ProtoSurgeon.create_new_name(node.name, op_type, "Mul")
             mul_out = f"{mul_name}_out"
-            mul_node = onnx.helper.make_node(
+            mul_node = ir.Node(
+                "",
                 "Mul",
-                inputs=[div_out, gamma],
-                outputs=[mul_out],
+                inputs=[div_node.outputs[0], gamma],
+                num_outputs=1,
                 name=mul_name,
             )
-            dag.add_node(mul_node, graph_idx)
+            mul_node.outputs[0].name = mul_out
+            graph.append(mul_node)
 
-            # ---------------------------
-            # Rewire consumers of the original main output
-            # ---------------------------
-            for consumer in dag.get_consumers(ln_output):
-                dag.replace_node_input(consumer, ln_output, mul_out)
+            ln_output.replace_all_uses_with(mul_node.outputs[0], replace_graph_outputs=True)
 
-            # ---------------------------
-            # For SkipSimplifiedLayerNormalization that had two outputs:
-            #   - Output 1 is typically residual sum (input_skip_bias_sum)
-            #   - Redirect its consumers to the skip-sum Add output
-            # ---------------------------
             if op_type == "SkipSimplifiedLayerNormalization" and len(outputs) == 2:
-                second_output = outputs[1]
+                outputs[1].replace_all_uses_with(skip_add_node.outputs[0], replace_graph_outputs=True)
 
-                second_vi = dag.get_value_info_proto(second_output)
-                if second_vi is not None:
-                    new_vi = onnx.ValueInfoProto()
-                    new_vi.CopyFrom(second_vi)
-                    new_vi.name = skip_add_out
-                    dag.add_value_info(new_vi, graph_idx)
-
-                # Redirect all consumers of the second output
-                for consumer in dag.get_consumers(second_output):
-                    dag.replace_node_input(consumer, second_output, skip_add_out)
-
-            dag.remove_node(node_name)
+            graph.remove(node)
             modified += 1
 
         if modified > 0:
+            TopologicalSortPass()(model)
             logger.debug(
                 "Replaced %d Simplified/SkipSimplifiedLayerNormalization nodes with RMSNorm subgraphs", modified
             )
 
-        dag.update()
-        return dag.model
+        return model
+
+    @staticmethod
+    def add_initializer(graph: ir.Graph, name: str, array: np.ndarray) -> ir.Value:
+        value = ir.Value(name=name, const_value=ir.tensor(array, name=name))
+        graph.initializers[name] = value
+        return value
 
 
-class SimplifiedLayerNormToL2Norm(ProtoSurgeon):
+class SimplifiedLayerNormToL2Norm(Surgeon):
     """Replace Skip/SimplifiedLayerNormalization node with L2Norm subgraph.
 
     SimplifiedLayerNormalization is replaced with:
@@ -1057,122 +1019,110 @@ class SimplifiedLayerNormToL2Norm(ProtoSurgeon):
     If the weight is all 1s, it is replaced with a 1D array of sqrt(N).
     """
 
-    def __call__(self, model: ModelProto):
-        dag = OnnxDAG(model)
-
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
         modified = 0
-        for node_name in dag.get_node_names():
-            op_type = dag.get_node_op_type(node_name)
+        for node in list(graph):
+            op_type = node.op_type
             if op_type not in {"SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization"}:
                 continue
 
-            if len(dag.get_node_inputs(node_name, True)) != 2 + int(op_type == "SkipSimplifiedLayerNormalization"):
+            inputs = list(node.inputs)
+            outputs = [output for output in node.outputs if output.name]
+            if len(inputs) != 2 + int(op_type == "SkipSimplifiedLayerNormalization"):
                 # SimplifiedLayerNormalization: X, scale supported
                 # SkipSimplifiedLayerNormalization: input, skip, gamma supported
                 continue
-            if len(dag.get_node_outputs(node_name, True)) > 1 + int(op_type == "SkipSimplifiedLayerNormalization"):
+            if len(outputs) > 1 + int(op_type == "SkipSimplifiedLayerNormalization"):
                 # SimplifiedLayerNormalization: output supported
                 # SkipSimplifiedLayerNormalization: output, input_skip_bias_sum (optional) supported
                 continue
 
-            graph_idx = dag.get_graph_idx(node_name)
-
             if op_type == "SkipSimplifiedLayerNormalization":
                 # SimplifiedLayerNormalization preceded by an Add node
-                add_node_name = self.create_new_name(node_name, op_type, "Add")
+                add_node_name = ProtoSurgeon.create_new_name(node.name, op_type, "Add")
                 add_node_output_name = f"{add_node_name}_output_0"
-                dag.add_node(
-                    onnx.helper.make_node(
-                        "Add",
-                        inputs=dag.get_node_inputs(node_name, True)[:2],
-                        outputs=[add_node_output_name],
-                        name=add_node_name,
-                    ),
-                    graph_idx,
+                add_node = ir.Node(
+                    "",
+                    "Add",
+                    inputs=inputs[:2],
+                    num_outputs=1,
+                    name=add_node_name,
                 )
+                add_node.outputs[0].name = add_node_output_name
+                graph.append(add_node)
 
                 # input_skip_bias_sum is used downstream
-                if len(dag.get_node_outputs(node_name, True)) == 2:
-                    skip_output_name = dag.get_node_outputs(node_name, True)[1]
-                    if skip_output_vi := dag.get_value_info_proto(skip_output_name):
-                        add_output_vi = onnx.ValueInfoProto()
-                        add_output_vi.CopyFrom(skip_output_vi)
-                        add_output_vi.name = add_node_output_name
-                        dag.add_value_info(add_output_vi, graph_idx)
+                if len(outputs) == 2:
+                    add_node.outputs[0].shape = outputs[1].shape
+                    add_node.outputs[0].type = outputs[1].type
+                    outputs[1].replace_all_uses_with(add_node.outputs[0], replace_graph_outputs=True)
 
-                    for child_name in dag.get_consumers(skip_output_name):
-                        dag.replace_node_input(child_name, skip_output_name, add_node_output_name)
-
-                l2norm_node_input_name = add_node_output_name
+                l2norm_node_input = add_node.outputs[0]
             else:
-                l2norm_node_input_name = dag.get_node_inputs(node_name, True)[0]
+                l2norm_node_input = inputs[0]
 
-            layernorm_node_output_name = dag.get_node_outputs(node_name, True)[0]
+            layernorm_node_output = outputs[0]
 
             # add L2Norm node
-            l2norm_node_name = self.create_new_name(node_name, op_type, "L2Norm")
+            l2norm_node_name = ProtoSurgeon.create_new_name(node.name, op_type, "L2Norm")
             l2norm_node_output_name = f"{l2norm_node_name}_output_0"
-            dag.add_node(
-                onnx.helper.make_node(
-                    "LpNormalization",
-                    inputs=[l2norm_node_input_name],
-                    outputs=[l2norm_node_output_name],
-                    name=l2norm_node_name,
-                    axis=-1,
-                    p=2,
-                ),
-                graph_idx,
+            l2norm_node = ir.Node(
+                "",
+                "LpNormalization",
+                inputs=[l2norm_node_input],
+                attributes=[ir.AttrInt64("axis", -1), ir.AttrInt64("p", 2)],
+                num_outputs=1,
+                name=l2norm_node_name,
             )
-            if layernorm_node_output_vi := dag.get_value_info_proto(layernorm_node_output_name):
-                l2norm_node_output_vi = onnx.ValueInfoProto()
-                l2norm_node_output_vi.CopyFrom(layernorm_node_output_vi)
-                l2norm_node_output_vi.name = l2norm_node_output_name
-                dag.add_value_info(l2norm_node_output_vi, graph_idx)
+            l2norm_node.outputs[0].name = l2norm_node_output_name
+            l2norm_node.outputs[0].shape = layernorm_node_output.shape
+            l2norm_node.outputs[0].type = layernorm_node_output.type
+            graph.append(l2norm_node)
 
             # add Mul node
-            mul_weight_name = dag.get_node_inputs(node_name, True)[-1]
-            mul_weight = dag.get_initializer_np_array(mul_weight_name)
-            sqrt_n = np.sqrt(mul_weight.shape[-1]).astype(mul_weight.dtype)
-            if np.all(mul_weight == 1):
+            mul_weight = inputs[-1]
+            if mul_weight is None or mul_weight.name not in graph.initializers or mul_weight.const_value is None:
+                logger.debug("SimplifiedLayerNormalization weight is not an initializer")
+                continue
+            mul_weight_array = mul_weight.const_value.numpy()
+            sqrt_n = np.sqrt(mul_weight_array.shape[-1]).astype(mul_weight_array.dtype)
+            if np.all(mul_weight_array == 1):
                 # this is possible in a quarot/spinquant rotated model
                 # Multiplying by 1D is probably faster
-                mul_weight = np.array([1], dtype=mul_weight.dtype)
-            mul_weight = sqrt_n * mul_weight
-            dag.replace_initializer(onnx.numpy_helper.from_array(mul_weight, name=mul_weight_name))
+                mul_weight_array = np.array([1], dtype=mul_weight_array.dtype)
+            mul_weight_array = sqrt_n * mul_weight_array
+            mul_weight.const_value = ir.tensor(mul_weight_array, name=mul_weight.name)
 
-            mul_node_name = self.create_new_name(node_name, op_type, "Mul")
+            mul_node_name = ProtoSurgeon.create_new_name(node.name, op_type, "Mul")
             mul_node_output_name = f"{mul_node_name}_output_0"
-            dag.add_node(
-                onnx.helper.make_node(
-                    "Mul",
-                    inputs=[l2norm_node_output_name, mul_weight_name],
-                    outputs=[mul_node_output_name],
-                    name=mul_node_name,
-                ),
-                graph_idx,
+            mul_node = ir.Node(
+                "",
+                "Mul",
+                inputs=[l2norm_node.outputs[0], mul_weight],
+                num_outputs=1,
+                name=mul_node_name,
             )
-            if layernorm_node_output_vi := dag.get_value_info_proto(layernorm_node_output_name):
-                mul_output_vi = onnx.ValueInfoProto()
-                mul_output_vi.CopyFrom(layernorm_node_output_vi)
-                mul_output_vi.name = mul_node_output_name
-                dag.add_value_info(mul_output_vi, graph_idx)
+            mul_node.outputs[0].name = mul_node_output_name
+            mul_node.outputs[0].shape = layernorm_node_output.shape
+            mul_node.outputs[0].type = layernorm_node_output.type
+            graph.append(mul_node)
 
-            for child_name in dag.get_consumers(layernorm_node_output_name):
-                dag.replace_node_input(child_name, layernorm_node_output_name, mul_node_output_name)
+            layernorm_node_output.replace_all_uses_with(mul_node.outputs[0], replace_graph_outputs=True)
 
             # remove node
-            dag.remove_node(node_name)
+            graph.remove(node)
 
             modified += 1
 
         if modified > 0:
+            TopologicalSortPass()(model)
             logger.debug("Replaced %d Skip/SimplifiedLayerNormalization nodes with L2Norm nodes", modified)
 
-        dag.update()
-        return dag.model
+        return model
 
 
-class PowReduceSumPowDiv2LpNorm(ProtoSurgeon):
+class PowReduceSumPowDiv2LpNorm(Surgeon):
     """Merge Pow ReduceSum Pow Div pattern to L2Norm.
 
     Below pattern is replaced with LpNormalization (p=2, axis=-1):
@@ -1181,9 +1131,9 @@ class PowReduceSumPowDiv2LpNorm(ProtoSurgeon):
         +------------------------------------+
     """
 
-    def find_lp_norm_pattern(self, model: ModelProto):
+    def find_lp_norm_pattern(self, graph: ir.Graph):
         matches = []
-        for node in model.graph.node:
+        for node in graph:
             if node.op_type != "Div":
                 continue
 
@@ -1193,27 +1143,29 @@ class PowReduceSumPowDiv2LpNorm(ProtoSurgeon):
             pow_half_node = None
 
             # Find Pow node input to Div (norm)
-            norm_input = div_node.input[1]
-            for node2 in model.graph.node:
-                if node2.output[0] == norm_input and node2.op_type == "Pow":
+            if len(div_node.inputs) < 2 or div_node.inputs[1] is None:
+                continue
+            norm_input = div_node.inputs[1]
+            for node2 in graph:
+                if node2.outputs and node2.outputs[0] is norm_input and node2.op_type == "Pow":
                     pow_half_node = node2
                     break
 
             if not pow_half_node:
                 continue
 
-            sum_input = pow_half_node.input[0]
-            for node3 in model.graph.node:
-                if node3.output[0] == sum_input and node3.op_type == "ReduceSum":
+            sum_input = pow_half_node.inputs[0]
+            for node3 in graph:
+                if node3.outputs and node3.outputs[0] is sum_input and node3.op_type == "ReduceSum":
                     sum_node = node3
                     break
 
             if not sum_node:
                 continue
 
-            pow_input = sum_node.input[0]
-            for node4 in model.graph.node:
-                if node4.output[0] == pow_input and node4.op_type == "Pow":
+            pow_input = sum_node.inputs[0]
+            for node4 in graph:
+                if node4.outputs and node4.outputs[0] is pow_input and node4.op_type == "Pow":
                     pow2_node = node4
                     break
 
@@ -1222,11 +1174,12 @@ class PowReduceSumPowDiv2LpNorm(ProtoSurgeon):
 
             # Confirm constant exponents: 2 and 0.5
             def is_const_pow(node, exp_val):
-                return node.op_type == "Pow" and exp_val in [
-                    onnx.numpy_helper.to_array(init).item()
-                    for init in model.graph.initializer
-                    if init.name == node.input[1]
-                ]
+                if node.op_type != "Pow" or len(node.inputs) < 2:
+                    return False
+                exponent = node.inputs[1]
+                if exponent is None or exponent.const_value is None:
+                    return False
+                return exp_val in [exponent.const_value.numpy().item()]
 
             if not (is_const_pow(pow2_node, 2.0) and is_const_pow(pow_half_node, 0.5)):
                 continue
@@ -1236,37 +1189,37 @@ class PowReduceSumPowDiv2LpNorm(ProtoSurgeon):
 
         return matches
 
-    def replace_with_lp_normalization(self, model: ModelProto):
-        matches = self.find_lp_norm_pattern(model)
+    def replace_with_lp_normalization(self, model: ir.Model):
+        graph = model.graph
+        matches = self.find_lp_norm_pattern(graph)
         logger.info("Replacing %d instance of the pattern with LpNorm", len(matches))
         for div_node, pow_half_node, sum_node, pow2_node in matches:
-            input_name = pow2_node.input[0]
-            output_name = div_node.output[0]
+            input_value = pow2_node.inputs[0]
+            output_value = div_node.outputs[0]
 
-            lp_node = onnx.helper.make_node(
+            lp_node = ir.Node(
+                "",
                 "LpNormalization",
-                inputs=[input_name],
-                outputs=[output_name],
+                inputs=[input_value],
+                attributes=[ir.AttrInt64("p", 2), ir.AttrInt64("axis", -1)],
+                num_outputs=1,
                 name=div_node.name + "_lp_norm",
-                p=2,
-                axis=-1,
             )
+            lp_node.outputs[0].name = output_value.name
+            lp_node.outputs[0].shape = output_value.shape
+            lp_node.outputs[0].type = output_value.type
+            graph.append(lp_node)
+            output_value.replace_all_uses_with(lp_node.outputs[0], replace_graph_outputs=True)
 
             # Remove old nodes
-            nodes_to_remove = {div_node.name, pow_half_node.name, sum_node.name, pow2_node.name}
-            nodes = [n for n in model.graph.node if n.name not in nodes_to_remove]
+            graph.remove([div_node, pow_half_node, sum_node, pow2_node])
 
-            # Insert new node
-            model.graph.ClearField("node")
-            model.graph.node.extend(nodes)
-            model.graph.node.append(lp_node)
-
+        if matches:
+            TopologicalSortPass()(model)
         return model
 
-    def __call__(self, model: ModelProto):
-        dag = OnnxDAG(self.replace_with_lp_normalization(model))
-        dag.update()
-        return dag.model
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        return self.replace_with_lp_normalization(model)
 
 
 class MatMulAddToGemm(ProtoSurgeon):
