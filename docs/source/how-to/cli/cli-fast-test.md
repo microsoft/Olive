@@ -33,7 +33,7 @@ olive optimize \
     --test out/qwen-test-model
 ```
 
-This creates `out/qwen/olive_config.json` without launching the full conversion yet.
+This creates `out/qwen/config.json` without launching the full conversion yet.
 It also inserts an `OnnxDiscrepancyCheck` pass (if one is not already present) that will compare the generated ONNX model against the 2-layer reference model.
 
 ## Step 2: run a fast smoke test with `olive run --test`
@@ -42,7 +42,7 @@ Use the generated config with `olive run` and pass `--test` so Olive swaps in th
 
 ```bash
 olive run \
-    --config out/qwen/olive_config.json \
+    --config out/qwen/config.json \
     --test out/qwen-test-model \
     --output_path out/qwen-test-run
 ```
@@ -78,7 +78,7 @@ For example, to run both accuracy and latency checks:
 
 ```bash
 olive run \
-    --config out/qwen/olive_config.json \
+    --config out/qwen/config.json \
     --test out/qwen-test-model \
     --test_metrics mae,speedup \
     --output_path out/qwen-test-run
@@ -92,7 +92,7 @@ If you have a `llama_env` virtual environment with `llama-cpp-python` installed,
 
 ```bash
 olive run \
-    --config out/qwen/olive_config.json \
+    --config out/qwen/config.json \
     --test out/qwen-test-model \
     --test_metrics mae,speedup \
     --test_llama_path ./llama_env \
@@ -127,7 +127,7 @@ Once the smoke test succeeds, rerun the conversion on the full Qwen checkpoint b
 
 ```bash
 olive run \
-    --config out/qwen/olive_config.json \
+    --config out/qwen/config.json \
     --output_path out/qwen-full
 ```
 

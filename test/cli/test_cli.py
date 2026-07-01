@@ -316,7 +316,7 @@ def test_optimize_command_test_model_config(_, tmp_path):
 
     cli_main(command_args)
 
-    config = json.loads((output_dir / "olive_config.json").read_text())
+    config = json.loads((output_dir / "config.json").read_text())
     assert config["input_model"]["test_model_config"] == {"hidden_layers": 2}
     assert config["input_model"]["test_model_path"] == str(test_model_dir)
     assert json.loads((output_dir / TEST_OUTPUT_MARKER_FILE).read_text())["type"] == "olive_hf_test_output"

@@ -310,7 +310,7 @@ class BaseOliveCLICommand(ABC):
     @staticmethod
     def _save_config_file(config: dict):
         """Save the config file."""
-        config_file_path = Path(config["output_dir"]) / "olive_config.json"
+        config_file_path = Path(config["output_dir"]) / "config.json"
         with open(config_file_path, "w") as f:
             json.dump(config, f, indent=4)
         print(f"Config file saved at {config_file_path}")

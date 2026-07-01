@@ -222,7 +222,7 @@ class InitWizard:
             config_cmd = command_str + " --save_config_file --dry_run"
             print("\nGenerating configuration file...\n")
             subprocess.run(config_cmd, shell=True, check=False)
-            config_path = Path(output_dir) / "olive_config.json"
+            config_path = Path(output_dir) / "config.json"
             if config_path.exists():
                 print(f"\nYou can run it later with:\n  olive run --config {config_path}\n")
 
