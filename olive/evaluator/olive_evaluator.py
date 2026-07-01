@@ -2388,15 +2388,13 @@ class LMMSEvaluator(OliveEvaluator):
         )
 
         if self.output_path:
-            import json as _json
-
             out = Path(self.output_path)
             out.parent.mkdir(parents=True, exist_ok=True)
             compact = {
                 "results": results.get("results", {}),
                 "configs": {k: str(v) for k, v in results.get("configs", {}).items()},
             }
-            out.write_text(_json.dumps(compact, indent=2, default=str), encoding="utf-8")
+            out.write_text(json.dumps(compact, indent=2, default=str), encoding="utf-8")
             logger.info("Wrote lmms-eval results to %s", out)
 
         # Convert lmms-eval results into Olive's MetricResult shape (mirrors LMEvaluator)
