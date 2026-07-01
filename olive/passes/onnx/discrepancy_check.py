@@ -310,6 +310,16 @@ class OnnxDiscrepancyCheck(Pass):
                     "below this threshold, the pass fails."
                 ),
             ),
+            "attn_impl": PassConfigParam(
+                type_=Optional[str],
+                default_value=None,
+                description=(
+                    "Attention implementation to use when loading the reference HuggingFace model via "
+                    "``AutoModelForCausalLM.from_pretrained``. Passed as ``attn_implementation`` to "
+                    "the model loader. Common values are ``'eager'``, ``'sdpa'``, and ``'flash_attention_2'``. "
+                    "When ``None`` (the default), the model's own default is used."
+                ),
+            ),
             "llama_cpp": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -411,7 +421,9 @@ class OnnxDiscrepancyCheck(Pass):
                 f"Got architectures={architectures}"
             )
 
-        ref_model = AutoModelForCausalLM.from_pretrained(ref_path, config=ref_cfg)
+        ref_model = AutoModelForCausalLM.from_pretrained(
+            ref_path, config=ref_cfg, **({} if config.attn_impl is None else {"attn_implementation": config.attn_impl})
+        )
         ref_model.eval()
 
         # Determine the floating-point dtype used by the ONNX model weights and
