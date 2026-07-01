@@ -2132,8 +2132,17 @@ class ReduceMax(ProtoSurgeon):
 class TieWordEmbeddings(ProtoSurgeon):
     """Tie word embeddings.
 
-    Only supports when the embeddings are not quantized or when both are quantized
-    using GatherBlockQuantized and MatMulNBits
+    Supports three cases:
+
+    * both unquantized (``Gather`` + ``MatMul``),
+    * both quantized (``GatherBlockQuantized`` + ``MatMulNBits``), and
+    * a *reuse* case where the embedding is quantized (``GatherBlockQuantized``)
+      but the LM head is still a float ``MatMul``. The LM head is rebuilt as a
+      ``MatMulNBits`` that shares the embedding's quantized weight table, so the
+      large word-embedding matrix is stored once as INT4 instead of once as INT4
+      (embedding) plus once as float16 (LM head). This is useful after quantizing
+      only the embedding ``Gather`` (e.g. ``OnnxBlockWiseRtnQuantization`` with the
+      body left for a separate pass such as ``OnnxKQuantQuantization``).
     """
 
     def __call__(self, model: onnx.ModelProto):
@@ -2155,9 +2164,19 @@ class TieWordEmbeddings(ProtoSurgeon):
         if embed_name is None:
             return dag.model
 
-        lm_head_name, lm_head_op_type = self.get_name_op_type(
-            dag, [dag.get_producer("logits")], ["MatMul", "MatMulNBits"], 1
-        )
+        # Reuse case: embedding already quantized but the LM head is still a float
+        # MatMul. Its weight is the tied embedding, possibly reached through a
+        # Transpose, so the weight input is not necessarily a direct initializer
+        # (which get_name_op_type would require). Detect it directly here.
+        logits_producer = dag.get_producer("logits")
+        if (
+            embed_op_type == "GatherBlockQuantized"
+            and logits_producer is not None
+            and dag.get_node_op_type(logits_producer) == "MatMul"
+        ):
+            return self.handle_reuse(dag, embed_name, logits_producer)
+
+        lm_head_name, lm_head_op_type = self.get_name_op_type(dag, [logits_producer], ["MatMul", "MatMulNBits"], 1)
         if lm_head_name is None:
             return dag.model
 
@@ -2351,6 +2370,176 @@ class TieWordEmbeddings(ProtoSurgeon):
 
         dag.update()
         return dag.model
+
+    def handle_reuse(self, dag: OnnxDAG, embed_name: str, lm_head_name: str):
+        """Rebuild a float ``MatMul`` LM head as a ``MatMulNBits`` reusing the embedding's INT4 table.
+
+        The embedding is a ``GatherBlockQuantized`` node with inputs
+        ``[qweight, indices, scales, zero_point?]``; the LM head is a float
+        ``MatMul(activation, W)`` whose weight ``W`` is the tied embedding matrix,
+        possibly reached through a ``Transpose``. Because ``W`` equals the
+        embedding table, its quantized form is exactly the embedding's INT4 table,
+        so we point the new ``MatMulNBits`` at the embedding's ``qweight`` / scales
+        / zero-point instead of quantizing ``W`` a second time. The float ``W``
+        (and any feeding ``Transpose``) then becomes dead and is pruned.
+        """
+        embed_inputs = dag.get_node_inputs(embed_name)
+        embed_qweight = embed_inputs[0]
+        embed_scales = embed_inputs[2]
+        embed_zero_point = embed_inputs[3] if len(embed_inputs) > 3 else None
+
+        embed_attrs = dag.get_node_attributes(embed_name)
+        bits = int(embed_attrs["bits"])
+        block_size = int(embed_attrs["block_size"])
+
+        # LM head weight: trace through an optional Transpose to the source initializer.
+        lm_head_inputs = dag.get_node_inputs(lm_head_name)
+        lm_head_activation = lm_head_inputs[0]
+        weight_input = lm_head_inputs[1]
+        fp16_weight = weight_input
+        transpose_name = None
+        if not dag.is_initializer(weight_input):
+            weight_producer = dag.get_producer(weight_input)
+            if weight_producer is not None and dag.get_node_op_type(weight_producer) == "Transpose":
+                transpose_name = weight_producer
+                fp16_weight = dag.get_node_inputs(weight_producer)[0]
+        if not dag.is_initializer(fp16_weight):
+            logger.debug("LM head weight is not a (transposed) initializer; cannot reuse embedding quantization.")
+            return dag.model
+
+        # embed qweight is [vocab, hidden * bits / 8]; derive N (vocab) and K (hidden).
+        embed_qweight_shape = dag.get_io_shape(embed_qweight)
+        vocab = int(embed_qweight_shape[0])
+        hidden = int(embed_qweight_shape[1]) * 8 // bits
+
+        # Correctness gate: only reuse when the float LM head weight really is the
+        # (dequantized) embedding table, so an untied projection is never tied.
+        if not self.reuse_weights_match(dag, embed_name, fp16_weight, vocab, hidden, bits, block_size):
+            logger.debug("LM head weight does not match the embedding table; skipping reuse tie.")
+            return dag.model
+
+        logger.debug("Reusing quantized embedding weights for the LM head")
+
+        graph_idx = dag.get_graph_idx(lm_head_name)
+        n_blocks = hidden // block_size
+        blob_size = block_size * bits // 8
+
+        # GatherBlockQuantized stores qweight 2D [vocab, hidden * bits / 8]; MatMulNBits
+        # expects 3D [N, n_blocks, blob_size]. The bytes are identical, only reshaped.
+        reshape_output = self.add_reshape_node(
+            dag,
+            graph_idx,
+            self.create_new_name(lm_head_name, "MatMul", "Reshape_tied"),
+            embed_qweight,
+            [vocab, n_blocks, blob_size],
+            dag.get_io_elem_type(embed_qweight),
+        )
+
+        mmnb_inputs = [lm_head_activation, reshape_output, embed_scales]
+        if embed_zero_point is not None:
+            mmnb_inputs.append(embed_zero_point)
+
+        lm_head_output = dag.get_node_outputs(lm_head_name)[0]
+        mmnb_name = self.create_new_name(lm_head_name, "MatMul", "MatMulNBits")
+        mmnb_output = f"{mmnb_name}_output"
+        dag.add_node(
+            onnx.helper.make_node(
+                "MatMulNBits",
+                mmnb_inputs,
+                [mmnb_output],
+                name=mmnb_name,
+                domain="com.microsoft",
+                K=hidden,
+                N=vocab,
+                bits=bits,
+                block_size=block_size,
+            ),
+            graph_idx,
+        )
+
+        # Redirect consumers of the old logits, then swap the graph output over.
+        # remove_node deletes the output IO, so preserve the logits value_info by
+        # copying it onto the new output before renaming (as in handle_unquantized).
+        mmnb_output_vi = onnx.ValueInfoProto()
+        mmnb_output_vi.CopyFrom(dag.get_value_info_proto(lm_head_output))
+        mmnb_output_vi.name = mmnb_output
+        dag.add_value_info(mmnb_output_vi, graph_idx)
+
+        for consumer in dag.get_consumers(lm_head_name):
+            dag.replace_node_input(consumer, lm_head_output, mmnb_output)
+        dag.remove_output(lm_head_output)
+        dag.remove_node(lm_head_name)
+        # Drop the now-orphaned Transpose (if any) so the float embedding weight it
+        # held loses its last consumer and is pruned from the serialized model.
+        if transpose_name is not None and not dag.get_consumers(transpose_name):
+            dag.remove_node(transpose_name)
+        dag.rename_node_output(mmnb_name, mmnb_output, lm_head_output)
+        dag.make_output(lm_head_output)
+
+        dag.update()
+        return dag.model
+
+    def reuse_weights_match(
+        self,
+        dag: OnnxDAG,
+        embed_name: str,
+        fp16_weight_name: str,
+        vocab: int,
+        hidden: int,
+        bits: int,
+        block_size: int,
+        n_check: int = 256,
+    ) -> bool:
+        """Check that ``fp16_weight`` equals the dequantized embedding table.
+
+        Only a slice of ``n_check`` rows is compared, which is enough to reject an
+        untied projection while keeping the check cheap. Only 4-bit packing is
+        supported; other widths conservatively return ``False``.
+        """
+        if bits != 4:
+            return False
+
+        embed_inputs = dag.get_node_inputs(embed_name)
+        qweight = dag.get_initializer_np_array(embed_inputs[0])  # [vocab, hidden * bits / 8] uint8
+        scales = dag.get_initializer_np_array(embed_inputs[2]).astype(np.float32)  # [vocab, n_blocks]
+        zero_point = dag.get_initializer_np_array(embed_inputs[3]) if len(embed_inputs) > 3 else None
+
+        n = min(n_check, vocab)
+        n_blocks = hidden // block_size
+
+        # Unpack two 4-bit codes per byte (low nibble first), matching MatMulNBits packing.
+        q = qweight[:n]
+        codes = np.empty((n, hidden), np.float32)
+        codes[:, 0::2] = (q & 0x0F).astype(np.float32)
+        codes[:, 1::2] = (q >> 4).astype(np.float32)
+        codes = codes.reshape(n, n_blocks, block_size)
+
+        if zero_point is not None:
+            zp = zero_point[:n]
+            zcodes = np.empty((n, n_blocks), np.float32)
+            zcodes[:, 0::2] = (zp & 0x0F).astype(np.float32)
+            zcodes[:, 1::2] = (zp >> 4).astype(np.float32)
+            zcodes = zcodes.reshape(n, n_blocks, 1)
+        else:
+            # Symmetric quantization centers codes at the midpoint of the 4-bit range.
+            zcodes = np.float32(2 ** (bits - 1))
+
+        block_scales = scales[:n].reshape(n, n_blocks, 1)
+        dequant = ((codes - zcodes) * block_scales).reshape(n, hidden)  # ~= embedding[:n]
+
+        fp16 = dag.get_initializer_np_array(fp16_weight_name).astype(np.float32)
+        if list(fp16.shape) == [hidden, vocab]:
+            ref = fp16[:, :n].T
+        elif list(fp16.shape) == [vocab, hidden]:
+            ref = fp16[:n]
+        else:
+            return False
+
+        # Quantization error per element is bounded by one block step; use a
+        # generous multiple so a genuinely tied weight always passes while an
+        # untied projection (differing by ~weight magnitude) is rejected.
+        atol = max(4.0 * float(block_scales.max()), 1e-2)
+        return np.allclose(dequant, ref, atol=atol, rtol=0.0)
 
     def equal_weights(self, dag: OnnxDAG, init0: str, init1: str, transpose: bool = False) -> bool:
         shape0, shape1 = dag.get_io_shape(init0), dag.get_io_shape(init1)
