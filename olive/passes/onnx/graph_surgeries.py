@@ -1647,7 +1647,7 @@ class AttentionMaskToSequenceLengths(ProtoSurgeon):
         return dag.model
 
 
-class ReplaceAttentionMaskValue(ProtoSurgeon):
+class ReplaceAttentionMaskValue(Surgeon):
     """Replace the value of extended attention mask with a new value.
 
     This surgery is useful if the default mask value does not quantize well due to numerical instability.
@@ -1659,58 +1659,50 @@ class ReplaceAttentionMaskValue(ProtoSurgeon):
         self.threshold = threshold
         self.replacement = replacement
 
-    def __call__(self, model: ModelProto):
-        dag = OnnxDAG(model)
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
         modified = 0
 
-        # update any constant or constantofshape nodes with the threshold value
-        for node_name in dag.get_node_names():
-            op_type = dag.get_node_op_type(node_name)
-            node_proto = dag.get_node_proto(node_name)
-            if not (
-                op_type in {"Constant", "ConstantOfShape"}
-                and node_proto.attribute
-                and node_proto.attribute[0].t
-                and node_proto.attribute[0].t.data_type == onnx.TensorProto.FLOAT
-                and self.valid_consumers(node_name, dag)
+        # Update Constant / ConstantOfShape nodes whose float value has entries below the threshold.
+        for node in graph:
+            if node.op_type not in ("Constant", "ConstantOfShape"):
+                continue
+            attr = node.attributes.get("value")
+            if (
+                attr is None
+                or attr.type != ir.AttributeType.TENSOR
+                or attr.value.dtype != ir.DataType.FLOAT
+                or not self.valid_consumers(node.outputs[0])
             ):
                 continue
-
-            value = onnx.helper.get_attribute_value(node_proto.attribute[0])
-            tensor_value = onnx.numpy_helper.to_array(value)
-            if (tensor_value_new := self.new_tensor_value(tensor_value)) is not None:
-                node_proto.ClearField("attribute")
-                node_proto.attribute.extend(
-                    [onnx.helper.make_attribute("value", onnx.numpy_helper.from_array(tensor_value_new))]
-                )
+            new_value = self.new_tensor_value(attr.value.numpy())
+            if new_value is not None:
+                node.attributes["value"] = ir.AttrTensor("value", ir.tensor(new_value))
                 modified += 1
 
-        # update any initializer nodes with the threshold value
-        for init_name in dag.get_initializer_names():
-            init_proto = dag.get_initializer_proto(init_name)
-            if not (init_proto.data_type == onnx.TensorProto.FLOAT and self.valid_consumers(init_name, dag)):
+        # Update float initializers with entries below the threshold.
+        for value in list(graph.initializers.values()):
+            if (
+                value.const_value is None
+                or value.const_value.dtype != ir.DataType.FLOAT
+                or not self.valid_consumers(value)
+            ):
                 continue
-
-            tensor_value = onnx.numpy_helper.to_array(init_proto)
-            if (tensor_value_new := self.new_tensor_value(tensor_value)) is not None:
-                dag.replace_initializer(onnx.numpy_helper.from_array(tensor_value_new, name=init_name))
+            new_value = self.new_tensor_value(value.const_value.numpy())
+            if new_value is not None:
+                value.const_value = ir.tensor(new_value, name=value.name)
                 modified += 1
 
         if modified > 0:
             logger.debug("Replaced %d values below threshold with replacement.", modified)
+        return model
 
-        dag.update()
-        return dag.model
+    def valid_consumers(self, value: ir.Value) -> bool:
+        """Check that every consumer of *value* is an allowed op.
 
-    def valid_consumers(self, name: str, dag: OnnxDAG) -> bool:
-        """Check if the consumers of the node are valid.
-
-        This is to prevent checking the tensor value of large tensors unnecessarily.
+        This avoids materializing large tensors that are not attention masks.
         """
-        for consumer in dag.get_consumers(name):
-            if dag.get_node_op_type(consumer) not in ReplaceAttentionMaskValue.ALLOWED_CONSUMER_OPS:
-                return False
-        return True
+        return all(use.node.op_type in self.ALLOWED_CONSUMER_OPS for use in value.uses())
 
     def new_tensor_value(self, tensor_value: np.ndarray) -> np.ndarray | None:
         """Replace values below the threshold with the replacement value."""
