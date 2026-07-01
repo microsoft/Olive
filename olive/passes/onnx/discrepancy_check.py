@@ -558,7 +558,7 @@ class OnnxDiscrepancyCheck(Pass):
         # Check thresholds
         failures = []
         if effective_max_mae is not None and max_abs_error > effective_max_mae:
-            failures.append(f"Max absolute error {max_abs_error:.6f} exceeds threshold {config.max_mae:.6f}")
+            failures.append(f"Max absolute error {max_abs_error:.6f} exceeds threshold {effective_max_mae:.6f}")
         if config.max_elements_above_0_1 is not None and count_above_0_1 > config.max_elements_above_0_1:
             failures.append(
                 f"Elements with diff > 0.1: {count_above_0_1} exceeds threshold {config.max_elements_above_0_1}"
