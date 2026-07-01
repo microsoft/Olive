@@ -231,7 +231,7 @@ def test_replace_erf_with_tanh(tmp_path):
     mul_node = next(node for node in model_def.graph.node if node.op_type == "Mul")
 
     scale_initializer = next(init for init in model_def.graph.initializer if init.name == mul_node.input[1])
-    scale_value = np.array(scale_initializer.float_data, dtype=np.float32)
+    scale_value = numpy_helper.to_array(scale_initializer).astype(np.float32)
     assert np.isclose(scale_value, 605 / 503, atol=1e-6), "Scale value mismatch"
     assert tanh_node.input[0] == mul_node.output[0], "Tanh input should match Mul output"
     assert tanh_node.output[0] == "erf_output", "Tanh output should replace Erf output"

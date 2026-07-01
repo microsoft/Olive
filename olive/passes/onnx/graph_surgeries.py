@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import inspect
+import itertools
 import logging
 import math
 from pathlib import Path
@@ -16,7 +17,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 import onnx
 import onnxscript
-from onnx import ModelProto, TensorProto
+from onnx import ModelProto
 from onnx.helper import make_tensor
 from onnx_ir.passes.common import DeduplicateHashedInitializersPass, InlinePass, RemoveUnusedOpsetsPass
 from onnxscript import ir, rewriter
@@ -30,7 +31,7 @@ from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Sequence
 
     from olive.hardware.accelerator import AcceleratorSpec
     from olive.model import ONNXModelHandler
@@ -167,6 +168,25 @@ class ProtoSurgeon(Surgeon):
         return reshape_output_name
 
 
+class RewriteRuleSurgeon(Surgeon):
+    """Base class for surgeons implemented as onnxscript rewrite rules.
+
+    Subclasses implement :meth:`rules` to return an
+    :class:`onnxscript.rewriter.pattern.RewriteRuleSet`, expressing the match
+    pattern and its replacement with the ONNX IR op builder. ``call_ir`` applies
+    the rules to the IR model in place. Prefer this over manual proto/DAG
+    manipulation for local subgraph pattern replacements: the rewriter handles
+    operand commutativity, use-count bookkeeping, and dead-node cleanup.
+    """
+
+    def rules(self) -> pattern.RewriteRuleSet:
+        raise NotImplementedError
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        self.rules().apply_to_model(model)
+        return model
+
+
 # TODO(anyone): This is incorrect, remove or fix
 class RenameInputs(Surgeon):
     def __init__(self, old_names: list[str], new_names: list[str]):
@@ -235,77 +255,41 @@ class ReorderInputs(Surgeon):
         return model
 
 
-class ReplaceErfWithTanh(ProtoSurgeon):
-    DTYPE_MAP: Mapping = {
-        TensorProto.FLOAT: np.float32,
-        TensorProto.FLOAT16: np.float16,
-        TensorProto.DOUBLE: np.float64,
-        TensorProto.BFLOAT16: np.uint16,
-        TensorProto.INT8: np.int8,
-        TensorProto.INT16: np.int16,
-        TensorProto.INT32: np.int32,
-        TensorProto.INT64: np.int64,
-        TensorProto.UINT8: np.uint8,
-        TensorProto.UINT16: np.uint16,
-        TensorProto.UINT32: np.uint32,
-        TensorProto.UINT64: np.uint64,
+class ReplaceErfWithTanh(RewriteRuleSurgeon):
+    """Replace ``Erf(x)`` with ``Tanh(x * 605/503)``.
+
+    ``605/503`` is the standard rational approximation that lets ``tanh`` stand in
+    for ``erf``. The scale is emitted as an initializer of the input's
+    floating-point dtype; non-floating-point inputs are left unchanged.
+    """
+
+    # ir.DataType -> numpy dtype for the emitted scale initializer.
+    _DTYPE_MAP: ClassVar[dict] = {
+        ir.DataType.FLOAT: np.float32,
+        ir.DataType.FLOAT16: np.float16,
+        ir.DataType.DOUBLE: np.float64,
     }
 
-    def __call__(self, model: ModelProto):
-        idx = 0
-        while idx < len(model.graph.node):
-            node = model.graph.node[idx]
-            if node.op_type == "Erf":
-                inputs = node.input
-                outputs = node.output
-                input_dtype = self._get_input_dtype(model, inputs[0])
-                np_type = self.DTYPE_MAP.get(input_dtype)
-                if np_type is None:
-                    logger.warning(
-                        "Unsupported dtype %s for node %s. Skip replacing Erf with Tanh.", input_dtype, node.name
-                    )
-                    idx += 1
-                    continue
+    def rules(self) -> pattern.RewriteRuleSet:
+        # Unique per-match initializer names (one scale per replaced Erf).
+        counter = itertools.count()
 
-                model.graph.node.remove(node)
-                name = f"scale_{idx}"
-                output_scale = f"mul_{idx}"
+        def _pattern(op, x):
+            return op.Erf(x)
 
-                # scaling constant for tanh
-                value = np.array(605 / 503, dtype=np_type)
-                scale = onnx.helper.make_tensor(
-                    name=name,
-                    data_type=input_dtype,
-                    dims=value.shape,
-                    vals=value.flatten().tolist(),
+        def _condition(context, x) -> bool:
+            return x.dtype in self._DTYPE_MAP
+
+        def _replacement(op, x):
+            scale = op.initializer(
+                ir.tensor(
+                    np.array(605 / 503, dtype=self._DTYPE_MAP[x.dtype]),
+                    name=f"erf_tanh_scale_{next(counter)}",
                 )
-                model.graph.initializer.append(scale)
+            )
+            return op.Tanh(op.Mul(x, scale))
 
-                mul_node = onnx.helper.make_node(
-                    "Mul", inputs=[inputs[0], name], outputs=[output_scale], name=f"Sub_Mul_{idx}"
-                )
-                tanh_node = onnx.helper.make_node(
-                    "Tanh", inputs=[output_scale], outputs=outputs, name=f"Sub_Tanh_{idx}"
-                )
-
-                model.graph.node.insert(idx, mul_node)
-                model.graph.node.insert(idx + 1, tanh_node)
-                idx += 2
-            else:
-                idx += 1
-        return model
-
-    def _get_input_dtype(self, model, name):
-        for inp in model.graph.input:
-            if inp.name == name:
-                return inp.type.tensor_type.elem_type
-        for vi in model.graph.value_info:
-            if vi.name == name:
-                return vi.type.tensor_type.elem_type
-        for init in model.graph.initializer:
-            if init.name == name:
-                return init.data_type
-        raise ValueError(f"Cannot find dtype for {name}")
+        return pattern.RewriteRuleSet([pattern.RewriteRule(_pattern, _replacement, _condition)])
 
 
 class ZeroOutInput(ProtoSurgeon):
@@ -2633,7 +2617,7 @@ class ShareEmbeddingLmHead(ProtoSurgeon):
         return dag.model
 
 
-class ReciprocalMulToDiv(ProtoSurgeon):
+class ReciprocalMulToDiv(RewriteRuleSurgeon):
     """Replace Reciprocal(x) * a  with  Div(a, x).
 
     Before:
@@ -2661,58 +2645,15 @@ class ReciprocalMulToDiv(ProtoSurgeon):
         export ``rsqrt`` as ``Reciprocal`` (e.g. HuggingFace models using ``torch.rsqrt``).
     """
 
-    def __call__(self, model: ModelProto):
-        from collections import defaultdict
+    def rules(self) -> pattern.RewriteRuleSet:
+        def _pattern(op, x, a):
+            # Match a * Reciprocal(x); commute=True also matches Reciprocal(x) * a.
+            return op.Mul(a, op.Reciprocal(x))
 
-        modified = 0
-        nodes_to_remove = []
+        def _replacement(op, x, a):
+            return op.Div(a, x)
 
-        # Build a map from tensor name to consuming nodes (avoids O(N^2) scans).
-        consumers: dict[str, list] = defaultdict(list)
-        for n in model.graph.node:
-            for input_name in n.input:
-                if input_name:
-                    consumers[input_name].append(n)
-
-        for node in model.graph.node:
-            if node.op_type != "Reciprocal":
-                continue
-
-            recip_input = node.input[0]  # x
-            recip_output = node.output[0]
-
-            # Find Mul consumers of this Reciprocal using the precomputed consumer map
-            mul_nodes = [n for n in consumers.get(recip_output, []) if n.op_type == "Mul"]
-
-            for mul_node in mul_nodes:
-                # Identify the other operand (not from Reciprocal)
-                if mul_node.input[0] == recip_output:
-                    other_input = mul_node.input[1]
-                else:
-                    other_input = mul_node.input[0]
-
-                # Convert Mul(a, Reciprocal(x)) to Div(a, x) in-place
-                mul_node.op_type = "Div"
-                mul_node.input[0] = other_input
-                mul_node.input[1] = recip_input
-                if mul_node.name:
-                    mul_node.name = self.create_new_name(mul_node.name, "Mul", "Div")
-                modified += 1
-
-            # If no more consumers of Reciprocal output, mark for removal.
-            # Note: consumer map may be stale after in-place input rewrites,
-            # so re-check actual inputs of remaining consumers.
-            remaining = [n for n in consumers.get(recip_output, []) if n is not node and recip_output in list(n.input)]
-            if not remaining:
-                nodes_to_remove.append(node)
-
-        for node in nodes_to_remove:
-            model.graph.node.remove(node)
-
-        if modified > 0:
-            logger.debug("Replaced %d Reciprocal+Mul patterns with Div", modified)
-
-        return model
+        return pattern.RewriteRuleSet([pattern.RewriteRule(_pattern, _replacement)], commute=True)
 
 
 class DeduplicateSubgraphInitializers(ProtoSurgeon):
