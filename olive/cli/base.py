@@ -310,7 +310,7 @@ class BaseOliveCLICommand(ABC):
     @staticmethod
     def _save_config_file(config: dict):
         """Save the config file."""
-        config_file_path = Path(config["output_dir"]) / "config.json"
+        config_file_path = Path(config["output_dir"]) / "olive_config.json"
         with open(config_file_path, "w") as f:
             json.dump(config, f, indent=4)
         print(f"Config file saved at {config_file_path}")
@@ -351,7 +351,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
         "type": "HfModel",
         "model_path": model_path,
         "load_kwargs": {
-            "attn_implementation": "eager",
+            "attn_implementation": "sdpa",
         },
     }
     # use getattr to avoid AttributeError in case hf model or adapter_path is not supported
