@@ -24,6 +24,7 @@ from onnx_ir.passes.common import (
     InlinePass,
     RemoveUnusedOpsetsPass,
     ShapeInferencePass,
+    TopologicalSortPass,
 )
 from onnxscript import ir, rewriter
 from onnxscript.rewriter import pattern
@@ -2937,7 +2938,7 @@ class RenameOutputDims(Surgeon):
         return model
 
 
-class RemoveMemcpy(ProtoSurgeon):
+class RemoveMemcpy(Surgeon):
     """Remove MemcpyToHost and MemcpyFromHost nodes from the graph.
 
     These nodes are inserted by ORT's ``OrtTransformersOptimization`` when it
@@ -2960,167 +2961,48 @@ class RemoveMemcpy(ProtoSurgeon):
         nodes and let ORT's runtime re-partition optimally.
     """
 
-    def __call__(self, model: ModelProto):
+    def call_ir(self, model: ir.Model) -> ir.Model:
         total = self._remove_from_graph(model.graph)
         if total:
+            # Bypassing Memcpy nodes can leave the graph out of topological order.
+            TopologicalSortPass()(model)
             logger.debug("Removed %d Memcpy nodes total", total)
         return model
 
-    @staticmethod
-    def _remove_from_graph(graph) -> int:
-        """Remove MemcpyToHost/MemcpyFromHost from a graph, then topo-sort."""
+    @classmethod
+    def _remove_from_graph(cls, graph: ir.Graph) -> int:
+        """Bypass and remove 1-in/1-out MemcpyToHost/MemcpyFromHost nodes, recursively."""
         removed = 0
+        for node in list(graph):
+            # Recurse into Loop/If/Scan subgraphs first.
+            for attr in node.attributes.values():
+                if attr.type == ir.AttributeType.GRAPH:
+                    removed += cls._remove_from_graph(attr.value)
+                elif attr.type == ir.AttributeType.GRAPHS:
+                    for subgraph in attr.value:
+                        removed += cls._remove_from_graph(subgraph)
 
-        # Build output→input bypass mapping for 1-in/1-out Memcpy nodes only
-        bypass: dict[str, str] = {}
-        for node in graph.node:
-            if node.op_type in ("MemcpyToHost", "MemcpyFromHost") and len(node.input) == 1 and len(node.output) == 1:
-                bypass[node.output[0]] = node.input[0]
+            if (
+                node.op_type not in ("MemcpyToHost", "MemcpyFromHost")
+                or len(node.inputs) != 1
+                or len(node.outputs) != 1
+                or node.inputs[0] is None
+            ):
+                continue
 
-        if bypass:
-            # Resolve chained Memcpy transitively: if A→B→C are both Memcpy,
-            # bypass = {B: A, C: B}.  Follow the chain so C maps to A.
-            for key, value in bypass.items():
-                target = value
-                while target in bypass:
-                    target = bypass[target]
-                bypass[key] = target
-
-            # Rewrite consumer references: replace memcpy output with its input
-            for node in graph.node:
-                if node.op_type in ("MemcpyToHost", "MemcpyFromHost"):
-                    continue
-                for i, inp in enumerate(node.input):
-                    if inp in bypass:
-                        node.input[i] = bypass[inp]
-                # Also rewrite inputs inside Loop/If subgraph body references
-                for attr in node.attribute:
-                    if attr.g:
-                        RemoveMemcpy._rewrite_subgraph_refs(attr.g, bypass)
-
-            # Preserve graph output names: if a Memcpy sits on the output
-            # boundary, rename the upstream producer's output to match the
-            # original graph output name instead of changing the public name.
-            for out in graph.output:
-                if out.name in bypass:
-                    src = bypass[out.name]
-                    # Rename the producer node's output to keep the public name
-                    for node in graph.node:
-                        for j, o in enumerate(node.output):
-                            if o == src:
-                                node.output[j] = out.name
-                    # Also update any other consumers of `src` to use the output name
-                    for node in graph.node:
-                        for j, inp in enumerate(node.input):
-                            if inp == src:
-                                node.input[j] = out.name
-
-            # Remove only 1-in/1-out Memcpy nodes (the ones we built bypass for)
-            indices = [
-                i
-                for i, n in enumerate(graph.node)
-                if n.op_type in ("MemcpyToHost", "MemcpyFromHost") and len(n.input) == 1 and len(n.output) == 1
-            ]
-            for i in reversed(indices):
-                del graph.node[i]
-            removed += len(indices)
-
-            # Topological re-sort to fix ordering after node removal
-            RemoveMemcpy._topo_sort(graph)
-
-        # Recurse into Loop/If subgraphs
-        for node in list(graph.node):
-            for attr in node.attribute:
-                if attr.g:
-                    removed += RemoveMemcpy._remove_from_graph(attr.g)
-
+            src = node.inputs[0]
+            memcpy_out = node.outputs[0]
+            if memcpy_out in graph.outputs:
+                # Memcpy on the output boundary: preserve the public output name by
+                # moving it onto the upstream producer's value.
+                output_name = memcpy_out.name
+                memcpy_out.replace_all_uses_with(src, replace_graph_outputs=True)
+                src.name = output_name
+            else:
+                memcpy_out.replace_all_uses_with(src)
+            graph.remove(node, safe=True)
+            removed += 1
         return removed
-
-    @staticmethod
-    def _rewrite_subgraph_refs(subgraph, bypass: dict[str, str]):
-        """Rewrite implicit references inside a subgraph body.
-
-        Loop/If subgraphs can reference outer-scope tensors by name in their
-        node inputs.  If an outer Memcpy was removed, those references must
-        be updated too.
-        """
-        for node in subgraph.node:
-            for i, inp in enumerate(node.input):
-                if inp in bypass:
-                    node.input[i] = bypass[inp]
-            for attr in node.attribute:
-                if attr.g:
-                    RemoveMemcpy._rewrite_subgraph_refs(attr.g, bypass)
-
-    @staticmethod
-    def _topo_sort(graph):
-        """Topologically sort graph.node in place using Kahn's algorithm."""
-        # Collect all tensor names produced by graph inputs + initializers
-        available: set[str] = set()
-        for inp in graph.input:
-            available.add(inp.name)
-        for init in graph.initializer:
-            available.add(init.name)
-
-        # Build producer map: tensor_name → node_index
-        nodes = list(graph.node)
-        node_outputs: list[set[str]] = [{o for o in n.output if o} for n in nodes]
-
-        # Build adjacency: which node indices each node depends on
-        n = len(nodes)
-        in_degree = [0] * n
-        dependents: list[list[int]] = [[] for _ in range(n)]
-
-        # Map output name → producing node index
-        output_to_idx: dict[str, int] = {}
-        for idx, outs in enumerate(node_outputs):
-            for o in outs:
-                output_to_idx[o] = idx
-
-        for idx, node in enumerate(nodes):
-            seen_deps: set[int] = set()
-            for inp in node.input:
-                if inp and inp not in available and inp in output_to_idx:
-                    dep = output_to_idx[inp]
-                    if dep != idx and dep not in seen_deps:
-                        seen_deps.add(dep)
-                        in_degree[idx] += 1
-                        dependents[dep].append(idx)
-
-        # Kahn's algorithm
-        from collections import deque
-
-        queue: deque[int] = deque()
-        for idx in range(n):
-            if in_degree[idx] == 0:
-                queue.append(idx)
-
-        sorted_indices: list[int] = []
-        while queue:
-            idx = queue.popleft()
-            sorted_indices.append(idx)
-            # Mark outputs as available
-            for o in node_outputs[idx]:
-                available.add(o)
-            for dep_idx in dependents[idx]:
-                in_degree[dep_idx] -= 1
-                if in_degree[dep_idx] == 0:
-                    queue.append(dep_idx)
-
-        if len(sorted_indices) != n:
-            logger.warning(
-                "Topo-sort could not order all nodes (%d/%d). Keeping original order for unresolved nodes.",
-                len(sorted_indices),
-                n,
-            )
-            # Append any remaining nodes in original order
-            remaining = set(range(n)) - set(sorted_indices)
-            sorted_indices.extend(sorted(remaining))
-
-        # Rewrite graph.node in sorted order
-        sorted_nodes = [nodes[i] for i in sorted_indices]
-        del graph.node[:]
-        graph.node.extend(sorted_nodes)
 
 
 class RenameInputDims(Surgeon):
