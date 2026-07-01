@@ -421,6 +421,7 @@ class OnnxDiscrepancyCheck(Pass):
                 f"Got architectures={architectures}"
             )
 
+        # TODO: the model tested is not the one converted into onnx
         ref_model = AutoModelForCausalLM.from_pretrained(
             ref_path, config=ref_cfg, **({} if config.attn_impl is None else {"attn_implementation": config.attn_impl})
         )
