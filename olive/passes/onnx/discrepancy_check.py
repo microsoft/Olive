@@ -19,6 +19,21 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
+def _json_sanitize(obj):
+    """Recursively convert numpy scalars/arrays to native Python types for JSON serialization."""
+    import numpy as np
+
+    if isinstance(obj, dict):
+        return {key: _json_sanitize(value) for key, value in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_sanitize(item) for item in obj]
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
+
+
 def _infer_shape(dynamic_shape, known_values=None):
     default_values = {
         "batch_size": 1,
@@ -705,6 +720,7 @@ class OnnxDiscrepancyCheck(Pass):
                 results.setdefault("failures", []).append(f"llama.cpp comparison failed: {exc}")
 
         # Save results to disk
+        results = _json_sanitize(results)
         report_path = Path(report_dir) / "discrepancy_check_results.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps(results, indent=2))
