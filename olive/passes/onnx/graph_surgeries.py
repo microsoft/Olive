@@ -1222,7 +1222,7 @@ class PowReduceSumPowDiv2LpNorm(Surgeon):
         return self.replace_with_lp_normalization(model)
 
 
-class MatMulAddToGemm(ProtoSurgeon):
+class MatMulAddToGemm(Surgeon):
     """Replace MatMul + Add with Gemm.
 
     Second MatMul input must be a 2D tensor and the other input of the Add node must be a 1D tensor.
@@ -1232,58 +1232,60 @@ class MatMulAddToGemm(ProtoSurgeon):
     after the Relu operation.
     """
 
-    def __call__(self, model: ModelProto):
-        from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
-
+    def call_ir(self, model: ir.Model) -> ir.Model:
         try:
-            model = SymbolicShapeInference.infer_shapes(model, auto_merge=True)
+            model = ShapeInferencePass()(model).model
         except Exception as e:
             logger.debug("Shape inference failed. Will try to continue without it. Error: %s", e)
 
-        dag = OnnxDAG(model)
-
         modified = 0
         removed_nodes = set()
-        for node_name in dag.get_node_names():
-            if node_name in removed_nodes or dag.get_node_op_type(node_name) != "MatMul":
+        graph = model.graph
+        for node in list(graph):
+            if node in removed_nodes or node.op_type != "MatMul":
                 continue
-            matmul_name = node_name
-            graph_idx = dag.get_graph_idx(node_name)
+            matmul_node = node
+            matmul_name = matmul_node.name or matmul_node.outputs[0].name or "MatMul"
 
-            matmul_consumers = dag.get_consumers(node_name)
-            if len(matmul_consumers) != 1 or dag.get_node_op_type(matmul_consumers[0]) != "Add":
+            matmul_output = matmul_node.outputs[0]
+            matmul_consumers = [use.node for use in matmul_output.uses()]
+            if len(matmul_consumers) != 1 or matmul_consumers[0].op_type != "Add":
                 continue
-            add_name = matmul_consumers[0]
+            add_node = matmul_consumers[0]
 
-            out = dag.get_node_outputs(add_name)[0]
-            out_consumers = dag.get_consumers(add_name)
-            if dag.is_output(out):
+            out = add_node.outputs[0]
+            out_consumers = [use.node for use in out.uses()]
+            if out in graph.outputs:
                 continue
 
             # check matmul input shapes
-            matmul_inputs = dag.get_node_inputs(node_name)
-            matmul_input_shapes = [dag.get_io_shape(i_name) for i_name in matmul_inputs]
-            if len(matmul_input_shapes[1]) != 2:
+            matmul_inputs = list(matmul_node.inputs)
+            if len(matmul_inputs) != 2 or matmul_inputs[0] is None or matmul_inputs[1] is None:
                 continue
-            matmul_output = dag.get_node_outputs(node_name)[0]
-            matmul_output_shape = dag.get_io_shape(matmul_output)
-            elem_type = dag.get_io_elem_type(matmul_output)
+            matmul_input_shapes = [self._shape_as_list(input_value.shape) for input_value in matmul_inputs]
+            if matmul_input_shapes[0] is None or matmul_input_shapes[1] is None or len(matmul_input_shapes[1]) != 2:
+                continue
+            matmul_output_shape = self._shape_as_list(matmul_output.shape)
+            elem_type = matmul_output.dtype
+            if matmul_output_shape is None or elem_type is None:
+                continue
 
             # check add input shapes
             bias_input = None
-            for i_name in dag.get_node_inputs(add_name):
-                if i_name != matmul_output:
-                    bias_input = i_name
+            for input_value in add_node.inputs:
+                if input_value is not matmul_output:
+                    bias_input = input_value
                     break
-            if bias_input is None or len(dag.get_io_shape(bias_input)) != 1:
+            bias_shape = self._shape_as_list(bias_input.shape) if bias_input is not None else None
+            if bias_input is None or bias_shape is None or len(bias_shape) != 1:
                 continue
 
-            gemm_name = self.create_new_name(matmul_name, "MatMul", "Gemm")
+            gemm_name = ProtoSurgeon.create_new_name(matmul_name, "MatMul", "Gemm")
             gemm_inputs = [*matmul_inputs, bias_input]
 
             # check if there's a Relu after the Add
-            has_relu = len(out_consumers) == 1 and dag.get_node_op_type(out_consumers[0]) == "Relu"
-            relu_name = out_consumers[0] if has_relu else None
+            has_relu = len(out_consumers) == 1 and out_consumers[0].op_type == "Relu"
+            relu_node = out_consumers[0] if has_relu else None
 
             matmul_a_shape = matmul_input_shapes[0]
             gemm_output_shape = matmul_output_shape
@@ -1296,10 +1298,9 @@ class MatMulAddToGemm(ProtoSurgeon):
                 ):
                     continue
 
-                pre_reshape_name = self.create_new_name(gemm_name, "Gemm", "Reshape_pre")
+                pre_reshape_name = ProtoSurgeon.create_new_name(gemm_name, "Gemm", "Reshape_pre")
                 gemm_inputs[0] = self.add_reshape_node(
-                    dag,
-                    graph_idx,
+                    graph,
                     pre_reshape_name,
                     matmul_inputs[0],
                     [math.prod(matmul_a_shape[:-1]), matmul_a_shape[-1]],
@@ -1308,74 +1309,94 @@ class MatMulAddToGemm(ProtoSurgeon):
                 gemm_output_shape = [math.prod(matmul_output_shape[:-1]), matmul_output_shape[-1]]
 
             gemm_output_name = f"{gemm_name}_output"
-            dag.add_node(
-                onnx.helper.make_node(
-                    "Gemm",
-                    inputs=gemm_inputs,
-                    outputs=[gemm_output_name],
-                    name=gemm_name,
-                    alpha=1.0,
-                    beta=1.0,
-                    transA=0,
-                    transB=0,
-                ),
-                graph_idx,
+            gemm_node = ir.Node(
+                "",
+                "Gemm",
+                inputs=gemm_inputs,
+                attributes=[
+                    ir.AttrFloat32("alpha", 1.0),
+                    ir.AttrFloat32("beta", 1.0),
+                    ir.AttrInt64("transA", 0),
+                    ir.AttrInt64("transB", 0),
+                ],
+                num_outputs=1,
+                name=gemm_name,
             )
-            dag.add_value_info(
-                onnx.helper.make_tensor_value_info(
-                    gemm_output_name,
-                    elem_type,
-                    gemm_output_shape,
-                ),
-                graph_idx,
-            )
-            final_output_name = gemm_output_name
+            gemm_node.outputs[0].name = gemm_output_name
+            gemm_node.outputs[0].shape = ir.Shape(gemm_output_shape)
+            gemm_node.outputs[0].type = ir.TensorType(elem_type)
+            graph.append(gemm_node)
+            final_output = gemm_node.outputs[0]
 
             if reshape_needed:
                 if has_relu:
-                    out = dag.get_node_outputs(relu_name)[0]
-                    out_consumers = dag.get_consumers(relu_name)
+                    out = relu_node.outputs[0]
+                    out_consumers = [use.node for use in out.uses()]
                     # Connect Gemm output to Relu input
-                    dag.replace_node_input(relu_name, dag.get_node_inputs(relu_name)[0], gemm_output_name)
+                    relu_node.replace_input_with(0, gemm_node.outputs[0])
                     # Update Relu output value info
-                    relu_output = dag.get_node_outputs(relu_name)[0]
-                    new_relu_vi = onnx.helper.make_tensor_value_info(
-                        relu_output,
-                        elem_type,
-                        gemm_output_shape,
-                    )
-                    dag.add_value_info(new_relu_vi, graph_idx, overwrite=True)
-                    final_output_name = dag.get_node_outputs(relu_name)[0]
+                    relu_node.outputs[0].shape = ir.Shape(gemm_output_shape)
+                    relu_node.outputs[0].type = ir.TensorType(elem_type)
+                    final_output = relu_node.outputs[0]
 
                 # need to reshape the output to original shape
-                post_reshape_name = self.create_new_name(gemm_name, "Gemm", "Reshape_post")
-                final_output_name = self.add_reshape_node(
-                    dag,
-                    graph_idx,
+                post_reshape_name = ProtoSurgeon.create_new_name(gemm_name, "Gemm", "Reshape_post")
+                final_output = self.add_reshape_node(
+                    graph,
                     post_reshape_name,
-                    final_output_name,
+                    final_output,
                     matmul_output_shape,
                     elem_type,
                 )
 
             # point all of the consumers of the original add/relu to the final output
             for consumer in out_consumers:
-                dag.replace_node_input(consumer, out, final_output_name)
+                for idx, input_value in enumerate(consumer.inputs):
+                    if input_value is out:
+                        consumer.replace_input_with(idx, final_output)
 
             # remove the original add and matmul nodes
-            for to_remove in [add_name, matmul_name]:
-                dag.remove_node(to_remove)
+            for to_remove in [add_node, matmul_node]:
+                graph.remove(to_remove, safe=True)
                 removed_nodes.add(to_remove)
             modified += 1
 
         if modified > 0:
             logger.debug("Replaced %d MatMul + Add nodes with Gemm nodes", modified)
+            TopologicalSortPass()(model)
 
-        dag.update()
-        return dag.model
+        return model
+
+    @staticmethod
+    def _shape_as_list(shape: ir.Shape | None) -> list[Any] | None:
+        return None if shape is None else list(shape)
+
+    @staticmethod
+    def add_reshape_node(
+        graph: ir.Graph,
+        node_name: str,
+        input_value: ir.Value,
+        target_shape: list[int],
+        output_elem_type: ir.DataType,
+    ) -> ir.Value:
+        """Add a reshape node to the graph."""
+        reshape_shape_name = f"{node_name}_shape"
+        reshape_shape = ir.Value(
+            name=reshape_shape_name,
+            const_value=ir.tensor(np.array(target_shape, dtype=np.int64), name=reshape_shape_name),
+        )
+        graph.initializers[reshape_shape_name] = reshape_shape
+        reshape_output_name = f"{node_name}_output"
+
+        reshape_node = ir.Node("", "Reshape", inputs=[input_value, reshape_shape], num_outputs=1, name=node_name)
+        reshape_node.outputs[0].name = reshape_output_name
+        reshape_node.outputs[0].shape = ir.Shape(target_shape)
+        reshape_node.outputs[0].type = ir.TensorType(output_elem_type)
+        graph.append(reshape_node)
+        return reshape_node.outputs[0]
 
 
-class GemmToMatMulAdd(ProtoSurgeon):
+class GemmToMatMulAdd(Surgeon):
     """Replace Gemm with MatMul (+ Add) for INT4 quantization compatibility.
 
     The INT4 RTN quantizer only recognizes MatMul nodes.  This surgeon converts
@@ -1387,94 +1408,116 @@ class GemmToMatMulAdd(ProtoSurgeon):
     are not 1.0 or whose transA is set.
     """
 
-    def __call__(self, model: ModelProto):
-        from onnx import helper, numpy_helper
-
+    def call_ir(self, model: ir.Model) -> ir.Model:
         graph = model.graph
-        initializer_map = {init.name: init for init in graph.initializer}
+        initializer_map = graph.initializers
         existing_names = (
-            {init.name for init in graph.initializer}
-            | {vi.name for vi in graph.input}
-            | {vi.name for vi in graph.output}
-            | {vi.name for vi in graph.value_info}
+            set(graph.initializers)
+            | {value.name for value in graph.inputs if value.name}
+            | {value.name for value in graph.outputs if value.name}
+            | {output.name for node in graph for output in node.outputs if output.name}
         )
         nodes_to_remove = []
         nodes_to_add = []
         gemm_rewrite_idx = 0
 
-        for node in graph.node:
+        for node in list(graph):
             if node.op_type != "Gemm":
                 continue
 
             alpha = beta = 1.0
             trans_a = trans_b = 0
-            for attr in node.attribute:
-                if attr.name == "alpha":
-                    alpha = attr.f
-                elif attr.name == "beta":
-                    beta = attr.f
-                elif attr.name == "transA":
-                    trans_a = attr.i
-                elif attr.name == "transB":
-                    trans_b = attr.i
+            for attr_name, attr in node.attributes.items():
+                if attr_name == "alpha":
+                    alpha = attr.value
+                elif attr_name == "beta":
+                    beta = attr.value
+                elif attr_name == "transA":
+                    trans_a = attr.value
+                elif attr_name == "transB":
+                    trans_b = attr.value
 
             if alpha != 1.0 or beta != 1.0 or trans_a != 0:
                 continue
 
-            inp_a, inp_b = node.input[0], node.input[1]
-            inp_c = node.input[2] if len(node.input) > 2 else None
-            out_y = node.output[0]
+            inp_a, inp_b = node.inputs[0], node.inputs[1]
+            if inp_a is None or inp_b is None:
+                continue
+            inp_c = node.inputs[2] if len(node.inputs) > 2 else None
+            out_y = node.outputs[0]
 
             # Derive a stable base name for new nodes/tensors.
-            base_name = node.name or out_y or f"gemm_rewrite_{gemm_rewrite_idx}"
+            base_name = node.name or out_y.name or f"gemm_rewrite_{gemm_rewrite_idx}"
 
             if trans_b:
-                if inp_b in initializer_map:
+                if inp_b.name in initializer_map and inp_b.const_value is not None:
                     # Create a new transposed initializer to avoid mutating
                     # a potentially shared initializer in-place.
-                    init = initializer_map[inp_b]
-                    w_t = numpy_helper.to_array(init).T.copy()
-                    new_name = f"{inp_b}_transposed"
+                    w_t = inp_b.const_value.numpy().T.copy()
+                    new_name = f"{inp_b.name}_transposed"
                     suffix = 0
                     while new_name in existing_names:
                         suffix += 1
-                        new_name = f"{inp_b}_transposed_{suffix}"
-                    new_init = numpy_helper.from_array(w_t, name=new_name)
-                    graph.initializer.append(new_init)
-                    initializer_map[new_name] = new_init
+                        new_name = f"{inp_b.name}_transposed_{suffix}"
+                    new_init = ir.Value(name=new_name, const_value=ir.tensor(w_t, name=new_name))
+                    graph.initializers[new_name] = new_init
                     existing_names.add(new_name)
-                    matmul_rhs = new_name
+                    matmul_rhs = new_init
                 else:
-                    transpose_out = f"{base_name}_transpose_B"
-                    nodes_to_add.append(
-                        helper.make_node(
-                            "Transpose", [inp_b], [transpose_out], name=f"{base_name}_Transpose", perm=[1, 0]
-                        )
+                    transpose_node = ir.Node(
+                        "",
+                        "Transpose",
+                        inputs=[inp_b],
+                        attributes=[ir.AttrInt64s("perm", [1, 0])],
+                        num_outputs=1,
+                        name=f"{base_name}_Transpose",
                     )
-                    matmul_rhs = transpose_out
+                    transpose_node.outputs[0].name = f"{base_name}_transpose_B"
+                    nodes_to_add.append(transpose_node)
+                    matmul_rhs = transpose_node.outputs[0]
             else:
                 matmul_rhs = inp_b
 
-            if inp_c:
-                matmul_out = f"{base_name}_matmul_out"
-                nodes_to_add.append(
-                    helper.make_node("MatMul", [inp_a, matmul_rhs], [matmul_out], name=f"{base_name}_MatMul")
+            if inp_c is not None:
+                matmul_node = ir.Node(
+                    "", "MatMul", inputs=[inp_a, matmul_rhs], num_outputs=1, name=f"{base_name}_MatMul"
                 )
-                nodes_to_add.append(helper.make_node("Add", [matmul_out, inp_c], [out_y], name=f"{base_name}_Add"))
+                matmul_node.outputs[0].name = f"{base_name}_matmul_out"
+                nodes_to_add.append(matmul_node)
+                add_node = ir.Node(
+                    "",
+                    "Add",
+                    inputs=[matmul_node.outputs[0], inp_c],
+                    num_outputs=1,
+                    name=f"{base_name}_Add",
+                )
+                add_node.outputs[0].name = out_y.name
+                add_node.outputs[0].shape = out_y.shape
+                add_node.outputs[0].type = out_y.type
+                nodes_to_add.append(add_node)
+                final_output = add_node.outputs[0]
             else:
-                nodes_to_add.append(
-                    helper.make_node("MatMul", [inp_a, matmul_rhs], [out_y], name=f"{base_name}_MatMul")
+                matmul_node = ir.Node(
+                    "", "MatMul", inputs=[inp_a, matmul_rhs], num_outputs=1, name=f"{base_name}_MatMul"
                 )
+                matmul_node.outputs[0].name = out_y.name
+                matmul_node.outputs[0].shape = out_y.shape
+                matmul_node.outputs[0].type = out_y.type
+                nodes_to_add.append(matmul_node)
+                final_output = matmul_node.outputs[0]
 
+            out_y.replace_all_uses_with(final_output, replace_graph_outputs=True)
             nodes_to_remove.append(node)
             gemm_rewrite_idx += 1
 
         for node in nodes_to_remove:
-            graph.node.remove(node)
-        graph.node.extend(nodes_to_add)
+            graph.remove(node, safe=True)
+        for node in nodes_to_add:
+            graph.append(node)
 
         if nodes_to_remove:
             logger.debug("Replaced %d Gemm nodes with MatMul + Add nodes", len(nodes_to_remove))
+            TopologicalSortPass()(model)
 
         return model
 
