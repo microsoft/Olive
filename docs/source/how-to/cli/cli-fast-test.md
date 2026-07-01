@@ -99,11 +99,10 @@ olive run \
     --output_path out/qwen-test-run
 ```
 
-`--test_llama_path` points to the virtual environment that contains `llama-cpp-python` and `convert_hf_to_gguf.py` (from the llama.cpp repository). When provided, Olive:
+`--test_llama_path` points to the virtual environment that contains `llama-cpp-python` and `convert_hf_to_gguf.py` (from the llama.cpp repository). When provided, Olive injects a `ConvertHfToGGUF` pass before model conversion and then:
 
-1. Saves the reference HuggingFace model to `<output_path>/hf_model` using `save_pretrained`.
-2. Calls `convert_hf_to_gguf.py` inside the virtual environment to produce a GGUF F32 file at `<output_path>/model.gguf`.
-3. Runs inference with `llama_cpp.Llama` inside the virtual environment and reports first-token latency and speedup metrics alongside the regular MAE and ONNX speedup results.
+1. Converts the reduced test HuggingFace model to GGUF (`<test_model_path>/model.gguf`) via `convert_hf_to_gguf.py`.
+2. Reuses that GGUF file in `OnnxDiscrepancyCheck` for llama.cpp inference and reports first-token latency and speedup metrics alongside the regular MAE and ONNX speedup results.
 
 All `llama-cpp-python` imports are strictly isolated to the subprocess — the main Olive process never imports them.
 

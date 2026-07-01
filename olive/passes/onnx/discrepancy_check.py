@@ -610,15 +610,24 @@ class OnnxDiscrepancyCheck(Pass):
 
         # llama.cpp comparison: convert reference model to GGUF and compare latencies
         if config.llama_cpp:
-            llama_results = self.compare_llama_cpp(
-                config,
-                ref_model,
-                output_dir=report_dir,
-                pytorch_latency_s=results.get("pytorch_latency_s"),
-                onnx_latency_s=results.get("onnx_latency_s"),
-                ref_model_path=ref_path,
-            )
-            results.update(llama_results)
+            preconverted_gguf_path = None
+            if model.model_attributes:
+                preconverted_gguf_path = model.model_attributes.get("reference_gguf_model_path")
+            try:
+                llama_results = self.compare_llama_cpp(
+                    config,
+                    ref_model,
+                    output_dir=report_dir,
+                    pytorch_latency_s=results.get("pytorch_latency_s"),
+                    onnx_latency_s=results.get("onnx_latency_s"),
+                    ref_model_path=ref_path,
+                    preconverted_gguf_path=preconverted_gguf_path,
+                )
+                results.update(llama_results)
+            except Exception as exc:
+                logger.exception("OnnxDiscrepancyCheck llama.cpp comparison failed.")
+                results["status"] = "failed"
+                results.setdefault("failures", []).append(f"llama.cpp comparison failed: {exc}")
 
         # Save results to disk
         report_path = Path(report_dir) / "discrepancy_check_results.json"
@@ -880,6 +889,7 @@ class OnnxDiscrepancyCheck(Pass):
         onnx_latency_s: Optional[float] = None,
         *,
         ref_model_path: str,
+        preconverted_gguf_path: Optional[str] = None,
     ) -> dict:
         """Convert the reference model to GGUF and compare inference with llama.cpp.
 
@@ -904,7 +914,6 @@ class OnnxDiscrepancyCheck(Pass):
         # Resolve the llama_env Python interpreter and conversion script
         env_path = config.llama_cpp_env_path or "llama_env"
         python_path = self._get_llama_env_python(env_path)
-        convert_script = self._get_convert_script(env_path)
 
         # Tokenize the generation prompt using the main-env tokenizer
         tokenizer = AutoTokenizer.from_pretrained(ref_model_path)
@@ -926,19 +935,24 @@ class OnnxDiscrepancyCheck(Pass):
         gguf_path = str(output_dir_path / "model.gguf")
         script_path = str(output_dir_path / "llama_cpp_helper.py")
 
-        # Save model and tokenizer in standard HuggingFace format.
-        ref_model.save_pretrained(model_dir, safe_serialization=True)
-        tokenizer.save_pretrained(model_dir)
-        logger.info("Saved reference HuggingFace model and tokenizer to %s", model_dir)
+        if preconverted_gguf_path and Path(preconverted_gguf_path).exists():
+            gguf_path = preconverted_gguf_path
+            logger.info("Using pre-converted GGUF from %s", gguf_path)
+        else:
+            convert_script = self._get_convert_script(env_path)
+            # Save model and tokenizer in standard HuggingFace format.
+            ref_model.save_pretrained(model_dir, safe_serialization=True)
+            tokenizer.save_pretrained(model_dir)
+            logger.info("Saved reference HuggingFace model and tokenizer to %s", model_dir)
 
-        # Step 1: Convert to GGUF using the official convert_hf_to_gguf.py CLI.
-        subprocess.run(
-            [python_path, convert_script, model_dir, "--outfile", gguf_path, "--outtype", "f32"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        logger.info("Converted HuggingFace model to GGUF at %s", gguf_path)
+            # Step 1: Convert to GGUF using the official convert_hf_to_gguf.py CLI.
+            subprocess.run(
+                [python_path, convert_script, model_dir, "--outfile", gguf_path, "--outtype", "f32"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            logger.info("Converted HuggingFace model to GGUF at %s", gguf_path)
 
         # Step 2: Run inference inside llama_env using the pre-converted GGUF file.
         (output_dir_path / "llama_cpp_helper.py").write_text(_LLAMA_CPP_HELPER_SCRIPT)

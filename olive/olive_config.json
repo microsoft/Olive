@@ -650,6 +650,14 @@
             "supported_algorithms": [  ],
             "supported_quantization_encodings": [  ]
         },
+        "ConvertHfToGGUF": {
+            "module_path": "olive.passes.pytorch.convert_hf_to_gguf.ConvertHfToGGUF",
+            "supported_providers": [ "*" ],
+            "supported_accelerators": [ "*" ],
+            "supported_precisions": [ "*" ],
+            "supported_algorithms": [  ],
+            "supported_quantization_encodings": [  ]
+        },
         "SelectiveMixedPrecision": {
             "module_path": "olive.passes.pytorch.selective_mixed_precision.SelectiveMixedPrecision",
             "supported_providers": [ "*" ],
