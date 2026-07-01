@@ -434,7 +434,7 @@
 <section id="run">
 <h1>Run<a class="headerlink" href="#run" title="Link to this heading">#</a></h1>
 <p>Run Olive workflow defined in the input .json configuration file.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">run</span><span class="o">-</span><span class="n">config</span> <span class="n">RUN_CONFIG</span> <span class="p">[</span><span class="o">--</span><span class="n">list_required_packages</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-run"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">run</span><span class="o">-</span><span class="n">config</span> <span class="n">RUN_CONFIG</span> <span class="p">[</span><span class="o">--</span><span class="n">list_required_packages</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">--</span><span class="n">tempdir</span> <span class="n">TEMPDIR</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">package</span><span class="o">-</span><span class="n">config</span> <span class="n">PACKAGE_CONFIG</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                  <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
@@ -442,8 +442,8 @@
                  <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-run-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-run-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--run-config, --config</kbd></dt>
 <dd><p>Path to json config file</p>
@@ -467,8 +467,8 @@
 </dd>
 </dl>
 </section>
-<section id="olive.cli.launcher-get_cli_parser-model-options-(not-required)">
-<h2>Model options (not required)<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-model-options-(not-required)" title="Link to this heading">#</a></h2>
+<section id="olive-run-model-options-not-required">
+<span id="olive.cli.launcher-get_cli_parser-model-options-(not-required)"></span><h2>Model options (not required)<a class="headerlink" href="#olive-run-model-options-not-required" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -501,7 +501,7 @@
 <section id="optimize">
 <h1>Optimize<a class="headerlink" href="#optimize" title="Link to this heading">#</a></h1>
 <p>Optimize input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models).</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">optimize</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-optimize"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">optimize</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
@@ -520,8 +520,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-optimize-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-optimize-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -630,7 +630,7 @@
 <section id="quantization">
 <h1>Quantization<a class="headerlink" href="#quantization" title="Link to this heading">#</a></h1>
 <p>Quantize PyTorch or ONNX model using various Quantization algorithms.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">quantize</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-quantize"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">quantize</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
@@ -651,8 +651,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-quantize-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-quantize-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -772,7 +772,7 @@
 <section id="capture-onnx-graph">
 <h1>Capture Onnx Graph<a class="headerlink" href="#capture-onnx-graph" title="Link to this heading">#</a></h1>
 <p>Capture ONNX graph using PyTorch Exporter or Model Builder from the Huggingface model or PyTorch model.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-capture-onnx-graph"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">capture</span><span class="o">-</span><span class="n">onnx</span><span class="o">-</span><span class="n">graph</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span>
                                 <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                                 <span class="p">[</span><span class="o">--</span><span class="n">model_variant</span> <span class="p">{</span><span class="n">auto</span><span class="p">,</span><span class="n">sd</span><span class="p">,</span><span class="n">sdxl</span><span class="p">,</span><span class="n">sd3</span><span class="p">,</span><span class="n">flux</span><span class="p">,</span><span class="n">sana</span><span class="p">}]</span>
@@ -798,8 +798,8 @@
                                 <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-capture-onnx-graph-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-capture-onnx-graph-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -877,8 +877,8 @@
 </dd>
 </dl>
 </section>
-<section id="olive.cli.launcher-get_cli_parser-pytorch-exporter-options">
-<h2>PyTorch Exporter options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-pytorch-exporter-options" title="Link to this heading">#</a></h2>
+<section id="olive-capture-onnx-graph-pytorch-exporter-options">
+<span id="olive.cli.launcher-get_cli_parser-pytorch-exporter-options"></span><h2>PyTorch Exporter options<a class="headerlink" href="#olive-capture-onnx-graph-pytorch-exporter-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--fixed_param_dict</kbd></dt>
 <dd><p>Fix dynamic input shapes by providing a dictionary of dimension names and values, e.g., ‘batch_size=1,max_length=128’</p>
@@ -896,8 +896,8 @@
 </dd>
 </dl>
 </section>
-<section id="olive.cli.launcher-get_cli_parser-model-builder-options">
-<h2>Model Builder options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-model-builder-options" title="Link to this heading">#</a></h2>
+<section id="olive-capture-onnx-graph-model-builder-options">
+<span id="olive.cli.launcher-get_cli_parser-model-builder-options"></span><h2>Model Builder options<a class="headerlink" href="#olive-capture-onnx-graph-model-builder-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--precision</kbd></dt>
 <dd><p>Possible choices: fp16, fp32, int4, bf16</p>
@@ -931,7 +931,7 @@
 <section id="run-pass">
 <h1>Run Pass<a class="headerlink" href="#run-pass" title="Link to this heading">#</a></h1>
 <p>Run a single pass on the input model (supports HuggingFace, ONNX, PyTorch, and Azure ML models).</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span><span class="o">-</span><span class="k">pass</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">name</span> <span class="n">PASS_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">config</span> <span class="n">PASS_CONFIG</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-run-pass"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">run</span><span class="o">-</span><span class="k">pass</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">name</span> <span class="n">PASS_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="k">pass</span><span class="o">-</span><span class="n">config</span> <span class="n">PASS_CONFIG</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="nb">list</span><span class="o">-</span><span class="n">passes</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
@@ -941,8 +941,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-run-pass-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-run-pass-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--pass-name</kbd></dt>
 <dd><p>Name of the pass to run on the input model.</p>
@@ -1015,7 +1015,7 @@
 <section id="finetune">
 <h1>Finetune<a class="headerlink" href="#finetune" title="Link to this heading">#</a></h1>
 <p>Fine-tune a model on a dataset using HuggingFace peft. Huggingface training arguments can be provided along with the defined options.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-finetune"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">finetune</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">method</span> <span class="p">{</span><span class="n">lora</span><span class="p">,</span><span class="n">qlora</span><span class="p">}]</span> <span class="p">[</span><span class="o">--</span><span class="n">lora_r</span> <span class="n">LORA_R</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">lora_alpha</span> <span class="n">LORA_ALPHA</span><span class="p">]</span>
@@ -1035,8 +1035,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-finetune-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-finetune-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -1133,8 +1133,8 @@
 </dd>
 </dl>
 </section>
-<section id="olive.cli.launcher-get_cli_parser-lora-options">
-<h2>LoRA options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-lora-options" title="Link to this heading">#</a></h2>
+<section id="olive-finetune-lora-options">
+<span id="olive.cli.launcher-get_cli_parser-lora-options"></span><h2>LoRA options<a class="headerlink" href="#olive-finetune-lora-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--method</kbd></dt>
 <dd><p>Possible choices: lora, qlora</p>
@@ -1158,7 +1158,7 @@
 <section id="diffusion-lora">
 <h1>Diffusion LoRA<a class="headerlink" href="#diffusion-lora" title="Link to this heading">#</a></h1>
 <p>Train LoRA adapters for diffusion models (Stable Diffusion 1.5, SDXL, Flux). Supports both local image folders and HuggingFace datasets.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">diffusion</span><span class="o">-</span><span class="n">lora</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-diffusion-lora"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">diffusion</span><span class="o">-</span><span class="n">lora</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                             <span class="p">[</span><span class="o">--</span><span class="n">model_variant</span> <span class="p">{</span><span class="n">auto</span><span class="p">,</span><span class="n">sd</span><span class="p">,</span><span class="n">sdxl</span><span class="p">,</span><span class="n">sd3</span><span class="p">,</span><span class="n">flux</span><span class="p">,</span><span class="n">sana</span><span class="p">}]</span>
                             <span class="p">[</span><span class="o">-</span><span class="n">r</span> <span class="n">LORA_R</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">alpha</span> <span class="n">ALPHA</span><span class="p">]</span>
                             <span class="p">[</span><span class="o">--</span><span class="n">lora_dropout</span> <span class="n">LORA_DROPOUT</span><span class="p">]</span>
@@ -1188,8 +1188,8 @@
                             <span class="p">[</span><span class="o">--</span><span class="n">dry_run</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-diffusion-lora-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-diffusion-lora-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>HuggingFace model name or local path (e.g., ‘runwayml/stable-diffusion-v1-5’).</p>
@@ -1231,8 +1231,8 @@
 </dd>
 </dl>
 </section>
-<section id="olive.cli.launcher-get_cli_parser-lora-options">
-<h2>LoRA options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-lora-options" title="Link to this heading">#</a></h2>
+<section id="olive-diffusion-lora-lora-options">
+<span id="olive.cli.launcher-get_cli_parser-lora-options"></span><h2>LoRA options<a class="headerlink" href="#olive-diffusion-lora-lora-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-r, --lora_r</kbd></dt>
 <dd><p>LoRA rank. SD: 4-16, Flux: 16-64. Default: 16.</p>
@@ -1250,8 +1250,8 @@
 </dd>
 </dl>
 </section>
-<section id="olive.cli.launcher-get_cli_parser-dreambooth-options">
-<h2>DreamBooth options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-dreambooth-options" title="Link to this heading">#</a></h2>
+<section id="olive-diffusion-lora-dreambooth-options">
+<span id="olive.cli.launcher-get_cli_parser-dreambooth-options"></span><h2>DreamBooth options<a class="headerlink" href="#olive-diffusion-lora-dreambooth-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--dreambooth</kbd></dt>
 <dd><p>Enable DreamBooth training for learning specific subjects.</p>
@@ -1280,8 +1280,8 @@
 </dd>
 </dl>
 </section>
-<section id="olive.cli.launcher-get_cli_parser-data-options">
-<h2>Data options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-data-options" title="Link to this heading">#</a></h2>
+<section id="olive-diffusion-lora-data-options">
+<span id="olive.cli.launcher-get_cli_parser-data-options"></span><h2>Data options<a class="headerlink" href="#olive-diffusion-lora-data-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-d, --data_dir</kbd></dt>
 <dd><p>Path to local image folder with training images.</p>
@@ -1305,8 +1305,8 @@
 </dd>
 </dl>
 </section>
-<section id="olive.cli.launcher-get_cli_parser-training-options">
-<h2>Training options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-training-options" title="Link to this heading">#</a></h2>
+<section id="olive-diffusion-lora-training-options">
+<span id="olive.cli.launcher-get_cli_parser-training-options"></span><h2>Training options<a class="headerlink" href="#olive-diffusion-lora-training-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--max_train_steps</kbd></dt>
 <dd><p>Maximum training steps. Default: 1000.</p>
@@ -1343,8 +1343,8 @@
 </dd>
 </dl>
 </section>
-<section id="olive.cli.launcher-get_cli_parser-flux-options">
-<h2>Flux options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-flux-options" title="Link to this heading">#</a></h2>
+<section id="olive-diffusion-lora-flux-options">
+<span id="olive.cli.launcher-get_cli_parser-flux-options"></span><h2>Flux options<a class="headerlink" href="#olive-diffusion-lora-flux-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--guidance_scale</kbd></dt>
 <dd><p>Guidance scale for Flux training. Default: 3.5.</p>
@@ -1356,7 +1356,7 @@
 <section id="auto-optimization">
 <h1>Auto-Optimization<a class="headerlink" href="#auto-optimization" title="Link to this heading">#</a></h1>
 <p>Automatically optimize the input model for the given target and precision.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-auto-opt"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">auto</span><span class="o">-</span><span class="n">opt</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                       <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">device</span> <span class="p">{</span><span class="n">gpu</span><span class="p">,</span><span class="n">cpu</span><span class="p">,</span><span class="n">npu</span><span class="p">}]</span>
@@ -1377,8 +1377,8 @@
                       <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-auto-opt-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-auto-opt-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -1499,7 +1499,7 @@
 <section id="generate-adapters">
 <h1>Generate Adapters<a class="headerlink" href="#generate-adapters" title="Link to this heading">#</a></h1>
 <p>Generate ONNX model with adapters as inputs.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">adapter</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-generate-adapter"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">adapter</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">adapter_type</span> <span class="p">{</span><span class="n">lora</span><span class="p">,</span><span class="n">dora</span><span class="p">,</span><span class="n">loha</span><span class="p">}]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">adapter_format</span> <span class="p">{</span><span class="n">pt</span><span class="p">,</span><span class="n">numpy</span><span class="p">,</span><span class="n">safetensors</span><span class="p">,</span><span class="n">onnx_adapter</span><span class="p">}]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save_config_file</span><span class="p">]</span>
@@ -1508,8 +1508,8 @@
                               <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-generate-adapter-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-generate-adapter-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -1556,7 +1556,7 @@
 <section id="convert-adapters">
 <h1>Convert Adapters<a class="headerlink" href="#convert-adapters" title="Link to this heading">#</a></h1>
 <p>Convert LoRA adapter weights to a file that will be consumed by ONNX models generated by Olive ExtractedAdapters pass.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">convert</span><span class="o">-</span><span class="n">adapters</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span>
+<div class="highlight-default notranslate" id="olive-convert-adapters"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">convert</span><span class="o">-</span><span class="n">adapters</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">adapter_format</span> <span class="p">{</span><span class="n">pt</span><span class="p">,</span><span class="n">numpy</span><span class="p">,</span><span class="n">safetensors</span><span class="p">,</span><span class="n">onnx_adapter</span><span class="p">}]</span>
                               <span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span> <span class="p">[</span><span class="o">--</span><span class="n">dtype</span> <span class="p">{</span><span class="n">float32</span><span class="p">,</span><span class="n">float16</span><span class="p">}]</span>
                               <span class="p">[</span><span class="o">--</span><span class="n">quantize_int4</span><span class="p">]</span>
@@ -1565,8 +1565,8 @@
                               <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-convert-adapters-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-convert-adapters-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-a, --adapter_path</kbd></dt>
 <dd><p>Path to the adapters weights saved after peft fine-tuning. Can be a local folder or huggingface id.</p>
@@ -1612,7 +1612,7 @@
 <section id="tune-onnxruntime-session-params">
 <h1>Tune OnnxRuntime Session Params<a class="headerlink" href="#tune-onnxruntime-session-params" title="Link to this heading">#</a></h1>
 <p>Automatically tune the OnnxRuntime session parameters for a given onnx model. Currently, for onnx model converted from huggingface model and used for generative tasks, user can simply provide the –model onnx_model_path –hf_model_name hf_model_name –device device_type to get the tuned session parameters.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">tune</span><span class="o">-</span><span class="n">session</span><span class="o">-</span><span class="n">params</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-tune-session-params"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">tune</span><span class="o">-</span><span class="n">session</span><span class="o">-</span><span class="n">params</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">cpu_cores</span> <span class="n">CPU_CORES</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">io_bind</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">enable_cuda_graph</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">execution_mode_list</span> <span class="p">[</span><span class="n">EXECUTION_MODE_LIST</span> <span class="o">...</span><span class="p">]]</span>
@@ -1633,8 +1633,8 @@
                                  <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-tune-session-params-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-tune-session-params-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -1725,15 +1725,15 @@
 <section id="generate-cost-model-for-model-splitting">
 <h1>Generate Cost Model for Model Splitting<a class="headerlink" href="#generate-cost-model-for-model-splitting" title="Link to this heading">#</a></h1>
 <p>Generate a cost model for a given model and save it as a csv file. This cost model is consumed by the CaptureSplitInfo pass. Only supports HfModel.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">cost</span><span class="o">-</span><span class="n">model</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-generate-cost-model"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">cost</span><span class="o">-</span><span class="n">model</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span>
                                  <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span>
                                  <span class="p">[</span><span class="o">-</span><span class="n">p</span> <span class="p">{</span><span class="n">fp32</span><span class="p">,</span><span class="n">fp16</span><span class="p">,</span><span class="n">fp8</span><span class="p">,</span><span class="n">int32</span><span class="p">,</span><span class="n">uint32</span><span class="p">,</span><span class="n">int16</span><span class="p">,</span><span class="n">uint16</span><span class="p">,</span><span class="n">int8</span><span class="p">,</span><span class="n">uint8</span><span class="p">,</span><span class="n">int4</span><span class="p">,</span><span class="n">uint4</span><span class="p">,</span><span class="n">nf4</span><span class="p">,</span><span class="n">fp4</span><span class="p">}]</span>
                                  <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-generate-cost-model-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-generate-cost-model-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -1767,12 +1767,12 @@
 <section id="configure-qualcomm-sdk">
 <h1>Configure Qualcomm SDK<a class="headerlink" href="#configure-qualcomm-sdk" title="Link to this heading">#</a></h1>
 <p>Configure Qualcomm SDK.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">configure</span><span class="o">-</span><span class="n">qualcomm</span><span class="o">-</span><span class="n">sdk</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">py_version</span> <span class="p">{</span><span class="mf">3.6</span><span class="p">,</span><span class="mf">3.8</span><span class="p">}</span>
+<div class="highlight-default notranslate" id="olive-configure-qualcomm-sdk"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">configure</span><span class="o">-</span><span class="n">qualcomm</span><span class="o">-</span><span class="n">sdk</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">--</span><span class="n">py_version</span> <span class="p">{</span><span class="mf">3.6</span><span class="p">,</span><span class="mf">3.8</span><span class="p">}</span>
                                     <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-configure-qualcomm-sdk-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-configure-qualcomm-sdk-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--py_version</kbd></dt>
 <dd><p>Possible choices: 3.6, 3.8</p>
@@ -1788,13 +1788,13 @@
 <section id="shared-cache">
 <h1>Shared Cache<a class="headerlink" href="#shared-cache" title="Link to this heading">#</a></h1>
 <p>Delete Olive model cache stored in the cloud.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">shared</span><span class="o">-</span><span class="n">cache</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">delete</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="nb">all</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">y</span><span class="p">]</span> <span class="o">--</span><span class="n">account</span> <span class="n">ACCOUNT</span>
+<div class="highlight-default notranslate" id="olive-shared-cache"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">shared</span><span class="o">-</span><span class="n">cache</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">delete</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="nb">all</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">y</span><span class="p">]</span> <span class="o">--</span><span class="n">account</span> <span class="n">ACCOUNT</span>
                           <span class="o">--</span><span class="n">container</span> <span class="n">CONTAINER</span> <span class="p">[</span><span class="o">--</span><span class="n">model_hash</span> <span class="n">MODEL_HASH</span><span class="p">]</span>
                           <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-shared-cache-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-shared-cache-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--delete</kbd></dt>
 <dd><p>Delete a model cache from the shared cache.</p>
@@ -1827,7 +1827,7 @@
 <section id="benchmark">
 <h1>Benchmark<a class="headerlink" href="#benchmark" title="Link to this heading">#</a></h1>
 <p>Run benchmarking using llm-eval.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">benchmark</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
+<div class="highlight-default notranslate" id="olive-benchmark"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">benchmark</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">m</span> <span class="n">MODEL_NAME_OR_PATH</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">t</span> <span class="n">TASK</span><span class="p">]</span>
                        <span class="p">[</span><span class="o">--</span><span class="n">trust_remote_code</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">test</span> <span class="p">[</span><span class="n">TEST</span><span class="p">]]</span> <span class="p">[</span><span class="o">-</span><span class="n">a</span> <span class="n">ADAPTER_PATH</span><span class="p">]</span>
                        <span class="p">[</span><span class="o">--</span><span class="n">model_script</span> <span class="n">MODEL_SCRIPT</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">script_dir</span> <span class="n">SCRIPT_DIR</span><span class="p">]</span>
                        <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span><span class="p">]</span> <span class="o">--</span><span class="n">tasks</span> <span class="p">[</span><span class="n">TASKS</span> <span class="o">...</span><span class="p">]</span>
@@ -1839,8 +1839,8 @@
                        <span class="p">[</span><span class="o">--</span><span class="n">container_name</span> <span class="n">CONTAINER_NAME</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-benchmark-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-benchmark-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-m, --model_name_or_path</kbd></dt>
 <dd><p>Path to the input model. See <a class="reference external" href="https://microsoft.github.io/Olive/reference/cli.html#providing-input-models">https://microsoft.github.io/Olive/reference/cli.html#providing-input-models</a> for more information.</p>
@@ -1892,8 +1892,8 @@
 </dd>
 </dl>
 </section>
-<section id="olive.cli.launcher-get_cli_parser-lm-eval-evaluator-options">
-<h2>lm-eval evaluator options<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-lm-eval-evaluator-options" title="Link to this heading">#</a></h2>
+<section id="olive-benchmark-lm-eval-evaluator-options">
+<span id="olive.cli.launcher-get_cli_parser-lm-eval-evaluator-options"></span><h2>lm-eval evaluator options<a class="headerlink" href="#olive-benchmark-lm-eval-evaluator-options" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>--tasks</kbd></dt>
 <dd><p>List of tasks to evaluate on.</p>
@@ -1926,15 +1926,15 @@
 <section id="generate-model-package">
 <h1>Generate Model Package<a class="headerlink" href="#generate-model-package" title="Link to this heading">#</a></h1>
 <p>Merge multiple model outputs into a model package with manifest and per-component metadata.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">model</span><span class="o">-</span><span class="n">package</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">s</span> <span class="n">SOURCE</span> <span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span>
+<div class="highlight-default notranslate" id="olive-generate-model-package"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">olive</span> <span class="n">generate</span><span class="o">-</span><span class="n">model</span><span class="o">-</span><span class="n">package</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="o">-</span><span class="n">s</span> <span class="n">SOURCE</span> <span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT_PATH</span>
                                     <span class="p">[</span><span class="o">--</span><span class="n">model_name</span> <span class="n">MODEL_NAME</span><span class="p">]</span>
                                     <span class="p">[</span><span class="o">--</span><span class="n">model_version</span> <span class="n">MODEL_VERSION</span><span class="p">]</span>
                                     <span class="p">[</span><span class="o">--</span><span class="n">log_level</span> <span class="n">LOG_LEVEL</span><span class="p">]</span>
                                     <span class="p">[</span><span class="o">--</span><span class="n">disable_telemetry</span><span class="p">]</span>
 </pre></div>
 </div>
-<section id="olive.cli.launcher-get_cli_parser-named-arguments">
-<h2>Named Arguments<a class="headerlink" href="#olive.cli.launcher-get_cli_parser-named-arguments" title="Link to this heading">#</a></h2>
+<section id="olive-generate-model-package-named-arguments">
+<span id="olive.cli.launcher-get_cli_parser-named-arguments"></span><h2>Named Arguments<a class="headerlink" href="#olive-generate-model-package-named-arguments" title="Link to this heading">#</a></h2>
 <dl class="option-list">
 <dt><kbd>-s, --source</kbd></dt>
 <dd><p>Source Olive output directory. Repeat to add multiple variants. A single source is allowed (single-variant package).</p>
@@ -2060,77 +2060,77 @@ Specifies the format of the model. For available options, refer to <a class="ref
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Command Line Tools</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run">Run</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-model-options-(not-required)">Model options (not required)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-run-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-run-model-options-not-required">Model options (not required)</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#optimize">Optimize</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-optimize-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#quantization">Quantization</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-quantize-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#capture-onnx-graph">Capture Onnx Graph</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-pytorch-exporter-options">PyTorch Exporter options</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-model-builder-options">Model Builder options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-capture-onnx-graph-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-capture-onnx-graph-pytorch-exporter-options">PyTorch Exporter options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-capture-onnx-graph-model-builder-options">Model Builder options</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#run-pass">Run Pass</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-run-pass-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#finetune">Finetune</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lora-options">LoRA options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-finetune-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-finetune-lora-options">LoRA options</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#diffusion-lora">Diffusion LoRA</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lora-options">LoRA options</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-dreambooth-options">DreamBooth options</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-data-options">Data options</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-training-options">Training options</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-flux-options">Flux options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-diffusion-lora-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-diffusion-lora-lora-options">LoRA options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-diffusion-lora-dreambooth-options">DreamBooth options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-diffusion-lora-data-options">Data options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-diffusion-lora-training-options">Training options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-diffusion-lora-flux-options">Flux options</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#auto-optimization">Auto-Optimization</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-auto-opt-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-adapters">Generate Adapters</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-generate-adapter-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#convert-adapters">Convert Adapters</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-convert-adapters-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#tune-onnxruntime-session-params">Tune OnnxRuntime Session Params</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-tune-session-params-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-cost-model-for-model-splitting">Generate Cost Model for Model Splitting</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-generate-cost-model-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-qualcomm-sdk">Configure Qualcomm SDK</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-configure-qualcomm-sdk-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#shared-cache">Shared Cache</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-shared-cache-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#benchmark">Benchmark</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-lm-eval-evaluator-options">lm-eval evaluator options</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-benchmark-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-benchmark-lm-eval-evaluator-options">lm-eval evaluator options</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#generate-model-package">Generate Model Package</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive.cli.launcher-get_cli_parser-named-arguments">Named Arguments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#olive-generate-model-package-named-arguments">Named Arguments</a></li>
 </ul>
 </li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#providing-input-models">Providing Input Models</a></li>
