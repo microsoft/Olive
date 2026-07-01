@@ -227,6 +227,17 @@ class OnnxDiscrepancyCheck(Pass):
                     "This allows direct comparison between the reference and optimized models."
                 ),
             ),
+            "test_metrics": PassConfigParam(
+                type_=Optional[list[str]],
+                default_value=None,
+                description=(
+                    "List of test metrics to evaluate. Accepted values are ``'mae'`` (max absolute error "
+                    "between ONNX and reference PyTorch outputs) and ``'speedup'`` (ONNX-vs-PyTorch "
+                    "inference latency). When set, this field takes precedence over ``timing_iterations`` "
+                    "and ``max_mae``: ``'speedup'`` enables timing, ``'mae'`` enforces the MAE threshold. "
+                    "Example: ``['mae', 'speedup']``. Set by the CLI ``--test_metrics`` option."
+                ),
+            ),
             "max_mae": PassConfigParam(
                 type_=Optional[float],
                 default_value=None,
@@ -511,8 +522,19 @@ class OnnxDiscrepancyCheck(Pass):
         )
         logger.info(summary)
 
+        # Resolve effective metric settings: test_metrics takes precedence when set.
+        # This lets the CLI store a human-readable ["mae", "speedup"] list in the config
+        # while still supporting the lower-level timing_iterations / max_mae controls for
+        # advanced users and backward compatibility with older configs.
+        if config.test_metrics is not None:
+            effective_timing_iterations = 5 if "speedup" in config.test_metrics else 0
+            effective_max_mae = 0.1 if "mae" in config.test_metrics else None
+        else:
+            effective_timing_iterations = config.timing_iterations
+            effective_max_mae = config.max_mae
+
         # Measure inference speedup (ONNX vs PyTorch) on the target device
-        if config.timing_iterations > 0:
+        if effective_timing_iterations > 0:
             timing = self._measure_speedup(
                 ref_model,
                 session,
@@ -520,7 +542,7 @@ class OnnxDiscrepancyCheck(Pass):
                 io_config,
                 torch_device,
                 config.warmup_iterations,
-                config.timing_iterations,
+                effective_timing_iterations,
             )
             if timing is not None:
                 pytorch_time, onnx_time, speedup = timing
@@ -530,12 +552,12 @@ class OnnxDiscrepancyCheck(Pass):
         else:
             logger.info(
                 "OnnxDiscrepancyCheck speedup measurement skipped because timing_iterations=%d.",
-                config.timing_iterations,
+                effective_timing_iterations,
             )
 
         # Check thresholds
         failures = []
-        if config.max_mae is not None and max_abs_error > config.max_mae:
+        if effective_max_mae is not None and max_abs_error > effective_max_mae:
             failures.append(f"Max absolute error {max_abs_error:.6f} exceeds threshold {config.max_mae:.6f}")
         if config.max_elements_above_0_1 is not None and count_above_0_1 > config.max_elements_above_0_1:
             failures.append(
