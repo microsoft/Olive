@@ -1743,36 +1743,44 @@ class ReplaceAttentionMaskValue(ProtoSurgeon):
         return None
 
 
-class RemoveGidxFromMatMulNBits(ProtoSurgeon):
-    def __call__(self, model: ModelProto):
-        nodes_to_modify = []
-        tensors_to_remove = []
+class RemoveGidxFromMatMulNBits(Surgeon):
+    """Drop sorted ``g_idx`` inputs from nodes (e.g. ``MatMulNBits``).
 
-        # Identify MatMulNBits nodes with sorted g_idx initializers
-        for node in model.graph.node:
-            gidx_input = next((inp for inp in node.input if inp.endswith("g_idx")), None)
-            if not gidx_input:
+    A ``g_idx`` that is monotonically non-decreasing is an identity channel
+    permutation, so it can be removed and the node falls back to the default
+    channel order. The now-unused ``g_idx`` initializer is pruned.
+    """
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
+        removed = 0
+        for node in list(graph):
+            drop = None
+            for inp in node.inputs:
+                if (
+                    inp is not None
+                    and inp.name
+                    and inp.name.endswith("g_idx")
+                    and inp.const_value is not None
+                    and np.all(np.diff(inp.const_value.numpy().ravel()) >= 0)
+                ):
+                    drop = inp
+                    break
+            if drop is None:
                 continue
 
-            initializer = next((init for init in model.graph.initializer if init.name == gidx_input), None)
-            if not initializer:
-                continue
+            # Rebuild the node's inputs without the g_idx entry (shifting later inputs left).
+            new_inputs = [inp for inp in node.inputs if inp is not drop]
+            for idx, value in enumerate(new_inputs):
+                node.replace_input_with(idx, value)
+            node.resize_inputs(len(new_inputs))
 
-            arr = onnx.numpy_helper.to_array(initializer)
-            if np.all(np.diff(arr.ravel()) >= 0):  # g_idx is sorted
-                nodes_to_modify.append(node.name)
-                tensors_to_remove.append(initializer)
+            if drop.name in graph.initializers and next(iter(drop.uses()), None) is None:
+                del graph.initializers[drop.name]
+            removed += 1
 
-        # Remove identified g_idx tensors from initializers
-        for tensor in tensors_to_remove:
-            model.graph.initializer.remove(tensor)
-
-        # Update nodes to drop g_idx input
-        for node in model.graph.node:
-            if node.name in nodes_to_modify:
-                node.input[:] = [inp for inp in node.input if not inp.endswith("g_idx")]
-
-        logger.debug("Removed g_idx from %d MatMulNBits nodes", len(nodes_to_modify))
+        if removed:
+            logger.debug("Removed g_idx from %d nodes", removed)
         return model
 
 
