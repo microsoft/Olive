@@ -2257,11 +2257,6 @@ class LMMSEvaluator(OliveEvaluator):
         self.hf_model_kwargs = kwargs.get("hf_model_kwargs") or {}
 
     @staticmethod
-    def _resolve_model_dir(model: ONNXModelHandler) -> Path:
-        model_path = Path(model.model_path)
-        return model_path if model_path.is_dir() else model_path.parent
-
-    @staticmethod
     def _resolve_execution_provider(execution_providers: Optional[Union[str, list[str]]]):
         if not execution_providers:
             return None
@@ -2281,8 +2276,7 @@ class LMMSEvaluator(OliveEvaluator):
     ):
         from olive.evaluator.lmms_ort import LMMSORTGenAIEvaluator
 
-        genai_config = self._resolve_model_dir(model) / "genai_config.json"
-        if not genai_config.exists():
+        if _find_genai_config(model) is None:
             raise ValueError(
                 "LMMSEvaluator requires an ORT-GenAI package "
                 "(directory containing genai_config.json) for ONNXModelHandler input. "
@@ -2292,7 +2286,7 @@ class LMMSEvaluator(OliveEvaluator):
                 "processor; use HfModelHandler or an ORT-GenAI package instead."
             )
 
-        model_dir = str(self._resolve_model_dir(model))
+        model_dir = _get_genai_model_dir(model)
         logger.info("Running lmms-eval (model_class=ortgenai_mm, model_dir=%s)", model_dir)
         return LMMSORTGenAIEvaluator(
             pretrained=model_dir,
