@@ -170,9 +170,7 @@ class TestCompositeToOnnxPackage:
             src_root, {"decoder": "decoder/model.onnx", "embedding": "embedding/model.onnx"}
         )
 
-        p = create_pass_from_dict(
-            CompositeToOnnxPackage, {"entry_point_component": "embedding"}, disable_search=True
-        )
+        p = create_pass_from_dict(CompositeToOnnxPackage, {"entry_point_component": "embedding"}, disable_search=True)
         out = p.run(composite, str(tmp_path / "out"))
 
         assert Path(out.model_path).parent.name == "embedding"
