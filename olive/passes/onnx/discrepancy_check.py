@@ -312,12 +312,12 @@ class OnnxDiscrepancyCheck(Pass):
             ),
             "attn_impl": PassConfigParam(
                 type_=Optional[str],
-                default_value=None,
+                default_value="sdpa",
                 description=(
                     "Attention implementation to use when loading the reference HuggingFace model via "
                     "``AutoModelForCausalLM.from_pretrained``. Passed as ``attn_implementation`` to "
                     "the model loader. Common values are ``'eager'``, ``'sdpa'``, and ``'flash_attention_2'``. "
-                    "When ``None`` (the default), the model's own default is used."
+                    "Defaults to ``'sdpa'``."
                 ),
             ),
             "llama_cpp": PassConfigParam(
@@ -421,9 +421,7 @@ class OnnxDiscrepancyCheck(Pass):
                 f"Got architectures={architectures}"
             )
 
-        ref_model = AutoModelForCausalLM.from_pretrained(
-            ref_path, config=ref_cfg, **({} if config.attn_impl is None else {"attn_implementation": config.attn_impl})
-        )
+        ref_model = AutoModelForCausalLM.from_pretrained(ref_path, config=ref_cfg, attn_implementation=config.attn_impl)
         ref_model.eval()
 
         # Determine the floating-point dtype used by the ONNX model weights and
@@ -477,6 +475,7 @@ class OnnxDiscrepancyCheck(Pass):
         config_save_path = Path(report_dir) / "reference_model_config.json"
         config_save_path.parent.mkdir(parents=True, exist_ok=True)
         config_save_path.write_text(ref_cfg.to_json_string())
+        logger.info("Saved reference model config to %s", config_save_path)
 
         session = model.prepare_session(
             device=device,
@@ -561,6 +560,12 @@ class OnnxDiscrepancyCheck(Pass):
                 results["pytorch_latency_s"] = pytorch_time
                 results["onnx_latency_s"] = onnx_time
                 results["speedup"] = speedup
+                logger.info(
+                    "OnnxDiscrepancyCheck speedup: pytorch_latency_s=%.4f, onnx_latency_s=%.4f, speedup=%.2f",
+                    pytorch_time,
+                    onnx_time,
+                    speedup,
+                )
         else:
             logger.info(
                 "OnnxDiscrepancyCheck speedup measurement skipped because timing_iterations=%d.",
@@ -619,6 +624,7 @@ class OnnxDiscrepancyCheck(Pass):
         report_path = Path(report_dir) / "discrepancy_check_results.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps(results, indent=2))
+        logger.info("Saved discrepancy check results to %s", report_path)
 
         # Store results in model attributes so the CLI can persist them in the output directory
         model_attributes = dict(model.model_attributes) if model.model_attributes else {}
@@ -923,6 +929,7 @@ class OnnxDiscrepancyCheck(Pass):
         # Save model and tokenizer in standard HuggingFace format.
         ref_model.save_pretrained(model_dir, safe_serialization=True)
         tokenizer.save_pretrained(model_dir)
+        logger.info("Saved reference HuggingFace model and tokenizer to %s", model_dir)
 
         # Step 1: Convert to GGUF using the official convert_hf_to_gguf.py CLI.
         subprocess.run(
@@ -931,6 +938,7 @@ class OnnxDiscrepancyCheck(Pass):
             text=True,
             check=True,
         )
+        logger.info("Converted HuggingFace model to GGUF at %s", gguf_path)
 
         # Step 2: Run inference inside llama_env using the pre-converted GGUF file.
         (output_dir_path / "llama_cpp_helper.py").write_text(_LLAMA_CPP_HELPER_SCRIPT)

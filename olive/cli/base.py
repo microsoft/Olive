@@ -351,7 +351,7 @@ def _get_hf_input_model(args: Namespace, model_path: OLIVE_RESOURCE_ANNOTATIONS)
         "type": "HfModel",
         "model_path": model_path,
         "load_kwargs": {
-            "attn_implementation": "eager",
+            "attn_implementation": "sdpa",
         },
     }
     # use getattr to avoid AttributeError in case hf model or adapter_path is not supported

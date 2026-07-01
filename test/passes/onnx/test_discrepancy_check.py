@@ -106,7 +106,9 @@ class TestCompareGeneration:
             patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
         ):
             pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
-            result = pass_instance.compare_generation(config, mock_ref_model, ref_model_path=config.reference_model_path)
+            result = pass_instance.compare_generation(
+                config, mock_ref_model, ref_model_path=config.reference_model_path
+            )
 
         mock_generator.append_tokens.assert_called_once_with([[1, 2, 3]])
         # Common prefix: [1, 2, 3, 10, 11] = 5 tokens before divergence
@@ -172,7 +174,9 @@ class TestCompareGeneration:
             patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
         ):
             pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
-            result = pass_instance.compare_generation(config, mock_ref_model, ref_model_path=config.reference_model_path)
+            result = pass_instance.compare_generation(
+                config, mock_ref_model, ref_model_path=config.reference_model_path
+            )
 
         mock_generator.append_tokens.assert_called_once_with([[10, 20]])
         # All 5 tokens match
@@ -227,7 +231,9 @@ class TestCompareGeneration:
             patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
         ):
             pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
-            result = pass_instance.compare_generation(config, mock_ref_model, ref_model_path=config.reference_model_path)
+            result = pass_instance.compare_generation(
+                config, mock_ref_model, ref_model_path=config.reference_model_path
+            )
 
         assert mock_ref_model.generate.call_count == 1
         assert mock_ref_model.generate.call_args.kwargs["max_new_tokens"] == 0
