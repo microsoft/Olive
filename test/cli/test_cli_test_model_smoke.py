@@ -122,10 +122,10 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
         ]
     )
 
-    config_path = config_output_dir / "config.json"
+    config_path = config_output_dir / "olive_config.json"
     assert config_path.exists()
     _set_offline_gptq_data_config(config_path)
-    # run --config dump/config.json --test dump/test --output_path dump/run
+    # run --config dump/olive_config.json --test dump/test --output_path dump/run
     _run_cli_main(
         [
             "run",
@@ -249,7 +249,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
             ]
         )
 
-        config_path = config_output_dir / "config.json"
+        config_path = config_output_dir / "olive_config.json"
         assert config_path.exists()
         _set_offline_gptq_data_config(config_path)
 
