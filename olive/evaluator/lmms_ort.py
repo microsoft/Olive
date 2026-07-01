@@ -242,13 +242,14 @@ class LMMSORTGenAIEvaluator(lmms):
         batch_size: int = 1,
         max_new_tokens: int = 256,
         max_length: int = 8192,
-        system_prompt: str = "You are a helpful AI assistant.",
+        system_prompt: str | None = None,
         execution_provider: str | None = None,
         provider_options: dict | None = None,
         fail_on_error: bool = True,
         prompt_template: str | None = None,
         image_token_format: str | None = None,
         audio_token_format: str | None = None,
+        ignore_stop_strings: list[str] | None = None,
         **kwargs,
     ) -> None:
         if _LMMS_EVAL_IMPORT_ERROR is not None:
@@ -285,6 +286,14 @@ class LMMSORTGenAIEvaluator(lmms):
         self.prompt_template = prompt_template
         self.image_token_format = image_token_format
         self.audio_token_format = audio_token_format
+        # Stop strings to suppress from each request's lmms-eval ``until`` list.
+        # lmms-eval injects ``until=["\n\n"]`` (the fewshot_delimiter) for tasks
+        # that don't set their own ``until`` (lmms_eval/api/task.py). For
+        # step-by-step reasoning that double-newline truncates the model after its
+        # first paragraph, before it reaches the final answer. Listing "\n\n" here
+        # drops only that spurious stop; the model still stops normally on its
+        # EOS / end-of-turn token (handled in _run_generation).
+        self.ignore_stop_strings = set(ignore_stop_strings or [])
 
         logger.info("Loading ORT-GenAI model from: %s", self.model_dir)
         ep = _normalize_execution_provider(execution_provider)
@@ -324,6 +333,13 @@ class LMMSORTGenAIEvaluator(lmms):
             self._model_type = cfg.get("model", {}).get("type", "phi4mm")
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid genai_config.json in {self.model_dir}") from e
+
+        # Resolve the default system prompt per model family (matching lmms-eval's
+        # per-model wrappers) when the user did not pass one explicitly. This keeps
+        # HF-input and ORT-GenAI evaluation prompts identical without per-run config.
+        if self.system_prompt is None:
+            self.system_prompt = self._default_system_prompt_for_model_type(self._model_type)
+            logger.info("Using default system prompt for model type '%s': %r", self._model_type, self.system_prompt)
 
         # Probe (once) whether this model's chat template injects media tokens
         # from structured content parts (``{"type": "image"}``). Well-behaved
@@ -529,6 +545,41 @@ class LMMSORTGenAIEvaluator(lmms):
     _DEFAULT_IMAGE_TOKEN_FORMAT = "<|image_{index}|>"
     _DEFAULT_AUDIO_TOKEN_FORMAT = "<|audio_{index}|>"
 
+    # The generic system prompt used by the majority of lmms-eval wrappers
+    # (qwen2_5_vl.py, qwen3_vl.py, gemma3.py, llava_*, minicpm_o, ...). Also the
+    # fallback for model types without a more specific mapping.
+    _DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
+    # Qwen Omni models (qwen2_5_omni.py / qwen3_omni.py) are trained with a fixed
+    # identity system prompt; reuse it verbatim for prompt parity.
+    _QWEN_OMNI_SYSTEM_PROMPT = (
+        "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, "
+        "capable of perceiving auditory and visual inputs, as well as generating text and speech."
+    )
+    # Per-model-family default system prompts. Each entry is a tuple of substrings
+    # that must ALL appear in the (lowercased) genai_config ``model.type``, paired
+    # with the prompt to use. First match wins, so more specific rules come first.
+    # These mirror lmms-eval's per-model wrappers so HF-input and ORT-GenAI
+    # evaluation use identical prompts out of the box. Only applied when the user
+    # does not pass an explicit ``system_prompt``.
+    #   - Qwen Omni (qwen2_5_omni / qwen3_omni_moe): fixed identity prompt.
+    #   - Qwen-VL / Gemma: generic "You are a helpful assistant.".
+    #   - Phi-4-MM: lmms-eval's phi4_multimodal wrapper uses NO system turn, so
+    #     the parity-correct default is an empty string.
+    _MODEL_TYPE_SYSTEM_PROMPTS: tuple[tuple[tuple[str, ...], str], ...] = (
+        (("qwen", "omni"), _QWEN_OMNI_SYSTEM_PROMPT),
+        (("qwen",), _DEFAULT_SYSTEM_PROMPT),
+        (("gemma",), _DEFAULT_SYSTEM_PROMPT),
+        (("phi",), ""),
+    )
+
+    @classmethod
+    def _default_system_prompt_for_model_type(cls, model_type: str | None) -> str:
+        model_type_lower = (model_type or "").lower()
+        for required_substrings, prompt in cls._MODEL_TYPE_SYSTEM_PROMPTS:
+            if all(substring in model_type_lower for substring in required_substrings):
+                return prompt
+        return cls._DEFAULT_SYSTEM_PROMPT
+
     def _probe_structured_content_support(self) -> bool:
         """Detect whether the model's chat template injects media tokens from structured content.
 
@@ -664,6 +715,8 @@ class LMMSORTGenAIEvaluator(lmms):
             stop = gen_kwargs.get("until", None)
             if isinstance(stop, str):
                 stop = [stop]
+            if stop and self.ignore_stop_strings:
+                stop = [s for s in stop if s not in self.ignore_stop_strings] or None
 
             prompt = self._build_prompt_for_request(contexts, len(images), len(audios))
             text = self._run_generation(prompt, images, audios, max_new, stop)

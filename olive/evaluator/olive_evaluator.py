@@ -2090,6 +2090,13 @@ class LMMSEvaluator(OliveEvaluator):
         # stringifies structured content, like Phi-4-MM).
         self.image_token_format = kwargs.get("image_token_format")
         self.audio_token_format = kwargs.get("audio_token_format")
+        # Stop strings to suppress from each task's lmms-eval ``until`` list (e.g.
+        # ["\n\n"]). lmms-eval defaults ``until`` to the fewshot_delimiter ("\n\n")
+        # for tasks that don't set their own, which truncates step-by-step
+        # reasoning at the first blank line. Set this (plus a larger
+        # ``max_new_tokens``) for reasoning tasks so generation runs to the
+        # model's EOS instead. Only used by the ortgenai_mm adapter.
+        self.ignore_stop_strings = kwargs.get("ignore_stop_strings")
         # HF-only knobs (forwarded to lmms-eval's native wrapper if present).
         # ``trust_remote_code`` defaults to False to match the rest of Olive
         # (e.g. olive/common/hf/utils.py, olive/data/component/load_dataset.py)
@@ -2149,6 +2156,7 @@ class LMMSEvaluator(OliveEvaluator):
             prompt_template=self.prompt_template,
             image_token_format=self.image_token_format,
             audio_token_format=self.audio_token_format,
+            ignore_stop_strings=self.ignore_stop_strings,
         )
 
     def _resolve_hf_model_class(self, model: HfModelHandler) -> str:
