@@ -47,6 +47,34 @@ def test_build_prompt_uses_custom_template_and_token_formats():
 
 
 @pytest.mark.parametrize(
+    "model_type,expected",
+    [
+        ("qwen2_5_vl", "You are a helpful assistant."),
+        ("qwen2_5_vl_text", "You are a helpful assistant."),
+        ("qwen3_vl", "You are a helpful assistant."),
+        ("gemma4", "You are a helpful assistant."),
+        ("gemma3", "You are a helpful assistant."),
+        (
+            "qwen2_5_omni",
+            "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, "
+            "capable of perceiving auditory and visual inputs, as well as generating text and speech.",
+        ),
+        (
+            "qwen3_omni_moe",
+            "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, "
+            "capable of perceiving auditory and visual inputs, as well as generating text and speech.",
+        ),
+        ("phi4mm", ""),
+        ("phi3v", ""),
+        ("whisper", "You are a helpful assistant."),
+        (None, "You are a helpful assistant."),
+    ],
+)
+def test_default_system_prompt_for_model_type_matches_lmms_eval_wrappers(model_type, expected):
+    assert LMMSORTGenAIEvaluator._default_system_prompt_for_model_type(model_type) == expected
+
+
+@pytest.mark.parametrize(
     ("execution_provider", "expected"),
     [
         ("CUDAExecutionProvider", "cuda"),
@@ -230,6 +258,61 @@ def test_probe_structured_content_support_false_when_no_chat_template():
     assert inst._probe_structured_content_support() is False
 
 
+def _make_evaluator_for_generate_until(ignore_stop_strings):
+    """Construct an LMMSORTGenAIEvaluator with __init__ skipped, wired so
+    generate_until runs without a real model: _run_generation is a stub that
+    records the stop list it was given."""
+    inst = LMMSORTGenAIEvaluator.__new__(LMMSORTGenAIEvaluator)
+    inst.max_new_tokens = 256
+    inst.ignore_stop_strings = set(ignore_stop_strings or [])
+    inst.cache_hook = SimpleNamespace(add_partial=lambda *a, **k: None)
+    inst._get_doc_and_visuals = lambda *a, **k: (None, [])
+    inst._build_prompt_for_request = lambda *a, **k: "<prompt>"
+    inst.recorded_stops = []
+
+    def _fake_run_generation(prompt, images, audios, max_new, stop):
+        inst.recorded_stops.append(stop)
+        return "ok"
+
+    inst._run_generation = _fake_run_generation
+    return inst
+
+
+def _make_generate_until_request(until):
+    gen_kwargs = {"until": until}
+    return SimpleNamespace(args=("ctx", gen_kwargs, None, 0, "task", "split"))
+
+
+def test_generate_until_drops_ignored_stop_strings():
+    inst = _make_evaluator_for_generate_until(ignore_stop_strings=["\n\n"])
+    req = _make_generate_until_request(until=["\n\n", "Q:"])
+
+    inst.generate_until([req], disable_tqdm=True)
+
+    # "\n\n" is suppressed, the legitimate "Q:" stop is preserved.
+    assert inst.recorded_stops == [["Q:"]]
+
+
+def test_generate_until_sets_stop_none_when_all_ignored():
+    inst = _make_evaluator_for_generate_until(ignore_stop_strings=["\n\n"])
+    req = _make_generate_until_request(until=["\n\n"])
+
+    inst.generate_until([req], disable_tqdm=True)
+
+    # The only stop string was suppressed -> None (generation runs to EOS).
+    assert inst.recorded_stops == [None]
+
+
+def test_generate_until_keeps_stops_when_nothing_to_ignore():
+    inst = _make_evaluator_for_generate_until(ignore_stop_strings=[])
+    req = _make_generate_until_request(until=["\n\n", "Q:"])
+
+    inst.generate_until([req], disable_tqdm=True)
+
+    # No ignore list configured -> stops pass through unchanged.
+    assert inst.recorded_stops == [["\n\n", "Q:"]]
+
+
 def test_lmms_evaluator_converts_lmms_results(tmp_path):
     model_dir = tmp_path / "model"
     model_dir.mkdir()
@@ -287,6 +370,7 @@ def test_lmms_evaluator_converts_lmms_results(tmp_path):
         prompt_template="{user_content}",
         image_token_format="<image>",
         audio_token_format=None,
+        ignore_stop_strings=None,
     )
     simple_evaluate_mock.assert_called_once()
     assert result.get_value("ai2d_lite", "exact_match") == 0.5
