@@ -258,7 +258,7 @@ def test_zero_out_input(tmp_path):
     assert add_node.input[1] == zero_node.output[0]
 
     zero_tensor = zero_node.attribute[0].t
-    zero_values = np.array(zero_tensor.float_data, dtype=np.float32).reshape(zero_tensor.dims)
+    zero_values = numpy_helper.to_array(zero_tensor)
     assert np.all(zero_values == 0), "Zero tensor should contain all zeros."
 
 

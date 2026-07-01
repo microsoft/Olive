@@ -303,76 +303,38 @@ class ReplaceErfWithTanh(RewriteRuleSurgeon):
         return pattern.RewriteRuleSet([pattern.RewriteRule(_pattern, _replacement, _condition)])
 
 
-class ZeroOutInput(ProtoSurgeon):
+class ZeroOutInput(Surgeon):
     def __init__(self, node_name, input_idx):
         self.node_name = node_name
         self.input_idx = input_idx
 
-    def __call__(self, model: ModelProto):
-        from onnx.helper import make_node, tensor_dtype_to_np_dtype
-
-        node = self.get_node_by_name(model, self.node_name)
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
+        node = next((n for n in graph if n.name == self.node_name), None)
         if node is None:
             logger.warning("Node %s not found in the model.", self.node_name)
             return model
 
-        input_name = node.input[self.input_idx]
-
-        target_shape = None
-        target_type = None
-
-        shapes = self.get_tensor_shapes(model)
-        types = self.get_tensor_types(model)
-
-        target_node = self.get_node_by_name(model, input_name, True)
-        if target_node is not None:
-            if input_name in shapes and input_name in types:
-                target_shape = shapes[input_name]
-                target_type = types[input_name]
-            else:
-                logger.warning("Cannot determine shape and type for input '%s'.", input_name)
-                return model
-
-        elif input_name in {inp.name for inp in model.graph.input}:
-            target = next(inp for inp in model.graph.input if inp.name == input_name)
-            if target.type.tensor_type.shape.dim:
-                target_shape = [dim.dim_value if dim.dim_value > 0 else 1 for dim in target.type.tensor_type.shape.dim]
-                target_type = target.type.tensor_type.elem_type
-            else:
-                logger.warning("Cannot determine shape and type for input '%s'.", input_name)
-                return model
-
-        elif input_name in {init.name for init in model.graph.initializer}:
-            target = next(init for init in model.graph.initializer if init.name == input_name)
-            target_shape = target.dims
-            target_type = target.data_type
-        else:
-            logger.warning("Input '%s' not found in the model.", input_name)
+        target = node.inputs[self.input_idx]
+        if target is None or target.shape is None or target.dtype is None:
+            logger.warning("Cannot determine shape and type for input %d of node '%s'.", self.input_idx, self.node_name)
             return model
 
-        if target_shape is None or target_type is None:
-            raise ValueError(f"Cannot determine shape and type for input '{input_name}'.")
+        # Concrete zero tensor matching the input's type; dynamic dims default to 1.
+        dims = [int(d) if isinstance(d, int) else 1 for d in target.shape]
+        zeros = np.zeros(dims, dtype=target.dtype.numpy())
 
-        zero_values = np.zeros(target_shape, dtype=tensor_dtype_to_np_dtype(target_type))
-
-        zero_tensor = make_tensor(
-            name=f"{self.node_name}_zero_tensor",
-            data_type=target_type,
-            dims=target_shape,
-            vals=zero_values.flatten().tolist(),
-        )
-
-        zero_node = make_node(
-            op_type="Constant",
+        zero_node = ir.Node(
+            "",
+            "Constant",
             inputs=[],
-            outputs=[f"{self.node_name}_zero_output_0"],
+            attributes=[ir.AttrTensor("value", ir.tensor(zeros))],
+            num_outputs=1,
             name=f"{self.node_name}_zero",
-            value=zero_tensor,
         )
-
-        model.graph.node.append(zero_node)
-        node.input[self.input_idx] = zero_node.output[0]
-
+        zero_node.outputs[0].name = f"{self.node_name}_zero_output_0"
+        graph.append(zero_node)
+        node.replace_input_with(self.input_idx, zero_node.outputs[0])
         return model
 
 
