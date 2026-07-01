@@ -596,3 +596,54 @@ class TestCompareLlamaCpp:
         assert result["llama_cpp_speedup_vs_onnx"] is None
         assert result["llama_cpp_first_token_id"] == 7
         assert result["llama_cpp_first_token_matches_pytorch"] is True
+
+    def test_compare_llama_cpp_uses_preconverted_gguf(self, tmp_path):
+        import json
+
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = self._make_config()
+        gguf_path = tmp_path / "prebuilt.gguf"
+        gguf_path.write_text("ok")
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 3, 7]])
+
+        llama_output = {
+            "first_token_id": 7,
+            "generated_tokens": [7, 8],
+            "ttft": 0.10,
+            "ttfn": None,
+            "total_time": 0.20,
+        }
+
+        mock_proc = MagicMock()
+        mock_proc.stdout = json.dumps(llama_output)
+
+        encoded = MagicMock()
+        encoded.__getitem__ = MagicMock(side_effect=lambda k: torch.tensor([[1, 2, 3]]) if k == "input_ids" else None)
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = encoded
+        mock_tokenizer.get_vocab = MagicMock(return_value={})
+
+        with (
+            patch.object(OnnxDiscrepancyCheck, "_get_llama_env_python", return_value="/mock/llama_env/bin/python"),
+            patch.object(OnnxDiscrepancyCheck, "_get_convert_script") as mock_convert_script,
+            patch("subprocess.run", return_value=mock_proc) as mock_subprocess_run,
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_llama_cpp(
+                config,
+                mock_ref_model,
+                output_dir=str(tmp_path),
+                ref_model_path=config.reference_model_path,
+                preconverted_gguf_path=str(gguf_path),
+            )
+
+        assert result["llama_cpp_first_token_id"] == 7
+        mock_convert_script.assert_not_called()
+        assert mock_subprocess_run.call_count == 1

@@ -112,7 +112,7 @@ def warn_unused_test_metrics(test, metrics: Optional[list], llama_path: Optional
 def add_discrepancy_check_pass(
     run_config: dict, metrics: Optional[list] = None, llama_env_path: Optional[str] = None
 ) -> dict:
-    """Inject or update a SaveTestModelConfig and an OnnxDiscrepancyCheck pass when --test is active.
+    """Inject or update test-related passes when --test is active.
 
     ``metrics`` selects which test metrics to evaluate. Supported values are defined in
     ``TEST_METRICS`` (``"mae"`` for the max-absolute-error accuracy check and ``"speedup"`` for the
@@ -123,12 +123,15 @@ def add_discrepancy_check_pass(
     When provided, the ``llama_cpp`` flag is enabled on the pass and the path is forwarded as
     ``llama_cpp_env_path``.
 
-    Two passes are managed:
+    Managed passes:
 
     * ``SaveTestModelConfig`` — inserted at the *beginning* of the passes dict so that the
       test-model directory (containing only ``config.json`` and the marker file) is created
       before any other pass runs.  This ensures subsequent passes can find the directory even
       on the first ``olive run`` after ``olive optimize --dry_run --test``.
+
+    * ``ConvertHfToGGUF`` — inserted after ``SaveTestModelConfig`` when ``llama_env_path`` is
+      provided, and converts the test HuggingFace directory to GGUF in advance.
 
     * ``OnnxDiscrepancyCheck`` — appended at the end to compare the ONNX model against the
       reference HuggingFace model.  If an instance is already present in the config (e.g.
@@ -161,6 +164,41 @@ def add_discrepancy_check_pass(
         new_passes.update(passes)
         passes = new_passes
         run_config["passes"] = passes
+
+    # --- ConvertHfToGGUF pass (optional, only with --test_llama_path) ---
+    if llama_env_path:
+        has_gguf_pass = any(
+            isinstance(cfg, dict) and cfg.get("type", "").lower() == "converthftogguf" for cfg in passes.values()
+        )
+        if not has_gguf_pass:
+            new_passes = {}
+            inserted = False
+            for name, cfg in passes.items():
+                new_passes[name] = cfg
+                if not inserted and isinstance(cfg, dict) and cfg.get("type", "").lower() == "savetestmodelconfig":
+                    new_passes["convert_hf_to_gguf"] = {
+                        "type": "ConvertHfToGGUF",
+                        "llama_cpp_env_path": llama_env_path,
+                        "reference_model_path": reference_model_path,
+                    }
+                    inserted = True
+            if not inserted:
+                new_passes = {
+                    "convert_hf_to_gguf": {
+                        "type": "ConvertHfToGGUF",
+                        "llama_cpp_env_path": llama_env_path,
+                        "reference_model_path": reference_model_path,
+                    },
+                    **new_passes,
+                }
+            passes = new_passes
+            run_config["passes"] = passes
+        else:
+            for pass_cfg in passes.values():
+                if isinstance(pass_cfg, dict) and pass_cfg.get("type", "").lower() == "converthftogguf":
+                    pass_cfg["llama_cpp_env_path"] = llama_env_path
+                    pass_cfg["reference_model_path"] = reference_model_path
+                    break
 
     # Determine output directory for discrepancy results
     report_dir = run_config.get("output_dir") or run_config.get("engine", {}).get("output_dir")
@@ -305,7 +343,7 @@ class BaseOliveCLICommand(ABC):
 
         from onnxruntime_genai.models.builder import parse_extra_options
 
-        return parse_extra_options(kv_items)
+        return parse_extra_options(kv_items)  # pylint: disable=no-value-for-parameter
 
     @staticmethod
     def _save_config_file(config: dict):

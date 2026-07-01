@@ -427,6 +427,8 @@ def test_add_discrepancy_check_pass_llama_env_path_sets_config():
     passes = run_config["passes"]
     first_key = next(iter(passes))
     assert passes[first_key]["type"] == "SaveTestModelConfig"
+    assert passes["convert_hf_to_gguf"]["type"] == "ConvertHfToGGUF"
+    assert passes["convert_hf_to_gguf"]["llama_cpp_env_path"] == "/path/to/llama_env"
 
     pass_config = passes["discrepancy_check"]
     assert pass_config["llama_cpp"] is True
@@ -443,6 +445,7 @@ def test_add_discrepancy_check_pass_no_llama_env_path_omits_llama_config():
     assert passes[first_key]["type"] == "SaveTestModelConfig"
 
     pass_config = passes["discrepancy_check"]
+    assert "convert_hf_to_gguf" not in passes
     assert "llama_cpp" not in pass_config
     assert "llama_cpp_env_path" not in pass_config
 
@@ -465,12 +468,15 @@ def test_add_discrepancy_check_pass_updates_existing_pass():
     config["input_model"]["test_model_path"] = "new_ref_model"
     config["output_dir"] = "new_out_dir"
 
-    result = add_discrepancy_check_pass(config, metrics=["mae", "speedup"])
+    result = add_discrepancy_check_pass(config, metrics=["mae", "speedup"], llama_env_path="/path/to/llama_env")
 
     passes = result["passes"]
     # SaveTestModelConfig must be injected at the beginning
     first_key = next(iter(passes))
     assert passes[first_key]["type"] == "SaveTestModelConfig"
+    assert passes["convert_hf_to_gguf"]["type"] == "ConvertHfToGGUF"
+    assert passes["convert_hf_to_gguf"]["llama_cpp_env_path"] == "/path/to/llama_env"
+    assert passes["convert_hf_to_gguf"]["reference_model_path"] == str(Path("new_ref_model").resolve())
 
     pass_config = passes["discrepancy_check"]
     # Reference model path and output dir must be updated to the current values.
