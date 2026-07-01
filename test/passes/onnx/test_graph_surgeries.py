@@ -2164,6 +2164,7 @@ def test_tie_word_embeddings(tmp_path, quantized):
         )
 
 
+
 def test_pow_reducesum_pow_div_to_lpnorm(tmp_path):
     # setup: Pow(x, 2) -> ReduceSum -> Pow(_, 0.5) -> Div(x, _) (an L2-norm)
     model_path = tmp_path / "model.onnx"
@@ -2229,6 +2230,135 @@ def test_quantize_embedding_int8(tmp_path):
     # the FP16 weight is replaced by a uint8 quantized table
     qweight = next(init for init in model_def.graph.initializer if init.name == gbq.input[0])
     assert qweight.data_type == TensorProto.UINT8
+
+
+def _quantize_blockwise_int4(weight, block_size):
+    """Block-wise asymmetric 4-bit RTN quantization matching MatMulNBits packing.
+
+    Quantizes ``weight`` ([rows, cols], float) along ``cols`` in blocks and returns
+    ``(qweight, scales, zero_point)`` with the same packing (two 4-bit codes per
+    byte, low nibble first) that ``TieWordEmbeddings.reuse_weights_match`` expects.
+    """
+    rows, cols = weight.shape
+    n_blocks = cols // block_size
+    w = weight.reshape(rows, n_blocks, block_size)
+    w_min = w.min(axis=2)
+    w_max = w.max(axis=2)
+    scale = np.where((w_max - w_min) == 0, 1.0, (w_max - w_min) / 15.0)
+    zero = np.clip(np.rint(-w_min / scale), 0, 15)
+    codes = np.clip(np.rint(w / scale[:, :, None] + zero[:, :, None]), 0, 15).astype(np.uint8)
+    codes = codes.reshape(rows, cols)
+    # Pack two 4-bit codes per byte (even column -> low nibble).
+    qweight = (codes[:, 0::2] | (codes[:, 1::2] << 4)).astype(np.uint8)  # [rows, cols/2]
+    zcodes = zero.astype(np.uint8)  # [rows, n_blocks]
+    zero_point = (zcodes[:, 0::2] | (zcodes[:, 1::2] << 4)).astype(np.uint8)  # [rows, n_blocks/2]
+    return qweight, scale.astype(np.float16), zero_point
+
+
+def _build_quantized_embedding_tied_model(tmp_path, lm_head_weight):
+    """Build a tiny model with a GatherBlockQuantized embedding and a float MatMul LM head.
+
+    The LM head computes ``hidden @ Transpose(lm_head_weight)`` so its weight is
+    reached through a Transpose, mirroring how mobius emits tied embeddings. The
+    embedding is quantized to INT4; ``lm_head_weight`` ([vocab, hidden], float16) is
+    the tied weight (equal to the embedding table) or an unrelated weight.
+    """
+    vocab, hidden, block_size = 6, 8, 4
+    batch, seq = 1, 2
+
+    qweight, scales, zero_point = _quantize_blockwise_int4(lm_head_weight.astype(np.float32), block_size)
+
+    input_ids = helper.make_tensor_value_info("input_ids", TensorProto.INT64, [batch, seq])
+    hidden_states = helper.make_tensor_value_info("hidden_states", TensorProto.FLOAT16, [batch, seq, hidden])
+    logits = helper.make_tensor_value_info("logits", TensorProto.FLOAT16, [batch, seq, vocab])
+    embeds = helper.make_tensor_value_info("embeds", TensorProto.FLOAT16, [batch, seq, hidden])
+
+    initializers = [
+        numpy_helper.from_array(qweight, name="embed.weight_Q4"),
+        numpy_helper.from_array(scales, name="embed.weight_scales"),
+        numpy_helper.from_array(zero_point, name="embed.weight_zero_point"),
+        numpy_helper.from_array(lm_head_weight, name="embed.weight"),
+    ]
+    nodes = [
+        helper.make_node(
+            "GatherBlockQuantized",
+            ["embed.weight_Q4", "input_ids", "embed.weight_scales", "embed.weight_zero_point"],
+            ["embeds"],
+            name="embed/GatherBlockQuantized",
+            domain=MSFT_DOMAIN,
+            gather_axis=0,
+            quantize_axis=1,
+            block_size=block_size,
+            bits=4,
+        ),
+        helper.make_node("Transpose", ["embed.weight"], ["lm_head.weight_t"], name="lm_head/Transpose", perm=[1, 0]),
+        helper.make_node("MatMul", ["hidden_states", "lm_head.weight_t"], ["logits"], name="lm_head/MatMul"),
+    ]
+    graph = helper.make_graph(
+        nodes=nodes,
+        name="TiedReuseGraph",
+        inputs=[input_ids, hidden_states],
+        outputs=[logits, embeds],
+        initializer=initializers,
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 21), helper.make_opsetid(MSFT_DOMAIN, 1)])
+    model.ir_version = 10
+    model_path = tmp_path / "model.onnx"
+    onnx.save(model, model_path)
+    return ONNXModelHandler(model_path=str(model_path))
+
+
+def test_tie_word_embeddings_reuse_shares_quantized_embedding(tmp_path):
+    # setup: LM head weight equals the (quantized) embedding table -> tied
+    np.random.seed(0)
+    weight = np.random.randn(6, 8).astype(np.float16)
+    input_model = _build_quantized_embedding_tied_model(tmp_path, weight)
+
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "TieWordEmbeddings"}]}, disable_search=True)
+
+    # execute
+    output_model = p.run(input_model, str(tmp_path / "output"))
+
+    # assert: the float MatMul LM head is now a MatMulNBits sharing the embedding's
+    # quantized tensors, and the redundant Transpose + float weight are pruned.
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    op_types = [dag.get_node_op_type(n) for n in dag.get_node_names()]
+    assert "MatMul" not in op_types
+    assert "Transpose" not in op_types
+    assert op_types.count("MatMulNBits") == 1
+
+    logits_producer = dag.get_producer("logits")
+    assert dag.get_node_op_type(logits_producer) == "MatMulNBits"
+    # scales / zero_point are shared with the embedding node
+    lm_head_inputs = dag.get_node_inputs(logits_producer)
+    assert "embed.weight_scales" in lm_head_inputs
+    assert "embed.weight_zero_point" in lm_head_inputs
+    # the float embedding weight is no longer serialized
+    assert "embed.weight" not in dag.ios
+
+
+def test_tie_word_embeddings_reuse_skips_untied_lm_head(tmp_path):
+    # setup: LM head weight is unrelated to the embedding table -> must NOT tie
+    np.random.seed(0)
+    embed_weight = np.random.randn(6, 8).astype(np.float16)
+    unrelated = (embed_weight + 5.0).astype(np.float16)
+    # quantize/serialize using the embedding weight, but feed an unrelated float weight
+    input_model = _build_quantized_embedding_tied_model(tmp_path, embed_weight)
+    # rewrite the float lm_head weight to an unrelated tensor
+    model = onnx.load(input_model.model_path)
+    for init in model.graph.initializer:
+        if init.name == "embed.weight":
+            init.CopyFrom(numpy_helper.from_array(unrelated, name="embed.weight"))
+    onnx.save(model, input_model.model_path)
+
+    p = create_pass_from_dict(GraphSurgeries, {"surgeries": [{"surgeon": "TieWordEmbeddings"}]}, disable_search=True)
+
+    # execute
+    output_model = p.run(input_model, str(tmp_path / "output"))
+
+    # assert: gate rejects the untied weight, LM head stays a float MatMul
+    dag = OnnxDAG.from_model_path(output_model.model_path)
+    assert dag.get_node_op_type(dag.get_producer("logits")) == "MatMul"
 
 
 def test_remove_gidx_from_matmulnbits(tmp_path):
