@@ -167,7 +167,11 @@ def add_discrepancy_check_pass(
     if report_dir and Path(report_dir).suffix and not Path(report_dir).is_dir():
         report_dir = str(Path(report_dir).parent)
 
-    selected_metrics = set(metrics) if metrics else {"mae"}
+    # Only apply metric-related changes when the caller explicitly provided --test_metrics.
+    # When metrics is None (not supplied by the user), metric settings already present in
+    # the config (e.g. from a previous --dry_run --test_metrics run) are left untouched.
+    metrics_explicit = metrics is not None
+    selected_metrics = set(metrics) if metrics_explicit else {"mae"}
 
     # --- OnnxDiscrepancyCheck pass ---
     # If the pass already exists, update the dynamic runtime fields rather than re-creating it from
@@ -180,15 +184,19 @@ def add_discrepancy_check_pass(
             pass_cfg["reference_model_path"] = reference_model_path
             if report_dir is not None:
                 pass_cfg["report_output_dir"] = report_dir
-            # Respect --test_metrics: enable/disable mae threshold and speedup measurement.
-            if "mae" in selected_metrics:
-                pass_cfg.setdefault("max_mae", 0.1)
-            else:
-                pass_cfg.pop("max_mae", None)
-            if "speedup" in selected_metrics:
-                pass_cfg.pop("timing_iterations", None)  # use the default (5 iterations)
-            else:
-                pass_cfg["timing_iterations"] = 0
+            # Only modify metric settings when --test_metrics was explicitly provided.
+            # Without this guard a bare ``olive run --test`` (no --test_metrics) would
+            # reset timing_iterations to 0, discarding any speedup setting that was
+            # written by a prior ``olive optimize --dry_run --test_metrics mae,speedup``.
+            if metrics_explicit:
+                if "mae" in selected_metrics:
+                    pass_cfg.setdefault("max_mae", 0.1)
+                else:
+                    pass_cfg.pop("max_mae", None)
+                if "speedup" in selected_metrics:
+                    pass_cfg.pop("timing_iterations", None)  # use the default (5 iterations)
+                else:
+                    pass_cfg["timing_iterations"] = 0
             # Enable llama.cpp when a venv path is provided.
             if llama_env_path:
                 pass_cfg["llama_cpp"] = True
@@ -208,9 +216,10 @@ def add_discrepancy_check_pass(
     # Enforce the max-absolute-error threshold only when the accuracy metric is requested.
     if "mae" in selected_metrics:
         pass_config["max_mae"] = 0.1
-    # Disable the latency/speedup measurement when the speedup metric is not requested.
-    if "speedup" not in selected_metrics:
-        pass_config["timing_iterations"] = 0
+    # Always write timing_iterations explicitly so the config is self-contained and not
+    # affected by future changes to the pass default.  Use 0 to disable speedup or the
+    # default of 5 iterations when speedup is requested.
+    pass_config["timing_iterations"] = 5 if "speedup" in selected_metrics else 0
     # Enable llama.cpp comparison when a venv path is provided.
     if llama_env_path:
         pass_config["llama_cpp"] = True
