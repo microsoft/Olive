@@ -26,22 +26,6 @@ Because this example runs without `--dry_run`, it produces:
 
 It also inserts an `OnnxDiscrepancyCheck` pass (if one is not already present) that will compare the generated ONNX model against the 2-layer reference model.
 
-> **Note:** When `--dry_run` is used instead, Olive writes `out/qwen/config.json` (so that `olive run --config out/qwen/config.json` works) without launching the conversion yet.
-
-This is a quick way to confirm that:
-
-- Olive can load the source model
-- the selected optimization recipe is valid for your setup
-- the conversion path completes before you run the full model
-
-If you omit the folder and just pass `--test`, `olive run` will save the reduced model under `<output_path>/test_model`.
-
-### Optional: choose which `--test` metrics to run
-
-By default, `--test` evaluates:
-
-- `mae`: maximum absolute error between the ONNX and reference model outputs
-
 Additional metrics can be requested via `--test_metrics` (space- or comma-separated):
 
 - `speedup`: ONNX-vs-PyTorch inference latency
