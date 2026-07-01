@@ -42,6 +42,60 @@ def _infer_shape(dynamic_shape, known_values=None):
     return tuple(inferred_shape)
 
 
+def _infer_onnx_weight_dtype(onnx_model):
+    """Infer the dominant floating-point dtype used by the ONNX model weights.
+
+    Inspects the model initializers (weights) and returns the most common
+    floating-point ONNX TensorProto data type. Returns ``None`` when no
+    floating-point initializer is found.
+    """
+    from collections import Counter
+
+    import onnx
+
+    float_types = {
+        onnx.TensorProto.FLOAT,
+        onnx.TensorProto.FLOAT16,
+        onnx.TensorProto.BFLOAT16,
+        onnx.TensorProto.DOUBLE,
+    }
+    counts = Counter()
+    for initializer in onnx_model.graph.initializer:
+        if initializer.data_type in float_types:
+            numel = 1
+            for d in initializer.dims:
+                numel *= d
+            counts[initializer.data_type] += numel
+    if not counts:
+        return None
+    return counts.most_common(1)[0][0]
+
+
+def _onnx_dtype_to_torch(onnx_dtype):
+    """Map an ONNX TensorProto floating-point data type to a torch dtype."""
+    import onnx
+    import torch
+
+    mapping = {
+        onnx.TensorProto.FLOAT: torch.float32,
+        onnx.TensorProto.FLOAT16: torch.float16,
+        onnx.TensorProto.BFLOAT16: torch.bfloat16,
+        onnx.TensorProto.DOUBLE: torch.float64,
+    }
+    return mapping.get(onnx_dtype)
+
+
+def _onnx_output_to_torch(onnx_output, reference_dtype):
+    import torch
+
+    onnx_tensor = torch.as_tensor(onnx_output)
+    # ORT may return BFLOAT16 as uint16 because numpy has no bf16; reinterpret whenever we're
+    # comparing against a non-integer reference.
+    if onnx_tensor.dtype == torch.uint16 and reference_dtype != torch.uint16:
+        onnx_tensor = onnx_tensor.view(torch.bfloat16)
+    return onnx_tensor
+
+
 def _longest_common_token_sequence(seq_a: list[int], seq_b: list[int]) -> int:
     """Compute the length of the longest common token sequence starting from the beginning.
 
@@ -165,7 +219,6 @@ class OnnxDiscrepancyCheck(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        import numpy as np
         import torch
 
         from olive.common.config_utils import validate_config
@@ -211,6 +264,13 @@ class OnnxDiscrepancyCheck(Pass):
         ref_model = AutoModelForCausalLM.from_pretrained(config.reference_model_path)
         ref_model.eval()
 
+        # Determine the floating-point dtype used by the ONNX model weights and
+        # cast the reference PyTorch model to match, so the comparison uses the
+        # same numeric precision for the weights on both sides.
+        weight_dtype = None
+        onnx_weight_dtype = _infer_onnx_weight_dtype(model.load_model())
+        if onnx_weight_dtype is not None:
+            weight_dtype = _onnx_dtype_to_torch(onnx_weight_dtype)
         # Prepare ONNX session on the target device (fallback to CPU)
         device = self.accelerator_spec.accelerator_type if self.accelerator_spec else None
         execution_provider = self.accelerator_spec.execution_provider if self.accelerator_spec else None
@@ -227,7 +287,20 @@ class OnnxDiscrepancyCheck(Pass):
         torch_device = torch.device("cpu")
         if device == Device.GPU and torch.cuda.is_available():
             torch_device = torch.device("cuda")
-        ref_model = ref_model.to(torch_device)
+        if weight_dtype is not None and torch_device.type == "cpu" and weight_dtype in (torch.float16, torch.bfloat16):
+            logger.info(
+                "OnnxDiscrepancyCheck skipping reference model cast to %s on CPU because the dtype is not supported.",
+                weight_dtype,
+            )
+            ref_model = ref_model.to(torch_device)
+        elif weight_dtype is not None:
+            ref_model = ref_model.to(device=torch_device, dtype=weight_dtype)
+            logger.info(
+                "OnnxDiscrepancyCheck casting reference model weights to %s to match the ONNX model.",
+                weight_dtype,
+            )
+        else:
+            ref_model = ref_model.to(torch_device)
 
         # Save reference PyTorch model for direct comparison
         report_dir = config.report_output_dir or output_model_path
@@ -260,18 +333,20 @@ class OnnxDiscrepancyCheck(Pass):
                     torch_inputs = input_data.to(torch_device)
 
                 torch_output = ref_model(**torch_inputs)
-                torch_logits = torch_output.logits.detach().cpu().numpy()
+                torch_logits = torch_output.logits.detach()
                 # Run ONNX inference
                 onnx_input_feed = format_data(input_data, io_config)
                 onnx_outputs = session.run(None, onnx_input_feed)
-                onnx_logits = onnx_outputs[0]
+                onnx_logits = _onnx_output_to_torch(onnx_outputs[0], torch_logits.dtype)
 
-                # Compute element-wise differences
-                abs_diff = np.abs(torch_logits.astype(np.float64) - onnx_logits.astype(np.float64))
-                all_max_abs_diff.append(float(np.max(abs_diff)))
-                all_count_above_0_1.append(int(np.sum(abs_diff > 0.1)))
-                all_count_above_0_01.append(int(np.sum(abs_diff > 0.01)))
-                total_elements += abs_diff.size
+                # Compute element-wise differences using torch in double precision
+                torch_logits = torch_logits.to(torch.float64).cpu()
+                onnx_logits = onnx_logits.to(torch.float64).cpu()
+                abs_diff = torch.abs(torch_logits - onnx_logits)
+                all_max_abs_diff.append(float(torch.max(abs_diff)))
+                all_count_above_0_1.append(int(torch.sum(abs_diff > 0.1)))
+                all_count_above_0_01.append(int(torch.sum(abs_diff > 0.01)))
+                total_elements += abs_diff.numel()
 
         max_abs_error = max(all_max_abs_diff)
         count_above_0_1 = sum(all_count_above_0_1)

@@ -8,7 +8,7 @@ parameters:
   base_image: 'mcr.microsoft.com/mirror/nvcr/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04'
   trt_version: '10.5.0.18-1+cuda12.6'
   python_version: '3.12'
-  onnxruntime: 'onnxruntime-gpu'
+  onnxruntime: 'onnxruntime-gpu<1.27'
   torch: 'torch'
   requirements_file: 'requirements-test-gpu.txt'
   test_script: 'run_test.sh'
@@ -66,8 +66,8 @@ jobs:
       -v $(Build.SourcesDirectory)/logs:/logs \
       ${{ parameters.docker_image }} \
       bash .azure_pipelines/scripts/${{ parameters.test_script }} \
-      ${{ parameters.torch }} \
-      ${{ parameters.onnxruntime }} \
+      "${{ parameters.torch }}" \
+      "${{ parameters.onnxruntime }}" \
       ${{ parameters.onnxruntime_nightly }} \
       test/${{ parameters.requirements_file }} \
       ${{ parameters.test_path }} \
