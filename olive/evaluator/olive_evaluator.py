@@ -2160,6 +2160,261 @@ class LMEvaluator(OliveEvaluator):
         return flatten_metric_result(metrics)
 
 
+@Registry.register("LMMSEvaluator")
+class LMMSEvaluator(OliveEvaluator):
+    """Evaluator for multimodal models using lmms-eval (EvolvingLMMs-Lab/lmms-eval).
+
+    Supports two model handler types:
+
+    1. :class:`ONNXModelHandler` whose path is an ORT-GenAI multimodal package
+       (directory containing ``genai_config.json`` plus quantized ONNX files,
+       typically produced by ``MobiusBuilder`` + ``OnnxKQuantQuantization``).
+       Dispatches to the ``ortgenai_mm`` adapter in :mod:`olive.evaluator.lmms_ort`.
+
+    2. :class:`HfModelHandler` for HuggingFace PyTorch multimodal models.
+       Dispatches to lmms-eval's native wrapper for the model architecture
+       (e.g. ``phi4_multimodal``, ``qwen2_5_vl``). The wrapper is auto-detected
+       from the HF ``model_type`` field; pass ``model_class`` in the recipe to
+       override.
+
+    Raw single-file ONNX models are intentionally not supported: multimodal
+    inference requires the vision/audio preprocessing pipeline that ORT-GenAI's
+    multimodal processor provides; a bare ``onnxruntime.InferenceSession``
+    cannot do image or audio tokenization on its own.
+
+    Example recipe config::
+
+        "evaluators": {
+            "evaluator": {
+                "type": "LMMSEvaluator",
+                "tasks": ["ai2d_lite", "ocrbench"],
+                "batch_size": 1,
+                "limit": 4
+            }
+        },
+        "evaluator": "evaluator"
+    """
+
+    # HuggingFace model_type -> lmms-eval model_class (canonical id).
+    # Covers the multimodal architectures most relevant to Olive sweeps; other
+    # architectures still work if ``model_class`` is set explicitly in the
+    # recipe. Verified against lmms-eval's AVAILABLE_SIMPLE_MODELS /
+    # AVAILABLE_CHAT_TEMPLATE_MODELS registries.
+    _HF_MODEL_TYPE_TO_LMMS_CLASS: ClassVar[dict[str, str]] = {
+        "phi4mm": "phi4_multimodal",
+        "phi3_v": "phi3v",
+        "qwen2_vl": "qwen2_vl",
+        "qwen2_5_vl": "qwen2_5_vl",
+        "qwen3_vl": "qwen3_vl",
+        "qwen2_audio": "qwen2_audio",
+        "qwen2_5_omni": "qwen2_5_omni",
+        "qwen3_omni": "qwen3_omni",
+        "whisper": "whisper",
+        "gemma3": "gemma3",
+        "minicpm_o": "minicpm_o",
+        "llava": "llava",
+        "llava_onevision": "llava_onevision",
+        "internvl_chat": "internvl",
+    }
+
+    def __init__(self, tasks: list[str], **kwargs):
+        super().__init__(**kwargs)
+        self.tasks = tasks
+        self.limit = kwargs.get("limit")
+        self.model_class = kwargs.get("model_class")
+        self.batch_size = kwargs.get("batch_size", 1)
+        self.max_new_tokens = kwargs.get("max_new_tokens", 256)
+        self.max_length = kwargs.get("max_length", 32768)
+        self.system_prompt = kwargs.get("system_prompt", "You are a helpful AI assistant.")
+        self.ep = kwargs.get("execution_provider")
+        self.ep_options = kwargs.get("provider_options")
+        self.log_samples = bool(kwargs.get("log_samples", False))
+        self.output_path = kwargs.get("output_path")
+        self.fail_on_error = bool(kwargs.get("fail_on_error", True))
+        self.prompt_template = kwargs.get("prompt_template")
+        # Default to None (auto): the ortgenai_mm adapter probes the model's chat
+        # template once at load and, when it injects media tokens from structured
+        # content parts (Gemma-4, Qwen2.5-VL, Qwen3-VL), emits the correct
+        # per-model token automatically — no override needed. Set these only to
+        # force a specific media token format (e.g. for a template that
+        # stringifies structured content, like Phi-4-MM).
+        self.image_token_format = kwargs.get("image_token_format")
+        self.audio_token_format = kwargs.get("audio_token_format")
+        # Stop strings to suppress from each task's lmms-eval ``until`` list (e.g.
+        # ["\n\n"]). lmms-eval defaults ``until`` to the fewshot_delimiter ("\n\n")
+        # for tasks that don't set their own, which truncates step-by-step
+        # reasoning at the first blank line. Set this (plus a larger
+        # ``max_new_tokens``) for reasoning tasks so generation runs to the
+        # model's EOS instead. Only used by the ortgenai_mm adapter.
+        self.ignore_stop_strings = kwargs.get("ignore_stop_strings")
+        # HF-only knobs (forwarded to lmms-eval's native wrapper if present).
+        # ``trust_remote_code`` defaults to False to match the rest of Olive
+        # (e.g. olive/common/hf/utils.py, olive/data/component/load_dataset.py)
+        # and avoid silently executing arbitrary Hub code at load time. Users
+        # who need Phi-4-MM, MiniCPM-o, etc. opt in explicitly via the recipe.
+        self.dtype = kwargs.get("dtype", "auto")
+        self.trust_remote_code = bool(kwargs.get("trust_remote_code", False))
+        self.hf_model_kwargs = kwargs.get("hf_model_kwargs") or {}
+
+    @staticmethod
+    def _resolve_execution_provider(execution_providers: Optional[Union[str, list[str]]]):
+        if not execution_providers:
+            return None
+        if isinstance(execution_providers, list):
+            return execution_providers[0] if execution_providers else None
+        return execution_providers
+
+    @staticmethod
+    def _device_for_hf(device: Device) -> str:
+        # lmms-eval's HF wrappers accept "cuda", "cpu", or a torch.device.
+        return "cuda" if device == Device.GPU else "cpu"
+
+    def _build_ortgenai_mm_lm(
+        self,
+        model: ONNXModelHandler,
+        execution_providers: Optional[Union[str, list[str]]],
+    ):
+        from olive.evaluator.lmms_ort import LMMSORTGenAIEvaluator
+
+        if _find_genai_config(model) is None:
+            raise ValueError(
+                "LMMSEvaluator requires an ORT-GenAI package "
+                "(directory containing genai_config.json) for ONNXModelHandler input. "
+                f"Got ONNXModelHandler without genai_config at {model.model_path}. "
+                "Raw single-file ONNX is not supported for multimodal evaluation because "
+                "the vision/audio preprocessing pipeline lives in ORT-GenAI's multimodal "
+                "processor; use HfModelHandler or an ORT-GenAI package instead."
+            )
+
+        model_dir = _get_genai_model_dir(model)
+        logger.info("Running lmms-eval (model_class=ortgenai_mm, model_dir=%s)", model_dir)
+        return LMMSORTGenAIEvaluator(
+            pretrained=model_dir,
+            batch_size=self.batch_size,
+            max_new_tokens=self.max_new_tokens,
+            max_length=self.max_length,
+            system_prompt=self.system_prompt,
+            execution_provider=self.ep or self._resolve_execution_provider(execution_providers),
+            provider_options=self.ep_options,
+            fail_on_error=self.fail_on_error,
+            prompt_template=self.prompt_template,
+            image_token_format=self.image_token_format,
+            audio_token_format=self.audio_token_format,
+            ignore_stop_strings=self.ignore_stop_strings,
+        )
+
+    def _resolve_hf_model_class(self, model: HfModelHandler) -> str:
+        if self.model_class:
+            return self.model_class
+        hf_model_type = model.get_hf_model_type()
+        lmms_class = self._HF_MODEL_TYPE_TO_LMMS_CLASS.get(hf_model_type)
+        if not lmms_class:
+            raise ValueError(
+                f"Could not auto-detect lmms-eval model_class for HF model_type={hf_model_type!r}. "
+                f"Pass 'model_class' in the evaluator config (e.g. one of "
+                f"{sorted(self._HF_MODEL_TYPE_TO_LMMS_CLASS.values())}, or any other "
+                f"name registered with lmms-eval)."
+            )
+        return lmms_class
+
+    def _build_hf_lm(self, model: HfModelHandler, device: Device):
+        import inspect
+
+        from lmms_eval.models import get_model as lmms_get_model
+
+        model_class = self._resolve_hf_model_class(model)
+        lm_cls = lmms_get_model(model_class)
+
+        # lmms-eval wrappers have inconsistent constructor signatures: phi4_multimodal
+        # accepts dtype/trust_remote_code as named params, qwen2_5_vl asserts
+        # ``kwargs == {}`` at runtime even though it has ``**kwargs`` in its signature.
+        # Because the signature alone cannot tell "absorbs unknown kwargs" from
+        # "rejects unknown kwargs at runtime", we conservatively only forward
+        # ``device/dtype/trust_remote_code`` to wrappers that name them explicitly
+        # as parameters. For wrappers that take a different set of kwargs (e.g.
+        # backend-specific knobs), users pass them through ``hf_model_kwargs``,
+        # which is always forwarded unfiltered as an explicit user opt-in.
+        try:
+            accepted = set(inspect.signature(lm_cls.__init__).parameters)
+        except (TypeError, ValueError):
+            accepted = set()
+
+        optional_kwargs = {
+            "device": self._device_for_hf(device),
+            "dtype": self.dtype,
+            "trust_remote_code": self.trust_remote_code,
+        }
+        forwarded = {k: v for k, v in optional_kwargs.items() if k in accepted}
+
+        init_kwargs = {
+            "pretrained": str(model.model_name_or_path),
+            "batch_size": self.batch_size,
+            **forwarded,
+            **self.hf_model_kwargs,
+        }
+        logger.info(
+            "Running lmms-eval (model_class=%s, pretrained=%s, forwarded_kwargs=%s)",
+            model_class,
+            init_kwargs["pretrained"],
+            sorted(set(init_kwargs) - {"pretrained", "batch_size"}),
+        )
+        return lm_cls(**init_kwargs)
+
+    def evaluate(
+        self,
+        model: "OliveModelHandler",
+        metrics: list[Metric],
+        device: Device = Device.CPU,
+        execution_providers: Optional[Union[str, list[str]]] = None,
+    ) -> MetricResult:
+        from lmms_eval.evaluator import simple_evaluate
+
+        if isinstance(model, ONNXModelHandler):
+            lm = self._build_ortgenai_mm_lm(model, execution_providers)
+        elif isinstance(model, HfModelHandler):
+            lm = self._build_hf_lm(model, device)
+        else:
+            raise ValueError(
+                "LMMSEvaluator supports ONNXModelHandler (ORT-GenAI multimodal package) "
+                f"and HfModelHandler. Got {type(model).__name__}."
+            )
+
+        results = simple_evaluate(
+            model=lm,
+            tasks=self.tasks,
+            batch_size=self.batch_size,
+            limit=self.limit,
+            log_samples=self.log_samples,
+        )
+
+        if self.output_path:
+            out = Path(self.output_path)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            compact = {
+                "results": results.get("results", {}),
+                "configs": {k: str(v) for k, v in results.get("configs", {}).items()},
+            }
+            out.write_text(json.dumps(compact, indent=2, default=str), encoding="utf-8")
+            logger.info("Wrote lmms-eval results to %s", out)
+
+        # Convert lmms-eval results into Olive's MetricResult shape (mirrors LMEvaluator)
+        metrics_dict: dict[str, MetricResult] = {}
+        for task_name in sorted(results.get("results", {}).keys()):
+            task_results = results["results"][task_name]
+            task_metrics = {}
+            for mf, v in sorted(task_results.items()):
+                if mf == "alias" or not isinstance(v, (int, float)):
+                    continue
+                m, _, _ = mf.partition(",")
+                if m.endswith("_stderr"):
+                    continue
+                task_metrics[m] = SubMetricResult(value=float(v), priority=-1, higher_is_better=True)
+            if task_metrics:
+                metrics_dict[task_name] = MetricResult.model_validate(task_metrics)
+
+        return flatten_metric_result(metrics_dict)
+
+
 @Registry.register("MTEBEvaluator")
 class MTEBEvaluator(OliveEvaluator):
     """Evaluator for embedding models using the MTEB (Massive Text Embedding Benchmark) library.
