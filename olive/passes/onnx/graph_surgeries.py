@@ -19,7 +19,12 @@ import onnx
 import onnxscript
 from onnx import ModelProto
 from onnx.helper import make_tensor
-from onnx_ir.passes.common import DeduplicateHashedInitializersPass, InlinePass, RemoveUnusedOpsetsPass
+from onnx_ir.passes.common import (
+    DeduplicateHashedInitializersPass,
+    InlinePass,
+    RemoveUnusedOpsetsPass,
+    ShapeInferencePass,
+)
 from onnxscript import ir, rewriter
 from onnxscript.rewriter import pattern
 
@@ -215,15 +220,21 @@ class RenameOutputs(Surgeon):
         return model
 
 
-class InferShapes(ProtoSurgeon):
-    def __call__(self, model: ModelProto):
-        return onnx.shape_inference.infer_shapes(model)
+class InferShapes(Surgeon):
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        return ShapeInferencePass()(model).model
 
 
-class RemoveShapes(ProtoSurgeon):
-    def __call__(self, model: ModelProto):
-        while len(model.graph.value_info) > 0:
-            model.graph.value_info.pop()
+class RemoveShapes(Surgeon):
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        # value_info is emitted for intermediate values that carry a type/shape;
+        # clearing those on non-output node results empties graph.value_info.
+        graph_outputs = set(model.graph.outputs)
+        for node in model.graph:
+            for value in node.outputs:
+                if value not in graph_outputs:
+                    value.shape = None
+                    value.type = None
         return model
 
 
@@ -365,27 +376,31 @@ class ZeroOutInput(ProtoSurgeon):
         return model
 
 
-class RemoveInputs(ProtoSurgeon):
+class RemoveInputs(Surgeon):
     def __init__(self, names):
         self.names = names
 
-    def __call__(self, model: ModelProto):
-        for name in self.names:
-            for graph_input in model.graph.input:
-                if graph_input.name == name:
-                    model.graph.input.remove(graph_input)
-                    break
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
+        names = set(self.names)
 
-        nodes_to_remove = []
+        # Drop the matching graph inputs.
+        for graph_input in list(graph.inputs):
+            if graph_input.name in names:
+                graph.inputs.remove(graph_input)
 
-        for node in model.graph.node:
-            node.input[:] = [input_name for input_name in node.input if input_name not in self.names]
-            if len(node.input) == 0:
-                nodes_to_remove.append(node)
-
-        for node in nodes_to_remove:
-            model.graph.node.remove(node)
-
+        # Drop references to the removed inputs from each node; remove nodes that
+        # end up with no inputs (matching the original behavior).
+        for node in list(graph):
+            kept = [inp for inp in node.inputs if inp is None or inp.name not in names]
+            if len(kept) == len(node.inputs):
+                continue
+            if not kept:
+                graph.remove(node, safe=True)
+            else:
+                for idx, value in enumerate(kept):
+                    node.replace_input_with(idx, value)
+                node.resize_inputs(len(kept))
         return model
 
 
