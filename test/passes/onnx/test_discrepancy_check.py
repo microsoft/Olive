@@ -241,6 +241,129 @@ class TestCompareGeneration:
         assert result["transformers_time_to_first_token_s"] is None
         assert result["transformers_time_to_first_n_tokens_s"] is None
 
+    def test_compare_generation_reports_first_token_match(self):
+        """first_token_matches is True when both first generated tokens are identical."""
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.reference_model_path = "mock_model"
+        config.genai_model_path = None
+        config.generate_prompt = "Hello world"
+        config.generate_max_new_tokens = 10
+        config.time_to_first_n_tokens = 5
+
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[1, 2, 3]]))
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        # First generated token (after the 3-token prompt) is 10.
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 3, 10, 11, 12]])
+
+        mock_og = MagicMock()
+        mock_og.Model.return_value = MagicMock()
+        mock_genai_tokenizer = MagicMock()
+        mock_og.Tokenizer.return_value = mock_genai_tokenizer
+        mock_genai_tokenizer.encode.return_value = [1, 2, 3]
+        mock_og.GeneratorParams.return_value = MagicMock()
+
+        mock_generator = MagicMock()
+        # GenAI first generated token is also 10 -> match.
+        genai_new_tokens = [10, 99, 99]
+        call_count = [0]
+
+        def is_done_side_effect():
+            return call_count[0] >= len(genai_new_tokens)
+
+        def get_next_tokens_side_effect():
+            token = genai_new_tokens[call_count[0]]
+            call_count[0] += 1
+            return [token]
+
+        mock_generator.is_done = is_done_side_effect
+        mock_generator.get_next_tokens = get_next_tokens_side_effect
+        mock_og.Generator.return_value = mock_generator
+
+        with (
+            patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_generation(
+                config,
+                mock_ref_model,
+                ref_model_path=config.reference_model_path,
+                genai_model_path="explicit_genai_dir",
+                max_new_tokens=20,
+                first_n=5,
+            )
+
+        # The explicit genai_model_path override is used for og.Model.
+        mock_og.Model.assert_called_once_with("explicit_genai_dir")
+        # The max_new_tokens override is forwarded to transformers.generate.
+        assert mock_ref_model.generate.call_args.kwargs["max_new_tokens"] == 20
+        assert result["transformers_first_token"] == 10
+        assert result["genai_first_token"] == 10
+        assert result["first_token_matches"] is True
+
+    def test_compare_generation_reports_first_token_mismatch(self):
+        """first_token_matches is False when the first generated tokens differ."""
+        import torch
+
+        from olive.passes.onnx.discrepancy_check import OnnxDiscrepancyCheck
+
+        config = MagicMock()
+        config.reference_model_path = "mock_model"
+        config.genai_model_path = "mock_genai_model"
+        config.generate_prompt = "Hello"
+        config.generate_max_new_tokens = 10
+        config.time_to_first_n_tokens = 5
+
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[1, 2]]))
+
+        mock_ref_model = MagicMock()
+        mock_ref_model.device = torch.device("cpu")
+        mock_ref_model.generate.return_value = torch.tensor([[1, 2, 30, 31]])
+
+        mock_og = MagicMock()
+        mock_og.Model.return_value = MagicMock()
+        mock_genai_tokenizer = MagicMock()
+        mock_og.Tokenizer.return_value = mock_genai_tokenizer
+        mock_genai_tokenizer.encode.return_value = [1, 2]
+        mock_og.GeneratorParams.return_value = MagicMock()
+
+        mock_generator = MagicMock()
+        genai_new_tokens = [40, 41]
+        call_count = [0]
+
+        def is_done_side_effect():
+            return call_count[0] >= len(genai_new_tokens)
+
+        def get_next_tokens_side_effect():
+            token = genai_new_tokens[call_count[0]]
+            call_count[0] += 1
+            return [token]
+
+        mock_generator.is_done = is_done_side_effect
+        mock_generator.get_next_tokens = get_next_tokens_side_effect
+        mock_og.Generator.return_value = mock_generator
+
+        with (
+            patch.dict(sys.modules, {"onnxruntime_genai": mock_og}),
+            patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer),
+        ):
+            pass_instance = OnnxDiscrepancyCheck.__new__(OnnxDiscrepancyCheck)
+            result = pass_instance.compare_generation(
+                config, mock_ref_model, ref_model_path=config.reference_model_path
+            )
+
+        assert result["transformers_first_token"] == 30
+        assert result["genai_first_token"] == 40
+        assert result["first_token_matches"] is False
+
 
 class TestWeightDtypeInference:
     """Unit tests for ONNX weight dtype inference used to match the reference model precision."""

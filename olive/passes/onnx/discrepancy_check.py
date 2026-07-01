@@ -232,9 +232,13 @@ class OnnxDiscrepancyCheck(Pass):
                 default_value=None,
                 description=(
                     "List of test metrics to evaluate. Accepted values are ``'mae'`` (max absolute error "
-                    "between ONNX and reference PyTorch outputs) and ``'speedup'`` (ONNX-vs-PyTorch "
-                    "inference latency). When set, this field takes precedence over ``timing_iterations`` "
-                    "and ``max_mae``: ``'speedup'`` enables timing, ``'mae'`` enforces the MAE threshold. "
+                    "between ONNX and reference PyTorch outputs), ``'speedup'`` (ONNX-vs-PyTorch "
+                    "inference latency), ``'first_token_20'`` (first generated token comparison over a "
+                    "20-token generation between ONNX Runtime GenAI and transformers), ``'tft'`` (time to "
+                    "the first generated token) and ``'tf5t'`` (time to the first 5 generated tokens). "
+                    "When set, this field takes precedence over ``timing_iterations`` "
+                    "and ``max_mae``: ``'speedup'`` enables timing, ``'mae'`` enforces the MAE threshold, and "
+                    "the generation metrics run the transformers-vs-GenAI comparison. "
                     "Example: ``['mae', 'speedup']``. Set by the CLI ``--test_metrics`` option."
                 ),
             ),
@@ -537,12 +541,16 @@ class OnnxDiscrepancyCheck(Pass):
         # This lets the CLI store a human-readable ["mae", "speedup"] list in the config
         # while still supporting the lower-level timing_iterations / max_mae controls for
         # advanced users and backward compatibility with older configs.
+        requested_metrics = set(config.test_metrics) if config.test_metrics is not None else set()
         if config.test_metrics is not None:
-            effective_timing_iterations = 5 if "speedup" in config.test_metrics else 0
-            effective_max_mae = 0.1 if "mae" in config.test_metrics else None
+            effective_timing_iterations = 5 if "speedup" in requested_metrics else 0
+            effective_max_mae = 0.1 if "mae" in requested_metrics else None
         else:
             effective_timing_iterations = config.timing_iterations
             effective_max_mae = config.max_mae
+
+        # Metrics that require running token generation (transformers vs ONNX Runtime GenAI).
+        generation_metrics = requested_metrics & {"first_token_20", "tft", "tf5t"}
 
         # Measure inference speedup (ONNX vs PyTorch) on the target device
         if effective_timing_iterations > 0:
@@ -593,12 +601,81 @@ class OnnxDiscrepancyCheck(Pass):
         else:
             results["status"] = "passed"
 
-        # Generation token sequence comparison (transformers vs ONNX Runtime GenAI)
-        if config.genai_model_path:
-            gen_results = self.compare_generation(config, ref_model, ref_model_path=ref_path)
+        # Generation token sequence comparison (transformers vs ONNX Runtime GenAI).
+        # Runs when an explicit genai_model_path is configured or when any generation-based
+        # test metric (first_token_20 / tft / tf5t) is requested.  In the latter case the
+        # optimized ONNX model directory is used as the GenAI model when it exposes a
+        # genai_config.json (as produced by the ModelBuilder pass).
+        genai_model_path = config.genai_model_path
+        if genai_model_path is None and generation_metrics:
+            model_dir = Path(model.model_path)
+            model_dir = model_dir if model_dir.is_dir() else model_dir.parent
+            if (model_dir / "genai_config.json").is_file():
+                genai_model_path = str(model_dir)
+                logger.info(
+                    "Using optimized ONNX model directory %s as the GenAI model for generation metrics.",
+                    genai_model_path,
+                )
+            else:
+                logger.warning(
+                    "Generation metrics %s requested but no genai_config.json was found in %s; skipping them.",
+                    sorted(generation_metrics),
+                    model_dir,
+                )
+
+        if genai_model_path:
+            # first_token_20 generates 20 tokens; tf5t measures the time to the first 5 tokens.
+            gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
+            gen_first_n = 5 if "tf5t" in generation_metrics else config.time_to_first_n_tokens
+            gen_results = self.compare_generation(
+                config,
+                ref_model,
+                ref_model_path=ref_path,
+                genai_model_path=genai_model_path,
+                max_new_tokens=gen_max_new_tokens,
+                first_n=gen_first_n,
+            )
             longest_common = gen_results["longest_common_token_sequence"]
             results.update(gen_results)
-            results["genai_model_path"] = config.genai_model_path
+            results["genai_model_path"] = genai_model_path
+
+            # Surface the explicitly requested named metrics for easy inspection.
+            if "first_token_20" in generation_metrics:
+                results["first_token_20"] = {
+                    "transformers_first_token": gen_results.get("transformers_first_token"),
+                    "genai_first_token": gen_results.get("genai_first_token"),
+                    "first_token_matches": gen_results.get("first_token_matches"),
+                    "matching_leading_tokens": longest_common,
+                }
+                logger.info(
+                    "OnnxDiscrepancyCheck first_token_20: matches=%s (transformers=%s, genai=%s), "
+                    "matching_leading_tokens=%s",
+                    gen_results.get("first_token_matches"),
+                    gen_results.get("transformers_first_token"),
+                    gen_results.get("genai_first_token"),
+                    longest_common,
+                )
+            if "tft" in generation_metrics:
+                results["tft"] = {
+                    "transformers_s": gen_results.get("transformers_time_to_first_token_s"),
+                    "genai_s": gen_results.get("genai_time_to_first_token_s"),
+                }
+                logger.info(
+                    "OnnxDiscrepancyCheck tft (time to first token): transformers=%s, genai=%s",
+                    _format_seconds(gen_results.get("transformers_time_to_first_token_s")),
+                    _format_seconds(gen_results.get("genai_time_to_first_token_s")),
+                )
+            if "tf5t" in generation_metrics:
+                results["tf5t"] = {
+                    "transformers_s": gen_results.get("transformers_time_to_first_n_tokens_s"),
+                    "genai_s": gen_results.get("genai_time_to_first_n_tokens_s"),
+                }
+                logger.info(
+                    "OnnxDiscrepancyCheck tf5t (time to first 5 tokens): transformers=%s, genai=%s",
+                    _format_seconds(gen_results.get("transformers_time_to_first_n_tokens_s")),
+                    _format_seconds(gen_results.get("genai_time_to_first_n_tokens_s")),
+                )
+
             if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
                 results["status"] = "failed"
                 gen_failure = (
@@ -713,12 +790,26 @@ class OnnxDiscrepancyCheck(Pass):
 
         return pytorch_time, onnx_time, speedup
 
-    def compare_generation(self, config: type[BasePassConfig], ref_model, *, ref_model_path: str) -> dict:
+    def compare_generation(
+        self,
+        config: type[BasePassConfig],
+        ref_model,
+        *,
+        ref_model_path: str,
+        genai_model_path: Optional[str] = None,
+        max_new_tokens: Optional[int] = None,
+        first_n: Optional[int] = None,
+    ) -> dict:
         """Run generation on both transformers and GenAI and compare them.
 
-        Returns a dict with the longest common token sequence length and the time-to-first-token
-        and time-to-first-N-tokens latencies (in seconds) for both transformers and ONNX Runtime
-        GenAI, where N is ``config.time_to_first_n_tokens``.
+        Returns a dict with the longest common token sequence length, the first-generated-token
+        match between transformers and ONNX Runtime GenAI, and the time-to-first-token and
+        time-to-first-N-tokens latencies (in seconds) for both, where N is ``first_n``
+        (defaults to ``config.time_to_first_n_tokens``).
+
+        ``genai_model_path``, ``max_new_tokens`` and ``first_n`` override the corresponding
+        config values when provided, which lets the caller request specific metrics such as
+        ``first_token_20`` (20-token generation) or ``tf5t`` (first 5 tokens).
         """
         try:
             import onnxruntime_genai as og
@@ -726,10 +817,12 @@ class OnnxDiscrepancyCheck(Pass):
             raise ImportError("Please install `onnxruntime-genai` to enable generation comparison.") from exc
         from transformers import AutoTokenizer, StoppingCriteria, StoppingCriteriaList
 
+        genai_model_path = genai_model_path if genai_model_path is not None else config.genai_model_path
         tokenizer = AutoTokenizer.from_pretrained(ref_model_path)
 
-        max_new_tokens = config.generate_max_new_tokens
-        first_n = max(1, min(config.time_to_first_n_tokens, max_new_tokens)) if max_new_tokens > 0 else 0
+        max_new_tokens = config.generate_max_new_tokens if max_new_tokens is None else max_new_tokens
+        first_n_config = config.time_to_first_n_tokens if first_n is None else first_n
+        first_n = max(1, min(first_n_config, max_new_tokens)) if max_new_tokens > 0 else 0
 
         # Transformers generation
         input_ids = tokenizer(config.generate_prompt, return_tensors="pt").input_ids
@@ -777,7 +870,7 @@ class OnnxDiscrepancyCheck(Pass):
         transformers_tokens = transformers_output[0].cpu().tolist()
 
         # ONNX Runtime GenAI generation
-        genai_model = og.Model(config.genai_model_path)
+        genai_model = og.Model(genai_model_path)
         genai_tokenizer = og.Tokenizer(genai_model)
         genai_input_ids = genai_tokenizer.encode(config.generate_prompt)
 
@@ -787,6 +880,7 @@ class OnnxDiscrepancyCheck(Pass):
         generator = og.Generator(genai_model, params)
         generator.append_tokens([genai_input_ids])
         genai_tokens = list(genai_input_ids)
+        genai_prompt_token_count = len(genai_input_ids)
         genai_ttft = None
         genai_ttfn = None
         num_generated = 0
@@ -803,9 +897,21 @@ class OnnxDiscrepancyCheck(Pass):
 
         longest_common = _longest_common_token_sequence(transformers_tokens, genai_tokens)
 
+        # First generated token comparison (transformers vs ONNX Runtime GenAI).
+        transformers_first_token = (
+            transformers_tokens[prompt_token_count] if len(transformers_tokens) > prompt_token_count else None
+        )
+        genai_first_token = (
+            genai_tokens[genai_prompt_token_count] if len(genai_tokens) > genai_prompt_token_count else None
+        )
+        first_token_matches = transformers_first_token is not None and transformers_first_token == genai_first_token
+
         gen_results = {
             "longest_common_token_sequence": longest_common,
             "time_to_first_n_tokens": first_n,
+            "transformers_first_token": transformers_first_token,
+            "genai_first_token": genai_first_token,
+            "first_token_matches": first_token_matches,
             "transformers_time_to_first_token_s": transformers_ttft,
             "transformers_time_to_first_n_tokens_s": transformers_ttfn,
             "genai_time_to_first_token_s": genai_ttft,
@@ -816,6 +922,7 @@ class OnnxDiscrepancyCheck(Pass):
             f"OnnxDiscrepancyCheck generation comparison: "
             f"transformers_len={len(transformers_tokens)}, genai_len={len(genai_tokens)}, "
             f"longest_common_token_sequence={longest_common}, "
+            f"first_token_matches={first_token_matches}, "
             f"transformers_ttft={_format_seconds(transformers_ttft)}, "
             f"transformers_time_to_first_{first_n}_tokens={_format_seconds(transformers_ttfn)}, "
             f"genai_ttft={_format_seconds(genai_ttft)}, "

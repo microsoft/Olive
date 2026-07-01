@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 TEST_OUTPUT_MARKER_FILE = "olive_test_output.json"
 
 # Metrics that --test can evaluate via the injected OnnxDiscrepancyCheck pass.
-TEST_METRICS = ("mae", "speedup")
+TEST_METRICS = ("mae", "speedup", "first_token_20", "tft", "tf5t")
 
 
 def _parse_test_metrics(value: str) -> list:
@@ -329,9 +329,17 @@ class BaseOliveCLICommand(ABC):
                     if isinstance(pass_cfg, dict) and pass_cfg.get("type", "").lower() == "onnxdiscrepancycheck":
                         pass_cfg["report_output_dir"] = self.args.output_path
             if self.args.save_config_file or self.args.dry_run or is_test:
-                # In --test mode, keep the Olive config.json at the <output_path> root even
-                # though the workflow output_dir points to the "model" subdirectory.
-                self._save_config_file(run_config, self.args.output_path if is_test else None)
+                # In --test mode, keep the Olive config at the <output_path> root even though the
+                # workflow output_dir points to the "model" subdirectory. When dry_run is not
+                # enabled (a one-step run) save it as olive_config.json so it is never confused
+                # with the model's own transformers config.json; dry_run keeps config.json so
+                # `olive run --config <output_path>/config.json` continues to work.
+                config_file_name = "config.json" if self.args.dry_run else "olive_config.json"
+                self._save_config_file(
+                    run_config,
+                    self.args.output_path if is_test else None,
+                    config_file_name,
+                )
             if self.args.dry_run:
                 if is_test:
                     mark_test_output_path(self.args.output_path)
@@ -364,15 +372,17 @@ class BaseOliveCLICommand(ABC):
         return parse_extra_options(kv_items)  # pylint: disable=no-value-for-parameter
 
     @staticmethod
-    def _save_config_file(config: dict, output_dir: Optional[str] = None):
+    def _save_config_file(config: dict, output_dir: Optional[str] = None, file_name: str = "config.json"):
         """Save the config file.
 
         By default the config is written to ``<config["output_dir"]>/config.json``. When
-        ``output_dir`` is provided, the config is written to ``<output_dir>/config.json``
+        ``output_dir`` is provided, the config is written to ``<output_dir>/<file_name>``
         instead (used in --test mode to keep the Olive config at the report directory root).
+        ``file_name`` controls the config file name (e.g. ``olive_config.json`` for a one-step
+        run so it is never confused with the model's own ``config.json``).
         """
         target_dir = output_dir if output_dir is not None else config["output_dir"]
-        config_file_path = Path(target_dir) / "config.json"
+        config_file_path = Path(target_dir) / file_name
         with open(config_file_path, "w") as f:
             json.dump(config, f, indent=4)
         print(f"Config file saved at {config_file_path}")
@@ -707,7 +717,10 @@ def add_input_model_options(
             nargs="+",
             help=(
                 "Metrics to evaluate during a --test run: 'mae' enforces the max absolute error between the "
-                "ONNX and reference model outputs, and 'speedup' measures ONNX-vs-PyTorch inference latency. "
+                "ONNX and reference model outputs, 'speedup' measures ONNX-vs-PyTorch inference latency, "
+                "'first_token_20' compares the first generated token (over a 20-token generation) between "
+                "ONNX Runtime GenAI and transformers, 'tft' reports the time to the first generated token, and "
+                "'tf5t' reports the time to the first 5 generated tokens. "
                 "Accepts space- or comma-separated values (e.g. 'mae,speedup' or 'mae speedup'). "
                 "Defaults to 'mae'. Only used together with --test."
             ),

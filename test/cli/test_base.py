@@ -520,6 +520,12 @@ def test_parse_test_metrics_single():
     assert _parse_test_metrics("mae") == ["mae"]
 
 
+def test_parse_test_metrics_accepts_generation_metrics():
+    from olive.cli.base import _parse_test_metrics
+
+    assert _parse_test_metrics("first_token_20,tft,tf5t") == ["first_token_20", "tft", "tf5t"]
+
+
 def test_parse_test_metrics_invalid_raises():
     import argparse
 
