@@ -44,8 +44,8 @@ def _save_local_tiny_llama(model_path: Path):
         LlamaConfig.from_dict(
             {
                 "vocab_size": 32,
-                "hidden_size": 128,
-                "intermediate_size": 256,
+                "hidden_size": 64,
+                "intermediate_size": 128,
                 "num_hidden_layers": 2,
                 "num_attention_heads": 8,
                 "num_key_value_heads": 8,
