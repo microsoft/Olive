@@ -193,10 +193,8 @@ def add_discrepancy_check_pass(
                     pass_cfg.setdefault("max_mae", 0.1)
                 else:
                     pass_cfg.pop("max_mae", None)
-                if "speedup" in selected_metrics:
-                    pass_cfg.pop("timing_iterations", None)  # use the default (5 iterations)
-                else:
-                    pass_cfg["timing_iterations"] = 0
+                # Always write timing_iterations explicitly so the saved config is self-contained.
+                pass_cfg["timing_iterations"] = 5 if "speedup" in selected_metrics else 0
             # Enable llama.cpp when a venv path is provided.
             if llama_env_path:
                 pass_cfg["llama_cpp"] = True
