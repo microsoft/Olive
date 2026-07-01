@@ -14,6 +14,7 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
+import ml_dtypes
 import numpy as np
 import onnx
 import onnxscript
@@ -228,11 +229,19 @@ class InferShapes(Surgeon):
 class RemoveShapes(Surgeon):
     def call_ir(self, model: ir.Model) -> ir.Model:
         # value_info is emitted for intermediate values that carry a type/shape;
-        # clearing those on non-output node results empties graph.value_info.
-        graph_outputs = set(model.graph.outputs)
-        for node in model.graph:
+        # clearing those on non-output node results empties value_info in the main
+        # graph and every subgraph. Preserve declared outputs of all graphs.
+        preserved = set(model.graph.outputs)
+        for node in model.graph.all_nodes():
+            for attr in node.attributes.values():
+                if attr.type == ir.AttributeType.GRAPH:
+                    preserved.update(attr.value.outputs)
+                elif attr.type == ir.AttributeType.GRAPHS:
+                    for subgraph in attr.value:
+                        preserved.update(subgraph.outputs)
+        for node in model.graph.all_nodes():
             for value in node.outputs:
-                if value not in graph_outputs:
+                if value not in preserved:
                     value.shape = None
                     value.type = None
         return model
@@ -279,6 +288,7 @@ class ReplaceErfWithTanh(RewriteRuleSurgeon):
         ir.DataType.FLOAT: np.float32,
         ir.DataType.FLOAT16: np.float16,
         ir.DataType.DOUBLE: np.float64,
+        ir.DataType.BFLOAT16: ml_dtypes.bfloat16,
     }
 
     def rules(self) -> pattern.RewriteRuleSet:
@@ -444,15 +454,15 @@ class ExposeQuantizedOutput(Surgeon):
         quantized_tensor.shape = ir.Shape([])
         graph.outputs.insert(output_idx, quantized_tensor)
 
-        scale_initializer = quantized_node.inputs[1]
+        scale_initializer = quantized_node.inputs[1] if len(quantized_node.inputs) > 1 else None
         if scale_initializer is None or scale_initializer.name not in graph.initializers:
-            raise ValueError(f"Scale initializer '{quantized_node.inputs[1].name}' not found.")
+            raise ValueError("Scale initializer for the quantized node was not found.")
         scale_value = scale_initializer.const_value.numpy()[0]
         self._add_scale(graph, scale_value)
 
-        zero_point_initializer = quantized_node.inputs[2]
+        zero_point_initializer = quantized_node.inputs[2] if len(quantized_node.inputs) > 2 else None
         if zero_point_initializer is None or zero_point_initializer.name not in graph.initializers:
-            raise ValueError(f"Zero point initializer '{quantized_node.inputs[2].name}' not found.")
+            raise ValueError("Zero point initializer for the quantized node was not found.")
         zero_point_value = zero_point_initializer.const_value.numpy()[0]
         self._add_zero_point(graph, zero_point_value, zero_point_initializer.dtype)
         return model
@@ -1556,11 +1566,15 @@ class RemoveRopeMultiCache(Surgeon):
                     if node_input is cache_value or (node_input is not None and node_input.name == cache_value.name):
                         node.replace_input_with(idx, cache_initializer)
 
-        # remove the Greater -> If Nodes
+        # remove the Greater -> If nodes
         if_node = cache_values["cos_cache"].producer()
-        greater_node = next(inp.producer() for inp in if_node.inputs if inp is not None and inp.producer() is not None)
+        condition = if_node.inputs[0] if if_node.inputs else None
         graph.remove(if_node, safe=True)
-        graph.remove(greater_node, safe=True)
+        # The If condition is produced by a Greater comparison; drop it too, but only
+        # once it is confirmed to be a Greater with no remaining consumers.
+        greater_node = condition.producer() if condition is not None else None
+        if greater_node is not None and greater_node.op_type == "Greater" and not any(greater_node.outputs[0].uses()):
+            graph.remove(greater_node, safe=True)
 
         logger.debug("Removed rope multi cache")
         return model
@@ -1612,8 +1626,14 @@ class AttentionMaskToSequenceLengths(Surgeon):
             if seq_len_value in graph.inputs:
                 return model
 
-        input_ids = next(graph_input for graph_input in graph.inputs if graph_input.name == "input_ids")
-        batch_size = input_ids.shape[0]
+        input_ids = next((graph_input for graph_input in graph.inputs if graph_input.name == "input_ids"), None)
+        # Default the batch dim to 1 when input_ids is missing or its shape is unknown
+        # (common for dynamic models where shape inference did not populate it).
+        batch_size = 1
+        if input_ids is not None and input_ids.shape is not None and len(input_ids.shape) > 0:
+            dim = input_ids.shape[0]
+            if isinstance(dim, int):
+                batch_size = dim
         seq_len_shapes = {"past_seq_len": [batch_size, 1], "total_seq_len": []}
         for key, seq_len_value in seq_len_names.items():
             graph_input = ir.val(
@@ -2428,8 +2448,8 @@ class QuantizeEmbeddingInt8(Surgeon):
         graph.initializers[scales_name] = scales_value
         graph.initializers[zp_name] = zp_value
 
-        # Ensure com.microsoft opset is declared
-        model.opset_imports[MSFT_DOMAIN] = 1
+        # Ensure com.microsoft opset is declared without downgrading an existing version
+        model.opset_imports[MSFT_DOMAIN] = max(model.opset_imports.get(MSFT_DOMAIN, 0), 1)
 
         # Create GatherBlockQuantized node
         gather_output = gather.outputs[0]
@@ -2558,8 +2578,8 @@ class ShareEmbeddingLmHead(Surgeon):
         if embed_zp is not None:
             inputs.append(embed_zp)
 
-        # Ensure com.microsoft opset is declared
-        model.opset_imports[MSFT_DOMAIN] = 1
+        # Ensure com.microsoft opset is declared without downgrading an existing version
+        model.opset_imports[MSFT_DOMAIN] = max(model.opset_imports.get(MSFT_DOMAIN, 0), 1)
 
         # Create new INT8 MatMulNBits node
         lm_head_output = lm_head.outputs[0]
