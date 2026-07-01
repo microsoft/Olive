@@ -2,7 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-"""Tests for the CompositeToOnnxPackage pass."""
+"""Tests for the CompositeToOnnxPackage pass.
+
+The pass repackages a nested multi-component CompositeModel ORT-GenAI package as a
+single ONNXModelHandler pointing at the entry-point component, preserving the nested
+directory layout (no flattening / external-data rewriting).
+"""
 
 import json
 from pathlib import Path
@@ -19,14 +24,7 @@ from olive.passes.onnx.composite_to_onnx_package import CompositeToOnnxPackage
 
 
 def _write_tiny_onnx_with_external_data(onnx_path: Path, data_filename: str = "model.onnx.data") -> None:
-    """Write a minimal valid ONNX model whose single initializer lives in an external data sidecar.
-
-    The initializer is sized above onnx's default external-data size threshold
-    (1024 bytes) so the .data sidecar actually gets written. The model itself
-    stays tiny (one Identity node) so the test fixture remains cheap.
-    """
-    # 1024 floats = 4096 bytes, well above the default 1024-byte threshold for
-    # promoting an initializer to external storage.
+    """Write a minimal valid ONNX model whose single initializer lives in an external data sidecar."""
     data = np.arange(1024, dtype=np.float32)
     init_tensor = numpy_helper.from_array(data, name="weight")
     output = helper.make_tensor_value_info("y", TensorProto.FLOAT, [1024])
@@ -44,39 +42,17 @@ def _write_tiny_onnx_with_external_data(onnx_path: Path, data_filename: str = "m
     )
 
 
-def _write_tiny_inline_onnx(onnx_path: Path) -> None:
-    """Write a minimal self-contained (no external data) ONNX model."""
-    init_tensor = numpy_helper.from_array(np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32), name="weight")
-    output = helper.make_tensor_value_info("y", TensorProto.FLOAT, [4])
-    node = helper.make_node("Identity", inputs=["weight"], outputs=["y"])
-    graph = helper.make_graph([node], "g", inputs=[], outputs=[output], initializer=[init_tensor])
-    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
-    onnx_path.parent.mkdir(parents=True, exist_ok=True)
-    onnx.save_model(model, str(onnx_path))
-
-
-def _make_nested_genai_package(
-    root: Path,
-    components: dict[str, str],
-    *,
-    with_external_data: bool = True,
-) -> Path:
+def _make_nested_genai_package(root: Path, components: dict[str, str]) -> Path:
     """Build a fake nested ORT-GenAI package at ``root``.
 
     ``components`` maps genai_config component keys (e.g. ``decoder``) to the
-    relative ONNX filename under ``root`` (e.g. ``decoder/model.onnx``). Each
-    component file is a real (tiny) ONNX model so the pass exercises real
-    external-data rewriting rather than file rename only.
+    relative ONNX filename under ``root`` (e.g. ``decoder/model.onnx``).
     """
     root.mkdir(parents=True, exist_ok=True)
 
     model_section: dict[str, dict[str, str]] = {}
     for key, rel_path in components.items():
-        component_file = root / rel_path
-        if with_external_data:
-            _write_tiny_onnx_with_external_data(component_file)
-        else:
-            _write_tiny_inline_onnx(component_file)
+        _write_tiny_onnx_with_external_data(root / rel_path)
         model_section[key] = {"filename": rel_path}
 
     # Shared root-level sidecars.
@@ -99,8 +75,20 @@ def _make_composite_handler(root: Path, components: dict[str, str]) -> Composite
     )
 
 
+def _find_genai_config_upward(onnx_file: Path, levels: int = 3) -> Path | None:
+    """Mirror the evaluator's upward search for genai_config.json from an ONNX file."""
+    candidate = onnx_file.parent
+    for _ in range(levels):
+        if (candidate / "genai_config.json").is_file():
+            return candidate / "genai_config.json"
+        if candidate.parent == candidate:
+            break
+        candidate = candidate.parent
+    return None
+
+
 class TestCompositeToOnnxPackage:
-    def test_flattens_nested_package_to_root_level_filenames(self, tmp_path):
+    def test_preserves_nested_component_layout(self, tmp_path):
         src_root = _make_nested_genai_package(
             tmp_path / "src",
             {
@@ -123,136 +111,55 @@ class TestCompositeToOnnxPackage:
         p = create_pass_from_dict(CompositeToOnnxPackage, {}, disable_search=True)
         out = p.run(composite, str(tmp_path / "out"))
 
-        out_dir = Path(out.model_path).parent
-        assert (out_dir / "decoder.onnx").is_file()
-        assert (out_dir / "vision_encoder.onnx").is_file()
-        assert (out_dir / "audio_encoder.onnx").is_file()
-        assert (out_dir / "embedding.onnx").is_file()
-        assert (out_dir / "genai_config.json").is_file()
-        assert (out_dir / "tokenizer.json").is_file()
-        assert (out_dir / "chat_template.jinja").is_file()
+        pkg_root = Path(out.model_path).parents[1]
+        # Nested layout preserved (components stay in their subdirectories).
+        assert (pkg_root / "decoder" / "model.onnx").is_file()
+        assert (pkg_root / "vision_encoder" / "model.onnx").is_file()
+        assert (pkg_root / "audio_encoder" / "model.onnx").is_file()
+        assert (pkg_root / "embedding" / "model.onnx").is_file()
+        # Shared sidecars and config copied to the package root.
+        assert (pkg_root / "genai_config.json").is_file()
+        assert (pkg_root / "tokenizer.json").is_file()
+        assert (pkg_root / "chat_template.jinja").is_file()
 
-    def test_rewrites_genai_config_filenames(self, tmp_path):
+    def test_returns_onnx_handler_pointing_at_nested_entry(self, tmp_path):
         src_root = _make_nested_genai_package(
             tmp_path / "src",
             {"decoder": "decoder/model.onnx", "vision": "vision_encoder/model.onnx"},
         )
         composite = _make_composite_handler(
-            src_root,
-            {
-                "decoder": "decoder/model.onnx",
-                "vision_encoder": "vision_encoder/model.onnx",
-            },
-        )
-
-        p = create_pass_from_dict(CompositeToOnnxPackage, {}, disable_search=True)
-        out = p.run(composite, str(tmp_path / "out"))
-
-        rewritten = json.loads((Path(out.model_path).parent / "genai_config.json").read_text(encoding="utf-8"))
-        assert rewritten["model"]["decoder"]["filename"] == "decoder.onnx"
-        assert rewritten["model"]["vision"]["filename"] == "vision_encoder.onnx"
-
-    def test_returns_onnx_handler_with_entry_point_next_to_genai_config(self, tmp_path):
-        src_root = _make_nested_genai_package(
-            tmp_path / "src",
-            {"decoder": "decoder/model.onnx", "vision": "vision_encoder/model.onnx"},
-        )
-        composite = _make_composite_handler(
-            src_root,
-            {
-                "decoder": "decoder/model.onnx",
-                "vision_encoder": "vision_encoder/model.onnx",
-            },
+            src_root, {"decoder": "decoder/model.onnx", "vision_encoder": "vision_encoder/model.onnx"}
         )
 
         p = create_pass_from_dict(CompositeToOnnxPackage, {}, disable_search=True)
         out = p.run(composite, str(tmp_path / "out"))
 
         assert isinstance(out, ONNXModelHandler)
-        # Evaluator-style auto-detection: parent of model_path must contain genai_config.json
-        parent = Path(out.model_path).parent
-        assert (parent / "genai_config.json").is_file()
-        assert Path(out.model_path).name == "decoder.onnx"
+        entry = Path(out.model_path)
+        # Handler points at the nested decoder entry, which really exists.
+        assert entry.is_file()
+        assert entry.name == "model.onnx"
+        assert entry.parent.name == "decoder"
+        # genai_config.json is discoverable by searching upward from the entry ONNX file.
+        assert _find_genai_config_upward(entry) is not None
 
-    def test_rewrites_external_data_location_to_new_filename(self, tmp_path):
-        """External-data references inside each component ONNX must point at the renamed sidecar.
-
-        Regression test for a real-world failure: hardlinking a .onnx file +
-        its .data sidecar to new names left the embedded "location" pointer
-        inside the proto pointing at the old name (e.g. "model.onnx.data"),
-        causing ONNX Runtime to fail at load with "External data path does not
-        exist". The pass must rewrite each component model's external-data
-        location to match its new flat filename, and produce a real .data file
-        with the new name alongside it.
-        """
-        src_root = _make_nested_genai_package(tmp_path / "src", {"decoder": "decoder/model.onnx"})
-        composite = _make_composite_handler(src_root, {"decoder": "decoder/model.onnx"})
-
-        p = create_pass_from_dict(CompositeToOnnxPackage, {}, disable_search=True)
-        out = p.run(composite, str(tmp_path / "out"))
-
-        out_dir = Path(out.model_path).parent
-        # Both the flat ONNX file and the matching renamed sidecar must exist.
-        assert (out_dir / "decoder.onnx").is_file()
-        assert (out_dir / "decoder.onnx.data").is_file()
-
-        # The embedded external-data location inside the rewritten ONNX file
-        # must reference the new sidecar name, not the source layout's
-        # "model.onnx.data". Load without materializing external data so the
-        # initializer keeps its ``external_data`` pointer rather than getting
-        # the bytes inlined as ``raw_data``.
-        proto_only = onnx.load(str(out_dir / "decoder.onnx"), load_external_data=False)
-        weight = next(t for t in proto_only.graph.initializer if t.name == "weight")
-        location_entries = [entry.value for entry in weight.external_data if entry.key == "location"]
-        assert location_entries == ["decoder.onnx.data"], (
-            f"expected location='decoder.onnx.data', got external_data={list(weight.external_data)}"
-        )
-
-        # And the bytes should actually load through that new pointer (catches
-        # the case where the .data file was written under the right name but
-        # corrupted, or vice versa).
-        materialized = onnx.load(str(out_dir / "decoder.onnx"), load_external_data=True)
-        loaded_weight = next(t for t in materialized.graph.initializer if t.name == "weight")
-        loaded_array = numpy_helper.to_array(loaded_weight)
-        assert loaded_array.shape == (1024,)
-        assert loaded_array[0] == 0.0
-        assert loaded_array[-1] == 1023.0
-
-    def test_handles_inline_onnx_without_external_data(self, tmp_path):
-        """Self-contained ONNX models (no .data sidecar) should still flatten correctly."""
+    def test_does_not_rewrite_genai_config_filenames(self, tmp_path):
         src_root = _make_nested_genai_package(
             tmp_path / "src",
-            {"decoder": "decoder/model.onnx"},
-            with_external_data=False,
-        )
-        composite = _make_composite_handler(src_root, {"decoder": "decoder/model.onnx"})
-
-        p = create_pass_from_dict(CompositeToOnnxPackage, {}, disable_search=True)
-        out = p.run(composite, str(tmp_path / "out"))
-
-        out_dir = Path(out.model_path).parent
-        assert (out_dir / "decoder.onnx").is_file()
-        # No external-data sidecar should be present since the source had none.
-        assert not (out_dir / "decoder.onnx.data").exists()
-
-    def test_uses_fallback_entry_point_when_requested_one_missing(self, tmp_path):
-        src_root = _make_nested_genai_package(
-            tmp_path / "src",
-            {"vision": "vision_encoder/model.onnx", "embedding": "embedding/model.onnx"},
+            {"decoder": "decoder/model.onnx", "vision": "vision_encoder/model.onnx"},
         )
         composite = _make_composite_handler(
-            src_root,
-            {
-                "vision_encoder": "vision_encoder/model.onnx",
-                "embedding": "embedding/model.onnx",
-            },
+            src_root, {"decoder": "decoder/model.onnx", "vision_encoder": "vision_encoder/model.onnx"}
         )
 
-        # The default entry_point_component is "decoder", which doesn't exist here.
         p = create_pass_from_dict(CompositeToOnnxPackage, {}, disable_search=True)
         out = p.run(composite, str(tmp_path / "out"))
 
-        assert Path(out.model_path).name in {"vision_encoder.onnx", "embedding.onnx"}
+        pkg_root = Path(out.model_path).parents[1]
+        genai_config = json.loads((pkg_root / "genai_config.json").read_text(encoding="utf-8"))
+        # Nested paths are preserved verbatim (no flattening rewrite).
+        assert genai_config["model"]["decoder"]["filename"] == "decoder/model.onnx"
+        assert genai_config["model"]["vision"]["filename"] == "vision_encoder/model.onnx"
 
     def test_honors_explicit_entry_point_component(self, tmp_path):
         src_root = _make_nested_genai_package(
@@ -260,66 +167,46 @@ class TestCompositeToOnnxPackage:
             {"decoder": "decoder/model.onnx", "embedding": "embedding/model.onnx"},
         )
         composite = _make_composite_handler(
-            src_root,
-            {
-                "decoder": "decoder/model.onnx",
-                "embedding": "embedding/model.onnx",
-            },
+            src_root, {"decoder": "decoder/model.onnx", "embedding": "embedding/model.onnx"}
         )
 
         p = create_pass_from_dict(
-            CompositeToOnnxPackage,
-            {"entry_point_component": "embedding"},
-            disable_search=True,
+            CompositeToOnnxPackage, {"entry_point_component": "embedding"}, disable_search=True
         )
         out = p.run(composite, str(tmp_path / "out"))
 
-        assert Path(out.model_path).name == "embedding.onnx"
+        assert Path(out.model_path).parent.name == "embedding"
 
-    def test_rejects_package_without_genai_config(self, tmp_path):
-        src_root = tmp_path / "src"
-        src_root.mkdir()
-        _write_tiny_inline_onnx(src_root / "decoder" / "model.onnx")
-        composite = _make_composite_handler(src_root, {"decoder": "decoder/model.onnx"})
+    def test_uses_fallback_entry_point_when_requested_one_missing(self, tmp_path):
+        src_root = _make_nested_genai_package(
+            tmp_path / "src",
+            {"vision": "vision_encoder/model.onnx", "embedding": "embedding/model.onnx"},
+        )
+        composite = _make_composite_handler(
+            src_root, {"vision_encoder": "vision_encoder/model.onnx", "embedding": "embedding/model.onnx"}
+        )
+
+        # 'decoder' (the default entry) is absent -> falls back to a present component.
+        p = create_pass_from_dict(CompositeToOnnxPackage, {}, disable_search=True)
+        out = p.run(composite, str(tmp_path / "out"))
+
+        assert Path(out.model_path).parent.name in {"vision_encoder", "embedding"}
+
+    def test_raises_on_non_composite_input(self, tmp_path):
+        _write_tiny_onnx_with_external_data(tmp_path / "model.onnx")
+        onnx_model = ONNXModelHandler(model_path=str(tmp_path / "model.onnx"))
 
         p = create_pass_from_dict(CompositeToOnnxPackage, {}, disable_search=True)
-        with pytest.raises(ValueError, match=r"genai_config\.json"):
+        with pytest.raises(ValueError, match="expects a CompositeModelHandler"):
+            p.run(onnx_model, str(tmp_path / "out"))
+
+    def test_raises_when_entry_component_file_missing(self, tmp_path):
+        src_root = _make_nested_genai_package(tmp_path / "src", {"decoder": "decoder/model.onnx"})
+        composite = _make_composite_handler(src_root, {"decoder": "decoder/model.onnx"})
+        # Remove the referenced component file so the config points at a missing file
+        # (after building the handler, whose components assert file existence).
+        (src_root / "decoder" / "model.onnx").unlink()
+
+        p = create_pass_from_dict(CompositeToOnnxPackage, {}, disable_search=True)
+        with pytest.raises(ValueError, match="not found"):
             p.run(composite, str(tmp_path / "out"))
-
-    def test_handles_unique_collision_in_subdir_names(self, tmp_path):
-        # Two components living in subdirs with the same internal filename shouldn't collide.
-        src_root = tmp_path / "src"
-        src_root.mkdir()
-        _write_tiny_inline_onnx(src_root / "model_a" / "model.onnx")
-        _write_tiny_inline_onnx(src_root / "model_b" / "model.onnx")
-        (src_root / "genai_config.json").write_text(
-            json.dumps(
-                {
-                    "model": {
-                        "first": {"filename": "model_a/model.onnx"},
-                        "second": {"filename": "model_b/model.onnx"},
-                    }
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        composite = CompositeModelHandler(
-            model_components=[
-                ONNXModelHandler(model_path=str(src_root / "model_a" / "model.onnx")),
-                ONNXModelHandler(model_path=str(src_root / "model_b" / "model.onnx")),
-            ],
-            model_component_names=["first", "second"],
-            model_path=str(src_root),
-        )
-
-        p = create_pass_from_dict(
-            CompositeToOnnxPackage,
-            {"entry_point_component": "first"},
-            disable_search=True,
-        )
-        out = p.run(composite, str(tmp_path / "out"))
-
-        out_dir = Path(out.model_path).parent
-        assert (out_dir / "model_a.onnx").is_file()
-        assert (out_dir / "model_b.onnx").is_file()
