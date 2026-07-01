@@ -18,7 +18,6 @@ import numpy as np
 import onnx
 import onnxscript
 from onnx import ModelProto
-from onnx.helper import make_tensor
 from onnx_ir.passes.common import (
     DeduplicateHashedInitializersPass,
     InlinePass,
@@ -378,106 +377,85 @@ class ExposeOutputs(Surgeon):
         return model
 
 
-class ExposeQuantizedOutput(ProtoSurgeon):
+class ExposeQuantizedOutput(Surgeon):
     def __init__(self, output_name):
         self.output_name = output_name
 
     def _make_name(self, name):
         return f"{self.output_name}_exposed_{name}"
 
-    def _remove_output(self, model):
-        idx = -1
-        for i, output in enumerate(model.graph.output):
+    def _remove_output(self, graph: ir.Graph) -> int:
+        for idx, output in enumerate(graph.outputs):
             if output.name == self.output_name:
-                model.graph.output.pop(i)
-                idx = i
-                break
-        if idx == -1:
-            raise ValueError(f"Output '{self.output_name}' not found in model outputs.")
-        return idx
+                graph.outputs.pop(idx)
+                return idx
+        raise ValueError(f"Output '{self.output_name}' not found in model outputs.")
 
-    def _remove_node(self, model, target):
-        idx = -1
-        for i, node in enumerate(model.graph.node):
-            if node == target:
-                model.graph.node.pop(i)
-                idx = i
-                break
-        if idx == -1:
-            raise ValueError(f"Node '{target.name}' not found in model nodes.")
-        return idx
+    def _remove_node(self, graph: ir.Graph, target: ir.Node) -> int:
+        for idx, node in enumerate(graph):
+            if node is target:
+                graph.remove(node, safe=True)
+                return idx
+        raise ValueError(f"Node '{target.name}' not found in model nodes.")
 
-    def _add_protos_to_model(self, model, initializer, node, tensor_type, tensor_shape):
-        model.graph.initializer.append(initializer)
-        model.graph.node.append(node)
-        value_info = onnx.helper.make_tensor_value_info(name=node.output[0], elem_type=tensor_type, shape=tensor_shape)
-        model.graph.output.append(value_info)
-        return model
+    def _add_output_identity(self, graph: ir.Graph, name: str, array: np.ndarray, dtype: ir.DataType):
+        initializer_name = f"{name}_value"
+        initializer = ir.val(
+            initializer_name,
+            type=ir.TensorType(dtype),
+            shape=ir.Shape(array.shape),
+            const_value=ir.tensor(array, name=initializer_name),
+        )
+        graph.initializers[initializer_name] = initializer
+        node = ir.Node("", "Identity", inputs=[initializer], num_outputs=1, name=name)
+        node.outputs[0].name = f"{name}_output"
+        node.outputs[0].type = ir.TensorType(dtype)
+        node.outputs[0].shape = ir.Shape(array.shape)
+        graph.append(node)
+        graph.outputs.append(node.outputs[0])
 
-    def _add_scale(self, model, scale_value):
-        name = self._make_name("scale")
+    def _add_scale(self, graph: ir.Graph, scale_value):
         scale_array = np.array([scale_value], dtype=np.float32)
-        initializer = make_tensor(
-            name=f"{name}_value", data_type=onnx.TensorProto.FLOAT, dims=scale_array.shape, vals=scale_array
-        )
-        node = onnx.helper.make_node(
-            op_type="Identity",
-            name=name,
-            inputs=[initializer.name],
-            outputs=[f"{name}_output"],
-        )
-        tensor_type = onnx.TensorProto.FLOAT
-        tensor_shape = scale_array.shape
-        return self._add_protos_to_model(model, initializer, node, tensor_type, tensor_shape)
+        self._add_output_identity(graph, self._make_name("scale"), scale_array, ir.DataType.FLOAT)
 
-    def _add_zero_point(self, model, zero_point_value, onnx_dtype, np_dtype):
-        name = self._make_name("zero_point")
-        zero_point_array = np.array([zero_point_value], dtype=np_dtype)
-        initializer = make_tensor(
-            name=f"{name}_value", data_type=onnx_dtype, dims=zero_point_array.shape, vals=zero_point_array
+    def _add_zero_point(self, graph: ir.Graph, zero_point_value, dtype: ir.DataType):
+        zero_point_array = np.array([zero_point_value], dtype=dtype.numpy())
+        self._add_output_identity(graph, self._make_name("zero_point"), zero_point_array, dtype)
+
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
+        output_idx = self._remove_output(graph)
+
+        dequantized_node = next(
+            (node for node in graph for output in node.outputs if output.name == self.output_name), None
         )
-        node = onnx.helper.make_node(
-            op_type="Identity", name=name, inputs=[initializer.name], outputs=[f"{name}_output"]
-        )
-        tensor_type = onnx_dtype
-        tensor_shape = zero_point_array.shape
-        return self._add_protos_to_model(model, initializer, node, tensor_type, tensor_shape)
-
-    def __call__(self, model: ModelProto):
-        from onnx.helper import tensor_dtype_to_np_dtype
-        from onnx.numpy_helper import to_array
-
-        output_idx = self._remove_output(model)
-
-        dequantized_node = self.get_node_by_name(model, self.output_name, match_output=True)
         if dequantized_node is None:
             raise ValueError(f"Dequantized node producing output '{self.output_name}' not found.")
 
-        _ = self._remove_node(model, dequantized_node)
+        quantized_tensor = dequantized_node.inputs[0]
+        _ = self._remove_node(graph, dequantized_node)
 
-        quantized_tensor_name = dequantized_node.input[0]
-        quantized_node = self.get_node_by_name(model, quantized_tensor_name, match_output=True)
+        quantized_node = quantized_tensor.producer() if quantized_tensor is not None else None
         if quantized_node is None:
-            raise ValueError(f"Quantized node producing tensor '{quantized_tensor_name}' not found.")
+            tensor_name = quantized_tensor.name if quantized_tensor is not None else ""
+            raise ValueError(f"Quantized node producing tensor '{tensor_name}' not found.")
 
-        quantized_output_value_info = onnx.helper.make_tensor_value_info(
-            name=quantized_node.output[0], elem_type=onnx.TensorProto.UINT8, shape=[]
-        )
-        model.graph.output.insert(output_idx, quantized_output_value_info)
+        quantized_tensor.type = ir.TensorType(ir.DataType.UINT8)
+        quantized_tensor.shape = ir.Shape([])
+        graph.outputs.insert(output_idx, quantized_tensor)
 
-        scale_initializer = self.get_initializer_by_name(model, quantized_node.input[1])
-        if scale_initializer is None:
-            raise ValueError(f"Scale initializer '{quantized_node.input[1]}' not found.")
-        scale_value = to_array(scale_initializer)[0]
-        model = self._add_scale(model, scale_value)
+        scale_initializer = quantized_node.inputs[1]
+        if scale_initializer is None or scale_initializer.name not in graph.initializers:
+            raise ValueError(f"Scale initializer '{quantized_node.inputs[1].name}' not found.")
+        scale_value = scale_initializer.const_value.numpy()[0]
+        self._add_scale(graph, scale_value)
 
-        zero_point_initializer = self.get_initializer_by_name(model, quantized_node.input[2])
-        if zero_point_initializer is None:
-            raise ValueError(f"Zero point initializer '{quantized_node.input[2]}' not found.")
-        zero_point_value = to_array(zero_point_initializer)[0]
-        zero_point_onnx_dtype = zero_point_initializer.data_type
-        zero_point_np_dtype = tensor_dtype_to_np_dtype(zero_point_onnx_dtype)
-        return self._add_zero_point(model, zero_point_value, zero_point_onnx_dtype, zero_point_np_dtype)
+        zero_point_initializer = quantized_node.inputs[2]
+        if zero_point_initializer is None or zero_point_initializer.name not in graph.initializers:
+            raise ValueError(f"Zero point initializer '{quantized_node.inputs[2].name}' not found.")
+        zero_point_value = zero_point_initializer.const_value.numpy()[0]
+        self._add_zero_point(graph, zero_point_value, zero_point_initializer.dtype)
+        return model
 
 
 class DecomposeQuickGelu(Surgeon):
@@ -1522,125 +1500,157 @@ class GemmToMatMulAdd(Surgeon):
         return model
 
 
-class RemoveRopeMultiCache(ProtoSurgeon):
+class RemoveRopeMultiCache(Surgeon):
     """Remove the multi rope cache from the model."""
 
     def __init__(self, use_large_cache: bool = False):
         self.use_large_cache = use_large_cache
 
-    def __call__(self, model: ModelProto):
-        dag = OnnxDAG(model)
-
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
         supported_consumer_ops = {"GroupQueryAttention", "RotaryEmbedding"}
-        if not supported_consumer_ops.intersection(set(dag.get_node_op_types())):
-            return dag.model
+        if not any(node.op_type in supported_consumer_ops for node in graph):
+            return model
 
         # get the first GQA/RotaryEmbedding node
-        first_node = None
-        for node in dag.get_node_names():
-            op_type = dag.get_node_op_type(node)
-            if op_type in supported_consumer_ops:
-                first_node = node
-                break
-        first_node_inputs = dag.get_node_inputs(first_node)
+        first_node = next((node for node in graph if node.op_type in supported_consumer_ops), None)
+        first_node_inputs = first_node.inputs
 
         # check if the GQA node has cos_cache and sin_cache inputs
         # GQA can have 9 inputs (onnxruntime-genai <= 0.9.0) or 11 inputs (onnxruntime-genai > 0.9.0)
-        if dag.get_node_op_type(first_node) == "GroupQueryAttention" and len(first_node_inputs) < 9:
-            return dag.model
+        if first_node.op_type == "GroupQueryAttention" and len(first_node_inputs) < 9:
+            return model
 
         # check if cos_cache and sin_cache come from an If node
         # cos_cache and sin_cache are at positions 7 and 8
-        cache_names = {"cos_cache": first_node_inputs[7], "sin_cache": first_node_inputs[8]}
-        for cache_name in cache_names.values():
-            if dag.is_input(cache_name) or dag.is_initializer(cache_name):
-                return dag.model
-            if dag.get_node_op_type(dag.get_producer(cache_name)) != "If":
-                return dag.model
+        cache_values = {"cos_cache": first_node_inputs[7], "sin_cache": first_node_inputs[8]}
+        for cache_value in cache_values.values():
+            if cache_value in graph.inputs or cache_value.name in graph.initializers:
+                return model
+            if cache_value.producer() is None or cache_value.producer().op_type != "If":
+                return model
 
-        for key, cache_name in cache_names.items():
+        for key, cache_value in cache_values.items():
             cache_to_use = f"{key}_large" if self.use_large_cache else f"{key}_small"
             new_cache_name = f"{key}_single"
+            source_value = self._get_value(graph, cache_to_use)
+            if source_value is None:
+                continue
 
-            if dag.is_initializer(cache_to_use):
-                cache_initializer = onnx.TensorProto()
-                cache_initializer.CopyFrom(dag.get_initializer_proto(cache_to_use))
-                cache_initializer.name = new_cache_name
+            if source_value.name in graph.initializers:
+                cache_array = source_value.const_value.numpy().copy()
             else:
-                cache_producer_name = dag.get_producer(cache_to_use)
-                assert dag.get_node_op_type(cache_producer_name) == "Constant"
-                cache_value = onnx.numpy_helper.to_array(
-                    onnx.helper.get_attribute_value(dag.get_node_proto(cache_producer_name).attribute[0])
-                )
-                cache_initializer = onnx.numpy_helper.from_array(cache_value, new_cache_name)
+                cache_producer = source_value.producer()
+                assert cache_producer.op_type == "Constant"
+                cache_array = cache_producer.attributes["value"].value.numpy().copy()
 
-            dag.add_initializer(cache_initializer, 0)
-            for consumer in dag.get_consumers(cache_name):
-                dag.replace_node_input(consumer, cache_name, new_cache_name)
+            cache_initializer = ir.val(
+                new_cache_name,
+                type=ir.TensorType(source_value.dtype),
+                shape=ir.Shape(cache_array.shape),
+                const_value=ir.tensor(cache_array, name=new_cache_name),
+            )
+            graph.initializers[new_cache_name] = cache_initializer
+            for node in graph:
+                for idx, node_input in enumerate(node.inputs):
+                    if node_input is cache_value or (node_input is not None and node_input.name == cache_value.name):
+                        node.replace_input_with(idx, cache_initializer)
 
         # remove the Greater -> If Nodes
-        if_node_name = dag.get_producer(cache_names["cos_cache"])
-        greater_node_name = dag.get_parents(if_node_name)[0]
-        dag.remove_node(if_node_name)
-        dag.remove_node(greater_node_name)
+        if_node = cache_values["cos_cache"].producer()
+        greater_node = next(inp.producer() for inp in if_node.inputs if inp is not None and inp.producer() is not None)
+        graph.remove(if_node, safe=True)
+        graph.remove(greater_node, safe=True)
 
         logger.debug("Removed rope multi cache")
+        return model
 
-        dag.update()
-        return dag.model
+    @staticmethod
+    def _get_value(graph: ir.Graph, name: str) -> ir.Value | None:
+        if name in graph.initializers:
+            return graph.initializers[name]
+        for value in itertools.chain(graph.inputs, graph.outputs):
+            if value.name == name:
+                return value
+        for node in graph:
+            for value in node.outputs:
+                if value.name == name:
+                    return value
+            for attr in node.attributes.values():
+                if attr.type == ir.AttributeType.GRAPH:
+                    value = RemoveRopeMultiCache._get_value(attr.value, name)
+                    if value is not None:
+                        return value
+                if attr.type == ir.AttributeType.GRAPHS:
+                    for subgraph in attr.value:
+                        value = RemoveRopeMultiCache._get_value(subgraph, name)
+                        if value is not None:
+                            return value
+        return None
 
 
-class AttentionMaskToSequenceLengths(ProtoSurgeon):
+class AttentionMaskToSequenceLengths(Surgeon):
     """Replace attention_mask subgraph in GQA model with past_seq_len and total_seq_len."""
 
-    def __call__(self, model: ModelProto):
-        dag = OnnxDAG(model)
+    def call_ir(self, model: ir.Model) -> ir.Model:
+        graph = model.graph
 
-        if "GroupQueryAttention" not in dag.get_node_op_types():
-            return dag.model
+        if not any(node.op_type == "GroupQueryAttention" for node in graph):
+            return model
 
         # get first GQA node
         first_node = None
-        for node in dag.get_node_names():
-            if dag.get_node_op_type(node) == "GroupQueryAttention":
+        for node in graph:
+            if node.op_type == "GroupQueryAttention":
                 first_node = node
                 break
-        first_node_inputs = dag.get_node_inputs(first_node)
+        first_node_inputs = first_node.inputs
 
         seq_len_names = {"past_seq_len": first_node_inputs[5], "total_seq_len": first_node_inputs[6]}
         # check that both are not already inputs
-        for seq_len_name in seq_len_names.values():
-            if dag.is_input(seq_len_name):
-                return dag.model
+        for seq_len_value in seq_len_names.values():
+            if seq_len_value in graph.inputs:
+                return model
 
-        batch_size, _ = dag.get_io_shape("input_ids")
+        input_ids = next(graph_input for graph_input in graph.inputs if graph_input.name == "input_ids")
+        batch_size = input_ids.shape[0]
         seq_len_shapes = {"past_seq_len": [batch_size, 1], "total_seq_len": []}
-        for key, seq_len_name in seq_len_names.items():
-            input_proto = onnx.helper.make_tensor_value_info(key, onnx.TensorProto.INT32, seq_len_shapes[key])
-            dag.add_input(input_proto, 0)
-            for node in dag.get_consumers(seq_len_name):
-                dag.replace_node_input(node, seq_len_name, key)
+        for key, seq_len_value in seq_len_names.items():
+            graph_input = ir.val(
+                key,
+                shape=ir.Shape(seq_len_shapes[key]),
+                type=ir.TensorType(ir.DataType.INT32),
+            )
+            graph.inputs.insert(0, graph_input)
+            for use in list(seq_len_value.uses()):
+                use.node.replace_input_with(use.idx, graph_input)
 
         # remove attention mask subgraph
         nodes_to_remove = []
-        visit_stack = dag.get_consumers("attention_mask")
+        attention_mask = next(graph_input for graph_input in graph.inputs if graph_input.name == "attention_mask")
+        visit_stack = [use.node for use in attention_mask.uses()]
+        visited = set()
         while visit_stack:
             node = visit_stack.pop(0)
-            assert not dag.is_output_producer(node), "Unexpected graph structure"
-            for consumer in dag.get_consumers(node):
-                if dag.get_node_op_type(consumer) == "GroupQueryAttention":
-                    for node_o in dag.get_node_outputs(node):
-                        assert dag.get_node_inputs(consumer).index(node_o) in {5, 6}, "Rope multi cache not supported"
-                    continue
-                visit_stack.append(consumer)
+            if node in visited:
+                continue
+            visited.add(node)
+            assert not any(output in graph.outputs for output in node.outputs), "Unexpected graph structure"
+            for node_output in node.outputs:
+                for use in list(node_output.uses()):
+                    consumer = use.node
+                    if consumer.op_type == "GroupQueryAttention":
+                        assert use.idx in {5, 6}, "Rope multi cache not supported"
+                        continue
+                    visit_stack.append(consumer)
             nodes_to_remove.append(node)
         for node in nodes_to_remove[::-1]:
-            dag.remove_node(node)
+            graph.remove(node, safe=True)
+
+        graph.inputs.remove(attention_mask)
 
         logger.debug("atttention mask replaced with sequence length inputs")
-
-        dag.update()
-        return dag.model
+        return model
 
 
 class ReplaceAttentionMaskValue(Surgeon):
