@@ -317,26 +317,26 @@ class BaseOliveCLICommand(ABC):
                 )
             # In --test mode, always persist the Olive config to <output_path>/config.json.
             # This must happen before the workflow runs so the model builder's transformers
-            # config.json does not overwrite it (the optimized model and any reference copies
-            # are redirected to a temp working dir below). The only persisted model is then the
-            # small test model saved at the --test path.
+            # config.json (written into the model subdirectory below) never overwrites it.
+            if is_test:
+                # Treat <output_path> as a report directory holding the Olive config.json and
+                # discrepancy_check_results.json. Save the optimized ONNX model into a "model"
+                # subdirectory so it is preserved on disk (not discarded in a temp directory)
+                # while keeping the Olive config.json at the <output_path> root.
+                model_dir = str(Path(self.args.output_path) / "model")
+                run_config["output_dir"] = model_dir
+                for pass_cfg in run_config.get("passes", {}).values():
+                    if isinstance(pass_cfg, dict) and pass_cfg.get("type", "").lower() == "onnxdiscrepancycheck":
+                        pass_cfg["report_output_dir"] = self.args.output_path
             if self.args.save_config_file or self.args.dry_run or is_test:
-                self._save_config_file(run_config)
+                # In --test mode, keep the Olive config.json at the <output_path> root even
+                # though the workflow output_dir points to the "model" subdirectory.
+                self._save_config_file(run_config, self.args.output_path if is_test else None)
             if self.args.dry_run:
                 if is_test:
                     mark_test_output_path(self.args.output_path)
                 print("Dry run mode enabled. Configuration file is generated but no optimization is performed.")
                 return None
-            if is_test:
-                # Treat <output_path> as a report directory: it keeps only the Olive config.json
-                # and discrepancy_check_results.json. Route the optimized ONNX model, its
-                # transformers config.json, and any reference model copies into the temp working
-                # dir so they are discarded and do not clutter <output_path>.
-                work_dir = str(Path(tempdir) / "optimized")
-                run_config["output_dir"] = work_dir
-                for pass_cfg in run_config.get("passes", {}).values():
-                    if isinstance(pass_cfg, dict) and pass_cfg.get("type", "").lower() == "onnxdiscrepancycheck":
-                        pass_cfg["report_output_dir"] = work_dir
             workflow_output = olive_run(run_config)
             if is_test:
                 mark_test_output_path(self.args.output_path)
@@ -364,9 +364,15 @@ class BaseOliveCLICommand(ABC):
         return parse_extra_options(kv_items)  # pylint: disable=no-value-for-parameter
 
     @staticmethod
-    def _save_config_file(config: dict):
-        """Save the config file."""
-        config_file_path = Path(config["output_dir"]) / "config.json"
+    def _save_config_file(config: dict, output_dir: Optional[str] = None):
+        """Save the config file.
+
+        By default the config is written to ``<config["output_dir"]>/config.json``. When
+        ``output_dir`` is provided, the config is written to ``<output_dir>/config.json``
+        instead (used in --test mode to keep the Olive config at the report directory root).
+        """
+        target_dir = output_dir if output_dir is not None else config["output_dir"]
+        config_file_path = Path(target_dir) / "config.json"
         with open(config_file_path, "w") as f:
             json.dump(config, f, indent=4)
         print(f"Config file saved at {config_file_path}")
