@@ -141,7 +141,7 @@ def test_workflow_run_command_with_overrides(mock_repo_exists, mock_run, tmp_pat
             "input_model": {
                 "type": "HfModel",
                 "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                "load_kwargs": {"attn_implementation": "sdpa", "trust_remote_code": False},
             },
             "engine": {},
             "output_dir": str(Path("new_output_path").resolve()),
@@ -163,7 +163,7 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
                 "input_model": {
                     "type": "HfModel",
                     "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                    "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                    "load_kwargs": {"attn_implementation": "sdpa", "trust_remote_code": False},
                 },
                 "output_dir": str(tmp_path / "output"),
             }
@@ -180,7 +180,7 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
             "input_model": {
                 "type": "HfModel",
                 "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                "load_kwargs": {"attn_implementation": "sdpa", "trust_remote_code": False},
                 "test_model_config": {"hidden_layers": 2},
                 "test_model_path": test_model_path,
             },
@@ -214,7 +214,7 @@ def test_workflow_run_command_with_test_rejects_non_test_output_dir(tmp_path):
                 "input_model": {
                     "type": "HfModel",
                     "model_path": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                    "load_kwargs": {"attn_implementation": "eager", "trust_remote_code": False},
+                    "load_kwargs": {"attn_implementation": "sdpa", "trust_remote_code": False},
                 },
                 "output_dir": str(output_dir),
             }
