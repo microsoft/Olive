@@ -707,14 +707,20 @@ class OnnxDiscrepancyCheck(Pass):
                 "transformers_first_token": gen_results.get("transformers_first_token"),
                 "genai_first_token": gen_results.get("genai_first_token"),
                 "first_token_matches": gen_results.get("first_token_matches"),
+                "transformers_second_token": gen_results.get("transformers_second_token"),
+                "genai_second_token": gen_results.get("genai_second_token"),
+                "second_token_matches": gen_results.get("second_token_matches"),
                 "matching_leading_tokens": longest_common,
             }
             logger.info(
-                "OnnxDiscrepancyCheck first_token_20: matches=%s (transformers=%s, genai=%s), "
-                "matching_leading_tokens=%s",
+                "OnnxDiscrepancyCheck first_token_20: first_token_matches=%s (transformers=%s, genai=%s), "
+                "second_token_matches=%s (transformers=%s, genai=%s), matching_leading_tokens=%s",
                 gen_results.get("first_token_matches"),
                 gen_results.get("transformers_first_token"),
                 gen_results.get("genai_first_token"),
+                gen_results.get("second_token_matches"),
+                gen_results.get("transformers_second_token"),
+                gen_results.get("genai_second_token"),
                 longest_common,
             )
         if "tft" in generation_metrics:
@@ -783,15 +789,26 @@ class OnnxDiscrepancyCheck(Pass):
                 first_token_20["llama_cpp_first_token_matches"] = llama_results.get(
                     "llama_cpp_first_token_matches_pytorch"
                 )
+                first_token_20.setdefault(
+                    "transformers_second_token", llama_results.get("llama_cpp_pytorch_second_token_id")
+                )
+                first_token_20["llama_cpp_second_token"] = llama_results.get("llama_cpp_second_token_id")
+                first_token_20["llama_cpp_second_token_matches"] = llama_results.get(
+                    "llama_cpp_second_token_matches_pytorch"
+                )
                 first_token_20["llama_cpp_matching_leading_tokens"] = llama_results.get(
                     "llama_cpp_longest_common_token_sequence"
                 )
                 logger.info(
-                    "OnnxDiscrepancyCheck first_token_20 (llama.cpp): matches=%s "
-                    "(transformers=%s, llama_cpp=%s), matching_leading_tokens=%s",
+                    "OnnxDiscrepancyCheck first_token_20 (llama.cpp): first_token_matches=%s "
+                    "(transformers=%s, llama_cpp=%s), second_token_matches=%s (transformers=%s, llama_cpp=%s), "
+                    "matching_leading_tokens=%s",
                     llama_results.get("llama_cpp_first_token_matches_pytorch"),
                     transformers_first_token,
                     llama_first_token,
+                    llama_results.get("llama_cpp_second_token_matches_pytorch"),
+                    llama_results.get("llama_cpp_pytorch_second_token_id"),
+                    llama_results.get("llama_cpp_second_token_id"),
                     llama_results.get("llama_cpp_longest_common_token_sequence"),
                 )
         except Exception as exc:
@@ -1009,12 +1026,26 @@ class OnnxDiscrepancyCheck(Pass):
         )
         first_token_matches = transformers_first_token is not None and transformers_first_token == genai_first_token
 
+        # Second generated token comparison (transformers vs ONNX Runtime GenAI).
+        transformers_second_token = (
+            transformers_tokens[prompt_token_count + 1] if len(transformers_tokens) > prompt_token_count + 1 else None
+        )
+        genai_second_token = (
+            genai_tokens[genai_prompt_token_count + 1] if len(genai_tokens) > genai_prompt_token_count + 1 else None
+        )
+        second_token_matches = (
+            transformers_second_token is not None and transformers_second_token == genai_second_token
+        )
+
         gen_results = {
             "longest_common_token_sequence": longest_common,
             "first_n_tokens_timed": first_n,
             "transformers_first_token": transformers_first_token,
             "genai_first_token": genai_first_token,
             "first_token_matches": first_token_matches,
+            "transformers_second_token": transformers_second_token,
+            "genai_second_token": genai_second_token,
+            "second_token_matches": second_token_matches,
             "transformers_time_to_first_token_s": transformers_ttft,
             "transformers_time_to_first_n_tokens_s": transformers_ttfn,
             "genai_time_to_first_token_s": genai_ttft,
@@ -1144,6 +1175,9 @@ class OnnxDiscrepancyCheck(Pass):
         pytorch_first_token_id = (
             pytorch_tokens[prompt_token_count] if len(pytorch_tokens) > prompt_token_count else None
         )
+        pytorch_second_token_id = (
+            pytorch_tokens[prompt_token_count + 1] if len(pytorch_tokens) > prompt_token_count + 1 else None
+        )
 
         output_dir_path = Path(output_dir)
         output_dir_path.mkdir(parents=True, exist_ok=True)
@@ -1195,6 +1229,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         llama_first_token_id: Optional[int] = llama_out.get("first_token_id")
         llama_generated_tokens: list[int] = llama_out.get("generated_tokens") or []
+        llama_second_token_id: Optional[int] = llama_generated_tokens[1] if len(llama_generated_tokens) > 1 else None
         llama_ttft: Optional[float] = llama_out.get("ttft")
         llama_ttfn: Optional[float] = llama_out.get("ttfn")
         llama_total: Optional[float] = llama_out.get("total_time")
@@ -1217,6 +1252,11 @@ class OnnxDiscrepancyCheck(Pass):
             "llama_cpp_pytorch_first_token_id": pytorch_first_token_id,
             "llama_cpp_first_token_id": llama_first_token_id,
             "llama_cpp_first_token_matches_pytorch": llama_first_token_id == pytorch_first_token_id,
+            "llama_cpp_pytorch_second_token_id": pytorch_second_token_id,
+            "llama_cpp_second_token_id": llama_second_token_id,
+            "llama_cpp_second_token_matches_pytorch": (
+                pytorch_second_token_id is not None and llama_second_token_id == pytorch_second_token_id
+            ),
             "llama_cpp_longest_common_token_sequence": llama_longest_common,
             "llama_cpp_ttft_s": llama_ttft,
             "llama_cpp_ttfn_s": llama_ttfn,

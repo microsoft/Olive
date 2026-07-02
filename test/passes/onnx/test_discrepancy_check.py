@@ -308,6 +308,10 @@ class TestCompareGeneration:
         assert result["transformers_first_token"] == 10
         assert result["genai_first_token"] == 10
         assert result["first_token_matches"] is True
+        # transformers generated [10, 11, 12] and genai [10, 99, 99] -> second tokens differ.
+        assert result["transformers_second_token"] == 11
+        assert result["genai_second_token"] == 99
+        assert result["second_token_matches"] is False
 
     def test_compare_generation_reports_first_token_mismatch(self):
         """first_token_matches is False when the first generated tokens differ."""
@@ -364,6 +368,10 @@ class TestCompareGeneration:
         assert result["transformers_first_token"] == 30
         assert result["genai_first_token"] == 40
         assert result["first_token_matches"] is False
+        # transformers generated [30, 31] and genai [40, 41] -> second tokens differ too.
+        assert result["transformers_second_token"] == 31
+        assert result["genai_second_token"] == 41
+        assert result["second_token_matches"] is False
 
 
 class TestWeightDtypeInference:
@@ -652,6 +660,9 @@ class TestCompareLlamaCpp:
             "llama_cpp_first_token_id",
             "llama_cpp_pytorch_first_token_id",
             "llama_cpp_first_token_matches_pytorch",
+            "llama_cpp_second_token_id",
+            "llama_cpp_pytorch_second_token_id",
+            "llama_cpp_second_token_matches_pytorch",
             "llama_cpp_longest_common_token_sequence",
             "llama_cpp_ttft_s",
             "llama_cpp_ttfn_s",
@@ -662,6 +673,10 @@ class TestCompareLlamaCpp:
         assert expected_keys <= set(result.keys())
 
         assert result["llama_cpp_first_token_id"] == 42
+        # transformers generated only one token ([42]), so there is no reference second token.
+        assert result["llama_cpp_pytorch_second_token_id"] is None
+        assert result["llama_cpp_second_token_id"] == 43
+        assert result["llama_cpp_second_token_matches_pytorch"] is False
         # Generated-only comparison: transformers generated [42] vs llama.cpp [42, 43, ...] = 1 match.
         assert result["llama_cpp_longest_common_token_sequence"] == 1
         assert result["llama_cpp_ttft_s"] == pytest.approx(0.05)
