@@ -75,16 +75,18 @@ def _save_local_tiny_qwen3(model_path: Path):
     from transformers import PreTrainedTokenizerFast, Qwen3Config, Qwen3ForCausalLM
 
     model = Qwen3ForCausalLM(
-        Qwen3Config(
-            vocab_size=32,
-            hidden_size=64,
-            intermediate_size=128,
-            num_hidden_layers=2,
-            num_attention_heads=4,
-            num_key_value_heads=4,
-            head_dim=16,
-            max_position_embeddings=64,
-            tie_word_embeddings=False,
+        Qwen3Config.from_dict(
+            {
+                "vocab_size": 32,
+                "hidden_size": 64,
+                "intermediate_size": 128,
+                "num_hidden_layers": 2,
+                "num_attention_heads": 4,
+                "num_key_value_heads": 4,
+                "head_dim": 16,
+                "max_position_embeddings": 64,
+                "tie_word_embeddings": False,
+            }
         )
     )
     model.save_pretrained(model_path)
