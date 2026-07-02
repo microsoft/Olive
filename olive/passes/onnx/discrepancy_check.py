@@ -230,16 +230,8 @@ class OnnxDiscrepancyCheck(Pass):
                 type_=Optional[str],
                 default_value=None,
                 description=(
-                    "Directory where discrepancy check results and reference model are saved. "
+                    "Directory where discrepancy check results are saved. "
                     "If not specified, results are written to the pass cache directory."
-                ),
-            ),
-            "save_reference_model_state_dict": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description=(
-                    "Save the reference PyTorch model weights (state_dict) alongside the results. "
-                    "This allows direct comparison between the reference and optimized models."
                 ),
             ),
             "test_metrics": PassConfigParam(
@@ -366,12 +358,12 @@ class OnnxDiscrepancyCheck(Pass):
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
         dataloader, io_config = self._prepare_dataloader(model)
-        ref_model, ref_cfg, ref_path = self._load_reference_model(model, config)
+        ref_model, ref_path = self._load_reference_model(model, config)
 
         device, execution_provider, torch_device, weight_dtype = self._resolve_execution_device(model)
         ref_model = self._cast_reference_model(ref_model, weight_dtype, torch_device)
 
-        report_dir = self._save_reference_artifacts(ref_model, ref_cfg, config, output_model_path)
+        report_dir = self._resolve_report_dir(config, output_model_path)
 
         session = model.prepare_session(
             device=device,
@@ -471,7 +463,7 @@ class OnnxDiscrepancyCheck(Pass):
             ref_path,
             getattr(ref_cfg, "_attn_implementation", None),
         )
-        return ref_model, ref_cfg, ref_path
+        return ref_model, ref_path
 
     def _resolve_execution_device(self, model: ONNXModelHandler):
         import torch
@@ -520,21 +512,11 @@ class OnnxDiscrepancyCheck(Pass):
             ref_model = ref_model.to(torch_device)
         return ref_model
 
-    def _save_reference_artifacts(self, ref_model, ref_cfg, config: type[BasePassConfig], output_model_path: str):
-        # Save reference PyTorch model for direct comparison
+    def _resolve_report_dir(self, config: type[BasePassConfig], output_model_path: str):
         report_dir = config.report_output_dir or output_model_path
         report_dir_path = Path(report_dir)
         if report_dir_path.suffix and not report_dir_path.is_dir():
             report_dir = str(report_dir_path.parent)
-        if config.save_reference_model_state_dict:
-            self._export_reference_model(ref_model, report_dir)
-
-        # Save the (potentially modified) model config alongside the results so the
-        # exact configuration used for this test run is always reproducible.
-        config_save_path = Path(report_dir) / "reference_model_config.json"
-        config_save_path.parent.mkdir(parents=True, exist_ok=True)
-        config_save_path.write_text(ref_cfg.to_json_string())
-        logger.info("Saved reference model config to %s", config_save_path)
         return report_dir
 
     def _compute_logits_discrepancy(self, ref_model, session, dataloader, io_config, torch_device):
@@ -1195,14 +1177,3 @@ class OnnxDiscrepancyCheck(Pass):
         )
 
         return results
-
-    def _export_reference_model(self, ref_model, output_model_path: str):
-        """Save the reference PyTorch model weights for direct comparison."""
-        import torch
-
-        output_dir = Path(output_model_path)
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        ref_pt_path = output_dir / "reference_model.pt"
-        torch.save(ref_model.state_dict(), str(ref_pt_path))
-        logger.info("Reference PyTorch model saved to %s", ref_pt_path)
