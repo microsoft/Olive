@@ -30,7 +30,7 @@ class QuarkQuantization(Pass):
 
     Routes to the appropriate backend based on input model type:
     - ONNXModelHandler  -> Quark-ONNX quantization (quark.onnx)
-    - HfModelHandler    -> Quark-Torch quantization (quark.torch, Quark 0.11 API)
+    - HfModelHandler    -> Quark-Torch quantization (quark.torch, Quark 0.12 API)
     """
 
     @classmethod
@@ -188,7 +188,7 @@ class QuarkQuantization(Pass):
             logger.info("[INFO] Running QuarkQuantization using Quark-ONNX API")
             return self._run_quark_onnx(model, config, output_model_path)
         else:
-            logger.info("[INFO] Running QuarkQuantization using Quark-Torch 0.11 API")
+            logger.info("[INFO] Running QuarkQuantization using Quark-Torch 0.12 API")
             return self._run_quark_torch(model, config, output_model_path)
 
     # ── ONNX path ───────────────────────────────────────────
@@ -201,8 +201,8 @@ class QuarkQuantization(Pass):
     ) -> ONNXModelHandler:
         from quark import __version__ as QuarkVersion
 
-        if version.parse(QuarkVersion) < version.parse("0.11.0"):
-            raise ValueError("Quark ONNX Quantization is only supported for amd-quark>=0.11.0")
+        if version.parse(QuarkVersion) < version.parse("0.12.0"):
+            raise ValueError("Quark ONNX Quantization is only supported for amd-quark>=0.12.0")
 
         from olive.passes.quark_quantizer.onnx.quantize_quark import run_quark_quantization
 
@@ -217,7 +217,9 @@ class QuarkQuantization(Pass):
         data_reader = None
         if config.data_config:
             data_config = validate_config(config.data_config, DataConfig)
-            data_reader = data_config.to_data_container().create_calibration_dataloader()
+            data_reader = data_config.to_data_container().create_calibration_dataloader(
+                model_path=model.model_path, io_config=model.io_config
+            )
 
         run_config = config.model_dump()
         to_delete = [
@@ -253,6 +255,11 @@ class QuarkQuantization(Pass):
         config: BasePassConfig,
         output_model_path: str,
     ) -> HfModelHandler:
+        from quark import __version__ as QuarkVersion
+
+        if version.parse(QuarkVersion) < version.parse("0.12.0"):
+            raise ValueError("Quark Torch Quantization is only supported for amd-quark>=0.12.0")
+
         from olive.passes.quark_quantizer.torch.quark_torch_quantization import run_quark_torch_quantization
 
         return run_quark_torch_quantization(model, config, output_model_path)
