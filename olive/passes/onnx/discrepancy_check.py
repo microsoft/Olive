@@ -35,11 +35,17 @@ def _json_sanitize(obj):
 
 
 def _infer_shape(dynamic_shape, known_values=None):
+    # Use an empty past-KV cache (past_sequence_length=0) so the discrepancy check is a clean
+    # prefill comparison.  The dummy dataloader passes ``past_key_values.<i>.key/value`` tensors,
+    # but HuggingFace ``forward`` does not accept those dotted names as keyword arguments and
+    # silently drops them, so the reference model would run without a cache while the ONNX model
+    # would consume a (bogus, all-ones) cache -- producing a large, meaningless discrepancy.
+    # Keeping the past length at 0 makes both models perform the same prefill over ``input_ids``.
     default_values = {
         "batch_size": 1,
-        "past_sequence_length": 2,
-        "total_sequence_length": 3,
-        "sequence_length": 1,
+        "past_sequence_length": 0,
+        "sequence_length": 8,
+        "total_sequence_length": 8,
     }
     if known_values:
         default_values.update(known_values)
@@ -957,10 +963,13 @@ class OnnxDiscrepancyCheck(Pass):
             transformers_ttfn = None
         transformers_tokens = transformers_output[0].cpu().tolist()
 
-        # ONNX Runtime GenAI generation
+        # ONNX Runtime GenAI generation.  Feed GenAI the exact same prompt token ids produced by the
+        # transformers tokenizer (including any special/BOS tokens) rather than re-encoding with the
+        # GenAI tokenizer.  ``og.Tokenizer.encode`` does not add special tokens by default, so
+        # re-encoding would drop the BOS token that transformers adds, giving the two models different
+        # inputs and a spurious first-token mismatch even when the models are numerically identical.
         genai_model = og.Model(genai_model_path)
-        genai_tokenizer = og.Tokenizer(genai_model)
-        genai_input_ids = genai_tokenizer.encode(config.generate_prompt)
+        genai_input_ids = input_ids[0].cpu().tolist()
 
         params = og.GeneratorParams(genai_model)
         params.set_search_options(max_length=len(genai_input_ids) + max_new_tokens, do_sample=False)
@@ -983,7 +992,13 @@ class OnnxDiscrepancyCheck(Pass):
                 genai_ttfn = time.perf_counter() - start
         del generator
 
-        longest_common = _longest_common_token_sequence(transformers_tokens, genai_tokens)
+        # Longest common leading token sequence between transformers and ONNX Runtime GenAI, measured
+        # over the generated tokens only (the prompt is shared and identical since GenAI is fed the same
+        # token ids).  This bounds the count by ``max_new_tokens`` so, e.g., first_token_20 never
+        # validates more than 20 generated tokens.
+        transformers_generated_tokens = transformers_tokens[prompt_token_count:]
+        genai_generated_tokens = genai_tokens[genai_prompt_token_count:]
+        longest_common = _longest_common_token_sequence(transformers_generated_tokens, genai_generated_tokens)
 
         # First generated token comparison (transformers vs ONNX Runtime GenAI).
         transformers_first_token = (

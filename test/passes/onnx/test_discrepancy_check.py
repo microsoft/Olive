@@ -111,8 +111,9 @@ class TestCompareGeneration:
             )
 
         mock_generator.append_tokens.assert_called_once_with([[1, 2, 3]])
-        # Common prefix: [1, 2, 3, 10, 11] = 5 tokens before divergence
-        assert result["longest_common_token_sequence"] == 5
+        # Generated-only common prefix: transformers [10, 11, 12, 13] vs genai [10, 11, 99, 99]
+        # matches on [10, 11] = 2 tokens before divergence (shared prompt is excluded).
+        assert result["longest_common_token_sequence"] == 2
         # Latency metrics are exposed for both transformers and ONNX Runtime GenAI.
         assert result["first_n_tokens_timed"] == 5
         for key in (
@@ -179,8 +180,8 @@ class TestCompareGeneration:
             )
 
         mock_generator.append_tokens.assert_called_once_with([[10, 20]])
-        # All 5 tokens match
-        assert result["longest_common_token_sequence"] == 5
+        # All 3 generated tokens match (shared prompt is excluded)
+        assert result["longest_common_token_sequence"] == 3
         assert result["first_n_tokens_timed"] == 5
         for key in (
             "transformers_time_to_first_token_s",
