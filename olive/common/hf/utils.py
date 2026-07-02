@@ -102,11 +102,24 @@ def _load_test_model(model_class: type, model_config: "PretrainedConfig", trust_
     return model_class.from_config(model_config, **from_config_kwargs)
 
 
-def _save_test_model(model: "PreTrainedModel", output_dir: str, test_model_config: Optional[dict[str, Any]] = None):
+def _save_test_model(
+    model: "PreTrainedModel",
+    output_dir: str,
+    test_model_config: Optional[dict[str, Any]] = None,
+    model_name_or_path: Optional[str] = None,
+):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     logger.info("Saving generated test model to %s", output_path)
     model.save_pretrained(str(output_path))
+    if model_name_or_path:
+        # Save the reference tokenizer alongside the weights so the test model directory is
+        # self-contained (e.g. for OnnxDiscrepancyCheck and ONNX Runtime GenAI generation).
+        try:
+            tokenizer = get_tokenizer(model_name_or_path)
+            save_tokenizer(tokenizer, str(output_path))
+        except Exception as e:  # pylint: disable=broad-except
+            logger.debug("Could not save tokenizer for test model from %r: %s", model_name_or_path, e)
     _write_test_model_marker(output_path, test_model_config)
 
 
@@ -206,12 +219,16 @@ def load_model_from_task(
                         model = from_pretrained(model_class, test_model_path, "model", **kwargs)
                     else:
                         model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
-                        _save_test_model(model, test_model_path, test_model_config)
+                        _save_test_model(
+                            model, test_model_path, test_model_config, model_name_or_path=model_name_or_path
+                        )
                 else:
                     _validate_path(test_model_dir, test_model_path)
                     model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
                     if test_model_path:
-                        _save_test_model(model, test_model_path, test_model_config)
+                        _save_test_model(
+                            model, test_model_path, test_model_config, model_name_or_path=model_name_or_path
+                        )
             else:
                 model = from_pretrained(model_class, model_name_or_path, "model", **kwargs)
             logger.debug("Loaded model %s with name_or_path %s", model_class, model_name_or_path)

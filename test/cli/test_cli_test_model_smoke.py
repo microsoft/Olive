@@ -162,6 +162,9 @@ class TestCliTestModelSmoke(unittest.TestCase):
             "config.json",
             "generation_config.json",
             "model.safetensors",
+            "special_tokens_map.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
             TEST_MODEL_MARKER_FILE,
         }
         expected_run_output_files = {

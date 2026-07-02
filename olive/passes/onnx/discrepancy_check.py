@@ -431,10 +431,10 @@ class OnnxDiscrepancyCheck(Pass):
         from transformers import AutoConfig, AutoModelForCausalLM
 
         # Resolve the reference model path.  Use the configured path if it exists as a local
-        # directory; otherwise fall back to the ``reference_hf_model`` copy that ModelBuilder
-        # saves alongside the ONNX output.  That copy is written on the first successful build
-        # and is preserved across engine cache hits, so OnnxDiscrepancyCheck keeps working even
-        # when the original ``test_model_path`` (e.g. ``out/tiny-test``) has been deleted.
+        # directory; otherwise fall back to a ``reference_hf_model`` directory saved alongside the
+        # ONNX output.  The reference model is normally kept at ``<output_path>/reference_hf_model``
+        # (written by SaveTestModelConfig / the test-model flow) and persists across engine cache
+        # hits, so this fallback only triggers if the configured path has been removed.
         ref_path = config.reference_model_path
         if not Path(ref_path).is_dir():
             hf_ref_dir = (model.model_attributes or {}).get("hf_reference_model_dir", "reference_hf_model")

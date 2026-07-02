@@ -54,6 +54,34 @@ def test_load_model_from_task_test_model_config(model_config, hidden_layers_attr
     assert getattr(mock_model_class.from_config.call_args.args[0], hidden_layers_attr) == 2
 
 
+def test_load_model_from_task_test_model_config_saves_tokenizer(tmp_path):
+    """The reference tokenizer should be saved into the test model directory."""
+    model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
+    created_model = MagicMock()
+    test_model_path = tmp_path / "saved_test_model"
+    mock_tokenizer = MagicMock()
+
+    with (
+        patch("transformers.pipelines.check_task") as mock_check_task,
+        patch("olive.common.hf.utils.from_pretrained", return_value=model_config),
+        patch("olive.common.hf.utils.get_tokenizer", return_value=mock_tokenizer) as mock_get_tokenizer,
+        patch("olive.common.hf.utils.save_tokenizer") as mock_save_tokenizer,
+    ):
+        mock_model_class = MagicMock()
+        mock_model_class.from_config.return_value = created_model
+        mock_check_task.return_value = ("text-classification", {"pt": (mock_model_class,)}, None)
+
+        load_model_from_task(
+            "text-classification",
+            "dummy-model",
+            test_model_config={"num_hidden_layers": 2},
+            test_model_path=str(test_model_path),
+        )
+
+    mock_get_tokenizer.assert_called_once_with("dummy-model")
+    mock_save_tokenizer.assert_called_once_with(mock_tokenizer, str(test_model_path))
+
+
 def test_load_model_from_task_test_model_config_fails_without_fallback():
     model_config = BertConfig(num_hidden_layers=12)  # pylint: disable=unexpected-keyword-arg
 
