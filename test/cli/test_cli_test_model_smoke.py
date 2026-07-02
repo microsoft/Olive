@@ -162,11 +162,13 @@ class TestCliTestModelSmoke(unittest.TestCase):
             "config.json",
             "generation_config.json",
             "model.safetensors",
-            "special_tokens_map.json",
             "tokenizer.json",
             "tokenizer_config.json",
             TEST_MODEL_MARKER_FILE,
         }
+        # Some transformers versions additionally emit special_tokens_map.json when saving the
+        # tokenizer; treat it as optional so the assertion is version independent.
+        optional_test_model_files = {"special_tokens_map.json"}
         expected_run_output_files = {
             "config.json",
             "genai_config.json",
@@ -181,7 +183,9 @@ class TestCliTestModelSmoke(unittest.TestCase):
             with self.subTest(model_id=model_id):
                 config_path, test_model_dir, run_output_dir = _run_documented_test_model_smoke_flow(tmp_path, model_id)
                 assert config_path.exists()
-                assert self._list_relative_files(test_model_dir) == expected_test_model_files
+                assert (
+                    self._list_relative_files(test_model_dir) - optional_test_model_files == expected_test_model_files
+                )
                 run_output_files = self._list_relative_files(run_output_dir)
                 assert expected_run_output_files.issubset(run_output_files)
                 self._assert_file_size_below_limit(test_model_dir / "model.safetensors")
