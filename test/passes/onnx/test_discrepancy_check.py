@@ -661,8 +661,8 @@ class TestCompareLlamaCpp:
         assert expected_keys <= set(result.keys())
 
         assert result["llama_cpp_first_token_id"] == 42
-        # Prompt [1, 2, 3] + first generated token 42 match transformers [1, 2, 3, 42] = 4 leading tokens.
-        assert result["llama_cpp_longest_common_token_sequence"] == 4
+        # Generated-only comparison: transformers generated [42] vs llama.cpp [42, 43, ...] = 1 match.
+        assert result["llama_cpp_longest_common_token_sequence"] == 1
         assert result["llama_cpp_ttft_s"] == pytest.approx(0.05)
         assert result["llama_cpp_ttfn_s"] == pytest.approx(0.25)
         assert result["llama_cpp_total_time_s"] == pytest.approx(0.50)

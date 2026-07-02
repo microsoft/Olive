@@ -751,6 +751,9 @@ class OnnxDiscrepancyCheck(Pass):
         if model.model_attributes:
             preconverted_gguf_path = model.model_attributes.get("reference_gguf_model_path")
         try:
+            # first_token_20 restricts the comparison to a 20-token generation, mirroring the
+            # transformers vs GenAI path so no more than 20 generated tokens are validated.
+            gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
             llama_results = self.compare_llama_cpp(
                 config,
                 ref_model,
@@ -759,6 +762,7 @@ class OnnxDiscrepancyCheck(Pass):
                 onnx_latency_s=results.get("onnx_latency_s"),
                 ref_model_path=ref_path,
                 preconverted_gguf_path=preconverted_gguf_path,
+                max_new_tokens=gen_max_new_tokens,
             )
             results.update(llama_results)
 
@@ -1081,6 +1085,7 @@ class OnnxDiscrepancyCheck(Pass):
         *,
         ref_model_path: str,
         preconverted_gguf_path: Optional[str] = None,
+        max_new_tokens: Optional[int] = None,
     ) -> dict:
         """Convert the reference model to GGUF and compare inference with llama.cpp.
 
@@ -1111,7 +1116,7 @@ class OnnxDiscrepancyCheck(Pass):
         encoded = tokenizer(config.generate_prompt, return_tensors="pt")
         prompt_token_ids: list[int] = encoded["input_ids"][0].tolist()
 
-        max_new_tokens = config.generate_max_new_tokens
+        max_new_tokens = config.generate_max_new_tokens if max_new_tokens is None else max_new_tokens
         first_n = max(1, min(config.first_n_tokens_timed, max_new_tokens)) if max_new_tokens > 0 else 1
 
         # Run generation with transformers to get the reference first token and the leading
@@ -1179,10 +1184,11 @@ class OnnxDiscrepancyCheck(Pass):
         llama_ttfn: Optional[float] = llama_out.get("ttfn")
         llama_total: Optional[float] = llama_out.get("total_time")
 
-        # Longest common leading token sequence between transformers and llama.cpp,
-        # measured from the beginning of the (identical) prompt through the generated tokens.
-        llama_tokens = prompt_token_ids + llama_generated_tokens
-        llama_longest_common = _longest_common_token_sequence(pytorch_tokens, llama_tokens)
+        # Longest common leading token sequence between transformers and llama.cpp, measured over
+        # the generated tokens only (the prompt is shared and identical).  This bounds the count by
+        # ``max_new_tokens`` so, e.g., first_token_20 never validates more than 20 generated tokens.
+        pytorch_generated_tokens = pytorch_tokens[prompt_token_count:]
+        llama_longest_common = _longest_common_token_sequence(pytorch_generated_tokens, llama_generated_tokens)
 
         # Speedup: compare llama.cpp TTFT with single-pass PyTorch / ONNX latency
         llama_speedup_vs_pytorch: Optional[float] = (
