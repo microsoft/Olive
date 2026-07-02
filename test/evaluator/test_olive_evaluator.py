@@ -664,6 +664,8 @@ class TestOnnxEvaluatorGenaiVisionDetection:
         metric.user_config.input_names = None
         metric.user_config.input_shapes = None
         metric.backend = "huggingface_metrics"
+        metric.sample_log_num = 0
+        metric.sample_log_dir = None
         return metric
 
     def test_genai_vision_detected_when_vision_field_present(self, tmp_path):
@@ -869,3 +871,187 @@ class TestFindGenaiConfig:
         # Should not find the directory, should return None
         result = _find_genai_config(model)
         assert result is None
+
+
+class TestSaveSampleLog:
+    """Tests for OliveEvaluator.save_sample_log."""
+
+    @staticmethod
+    def _make_metric(sample_log_num=0, sample_log_dir=None, name="test_metric"):
+        metric = MagicMock()
+        metric.name = name
+        metric.sample_log_num = sample_log_num
+        metric.sample_log_dir = sample_log_dir
+        return metric
+
+    def test_save_sample_log_disabled_when_zero(self, tmp_path):
+        """No file should be created when sample_log_num=0."""
+        import torch
+
+        from olive.evaluator.olive_evaluator import OliveModelOutput
+
+        metric = self._make_metric(sample_log_num=0, sample_log_dir=str(tmp_path), name="m")
+        output = OliveModelOutput(preds=torch.tensor([1, 2, 3]), logits=None)
+        targets = torch.tensor([1, 2, 3])
+
+        OliveEvaluator.save_sample_log(metric, output, targets, 0)
+        assert not list(tmp_path.iterdir())
+
+    def test_save_sample_log_with_tensor_data(self, tmp_path):
+        """Should write a JSONL file with tensor preds/targets converted to Python values."""
+        import json
+
+        import torch
+
+        from olive.evaluator.olive_evaluator import OliveModelOutput
+
+        metric = self._make_metric(sample_log_num=3, sample_log_dir=str(tmp_path), name="accuracy")
+        preds = torch.tensor([0, 1, 1, 0, 1])
+        targets = torch.tensor([0, 1, 0, 0, 1])
+        output = OliveModelOutput(preds=preds, logits=None)
+
+        OliveEvaluator.save_sample_log(metric, output, targets, 3)
+
+        log_path = tmp_path / "accuracy_samples.jsonl"
+        assert log_path.exists()
+
+        lines = log_path.read_text().strip().split("\n")
+        assert len(lines) == 3
+
+        for i, line in enumerate(lines):
+            record = json.loads(line)
+            assert record["index"] == i
+            assert record["prediction"] == preds[i].item()
+            assert record["target"] == targets[i].item()
+
+    def test_save_sample_log_with_string_data(self, tmp_path):
+        """Should handle string predictions and targets (text-based metrics)."""
+        import json
+
+        from olive.evaluator.olive_evaluator import OliveModelOutput
+
+        metric = self._make_metric(sample_log_num=2, sample_log_dir=str(tmp_path), name="wer")
+        preds = ["hello world", "foo bar"]
+        targets = ["hello world", "foo baz"]
+        output = OliveModelOutput(preds=preds, logits=None)
+
+        OliveEvaluator.save_sample_log(metric, output, targets, 2)
+
+        log_path = tmp_path / "wer_samples.jsonl"
+        assert log_path.exists()
+
+        lines = log_path.read_text().strip().split("\n")
+        assert len(lines) == 2
+
+        record0 = json.loads(lines[0])
+        assert record0["prediction"] == "hello world"
+        assert record0["target"] == "hello world"
+
+        record1 = json.loads(lines[1])
+        assert record1["prediction"] == "foo bar"
+        assert record1["target"] == "foo baz"
+
+    def test_save_sample_log_caps_at_available_samples(self, tmp_path):
+        """When sample_log_num > len(preds), should write only available samples."""
+        import torch
+
+        from olive.evaluator.olive_evaluator import OliveModelOutput
+
+        metric = self._make_metric(sample_log_num=100, sample_log_dir=str(tmp_path), name="acc")
+        preds = torch.tensor([1, 2])
+        targets = torch.tensor([1, 0])
+        output = OliveModelOutput(preds=preds, logits=None)
+
+        OliveEvaluator.save_sample_log(metric, output, targets, 100)
+
+        log_path = tmp_path / "acc_samples.jsonl"
+        lines = log_path.read_text().strip().split("\n")
+        assert len(lines) == 2
+
+    def test_save_sample_log_merges_extras(self, tmp_path):
+        """Per-sample extras (e.g. prompt and image/audio file name) should be merged into records."""
+        import json
+
+        from olive.evaluator.olive_evaluator import OliveModelOutput
+
+        metric = self._make_metric(sample_log_num=2, sample_log_dir=str(tmp_path), name="vision_accuracy")
+        preds = ["1", "3"]
+        targets = ["3", "3"]
+        extras = [
+            {"prompt": "What is shown?\n1. cat\n2. dog", "image": "img_0.png"},
+            {"prompt": "Which arrow?\n1. up\n2. down", "image": "img_1.png"},
+        ]
+        output = OliveModelOutput(preds=preds, logits=None, extras=extras)
+
+        OliveEvaluator.save_sample_log(metric, output, targets, 2)
+
+        log_path = tmp_path / "vision_accuracy_samples.jsonl"
+        lines = log_path.read_text().strip().split("\n")
+        assert len(lines) == 2
+
+        record0 = json.loads(lines[0])
+        # index first, then merged extras, then prediction/target
+        assert list(record0.keys()) == ["index", "prompt", "image", "prediction", "target"]
+        assert record0["prompt"] == "What is shown?\n1. cat\n2. dog"
+        assert record0["image"] == "img_0.png"
+        assert record0["prediction"] == "1"
+        assert record0["target"] == "3"
+
+        record1 = json.loads(lines[1])
+        assert record1["image"] == "img_1.png"
+
+    def test_save_sample_log_without_extras_is_unchanged(self, tmp_path):
+        """When extras is None, records should only contain index/prediction/target."""
+        import json
+
+        from olive.evaluator.olive_evaluator import OliveModelOutput
+
+        metric = self._make_metric(sample_log_num=1, sample_log_dir=str(tmp_path), name="acc")
+        output = OliveModelOutput(preds=["a"], logits=None)
+
+        OliveEvaluator.save_sample_log(metric, output, ["a"], 1)
+
+        record = json.loads((tmp_path / "acc_samples.jsonl").read_text().strip())
+        assert list(record.keys()) == ["index", "prediction", "target"]
+
+
+class TestAudioInputHelpers:
+    """Tests for the speech input normalization/unwrap helpers."""
+
+    def test_normalize_audio_batch_dict_with_file_name(self):
+        import numpy as np
+
+        from olive.evaluator.olive_evaluator import _normalize_audio_batch
+
+        arr = np.zeros(16000, dtype=np.float32)
+        arrays, names = _normalize_audio_batch({"audio": np.expand_dims(arr, 0), "file_name": "a.wav"})
+        assert len(arrays) == 1
+        assert arrays[0].shape == (16000,)
+        assert names == ["a.wav"]
+
+    def test_normalize_audio_batch_legacy_array(self):
+        import numpy as np
+
+        from olive.evaluator.olive_evaluator import _normalize_audio_batch
+
+        arr = np.zeros((1, 16000), dtype=np.float32)
+        arrays, names = _normalize_audio_batch(arr)
+        assert len(arrays) == 1
+        assert names == [None]
+
+    def test_unwrap_audio_input_dict(self):
+        import numpy as np
+
+        from olive.evaluator.olive_evaluator import _unwrap_audio_input
+
+        arr = np.zeros((1, 8), dtype=np.float32)
+        unwrapped = _unwrap_audio_input({"audio": arr, "file_name": "a.wav"})
+        assert unwrapped is arr
+
+    def test_unwrap_audio_input_passthrough(self):
+        import numpy as np
+
+        from olive.evaluator.olive_evaluator import _unwrap_audio_input
+
+        arr = np.zeros((1, 8), dtype=np.float32)
+        assert _unwrap_audio_input(arr) is arr
