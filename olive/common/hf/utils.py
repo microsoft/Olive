@@ -118,7 +118,9 @@ def _load_test_model(
         parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in from_config_signature.parameters.values()
     )
     from_config_kwargs = {}
-    if (accepts_var_keyword or "trust_remote_code" in from_config_signature.parameters) and trust_remote_code is not None:
+    if (
+        accepts_var_keyword or "trust_remote_code" in from_config_signature.parameters
+    ) and trust_remote_code is not None:
         from_config_kwargs["trust_remote_code"] = trust_remote_code
     if (
         accepts_var_keyword or "attn_implementation" in from_config_signature.parameters
