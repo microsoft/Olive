@@ -26,6 +26,7 @@ DEFAULT_MODEL_IDS = (
     "local/tiny-random-llama-b",
     "mistralai/Mistral-7B-Instruct-v0.3",
     "microsoft/Phi-3-mini-4k-instruct",
+    "Qwen/Qwen3-8B",
 )
 MAX_ARTIFACT_SIZE_BYTES = 1024 * 1024
 
@@ -44,7 +45,7 @@ def _save_local_tiny_llama(model_path: Path):
         LlamaConfig.from_dict(
             {
                 "vocab_size": 32,
-                "hidden_size": 64,
+                "hidden_size": 128,
                 "intermediate_size": 128,
                 "num_hidden_layers": 2,
                 "num_attention_heads": 8,
@@ -70,9 +71,49 @@ def _save_local_tiny_llama(model_path: Path):
     ).save_pretrained(model_path)
 
 
+def _save_local_tiny_qwen3(model_path: Path):
+    from transformers import PreTrainedTokenizerFast, Qwen3Config, Qwen3ForCausalLM
+
+    model = Qwen3ForCausalLM(
+        Qwen3Config(
+            vocab_size=32,
+            hidden_size=64,
+            intermediate_size=128,
+            num_hidden_layers=2,
+            num_attention_heads=4,
+            num_key_value_heads=4,
+            head_dim=16,
+            max_position_embeddings=64,
+            tie_word_embeddings=False,
+        )
+    )
+    model.save_pretrained(model_path)
+
+    tokenizer = Tokenizer(
+        WordLevel(
+            vocab={"<pad>": 0, "<bos>": 1, "<eos>": 2, "hello": 3, "world": 4},
+            unk_token="<pad>",
+        )
+    )
+    tokenizer.pre_tokenizer = Whitespace()
+    PreTrainedTokenizerFast(
+        tokenizer_object=tokenizer,
+        bos_token="<bos>",
+        eos_token="<eos>",
+        pad_token="<pad>",
+    ).save_pretrained(model_path)
+
+
+def _save_local_tiny_model(model_id: str, model_path: Path):
+    if model_id.startswith("Qwen/"):
+        _save_local_tiny_qwen3(model_path)
+    else:
+        _save_local_tiny_llama(model_path)
+
+
 def _set_offline_gptq_data_config(config_path: Path):
     config = json.loads(config_path.read_text())
-    # The tiny test model has hidden_size 64, so the default GPTQ group_size of 128
+    # The tiny smoke-test fixtures use small hidden sizes, so the default GPTQ group_size of 128
     # is too large (in_features must be divisible by group_size). Use a small group_size.
     config["passes"]["gptq"]["group_size"] = 32
     config["passes"]["gptq"]["data_config"] = {
@@ -106,7 +147,7 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
     run_output_dir = tmp_path / f"{model_name}-test-run"
     test_model_dir = run_output_dir / "reference_hf_model"
 
-    _save_local_tiny_llama(model_path)
+    _save_local_tiny_model(model_id, model_path)
     # optimize -m arnir0/Tiny-LLM --device cpu --provider CPUExecutionProvider --precision int4 --output_path dump --dry_run
     _run_cli_main(
         [
@@ -238,7 +279,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
         config_output_dir = tmp_path / f"{model_name}-disc-cfg"
         run_output_dir = tmp_path / f"{model_name}-disc-run"
 
-        _save_local_tiny_llama(model_path)
+        _save_local_tiny_model(model_id, model_path)
         _run_cli_main(
             [
                 "optimize",
