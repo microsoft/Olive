@@ -42,6 +42,16 @@ def is_test_model_dir(output_dir: Union[str, Path]) -> bool:
     return marker.get("type") == "olive_hf_test_model"
 
 
+def has_test_model_weights(output_dir: Union[str, Path]) -> bool:
+    """Return True if *output_dir* contains persisted model weight shards.
+
+    A config-only test-model directory (created by ``save_test_model_config`` during
+    ``--dry_run --test``) has a ``config.json`` and marker file but no weight shards yet.
+    """
+    output_path = Path(output_dir)
+    return any(output_path.glob("*.safetensors")) or any(output_path.glob("pytorch_model*.bin"))
+
+
 def _write_test_model_marker(output_dir: Union[str, Path], test_model_config: Optional[dict[str, Any]] = None):
     marker_path = _get_test_model_marker_path(output_dir)
     marker_path.write_text(
@@ -212,10 +222,7 @@ def load_model_from_task(
                     # and a marker file but no weight shards yet.  In that case, create a random
                     # model from the saved config and persist the weights so subsequent loads
                     # can use the saved directory directly.
-                    _has_weights = any(test_model_dir.glob("*.safetensors")) or any(
-                        test_model_dir.glob("pytorch_model*.bin")
-                    )
-                    if _has_weights:
+                    if has_test_model_weights(test_model_dir):
                         model = from_pretrained(model_class, test_model_path, "model", **kwargs)
                     else:
                         model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))

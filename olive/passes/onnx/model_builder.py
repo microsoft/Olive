@@ -18,7 +18,7 @@ import torch
 from huggingface_hub.constants import HF_HUB_CACHE
 from packaging import version
 
-from olive.common.hf.utils import is_test_model_dir
+from olive.common.hf.utils import has_test_model_weights, is_test_model_dir
 from olive.constants import Precision
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.hardware.constants import ExecutionProvider
@@ -249,7 +249,12 @@ class ModelBuilder(Pass):
                         "ModelBuilder requires test_model_path to be set when test_model_config is provided. "
                         "Please specify the path where the test model should be saved."
                     )
-                if not is_test_model_dir(model.test_model_path):
+                # Materialize the reference weights when the test-model directory is missing or only
+                # contains a config (as created by SaveTestModelConfig).  This guarantees the ONNX
+                # model is built from the exact same saved weights that OnnxDiscrepancyCheck later
+                # loads as the reference; otherwise the model builder would initialize its own
+                # weights and the discrepancy check would compare against a different model.
+                if not is_test_model_dir(model.test_model_path) or not has_test_model_weights(model.test_model_path):
                     model.load_model(cache_model=False)
                 model_path = str(Path(model.test_model_path).resolve())
             # provide the model path as input path, model builder uses input_path for quantized models
