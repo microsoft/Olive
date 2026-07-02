@@ -304,7 +304,7 @@ class OnnxDiscrepancyCheck(Pass):
                 default_value=32,
                 description="Maximum number of new tokens to generate for the token sequence comparison.",
             ),
-            "time_to_first_n_tokens": PassConfigParam(
+            "first_n_tokens_timed": PassConfigParam(
                 type_=int,
                 default_value=5,
                 description=(
@@ -382,7 +382,9 @@ class OnnxDiscrepancyCheck(Pass):
 
         self._run_generation_comparison(model, config, ref_model, ref_path, generation_metrics, results)
 
-        self._run_llama_cpp_comparison(model, config, ref_model, ref_path, report_dir, results)
+        self._run_llama_cpp_comparison(
+            model, config, ref_model, ref_path, report_dir, generation_metrics, results
+        )
 
         self._save_results(model, results, report_dir)
         return model
@@ -680,7 +682,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         # first_token_20 generates 20 tokens; tf5t measures the time to the first 5 tokens.
         gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
-        gen_first_n = 5 if "tf5t" in generation_metrics else config.time_to_first_n_tokens
+        gen_first_n = 5 if "tf5t" in generation_metrics else config.first_n_tokens_timed
         gen_results = self.compare_generation(
             config,
             ref_model,
@@ -739,7 +741,9 @@ class OnnxDiscrepancyCheck(Pass):
             results.setdefault("failures", []).append(gen_failure)
             logger.error("ONNX model discrepancy check FAILED: %s", gen_failure)
 
-    def _run_llama_cpp_comparison(self, model: ONNXModelHandler, config, ref_model, ref_path, report_dir, results):
+    def _run_llama_cpp_comparison(
+        self, model: ONNXModelHandler, config, ref_model, ref_path, report_dir, generation_metrics, results
+    ):
         # llama.cpp comparison: convert reference model to GGUF and compare latencies
         if not config.llama_cpp:
             return
@@ -757,6 +761,25 @@ class OnnxDiscrepancyCheck(Pass):
                 preconverted_gguf_path=preconverted_gguf_path,
             )
             results.update(llama_results)
+
+            # Surface the llama.cpp vs transformers first-token comparison alongside the
+            # transformers vs GenAI comparison when first_token_20 is requested.
+            if "first_token_20" in generation_metrics:
+                first_token_20 = results.setdefault("first_token_20", {})
+                transformers_first_token = llama_results.get("llama_cpp_pytorch_first_token_id")
+                llama_first_token = llama_results.get("llama_cpp_first_token_id")
+                first_token_20.setdefault("transformers_first_token", transformers_first_token)
+                first_token_20["llama_cpp_first_token"] = llama_first_token
+                first_token_20["llama_cpp_first_token_matches"] = llama_results.get(
+                    "llama_cpp_first_token_matches_pytorch"
+                )
+                logger.info(
+                    "OnnxDiscrepancyCheck first_token_20 (llama.cpp): matches=%s "
+                    "(transformers=%s, llama_cpp=%s)",
+                    llama_results.get("llama_cpp_first_token_matches_pytorch"),
+                    transformers_first_token,
+                    llama_first_token,
+                )
         except Exception as exc:
             logger.exception("OnnxDiscrepancyCheck llama.cpp comparison failed.")
             results["status"] = "failed"
@@ -862,7 +885,7 @@ class OnnxDiscrepancyCheck(Pass):
         Returns a dict with the longest common token sequence length, the first-generated-token
         match between transformers and ONNX Runtime GenAI, and the time-to-first-token and
         time-to-first-N-tokens latencies (in seconds) for both, where N is ``first_n``
-        (defaults to ``config.time_to_first_n_tokens``).
+        (defaults to ``config.first_n_tokens_timed``).
 
         ``genai_model_path``, ``max_new_tokens`` and ``first_n`` override the corresponding
         config values when provided, which lets the caller request specific metrics such as
@@ -878,7 +901,7 @@ class OnnxDiscrepancyCheck(Pass):
         tokenizer = AutoTokenizer.from_pretrained(ref_model_path)
 
         max_new_tokens = config.generate_max_new_tokens if max_new_tokens is None else max_new_tokens
-        first_n_config = config.time_to_first_n_tokens if first_n is None else first_n
+        first_n_config = config.first_n_tokens_timed if first_n is None else first_n
         first_n = max(1, min(first_n_config, max_new_tokens)) if max_new_tokens > 0 else 0
 
         # Transformers generation
@@ -965,7 +988,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         gen_results = {
             "longest_common_token_sequence": longest_common,
-            "time_to_first_n_tokens": first_n,
+            "first_n_tokens_timed": first_n,
             "transformers_first_token": transformers_first_token,
             "genai_first_token": genai_first_token,
             "first_token_matches": first_token_matches,
@@ -1091,7 +1114,7 @@ class OnnxDiscrepancyCheck(Pass):
         pytorch_first_token_id = int(gen_out[0, -1].item())
 
         max_new_tokens = config.generate_max_new_tokens
-        first_n = max(1, min(config.time_to_first_n_tokens, max_new_tokens)) if max_new_tokens > 0 else 1
+        first_n = max(1, min(config.first_n_tokens_timed, max_new_tokens)) if max_new_tokens > 0 else 1
 
         output_dir_path = Path(output_dir)
         output_dir_path.mkdir(parents=True, exist_ok=True)

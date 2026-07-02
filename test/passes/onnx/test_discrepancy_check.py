@@ -62,7 +62,7 @@ class TestCompareGeneration:
         config.genai_model_path = "mock_genai_model"
         config.generate_prompt = "Hello world"
         config.generate_max_new_tokens = 10
-        config.time_to_first_n_tokens = 5
+        config.first_n_tokens_timed = 5
 
         # Mock transformers tokenizer and model
         mock_tokenizer = MagicMock()
@@ -114,7 +114,7 @@ class TestCompareGeneration:
         # Common prefix: [1, 2, 3, 10, 11] = 5 tokens before divergence
         assert result["longest_common_token_sequence"] == 5
         # Latency metrics are exposed for both transformers and ONNX Runtime GenAI.
-        assert result["time_to_first_n_tokens"] == 5
+        assert result["first_n_tokens_timed"] == 5
         for key in (
             "transformers_time_to_first_token_s",
             "transformers_time_to_first_n_tokens_s",
@@ -135,7 +135,7 @@ class TestCompareGeneration:
         config.genai_model_path = "mock_genai_model"
         config.generate_prompt = "Test"
         config.generate_max_new_tokens = 5
-        config.time_to_first_n_tokens = 5
+        config.first_n_tokens_timed = 5
 
         mock_tokenizer = MagicMock()
         mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[10, 20]]))
@@ -181,7 +181,7 @@ class TestCompareGeneration:
         mock_generator.append_tokens.assert_called_once_with([[10, 20]])
         # All 5 tokens match
         assert result["longest_common_token_sequence"] == 5
-        assert result["time_to_first_n_tokens"] == 5
+        assert result["first_n_tokens_timed"] == 5
         for key in (
             "transformers_time_to_first_token_s",
             "transformers_time_to_first_n_tokens_s",
@@ -206,7 +206,7 @@ class TestCompareGeneration:
         config.genai_model_path = "mock_genai_model"
         config.generate_prompt = "Test"
         config.generate_max_new_tokens = 0
-        config.time_to_first_n_tokens = 5
+        config.first_n_tokens_timed = 5
 
         mock_tokenizer = MagicMock()
         mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[10, 20]]))
@@ -237,7 +237,7 @@ class TestCompareGeneration:
 
         assert mock_ref_model.generate.call_count == 1
         assert mock_ref_model.generate.call_args.kwargs["max_new_tokens"] == 0
-        assert result["time_to_first_n_tokens"] == 0
+        assert result["first_n_tokens_timed"] == 0
         assert result["transformers_time_to_first_token_s"] is None
         assert result["transformers_time_to_first_n_tokens_s"] is None
 
@@ -252,7 +252,7 @@ class TestCompareGeneration:
         config.genai_model_path = None
         config.generate_prompt = "Hello world"
         config.generate_max_new_tokens = 10
-        config.time_to_first_n_tokens = 5
+        config.first_n_tokens_timed = 5
 
         mock_tokenizer = MagicMock()
         mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[1, 2, 3]]))
@@ -319,7 +319,7 @@ class TestCompareGeneration:
         config.genai_model_path = "mock_genai_model"
         config.generate_prompt = "Hello"
         config.generate_max_new_tokens = 10
-        config.time_to_first_n_tokens = 5
+        config.first_n_tokens_timed = 5
 
         mock_tokenizer = MagicMock()
         mock_tokenizer.return_value = MagicMock(input_ids=torch.tensor([[1, 2]]))
@@ -552,7 +552,7 @@ class TestCompareLlamaCpp:
         config.reference_model_path = "mock_model"
         config.generate_prompt = "Hello world"
         config.generate_max_new_tokens = 10
-        config.time_to_first_n_tokens = 5
+        config.first_n_tokens_timed = 5
         config.llama_cpp_env_path = "/mock/llama_env"
         return config
 
@@ -770,3 +770,4 @@ class TestCompareLlamaCpp:
         assert result["llama_cpp_first_token_id"] == 7
         mock_convert_script.assert_not_called()
         assert mock_subprocess_run.call_count == 1
+
