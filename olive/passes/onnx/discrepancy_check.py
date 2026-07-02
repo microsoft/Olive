@@ -1033,9 +1033,7 @@ class OnnxDiscrepancyCheck(Pass):
         genai_second_token = (
             genai_tokens[genai_prompt_token_count + 1] if len(genai_tokens) > genai_prompt_token_count + 1 else None
         )
-        second_token_matches = (
-            transformers_second_token is not None and transformers_second_token == genai_second_token
-        )
+        second_token_matches = transformers_second_token is not None and transformers_second_token == genai_second_token
 
         gen_results = {
             "longest_common_token_sequence": longest_common,

@@ -789,4 +789,3 @@ class TestCompareLlamaCpp:
         assert result["llama_cpp_first_token_id"] == 7
         mock_convert_script.assert_not_called()
         assert mock_subprocess_run.call_count == 1
-
