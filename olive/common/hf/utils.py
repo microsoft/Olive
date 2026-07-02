@@ -9,7 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from transformers import AutoConfig, AutoModel, AutoTokenizer, GenerationConfig
+from transformers import AutoConfig, AutoModel, AutoProcessor, AutoTokenizer, GenerationConfig
 
 from olive.common.hf.mappings import TASK_TO_PEFT_TASK_TYPE
 from olive.common.hf.mlflow import get_pretrained_name_or_path
@@ -340,6 +340,19 @@ def save_tokenizer(
 ) -> tuple[str]:
     """Save input tokenizer to output directory."""
     return tokenizer.save_pretrained(output_dir, **kwargs)
+
+
+def get_processor(model_name_or_path: str, **kwargs):
+    """Get HF model's processor if one exists."""
+    try:
+        return from_pretrained(AutoProcessor, model_name_or_path, "processor", **kwargs)
+    except (OSError, ValueError):
+        return None
+
+
+def save_processor(processor, output_dir: str, **kwargs) -> tuple[str]:
+    """Save input processor to output directory."""
+    return processor.save_pretrained(output_dir, **kwargs)
 
 
 def get_peft_task_type_from_task(task: str, fail_on_not_found=False) -> str:
