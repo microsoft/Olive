@@ -101,7 +101,17 @@ def _apply_test_model_config(
 
 
 def _load_test_model(model_class: type, model_config: "PretrainedConfig", trust_remote_code: Optional[bool] = None):
-    """Instantiate a random-initialized HF model from config for test mode."""
+    """Instantiate a random-initialized HF model from config for test mode.
+
+    The random weights are seeded so the generated test model is deterministic and reproducible
+    across runs.  Without a fixed seed each run draws different weights; on a randomly-initialized
+    model many logits are near-tied, so the unavoidable ~1e-5 fp32 difference between the PyTorch
+    reference and the exported ONNX model can flip a greedy argmax and make generation-based test
+    metrics (e.g. ``first_token_20`` / ``matching_leading_tokens``) non-deterministic.  Seeding
+    removes that flakiness and makes the discrepancy check reproducible.
+    """
+    import torch
+
     from_config_signature = inspect.signature(model_class.from_config)
     supports_trust_remote_code = "trust_remote_code" in from_config_signature.parameters or any(
         parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in from_config_signature.parameters.values()
@@ -109,6 +119,7 @@ def _load_test_model(model_class: type, model_config: "PretrainedConfig", trust_
     from_config_kwargs = {}
     if supports_trust_remote_code and trust_remote_code is not None:
         from_config_kwargs["trust_remote_code"] = trust_remote_code
+    torch.manual_seed(0)
     return model_class.from_config(model_config, **from_config_kwargs)
 
 
