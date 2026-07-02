@@ -365,37 +365,68 @@ class OnnxDiscrepancyCheck(Pass):
     def _run_for_config(
         self, model: ONNXModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> ONNXModelHandler:
-        import torch
+        dataloader, io_config = self._prepare_dataloader(model)
+        ref_model, ref_cfg, ref_path = self._load_reference_model(model, config)
 
+        device, execution_provider, torch_device, weight_dtype = self._resolve_execution_device(model)
+        ref_model = self._cast_reference_model(ref_model, weight_dtype, torch_device)
+
+        report_dir = self._save_reference_artifacts(ref_model, ref_cfg, config, output_model_path)
+
+        session = model.prepare_session(
+            device=device,
+            execution_providers=[execution_provider] if execution_provider else None,
+        )
+
+        results = self._compute_logits_discrepancy(ref_model, session, dataloader, io_config, torch_device)
+
+        effective_timing_iterations, effective_max_mae, generation_metrics = self._resolve_metric_settings(config)
+
+        self._run_speedup_measurement(
+            ref_model, session, dataloader, io_config, torch_device, config, effective_timing_iterations, results
+        )
+
+        self._check_error_thresholds(config, results, effective_max_mae)
+
+        self._run_generation_comparison(model, config, ref_model, ref_path, generation_metrics, results)
+
+        self._run_llama_cpp_comparison(model, config, ref_model, ref_path, report_dir, results)
+
+        self._save_results(model, results, report_dir)
+        return model
+
+    def _prepare_dataloader(self, model: ONNXModelHandler):
         from olive.common.config_utils import validate_config
-        from olive.common.utils import format_data
         from olive.data.template import dummy_data_config_template
         from olive.model.config.io_config import is_io_config_static
 
         io_config = model.io_config
-        if io_config:
-            if is_io_config_static(io_config):
-                input_shapes = io_config.get("input_shapes")
-            else:
-                input_shapes = []
-                known = {}
-                for shape in io_config.get("input_shapes"):
-                    new_shape = _infer_shape(shape, known)
-                    input_shapes.append(new_shape)
-                    known.update(dict(zip(shape, new_shape)))
-            data_config = dummy_data_config_template(
-                input_shapes, io_config.get("input_names"), io_config.get("input_types")
-            )
-            data_config = validate_config(data_config, DataConfig)
-            data_config.load_dataset_config.params["max_samples"] = 1
-        else:
+        if not io_config:
             raise RuntimeError(
                 f"Model IO config is missing for {model.model_path}; cannot generate dummy inputs for discrepancy check."
             )
+
+        if is_io_config_static(io_config):
+            input_shapes = io_config.get("input_shapes")
+        else:
+            input_shapes = []
+            known = {}
+            for shape in io_config.get("input_shapes"):
+                new_shape = _infer_shape(shape, known)
+                input_shapes.append(new_shape)
+                known.update(dict(zip(shape, new_shape)))
+        data_config = dummy_data_config_template(
+            input_shapes, io_config.get("input_names"), io_config.get("input_types")
+        )
+        data_config = validate_config(data_config, DataConfig)
+        data_config.load_dataset_config.params["max_samples"] = 1
+
         # Create dataloader
         dc = data_config.to_data_container()
         dataloader = dc.create_dataloader()
+        return dataloader, io_config
 
+    def _load_reference_model(self, model: ONNXModelHandler, config: type[BasePassConfig]):
         # Load reference PyTorch model
         from transformers import AutoConfig, AutoModelForCausalLM
 
@@ -440,6 +471,10 @@ class OnnxDiscrepancyCheck(Pass):
             ref_path,
             getattr(ref_cfg, "_attn_implementation", None),
         )
+        return ref_model, ref_cfg, ref_path
+
+    def _resolve_execution_device(self, model: ONNXModelHandler):
+        import torch
 
         # Determine the floating-point dtype used by the ONNX model weights and
         # cast the reference PyTorch model to match, so the comparison uses the
@@ -464,6 +499,11 @@ class OnnxDiscrepancyCheck(Pass):
         torch_device = torch.device("cpu")
         if device == Device.GPU and torch.cuda.is_available():
             torch_device = torch.device("cuda")
+        return device, execution_provider, torch_device, weight_dtype
+
+    def _cast_reference_model(self, ref_model, weight_dtype, torch_device):
+        import torch
+
         if weight_dtype is not None and torch_device.type == "cpu" and weight_dtype in (torch.float16, torch.bfloat16):
             logger.info(
                 "OnnxDiscrepancyCheck skipping reference model cast to %s on CPU because the dtype is not supported.",
@@ -478,7 +518,9 @@ class OnnxDiscrepancyCheck(Pass):
             )
         else:
             ref_model = ref_model.to(torch_device)
+        return ref_model
 
+    def _save_reference_artifacts(self, ref_model, ref_cfg, config: type[BasePassConfig], output_model_path: str):
         # Save reference PyTorch model for direct comparison
         report_dir = config.report_output_dir or output_model_path
         report_dir_path = Path(report_dir)
@@ -493,11 +535,12 @@ class OnnxDiscrepancyCheck(Pass):
         config_save_path.parent.mkdir(parents=True, exist_ok=True)
         config_save_path.write_text(ref_cfg.to_json_string())
         logger.info("Saved reference model config to %s", config_save_path)
+        return report_dir
 
-        session = model.prepare_session(
-            device=device,
-            execution_providers=[execution_provider] if execution_provider else None,
-        )
+    def _compute_logits_discrepancy(self, ref_model, session, dataloader, io_config, torch_device):
+        import torch
+
+        from olive.common.utils import format_data
 
         # Run inference on both and compare
         all_max_abs_diff = []
@@ -549,7 +592,9 @@ class OnnxDiscrepancyCheck(Pass):
             f"elements_above_0.01={count_above_0_01}/{total_elements}"
         )
         logger.info(summary)
+        return results
 
+    def _resolve_metric_settings(self, config: type[BasePassConfig]):
         # Resolve effective metric settings: test_metrics takes precedence when set.
         # This lets the CLI store a human-readable ["mae", "speedup"] list in the config
         # while still supporting the lower-level timing_iterations / max_mae controls for
@@ -564,7 +609,11 @@ class OnnxDiscrepancyCheck(Pass):
 
         # Metrics that require running token generation (transformers vs ONNX Runtime GenAI).
         generation_metrics = requested_metrics & {"first_token_20", "tft", "tf5t"}
+        return effective_timing_iterations, effective_max_mae, generation_metrics
 
+    def _run_speedup_measurement(
+        self, ref_model, session, dataloader, io_config, torch_device, config, effective_timing_iterations, results
+    ):
         # Measure inference speedup (ONNX vs PyTorch) on the target device
         if effective_timing_iterations > 0:
             timing = self._measure_speedup(
@@ -593,6 +642,11 @@ class OnnxDiscrepancyCheck(Pass):
                 effective_timing_iterations,
             )
 
+    def _check_error_thresholds(self, config: type[BasePassConfig], results, effective_max_mae):
+        max_abs_error = results["max_abs_error"]
+        count_above_0_1 = results["elements_above_0_1"]
+        count_above_0_01 = results["elements_above_0_01"]
+
         # Check thresholds
         failures = []
         if effective_max_mae is not None and max_abs_error > effective_max_mae:
@@ -614,6 +668,9 @@ class OnnxDiscrepancyCheck(Pass):
         else:
             results["status"] = "passed"
 
+    def _run_generation_comparison(
+        self, model: ONNXModelHandler, config, ref_model, ref_path, generation_metrics, results
+    ):
         # Generation token sequence comparison (transformers vs ONNX Runtime GenAI).
         # Runs when an explicit genai_model_path is configured or when any generation-based
         # test metric (first_token_20 / tft / tf5t) is requested.  In the latter case the
@@ -636,89 +693,94 @@ class OnnxDiscrepancyCheck(Pass):
                     model_dir,
                 )
 
-        if genai_model_path:
-            # first_token_20 generates 20 tokens; tf5t measures the time to the first 5 tokens.
-            gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
-            gen_first_n = 5 if "tf5t" in generation_metrics else config.time_to_first_n_tokens
-            gen_results = self.compare_generation(
+        if not genai_model_path:
+            return
+
+        # first_token_20 generates 20 tokens; tf5t measures the time to the first 5 tokens.
+        gen_max_new_tokens = 20 if "first_token_20" in generation_metrics else config.generate_max_new_tokens
+        gen_first_n = 5 if "tf5t" in generation_metrics else config.time_to_first_n_tokens
+        gen_results = self.compare_generation(
+            config,
+            ref_model,
+            ref_model_path=ref_path,
+            genai_model_path=genai_model_path,
+            max_new_tokens=gen_max_new_tokens,
+            first_n=gen_first_n,
+        )
+        longest_common = gen_results["longest_common_token_sequence"]
+        results.update(gen_results)
+        results["genai_model_path"] = genai_model_path
+
+        # Surface the explicitly requested named metrics for easy inspection.
+        if "first_token_20" in generation_metrics:
+            results["first_token_20"] = {
+                "transformers_first_token": gen_results.get("transformers_first_token"),
+                "genai_first_token": gen_results.get("genai_first_token"),
+                "first_token_matches": gen_results.get("first_token_matches"),
+                "matching_leading_tokens": longest_common,
+            }
+            logger.info(
+                "OnnxDiscrepancyCheck first_token_20: matches=%s (transformers=%s, genai=%s), "
+                "matching_leading_tokens=%s",
+                gen_results.get("first_token_matches"),
+                gen_results.get("transformers_first_token"),
+                gen_results.get("genai_first_token"),
+                longest_common,
+            )
+        if "tft" in generation_metrics:
+            results["tft"] = {
+                "transformers_s": gen_results.get("transformers_time_to_first_token_s"),
+                "genai_s": gen_results.get("genai_time_to_first_token_s"),
+            }
+            logger.info(
+                "OnnxDiscrepancyCheck tft (time to first token): transformers=%s, genai=%s",
+                _format_seconds(gen_results.get("transformers_time_to_first_token_s")),
+                _format_seconds(gen_results.get("genai_time_to_first_token_s")),
+            )
+        if "tf5t" in generation_metrics:
+            results["tf5t"] = {
+                "transformers_s": gen_results.get("transformers_time_to_first_n_tokens_s"),
+                "genai_s": gen_results.get("genai_time_to_first_n_tokens_s"),
+            }
+            logger.info(
+                "OnnxDiscrepancyCheck tf5t (time to first 5 tokens): transformers=%s, genai=%s",
+                _format_seconds(gen_results.get("transformers_time_to_first_n_tokens_s")),
+                _format_seconds(gen_results.get("genai_time_to_first_n_tokens_s")),
+            )
+
+        if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
+            results["status"] = "failed"
+            gen_failure = (
+                f"Longest common token sequence length {longest_common} is below "
+                f"threshold {config.min_longest_common_tokens}"
+            )
+            results.setdefault("failures", []).append(gen_failure)
+            logger.error("ONNX model discrepancy check FAILED: %s", gen_failure)
+
+    def _run_llama_cpp_comparison(self, model: ONNXModelHandler, config, ref_model, ref_path, report_dir, results):
+        # llama.cpp comparison: convert reference model to GGUF and compare latencies
+        if not config.llama_cpp:
+            return
+        preconverted_gguf_path = None
+        if model.model_attributes:
+            preconverted_gguf_path = model.model_attributes.get("reference_gguf_model_path")
+        try:
+            llama_results = self.compare_llama_cpp(
                 config,
                 ref_model,
+                output_dir=report_dir,
+                pytorch_latency_s=results.get("pytorch_latency_s"),
+                onnx_latency_s=results.get("onnx_latency_s"),
                 ref_model_path=ref_path,
-                genai_model_path=genai_model_path,
-                max_new_tokens=gen_max_new_tokens,
-                first_n=gen_first_n,
+                preconverted_gguf_path=preconverted_gguf_path,
             )
-            longest_common = gen_results["longest_common_token_sequence"]
-            results.update(gen_results)
-            results["genai_model_path"] = genai_model_path
+            results.update(llama_results)
+        except Exception as exc:
+            logger.exception("OnnxDiscrepancyCheck llama.cpp comparison failed.")
+            results["status"] = "failed"
+            results.setdefault("failures", []).append(f"llama.cpp comparison failed: {exc}")
 
-            # Surface the explicitly requested named metrics for easy inspection.
-            if "first_token_20" in generation_metrics:
-                results["first_token_20"] = {
-                    "transformers_first_token": gen_results.get("transformers_first_token"),
-                    "genai_first_token": gen_results.get("genai_first_token"),
-                    "first_token_matches": gen_results.get("first_token_matches"),
-                    "matching_leading_tokens": longest_common,
-                }
-                logger.info(
-                    "OnnxDiscrepancyCheck first_token_20: matches=%s (transformers=%s, genai=%s), "
-                    "matching_leading_tokens=%s",
-                    gen_results.get("first_token_matches"),
-                    gen_results.get("transformers_first_token"),
-                    gen_results.get("genai_first_token"),
-                    longest_common,
-                )
-            if "tft" in generation_metrics:
-                results["tft"] = {
-                    "transformers_s": gen_results.get("transformers_time_to_first_token_s"),
-                    "genai_s": gen_results.get("genai_time_to_first_token_s"),
-                }
-                logger.info(
-                    "OnnxDiscrepancyCheck tft (time to first token): transformers=%s, genai=%s",
-                    _format_seconds(gen_results.get("transformers_time_to_first_token_s")),
-                    _format_seconds(gen_results.get("genai_time_to_first_token_s")),
-                )
-            if "tf5t" in generation_metrics:
-                results["tf5t"] = {
-                    "transformers_s": gen_results.get("transformers_time_to_first_n_tokens_s"),
-                    "genai_s": gen_results.get("genai_time_to_first_n_tokens_s"),
-                }
-                logger.info(
-                    "OnnxDiscrepancyCheck tf5t (time to first 5 tokens): transformers=%s, genai=%s",
-                    _format_seconds(gen_results.get("transformers_time_to_first_n_tokens_s")),
-                    _format_seconds(gen_results.get("genai_time_to_first_n_tokens_s")),
-                )
-
-            if config.min_longest_common_tokens is not None and longest_common < config.min_longest_common_tokens:
-                results["status"] = "failed"
-                gen_failure = (
-                    f"Longest common token sequence length {longest_common} is below "
-                    f"threshold {config.min_longest_common_tokens}"
-                )
-                results.setdefault("failures", []).append(gen_failure)
-                logger.error("ONNX model discrepancy check FAILED: %s", gen_failure)
-
-        # llama.cpp comparison: convert reference model to GGUF and compare latencies
-        if config.llama_cpp:
-            preconverted_gguf_path = None
-            if model.model_attributes:
-                preconverted_gguf_path = model.model_attributes.get("reference_gguf_model_path")
-            try:
-                llama_results = self.compare_llama_cpp(
-                    config,
-                    ref_model,
-                    output_dir=report_dir,
-                    pytorch_latency_s=results.get("pytorch_latency_s"),
-                    onnx_latency_s=results.get("onnx_latency_s"),
-                    ref_model_path=ref_path,
-                    preconverted_gguf_path=preconverted_gguf_path,
-                )
-                results.update(llama_results)
-            except Exception as exc:
-                logger.exception("OnnxDiscrepancyCheck llama.cpp comparison failed.")
-                results["status"] = "failed"
-                results.setdefault("failures", []).append(f"llama.cpp comparison failed: {exc}")
-
+    def _save_results(self, model: ONNXModelHandler, results, report_dir):
         # Save results to disk
         results = _json_sanitize(results)
         report_path = Path(report_dir) / "discrepancy_check_results.json"
@@ -730,7 +792,6 @@ class OnnxDiscrepancyCheck(Pass):
         model_attributes = dict(model.model_attributes) if model.model_attributes else {}
         model_attributes["discrepancy_check_results"] = results
         model.model_attributes = model_attributes
-        return model
 
     def _measure_speedup(
         self, ref_model, session, dataloader, io_config, torch_device, warmup_iterations, timing_iterations
