@@ -864,6 +864,7 @@ def test_benchmark_command_hfmodel(_, mock_run, tmp_path):
     assert config["evaluators"]["evaluator"]["batch_size"] == 8
     assert config["evaluators"]["evaluator"]["max_length"] == 1024
     assert config["evaluators"]["evaluator"]["limit"] == 16
+    assert "model_class" not in config["evaluators"]["evaluator"]
     assert mock_run.call_count == 1
 
 
@@ -902,6 +903,7 @@ def test_benchmark_command_onnxmodel(mock_run, tmp_path):
     assert config["evaluators"]["evaluator"]["batch_size"] == 8
     assert config["evaluators"]["evaluator"]["max_length"] == 1024
     assert config["evaluators"]["evaluator"]["limit"] == 16
+    assert "model_class" not in config["evaluators"]["evaluator"]
     assert mock_run.call_count == 1
 
 

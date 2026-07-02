@@ -446,6 +446,54 @@ class TestEngine:
             result_data = json.load(f)
         assert MetricResult.model_validate(result_data).to_json() == output_model.metrics_value
 
+    def test_evaluate_model_cache_key_includes_evaluator_config(self, tmp_path):
+        # setup: two evaluator configs that differ only in the evaluation parameters
+        # (here the accuracy goal, standing in for e.g. lm-eval tasks/limit or the
+        # ort/ortgenai backend). They must not share a cached evaluation result for
+        # the same model and accelerator.
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_value=0.99)
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+        other_evaluator_config = OliveEvaluatorConfig(
+            metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_value=0.5)]
+        )
+        options = {
+            "cache_config": {
+                "cache_dir": tmp_path,
+                "clean_cache": True,
+                "clean_evaluation_cache": True,
+            },
+            "search_strategy": None,
+            "evaluator": evaluator_config,
+        }
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority": sub_metric.priority,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for sub_metric in metric.sub_types
+        }
+
+        engine = Engine(**options)
+        engine.target = MagicMock()
+        engine.target.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
+        engine.cache.prepare_resources_for_local = MagicMock(side_effect=lambda config: config)
+
+        model_config = get_pytorch_model_config()
+        model_id = "model_1"
+
+        # first evaluation runs and caches the result
+        engine._evaluate_model(model_config, model_id, evaluator_config, DEFAULT_CPU_ACCELERATOR)
+        assert engine.target.evaluate_model.call_count == 1
+
+        # identical evaluator config -> cache hit, no re-evaluation
+        engine._evaluate_model(model_config, model_id, evaluator_config, DEFAULT_CPU_ACCELERATOR)
+        assert engine.target.evaluate_model.call_count == 1
+
+        # different evaluator config for the same model and accelerator -> cache miss
+        engine._evaluate_model(model_config, model_id, other_evaluator_config, DEFAULT_CPU_ACCELERATOR)
+        assert engine.target.evaluate_model.call_count == 2
+
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_pass(self, mock_local_system_init, tmp_path):
         # setup
