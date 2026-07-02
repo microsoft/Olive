@@ -186,13 +186,15 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
             },
             "output_dir": output_dir,
             "passes": {
+                "save_test_model_config": {"type": "SaveTestModelConfig"},
                 "discrepancy_check": {
                     "type": "OnnxDiscrepancyCheck",
                     "reference_model_path": test_model_path,
                     "report_output_dir": output_dir,
+                    "test_metrics": ["mae"],
                     "max_mae": 0.1,
                     "timing_iterations": 0,
-                }
+                },
             },
         },
         list_required_packages=False,

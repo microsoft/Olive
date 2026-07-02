@@ -47,7 +47,12 @@ class ConvertHfToGGUF(Pass):
     def _run_for_config(
         self, model: HfModelHandler, config: type[BasePassConfig], output_model_path: str
     ) -> HfModelHandler:
-        source_path = Path(model.test_model_path or config.reference_model_path or "")
+        source = model.test_model_path or config.reference_model_path
+        if not source:
+            logger.info("ConvertHfToGGUF skipped: no source model directory was provided.")
+            return model
+
+        source_path = Path(source)
         if not source_path.is_dir():
             logger.info("ConvertHfToGGUF skipped: source model directory does not exist: %s", source_path)
             return model
