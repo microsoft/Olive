@@ -173,7 +173,7 @@ def test_workflow_run_command_with_test_override(mock_run, tmp_path):
 
     cli_main(command_args)
 
-    test_model_path = str(tmp_path / "output" / "test_model")
+    test_model_path = str(tmp_path / "output" / "reference_hf_model")
     output_dir = str(tmp_path / "output")
     mock_run.assert_called_once_with(
         {
@@ -302,13 +302,11 @@ def test_finetune_command(_, mock_run, tmp_path):
 @patch("huggingface_hub.repo_exists", return_value=True)
 def test_optimize_command_test_model_config(_, tmp_path):
     output_dir = tmp_path / "output_dir"
-    test_model_dir = tmp_path / "saved_test_model"
     command_args = [
         "optimize",
         "-m",
         "dummy-model-id",
         "--test",
-        str(test_model_dir),
         "--dry_run",
         "-o",
         str(output_dir),
@@ -318,7 +316,7 @@ def test_optimize_command_test_model_config(_, tmp_path):
 
     config = json.loads((output_dir / "config.json").read_text())
     assert config["input_model"]["test_model_config"] == {"hidden_layers": 2}
-    assert config["input_model"]["test_model_path"] == str(test_model_dir)
+    assert config["input_model"]["test_model_path"] == str(output_dir / "reference_hf_model")
     assert json.loads((output_dir / TEST_OUTPUT_MARKER_FILE).read_text())["type"] == "olive_hf_test_output"
 
 

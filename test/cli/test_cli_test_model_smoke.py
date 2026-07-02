@@ -103,8 +103,8 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
     model_name = model_id.replace("/", "--")
     model_path = tmp_path / "models" / model_name
     config_output_dir = tmp_path / f"{model_name}-test"
-    test_model_dir = tmp_path / f"{model_name}-test-model"
     run_output_dir = tmp_path / f"{model_name}-test-run"
+    test_model_dir = run_output_dir / "reference_hf_model"
 
     _save_local_tiny_llama(model_path)
     # optimize -m arnir0/Tiny-LLM --device cpu --provider CPUExecutionProvider --precision int4 --output_path dump --dry_run
@@ -128,14 +128,13 @@ def _run_documented_test_model_smoke_flow(tmp_path: Path, model_id: str):
     config_path = config_output_dir / "config.json"
     assert config_path.exists()
     _set_offline_gptq_data_config(config_path)
-    # run --config dump/config.json --test dump/test --output_path dump/run
+    # run --config dump/config.json --test --output_path dump/run
     _run_cli_main(
         [
             "run",
             "--config",
             str(config_path),
             "--test",
-            str(test_model_dir),
             "--output_path",
             str(run_output_dir),
         ]
@@ -214,14 +213,13 @@ class TestCliTestModelSmoke(unittest.TestCase):
                         self.fail(f"Unknown exporter: {exporter!r}")
 
     @staticmethod
-    def _run_discrepancy_with_test(config_path: Path, test_model_dir: Path, run_output_dir: Path):
+    def _run_discrepancy_with_test(config_path: Path, run_output_dir: Path):
         _run_cli_main(
             [
                 "run",
                 "--config",
                 str(config_path),
                 "--test",
-                str(test_model_dir),
                 "--output_path",
                 str(run_output_dir),
             ]
@@ -231,7 +229,6 @@ class TestCliTestModelSmoke(unittest.TestCase):
         model_name = model_id.replace("/", "--")
         model_path = tmp_path / "models" / f"{model_name}-disc"
         config_output_dir = tmp_path / f"{model_name}-disc-cfg"
-        test_model_dir = tmp_path / f"{model_name}-disc-test-model"
         run_output_dir = tmp_path / f"{model_name}-disc-run"
 
         _save_local_tiny_llama(model_path)
@@ -257,13 +254,13 @@ class TestCliTestModelSmoke(unittest.TestCase):
         _set_offline_gptq_data_config(config_path)
 
         # Run with --test; OnnxDiscrepancyCheck is auto-injected and reports discrepancy metrics
-        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
+        self._run_discrepancy_with_test(config_path, run_output_dir)
 
     def _assert_discrepancy_mobius(self, tmp_path: Path, model_id: str):
         model_name = model_id.replace("/", "--")
         model_path = tmp_path / "models" / f"{model_name}-mobius-disc"
-        test_model_dir = tmp_path / f"{model_name}-mobius-disc-test-model"
         run_output_dir = tmp_path / f"{model_name}-mobius-disc-run"
+        test_model_dir = run_output_dir / "reference_hf_model"
 
         _save_local_tiny_llama(model_path)
 
@@ -295,12 +292,11 @@ class TestCliTestModelSmoke(unittest.TestCase):
         config_path = tmp_path / f"{model_name}-mobius-disc-config.json"
         config_path.write_text(json.dumps(run_config, indent=2))
 
-        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
+        self._run_discrepancy_with_test(config_path, run_output_dir)
 
     def _assert_discrepancy_torch_export(self, tmp_path: Path, model_id: str):
         model_name = model_id.replace("/", "--")
         model_path = tmp_path / "models" / f"{model_name}-torch-disc"
-        test_model_dir = tmp_path / f"{model_name}-torch-disc-test-model"
         run_output_dir = tmp_path / f"{model_name}-torch-disc-run"
 
         _save_local_tiny_llama(model_path)
@@ -328,7 +324,7 @@ class TestCliTestModelSmoke(unittest.TestCase):
         }
         config_path = tmp_path / f"{model_name}-torch-disc-config.json"
         config_path.write_text(json.dumps(run_config, indent=2))
-        self._run_discrepancy_with_test(config_path, test_model_dir, run_output_dir)
+        self._run_discrepancy_with_test(config_path, run_output_dir)
 
     def _assert_file_size_below_limit(self, path: Path):
         assert path.exists()

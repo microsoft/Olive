@@ -401,14 +401,11 @@ def add_hf_test_model_config(input_model: dict, test_value, output_path: Optiona
     if test_value in (None, False):
         return input_model
 
-    test_model_output_path = test_value
     # Use 2 layers to keep the test model fast and lightweight while preserving the original architecture family.
     input_model["test_model_config"] = {"hidden_layers": 2}
-    if test_model_output_path is True:
-        if not output_path:
-            raise ValueError("--test requires an explicit folder when output_path is not available.")
-        test_model_output_path = str(Path(output_path) / "test_model")
-    input_model["test_model_path"] = test_model_output_path
+    if not output_path:
+        raise ValueError("--test requires --output_path to store the generated reference model.")
+    input_model["test_model_path"] = str(Path(output_path) / "reference_hf_model")
     return input_model
 
 
@@ -703,12 +700,10 @@ def add_input_model_options(
         )
         model_group.add_argument(
             "--test",
-            type=str,
-            nargs="?",
-            const=True,
+            action="store_true",
             help=(
                 "Use a randomly initialized test model with the same Hugging Face architecture and 2 hidden layers. "
-                "Optionally provide a folder where the generated test model should be saved and reused."
+                "The generated reference model is saved under <output_path>/reference_hf_model and reused."
             ),
         )
         model_group.add_argument(

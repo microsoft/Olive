@@ -237,13 +237,14 @@ def test_get_input_model_config_hf_test_model(_):
         task="text-generation",
         model_script=None,
         script_dir=None,
-        test="saved_test_model",
+        test=True,
+        output_path="out_dir",
     )
 
     config = get_input_model_config(args)
 
     assert config["test_model_config"] == {"hidden_layers": 2}
-    assert config["test_model_path"] == "saved_test_model"
+    assert config["test_model_path"] == str(Path("out_dir") / "reference_hf_model")
 
 
 @patch("huggingface_hub.repo_exists", return_value=True)
@@ -257,7 +258,7 @@ def test_get_input_model_config_hf_test_model_requires_path_without_output_path(
         test=True,
     )
 
-    with pytest.raises(ValueError, match=r"--test requires an explicit folder when output_path is not available\."):
+    with pytest.raises(ValueError, match=r"--test requires --output_path to store the generated reference model\."):
         get_input_model_config(args)
 
 
