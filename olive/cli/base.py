@@ -227,9 +227,8 @@ def add_discrepancy_check_pass(
             # reset test_metrics to the default, discarding any speedup setting that was
             # written by a prior ``olive optimize --dry_run --test_metrics mae,speedup``.
             if metrics_explicit:
-                # Store the human-readable test_metrics list so users can see what is
-                # being evaluated by inspecting config.json (e.g. "test_metrics": ["speedup"]).
-                pass_cfg["test_metrics"] = sorted(selected_metrics)
+                pass_cfg["max_mae"] = 0.1 if "mae" in selected_metrics else None
+                pass_cfg["timing_iterations"] = 5 if "speedup" in selected_metrics else 0
             # Enable llama.cpp when a venv path is provided.
             if llama_env_path:
                 pass_cfg["llama_cpp"] = True
@@ -245,8 +244,8 @@ def add_discrepancy_check_pass(
         "type": "OnnxDiscrepancyCheck",
         "reference_model_path": reference_model_path,
         "report_output_dir": report_dir,
-        # Store the human-readable metric list so users can inspect what will be evaluated.
-        "test_metrics": sorted(selected_metrics),
+        "max_mae": 0.1 if "mae" in selected_metrics else None,
+        "timing_iterations": 5 if "speedup" in selected_metrics else 0,
     }
     # Enable llama.cpp comparison when a venv path is provided.
     if llama_env_path:
