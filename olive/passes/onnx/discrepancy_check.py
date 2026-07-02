@@ -773,12 +773,16 @@ class OnnxDiscrepancyCheck(Pass):
                 first_token_20["llama_cpp_first_token_matches"] = llama_results.get(
                     "llama_cpp_first_token_matches_pytorch"
                 )
+                first_token_20["llama_cpp_matching_leading_tokens"] = llama_results.get(
+                    "llama_cpp_longest_common_token_sequence"
+                )
                 logger.info(
                     "OnnxDiscrepancyCheck first_token_20 (llama.cpp): matches=%s "
-                    "(transformers=%s, llama_cpp=%s)",
+                    "(transformers=%s, llama_cpp=%s), matching_leading_tokens=%s",
                     llama_results.get("llama_cpp_first_token_matches_pytorch"),
                     transformers_first_token,
                     llama_first_token,
+                    llama_results.get("llama_cpp_longest_common_token_sequence"),
                 )
         except Exception as exc:
             logger.exception("OnnxDiscrepancyCheck llama.cpp comparison failed.")
@@ -1107,14 +1111,19 @@ class OnnxDiscrepancyCheck(Pass):
         encoded = tokenizer(config.generate_prompt, return_tensors="pt")
         prompt_token_ids: list[int] = encoded["input_ids"][0].tolist()
 
-        # Run one-token generation with transformers to get the reference first token
-        input_ids = torch.tensor([prompt_token_ids]).to(ref_model.device)
-        with torch.no_grad():
-            gen_out = ref_model.generate(input_ids, max_new_tokens=1, do_sample=False)
-        pytorch_first_token_id = int(gen_out[0, -1].item())
-
         max_new_tokens = config.generate_max_new_tokens
         first_n = max(1, min(config.first_n_tokens_timed, max_new_tokens)) if max_new_tokens > 0 else 1
+
+        # Run generation with transformers to get the reference first token and the leading
+        # token sequence used for the longest-common-token comparison against llama.cpp.
+        input_ids = torch.tensor([prompt_token_ids]).to(ref_model.device)
+        with torch.no_grad():
+            gen_out = ref_model.generate(input_ids, max_new_tokens=max(1, max_new_tokens), do_sample=False)
+        pytorch_tokens: list[int] = gen_out[0].cpu().tolist()
+        prompt_token_count = len(prompt_token_ids)
+        pytorch_first_token_id = (
+            pytorch_tokens[prompt_token_count] if len(pytorch_tokens) > prompt_token_count else None
+        )
 
         output_dir_path = Path(output_dir)
         output_dir_path.mkdir(parents=True, exist_ok=True)
@@ -1165,9 +1174,15 @@ class OnnxDiscrepancyCheck(Pass):
         llama_out: dict = json.loads(proc.stdout)
 
         llama_first_token_id: Optional[int] = llama_out.get("first_token_id")
+        llama_generated_tokens: list[int] = llama_out.get("generated_tokens") or []
         llama_ttft: Optional[float] = llama_out.get("ttft")
         llama_ttfn: Optional[float] = llama_out.get("ttfn")
         llama_total: Optional[float] = llama_out.get("total_time")
+
+        # Longest common leading token sequence between transformers and llama.cpp,
+        # measured from the beginning of the (identical) prompt through the generated tokens.
+        llama_tokens = prompt_token_ids + llama_generated_tokens
+        llama_longest_common = _longest_common_token_sequence(pytorch_tokens, llama_tokens)
 
         # Speedup: compare llama.cpp TTFT with single-pass PyTorch / ONNX latency
         llama_speedup_vs_pytorch: Optional[float] = (
@@ -1181,6 +1196,7 @@ class OnnxDiscrepancyCheck(Pass):
             "llama_cpp_pytorch_first_token_id": pytorch_first_token_id,
             "llama_cpp_first_token_id": llama_first_token_id,
             "llama_cpp_first_token_matches_pytorch": llama_first_token_id == pytorch_first_token_id,
+            "llama_cpp_longest_common_token_sequence": llama_longest_common,
             "llama_cpp_ttft_s": llama_ttft,
             "llama_cpp_ttfn_s": llama_ttfn,
             "llama_cpp_total_time_s": llama_total,
@@ -1190,8 +1206,9 @@ class OnnxDiscrepancyCheck(Pass):
 
         logger.info(
             "OnnxDiscrepancyCheck llama.cpp comparison: first_token_matches_pytorch=%s, "
-            "ttft=%s, ttfn=%s, total=%s, speedup_vs_pytorch=%s, speedup_vs_onnx=%s",
+            "matching_leading_tokens=%s, ttft=%s, ttfn=%s, total=%s, speedup_vs_pytorch=%s, speedup_vs_onnx=%s",
             results["llama_cpp_first_token_matches_pytorch"],
+            llama_longest_common,
             _format_seconds(llama_ttft),
             _format_seconds(llama_ttfn),
             _format_seconds(llama_total),
