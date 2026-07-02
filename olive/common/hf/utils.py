@@ -100,26 +100,30 @@ def _apply_test_model_config(
     return model_config
 
 
-def _load_test_model(model_class: type, model_config: "PretrainedConfig", trust_remote_code: Optional[bool] = None):
+def _load_test_model(
+    model_class: type,
+    model_config: "PretrainedConfig",
+    trust_remote_code: Optional[bool] = None,
+    attn_implementation: Optional[str] = None,
+):
     """Instantiate a random-initialized HF model from config for test mode.
 
-    The random weights are seeded so the generated test model is deterministic and reproducible
-    across runs.  Without a fixed seed each run draws different weights; on a randomly-initialized
-    model many logits are near-tied, so the unavoidable ~1e-5 fp32 difference between the PyTorch
-    reference and the exported ONNX model can flip a greedy argmax and make generation-based test
-    metrics (e.g. ``first_token_20`` / ``matching_leading_tokens``) non-deterministic.  Seeding
-    removes that flakiness and makes the discrepancy check reproducible.
+    ``attn_implementation`` (e.g. ``"sdpa"``, forwarded from the model's ``load_kwargs``) is passed
+    through to ``from_config`` so the random test model uses the requested attention implementation
+    rather than relying on the transformers default (which can be ``"eager"`` on some versions).
+    This keeps the generated test model consistent with the base/reference model.
     """
-    import torch
-
     from_config_signature = inspect.signature(model_class.from_config)
-    supports_trust_remote_code = "trust_remote_code" in from_config_signature.parameters or any(
+    accepts_var_keyword = any(
         parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in from_config_signature.parameters.values()
     )
     from_config_kwargs = {}
-    if supports_trust_remote_code and trust_remote_code is not None:
+    if (accepts_var_keyword or "trust_remote_code" in from_config_signature.parameters) and trust_remote_code is not None:
         from_config_kwargs["trust_remote_code"] = trust_remote_code
-    torch.manual_seed(0)
+    if (
+        accepts_var_keyword or "attn_implementation" in from_config_signature.parameters
+    ) and attn_implementation is not None:
+        from_config_kwargs["attn_implementation"] = attn_implementation
     model = model_class.from_config(model_config, **from_config_kwargs)
     logger.info("Generating test model class %s", type(model))
     return model
@@ -238,13 +242,23 @@ def load_model_from_task(
                     if has_test_model_weights(test_model_dir):
                         model = from_pretrained(model_class, test_model_path, "model", **kwargs)
                     else:
-                        model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
+                        model = _load_test_model(
+                            model_class,
+                            model_config,
+                            kwargs.get("trust_remote_code"),
+                            attn_implementation=kwargs.get("attn_implementation"),
+                        )
                         _save_test_model(
                             model, test_model_path, test_model_config, model_name_or_path=model_name_or_path
                         )
                 else:
                     _validate_path(test_model_dir, test_model_path)
-                    model = _load_test_model(model_class, model_config, kwargs.get("trust_remote_code"))
+                    model = _load_test_model(
+                        model_class,
+                        model_config,
+                        kwargs.get("trust_remote_code"),
+                        attn_implementation=kwargs.get("attn_implementation"),
+                    )
                     if test_model_path:
                         _save_test_model(
                             model, test_model_path, test_model_config, model_name_or_path=model_name_or_path
