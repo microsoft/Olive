@@ -515,6 +515,41 @@
 </div>
 </section>
 </section>
+<section id="amd-quark">
+<h2>AMD Quark<a class="headerlink" href="#amd-quark" title="Link to this heading">#</a></h2>
+<p>Olive integrates <a class="reference external" href="https://quark.docs.amd.com/">AMD Quark</a>, AMD’s deep learning model quantization toolkit for both PyTorch and ONNX models.</p>
+<p>Olive consolidates Quark quantization into a single pass called <code class="docutils literal notranslate"><span class="pre">QuarkQuantization</span></code> that routes to the appropriate Quark backend based on the input model type:</p>
+<ul class="simple">
+<li><p><strong>ONNX models</strong> (<code class="docutils literal notranslate"><span class="pre">ONNXModelHandler</span></code>) are quantized through the <code class="docutils literal notranslate"><span class="pre">quark.onnx</span></code> API. This path supports static and dynamic quantization, a wide range of data types (Int8/UInt8, Int16/UInt16, BFP16, MX), and advanced algorithms such as CLE, SmoothQuant, GPTQ, AdaRound, AdaQuant, and BiasCorrection.</p></li>
+<li><p><strong>HuggingFace PyTorch models</strong> (<code class="docutils literal notranslate"><span class="pre">HfModelHandler</span></code>) are quantized through the <code class="docutils literal notranslate"><span class="pre">quark.torch</span></code> API for LLMs, supporting schemes such as <code class="docutils literal notranslate"><span class="pre">uint4_wo_128</span></code>, <code class="docutils literal notranslate"><span class="pre">int4_wo_128</span></code>, <code class="docutils literal notranslate"><span class="pre">int8</span></code>, <code class="docutils literal notranslate"><span class="pre">fp8</span></code>, and <code class="docutils literal notranslate"><span class="pre">mxfp4</span></code>, with AWQ/GPTQ/SmoothQuant/rotation algorithms and export to HF safetensors, ONNX, or GGUF formats.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">QuarkQuantization</span></code> requires <code class="docutils literal notranslate"><span class="pre">amd-quark&gt;=0.12</span></code>.</p>
+<p>Please refer to <a class="reference internal" href="../reference/pass.html#quark-quantization"><span class="std std-ref">QuarkQuantization</span></a> for more details about the pass and its config parameters.</p>
+<section id="id6">
+<h3>Example Configuration<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
+<p>a. Quantize an ONNX model (static quantization with calibration data)</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuarkQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;global_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;activation&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;UInt8&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;calibration_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Percentile&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;weight&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;data_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Int8&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;calibration_method&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MinMax&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. Quantize a HuggingFace LLM (weight-only 4-bit with AWQ)</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QuarkQuantization&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;quant_scheme&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uint4_wo_128&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;quant_algo&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;awq&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;dataset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pileval_for_awq_benchmark&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_export&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;hf_format&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
 <section id="quantize-with-onnxruntime">
 <h2>Quantize with onnxruntime<a class="headerlink" href="#quantize-with-onnxruntime" title="Link to this heading">#</a></h2>
 <p>Quantization is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This
@@ -535,8 +570,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <a class="reference internal" href="../reference/pass.html#onnx-static-quantization"><span class="std std-ref">OnnxStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
 <p><strong>Note:</strong> If target execution provider is QNN EP, the model might need to be preprocessed before quantization. Please refer to <a class="reference internal" href="../reference/pass.html#qnn-preprocess"><span class="std std-ref">QnnPreprocess</span></a> for more details about the pass and its config parameters.
 This preprocessing step fuses operators unsupported by QNN EP and inserts necessary operators to make the model compatible with QNN EP.</p>
-<section id="id6">
-<h3>Example Configuration<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
+<section id="id7">
+<h3>Example Configuration<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
 <p>a. Tune the parameters of the OlivePass with pre-defined searchable values</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
@@ -584,8 +619,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 tune both quantization methods and hyperparameter at the same time.
 If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">IncDynamicQuantization</span></code> and
 <code class="docutils literal notranslate"><span class="pre">IncStaticQuantization</span></code> respectively.</p>
-<section id="id7">
-<h3>Example Configuration<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
+<section id="id8">
+<h3>Example Configuration<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;inc_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;IncStaticQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;approach&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;weight_only&quot;</span><span class="p">,</span>
@@ -610,8 +645,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <p>The TensorRT Model Optimizer-Windows is engineered to deliver advanced model compression techniques, including quantization, to Windows RTX PC systems. Specifically tailored to meet the needs of Windows users,it is optimized for rapid and efficient quantization, featuring local GPU calibration, reduced system and video memory consumption, and swift processing times.</p>
 <p>The primary objective of the TensorRT Model Optimizer-Windows is to generate optimized, standards-compliant ONNX-format models for DirectML backends. This makes it an ideal solution for seamless integration with ONNX Runtime (ORT) and DirectML (DML) frameworks, ensuring broad compatibility with any inference framework supporting the ONNX standard.</p>
 <p>Olive consolidates the NVIDIA TensorRT Model Optimizer-Windows quantization into a single pass called NVModelOptQuantization which supports AWQ and RTN algorithms.</p>
-<section id="id8">
-<h3>Example Configuration<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
+<section id="id9">
+<h3>Example Configuration<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
 <section id="a-pure-4-bit-quantization">
 <h4>a. Pure 4 bit Quantization<a class="headerlink" href="#a-pure-4-bit-quantization" title="Link to this heading">#</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -689,8 +724,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 </tbody>
 </table>
 </div>
-<section id="id9">
-<h3>Example Configuration<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
+<section id="id10">
+<h3>Example Configuration<a class="headerlink" href="#id10" title="Link to this heading">#</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AimetQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;data_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;calib_data_config&quot;</span>
@@ -827,16 +862,20 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#amd-quark">AMD Quark</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a><ul class="nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">Example Configuration</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Example Configuration</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#nvidia-tensorrt-model-optimizer-windows">NVIDIA TensorRT Model Optimizer-Windows</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Example Configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id9">Example Configuration</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#a-pure-4-bit-quantization">a. Pure 4 bit Quantization</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#b-mixed-precision-quantization">b. Mixed Precision Quantization</a></li>
 </ul>
@@ -844,7 +883,7 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quantize-with-ai-model-efficiency-toolkit">Quantize with AI Model Efficiency Toolkit</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id9">Example Configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id10">Example Configuration</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#lpbq">LPBQ</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#seqmse">SeqMSE</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#adaround">AdaRound</a></li>
