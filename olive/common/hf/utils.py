@@ -120,7 +120,9 @@ def _load_test_model(model_class: type, model_config: "PretrainedConfig", trust_
     if supports_trust_remote_code and trust_remote_code is not None:
         from_config_kwargs["trust_remote_code"] = trust_remote_code
     torch.manual_seed(0)
-    return model_class.from_config(model_config, **from_config_kwargs)
+    model = model_class.from_config(model_config, **from_config_kwargs)
+    logger.info("Generating test model class %s", type(model))
+    return model
 
 
 def _save_test_model(
