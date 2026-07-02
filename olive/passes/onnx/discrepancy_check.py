@@ -388,9 +388,7 @@ class OnnxDiscrepancyCheck(Pass):
 
         self._run_generation_comparison(model, config, ref_model, ref_path, generation_metrics, results)
 
-        self._run_llama_cpp_comparison(
-            model, config, ref_model, ref_path, report_dir, generation_metrics, results
-        )
+        self._run_llama_cpp_comparison(model, config, ref_model, ref_path, report_dir, generation_metrics, results)
 
         self._save_results(model, results, report_dir)
         return model
