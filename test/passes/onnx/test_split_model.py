@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import onnx_ir as ir
 import pytest
 import torch
 
@@ -9,7 +10,6 @@ from olive.hardware import AcceleratorSpec
 from olive.model import CompositeModelHandler, HfModelHandler, ONNXModelHandler
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
-from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.onnx.quantization import OnnxStaticQuantization
 from olive.passes.onnx.split import SplitModel
 from olive.passes.onnx.transformer_optimization import OrtTransformersOptimization
@@ -114,7 +114,13 @@ def test_split_model_all_nodes(tmp_path, input_model_info, model_type):
             assert set(expected_kv_outputs) <= set(io_config["output_names"])
 
     # check that the splits are connected correctly and produce the expected outputs
-    dag = OnnxDAG.from_model_path(input_model.model_path)
+    input_ir_model = ir.load(input_model.model_path)
+    producer_op_types = {
+        out.name: node.op_type
+        for node in ir.traversal.RecursiveGraphIterator(input_ir_model.graph)
+        for out in node.outputs
+        if out.name
+    }
     input_io_config = input_model.io_config
     model_inputs = set(input_io_config["input_names"])
     model_outputs = set(input_io_config["output_names"])
@@ -139,7 +145,7 @@ def test_split_model_all_nodes(tmp_path, input_model_info, model_type):
                 continue
 
             # intermediate connections must come from a QuantizeLinear or shape related op (ScatterND, Slice, etc.)
-            assert dag.get_node_op_type(dag.get_producer(i_name)) in {"QuantizeLinear", "ScatterND"}
+            assert producer_op_types.get(i_name) in {"QuantizeLinear", "ScatterND"}
 
     # all non model outputs must be used between the splits
     assert (seen_outputs - used_outputs) == model_outputs
