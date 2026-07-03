@@ -13,7 +13,6 @@ import onnx_ir as ir
 import pytest
 import torch
 from onnx import TensorProto, helper, numpy_helper
-from onnx_ir.traversal import RecursiveGraphIterator
 from onnxruntime import InferenceSession
 
 from olive.constants import MSFT_DOMAIN, OpType
@@ -31,7 +30,7 @@ class GraphInspector:
 
     def __init__(self, model_path):
         self._model = ir.load(str(model_path))
-        self.nodes = list(RecursiveGraphIterator(self._model.graph))
+        self.nodes = list(self._model.graph.all_nodes())
         # Assign a stable unique name to every node, mirroring OnnxDAG's handling of
         # unnamed or duplicate node names, so lookups by name are always well-defined.
         self._names = {}

@@ -90,7 +90,7 @@ class ModelOptimizer:
         expected_constant_value = np.array([-1])
 
         num_changed = 0
-        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
+        for node in ir_model.graph.all_nodes():
             if node.op_type != "Reshape":
                 continue
 
@@ -102,10 +102,8 @@ class ModelOptimizer:
             previous_is_reshape = previous_node is not None and previous_node.op_type == "Reshape"
 
             shape_input = node.inputs[1] if len(node.inputs) > 1 else None
-            current_value = shape_input.const_value if shape_input is not None else None
-            current_flattens = current_value is not None and np.array_equal(
-                current_value.numpy(), expected_constant_value
-            )
+            current_value = ir.convenience.get_const_tensor(shape_input) if shape_input is not None else None
+            current_flattens = current_value is not None and np.array_equal(current_value, expected_constant_value)
             # the former Reshape output must only be consumed by the current Reshape
             only_consumer = len(tuple(data_input.uses())) == 1
 

@@ -542,7 +542,7 @@ def model_has_adapters_from_torchscript(
     if adapter_type == AdapterType.LOHA and is_loha_model(ir_model):
         return True
     else:
-        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
+        for node in ir_model.graph.all_nodes():
             op_type = node.op_type
             node_name = node.name or ""
             if (adapter_type == AdapterType.LORA and is_lora_node(op_type, node_name)) or (

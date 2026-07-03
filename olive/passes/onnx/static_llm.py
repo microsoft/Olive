@@ -7,7 +7,6 @@ from pathlib import Path
 
 import onnx
 import onnx_ir as ir
-from onnx_ir.traversal import RecursiveGraphIterator
 
 from olive.hardware import Device
 from olive.hardware.accelerator import AcceleratorSpec
@@ -101,7 +100,7 @@ class StaticLLM(Pass):
 
         # only gqa models are supported for now
         transformer_model = ir.from_proto(onnx.load(model_components[1].model_path, load_external_data=False))
-        assert any(node.op_type == "GroupQueryAttention" for node in RecursiveGraphIterator(transformer_model.graph)), (
+        assert any(node.op_type == "GroupQueryAttention" for node in transformer_model.graph.all_nodes()), (
             "Only GQA models are supported for now."
         )
         # get dimension params from embeddings model

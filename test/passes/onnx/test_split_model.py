@@ -116,10 +116,7 @@ def test_split_model_all_nodes(tmp_path, input_model_info, model_type):
     # check that the splits are connected correctly and produce the expected outputs
     input_ir_model = ir.load(input_model.model_path)
     producer_op_types = {
-        out.name: node.op_type
-        for node in ir.traversal.RecursiveGraphIterator(input_ir_model.graph)
-        for out in node.outputs
-        if out.name
+        out.name: node.op_type for node in input_ir_model.graph.all_nodes() for out in node.outputs if out.name
     }
     input_io_config = input_model.io_config
     model_inputs = set(input_io_config["input_names"])

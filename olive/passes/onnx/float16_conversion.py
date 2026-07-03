@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Union
 
 import onnx_ir as ir
-from onnx_ir.traversal import RecursiveGraphIterator
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -73,7 +72,8 @@ class OnnxFloatToFloat16(Pass):
         op_block_list = config.op_block_list
         node_block_list = config.node_block_list
         if config.op_include_list or config.node_include_list:
-            all_nodes = list(RecursiveGraphIterator(ir.from_proto(loaded_model).graph))
+            ir_model = ir.from_proto(loaded_model)
+            all_nodes = list(ir_model.graph.all_nodes())
             if config.op_include_list:
                 if op_block_list is not None:
                     raise ValueError("op_include_list and op_block_list are mutually exclusive.")

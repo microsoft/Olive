@@ -278,7 +278,7 @@ def patch_min_max_calibrater():
             producer = output_value.producer()
             if producer is not None and all(not output.uses() for output in producer.outputs):
                 graph.remove(producer)
-        onnx.save(ir.to_proto(ir_model), self.augmented_model_path)
+        ir.save(ir_model, self.augmented_model_path)
 
     MinMaxCalibrater.augment_graph = patched_augment_graph
 
