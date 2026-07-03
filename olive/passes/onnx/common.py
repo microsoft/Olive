@@ -565,23 +565,11 @@ def is_lora_node(op_type: str, node_name: str) -> bool:
 
 
 def is_loha_model(ir_model: ir.Model) -> bool:
-    for graph in _iter_graphs(ir_model.graph):
+    for graph in ir_model.graphs():
         for initializer_name in graph.initializers:
             if any(re.match(pattern, initializer_name) for pattern in LOHA_NAME_PATTERNS_TORCHSCRIPT):
                 return True
     return False
-
-
-def _iter_graphs(graph: ir.Graph):
-    """Yield the graph and all of its (recursively nested) subgraphs."""
-    yield graph
-    for node in graph:
-        for attr in node.attributes.values():
-            if attr.type == ir.AttributeType.GRAPH:
-                yield from _iter_graphs(attr.as_graph())
-            elif attr.type == ir.AttributeType.GRAPHS:
-                for subgraph in attr.as_graphs():
-                    yield from _iter_graphs(subgraph)
 
 
 def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA) -> bool:

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Union
 
 import onnx
+import onnx_ir as ir
 from packaging import version
 
 from olive.common.config_utils import validate_config
@@ -256,8 +257,6 @@ def patch_min_max_calibrater():
     original_augment_graph = MinMaxCalibrater.augment_graph
     if original_augment_graph.__name__ == "patched_augment_graph":
         return
-
-    import onnx_ir as ir
 
     def patched_augment_graph(self):
         original_augment_graph(self)

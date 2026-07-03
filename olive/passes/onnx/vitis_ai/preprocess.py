@@ -60,12 +60,10 @@ class InputNCHWtoNHWC(Pass):
             # Capture consumers before inserting the transpose so we don't rewire the transpose itself
             consumers = [usage for usage in value.uses() if usage.node.op_type != "Transpose"]
 
-            transpose_node = ir.Node(
-                "",
+            transpose_node = ir.node(
                 "Transpose",
                 inputs=[value],
-                attributes=[ir.AttrInt64s("perm", transpose_perm)],
-                num_outputs=1,
+                attributes={"perm": transpose_perm},
                 name=f"Transpose_{value.name}",
             )
             transpose_output = transpose_node.outputs[0]

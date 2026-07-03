@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import onnx
 from onnx import helper
+from onnx_ir.passes.common import RemoveUnusedNodesPass
 from onnxscript import ir
 from onnxscript.rewriter import RewriteRule, rewrite
 from onnxscript.rewriter._basics import MatchResult
@@ -22,8 +23,6 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-# TODO(anyone): Move from onnxruntime.transformers.onnx_model.OnnxModel to onnx_ir
-# or reimplement logic using onnx-rewriter
 # no need to create a new instance of OnnxModel for each optimization
 class ModelOptimizer:
     def __init__(self, source_model_path):
@@ -86,31 +85,38 @@ class ModelOptimizer:
     def fuse_reshape_operations(self):
         # Remove unnecessary Reshape operator. Consecutive Reshape operators with latter's input being "[-1]"
         # i.e. flatten the input, the former Reshape operator is useless."""
-        from onnxruntime.transformers.onnx_model import OnnxModel as TransformersOnnxModel
-
-        o_model = TransformersOnnxModel(self.model)
-        o_producers = o_model.output_name_to_node()
-        o_consumers = o_model.input_name_to_nodes()
+        ir_model = ir.from_proto(self.model)
 
         expected_constant_value = np.array([-1])
 
         num_changed = 0
-        for o_reshape_node in o_model.get_nodes_by_op_type("Reshape"):
-            input_node_0 = o_producers.get(o_reshape_node.input[0])
+        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
+            if node.op_type != "Reshape":
+                continue
 
-            previous_is_reshape = input_node_0 and (input_node_0.op_type == "Reshape")
-            current_value = o_model.get_constant_value(o_reshape_node.input[1])
-            current_flattens = np.array_equal(current_value, expected_constant_value)
-            only_consumer = len(o_consumers[o_reshape_node.input[0]]) == 1
+            data_input = node.inputs[0]
+            if data_input is None:
+                continue
+
+            previous_node = data_input.producer()
+            previous_is_reshape = previous_node is not None and previous_node.op_type == "Reshape"
+
+            shape_input = node.inputs[1] if len(node.inputs) > 1 else None
+            current_value = shape_input.const_value if shape_input is not None else None
+            current_flattens = current_value is not None and np.array_equal(
+                current_value.numpy(), expected_constant_value
+            )
+            # the former Reshape output must only be consumed by the current Reshape
+            only_consumer = len(tuple(data_input.uses())) == 1
 
             if previous_is_reshape and current_flattens and only_consumer:
-                o_reshape_node.input[0] = input_node_0.input[0]
-                input_node_0.input.remove(input_node_0.input[0])
+                node.replace_input_with(0, previous_node.inputs[0])
                 num_changed += 1
 
         if num_changed > 0:
             logger.debug("Fused %d redundant Reshape operators", num_changed)
-            o_model.prune_graph()
+            RemoveUnusedNodesPass()(ir_model)
+            self.model = ir.to_proto(ir_model)
 
     def onnxscript_optimize(self):
         try:

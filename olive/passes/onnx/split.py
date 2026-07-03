@@ -72,26 +72,6 @@ class SplitModel(Pass):
         initializer_names = set(graph.initializers)
         output_values = set(graph.outputs)
 
-        def parents_of(node: ir.Node) -> list[ir.Node]:
-            parents = []
-            for inp in node.inputs:
-                if inp is None:
-                    continue
-                producer = inp.producer()
-                if producer is not None:
-                    parents.append(producer)
-            return parents
-
-        def node_consumers(node: ir.Node) -> list[ir.Node]:
-            consumers = []
-            seen = set()
-            for out in node.outputs:
-                for use in out.uses():
-                    if id(use.node) not in seen:
-                        seen.add(id(use.node))
-                        consumers.append(use.node)
-            return consumers
-
         # go through the nodes in topological order (main graph only)
         node_order = list(graph)
         node_assignments = {}
@@ -123,7 +103,7 @@ class SplitModel(Pass):
             # if assigned: check the parent ids also, the child should not be lower than the parent
             # this can happen in case the pytorch model did not order the modules correctly
             # phi3: o_proj in module comes before qkv_proj but o_proj is a child of qkv_proj
-            parent_splits = [node_assignments[parent] for parent in parents_of(node) if parent in node_assignments]
+            parent_splits = [node_assignments[parent] for parent in node.predecessors() if parent in node_assignments]
 
             if split_id is None and not parent_splits:
                 # will assign later
@@ -140,7 +120,7 @@ class SplitModel(Pass):
 
             # before the splits - assign to the closest child split
             # outside the splits - assign to 0
-            child_splits = [node_assignments[child] for child in node_consumers(node) if child in node_assignments]
+            child_splits = [node_assignments[child] for child in node.successors() if child in node_assignments]
 
             node_assignments[node] = min(child_splits) if child_splits else 0
 
@@ -153,7 +133,7 @@ class SplitModel(Pass):
         # do DQ first since it could be a child of a constant node
         for node in list(dq_nodes) + list(constant_nodes):
             splits = set()
-            for consumer in node_consumers(node):
+            for consumer in node.successors():
                 splits.update(node_assignments[consumer])
             if splits:
                 # else condition could be when DQ node goes directly to output
@@ -260,12 +240,7 @@ class SplitModel(Pass):
             # if this becomes an issue replace with a newly loaded model proto
             shape_inferred_proto = SymbolicShapeInference.infer_shapes(model_proto, auto_merge=True)
             inferred_model = ir.from_proto(shape_inferred_proto)
-            vi_map = {value.name: value for value in inferred_model.graph.inputs if value.name}
-            vi_map.update({value.name: value for value in inferred_model.graph.outputs if value.name})
-            for inferred_node in inferred_model.graph:
-                for out in inferred_node.outputs:
-                    if out.name:
-                        vi_map[out.name] = out
+            vi_map = ir.convenience.create_value_mapping(inferred_model.graph)
 
             for name, split_ids in missing_vi.items():
                 inferred_value = vi_map.get(name)

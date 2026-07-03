@@ -2159,17 +2159,10 @@ class TieWordEmbeddings(Surgeon):
         # add gemm node to replace matmul
         gemm_name = lm_head_node.name.replace("MatMul", "Gemm")
         gemm_output_name = f"{gemm_name}_output"
-        gemm_node = ir.Node(
-            "",
+        gemm_node = ir.node(
             "Gemm",
             inputs=[prereshape_output, embed_weight],
-            attributes=[
-                ir.AttrFloat32("alpha", 1.0),
-                ir.AttrFloat32("beta", 1.0),
-                ir.AttrInt64("transA", 0),
-                ir.AttrInt64("transB", 1),
-            ],
-            num_outputs=1,
+            attributes={"alpha": 1.0, "beta": 1.0, "transA": 0, "transB": 1},
             name=gemm_name,
         )
         gemm_node.outputs[0].name = gemm_output_name
@@ -2178,7 +2171,7 @@ class TieWordEmbeddings(Surgeon):
         # need to get the original input shape to reshape back
         input_shape_name = lm_head_node.name.replace("MatMul", "Shape")
         input_shape_output_name = f"{input_shape_name}_output"
-        shape_node = ir.Node("", "Shape", inputs=[lm_head_input], num_outputs=1, name=input_shape_name)
+        shape_node = ir.node("Shape", inputs=[lm_head_input], name=input_shape_name)
         shape_node.outputs[0].name = input_shape_output_name
         graph.append(shape_node)
 
@@ -2194,7 +2187,7 @@ class TieWordEmbeddings(Surgeon):
         }.items():
             initializer_name = f"{slice_name}_{key}"
             slice_inputs.append(self.add_initializer(graph, initializer_name, value))
-        slice_node = ir.Node("", "Slice", inputs=slice_inputs, num_outputs=1, name=slice_name)
+        slice_node = ir.node("Slice", inputs=slice_inputs, name=slice_name)
         slice_node.outputs[0].name = slice_output_name
         graph.append(slice_node)
 
@@ -2202,12 +2195,10 @@ class TieWordEmbeddings(Surgeon):
         concat_name = ProtoSurgeon.create_new_name(lm_head_node.name, "MatMul", "Concat")
         concat_output_name = f"{concat_name}_output"
         out_feat_init = self.add_initializer(graph, f"{concat_name}_out_feat", np.array([out_feat], dtype=np.int64))
-        concat_node = ir.Node(
-            "",
+        concat_node = ir.node(
             "Concat",
             inputs=[slice_node.outputs[0], out_feat_init],
-            attributes=[ir.AttrInt64("axis", 0)],
-            num_outputs=1,
+            attributes={"axis": 0},
             name=concat_name,
         )
         concat_node.outputs[0].name = concat_output_name
@@ -2320,7 +2311,7 @@ class TieWordEmbeddings(Surgeon):
                 graph, f"{node_name}_shape", np.array(static_shape, dtype=np.int64)
             )
         reshape_output_name = f"{node_name}_output"
-        reshape_node = ir.Node("", "Reshape", inputs=[input_value, shape_value], num_outputs=1, name=node_name)
+        reshape_node = ir.node("Reshape", inputs=[input_value, shape_value], name=node_name)
         reshape_node.outputs[0].name = reshape_output_name
         if static_shape is not None and output_elem_type is not None:
             reshape_node.outputs[0].shape = ir.Shape(static_shape)

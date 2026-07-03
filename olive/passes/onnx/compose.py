@@ -117,9 +117,6 @@ class ComposeOnnxModels(Pass):
                 return None
             return [dim.value if isinstance(dim, ir.SymbolicDim) else dim for dim in value.shape]
 
-        def dtype_of(value: ir.Value):
-            return value.type.dtype if value.type is not None else None
-
         ir_models = []
         for path in onnx_model_paths:
             ir_model = ir.load(path)
@@ -174,7 +171,7 @@ class ComposeOnnxModels(Pass):
                     # already a graph input or an internal connection from a previous model
                     existing = composed_values[name]
                     assert shape_list(inp) == shape_list(existing), f"Input shape mismatch: {name}"
-                    assert dtype_of(inp) == dtype_of(existing), f"Input dtype mismatch: {name}"
+                    assert inp.dtype == existing.dtype, f"Input dtype mismatch: {name}"
                     continue
 
                 # will add to the composed graph inputs

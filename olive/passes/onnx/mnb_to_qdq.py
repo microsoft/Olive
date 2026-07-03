@@ -11,7 +11,6 @@ import numpy as np
 import onnx
 import onnx_ir as ir
 from onnx_ir.passes.common import IdentityEliminationPass, RemoveUnusedNodesPass, TopologicalSortPass
-from onnx_ir.traversal import RecursiveGraphIterator
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModelHandler
@@ -102,11 +101,11 @@ class MatMulNBitsToQDQ(Pass):
         nodes_to_exclude = set(config.nodes_to_exclude or [])
 
         # keep track of existing node names to generate unique new names
-        existing_node_names = {node.name for node in RecursiveGraphIterator(ir_model.graph) if node.name}
+        existing_node_names = {node.name for node in ir_model.graph.all_nodes() if node.name}
 
         num_modified = 0
         two_bit_present = False
-        for node in list(RecursiveGraphIterator(ir_model.graph)):
+        for node in list(ir_model.graph.all_nodes()):
             if node.op_type != "MatMulNBits" or node.name in nodes_to_exclude:
                 continue
 
@@ -243,16 +242,14 @@ class MatMulNBitsToQDQ(Pass):
 
             # DequantizeLinear
             dq_name = self._get_new_node_name(existing_node_names, node.name, "DequantizeLinear")
-            dq_attributes = [
+            dq_attributes = {
                 # for some reason block_wise and per-axis appear to use swapped axis
                 # flip the axis if it is per-axis
-                ir.AttrInt64("axis", (1 if config.use_transpose_op else 0) ^ (1 if is_per_axis else 0)),
-            ]
+                "axis": (1 if config.use_transpose_op else 0) ^ (1 if is_per_axis else 0),
+            }
             if not is_per_axis:
-                dq_attributes.append(ir.AttrInt64("block_size", block_size))
-            dq_node = ir.Node(
-                "", "DequantizeLinear", inputs=dq_inputs, attributes=dq_attributes, num_outputs=1, name=dq_name
-            )
+                dq_attributes["block_size"] = block_size
+            dq_node = ir.node("DequantizeLinear", inputs=dq_inputs, attributes=dq_attributes, name=dq_name)
             dq_output = dq_node.outputs[0]
             dq_output.name = f"{dq_name}/output_0"
             dq_output.type = ir.TensorType(float_dtype)
@@ -262,13 +259,8 @@ class MatMulNBitsToQDQ(Pass):
             if config.use_transpose_op:
                 # Transpose
                 transpose_name = self._get_new_node_name(existing_node_names, node.name, "Transpose")
-                transpose_node = ir.Node(
-                    "",
-                    "Transpose",
-                    inputs=[dq_output],
-                    attributes=[ir.AttrInt64s("perm", [1, 0])],
-                    num_outputs=1,
-                    name=transpose_name,
+                transpose_node = ir.node(
+                    "Transpose", inputs=[dq_output], attributes={"perm": [1, 0]}, name=transpose_name
                 )
                 transpose_output = transpose_node.outputs[0]
                 transpose_output.name = f"{transpose_name}/output_0"
@@ -281,7 +273,7 @@ class MatMulNBitsToQDQ(Pass):
 
             # MatMul
             matmul_name = self._get_new_node_name(existing_node_names, node.name, "MatMul")
-            matmul_node = ir.Node("", "MatMul", inputs=[node_inputs[0], matmul_input], num_outputs=1, name=matmul_name)
+            matmul_node = ir.node("MatMul", inputs=[node_inputs[0], matmul_input], name=matmul_name)
             matmul_output = matmul_node.outputs[0]
             matmul_output.name = f"{matmul_name}/output_0"
             # the output shape is the same as the original MatMulNBits node
@@ -299,7 +291,7 @@ class MatMulNBitsToQDQ(Pass):
                 bias_input = self._register_initializer(graph, bias_initializer)
 
                 bias_name = self._get_new_node_name(existing_node_names, node.name, "Add")
-                bias_node = ir.Node("", "Add", inputs=[matmul_output, bias_input], num_outputs=1, name=bias_name)
+                bias_node = ir.node("Add", inputs=[matmul_output, bias_input], name=bias_name)
                 bias_output = bias_node.outputs[0]
                 bias_output.name = f"{bias_name}/output_0"
                 # the output shape is the same as the original MatMulNBits node
