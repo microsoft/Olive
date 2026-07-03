@@ -22,7 +22,6 @@ except ImportError:
 
 from olive.common.utils import StrEnumBase, hardlink_copy_file
 from olive.model import CompositeModelHandler, ONNXModelHandler
-from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 from olive.resource_path import LocalFile, LocalFolder
 
@@ -539,12 +538,13 @@ def model_has_adapters_from_torchscript(
     :param model_path: The path to the model.
     :return: True if the model has adapters, False otherwise.
     """
-    dag = OnnxDAG(onnx.load(model_path, load_external_data=False))
-    if adapter_type == AdapterType.LOHA and is_loha_model(dag):
+    ir_model = ir.from_proto(onnx.load(model_path, load_external_data=False))
+    if adapter_type == AdapterType.LOHA and is_loha_model(ir_model):
         return True
     else:
-        for node_name in dag.get_node_names():
-            op_type = dag.get_node_op_type(node_name)
+        for node in ir.traversal.RecursiveGraphIterator(ir_model.graph):
+            op_type = node.op_type
+            node_name = node.name or ""
             if (adapter_type == AdapterType.LORA and is_lora_node(op_type, node_name)) or (
                 adapter_type == AdapterType.DORA and is_dora_node(op_type, node_name)
             ):
@@ -564,12 +564,24 @@ def is_lora_node(op_type: str, node_name: str) -> bool:
     )
 
 
-def is_loha_model(dag: OnnxDAG) -> bool:
-    for graph in dag.graphs:
-        for initializer in graph.initializer:
-            if any(re.match(pattern, initializer.name) for pattern in LOHA_NAME_PATTERNS_TORCHSCRIPT):
+def is_loha_model(ir_model: ir.Model) -> bool:
+    for graph in _iter_graphs(ir_model.graph):
+        for initializer_name in graph.initializers:
+            if any(re.match(pattern, initializer_name) for pattern in LOHA_NAME_PATTERNS_TORCHSCRIPT):
                 return True
     return False
+
+
+def _iter_graphs(graph: ir.Graph):
+    """Yield the graph and all of its (recursively nested) subgraphs."""
+    yield graph
+    for node in graph:
+        for attr in node.attributes.values():
+            if attr.type == ir.AttributeType.GRAPH:
+                yield from _iter_graphs(attr.as_graph())
+            elif attr.type == ir.AttributeType.GRAPHS:
+                for subgraph in attr.as_graphs():
+                    yield from _iter_graphs(subgraph)
 
 
 def model_has_adapters(model_path: Union[str, Path], adapter_type: AdapterType = AdapterType.LORA) -> bool:

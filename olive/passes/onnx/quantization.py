@@ -257,25 +257,29 @@ def patch_min_max_calibrater():
     if original_augment_graph.__name__ == "patched_augment_graph":
         return
 
-    from olive.passes.onnx.onnx_dag import OnnxDAG
+    import onnx_ir as ir
 
     def patched_augment_graph(self):
         original_augment_graph(self)
 
-        dag = OnnxDAG(onnx.load(self.augmented_model_path, load_external_data=False))
+        ir_model = ir.from_proto(onnx.load(self.augmented_model_path, load_external_data=False))
+        graph = ir_model.graph
+        outputs_by_name = {output.name: output for output in graph.outputs}
         for o_name in list(self.model_original_outputs):
+            output_value = outputs_by_name.get(o_name)
+            if output_value is None:
+                continue
+
             # remove the output since we don't need it for calibration
-            dag.remove_output(o_name)
+            graph.outputs.remove(output_value)
             self.model_original_outputs.remove(o_name)
             self.num_model_outputs -= 1
 
             # if the producer has no consumers, remove it
-            producer = dag.get_producer(o_name)
-            if len(dag.get_consumers(producer)) == 0:
-                # remove the producer if it has no consumers
-                dag.remove_node(producer)
-        dag.update()
-        onnx.save(dag.model, self.augmented_model_path)
+            producer = output_value.producer()
+            if producer is not None and all(not output.uses() for output in producer.outputs):
+                graph.remove(producer)
+        onnx.save(ir.to_proto(ir_model), self.augmented_model_path)
 
     MinMaxCalibrater.augment_graph = patched_augment_graph
 
