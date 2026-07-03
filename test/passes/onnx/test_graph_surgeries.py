@@ -43,7 +43,17 @@ class GraphInspector:
                 counter += 1
             self._names[id(node)] = name
             self._nodes_by_name[name] = node
-        self._producers = {out.name: node for node in self.nodes for out in node.outputs if out.name}
+        # Build a mapping from value names to Value objects for producer/consumer lookups
+        self._values = {}
+        for node in self.nodes:
+            for out in node.outputs:
+                if out.name:
+                    self._values[out.name] = out
+        for inp in self._model.graph.inputs:
+            if inp.name:
+                self._values[inp.name] = inp
+        for init_name, init_value in self._model.graph.initializers.items():
+            self._values[init_name] = init_value
 
     @classmethod
     def from_model_path(cls, model_path):
@@ -68,17 +78,15 @@ class GraphInspector:
         return self._model.graph.initializers[name].const_value.numpy()
 
     def get_producer(self, value_name):
-        return self._names[id(self._producers[value_name])]
+        value = self._values[value_name]
+        prod = value.producer()
+        return self._names[id(prod)] if prod else None
 
     def get_consumers(self, name):
         node = self._nodes_by_name[name]
         consumers = []
-        seen = set()
         for out in node.outputs:
-            for use in out.uses():
-                if id(use.node) not in seen:
-                    seen.add(id(use.node))
-                    consumers.append(self._names[id(use.node)])
+            consumers.extend(self._names[id(consumer)] for consumer in out.consumers())
         return consumers
 
 

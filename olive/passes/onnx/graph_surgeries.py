@@ -1490,12 +1490,10 @@ class RemoveRopeMultiCache(Surgeon):
             if source_value is None:
                 continue
 
-            if source_value.name in graph.initializers:
-                cache_array = source_value.const_value.numpy().copy()
-            else:
-                cache_producer = source_value.producer()
-                assert cache_producer.op_type == "Constant"
-                cache_array = cache_producer.attributes["value"].value.numpy().copy()
+            cache_tensor = ir.convenience.get_const_tensor(source_value)
+            if cache_tensor is None:
+                raise ValueError(f"Expected constant value for {source_value.name}")
+            cache_array = cache_tensor.numpy().copy()
 
             cache_initializer = ir.val(
                 new_cache_name,
