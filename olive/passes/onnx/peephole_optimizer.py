@@ -22,7 +22,7 @@ from olive.passes.pass_config import BasePassConfig, PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-# TODO(anyone): Move from onnxruntime.transformers.onnx_model.OnnxModel to OnnxDAG
+# TODO(anyone): Move from onnxruntime.transformers.onnx_model.OnnxModel to onnx_ir
 # or reimplement logic using onnx-rewriter
 # no need to create a new instance of OnnxModel for each optimization
 class ModelOptimizer:
