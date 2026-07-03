@@ -1917,7 +1917,7 @@
 </dd>
 <dt><kbd>--backend</kbd></dt>
 <dd><p>Possible choices: auto, ort, ortgenai</p>
-<p>Backend for ONNX model evaluation. Use ‘auto’ to infer backend from model type.</p>
+<p>Backend for lm-eval model evaluation. ‘ort’ and ‘ortgenai’ require ONNX input; ‘ortgenai’ additionally requires GenAI-packaged model assets (e.g., genai_config.json). ‘auto’ infers backend from model type.</p>
 <p>Default: <code class="docutils literal notranslate"><span class="pre">'auto'</span></code></p>
 </dd>
 </dl>
