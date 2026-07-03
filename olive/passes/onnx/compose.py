@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
+import onnx_ir as ir
+from onnx_ir import serde
+from onnx_ir.passes.common import TopologicalSortPass
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeModelHandler, ONNXModelHandler
@@ -19,7 +22,6 @@ from olive.passes.onnx.common import (
     model_proto_to_file,
     process_llm_pipeline,
 )
-from olive.passes.onnx.onnx_dag import OnnxDAG
 from olive.passes.pass_config import BasePassConfig, PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -109,91 +111,157 @@ class ComposeOnnxModels(Pass):
         :param as_model_dir: Use model parent directory as output model_path.
         :return: Composed ONNX model.
         """
-        dags = [OnnxDAG.from_model_path(path) for path in onnx_model_paths]
+
+        def shape_list(value: ir.Value):
+            if value.shape is None:
+                return None
+            return [dim.value if isinstance(dim, ir.SymbolicDim) else dim for dim in value.shape]
+
+        def dtype_of(value: ir.Value):
+            return value.type.dtype if value.type is not None else None
+
+        ir_models = []
+        for path in onnx_model_paths:
+            ir_model = ir.load(path)
+            TopologicalSortPass()(ir_model)
+            ir_models.append(ir_model)
 
         seen_inputs = set()
         seen_outputs = set()
-        for dag in dags:
-            dag_inputs = set(dag.get_input_names())
-            dag_outputs = set(dag.get_output_names())
+        for ir_model in ir_models:
+            graph_inputs = {value.name for value in ir_model.graph.inputs}
+            graph_outputs = {value.name for value in ir_model.graph.outputs}
             # avoid circular connection, model_2 output cannot be model_1 input
-            assert dag_outputs.isdisjoint(seen_inputs), (
-                f"Output names {dag_outputs.intersection(seen_inputs)} are already used as input names."
+            assert graph_outputs.isdisjoint(seen_inputs), (
+                f"Output names {graph_outputs.intersection(seen_inputs)} are already used as input names."
             )
             # avoid reused output name
-            assert dag_outputs.isdisjoint(seen_outputs), (
-                f"Output names {dag_outputs.intersection(seen_outputs)} are already used as output names."
+            assert graph_outputs.isdisjoint(seen_outputs), (
+                f"Output names {graph_outputs.intersection(seen_outputs)} are already used as output names."
             )
 
             # update seen inputs and outputs
-            seen_inputs.update(dag_inputs)
-            seen_outputs.update(dag_outputs)
+            seen_inputs.update(graph_inputs)
+            seen_outputs.update(graph_outputs)
 
         # will only keep the unused outputs
         # inputs will be automatically taken care of during compose
         final_outputs = seen_outputs - seen_inputs
 
-        # compose
-        composed_dag = dags.pop(0)
-        while dags:
-            dag = dags.pop(0)
+        # compose by relinking values across models by name
+        composed_values: dict[str, ir.Value] = {}
+        composed_inputs: list[ir.Value] = []
+        composed_input_names: set[str] = set()
+        composed_initializers: dict[str, ir.Value] = {}
+        composed_nodes: list[ir.Node] = []
+        composed_node_names: dict[str, ir.Node] = {}
+        composed_output_names: list[str] = []
+        produced_names: set[str] = set()
 
-            cd_input_names = set(composed_dag.get_input_names())
-            cd_output_names = set(composed_dag.get_output_names())
-            cd_initializer_names = set(composed_dag.get_initializer_names())
-            for input_name in dag.get_input_names():
-                if input_name in cd_input_names | cd_output_names:
-                    assert dag.get_io_shape(input_name) == composed_dag.get_io_shape(input_name), (
-                        f"Input shape mismatch: {input_name}"
-                    )
-                    assert dag.get_io_dtype(input_name) == composed_dag.get_io_dtype(input_name), (
-                        f"Input dtype mismatch: {input_name}"
+        def get_value(name: str) -> ir.Value:
+            value = composed_values.get(name)
+            if value is None:
+                value = ir.Value(name=name)
+                composed_values[name] = value
+            return value
+
+        for ir_model in ir_models:
+            graph = ir_model.graph
+
+            for inp in graph.inputs:
+                name = inp.name
+                if name in composed_input_names or name in produced_names:
+                    # already a graph input or an internal connection from a previous model
+                    existing = composed_values[name]
+                    assert shape_list(inp) == shape_list(existing), f"Input shape mismatch: {name}"
+                    assert dtype_of(inp) == dtype_of(existing), f"Input dtype mismatch: {name}"
+                    continue
+
+                # will add to the composed graph inputs
+                value = get_value(name)
+                value.type = inp.type
+                value.shape = inp.shape
+                composed_inputs.append(value)
+                composed_input_names.add(name)
+
+            for init in graph.initializers.values():
+                name = init.name
+                if name in composed_initializers:
+                    np.testing.assert_array_equal(
+                        init.const_value.numpy(),
+                        composed_initializers[name].const_value.numpy(),
+                        err_msg=f"Initializer mismatch: {name}",
                     )
                     continue
 
-                # will add to graph 0 for now
-                # this will fail if the connection already exists in the graph = expected behavior.
-                composed_dag.add_input(dag.get_input_proto(input_name), 0)
+                value = get_value(name)
+                value.const_value = init.const_value
+                value.type = init.type if init.type is not None else ir.TensorType(init.const_value.dtype)
+                value.shape = init.shape if init.shape is not None else ir.Shape(init.const_value.shape)
+                composed_initializers[name] = value
 
-            for output_name in dag.get_output_names():
-                composed_dag.add_output(dag.get_output_proto(output_name), 0)
-
-            for init_name in dag.get_initializer_names():
-                if init_name in cd_initializer_names:
-                    (
-                        np.testing.assert_array_equal(
-                            dag.get_initializer_np_array(init_name), composed_dag.get_initializer_np_array(init_name)
-                        ),
-                        f"Initializer mismatch: {init_name}",
-                    )
-                    continue
-
-                composed_dag.add_initializer(dag.get_initializer_proto(init_name), 0)
-
-            for intermediate_name in dag.get_intermediate_names():
-                if value_info := dag.get_value_info_proto(intermediate_name):
-                    composed_dag.add_value_info(value_info, 0)
-
-            for node_name in dag.topological_sort():
-                node = dag.get_node_proto(node_name)
-                if composed_dag.has_node(node_name):
+            for node in graph:
+                name = node.name
+                if name in composed_node_names:
                     # there might be some dq nodes for initializers that are common between models
                     # since split model keeps dq with the consumer op
-                    assert composed_dag.get_node_proto(node_name) == node, f"Node mismatch: {node_name}"
+                    assert (
+                        serde.serialize_node(composed_node_names[name]).SerializeToString()
+                        == serde.serialize_node(node).SerializeToString()
+                    ), f"Node mismatch: {name}"
                     continue
 
-                composed_dag.add_node(node, 0)
+                new_inputs = [get_value(inp.name) if inp is not None else None for inp in node.inputs]
+                new_node = ir.Node(
+                    node.domain,
+                    node.op_type,
+                    inputs=new_inputs,
+                    attributes=list(node.attributes.values()),
+                    overload=node.overload,
+                    num_outputs=len(node.outputs),
+                    version=node.version,
+                    name=name,
+                )
+                for old_output, new_output in zip(node.outputs, new_node.outputs):
+                    out_name = old_output.name
+                    if not out_name:
+                        continue
+                    new_output.name = out_name
+                    new_output.type = old_output.type
+                    new_output.shape = old_output.shape
+                    composed_values[out_name] = new_output
+                    produced_names.add(out_name)
+                composed_nodes.append(new_node)
+                composed_node_names[name] = new_node
 
-        for output_name in composed_dag.get_output_names():
-            if output_name not in final_outputs:
-                composed_dag.remove_output(output_name)
+            for out in graph.outputs:
+                name = out.name
+                value = composed_values.get(name)
+                if value is None:
+                    value = get_value(name)
+                    value.type = out.type
+                    value.shape = out.shape
+                if name not in composed_output_names:
+                    composed_output_names.append(name)
 
-        # update the model graph
-        composed_dag.update()
+        composed_graph = ir.Graph(
+            inputs=composed_inputs,
+            outputs=[composed_values[name] for name in composed_output_names if name in final_outputs],
+            nodes=composed_nodes,
+            initializers=list(composed_initializers.values()),
+            name=ir_models[0].graph.name,
+            opset_imports=dict(ir_models[0].graph.opset_imports),
+        )
+        composed_model = ir.Model(
+            composed_graph,
+            ir_version=ir_models[0].ir_version,
+            producer_name="olive",
+        )
+        TopologicalSortPass()(composed_model)
 
         # save the composed model
         output_model_path = Path(output_model_path)
-        has_external_data = model_proto_to_file(composed_dag.model, output_model_path, **external_config)
+        has_external_data = model_proto_to_file(ir.to_proto(composed_model), output_model_path, **external_config)
 
         # copy over context binary files if any
         saved_cb_files = saved_cb_files if saved_cb_files is not None else {}
