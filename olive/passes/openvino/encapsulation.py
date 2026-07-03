@@ -29,7 +29,9 @@ class OpenVINOEncapsulation(Pass):
         "f64": TensorProto.DOUBLE,
         "float64": TensorProto.DOUBLE,
         "f16": TensorProto.FLOAT16,
+        "float16": TensorProto.FLOAT16,
         "bf16": TensorProto.BFLOAT16,
+        "bfloat16": TensorProto.BFLOAT16,
         "i8": TensorProto.INT8,
         "int8_t": TensorProto.INT8,
         "i16": TensorProto.INT16,
@@ -48,6 +50,7 @@ class OpenVINOEncapsulation(Pass):
         "uint64_t": TensorProto.UINT64,
         "bool": TensorProto.BOOL,
         "boolean": TensorProto.BOOL,
+        "char": TensorProto.BOOL,
         # Add more if needed
     }
 
