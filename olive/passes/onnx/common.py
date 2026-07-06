@@ -104,7 +104,6 @@ def add_version_metadata_to_model_proto(model: onnx.ModelProto) -> onnx.ModelPro
 
 
 def add_version_metadata_to_ir_model(model: ir.Model) -> ir.Model:
-    olive_version = None
     try:
         import olive
 
